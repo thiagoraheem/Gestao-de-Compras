@@ -266,6 +266,9 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
   requestNumber: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  idealDeliveryDate: z.string().optional().transform((val) => val ? new Date(val) : null),
+  deliveryDate: z.string().optional().transform((val) => val ? new Date(val) : null),
 });
 
 export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({

@@ -12,12 +12,9 @@ import {
 
 const navigation = [
   { name: "Kanban Board", href: "/", icon: Columns },
-  { name: "Nova Solicitação", href: "/new-request", icon: Plus },
   { name: "Fornecedores", href: "/suppliers", icon: Truck },
   { name: "Usuários", href: "/users", icon: Users },
   { name: "Departamentos", href: "/departments", icon: Building },
-  { name: "Relatórios", href: "/reports", icon: BarChart3 },
-  { name: "Configurações", href: "/settings", icon: Settings },
 ];
 
 export default function Sidebar() {
@@ -34,9 +31,9 @@ export default function Sidebar() {
               
               return (
                 <Link key={item.name} href={item.href}>
-                  <a
+                  <div
                     className={cn(
-                      "group flex items-center px-2 py-2 text-sm font-medium rounded-md",
+                      "group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer",
                       isActive
                         ? "bg-primary-50 text-primary-700"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -49,7 +46,7 @@ export default function Sidebar() {
                       )}
                     />
                     {item.name}
-                  </a>
+                  </div>
                 </Link>
               );
             })}

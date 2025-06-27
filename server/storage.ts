@@ -145,7 +145,7 @@ export class DatabaseStorage implements IStorage {
       .select({ departmentId: userDepartments.departmentId })
       .from(userDepartments)
       .where(eq(userDepartments.userId, userId));
-    return userDepts.map(ud => ud.departmentId);
+    return userDepts.map(ud => ud.departmentId!).filter(id => id !== null);
   }
 
   async assignUserToDepartment(userId: number, departmentId: number): Promise<void> {

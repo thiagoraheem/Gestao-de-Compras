@@ -35,7 +35,7 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: costCenters } = useQuery({
+  const { data: costCenters } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
   });
 
@@ -58,8 +58,8 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
         ...data,
         requesterId: 1, // TODO: Get from auth context
         costCenterId: Number(data.costCenterId),
-        availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : null,
-        idealDeliveryDate: data.idealDeliveryDate ? new Date(data.idealDeliveryDate) : null,
+        availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : undefined,
+        idealDeliveryDate: data.idealDeliveryDate || undefined,
       };
       await apiRequest("POST", "/api/purchase-requests", requestData);
     },
@@ -87,10 +87,13 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="new-request-description">
         <DialogHeader>
           <DialogTitle>Nova Solicitação de Compra</DialogTitle>
         </DialogHeader>
+        <p id="new-request-description" className="sr-only">
+          Formulário para criar uma nova solicitação de compra no sistema
+        </p>
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -110,7 +113,7 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {costCenters?.map((center: any) => (
+                          {costCenters && (costCenters as any[]).map((center: any) => (
                             <SelectItem key={center.id} value={center.id.toString()}>
                               {center.code} - {center.name}
                             </SelectItem>
