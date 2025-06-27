@@ -1,0 +1,117 @@
+# Kanban Purchase Management System
+
+## Overview
+
+This is a full-stack web application for managing purchase requests using a Kanban-style workflow. The system allows users to create, track, and manage purchase requests through various phases from initial request to completion. The application is designed to support both human users and AI agents for automated processing.
+
+## System Architecture
+
+### Frontend Architecture
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite for fast development and optimized builds
+- **UI Library**: Shadcn/ui components built on Radix UI primitives
+- **Styling**: Tailwind CSS with CSS variables for theming
+- **State Management**: TanStack Query for server state management
+- **Routing**: Wouter for lightweight client-side routing
+- **Form Handling**: React Hook Form with Zod validation
+
+### Backend Architecture
+- **Runtime**: Node.js with TypeScript
+- **Framework**: Express.js for API server
+- **Database**: PostgreSQL with Drizzle ORM
+- **Database Provider**: Neon serverless PostgreSQL
+- **Session Management**: Session storage table prepared for future authentication
+- **API Style**: RESTful endpoints with JSON responses
+
+### Data Storage Solutions
+- **Primary Database**: PostgreSQL hosted on Neon
+- **ORM**: Drizzle ORM with TypeScript-first schema definitions
+- **Migrations**: Drizzle Kit for database schema migrations
+- **Connection**: WebSocket-enabled connection pool for serverless compatibility
+
+## Key Components
+
+### Purchase Request Workflow
+The system implements a fixed 8-phase Kanban workflow:
+1. **Solicitação** (Request) - Initial request creation
+2. **Aprovação A1** (Approval A1) - First level approval
+3. **Cotação** (RFQ) - Request for quotation
+4. **Aprovação A2** (Approval A2) - Second level approval
+5. **Pedido de Compra** (Purchase Order) - Official purchase order
+6. **Conclusão de Compra** (Purchase Completion) - Purchase finalization
+7. **Recebimento** (Receipt) - Material receipt
+8. **Arquivado** (Archived) - Completed and archived
+
+### User Management System
+- Role-based access control with buyer, approver A1, and approver A2 roles
+- Department-based organization with cost center associations
+- User authentication prepared for JWT implementation
+- Password hashing with bcryptjs
+
+### Data Models
+Key entities include:
+- **Users**: Authentication and role management
+- **Departments**: Organizational structure
+- **Cost Centers**: Budget allocation tracking
+- **Suppliers**: Vendor management
+- **Purchase Requests**: Core workflow entities
+- **Attachments**: File upload support
+- **Payment Methods**: Payment processing options
+
+## Data Flow
+
+### Request Lifecycle
+1. User creates purchase request with required information
+2. Request enters approval workflow based on configured rules
+3. Approvers can approve, reject, or request modifications
+4. Buyers handle quotation and supplier selection
+5. Final approval triggers purchase order creation
+6. Material receipt completes the workflow
+
+### API Integration
+- RESTful endpoints for all CRUD operations
+- Standardized JSON responses for AI agent compatibility
+- Query-based data fetching with TanStack Query
+- Form validation using Zod schemas shared between client and server
+
+## External Dependencies
+
+### Core Dependencies
+- **@neondatabase/serverless**: Database connectivity
+- **drizzle-orm**: Type-safe database queries
+- **@tanstack/react-query**: Server state management
+- **@radix-ui/**: Accessible UI component primitives
+- **tailwindcss**: Utility-first CSS framework
+- **wouter**: Minimalist routing library
+
+### Development Dependencies
+- **vite**: Fast build tool and dev server
+- **typescript**: Type safety across the stack
+- **tsx**: TypeScript execution for development
+- **esbuild**: Fast JavaScript bundler for production
+
+## Deployment Strategy
+
+### Development Environment
+- Vite dev server with hot module replacement
+- TypeScript compilation with strict mode enabled
+- Database migrations using Drizzle Kit
+- Environment variable configuration for database connection
+
+### Production Build
+- Vite builds optimized client bundle
+- esbuild creates serverless-compatible server bundle
+- Static assets served from Express server
+- Database connection uses connection pooling for scalability
+
+### Environment Configuration
+- `DATABASE_URL` environment variable required for PostgreSQL connection
+- Separate build processes for client and server code
+- Production deployment uses Node.js server with built assets
+
+## Changelog
+- June 27, 2025. Initial setup
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
