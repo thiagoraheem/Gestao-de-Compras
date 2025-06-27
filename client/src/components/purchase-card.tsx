@@ -2,22 +2,36 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { URGENCY_LABELS, CATEGORY_LABELS, PurchasePhase, PURCHASE_PHASES } from "@/lib/types";
-import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive } from "lucide-react";
+import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive, Edit } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useState } from "react";
 
 interface PurchaseCardProps {
   request: any;
   phase: PurchasePhase;
+  isDragging?: boolean;
 }
 
-export default function PurchaseCard({ request, phase }: PurchaseCardProps) {
+export default function PurchaseCard({ request, phase, isDragging = false }: PurchaseCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging: sortableIsDragging,
+  } = useSortable({ id: request.id.toString() });
 
   const approveA1Mutation = useMutation({
     mutationFn: async (data: { approved: boolean; rejectionReason?: string }) => {
@@ -94,12 +108,24 @@ export default function PurchaseCard({ request, phase }: PurchaseCardProps) {
   };
 
   const isArchived = phase === PURCHASE_PHASES.ARQUIVADO;
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging || sortableIsDragging ? 0.5 : 1,
+  };
 
   return (
-    <Card className={cn(
-      "hover:shadow-md transition-shadow cursor-pointer",
-      isArchived && "bg-gray-50"
-    )}>
+    <Card 
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        "hover:shadow-md transition-shadow cursor-pointer select-none",
+        isArchived && "bg-gray-50",
+        sortableIsDragging && "z-10 rotate-3 shadow-lg"
+      )}
+    >
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <span className={cn(
@@ -108,10 +134,23 @@ export default function PurchaseCard({ request, phase }: PurchaseCardProps) {
           )}>
             {request.requestNumber}
           </span>
-          <Badge className={cn("status-badge", getUrgencyClass(request.urgency))}>
-            {getUrgencyIcon(request.urgency)}
-            {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
-          </Badge>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 hover:bg-gray-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditModalOpen(true);
+              }}
+            >
+              <Edit className="h-3 w-3" />
+            </Button>
+            <Badge className={cn("status-badge", getUrgencyClass(request.urgency))}>
+              {getUrgencyIcon(request.urgency)}
+              {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
+            </Badge>
+          </div>
         </div>
         
         <h4 className={cn(
@@ -197,6 +236,29 @@ export default function PurchaseCard({ request, phase }: PurchaseCardProps) {
           </div>
         )}
       </CardContent>
+      
+      {/* Simple Edit Dialog */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsEditModalOpen(false)}>
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">Editar Solicitação</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              <strong>Número:</strong> {request.requestNumber}
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              <strong>Fase Atual:</strong> {PHASE_LABELS[phase]}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                Fechar
+              </Button>
+              <Button onClick={() => setIsEditModalOpen(false)}>
+                Salvar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

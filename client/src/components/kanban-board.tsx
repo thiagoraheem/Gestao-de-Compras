@@ -1,12 +1,77 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PURCHASE_PHASES, PHASE_LABELS } from "@/lib/types";
 import KanbanColumn from "./kanban-column";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
+import { useState } from "react";
+import PurchaseCard from "./purchase-card";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function KanbanBoard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeRequest, setActiveRequest] = useState<any>(null);
+
   const { data: purchaseRequests, isLoading } = useQuery({
     queryKey: ["/api/purchase-requests"],
   });
+
+  const moveRequestMutation = useMutation({
+    mutationFn: async ({ id, newPhase }: { id: number; newPhase: string }) => {
+      await apiRequest("PUT", `/api/purchase-requests/${id}`, {
+        currentPhase: newPhase,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Item movido com sucesso!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Falha ao mover item",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setActiveId(active.id as string);
+    
+    // Find the active request for overlay
+    const request = Array.isArray(purchaseRequests) 
+      ? purchaseRequests.find((req: any) => req.id.toString() === active.id)
+      : undefined;
+    setActiveRequest(request);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+    setActiveRequest(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Check if we're dropping on a different phase
+    const activeRequest = Array.isArray(purchaseRequests)
+      ? purchaseRequests.find((req: any) => req.id.toString() === activeId)
+      : undefined;
+    if (activeRequest && activeRequest.currentPhase !== overId) {
+      moveRequestMutation.mutate({
+        id: parseInt(activeId),
+        newPhase: overId,
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -31,25 +96,45 @@ export default function KanbanBoard() {
   }
 
   // Group requests by phase
-  const requestsByPhase = purchaseRequests?.reduce((acc: any, request: any) => {
-    const phase = request.currentPhase || PURCHASE_PHASES.SOLICITACAO;
-    if (!acc[phase]) acc[phase] = [];
-    acc[phase].push(request);
-    return acc;
-  }, {}) || {};
+  const requestsByPhase = Array.isArray(purchaseRequests) 
+    ? purchaseRequests.reduce((acc: any, request: any) => {
+        const phase = request.currentPhase || PURCHASE_PHASES.SOLICITACAO;
+        if (!acc[phase]) acc[phase] = [];
+        acc[phase].push(request);
+        return acc;
+      }, {})
+    : {};
 
   return (
-    <div className="flex-1 overflow-x-auto kanban-scroll p-6">
-      <div className="flex space-x-6 h-full" style={{ minWidth: "max-content" }}>
-        {Object.values(PURCHASE_PHASES).map((phase) => (
-          <KanbanColumn
-            key={phase}
-            phase={phase}
-            title={PHASE_LABELS[phase]}
-            requests={requestsByPhase[phase] || []}
-          />
-        ))}
+    <DndContext
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex-1 overflow-x-auto kanban-scroll p-6">
+        <div className="flex space-x-6 h-full" style={{ minWidth: "max-content" }}>
+          {Object.values(PURCHASE_PHASES).map((phase) => (
+            <KanbanColumn
+              key={phase}
+              phase={phase}
+              title={PHASE_LABELS[phase]}
+              requests={requestsByPhase[phase] || []}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+      
+      <DragOverlay>
+        {activeRequest && (
+          <div className="rotate-6 transform">
+            <PurchaseCard 
+              request={activeRequest} 
+              phase={activeRequest.currentPhase}
+              isDragging={true}
+            />
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 }

@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { PHASE_COLORS, PurchasePhase } from "@/lib/types";
 import PurchaseCard from "./purchase-card";
+import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
 interface KanbanColumnProps {
   phase: PurchasePhase;
@@ -10,6 +12,9 @@ interface KanbanColumnProps {
 
 export default function KanbanColumn({ phase, title, requests }: KanbanColumnProps) {
   const phaseColor = PHASE_COLORS[phase];
+  const { setNodeRef, isOver } = useDroppable({
+    id: phase,
+  });
   
   return (
     <div className="flex-shrink-0 w-80">
@@ -28,14 +33,24 @@ export default function KanbanColumn({ phase, title, requests }: KanbanColumnPro
             </Badge>
           </div>
         </div>
-        <div className="flex-1 p-4 overflow-y-auto space-y-3">
-          {requests.map((request) => (
-            <PurchaseCard 
-              key={request.id} 
-              request={request}
-              phase={phase}
-            />
-          ))}
+        <div 
+          ref={setNodeRef}
+          className={`flex-1 p-4 overflow-y-auto space-y-3 transition-colors ${
+            isOver ? "bg-blue-50" : ""
+          }`}
+        >
+          <SortableContext 
+            items={requests.map((req) => req.id.toString())} 
+            strategy={verticalListSortingStrategy}
+          >
+            {requests.map((request) => (
+              <PurchaseCard 
+                key={request.id} 
+                request={request}
+                phase={phase}
+              />
+            ))}
+          </SortableContext>
           {requests.length === 0 && (
             <div className="text-center text-gray-500 text-sm py-8">
               Nenhuma solicitação nesta fase
