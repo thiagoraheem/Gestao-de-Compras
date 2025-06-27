@@ -1,8 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { URGENCY_LABELS, CATEGORY_LABELS, PurchasePhase, PURCHASE_PHASES } from "@/lib/types";
-import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive, Edit } from "lucide-react";
+import { URGENCY_LABELS, CATEGORY_LABELS, PurchasePhase, PURCHASE_PHASES, PHASE_LABELS } from "@/lib/types";
+import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive, Edit, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -119,21 +119,29 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
       className={cn(
-        "hover:shadow-md transition-shadow cursor-pointer select-none",
+        "hover:shadow-md transition-shadow select-none",
         isArchived && "bg-gray-50",
         sortableIsDragging && "z-10 rotate-3 shadow-lg"
       )}
     >
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className={cn(
-            "text-sm font-medium",
-            isArchived ? "text-gray-700" : "text-gray-900"
-          )}>
-            {request.requestNumber}
-          </span>
+          <div className="flex items-center gap-2">
+            <div
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded"
+              title="Arrastar para mover"
+            >
+              <GripVertical className="h-4 w-4 text-gray-400" />
+            </div>
+            <span className={cn(
+              "text-sm font-medium",
+              isArchived ? "text-gray-700" : "text-gray-900"
+            )}>
+              {request.requestNumber}
+            </span>
+          </div>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -198,7 +206,10 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
               <Button
                 size="sm"
                 className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-                onClick={() => approveA1Mutation.mutate({ approved: true })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  approveA1Mutation.mutate({ approved: true });
+                }}
                 disabled={approveA1Mutation.isPending}
               >
                 <Check className="mr-1 h-3 w-3" />
@@ -208,10 +219,13 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
                 size="sm"
                 variant="destructive"
                 className="flex-1"
-                onClick={() => approveA1Mutation.mutate({ 
-                  approved: false, 
-                  rejectionReason: "Necessita mais informações" 
-                })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  approveA1Mutation.mutate({ 
+                    approved: false, 
+                    rejectionReason: "Necessita mais informações" 
+                  });
+                }}
                 disabled={approveA1Mutation.isPending}
               >
                 <X className="mr-1 h-3 w-3" />
@@ -227,7 +241,10 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
               size="sm"
               variant="outline"
               className="w-full"
-              onClick={() => archiveMutation.mutate()}
+              onClick={(e) => {
+                e.stopPropagation();
+                archiveMutation.mutate();
+              }}
               disabled={archiveMutation.isPending}
             >
               <Archive className="mr-1 h-3 w-3" />
