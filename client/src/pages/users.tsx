@@ -20,13 +20,22 @@ import { useToast } from "@/hooks/use-toast";
 const userSchema = z.object({
   username: z.string().min(1, "Username é obrigatório"),
   email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  password: z.string().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   departmentId: z.number().nullable().optional(),
   isBuyer: z.boolean().default(false),
   isApproverA1: z.boolean().default(false),
   isApproverA2: z.boolean().default(false),
+}).refine((data) => {
+  // Password is required only when creating a new user
+  if (!data.password || data.password === "") {
+    return true; // Password is optional for editing
+  }
+  return data.password.length >= 6;
+}, {
+  message: "Senha deve ter pelo menos 6 caracteres",
+  path: ["password"],
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -128,7 +137,13 @@ export default function UsersPage() {
   };
 
   const onSubmit = (data: UserFormData) => {
-    createUserMutation.mutate(data);
+    // For editing users, don't send password if it's empty
+    if (editingUser && !data.password) {
+      const { password, ...dataWithoutPassword } = data;
+      createUserMutation.mutate(dataWithoutPassword as UserFormData);
+    } else {
+      createUserMutation.mutate(data);
+    }
   };
 
   const getUserRoles = (user: any) => {
@@ -432,7 +447,10 @@ export default function UsersPage() {
                 <Button type="button" variant="outline" onClick={handleCloseModal}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={createUserMutation.isPending}>
+                <Button 
+                  type="submit" 
+                  disabled={createUserMutation.isPending}
+                >
                   {createUserMutation.isPending 
                     ? "Salvando..." 
                     : editingUser ? "Atualizar" : "Criar"
