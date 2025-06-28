@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect } from "react";
 import LoginPage from "@/pages/login";
 import NotFound from "@/pages/not-found";
 import KanbanPage from "@/pages/kanban";
@@ -14,14 +15,32 @@ import ProfilePage from "@/pages/profile";
 import ChangePasswordPage from "@/pages/change-password";
 import Navbar from "@/components/navbar";
 import Sidebar from "@/components/sidebar";
+import { cn } from "@/lib/utils";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', isCollapsed.toString());
+  }, [isCollapsed]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="flex">
-        <Sidebar />
-        <main className="flex-1 p-8">
+        <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+        <main 
+          className={cn(
+            "flex-1 p-4 sm:p-6 lg:p-8 transition-all duration-200 ease-in-out",
+            // Mobile: no margin
+            "ml-0",
+            // Desktop: margin based on collapsed state
+            isCollapsed ? "lg:ml-16" : "lg:ml-64"
+          )}
+        >
           {children}
         </main>
       </div>
