@@ -3,6 +3,7 @@ import {
   departments,
   costCenters,
   userDepartments,
+  userCostCenters,
   suppliers,
   paymentMethods,
   purchaseRequests,
@@ -23,6 +24,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export interface IStorage {
   // User operations
@@ -47,6 +49,12 @@ export interface IStorage {
   getUserDepartments(userId: number): Promise<number[]>;
   assignUserToDepartment(userId: number, departmentId: number): Promise<void>;
   removeUserFromDepartment(userId: number, departmentId: number): Promise<void>;
+
+  // User Cost Center associations
+  getUserCostCenters(userId: number): Promise<number[]>;
+  assignUserToCostCenter(userId: number, costCenterId: number): Promise<void>;
+  removeUserFromCostCenter(userId: number, costCenterId: number): Promise<void>;
+  setUserCostCenters(userId: number, costCenterIds: number[]): Promise<void>;
 
   // Supplier operations
   getAllSuppliers(): Promise<Supplier[]>;
@@ -159,6 +167,39 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(userDepartments)
       .where(and(eq(userDepartments.userId, userId), eq(userDepartments.departmentId, departmentId)));
+  }
+
+  async getUserCostCenters(userId: number): Promise<number[]> {
+    const userCostCentersList = await db
+      .select({ costCenterId: userCostCenters.costCenterId })
+      .from(userCostCenters)
+      .where(eq(userCostCenters.userId, userId));
+    return userCostCentersList.map(uc => uc.costCenterId!).filter(id => id !== null);
+  }
+
+  async assignUserToCostCenter(userId: number, costCenterId: number): Promise<void> {
+    await db
+      .insert(userCostCenters)
+      .values({ userId, costCenterId })
+      .onConflictDoNothing();
+  }
+
+  async removeUserFromCostCenter(userId: number, costCenterId: number): Promise<void> {
+    await db
+      .delete(userCostCenters)
+      .where(and(eq(userCostCenters.userId, userId), eq(userCostCenters.costCenterId, costCenterId)));
+  }
+
+  async setUserCostCenters(userId: number, costCenterIds: number[]): Promise<void> {
+    // Remove all existing associations
+    await db.delete(userCostCenters).where(eq(userCostCenters.userId, userId));
+    
+    // Add new associations
+    if (costCenterIds.length > 0) {
+      await db.insert(userCostCenters).values(
+        costCenterIds.map(costCenterId => ({ userId, costCenterId }))
+      );
+    }
   }
 
   async getAllSuppliers(): Promise<Supplier[]> {
@@ -293,10 +334,11 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Create default admin user
+    const hashedPassword = await bcrypt.hash("admin123", 10);
     await this.createUser({
       username: "admin",
       email: "admin@empresa.com",
-      password: "$2a$10$defaulthashedpassword", // In real app, hash properly
+      password: hashedPassword,
       firstName: "Admin",
       lastName: "Sistema",
       isBuyer: true,

@@ -1,10 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import Navbar from "@/components/navbar";
-import Sidebar from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +23,7 @@ const userSchema = z.object({
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  departmentId: z.number().nullable().optional(),
   isBuyer: z.boolean().default(false),
   isApproverA1: z.boolean().default(false),
   isApproverA2: z.boolean().default(false),
@@ -34,11 +34,20 @@ type UserFormData = z.infer<typeof userSchema>;
 export default function UsersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [selectedCostCenters, setSelectedCostCenters] = useState<number[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: users, isLoading } = useQuery({
+  const { data: users = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/users"],
+  });
+
+  const { data: departments = [] } = useQuery<any[]>({
+    queryKey: ["/api/departments"],
+  });
+
+  const { data: costCenters = [] } = useQuery<any[]>({
+    queryKey: ["/api/cost-centers"],
   });
 
   const form = useForm<UserFormData>({
@@ -49,6 +58,7 @@ export default function UsersPage() {
       password: "",
       firstName: "",
       lastName: "",
+      departmentId: null,
       isBuyer: false,
       isApproverA1: false,
       isApproverA2: false,
@@ -61,7 +71,10 @@ export default function UsersPage() {
         ? `/api/users/${editingUser.id}`
         : "/api/users";
       const method = editingUser ? "PUT" : "POST";
-      await apiRequest(method, endpoint, data);
+      await apiRequest(method, endpoint, {
+        ...data,
+        costCenterIds: selectedCostCenters
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -88,6 +101,16 @@ export default function UsersPage() {
     form.reset();
   };
 
+  useEffect(() => {
+    if (editingUser) {
+      // Load user's cost centers when editing
+      fetch(`/api/users/${editingUser.id}/cost-centers`)
+        .then(res => res.json())
+        .then(data => setSelectedCostCenters(data))
+        .catch(() => setSelectedCostCenters([]));
+    }
+  }, [editingUser]);
+
   const handleEditUser = (user: any) => {
     setEditingUser(user);
     form.reset({
@@ -96,6 +119,7 @@ export default function UsersPage() {
       password: "", // Don't pre-fill password for security
       firstName: user.firstName || "",
       lastName: user.lastName || "",
+      departmentId: user.departmentId || null,
       isBuyer: user.isBuyer || false,
       isApproverA1: user.isApproverA1 || false,
       isApproverA2: user.isApproverA2 || false,
@@ -116,12 +140,7 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <Sidebar />
-      
-      <div className="ml-64 pt-16 p-6">
-        <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -196,8 +215,6 @@ export default function UsersPage() {
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
 
       <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
         <DialogContent className="sm:max-w-lg">
@@ -282,6 +299,65 @@ export default function UsersPage() {
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="departmentId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Departamento</FormLabel>
+                    <Select 
+                      onValueChange={(value) => field.onChange(value ? parseInt(value) : null)} 
+                      value={field.value?.toString() || ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um departamento" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">Nenhum</SelectItem>
+                        {Array.isArray(departments) && departments.map((dept: any) => (
+                          <SelectItem key={dept.id} value={dept.id.toString()}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-2">
+                <FormLabel>Centros de Custo</FormLabel>
+                <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
+                  {Array.isArray(costCenters) && costCenters.map((cc: any) => (
+                    <div key={cc.id} className="flex items-center space-x-2 py-1">
+                      <Checkbox
+                        id={`cc-${cc.id}`}
+                        checked={selectedCostCenters.includes(cc.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedCostCenters([...selectedCostCenters, cc.id]);
+                          } else {
+                            setSelectedCostCenters(selectedCostCenters.filter(id => id !== cc.id));
+                          }
+                        }}
+                      />
+                      <label 
+                        htmlFor={`cc-${cc.id}`} 
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {cc.code} - {cc.name}
+                      </label>
+                    </div>
+                  ))}
+                  {(!Array.isArray(costCenters) || costCenters.length === 0) && (
+                    <p className="text-sm text-muted-foreground">Nenhum centro de custo disponível</p>
+                  )}
+                </div>
+              </div>
 
               <div className="space-y-3">
                 <FormLabel>Permissões</FormLabel>

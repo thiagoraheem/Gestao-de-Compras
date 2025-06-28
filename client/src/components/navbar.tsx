@@ -2,8 +2,33 @@ import { Bell, ShoppingCart, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Navbar() {
+  const { user, logout } = useAuth();
+
+  const getInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    return user?.username?.substring(0, 2).toUpperCase() || "U";
+  };
+
+  const getDisplayName = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    return user?.username || "Usuário";
+  };
+
+  const getRoles = () => {
+    const roles = [];
+    if (user?.isBuyer) roles.push("Comprador");
+    if (user?.isApproverA1) roles.push("Aprovador A1");
+    if (user?.isApproverA2) roles.push("Aprovador A2");
+    return roles.length > 0 ? roles.join(", ") : "Usuário";
+  };
+
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 fixed w-full top-0 z-50">
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
@@ -27,16 +52,21 @@ export default function Navbar() {
             
             <div className="flex items-center space-x-2">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=40&h=40" />
-                <AvatarFallback>JS</AvatarFallback>
+                <AvatarFallback>{getInitials()}</AvatarFallback>
               </Avatar>
               <div className="text-sm">
-                <p className="font-medium text-gray-900">João Silva</p>
-                <p className="text-gray-500 text-xs">Comprador Senior</p>
+                <p className="font-medium text-gray-900">{getDisplayName()}</p>
+                <p className="text-gray-500 text-xs">
+                  {user?.department?.name || "Sem departamento"} • {getRoles()}
+                </p>
               </div>
             </div>
             
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => logout()}
+            >
               <LogOut className="h-4 w-4 text-gray-400" />
             </Button>
           </div>

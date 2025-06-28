@@ -22,6 +22,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
+  departmentId: integer("department_id").references(() => departments.id),
   isBuyer: boolean("is_buyer").default(false),
   isApproverA1: boolean("is_approver_a1").default(false),
   isApproverA2: boolean("is_approver_a2").default(false),
@@ -51,6 +52,13 @@ export const userDepartments = pgTable("user_departments", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
   departmentId: integer("department_id").references(() => departments.id),
+});
+
+// User Cost Center associations
+export const userCostCenters = pgTable("user_cost_centers", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  costCenterId: integer("cost_center_id").references(() => costCenters.id),
 });
 
 // Suppliers table
@@ -140,8 +148,13 @@ export const attachments = pgTable("attachments", {
 });
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
+  department: one(departments, {
+    fields: [users.departmentId],
+    references: [departments.id],
+  }),
   userDepartments: many(userDepartments),
+  userCostCenters: many(userCostCenters),
   requestedPurchases: many(purchaseRequests, { relationName: "requester" }),
   approvedA1Purchases: many(purchaseRequests, { relationName: "approverA1" }),
   approvedA2Purchases: many(purchaseRequests, { relationName: "approverA2" }),
@@ -151,6 +164,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const departmentsRelations = relations(departments, ({ many }) => ({
   costCenters: many(costCenters),
+  users: many(users),
   userDepartments: many(userDepartments),
 }));
 
@@ -160,6 +174,7 @@ export const costCentersRelations = relations(costCenters, ({ one, many }) => ({
     references: [departments.id],
   }),
   purchaseRequests: many(purchaseRequests),
+  userCostCenters: many(userCostCenters),
 }));
 
 export const userDepartmentsRelations = relations(userDepartments, ({ one }) => ({
@@ -170,6 +185,17 @@ export const userDepartmentsRelations = relations(userDepartments, ({ one }) => 
   department: one(departments, {
     fields: [userDepartments.departmentId],
     references: [departments.id],
+  }),
+}));
+
+export const userCostCentersRelations = relations(userCostCenters, ({ one }) => ({
+  user: one(users, {
+    fields: [userCostCenters.userId],
+    references: [users.id],
+  }),
+  costCenter: one(costCenters, {
+    fields: [userCostCenters.costCenterId],
+    references: [costCenters.id],
   }),
 }));
 

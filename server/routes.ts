@@ -1,15 +1,112 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertDepartmentSchema, insertCostCenterSchema, insertSupplierSchema, insertPurchaseRequestSchema } from "@shared/schema";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
+import session from "express-session";
+
+// Session type declaration
+declare module "express-session" {
+  interface SessionData {
+    userId?: number;
+  }
+}
+
+// Authentication middleware
+function isAuthenticated(req: Request, res: Response, next: Function) {
+  if (req.session.userId) {
+    next();
+  } else {
+    res.status(401).json({ message: "Unauthorized" });
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configure session
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key-here',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // Set to true in production with HTTPS
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  }));
+
   // Initialize default data
   await storage.initializeDefaultData();
 
+  // Authentication routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      req.session.userId = user.id;
+      res.json({ 
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        departmentId: user.departmentId,
+        isBuyer: user.isBuyer,
+        isApproverA1: user.isApproverA1,
+        isApproverA2: user.isApproverA2
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  app.get("/api/auth/check", async (req, res) => {
+    if (req.session.userId) {
+      const user = await storage.getUser(req.session.userId);
+      if (user) {
+        const department = user.departmentId ? await storage.getDepartmentById(user.departmentId) : null;
+        res.json({ 
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          departmentId: user.departmentId,
+          department,
+          isBuyer: user.isBuyer,
+          isApproverA1: user.isApproverA1,
+          isApproverA2: user.isApproverA2
+        });
+      } else {
+        res.status(401).json({ message: "Unauthorized" });
+      }
+    } else {
+      res.status(401).json({ message: "Unauthorized" });
+    }
+  });
+
   // Users routes
-  app.get("/api/users", async (req, res) => {
+  app.get("/api/users", isAuthenticated, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -19,10 +116,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", isAuthenticated, async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
-      const user = await storage.createUser(userData);
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      const user = await storage.createUser({ ...userData, password: hashedPassword });
+      
+      // Set user cost centers if provided
+      if (req.body.costCenterIds && Array.isArray(req.body.costCenterIds)) {
+        await storage.setUserCostCenters(user.id, req.body.costCenterIds);
+      }
+      
       res.status(201).json(user);
     } catch (error) {
       console.error("Error creating user:", error);
@@ -30,11 +134,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:id", async (req, res) => {
+  app.put("/api/users/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const userData = insertUserSchema.partial().parse(req.body);
+      
+      // If password is provided, hash it
+      if (userData.password) {
+        userData.password = await bcrypt.hash(userData.password, 10);
+      }
+      
       const user = await storage.updateUser(id, userData);
+      
+      // Update user cost centers if provided
+      if (req.body.costCenterIds !== undefined) {
+        await storage.setUserCostCenters(id, req.body.costCenterIds);
+      }
+      
       res.json(user);
     } catch (error) {
       console.error("Error updating user:", error);
@@ -42,8 +158,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/users/:id/cost-centers", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const costCenterIds = await storage.getUserCostCenters(id);
+      res.json(costCenterIds);
+    } catch (error) {
+      console.error("Error fetching user cost centers:", error);
+      res.status(500).json({ message: "Failed to fetch user cost centers" });
+    }
+  });
+
   // Departments routes
-  app.get("/api/departments", async (req, res) => {
+  app.get("/api/departments", isAuthenticated, async (req, res) => {
     try {
       const departments = await storage.getAllDepartments();
       res.json(departments);
@@ -53,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/departments", async (req, res) => {
+  app.post("/api/departments", isAuthenticated, async (req, res) => {
     try {
       const departmentData = insertDepartmentSchema.parse(req.body);
       const department = await storage.createDepartment(departmentData);
@@ -65,7 +192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cost Centers routes
-  app.get("/api/cost-centers", async (req, res) => {
+  app.get("/api/cost-centers", isAuthenticated, async (req, res) => {
     try {
       const costCenters = await storage.getAllCostCenters();
       res.json(costCenters);
@@ -75,7 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/cost-centers/department/:departmentId", async (req, res) => {
+  app.get("/api/cost-centers/department/:departmentId", isAuthenticated, async (req, res) => {
     try {
       const departmentId = parseInt(req.params.departmentId);
       const costCenters = await storage.getCostCentersByDepartment(departmentId);
@@ -86,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/cost-centers", async (req, res) => {
+  app.post("/api/cost-centers", isAuthenticated, async (req, res) => {
     try {
       const costCenterData = insertCostCenterSchema.parse(req.body);
       const costCenter = await storage.createCostCenter(costCenterData);
@@ -98,7 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Suppliers routes
-  app.get("/api/suppliers", async (req, res) => {
+  app.get("/api/suppliers", isAuthenticated, async (req, res) => {
     try {
       const suppliers = await storage.getAllSuppliers();
       res.json(suppliers);
@@ -108,7 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/suppliers", async (req, res) => {
+  app.post("/api/suppliers", isAuthenticated, async (req, res) => {
     try {
       const supplierData = insertSupplierSchema.parse(req.body);
       const supplier = await storage.createSupplier(supplierData);
@@ -119,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/suppliers/:id", async (req, res) => {
+  app.put("/api/suppliers/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const supplierData = insertSupplierSchema.partial().parse(req.body);
@@ -132,7 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Payment Methods routes
-  app.get("/api/payment-methods", async (req, res) => {
+  app.get("/api/payment-methods", isAuthenticated, async (req, res) => {
     try {
       const paymentMethods = await storage.getAllPaymentMethods();
       res.json(paymentMethods);
@@ -143,7 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Purchase Requests routes
-  app.get("/api/purchase-requests", async (req, res) => {
+  app.get("/api/purchase-requests", isAuthenticated, async (req, res) => {
     try {
       const requests = await storage.getAllPurchaseRequests();
       res.json(requests);
@@ -153,7 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/purchase-requests/phase/:phase", async (req, res) => {
+  app.get("/api/purchase-requests/phase/:phase", isAuthenticated, async (req, res) => {
     try {
       const phase = req.params.phase;
       const requests = await storage.getPurchaseRequestsByPhase(phase);
@@ -164,7 +291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/purchase-requests/:id", async (req, res) => {
+  app.get("/api/purchase-requests/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const request = await storage.getPurchaseRequestById(id);
@@ -178,7 +305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/purchase-requests", async (req, res) => {
+  app.post("/api/purchase-requests", isAuthenticated, async (req, res) => {
     try {
       const requestData = insertPurchaseRequestSchema.parse(req.body);
       const request = await storage.createPurchaseRequest(requestData);
@@ -189,7 +316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/purchase-requests/:id", async (req, res) => {
+  app.put("/api/purchase-requests/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const requestData = insertPurchaseRequestSchema.partial().parse(req.body);
@@ -202,7 +329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase transition routes
-  app.post("/api/purchase-requests/:id/approve-a1", async (req, res) => {
+  app.post("/api/purchase-requests/:id/approve-a1", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { approved, rejectionReason, approverId } = req.body;
@@ -227,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/purchase-requests/:id/update-quotation", async (req, res) => {
+  app.post("/api/purchase-requests/:id/update-quotation", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { buyerId, totalValue, paymentMethodId } = req.body;
