@@ -158,6 +158,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user profile (without password)
+  app.patch("/api/users/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const sessionUserId = (req.session as any).userId;
+      
+      // Users can only update their own profile
+      if (userId !== sessionUserId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { firstName, lastName, email } = req.body;
+      const user = await storage.updateUser(userId, { firstName, lastName, email });
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(400).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Change password
+  app.post("/api/users/:id/change-password", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const sessionUserId = (req.session as any).userId;
+      
+      // Users can only change their own password
+      if (userId !== sessionUserId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { currentPassword, newPassword } = req.body;
+      
+      // Get user to verify current password
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({ message: "Senha atual incorreta" });
+      }
+      
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(userId, { password: hashedPassword });
+      
+      res.json({ message: "Password changed successfully" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(400).json({ message: "Failed to change password" });
+    }
+  });
+
   app.get("/api/users/:id/cost-centers", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

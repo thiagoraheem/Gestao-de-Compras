@@ -10,6 +10,8 @@ import KanbanPage from "@/pages/kanban";
 import SuppliersPage from "@/pages/suppliers";
 import UsersPage from "@/pages/users";
 import DepartmentsPage from "@/pages/departments";
+import ProfilePage from "@/pages/profile";
+import ChangePasswordPage from "@/pages/change-password";
 import Navbar from "@/components/navbar";
 import Sidebar from "@/components/sidebar";
 
@@ -52,6 +54,8 @@ function Router() {
         <Route path="/suppliers" component={SuppliersPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/departments" component={DepartmentsPage} />
+        <Route path="/profile" component={ProfilePage} />
+        <Route path="/change-password" component={ChangePasswordPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
