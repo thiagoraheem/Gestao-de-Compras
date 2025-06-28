@@ -307,8 +307,8 @@ export default function UsersPage() {
                   <FormItem>
                     <FormLabel>Departamento</FormLabel>
                     <Select 
-                      onValueChange={(value) => field.onChange(value ? parseInt(value) : null)} 
-                      value={field.value?.toString() || ""}
+                      onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))} 
+                      value={field.value?.toString() || "none"}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -316,7 +316,7 @@ export default function UsersPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value="none">Nenhum departamento</SelectItem>
                         {Array.isArray(departments) && departments.map((dept: any) => (
                           <SelectItem key={dept.id} value={dept.id.toString()}>
                             {dept.name}
