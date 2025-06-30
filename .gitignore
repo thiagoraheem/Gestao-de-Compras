@@ -4,3 +4,6 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+/.idea
+/.idea/modules.xml
+/.idea/vcs.xml

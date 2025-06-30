@@ -24,12 +24,8 @@ const navigation = [
   { name: "Departamentos", href: "/departments", icon: Building },
 ];
 
-interface SidebarProps {
-  isCollapsed: boolean;
-  setIsCollapsed: (value: boolean) => void;
-}
-
-export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
+export default function Sidebar() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
