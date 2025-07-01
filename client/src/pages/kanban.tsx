@@ -9,7 +9,7 @@ export default function KanbanPage() {
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
 
   return (
-    <div className="h-full mt-[65px] mb-[65px]">
+    <div className="h-full mt-[0px] mb-[0px]">
       {/* Board Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6">
         <div className="flex items-center justify-between">
