@@ -139,12 +139,129 @@ export const purchaseRequestSuppliers = pgTable("purchase_request_suppliers", {
 export const attachments = pgTable("attachments", {
   id: serial("id").primaryKey(),
   purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
+  quotationId: integer("quotation_id").references(() => quotations.id),
   fileName: text("file_name").notNull(),
   filePath: text("file_path").notNull(),
   fileType: text("file_type").notNull(),
   fileSize: integer("file_size"),
   attachmentType: text("attachment_type").notNull(), // requisition, quotation, purchase_order, etc.
   uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+// RFQ (Request for Quotation) tables
+export const quotations = pgTable("quotations", {
+  id: serial("id").primaryKey(),
+  quotationNumber: text("quotation_number").notNull().unique(),
+  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id).notNull(),
+  status: text("status").notNull().default("draft"), // draft, sent, received, analyzed, approved, rejected
+  quotationDeadline: timestamp("quotation_deadline").notNull(),
+  termsAndConditions: text("terms_and_conditions"),
+  technicalSpecs: text("technical_specs"),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const quotationItems = pgTable("quotation_items", {
+  id: serial("id").primaryKey(),
+  quotationId: integer("quotation_id").references(() => quotations.id).notNull(),
+  itemCode: text("item_code").notNull(),
+  description: text("description").notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
+  unit: text("unit").notNull(),
+  specifications: text("specifications"),
+  deliveryDeadline: timestamp("delivery_deadline"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const supplierQuotations = pgTable("supplier_quotations", {
+  id: serial("id").primaryKey(),
+  quotationId: integer("quotation_id").references(() => quotations.id).notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id).notNull(),
+  status: text("status").notNull().default("pending"), // pending, sent, received, expired, cancelled
+  sentAt: timestamp("sent_at"),
+  receivedAt: timestamp("received_at"),
+  totalValue: decimal("total_value", { precision: 15, scale: 2 }),
+  paymentTerms: text("payment_terms"),
+  deliveryTerms: text("delivery_terms"),
+  observations: text("observations"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const supplierQuotationItems = pgTable("supplier_quotation_items", {
+  id: serial("id").primaryKey(),
+  supplierQuotationId: integer("supplier_quotation_id").references(() => supplierQuotations.id).notNull(),
+  quotationItemId: integer("quotation_item_id").references(() => quotationItems.id).notNull(),
+  unitPrice: decimal("unit_price", { precision: 15, scale: 4 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 15, scale: 2 }).notNull(),
+  deliveryDays: integer("delivery_days"),
+  brand: text("brand"),
+  model: text("model"),
+  observations: text("observations"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Purchase Orders tables
+export const purchaseOrders = pgTable("purchase_orders", {
+  id: serial("id").primaryKey(),
+  orderNumber: text("order_number").notNull().unique(),
+  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id).notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id).notNull(),
+  quotationId: integer("quotation_id").references(() => quotations.id),
+  status: text("status").notNull().default("draft"), // draft, sent, confirmed, cancelled, completed
+  totalValue: decimal("total_value", { precision: 15, scale: 2 }).notNull(),
+  paymentTerms: text("payment_terms"),
+  deliveryTerms: text("delivery_terms"),
+  deliveryAddress: text("delivery_address"),
+  contactPerson: text("contact_person"),
+  contactPhone: text("contact_phone"),
+  observations: text("observations"),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const purchaseOrderItems = pgTable("purchase_order_items", {
+  id: serial("id").primaryKey(),
+  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id).notNull(),
+  itemCode: text("item_code").notNull(),
+  description: text("description").notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
+  unit: text("unit").notNull(),
+  unitPrice: decimal("unit_price", { precision: 15, scale: 4 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 15, scale: 2 }).notNull(),
+  deliveryDeadline: timestamp("delivery_deadline"),
+  costCenterId: integer("cost_center_id").references(() => costCenters.id),
+  accountCode: text("account_code"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Receipt/Delivery tables
+export const receipts = pgTable("receipts", {
+  id: serial("id").primaryKey(),
+  receiptNumber: text("receipt_number").notNull().unique(),
+  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id).notNull(),
+  status: text("status").notNull().default("partial"), // partial, complete, pending_approval
+  receivedBy: integer("received_by").references(() => users.id).notNull(),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+  observations: text("observations"),
+  qualityApproved: boolean("quality_approved").default(false),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const receiptItems = pgTable("receipt_items", {
+  id: serial("id").primaryKey(),
+  receiptId: integer("receipt_id").references(() => receipts.id).notNull(),
+  purchaseOrderItemId: integer("purchase_order_item_id").references(() => purchaseOrderItems.id).notNull(),
+  quantityReceived: decimal("quantity_received", { precision: 10, scale: 3 }).notNull(),
+  quantityApproved: decimal("quantity_approved", { precision: 10, scale: 3 }),
+  condition: text("condition").notNull().default("good"), // good, damaged, defective
+  observations: text("observations"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Relations
@@ -263,6 +380,121 @@ export const attachmentsRelations = relations(attachments, ({ one }) => ({
     fields: [attachments.purchaseRequestId],
     references: [purchaseRequests.id],
   }),
+  quotation: one(quotations, {
+    fields: [attachments.quotationId],
+    references: [quotations.id],
+  }),
+}));
+
+// RFQ Relations
+export const quotationsRelations = relations(quotations, ({ one, many }) => ({
+  purchaseRequest: one(purchaseRequests, {
+    fields: [quotations.purchaseRequestId],
+    references: [purchaseRequests.id],
+  }),
+  createdBy: one(users, {
+    fields: [quotations.createdBy],
+    references: [users.id],
+  }),
+  items: many(quotationItems),
+  supplierQuotations: many(supplierQuotations),
+  attachments: many(attachments),
+  purchaseOrders: many(purchaseOrders),
+}));
+
+export const quotationItemsRelations = relations(quotationItems, ({ one, many }) => ({
+  quotation: one(quotations, {
+    fields: [quotationItems.quotationId],
+    references: [quotations.id],
+  }),
+  supplierQuotationItems: many(supplierQuotationItems),
+}));
+
+export const supplierQuotationsRelations = relations(supplierQuotations, ({ one, many }) => ({
+  quotation: one(quotations, {
+    fields: [supplierQuotations.quotationId],
+    references: [quotations.id],
+  }),
+  supplier: one(suppliers, {
+    fields: [supplierQuotations.supplierId],
+    references: [suppliers.id],
+  }),
+  items: many(supplierQuotationItems),
+}));
+
+export const supplierQuotationItemsRelations = relations(supplierQuotationItems, ({ one }) => ({
+  supplierQuotation: one(supplierQuotations, {
+    fields: [supplierQuotationItems.supplierQuotationId],
+    references: [supplierQuotations.id],
+  }),
+  quotationItem: one(quotationItems, {
+    fields: [supplierQuotationItems.quotationItemId],
+    references: [quotationItems.id],
+  }),
+}));
+
+export const purchaseOrdersRelations = relations(purchaseOrders, ({ one, many }) => ({
+  purchaseRequest: one(purchaseRequests, {
+    fields: [purchaseOrders.purchaseRequestId],
+    references: [purchaseRequests.id],
+  }),
+  supplier: one(suppliers, {
+    fields: [purchaseOrders.supplierId],
+    references: [suppliers.id],
+  }),
+  quotation: one(quotations, {
+    fields: [purchaseOrders.quotationId],
+    references: [quotations.id],
+  }),
+  approvedBy: one(users, {
+    fields: [purchaseOrders.approvedBy],
+    references: [users.id],
+  }),
+  createdBy: one(users, {
+    fields: [purchaseOrders.createdBy],
+    references: [users.id],
+  }),
+  items: many(purchaseOrderItems),
+  receipts: many(receipts),
+}));
+
+export const purchaseOrderItemsRelations = relations(purchaseOrderItems, ({ one, many }) => ({
+  purchaseOrder: one(purchaseOrders, {
+    fields: [purchaseOrderItems.purchaseOrderId],
+    references: [purchaseOrders.id],
+  }),
+  costCenter: one(costCenters, {
+    fields: [purchaseOrderItems.costCenterId],
+    references: [costCenters.id],
+  }),
+  receiptItems: many(receiptItems),
+}));
+
+export const receiptsRelations = relations(receipts, ({ one, many }) => ({
+  purchaseOrder: one(purchaseOrders, {
+    fields: [receipts.purchaseOrderId],
+    references: [purchaseOrders.id],
+  }),
+  receivedBy: one(users, {
+    fields: [receipts.receivedBy],
+    references: [users.id],
+  }),
+  approvedBy: one(users, {
+    fields: [receipts.approvedBy],
+    references: [users.id],
+  }),
+  items: many(receiptItems),
+}));
+
+export const receiptItemsRelations = relations(receiptItems, ({ one }) => ({
+  receipt: one(receipts, {
+    fields: [receiptItems.receiptId],
+    references: [receipts.id],
+  }),
+  purchaseOrderItem: one(purchaseOrderItems, {
+    fields: [receiptItems.purchaseOrderItemId],
+    references: [purchaseOrderItems.id],
+  }),
 }));
 
 // Insert schemas
@@ -301,6 +533,78 @@ export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit
   id: true,
 });
 
+// RFQ Insert schemas
+export const insertQuotationSchema = createInsertSchema(quotations).omit({
+  id: true,
+  quotationNumber: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  quotationDeadline: z.string().transform((val) => new Date(val)),
+});
+
+export const insertQuotationItemSchema = createInsertSchema(quotationItems).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  quantity: z.string().transform((val) => val),
+  deliveryDeadline: z.string().optional().transform((val) => val ? new Date(val) : null),
+});
+
+export const insertSupplierQuotationSchema = createInsertSchema(supplierQuotations).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  totalValue: z.string().optional().transform((val) => val || null),
+  sentAt: z.string().optional().transform((val) => val ? new Date(val) : null),
+  receivedAt: z.string().optional().transform((val) => val ? new Date(val) : null),
+});
+
+export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuotationItems).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  unitPrice: z.string().transform((val) => val),
+  totalPrice: z.string().transform((val) => val),
+});
+
+export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
+  id: true,
+  orderNumber: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  totalValue: z.string().transform((val) => val),
+  approvedAt: z.string().optional().transform((val) => val ? new Date(val) : null),
+});
+
+export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  quantity: z.string().transform((val) => val),
+  unitPrice: z.string().transform((val) => val),
+  totalPrice: z.string().transform((val) => val),
+  deliveryDeadline: z.string().optional().transform((val) => val ? new Date(val) : null),
+});
+
+export const insertReceiptSchema = createInsertSchema(receipts).omit({
+  id: true,
+  receiptNumber: true,
+  createdAt: true,
+}).extend({
+  receivedAt: z.string().transform((val) => new Date(val)),
+  approvedAt: z.string().optional().transform((val) => val ? new Date(val) : null),
+});
+
+export const insertReceiptItemSchema = createInsertSchema(receiptItems).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  quantityReceived: z.string().transform((val) => val),
+  quantityApproved: z.string().optional().transform((val) => val || null),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -316,3 +620,21 @@ export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
 export type Attachment = typeof attachments.$inferSelect;
 export type PurchaseRequestSupplier = typeof purchaseRequestSuppliers.$inferSelect;
+
+// RFQ Types
+export type Quotation = typeof quotations.$inferSelect;
+export type InsertQuotation = z.infer<typeof insertQuotationSchema>;
+export type QuotationItem = typeof quotationItems.$inferSelect;
+export type InsertQuotationItem = z.infer<typeof insertQuotationItemSchema>;
+export type SupplierQuotation = typeof supplierQuotations.$inferSelect;
+export type InsertSupplierQuotation = z.infer<typeof insertSupplierQuotationSchema>;
+export type SupplierQuotationItem = typeof supplierQuotationItems.$inferSelect;
+export type InsertSupplierQuotationItem = z.infer<typeof insertSupplierQuotationItemSchema>;
+export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
+export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
+export type InsertPurchaseOrderItem = z.infer<typeof insertPurchaseOrderItemSchema>;
+export type Receipt = typeof receipts.$inferSelect;
+export type InsertReceipt = z.infer<typeof insertReceiptSchema>;
+export type ReceiptItem = typeof receiptItems.$inferSelect;
+export type InsertReceiptItem = z.infer<typeof insertReceiptItemSchema>;

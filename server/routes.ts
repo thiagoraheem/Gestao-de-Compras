@@ -1,7 +1,17 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertDepartmentSchema, insertCostCenterSchema, insertSupplierSchema, insertPurchaseRequestSchema } from "@shared/schema";
+import { 
+  insertUserSchema, 
+  insertDepartmentSchema, 
+  insertCostCenterSchema, 
+  insertSupplierSchema, 
+  insertPurchaseRequestSchema,
+  insertQuotationSchema,
+  insertQuotationItemSchema,
+  insertSupplierQuotationSchema,
+  insertSupplierQuotationItemSchema
+} from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import session from "express-session";
@@ -572,6 +582,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching quotation history:", error);
       res.status(500).json({ message: "Failed to fetch quotation history" });
+    }
+  });
+
+  // RFQ (Request for Quotation) routes
+  app.get("/api/quotations", isAuthenticated, async (req, res) => {
+    try {
+      const quotations = await storage.getAllQuotations();
+      res.json(quotations);
+    } catch (error) {
+      console.error("Error fetching quotations:", error);
+      res.status(500).json({ message: "Failed to fetch quotations" });
+    }
+  });
+
+  app.get("/api/quotations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const quotation = await storage.getQuotationById(id);
+      if (!quotation) {
+        return res.status(404).json({ message: "Quotation not found" });
+      }
+      res.json(quotation);
+    } catch (error) {
+      console.error("Error fetching quotation:", error);
+      res.status(500).json({ message: "Failed to fetch quotation" });
+    }
+  });
+
+  app.get("/api/quotations/purchase-request/:purchaseRequestId", isAuthenticated, async (req, res) => {
+    try {
+      const purchaseRequestId = parseInt(req.params.purchaseRequestId);
+      const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
+      res.json(quotation || null);
+    } catch (error) {
+      console.error("Error fetching quotation by purchase request:", error);
+      res.status(500).json({ message: "Failed to fetch quotation" });
+    }
+  });
+
+  app.post("/api/quotations", isAuthenticated, async (req, res) => {
+    try {
+      const quotationData = insertQuotationSchema.parse(req.body);
+      const quotation = await storage.createQuotation(quotationData);
+      res.status(201).json(quotation);
+    } catch (error) {
+      console.error("Error creating quotation:", error);
+      res.status(400).json({ message: "Invalid quotation data" });
+    }
+  });
+
+  app.put("/api/quotations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const quotationData = insertQuotationSchema.partial().parse(req.body);
+      const quotation = await storage.updateQuotation(id, quotationData);
+      res.json(quotation);
+    } catch (error) {
+      console.error("Error updating quotation:", error);
+      res.status(400).json({ message: "Failed to update quotation" });
+    }
+  });
+
+  // Quotation Items routes
+  app.get("/api/quotations/:quotationId/items", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const items = await storage.getQuotationItems(quotationId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching quotation items:", error);
+      res.status(500).json({ message: "Failed to fetch quotation items" });
+    }
+  });
+
+  app.post("/api/quotations/:quotationId/items", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const itemData = insertQuotationItemSchema.parse({
+        ...req.body,
+        quotationId
+      });
+      const item = await storage.createQuotationItem(itemData);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating quotation item:", error);
+      res.status(400).json({ message: "Invalid quotation item data" });
+    }
+  });
+
+  app.put("/api/quotation-items/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const itemData = insertQuotationItemSchema.partial().parse(req.body);
+      const item = await storage.updateQuotationItem(id, itemData);
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating quotation item:", error);
+      res.status(400).json({ message: "Failed to update quotation item" });
+    }
+  });
+
+  app.delete("/api/quotation-items/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteQuotationItem(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting quotation item:", error);
+      res.status(400).json({ message: "Failed to delete quotation item" });
+    }
+  });
+
+  // Supplier Quotations routes
+  app.get("/api/quotations/:quotationId/supplier-quotations", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+      res.json(supplierQuotations);
+    } catch (error) {
+      console.error("Error fetching supplier quotations:", error);
+      res.status(500).json({ message: "Failed to fetch supplier quotations" });
+    }
+  });
+
+  app.post("/api/quotations/:quotationId/supplier-quotations", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const supplierQuotationData = insertSupplierQuotationSchema.parse({
+        ...req.body,
+        quotationId
+      });
+      const supplierQuotation = await storage.createSupplierQuotation(supplierQuotationData);
+      res.status(201).json(supplierQuotation);
+    } catch (error) {
+      console.error("Error creating supplier quotation:", error);
+      res.status(400).json({ message: "Invalid supplier quotation data" });
+    }
+  });
+
+  app.put("/api/supplier-quotations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const supplierQuotationData = insertSupplierQuotationSchema.partial().parse(req.body);
+      const supplierQuotation = await storage.updateSupplierQuotation(id, supplierQuotationData);
+      res.json(supplierQuotation);
+    } catch (error) {
+      console.error("Error updating supplier quotation:", error);
+      res.status(400).json({ message: "Failed to update supplier quotation" });
+    }
+  });
+
+  // Supplier Quotation Items routes
+  app.get("/api/supplier-quotations/:supplierQuotationId/items", isAuthenticated, async (req, res) => {
+    try {
+      const supplierQuotationId = parseInt(req.params.supplierQuotationId);
+      const items = await storage.getSupplierQuotationItems(supplierQuotationId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching supplier quotation items:", error);
+      res.status(500).json({ message: "Failed to fetch supplier quotation items" });
+    }
+  });
+
+  app.post("/api/supplier-quotations/:supplierQuotationId/items", isAuthenticated, async (req, res) => {
+    try {
+      const supplierQuotationId = parseInt(req.params.supplierQuotationId);
+      const itemData = insertSupplierQuotationItemSchema.parse({
+        ...req.body,
+        supplierQuotationId
+      });
+      const item = await storage.createSupplierQuotationItem(itemData);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating supplier quotation item:", error);
+      res.status(400).json({ message: "Invalid supplier quotation item data" });
+    }
+  });
+
+  app.put("/api/supplier-quotation-items/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const itemData = insertSupplierQuotationItemSchema.partial().parse(req.body);
+      const item = await storage.updateSupplierQuotationItem(id, itemData);
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating supplier quotation item:", error);
+      res.status(400).json({ message: "Failed to update supplier quotation item" });
     }
   });
 

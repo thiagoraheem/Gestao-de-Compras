@@ -9,6 +9,10 @@ import {
   purchaseRequests,
   purchaseRequestSuppliers,
   attachments,
+  quotations,
+  quotationItems,
+  supplierQuotations,
+  supplierQuotationItems,
   type User,
   type InsertUser,
   type Department,
@@ -21,6 +25,14 @@ import {
   type InsertPurchaseRequest,
   type PaymentMethod,
   type InsertPaymentMethod,
+  type Quotation,
+  type InsertQuotation,
+  type QuotationItem,
+  type InsertQuotationItem,
+  type SupplierQuotation,
+  type InsertSupplierQuotation,
+  type SupplierQuotationItem,
+  type InsertSupplierQuotationItem,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc } from "drizzle-orm";
@@ -73,6 +85,30 @@ export interface IStorage {
   updatePurchaseRequest(id: number, request: Partial<InsertPurchaseRequest>): Promise<PurchaseRequest>;
   getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequest[]>;
   getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]>;
+
+  // RFQ (Quotation) operations
+  getAllQuotations(): Promise<Quotation[]>;
+  getQuotationById(id: number): Promise<Quotation | undefined>;
+  getQuotationByPurchaseRequestId(purchaseRequestId: number): Promise<Quotation | undefined>;
+  createQuotation(quotation: InsertQuotation): Promise<Quotation>;
+  updateQuotation(id: number, quotation: Partial<InsertQuotation>): Promise<Quotation>;
+  
+  // Quotation Items operations
+  getQuotationItems(quotationId: number): Promise<QuotationItem[]>;
+  createQuotationItem(item: InsertQuotationItem): Promise<QuotationItem>;
+  updateQuotationItem(id: number, item: Partial<InsertQuotationItem>): Promise<QuotationItem>;
+  deleteQuotationItem(id: number): Promise<void>;
+  
+  // Supplier Quotations operations
+  getSupplierQuotations(quotationId: number): Promise<SupplierQuotation[]>;
+  getSupplierQuotationById(id: number): Promise<SupplierQuotation | undefined>;
+  createSupplierQuotation(supplierQuotation: InsertSupplierQuotation): Promise<SupplierQuotation>;
+  updateSupplierQuotation(id: number, supplierQuotation: Partial<InsertSupplierQuotation>): Promise<SupplierQuotation>;
+  
+  // Supplier Quotation Items operations
+  getSupplierQuotationItems(supplierQuotationId: number): Promise<SupplierQuotationItem[]>;
+  createSupplierQuotationItem(item: InsertSupplierQuotationItem): Promise<SupplierQuotationItem>;
+  updateSupplierQuotationItem(id: number, item: Partial<InsertSupplierQuotationItem>): Promise<SupplierQuotationItem>;
 
   // Initialize default data
   initializeDefaultData(): Promise<void>;
@@ -284,6 +320,121 @@ export class DatabaseStorage implements IStorage {
       .from(purchaseRequests)
       .where(eq(purchaseRequests.requesterId, userId))
       .orderBy(desc(purchaseRequests.createdAt));
+  }
+
+  // RFQ (Quotation) operations
+  async getAllQuotations(): Promise<Quotation[]> {
+    return await db.select().from(quotations).orderBy(desc(quotations.createdAt));
+  }
+
+  async getQuotationById(id: number): Promise<Quotation | undefined> {
+    const [quotation] = await db.select().from(quotations).where(eq(quotations.id, id));
+    return quotation || undefined;
+  }
+
+  async getQuotationByPurchaseRequestId(purchaseRequestId: number): Promise<Quotation | undefined> {
+    const [quotation] = await db.select().from(quotations).where(eq(quotations.purchaseRequestId, purchaseRequestId));
+    return quotation || undefined;
+  }
+
+  async createQuotation(quotationData: InsertQuotation): Promise<Quotation> {
+    // Generate quotation number
+    const year = new Date().getFullYear();
+    const count = await db.select().from(quotations).where(eq(quotations.quotationNumber, `COT-${year}-%`));
+    const quotationNumber = `COT-${year}-${String(count.length + 1).padStart(4, '0')}`;
+
+    const [quotation] = await db
+      .insert(quotations)
+      .values({
+        ...quotationData,
+        quotationNumber,
+      })
+      .returning();
+    return quotation;
+  }
+
+  async updateQuotation(id: number, quotationData: Partial<InsertQuotation>): Promise<Quotation> {
+    const [quotation] = await db
+      .update(quotations)
+      .set({ ...quotationData, updatedAt: new Date() })
+      .where(eq(quotations.id, id))
+      .returning();
+    return quotation;
+  }
+
+  // Quotation Items operations
+  async getQuotationItems(quotationId: number): Promise<QuotationItem[]> {
+    return await db.select().from(quotationItems).where(eq(quotationItems.quotationId, quotationId));
+  }
+
+  async createQuotationItem(itemData: InsertQuotationItem): Promise<QuotationItem> {
+    const [item] = await db
+      .insert(quotationItems)
+      .values(itemData)
+      .returning();
+    return item;
+  }
+
+  async updateQuotationItem(id: number, itemData: Partial<InsertQuotationItem>): Promise<QuotationItem> {
+    const [item] = await db
+      .update(quotationItems)
+      .set(itemData)
+      .where(eq(quotationItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async deleteQuotationItem(id: number): Promise<void> {
+    await db.delete(quotationItems).where(eq(quotationItems.id, id));
+  }
+
+  // Supplier Quotations operations
+  async getSupplierQuotations(quotationId: number): Promise<SupplierQuotation[]> {
+    return await db.select().from(supplierQuotations).where(eq(supplierQuotations.quotationId, quotationId));
+  }
+
+  async getSupplierQuotationById(id: number): Promise<SupplierQuotation | undefined> {
+    const [supplierQuotation] = await db.select().from(supplierQuotations).where(eq(supplierQuotations.id, id));
+    return supplierQuotation || undefined;
+  }
+
+  async createSupplierQuotation(supplierQuotationData: InsertSupplierQuotation): Promise<SupplierQuotation> {
+    const [supplierQuotation] = await db
+      .insert(supplierQuotations)
+      .values(supplierQuotationData)
+      .returning();
+    return supplierQuotation;
+  }
+
+  async updateSupplierQuotation(id: number, supplierQuotationData: Partial<InsertSupplierQuotation>): Promise<SupplierQuotation> {
+    const [supplierQuotation] = await db
+      .update(supplierQuotations)
+      .set(supplierQuotationData)
+      .where(eq(supplierQuotations.id, id))
+      .returning();
+    return supplierQuotation;
+  }
+
+  // Supplier Quotation Items operations
+  async getSupplierQuotationItems(supplierQuotationId: number): Promise<SupplierQuotationItem[]> {
+    return await db.select().from(supplierQuotationItems).where(eq(supplierQuotationItems.supplierQuotationId, supplierQuotationId));
+  }
+
+  async createSupplierQuotationItem(itemData: InsertSupplierQuotationItem): Promise<SupplierQuotationItem> {
+    const [item] = await db
+      .insert(supplierQuotationItems)
+      .values(itemData)
+      .returning();
+    return item;
+  }
+
+  async updateSupplierQuotationItem(id: number, itemData: Partial<InsertSupplierQuotationItem>): Promise<SupplierQuotationItem> {
+    const [item] = await db
+      .update(supplierQuotationItems)
+      .set(itemData)
+      .where(eq(supplierQuotationItems.id, id))
+      .returning();
+    return item;
   }
 
   async initializeDefaultData(): Promise<void> {
