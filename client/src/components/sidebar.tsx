@@ -8,6 +8,7 @@ import {
   Users,
   Menu,
   X,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ import {
 
 const navigation = [
   { name: "Kanban Board", href: "/", icon: Columns },
+  { name: "Gerenciar Solicitações", href: "/request-management", icon: FileText },
   { name: "Fornecedores", href: "/suppliers", icon: Truck },
   { name: "Usuários", href: "/users", icon: Users },
   { name: "Departamentos", href: "/departments", icon: Building },

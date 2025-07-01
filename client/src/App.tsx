@@ -13,6 +13,7 @@ import UsersPage from "@/pages/users";
 import DepartmentsPage from "@/pages/departments";
 import ProfilePage from "@/pages/profile";
 import ChangePasswordPage from "@/pages/change-password";
+import RequestManagementPage from "@/pages/request-management";
 import Navbar from "@/components/navbar";
 import Sidebar from "@/components/sidebar";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,7 @@ function Router() {
     <AuthenticatedLayout>
       <Switch>
         <Route path="/" component={KanbanPage} />
+        <Route path="/request-management" component={RequestManagementPage} />
         <Route path="/suppliers" component={SuppliersPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/departments" component={DepartmentsPage} />

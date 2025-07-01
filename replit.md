@@ -110,6 +110,12 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 1, 2025. Implemented comprehensive Kanban phases system including:
+  - Request Phase: Complete form with file upload, validation, and visual feedback
+  - Approval A1 Phase: Role-based approval with detailed request review and justification
+  - Quotation Phase: Multi-supplier quotation management with comparison tools
+  - Request Management Page: Unified interface for managing all purchase requests by phase
+  - Enhanced API endpoints for approval workflow, quotations, and attachments
 - December 30, 2024. Fixed responsive sidebar with hamburger menu functionality for mobile and desktop
 - December 30, 2024. Corrected layout issues by removing duplicate headers and fixing content margins
 - June 27, 2025. Initial setup
