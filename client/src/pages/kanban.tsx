@@ -9,9 +9,9 @@ export default function KanbanPage() {
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
 
   return (
-    <div className="h-full mt-[0px] mb-[0px]">
-      {/* Board Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6">
+    <div className="flex flex-col h-full">
+      {/* Fixed Board Header */}
+      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Gestão de Compras</h2>
@@ -54,7 +54,12 @@ export default function KanbanPage() {
           </div>
         </div>
       </div>
-      <KanbanBoard />
+      
+      {/* Scrollable Kanban Board Container */}
+      <div className="flex-1 overflow-hidden">
+        <KanbanBoard />
+      </div>
+      
       <NewRequestModal 
         open={isNewRequestModalOpen}
         onOpenChange={setIsNewRequestModalOpen}

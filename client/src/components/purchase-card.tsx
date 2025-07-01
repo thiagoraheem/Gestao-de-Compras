@@ -12,6 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
+import RequestPhase from "./request-phase";
+import ApprovalA1Phase from "./approval-a1-phase";
+import QuotationPhase from "./quotation-phase";
 
 interface PurchaseCardProps {
   request: any;
@@ -23,6 +26,10 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const handleCardClick = () => {
+    setIsEditModalOpen(true);
+  };
 
   const {
     attributes,
@@ -115,16 +122,18 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
   };
 
   return (
-    <Card 
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      className={cn(
-        "hover:shadow-md transition-shadow select-none",
-        isArchived && "bg-gray-50",
-        sortableIsDragging && "z-10 rotate-3 shadow-lg"
-      )}
-    >
+    <>
+      <Card 
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        className={cn(
+          "hover:shadow-md transition-shadow select-none cursor-pointer",
+          isArchived && "bg-gray-50",
+          sortableIsDragging && "z-10 rotate-3 shadow-lg"
+        )}
+        onClick={handleCardClick}
+      >
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -253,29 +262,66 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
           </div>
         )}
       </CardContent>
-      
-      {/* Simple Edit Dialog */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsEditModalOpen(false)}>
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">Editar Solicitação</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              <strong>Número:</strong> {request.requestNumber}
-            </p>
-            <p className="text-sm text-gray-600 mb-4">
-              <strong>Fase Atual:</strong> {PHASE_LABELS[phase]}
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                Fechar
-              </Button>
-              <Button onClick={() => setIsEditModalOpen(false)}>
-                Salvar
-              </Button>
-            </div>
+    </Card>
+    
+    {/* Phase-specific Edit Modals */}
+    {isEditModalOpen && phase === PURCHASE_PHASES.SOLICITACAO && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <RequestPhase 
+            onClose={() => setIsEditModalOpen(false)} 
+            className="p-6"
+          />
+        </div>
+      </div>
+    )}
+    
+    {isEditModalOpen && phase === PURCHASE_PHASES.APROVACAO_A1 && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <ApprovalA1Phase 
+            request={request}
+            onClose={() => setIsEditModalOpen(false)} 
+            className="p-6"
+          />
+        </div>
+      </div>
+    )}
+    
+    {isEditModalOpen && phase === PURCHASE_PHASES.COTACAO && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <QuotationPhase 
+            request={request}
+            onClose={() => setIsEditModalOpen(false)} 
+            className="p-6"
+          />
+        </div>
+      </div>
+    )}
+    
+    {/* Default Edit Dialog for other phases */}
+    {isEditModalOpen && phase !== PURCHASE_PHASES.SOLICITACAO && phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.COTACAO && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsEditModalOpen(false)}>
+        <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-lg font-semibold mb-4">Editar Solicitação</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            <strong>Número:</strong> {request.requestNumber}
+          </p>
+          <p className="text-sm text-gray-600 mb-4">
+            <strong>Fase Atual:</strong> {PHASE_LABELS[phase]}
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              Fechar
+            </Button>
+            <Button onClick={() => setIsEditModalOpen(false)}>
+              Salvar
+            </Button>
           </div>
         </div>
-      )}
-    </Card>
+      </div>
+    )}
+    </>
   );
 }

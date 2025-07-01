@@ -75,7 +75,7 @@ export default function KanbanBoard() {
 
   if (isLoading) {
     return (
-      <div className="overflow-x-auto kanban-scroll px-6" style={{ height: "calc(100vh - 200px)" }}>
+      <div className="h-full overflow-x-auto px-6 py-4">
         <div className="flex space-x-6 h-full" style={{ minWidth: "max-content" }}>
           {Object.values(PURCHASE_PHASES).map((phase) => (
             <div key={phase} className="flex-shrink-0 w-80">
@@ -111,7 +111,7 @@ export default function KanbanBoard() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="overflow-x-auto kanban-scroll px-6" style={{ height: "calc(100vh - 200px)" }}>
+      <div className="h-full overflow-x-auto px-6 py-4">
         <div className="flex space-x-6 h-full" style={{ minWidth: "max-content" }}>
           {Object.values(PURCHASE_PHASES).map((phase) => (
             <KanbanColumn

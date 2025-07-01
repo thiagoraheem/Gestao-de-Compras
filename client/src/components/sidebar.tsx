@@ -9,6 +9,7 @@ import {
   Menu,
   X,
   FileText,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import NewRequestModal from "./new-request-modal";
 
 const navigation = [
   { name: "Kanban Board", href: "/", icon: Columns },
@@ -24,6 +26,10 @@ const navigation = [
   { name: "Fornecedores", href: "/suppliers", icon: Truck },
   { name: "Usuários", href: "/users", icon: Users },
   { name: "Departamentos", href: "/departments", icon: Building },
+];
+
+const actionItems = [
+  { name: "Nova Solicitação", action: "new-request", icon: Plus },
 ];
 
 interface SidebarProps {
@@ -34,6 +40,7 @@ interface SidebarProps {
 export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
 
   return (
     <>
@@ -167,11 +174,58 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                     </Tooltip>
                   );
                 })}
+                
+                {/* Action Items Section */}
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <div className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    {!isCollapsed && "Ações"}
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {actionItems.map((item) => {
+                      const Icon = item.icon;
+                      
+                      return (
+                        <Tooltip key={item.name} delayDuration={0}>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              onClick={() => setIsNewRequestModalOpen(true)}
+                              className={cn(
+                                "w-full justify-start px-2 py-2 text-sm font-medium rounded-md transition-colors",
+                                "text-gray-600 hover:bg-primary-50 hover:text-primary-700"
+                              )}
+                            >
+                              <Icon
+                                className={cn(
+                                  "flex-shrink-0 h-5 w-5",
+                                  isCollapsed ? "mx-auto" : "mr-3",
+                                  "text-gray-400"
+                                )}
+                              />
+                              {!isCollapsed && <span>{item.name}</span>}
+                            </Button>
+                          </TooltipTrigger>
+                          {isCollapsed && (
+                            <TooltipContent side="right">
+                              {item.name}
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                </div>
               </nav>
             </TooltipProvider>
           </div>
         </div>
       </div>
+      
+      {/* New Request Modal */}
+      <NewRequestModal 
+        open={isNewRequestModalOpen}
+        onOpenChange={setIsNewRequestModalOpen}
+      />
     </>
   );
 }
