@@ -9,7 +9,7 @@ export default function KanbanPage() {
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
 
   return (
-    <div className="h-full">
+    <div className="h-full mt-[65px] mb-[65px]">
       {/* Board Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6">
         <div className="flex items-center justify-between">
@@ -54,9 +54,7 @@ export default function KanbanPage() {
           </div>
         </div>
       </div>
-
       <KanbanBoard />
-
       <NewRequestModal 
         open={isNewRequestModalOpen}
         onOpenChange={setIsNewRequestModalOpen}
