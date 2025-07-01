@@ -34,7 +34,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
         <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
         <main 
           className={cn(
-            "flex-1 p-4 sm:p-6 lg:p-8 transition-all duration-200 ease-in-out",
+            "flex-1 transition-all duration-200 ease-in-out min-h-screen",
             // Mobile: no margin
             "ml-0",
             // Desktop: margin based on collapsed state

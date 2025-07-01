@@ -110,6 +110,8 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- December 30, 2024. Fixed responsive sidebar with hamburger menu functionality for mobile and desktop
+- December 30, 2024. Corrected layout issues by removing duplicate headers and fixing content margins
 - June 27, 2025. Initial setup
 
 ## User Preferences

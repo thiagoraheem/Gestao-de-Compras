@@ -3,8 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import Navbar from "@/components/navbar";
-import Sidebar from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Building } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -25,7 +24,8 @@ const departmentSchema = z.object({
 const costCenterSchema = z.object({
   code: z.string().min(1, "Código é obrigatório"),
   name: z.string().min(1, "Nome é obrigatório"),
-  departmentId: z.coerce.number().min(1, "Departamento é obrigatório"),
+  departmentId: z.number().min(1, "Departamento é obrigatório"),
+  description: z.string().optional(),
 });
 
 type DepartmentFormData = z.infer<typeof departmentSchema>;
@@ -37,11 +37,11 @@ export default function DepartmentsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: departments, isLoading: isLoadingDepts } = useQuery({
+  const { data: departments = [], isLoading: isDeptLoading } = useQuery<any[]>({
     queryKey: ["/api/departments"],
   });
 
-  const { data: costCenters, isLoading: isLoadingCostCenters } = useQuery({
+  const { data: costCenters = [], isLoading: isCostCenterLoading } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
   });
 
@@ -59,6 +59,7 @@ export default function DepartmentsPage() {
       code: "",
       name: "",
       departmentId: 0,
+      description: "",
     },
   });
 
@@ -68,12 +69,12 @@ export default function DepartmentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      setIsDeptModalOpen(false);
+      deptForm.reset();
       toast({
         title: "Sucesso",
-        description: "Departamento criado com sucesso!",
+        description: "Departamento criado com sucesso",
       });
-      deptForm.reset();
-      setIsDeptModalOpen(false);
     },
     onError: () => {
       toast({
@@ -90,12 +91,12 @@ export default function DepartmentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
+      setIsCostCenterModalOpen(false);
+      costCenterForm.reset();
       toast({
         title: "Sucesso",
-        description: "Centro de custo criado com sucesso!",
+        description: "Centro de custo criado com sucesso",
       });
-      costCenterForm.reset();
-      setIsCostCenterModalOpen(false);
     },
     onError: () => {
       toast({
@@ -115,123 +116,110 @@ export default function DepartmentsPage() {
   };
 
   const getDepartmentName = (departmentId: number) => {
-    const dept = departments?.find((d: any) => d.id === departmentId);
+    const dept = departments.find((d: any) => d.id === departmentId);
     return dept?.name || "Desconhecido";
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <Sidebar />
-      
-      <div className="ml-64 pt-16 p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Departments */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center">
-                  <Building className="mr-2 h-5 w-5" />
-                  Departamentos
-                </CardTitle>
-                <Button onClick={() => setIsDeptModalOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Departamento
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoadingDepts ? (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Data de Criação</TableHead>
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Departments */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center">
+              <Building className="mr-2 h-5 w-5" />
+              Departamentos
+            </CardTitle>
+            <Button onClick={() => setIsDeptModalOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Departamento
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isDeptLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Descrição</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {departments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-center py-8">
+                      Nenhum departamento encontrado
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  departments.map((dept) => (
+                    <TableRow key={dept.id}>
+                      <TableCell className="font-medium">{dept.name}</TableCell>
+                      <TableCell>{dept.description || "-"}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {departments?.map((department: any) => (
-                      <TableRow key={department.id}>
-                        <TableCell className="font-medium">{department.name}</TableCell>
-                        <TableCell>{department.description || "-"}</TableCell>
-                        <TableCell>
-                          {new Date(department.createdAt).toLocaleDateString('pt-BR')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {departments?.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-gray-500 py-8">
-                          Nenhum departamento cadastrado
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
-          {/* Cost Centers */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Centros de Custo</CardTitle>
-                <Button onClick={() => setIsCostCenterModalOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Centro de Custo
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoadingCostCenters ? (
-                <div className="space-y-3">
-                  {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Código</TableHead>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Departamento</TableHead>
-                      <TableHead>Data de Criação</TableHead>
+      {/* Cost Centers */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Centros de Custo</CardTitle>
+            <Button onClick={() => setIsCostCenterModalOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Centro de Custo
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isCostCenterLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Departamento</TableHead>
+                  <TableHead>Descrição</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {costCenters.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8">
+                      Nenhum centro de custo encontrado
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  costCenters.map((cc) => (
+                    <TableRow key={cc.id}>
+                      <TableCell className="font-medium">{cc.code}</TableCell>
+                      <TableCell>{cc.name}</TableCell>
+                      <TableCell>{getDepartmentName(cc.departmentId)}</TableCell>
+                      <TableCell>{cc.description || "-"}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {costCenters?.map((costCenter: any) => (
-                      <TableRow key={costCenter.id}>
-                        <TableCell className="font-medium">{costCenter.code}</TableCell>
-                        <TableCell>{costCenter.name}</TableCell>
-                        <TableCell>{getDepartmentName(costCenter.departmentId)}</TableCell>
-                        <TableCell>
-                          {new Date(costCenter.createdAt).toLocaleDateString('pt-BR')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {costCenters?.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center text-gray-500 py-8">
-                          Nenhum centro de custo cadastrado
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Department Modal */}
       <Dialog open={isDeptModalOpen} onOpenChange={setIsDeptModalOpen}>
@@ -239,7 +227,6 @@ export default function DepartmentsPage() {
           <DialogHeader>
             <DialogTitle>Novo Departamento</DialogTitle>
           </DialogHeader>
-          
           <Form {...deptForm}>
             <form onSubmit={deptForm.handleSubmit(onSubmitDepartment)} className="space-y-4">
               <FormField
@@ -255,7 +242,6 @@ export default function DepartmentsPage() {
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={deptForm.control}
                 name="description"
@@ -263,19 +249,14 @@ export default function DepartmentsPage() {
                   <FormItem>
                     <FormLabel>Descrição</FormLabel>
                     <FormControl>
-                      <Textarea {...field} rows={3} />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsDeptModalOpen(false)}
-                >
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => setIsDeptModalOpen(false)}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={createDepartmentMutation.isPending}>
@@ -293,7 +274,6 @@ export default function DepartmentsPage() {
           <DialogHeader>
             <DialogTitle>Novo Centro de Custo</DialogTitle>
           </DialogHeader>
-          
           <Form {...costCenterForm}>
             <form onSubmit={costCenterForm.handleSubmit(onSubmitCostCenter)} className="space-y-4">
               <FormField
@@ -303,13 +283,12 @@ export default function DepartmentsPage() {
                   <FormItem>
                     <FormLabel>Código *</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Ex: TI-DEV-001" />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={costCenterForm.control}
                 name="name"
@@ -317,43 +296,54 @@ export default function DepartmentsPage() {
                   <FormItem>
                     <FormLabel>Nome *</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Ex: TI - Desenvolvimento" />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={costCenterForm.control}
                 name="departmentId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Departamento *</FormLabel>
-                    <FormControl>
-                      <select 
-                        {...field}
-                        className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
-                      >
-                        <option value="">Selecione um departamento</option>
-                        {departments?.map((dept: any) => (
-                          <option key={dept.id} value={dept.id}>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      value={field.value?.toString() || ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um departamento" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.id.toString()}>
                             {dept.name}
-                          </option>
+                          </SelectItem>
                         ))}
-                      </select>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={costCenterForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsCostCenterModalOpen(false)}
-                >
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => setIsCostCenterModalOpen(false)}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={createCostCenterMutation.isPending}>

@@ -155,7 +155,7 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto p-6">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
