@@ -3,18 +3,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { URGENCY_LEVELS, CATEGORY_OPTIONS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
-import { CloudUpload, FileText, X, Check, AlertTriangle } from "lucide-react";
+import { CloudUpload, FileText, X, Check, AlertTriangle, Edit3, FileSpreadsheet, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ExcelImporter, { type ExcelItem } from './excel-importer';
 import EditableItemsTable, { type EditableItem } from './editable-items-table';
@@ -44,6 +45,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
   const [itemsLoaded, setItemsLoaded] = useState(false);
+  const [itemsMethod, setItemsMethod] = useState<'manual' | 'upload'>('manual');
 
   const { data: costCenters, isLoading: costCentersLoading } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
@@ -155,13 +157,9 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   const handleExcelImport = (items: ExcelItem[]) => {
     const convertedItems: EditableItem[] = items.map((item, index) => ({
       id: Date.now() + index, // Temporary ID
-      item: item.item,
       description: item.description,
       unit: item.unit,
-      stockQuantity: item.stockQuantity,
-      averageMonthlyQuantity: item.averageMonthlyQuantity,
       requestedQuantity: item.requestedQuantity,
-      approvedQuantity: item.approvedQuantity,
     }));
     
     setRequestItems(convertedItems);
@@ -285,19 +283,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                 )}
               />
 
-              {/* Items Management Section */}
-              <div className="space-y-4">
-                <FormLabel>Itens da Solicitação *</FormLabel>
-                
-                {/* Excel Importer */}
-                <ExcelImporter onImport={handleExcelImport} />
-                
-                {/* Items Table */}
-                <EditableItemsTable 
-                  items={requestItems} 
-                  onChange={setRequestItems}
-                />
-              </div>
+
 
               <FormField
                 control={form.control}
@@ -383,7 +369,51 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
               />
             </div>
 
-
+            {/* Items Management Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Itens da Solicitação</CardTitle>
+                <CardDescription>
+                  Escolha como deseja gerenciar os itens: cadastro manual ou upload de planilha
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={itemsMethod} onValueChange={(value) => setItemsMethod(value as 'manual' | 'upload')}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="manual" className="flex items-center gap-2">
+                      <Edit3 className="w-4 h-4" />
+                      Cadastro Manual
+                    </TabsTrigger>
+                    <TabsTrigger value="upload" className="flex items-center gap-2">
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Upload de Planilha
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="manual" className="space-y-4">
+                    <EditableItemsTable 
+                      items={requestItems} 
+                      onChange={setRequestItems}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="upload" className="space-y-4">
+                    <ExcelImporter onImport={handleExcelImport} />
+                    
+                    {requestItems.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="font-medium mb-2">Itens Importados</h4>
+                        <EditableItemsTable 
+                          items={requestItems} 
+                          onChange={setRequestItems}
+                          readonly={false}
+                        />
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
 
             {/* Form Actions */}
             <div className="flex justify-between items-center pt-6 border-t">

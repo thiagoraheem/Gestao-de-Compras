@@ -153,7 +153,7 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
                   <TableCell>
                     {editingId === item.id ? (
                       <Input
-                        value={editingValues.description}
+                        value={editingValues.description || ''}
                         onChange={(e) => handleInputChange('description', e.target.value)}
                         placeholder="Descrição do item"
                         className="h-8"
@@ -165,7 +165,7 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
                   <TableCell>
                     {editingId === item.id ? (
                       <Input
-                        value={editingValues.unit}
+                        value={editingValues.unit || ''}
                         onChange={(e) => handleInputChange('unit', e.target.value)}
                         placeholder="UN"
                         className="h-8"
@@ -178,7 +178,7 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
                     {editingId === item.id ? (
                       <Input
                         type="number"
-                        value={editingValues.requestedQuantity}
+                        value={editingValues.requestedQuantity || 0}
                         onChange={(e) => {
                           const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                           handleInputChange('requestedQuantity', isNaN(value) ? 0 : value);
