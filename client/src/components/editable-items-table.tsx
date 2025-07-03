@@ -98,7 +98,7 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
     onChange(filteredItems);
   };
 
-  const handleInputChange = (field: keyof EditableItem, value: string | number) => {
+  const handleInputChange = (field: keyof EditableItem, value: string | number | undefined) => {
     setEditingValues(prev => ({
       ...prev,
       [field]: value
@@ -106,8 +106,8 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
   };
 
   const formatNumber = (value: number | undefined): string => {
-    if (value === undefined || value === null) return '0';
-    return value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    if (value === undefined || value === null || isNaN(value)) return '0';
+    return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   };
 
   const isValidItem = (item: EditableItem): boolean => {
@@ -211,7 +211,10 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
                       <Input
                         type="number"
                         value={editingValues.stockQuantity}
-                        onChange={(e) => handleInputChange('stockQuantity', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          handleInputChange('stockQuantity', isNaN(value) ? 0 : value);
+                        }}
                         className="h-8"
                         min="0"
                         step="0.01"
@@ -225,7 +228,10 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
                       <Input
                         type="number"
                         value={editingValues.averageMonthlyQuantity}
-                        onChange={(e) => handleInputChange('averageMonthlyQuantity', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          handleInputChange('averageMonthlyQuantity', isNaN(value) ? 0 : value);
+                        }}
                         className="h-8"
                         min="0"
                         step="0.01"
@@ -239,7 +245,10 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
                       <Input
                         type="number"
                         value={editingValues.requestedQuantity}
-                        onChange={(e) => handleInputChange('requestedQuantity', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          handleInputChange('requestedQuantity', isNaN(value) ? 0 : value);
+                        }}
                         className="h-8"
                         min="0"
                         step="0.01"
@@ -253,7 +262,10 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
                       <Input
                         type="number"
                         value={editingValues.approvedQuantity || 0}
-                        onChange={(e) => handleInputChange('approvedQuantity', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                          handleInputChange('approvedQuantity', value === undefined || isNaN(value) ? undefined : value);
+                        }}
                         className="h-8"
                         min="0"
                         step="0.01"
