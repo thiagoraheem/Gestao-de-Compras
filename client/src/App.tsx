@@ -4,7 +4,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
-import { useState, useEffect } from "react";
 import LoginPage from "@/pages/login";
 import NotFound from "@/pages/not-found";
 import KanbanPage from "@/pages/kanban";
@@ -14,35 +13,17 @@ import DepartmentsPage from "@/pages/departments";
 import ProfilePage from "@/pages/profile";
 import ChangePasswordPage from "@/pages/change-password";
 import RequestManagementPage from "@/pages/request-management";
-import Navbar from "@/components/navbar";
-import Sidebar from "@/components/sidebar";
-import { cn } from "@/lib/utils";
+import PipefyHeader from "@/components/pipefy-header";
+import FloatingNewRequestButton from "@/components/floating-new-request-button";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    return saved === 'true';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', isCollapsed.toString());
-  }, [isCollapsed]);
-
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <div className="flex">
-        <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-        <main 
-          className={cn(
-            "flex-1 transition-all duration-200 ease-in-out min-h-screen mt-[65px] mb-[65px]",
-            "ml-0", // Mobile: no left margin
-            isCollapsed ? "lg:ml-16" : "lg:ml-64" // Desktop: adjust based on sidebar state
-          )}
-        >
-          {children}
-        </main>
-      </div>
+      <PipefyHeader />
+      <main className="pt-16 min-h-screen">
+        {children}
+      </main>
+      <FloatingNewRequestButton />
     </div>
   );
 }

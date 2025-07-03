@@ -550,12 +550,21 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
 }).extend({
   idealDeliveryDate: z.string().optional().transform((val) => val ? new Date(val) : null),
   deliveryDate: z.string().optional().transform((val) => val ? new Date(val) : null),
+  availableBudget: z.string().optional().transform((val) => val || null),
+  totalValue: z.string().optional().transform((val) => val || null),
+  negotiatedValue: z.string().optional().transform((val) => val || null),
+  discountsObtained: z.string().optional().transform((val) => val || null),
 });
 
 export const insertPurchaseRequestItemSchema = createInsertSchema(purchaseRequestItems).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  stockQuantity: z.string().transform((val) => val),
+  averageMonthlyQuantity: z.string().transform((val) => val),
+  requestedQuantity: z.string().transform((val) => val),
+  approvedQuantity: z.string().optional().transform((val) => val || null),
 });
 
 export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({
