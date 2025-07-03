@@ -43,6 +43,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   const [requestItems, setRequestItems] = useState<EditableItem[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [itemsLoaded, setItemsLoaded] = useState(false);
 
   const { data: costCenters, isLoading: costCentersLoading } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
@@ -67,12 +68,13 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
     },
   });
 
-  // Carregar itens existentes quando disponíveis
+  // Carregar itens existentes quando disponíveis (apenas uma vez)
   useEffect(() => {
-    if (existingItems.length > 0) {
+    if (existingItems.length > 0 && !itemsLoaded) {
       setRequestItems(existingItems);
+      setItemsLoaded(true);
     }
-  }, [existingItems]);
+  }, [existingItems, itemsLoaded]);
 
   // Atualizar formulário quando os dados da solicitação mudarem
   useEffect(() => {
@@ -117,12 +119,14 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests", request?.id, "items"] });
       toast({
         title: "Sucesso",
         description: request ? "Solicitação atualizada com sucesso!" : "Solicitação criada com sucesso!",
       });
       form.reset();
       setRequestItems([]);
+      setItemsLoaded(false);
       setUploadProgress(0);
       onClose?.();
     },

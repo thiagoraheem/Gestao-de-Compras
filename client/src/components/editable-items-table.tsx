@@ -111,7 +111,7 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
   };
 
   const isValidItem = (item: EditableItem): boolean => {
-    return item.item.trim() !== '' && item.description.trim() !== '' && item.unit.trim() !== '';
+    return (item.item || '').trim() !== '' && (item.description || '').trim() !== '' && (item.unit || '').trim() !== '';
   };
 
   const canSave = isValidItem(editingValues);
