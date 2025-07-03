@@ -64,7 +64,7 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: suppliers = [] } = useQuery({
+  const { data: suppliers = [] } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
   });
 

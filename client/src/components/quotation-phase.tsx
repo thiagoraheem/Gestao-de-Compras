@@ -13,6 +13,32 @@ import { useAuth } from "@/hooks/useAuth";
 import RFQCreation from "./rfq-creation";
 import RFQAnalysis from "./rfq-analysis";
 
+interface Quotation {
+  id: number;
+  quotationNumber: string;
+  status: 'draft' | 'sent' | 'received' | 'analyzed' | 'approved';
+  quotationDeadline: string;
+}
+
+interface QuotationItem {
+  id: number;
+  itemCode: string;
+  description: string;
+  quantity: string;
+  unit: string;
+  deliveryDeadline?: string;
+}
+
+interface SupplierQuotation {
+  id: number;
+  supplier: {
+    name: string;
+  };
+  status: 'pending' | 'sent' | 'received' | 'expired';
+  receivedAt?: string;
+  totalValue?: string;
+}
+
 interface QuotationPhaseProps {
   request: any;
   onClose?: () => void;
@@ -24,25 +50,22 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
   const [showRFQAnalysis, setShowRFQAnalysis] = useState(false);
   const { user } = useAuth();
 
-  // Fetch existing quotation for this purchase request
-  const { data: quotation, isLoading } = useQuery({
+  const { data: quotation, isLoading } = useQuery<Quotation>({
     queryKey: [`/api/quotations/purchase-request/${request.id}`],
   });
 
-  // Fetch quotation items if quotation exists
-  const { data: quotationItems = [] } = useQuery({
-    queryKey: [`/api/quotations/${(quotation as any)?.id}/items`],
-    enabled: !!(quotation as any)?.id,
+  const { data: quotationItems = [] } = useQuery<QuotationItem[]>({
+    queryKey: [`/api/quotations/${quotation?.id}/items`],
+    enabled: !!quotation?.id,
   });
 
-  // Fetch supplier quotations if quotation exists
-  const { data: supplierQuotations = [] } = useQuery({
-    queryKey: [`/api/quotations/${(quotation as any)?.id}/supplier-quotations`],
-    enabled: !!(quotation as any)?.id,
+  const { data: supplierQuotations = [] } = useQuery<SupplierQuotation[]>({
+    queryKey: [`/api/quotations/${quotation?.id}/supplier-quotations`],
+    enabled: !!quotation?.id,
   });
 
   const hasQuotation = !!quotation;
-  const hasSupplierResponses = Array.isArray(supplierQuotations) && (supplierQuotations as any[]).some((sq: any) => sq.status === 'received');
+  const hasSupplierResponses = supplierQuotations.some(sq => sq.status === 'received');
 
   if (isLoading) {
     return (
@@ -140,132 +163,139 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <span className="text-sm font-medium text-gray-500">Status</span>
-                    <Badge variant="outline" className="ml-2">
+                    <p className="text-lg font-semibold">
                       {quotation.status === 'draft' && 'Rascunho'}
                       {quotation.status === 'sent' && 'Enviada'}
                       {quotation.status === 'received' && 'Recebida'}
                       {quotation.status === 'analyzed' && 'Analisada'}
                       {quotation.status === 'approved' && 'Aprovada'}
-                    </Badge>
+                    </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Prazo para Cotação</span>
+                    <span className="text-sm font-medium text-gray-500">Prazo para Resposta</span>
                     <p>{format(new Date(quotation.quotationDeadline), "dd/MM/yyyy", { locale: ptBR })}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Fornecedores Convidados</span>
+                    <span className="text-sm font-medium text-gray-500">Respostas Recebidas</span>
                     <p>{supplierQuotations.length}</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
 
-                <Separator className="my-4" />
-
+            {/* Items List */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Itens Solicitados
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="space-y-4">
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Itens da Cotação</span>
-                    <div className="mt-2 space-y-2">
-                      {quotationItems.map((item: any, index: number) => (
-                        <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <p className="font-medium">{item.itemCode} - {item.description}</p>
-                            <p className="text-sm text-gray-600">
-                              Qtd: {item.quantity} {item.unit}
-                              {item.deliveryDeadline && (
-                                <span className="ml-4">
-                                  Entrega: {format(new Date(item.deliveryDeadline), "dd/MM/yyyy", { locale: ptBR })}
-                                </span>
-                              )}
-                            </p>
-                          </div>
+                  {quotationItems.map((item, index) => (
+                    <div key={item.id} className="border rounded-lg p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Código</span>
+                          <p>{item.itemCode}</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Status dos Fornecedores</span>
-                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {supplierQuotations.map((sq: any) => (
-                        <div key={sq.id} className="p-3 border rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{sq.supplier?.name || 'Fornecedor'}</span>
-                            <Badge 
-                              variant={sq.status === 'received' ? 'default' : 'secondary'}
-                            >
-                              {sq.status === 'pending' && 'Pendente'}
-                              {sq.status === 'sent' && 'Enviado'}
-                              {sq.status === 'received' && 'Recebido'}
-                              {sq.status === 'expired' && 'Expirado'}
-                            </Badge>
-                          </div>
-                          {sq.receivedAt && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              Recebido em {format(new Date(sq.receivedAt), "dd/MM/yyyy", { locale: ptBR })}
-                            </p>
-                          )}
-                          {sq.totalValue && (
-                            <p className="text-sm font-medium text-green-600 mt-1">
-                              R$ {parseFloat(sq.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </p>
-                          )}
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Descrição</span>
+                          <p>{item.description}</p>
                         </div>
-                      ))}
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Quantidade</span>
+                          <p>{item.quantity} {item.unit}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Prazo de Entrega</span>
+                          <p>{item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "dd/MM/yyyy", { locale: ptBR }) : 'Não informado'}</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex gap-3">
-                  {hasSupplierResponses && (
-                    <Button 
-                      onClick={() => setShowRFQAnalysis(true)}
-                      variant="outline"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Analisar Cotações
-                    </Button>
-                  )}
-                  
-                  {quotation.status === 'draft' && user?.isBuyer && (
-                    <Button 
-                      onClick={() => setShowRFQCreation(true)}
-                      variant="outline"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Editar RFQ
-                    </Button>
-                  )}
+                  ))}
                 </div>
               </CardContent>
             </Card>
+
+            {/* Supplier Responses */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Respostas dos Fornecedores
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {supplierQuotations.map((sq) => (
+                    <div key={sq.id} className="border rounded-lg p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Fornecedor</span>
+                          <p>{sq.supplier.name}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Status</span>
+                          <p>
+                            {sq.status === 'pending' && 'Pendente'}
+                            {sq.status === 'sent' && 'Enviada'}
+                            {sq.status === 'received' && 'Recebida'}
+                            {sq.status === 'expired' && 'Expirada'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Recebido em</span>
+                          <p>{sq.receivedAt ? format(new Date(sq.receivedAt), "dd/MM/yyyy", { locale: ptBR }) : 'Não recebida'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Actions */}
+            {quotation.status === 'draft' && user?.isBuyer && (
+              <div className="flex justify-end">
+                <Button 
+                  onClick={() => setShowRFQCreation(true)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Editar RFQ
+                </Button>
+              </div>
+            )}
           </>
         )}
+
+        {/* Modals */}
+        {showRFQCreation && (
+          <RFQCreation
+            purchaseRequest={request}
+            onClose={() => setShowRFQCreation(false)}
+            onComplete={() => {
+              setShowRFQCreation(false);
+              // TODO: Refresh data
+            }}
+          />
+        )}
+
+        {showRFQAnalysis && (
+          <RFQAnalysis
+            quotation={quotation}
+            quotationItems={quotationItems}
+            supplierQuotations={supplierQuotations}
+            onClose={() => setShowRFQAnalysis(false)}
+            onComplete={() => {
+              setShowRFQAnalysis(false);
+              // TODO: Refresh data
+            }}
+          />
+        )}
       </div>
-
-      {/* Modals */}
-      {showRFQCreation && (
-        <RFQCreation 
-          purchaseRequest={request}
-          onClose={() => setShowRFQCreation(false)}
-          onComplete={() => {
-            setShowRFQCreation(false);
-            // Refetch data
-            window.location.reload();
-          }}
-        />
-      )}
-
-      {showRFQAnalysis && quotation && (
-        <RFQAnalysis 
-          quotation={quotation}
-          quotationItems={quotationItems}
-          supplierQuotations={supplierQuotations}
-          onClose={() => setShowRFQAnalysis(false)}
-          onComplete={() => {
-            setShowRFQAnalysis(false);
-            onClose?.();
-          }}
-        />
-      )}
     </div>
   );
 }
