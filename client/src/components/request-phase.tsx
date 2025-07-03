@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -34,9 +34,10 @@ type RequestFormData = z.infer<typeof requestSchema>;
 interface RequestPhaseProps {
   onClose?: () => void;
   className?: string;
+  request?: any;
 }
 
-export default function RequestPhase({ onClose, className }: RequestPhaseProps) {
+export default function RequestPhase({ onClose, className, request }: RequestPhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [requestItems, setRequestItems] = useState<EditableItem[]>([]);
@@ -47,20 +48,48 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
     queryKey: ["/api/cost-centers"],
   });
 
+  // Buscar itens existentes da solicitação se estiver editando
+  const { data: existingItems = [] } = useQuery<EditableItem[]>({
+    queryKey: ["/api/purchase-requests", request?.id, "items"],
+    enabled: !!request?.id,
+  });
+
   const form = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema),
     defaultValues: {
-      costCenterId: 0,
-      category: "",
-      urgency: "",
-      justification: "",
-      idealDeliveryDate: "",
-      availableBudget: "",
-      additionalInfo: "",
+      costCenterId: request?.costCenterId || 0,
+      category: request?.category || "",
+      urgency: request?.urgency || "",
+      justification: request?.justification || "",
+      idealDeliveryDate: request?.idealDeliveryDate ? new Date(request.idealDeliveryDate).toISOString().split('T')[0] : "",
+      availableBudget: request?.availableBudget?.toString() || "",
+      additionalInfo: request?.additionalInfo || "",
     },
   });
 
-  const createRequestMutation = useMutation({
+  // Carregar itens existentes quando disponíveis
+  useEffect(() => {
+    if (existingItems.length > 0) {
+      setRequestItems(existingItems);
+    }
+  }, [existingItems]);
+
+  // Atualizar formulário quando os dados da solicitação mudarem
+  useEffect(() => {
+    if (request) {
+      form.reset({
+        costCenterId: request.costCenterId || 0,
+        category: request.category || "",
+        urgency: request.urgency || "",
+        justification: request.justification || "",
+        idealDeliveryDate: request.idealDeliveryDate ? new Date(request.idealDeliveryDate).toISOString().split('T')[0] : "",
+        availableBudget: request.availableBudget?.toString() || "",
+        additionalInfo: request.additionalInfo || "",
+      });
+    }
+  }, [request, form]);
+
+  const saveRequestMutation = useMutation({
     mutationFn: async (data: RequestFormData) => {
       const requestData = {
         ...data,
@@ -79,17 +108,18 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
         })),
       };
       
-      // Create the request with items
-      const response = await apiRequest("POST", "/api/purchase-requests", requestData);
-      const createdRequest = response as any;
+      // Create or update the request with items
+      const url = request ? `/api/purchase-requests/${request.id}` : "/api/purchase-requests";
+      const method = request ? "PUT" : "POST";
+      const response = await apiRequest(method, url, requestData);
       
-      return createdRequest;
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       toast({
         title: "Sucesso",
-        description: "Solicitação criada com sucesso!",
+        description: request ? "Solicitação atualizada com sucesso!" : "Solicitação criada com sucesso!",
       });
       form.reset();
       setRequestItems([]);
@@ -115,7 +145,7 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
       });
       return;
     }
-    createRequestMutation.mutate(data);
+    saveRequestMutation.mutate(data);
   };
 
   const handleExcelImport = (items: ExcelItem[]) => {
@@ -142,9 +172,22 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
   return (
     <Card className={cn("w-full max-w-4xl", className)}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
-          Nova Solicitação de Compra
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            {request ? 'Editar Solicitação de Compra' : 'Nova Solicitação de Compra'}
+          </div>
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Fechar</span>
+            </Button>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -360,20 +403,20 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
                     type="button" 
                     variant="outline" 
                     onClick={onClose}
-                    disabled={createRequestMutation.isPending}
+                    disabled={saveRequestMutation.isPending}
                   >
                     Cancelar
                   </Button>
                 )}
                 <Button 
                   type="submit" 
-                  disabled={createRequestMutation.isPending || !isFormValid}
+                  disabled={saveRequestMutation.isPending || !isFormValid}
                   className="min-w-[140px]"
                 >
-                  {createRequestMutation.isPending || isUploading ? (
+                  {saveRequestMutation.isPending || isUploading ? (
                     "Processando..."
                   ) : (
-                    "Criar Solicitação"
+                    request ? "Salvar Alterações" : "Criar Solicitação"
                   )}
                 </Button>
               </div>

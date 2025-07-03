@@ -83,7 +83,7 @@ export default function RequestManagementPage() {
 
     switch (selectedPhase) {
       case PURCHASE_PHASES.SOLICITACAO:
-        return <RequestPhase onClose={handleCloseModal} />;
+        return <RequestPhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.APROVACAO_A1:
         return <ApprovalA1Phase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.COTACAO:

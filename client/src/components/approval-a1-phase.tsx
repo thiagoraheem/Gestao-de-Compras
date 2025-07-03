@@ -151,9 +151,20 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
             <CheckCircle className="h-5 w-5 text-blue-600" />
             Aprovação A1 - Solicitação #{request.requestNumber}
           </div>
-          <Badge variant={request.urgency === 'alto' ? 'destructive' : 'secondary'}>
-            {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS] || request.urgency}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={request.urgency === 'alto' ? 'destructive' : 'secondary'}>
+              {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS] || request.urgency}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0"
+            >
+              <XCircle className="h-4 w-4" />
+              <span className="sr-only">Fechar</span>
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
       

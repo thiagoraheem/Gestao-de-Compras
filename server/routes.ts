@@ -413,8 +413,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/purchase-requests/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const requestData = insertPurchaseRequestSchema.partial().parse(req.body);
-      const request = await storage.updatePurchaseRequest(id, requestData);
+      const { items, ...requestData } = req.body;
+      
+      // Validate request data
+      const validatedRequestData = insertPurchaseRequestSchema.partial().parse(requestData);
+      
+      // Update the purchase request
+      const request = await storage.updatePurchaseRequest(id, validatedRequestData);
+      
+      // Handle items if provided
+      if (items && Array.isArray(items)) {
+        // First, remove all existing items
+        const existingItems = await storage.getPurchaseRequestItems(id);
+        for (const item of existingItems) {
+          await storage.deletePurchaseRequestItem(item.id);
+        }
+        
+        // Then, add new items
+        const validatedItems = items.map(item => insertPurchaseRequestItemSchema.parse({
+          ...item,
+          purchaseRequestId: id,
+        }));
+        await storage.createPurchaseRequestItems(validatedItems);
+      }
+      
       res.json(request);
     } catch (error) {
       console.error("Error updating purchase request:", error);
