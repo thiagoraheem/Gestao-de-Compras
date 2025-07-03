@@ -7,6 +7,7 @@ import {
   suppliers,
   paymentMethods,
   purchaseRequests,
+  purchaseRequestItems,
   purchaseRequestSuppliers,
   attachments,
   quotations,
@@ -23,6 +24,8 @@ import {
   type InsertSupplier,
   type PurchaseRequest,
   type InsertPurchaseRequest,
+  type PurchaseRequestItem,
+  type InsertPurchaseRequestItem,
   type PaymentMethod,
   type InsertPaymentMethod,
   type Quotation,
@@ -85,6 +88,13 @@ export interface IStorage {
   updatePurchaseRequest(id: number, request: Partial<InsertPurchaseRequest>): Promise<PurchaseRequest>;
   getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequest[]>;
   getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]>;
+
+  // Purchase Request Items operations
+  getPurchaseRequestItems(purchaseRequestId: number): Promise<PurchaseRequestItem[]>;
+  createPurchaseRequestItem(item: InsertPurchaseRequestItem): Promise<PurchaseRequestItem>;
+  updatePurchaseRequestItem(id: number, item: Partial<InsertPurchaseRequestItem>): Promise<PurchaseRequestItem>;
+  deletePurchaseRequestItem(id: number): Promise<void>;
+  createPurchaseRequestItems(items: InsertPurchaseRequestItem[]): Promise<PurchaseRequestItem[]>;
 
   // RFQ (Quotation) operations
   getAllQuotations(): Promise<Quotation[]>;
@@ -320,6 +330,46 @@ export class DatabaseStorage implements IStorage {
       .from(purchaseRequests)
       .where(eq(purchaseRequests.requesterId, userId))
       .orderBy(desc(purchaseRequests.createdAt));
+  }
+
+  // Purchase Request Items operations
+  async getPurchaseRequestItems(purchaseRequestId: number): Promise<PurchaseRequestItem[]> {
+    return await db
+      .select()
+      .from(purchaseRequestItems)
+      .where(eq(purchaseRequestItems.purchaseRequestId, purchaseRequestId))
+      .orderBy(purchaseRequestItems.id);
+  }
+
+  async createPurchaseRequestItem(item: InsertPurchaseRequestItem): Promise<PurchaseRequestItem> {
+    const [newItem] = await db
+      .insert(purchaseRequestItems)
+      .values(item)
+      .returning();
+    return newItem;
+  }
+
+  async updatePurchaseRequestItem(id: number, item: Partial<InsertPurchaseRequestItem>): Promise<PurchaseRequestItem> {
+    const [updatedItem] = await db
+      .update(purchaseRequestItems)
+      .set({ ...item, updatedAt: new Date() })
+      .where(eq(purchaseRequestItems.id, id))
+      .returning();
+    return updatedItem;
+  }
+
+  async deletePurchaseRequestItem(id: number): Promise<void> {
+    await db.delete(purchaseRequestItems).where(eq(purchaseRequestItems.id, id));
+  }
+
+  async createPurchaseRequestItems(items: InsertPurchaseRequestItem[]): Promise<PurchaseRequestItem[]> {
+    if (items.length === 0) return [];
+    
+    const newItems = await db
+      .insert(purchaseRequestItems)
+      .values(items)
+      .returning();
+    return newItems;
   }
 
   // RFQ (Quotation) operations

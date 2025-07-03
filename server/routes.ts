@@ -7,6 +7,7 @@ import {
   insertCostCenterSchema, 
   insertSupplierSchema, 
   insertPurchaseRequestSchema,
+  insertPurchaseRequestItemSchema,
   insertQuotationSchema,
   insertQuotationItemSchema,
   insertSupplierQuotationSchema,
@@ -373,8 +374,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/purchase-requests", isAuthenticated, async (req, res) => {
     try {
-      const requestData = insertPurchaseRequestSchema.parse(req.body);
-      const request = await storage.createPurchaseRequest(requestData);
+      const { items, ...requestData } = req.body;
+      
+      // Validate request data
+      const validatedRequestData = insertPurchaseRequestSchema.parse(requestData);
+      
+      // Validate items if provided
+      let validatedItems = [];
+      if (items && Array.isArray(items)) {
+        validatedItems = items.map((item: any) => insertPurchaseRequestItemSchema.parse({
+          ...item,
+          stockQuantity: item.stockQuantity.toString(),
+          averageMonthlyQuantity: item.averageMonthlyQuantity.toString(),
+          requestedQuantity: item.requestedQuantity.toString(),
+          approvedQuantity: item.approvedQuantity?.toString(),
+        }));
+      }
+      
+      // Create the request
+      const request = await storage.createPurchaseRequest(validatedRequestData);
+      
+      // Create items if any
+      if (validatedItems.length > 0) {
+        const itemsWithRequestId = validatedItems.map(item => ({
+          ...item,
+          purchaseRequestId: request.id,
+        }));
+        await storage.createPurchaseRequestItems(itemsWithRequestId);
+      }
+      
       res.status(201).json(request);
     } catch (error) {
       console.error("Error creating purchase request:", error);
@@ -391,6 +419,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating purchase request:", error);
       res.status(400).json({ message: "Invalid purchase request data" });
+    }
+  });
+
+  // Purchase Request Items routes
+  app.get("/api/purchase-requests/:id/items", isAuthenticated, async (req, res) => {
+    try {
+      const purchaseRequestId = parseInt(req.params.id);
+      const items = await storage.getPurchaseRequestItems(purchaseRequestId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching purchase request items:", error);
+      res.status(500).json({ message: "Failed to fetch items" });
+    }
+  });
+
+  app.post("/api/purchase-requests/:id/items", isAuthenticated, async (req, res) => {
+    try {
+      const purchaseRequestId = parseInt(req.params.id);
+      const itemData = insertPurchaseRequestItemSchema.parse({
+        ...req.body,
+        purchaseRequestId,
+      });
+      const item = await storage.createPurchaseRequestItem(itemData);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating purchase request item:", error);
+      res.status(400).json({ message: "Invalid item data" });
+    }
+  });
+
+  app.put("/api/purchase-request-items/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const itemData = insertPurchaseRequestItemSchema.partial().parse(req.body);
+      const item = await storage.updatePurchaseRequestItem(id, itemData);
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating purchase request item:", error);
+      res.status(400).json({ message: "Invalid item data" });
+    }
+  });
+
+  app.delete("/api/purchase-request-items/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deletePurchaseRequestItem(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting purchase request item:", error);
+      res.status(500).json({ message: "Failed to delete item" });
     }
   });
 

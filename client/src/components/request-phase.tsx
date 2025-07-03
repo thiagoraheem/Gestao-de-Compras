@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { URGENCY_LEVELS, CATEGORY_OPTIONS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import { CloudUpload, FileText, X, Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ExcelImporter, { type ExcelItem } from './excel-importer';
+import EditableItemsTable, { type EditableItem } from './editable-items-table';
 
 const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
@@ -37,7 +39,7 @@ interface RequestPhaseProps {
 export default function RequestPhase({ onClose, className }: RequestPhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [requestItems, setRequestItems] = useState<EditableItem[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -66,26 +68,20 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
         costCenterId: Number(data.costCenterId),
         availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : undefined,
         idealDeliveryDate: data.idealDeliveryDate || undefined,
+        items: requestItems.map(item => ({
+          itemNumber: item.item,
+          description: item.description,
+          unit: item.unit,
+          stockQuantity: item.stockQuantity.toString(),
+          averageMonthlyQuantity: item.averageMonthlyQuantity.toString(),
+          requestedQuantity: item.requestedQuantity.toString(),
+          approvedQuantity: item.approvedQuantity?.toString(),
+        })),
       };
       
-      // Create the request first
+      // Create the request with items
       const response = await apiRequest("POST", "/api/purchase-requests", requestData);
       const createdRequest = response as any;
-      
-      // If there are files, upload them
-      if (uploadedFiles.length > 0 && createdRequest?.id) {
-        setIsUploading(true);
-        for (let i = 0; i < uploadedFiles.length; i++) {
-          const file = uploadedFiles[i];
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('attachmentType', 'requisition');
-          
-          await apiRequest("POST", `/api/purchase-requests/${createdRequest.id}/attachments`, formData);
-          setUploadProgress(((i + 1) / uploadedFiles.length) * 100);
-        }
-        setIsUploading(false);
-      }
       
       return createdRequest;
     },
@@ -96,7 +92,7 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
         description: "Solicitação criada com sucesso!",
       });
       form.reset();
-      setUploadedFiles([]);
+      setRequestItems([]);
       setUploadProgress(0);
       onClose?.();
     },
@@ -111,10 +107,10 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
   });
 
   const onSubmit = (data: RequestFormData) => {
-    if (uploadedFiles.length === 0) {
+    if (requestItems.length === 0) {
       toast({
-        title: "Arquivo obrigatório",
-        description: "É necessário fazer upload da planilha de requisição",
+        title: "Itens obrigatórios",
+        description: "É necessário adicionar pelo menos um item à solicitação",
         variant: "destructive",
       });
       return;
@@ -122,46 +118,26 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
     createRequestMutation.mutate(data);
   };
 
-  const handleFileUpload = (files: FileList | null) => {
-    if (!files) return;
+  const handleExcelImport = (items: ExcelItem[]) => {
+    const convertedItems: EditableItem[] = items.map((item, index) => ({
+      id: Date.now() + index, // Temporary ID
+      item: item.item,
+      description: item.description,
+      unit: item.unit,
+      stockQuantity: item.stockQuantity,
+      averageMonthlyQuantity: item.averageMonthlyQuantity,
+      requestedQuantity: item.requestedQuantity,
+      approvedQuantity: item.approvedQuantity,
+    }));
     
-    const validFiles = Array.from(files).filter(file => {
-      const validTypes = [
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'text/csv'
-      ];
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      
-      if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx?|csv)$/i)) {
-        toast({
-          title: "Tipo de arquivo inválido",
-          description: "Apenas arquivos XLS, XLSX e CSV são permitidos",
-          variant: "destructive",
-        });
-        return false;
-      }
-      
-      if (file.size > maxSize) {
-        toast({
-          title: "Arquivo muito grande",
-          description: "O arquivo deve ter no máximo 10MB",
-          variant: "destructive",
-        });
-        return false;
-      }
-      
-      return true;
+    setRequestItems(convertedItems);
+    toast({
+      title: "Sucesso",
+      description: `${items.length} itens importados com sucesso!`,
     });
-    
-    setUploadedFiles(prev => [...prev, ...validFiles]);
   };
 
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const isFormValid = form.formState.isValid && uploadedFiles.length > 0;
+  const isFormValid = form.formState.isValid && requestItems.length > 0;
 
   return (
     <Card className={cn("w-full max-w-4xl", className)}>
@@ -262,56 +238,18 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
                 )}
               />
 
-              {/* File Upload Section */}
-              <div className="space-y-2">
-                <FormLabel>Upload de Planilha (Requisição de Compra) *</FormLabel>
-                <div className="space-y-3">
-                  <div
-                    className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                    onClick={() => document.getElementById('file-upload')?.click()}
-                  >
-                    <CloudUpload className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Clique para fazer upload ou arraste os arquivos aqui</p>
-                      <p className="text-xs text-muted-foreground">XLS, XLSX, CSV até 10MB cada</p>
-                    </div>
-                  </div>
-                  
-                  <Input
-                    id="file-upload"
-                    type="file"
-                    multiple
-                    accept=".xlsx,.xls,.csv"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e.target.files)}
-                  />
-
-                  {/* File Preview */}
-                  {uploadedFiles.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium">Arquivos selecionados:</h4>
-                      {uploadedFiles.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-md">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{file.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {(file.size / 1024 / 1024).toFixed(2)} MB
-                            </Badge>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeFile(index)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {/* Items Management Section */}
+              <div className="space-y-4">
+                <FormLabel>Itens da Solicitação *</FormLabel>
+                
+                {/* Excel Importer */}
+                <ExcelImporter onImport={handleExcelImport} />
+                
+                {/* Items Table */}
+                <EditableItemsTable 
+                  items={requestItems} 
+                  onChange={setRequestItems}
+                />
               </div>
 
               <FormField
@@ -398,16 +336,7 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
               />
             </div>
 
-            {/* Upload Progress */}
-            {isUploading && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Fazendo upload dos arquivos...</span>
-                  <span className="text-sm text-muted-foreground">{Math.round(uploadProgress)}%</span>
-                </div>
-                <Progress value={uploadProgress} className="h-2" />
-              </div>
-            )}
+
 
             {/* Form Actions */}
             <div className="flex justify-between items-center pt-6 border-t">
@@ -431,14 +360,14 @@ export default function RequestPhase({ onClose, className }: RequestPhaseProps) 
                     type="button" 
                     variant="outline" 
                     onClick={onClose}
-                    disabled={createRequestMutation.isPending || isUploading}
+                    disabled={createRequestMutation.isPending}
                   >
                     Cancelar
                   </Button>
                 )}
                 <Button 
                   type="submit" 
-                  disabled={createRequestMutation.isPending || isUploading || !isFormValid}
+                  disabled={createRequestMutation.isPending || !isFormValid}
                   className="min-w-[140px]"
                 >
                   {createRequestMutation.isPending || isUploading ? (

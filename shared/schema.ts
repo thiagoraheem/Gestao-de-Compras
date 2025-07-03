@@ -126,6 +126,21 @@ export const purchaseRequests = pgTable("purchase_requests", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Purchase Request Items table
+export const purchaseRequestItems = pgTable("purchase_request_items", {
+  id: serial("id").primaryKey(),
+  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
+  itemNumber: text("item_number").notNull(),
+  description: text("description").notNull(),
+  unit: text("unit").notNull(),
+  stockQuantity: decimal("stock_quantity", { precision: 10, scale: 2 }).notNull(),
+  averageMonthlyQuantity: decimal("average_monthly_quantity", { precision: 10, scale: 2 }).notNull(),
+  requestedQuantity: decimal("requested_quantity", { precision: 10, scale: 2 }).notNull(),
+  approvedQuantity: decimal("approved_quantity", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Purchase Request Suppliers (for quotation phase)
 export const purchaseRequestSuppliers = pgTable("purchase_request_suppliers", {
   id: serial("id").primaryKey(),
@@ -362,6 +377,7 @@ export const purchaseRequestsRelations = relations(purchaseRequests, ({ one, man
   }),
   suppliers: many(purchaseRequestSuppliers),
   attachments: many(attachments),
+  items: many(purchaseRequestItems),
 }));
 
 export const purchaseRequestSuppliersRelations = relations(purchaseRequestSuppliers, ({ one }) => ({
@@ -372,6 +388,13 @@ export const purchaseRequestSuppliersRelations = relations(purchaseRequestSuppli
   supplier: one(suppliers, {
     fields: [purchaseRequestSuppliers.supplierId],
     references: [suppliers.id],
+  }),
+}));
+
+export const purchaseRequestItemsRelations = relations(purchaseRequestItems, ({ one }) => ({
+  purchaseRequest: one(purchaseRequests, {
+    fields: [purchaseRequestItems.purchaseRequestId],
+    references: [purchaseRequests.id],
   }),
 }));
 
@@ -529,6 +552,12 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
   deliveryDate: z.string().optional().transform((val) => val ? new Date(val) : null),
 });
 
+export const insertPurchaseRequestItemSchema = createInsertSchema(purchaseRequestItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({
   id: true,
 });
@@ -620,6 +649,8 @@ export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
 export type Attachment = typeof attachments.$inferSelect;
 export type PurchaseRequestSupplier = typeof purchaseRequestSuppliers.$inferSelect;
+export type PurchaseRequestItem = typeof purchaseRequestItems.$inferSelect;
+export type InsertPurchaseRequestItem = z.infer<typeof insertPurchaseRequestItemSchema>;
 
 // RFQ Types
 export type Quotation = typeof quotations.$inferSelect;

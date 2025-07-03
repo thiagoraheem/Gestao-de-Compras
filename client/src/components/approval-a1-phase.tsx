@@ -31,6 +31,7 @@ import {
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import ItemsViewer from './items-viewer';
 
 const approvalSchema = z.object({
   approved: z.boolean(),
@@ -68,6 +69,10 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
 
   const { data: approvalHistory } = useQuery<any[]>({
     queryKey: ["/api/purchase-requests", request.id, "approval-history"],
+  });
+
+  const { data: requestItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/purchase-requests", request.id, "items"],
   });
 
   const form = useForm<ApprovalFormData>({
@@ -254,6 +259,13 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
             </CardContent>
           </Card>
         </div>
+
+        {/* Request Items */}
+        <ItemsViewer 
+          items={requestItems} 
+          requestId={request.id} 
+          requestNumber={request.requestNumber} 
+        />
 
         {/* Attachments */}
         {attachments && attachments.length > 0 && (
