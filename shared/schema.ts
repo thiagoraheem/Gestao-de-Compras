@@ -550,7 +550,7 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
 }).extend({
   idealDeliveryDate: z.string().optional().transform((val) => val ? new Date(val) : null),
   deliveryDate: z.string().optional().transform((val) => val ? new Date(val) : null),
-  availableBudget: z.string().optional().transform((val) => val || null),
+  availableBudget: z.union([z.string(), z.number()]).optional().transform((val) => val?.toString() || null),
   totalValue: z.string().optional().transform((val) => val || null),
   negotiatedValue: z.string().optional().transform((val) => val || null),
   discountsObtained: z.string().optional().transform((val) => val || null),

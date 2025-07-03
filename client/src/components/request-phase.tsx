@@ -100,13 +100,13 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
         availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : undefined,
         idealDeliveryDate: data.idealDeliveryDate || undefined,
         items: requestItems.map(item => ({
-          itemNumber: item.item || '',
+          itemNumber: item.description || '',
           description: item.description || '',
           unit: item.unit || '',
-          stockQuantity: (item.stockQuantity ?? 0).toString(),
-          averageMonthlyQuantity: (item.averageMonthlyQuantity ?? 0).toString(),
+          stockQuantity: "0",
+          averageMonthlyQuantity: "0",
           requestedQuantity: (item.requestedQuantity ?? 0).toString(),
-          approvedQuantity: item.approvedQuantity ? item.approvedQuantity.toString() : undefined,
+          approvedQuantity: undefined,
         })),
       };
       

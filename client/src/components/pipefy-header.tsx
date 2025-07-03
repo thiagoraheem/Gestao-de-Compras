@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { ShoppingCart, Users, Building, Settings, LogOut, User } from "lucide-react";
+import { ShoppingCart, Users, Building, Settings, LogOut, User, FileText } from "lucide-react";
 
 export default function PipefyHeader() {
   const [location] = useLocation();
@@ -18,6 +18,7 @@ export default function PipefyHeader() {
 
   const navigation = [
     { name: "Kanban", href: "/", icon: ShoppingCart },
+    { name: "Gerenciar Solicitações", href: "/requests", icon: FileText },
     { name: "Fornecedores", href: "/suppliers", icon: Building },
     { name: "Usuários", href: "/users", icon: Users },
     { name: "Departamentos", href: "/departments", icon: Building },
