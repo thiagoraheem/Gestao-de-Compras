@@ -2,15 +2,23 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { ShoppingCart, Users, Building, Settings, LogOut, User, FileText } from "lucide-react";
+import {
+  ShoppingCart,
+  Users,
+  Building,
+  Settings,
+  LogOut,
+  User,
+  FileText,
+} from "lucide-react";
 
 export default function PipefyHeader() {
   const [location] = useLocation();
@@ -18,7 +26,11 @@ export default function PipefyHeader() {
 
   const navigation = [
     { name: "Kanban", href: "/", icon: ShoppingCart },
-    { name: "Gerenciar Solicitações", href: "/requests", icon: FileText },
+    {
+      name: "Gerenciar Solicitações",
+      href: "/request-management",
+      icon: FileText,
+    },
     { name: "Fornecedores", href: "/suppliers", icon: Building },
     { name: "Usuários", href: "/users", icon: Users },
     { name: "Departamentos", href: "/departments", icon: Building },
@@ -38,7 +50,9 @@ export default function PipefyHeader() {
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <ShoppingCart className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-semibold text-gray-900">Compras</span>
+              <span className="text-xl font-semibold text-gray-900">
+                Compras
+              </span>
             </div>
           </Link>
 
@@ -49,12 +63,14 @@ export default function PipefyHeader() {
               const isActive = location === item.href;
               return (
                 <Link key={item.name} href={item.href}>
-                  <div className={cn(
-                    "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                    isActive 
-                      ? "bg-blue-50 text-blue-700" 
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  )}>
+                  <div
+                    className={cn(
+                      "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                    )}
+                  >
                     <Icon className="w-4 h-4" />
                     <span>{item.name}</span>
                   </div>
@@ -71,7 +87,7 @@ export default function PipefyHeader() {
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                 <Avatar className="h-9 w-9">
                   <AvatarFallback className="bg-blue-600 text-white">
-                    {user?.firstName?.[0] || user?.username?.[0] || 'U'}
+                    {user?.firstName?.[0] || user?.username?.[0] || "U"}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -79,7 +95,9 @@ export default function PipefyHeader() {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <div className="flex items-center justify-start gap-2 p-2">
                 <div className="flex flex-col space-y-1 leading-none">
-                  <p className="font-medium">{user?.firstName} {user?.lastName}</p>
+                  <p className="font-medium">
+                    {user?.firstName} {user?.lastName}
+                  </p>
                   <p className="w-[200px] truncate text-sm text-muted-foreground">
                     {user?.email}
                   </p>
