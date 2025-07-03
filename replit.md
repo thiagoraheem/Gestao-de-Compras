@@ -110,6 +110,14 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 3, 2025. Migração bem-sucedida para Replit e refatoração do layout:
+  - Novo layout estilo Pipefy com header fixo e navegação horizontal
+  - Kanban full-width sem sidebars, otimizado para visualização das fases
+  - Botão flutuante "Nova Solicitação" no canto inferior esquerdo
+  - Modal de criação aprimorado com opção de cadastro manual OU upload de planilha
+  - Correção de bugs na validação de campos decimais (availableBudget, etc.)
+  - Melhoria na edição de itens com correção de problemas de persistência
+  - Sistema de validação flexível: itens manuais OU planilha (não ambos obrigatórios)
 - July 1, 2025. Implemented comprehensive Kanban phases system including:
   - Request Phase: Complete form with file upload, validation, and visual feedback
   - Approval A1 Phase: Role-based approval with detailed request review and justification

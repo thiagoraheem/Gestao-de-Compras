@@ -95,13 +95,14 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
     mutationFn: async (data: EditFormData) => {
       const updateData = {
         ...data,
-        availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : undefined,
-        totalValue: data.totalValue ? parseFloat(data.totalValue) : undefined,
-        negotiatedValue: data.negotiatedValue ? parseFloat(data.negotiatedValue) : undefined,
-        discountsObtained: data.discountsObtained ? parseFloat(data.discountsObtained) : undefined,
-        paymentMethodId: data.paymentMethodId ? parseInt(data.paymentMethodId) : undefined,
-        chosenSupplierId: data.chosenSupplierId ? parseInt(data.chosenSupplierId) : undefined,
-        receivedById: data.receivedById ? parseInt(data.receivedById) : undefined,
+        // Manter como strings para o schema
+        availableBudget: data.availableBudget || undefined,
+        totalValue: data.totalValue || undefined,
+        negotiatedValue: data.negotiatedValue || undefined,
+        discountsObtained: data.discountsObtained || undefined,
+        paymentMethodId: data.paymentMethodId || undefined,
+        chosenSupplierId: data.chosenSupplierId || undefined,
+        receivedById: data.receivedById || undefined,
         idealDeliveryDate: data.idealDeliveryDate || undefined,
         deliveryDate: data.deliveryDate || undefined,
       };

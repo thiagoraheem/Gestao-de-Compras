@@ -104,7 +104,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
           stockQuantity: (item.stockQuantity ?? 0).toString(),
           averageMonthlyQuantity: (item.averageMonthlyQuantity ?? 0).toString(),
           requestedQuantity: (item.requestedQuantity ?? 0).toString(),
-          approvedQuantity: item.approvedQuantity ? item.approvedQuantity.toString() : null,
+          approvedQuantity: item.approvedQuantity ? item.approvedQuantity.toString() : undefined,
         })),
       };
       
