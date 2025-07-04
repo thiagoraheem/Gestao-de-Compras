@@ -116,7 +116,7 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
   });
 
   const createRFQMutation = useMutation({
-    mutationFn: async (data: RFQCreationData) => {
+    mutationFn: async (data: RFQCreationData & { sendEmail?: boolean }) => {
       // Create quotation
       const quotationResponse = await fetch("/api/quotations", {
         method: "POST",
@@ -130,20 +130,28 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
         }),
       });
 
+      if (!quotationResponse.ok) {
+        throw new Error('Erro ao criar cotação');
+      }
+
       const quotation = await quotationResponse.json();
 
       // Create quotation items
       for (const item of data.items) {
-        await fetch(`/api/quotations/${quotation.id}/items`, {
+        const itemResponse = await fetch(`/api/quotations/${quotation.id}/items`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(item),
         });
+        
+        if (!itemResponse.ok) {
+          throw new Error('Erro ao criar item da cotação');
+        }
       }
 
       // Create supplier quotations
       for (const supplierId of data.selectedSuppliers) {
-        await fetch(`/api/quotations/${quotation.id}/supplier-quotations`, {
+        const supplierResponse = await fetch(`/api/quotations/${quotation.id}/supplier-quotations`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -151,6 +159,30 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
             status: "pending",
           }),
         });
+        
+        if (!supplierResponse.ok) {
+          throw new Error('Erro ao associar fornecedor à cotação');
+        }
+      }
+
+      // Send RFQ to suppliers if requested
+      if (data.sendEmail !== false) {
+        const sendRFQResponse = await fetch(`/api/quotations/${quotation.id}/send-rfq`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sendEmail: true
+          }),
+        });
+
+        if (!sendRFQResponse.ok) {
+          console.warn('Erro ao enviar e-mails, mas cotação foi criada com sucesso');
+        } else {
+          const emailResult = await sendRFQResponse.json();
+          if (emailResult.emailResult?.errors?.length > 0) {
+            console.warn('Alguns e-mails não foram enviados:', emailResult.emailResult.errors);
+          }
+        }
       }
 
       return quotation;
@@ -158,7 +190,7 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
     onSuccess: () => {
       toast({
         title: "RFQ criada com sucesso",
-        description: "A solicitação de cotação foi enviada aos fornecedores selecionados.",
+        description: "A solicitação de cotação foi criada e os e-mails foram enviados aos fornecedores selecionados.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
@@ -167,7 +199,7 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
     onError: (error) => {
       toast({
         title: "Erro ao criar RFQ",
-        description: "Ocorreu um erro ao criar a solicitação de cotação.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao criar a solicitação de cotação.",
         variant: "destructive",
       });
       console.error("Error creating RFQ:", error);

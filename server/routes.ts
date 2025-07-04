@@ -824,6 +824,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send RFQ to suppliers
+  app.post("/api/quotations/:id/send-rfq", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.id);
+      const { sendEmail = true } = req.body;
+      
+      // Get quotation details
+      const quotation = await storage.getQuotationById(quotationId);
+      if (!quotation) {
+        return res.status(404).json({ message: "Quotation not found" });
+      }
+
+      // Get purchase request
+      const purchaseRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+      if (!purchaseRequest) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // Get quotation items
+      const quotationItems = await storage.getQuotationItems(quotationId);
+      
+      // Get supplier quotations to know which suppliers to send to
+      const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+      const supplierIds = supplierQuotations.map(sq => sq.supplierId);
+      
+      // Get suppliers data
+      const allSuppliers = await storage.getAllSuppliers();
+      const selectedSuppliers = allSuppliers.filter(s => supplierIds.includes(s.id));
+
+      if (sendEmail && selectedSuppliers.length > 0) {
+        // Import email service
+        const { sendRFQToSuppliers } = await import('./email-service');
+        
+        // Prepare email data
+        const rfqData = {
+          quotationNumber: quotation.quotationNumber,
+          requestNumber: purchaseRequest.requestNumber,
+          quotationDeadline: quotation.quotationDeadline ? quotation.quotationDeadline.toISOString() : '',
+          items: quotationItems.map(item => ({
+            itemCode: item.itemCode,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            specifications: item.specifications || ''
+          })),
+          termsAndConditions: quotation.termsAndConditions || '',
+          technicalSpecs: quotation.technicalSpecs || ''
+        };
+
+        // Send emails
+        const emailResult = await sendRFQToSuppliers(selectedSuppliers, rfqData);
+        
+        // Update quotation status to 'sent'
+        await storage.updateQuotation(quotationId, { 
+          status: 'sent'
+        });
+
+        // Update supplier quotations status
+        for (const sq of supplierQuotations) {
+          await storage.updateSupplierQuotation(sq.id, { 
+            status: 'sent',
+            sentAt: new Date()
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: `RFQ enviada para ${selectedSuppliers.length} fornecedor(es)`,
+          emailResult: {
+            sent: emailResult.success,
+            errors: emailResult.errors
+          }
+        });
+      } else {
+        // Just update status without sending emails
+        await storage.updateQuotation(quotationId, { 
+          status: 'sent'
+        });
+
+        return res.json({
+          success: true,
+          message: "Status da cotação atualizado (sem envio de e-mail)",
+        });
+      }
+    } catch (error) {
+      console.error("Error sending RFQ:", error);
+      res.status(500).json({ 
+        message: "Erro ao enviar RFQ",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   app.put("/api/quotations/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
