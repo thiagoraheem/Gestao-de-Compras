@@ -8,8 +8,6 @@ import {
   paymentMethods,
   purchaseRequests,
   purchaseRequestItems,
-  purchaseRequestSuppliers,
-  attachments,
   quotations,
   quotationItems,
   supplierQuotations,
@@ -38,7 +36,7 @@ import {
   type InsertSupplierQuotationItem,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, desc, like } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -386,11 +384,10 @@ export class DatabaseStorage implements IStorage {
   async createPurchaseRequestItems(items: InsertPurchaseRequestItem[]): Promise<PurchaseRequestItem[]> {
     if (items.length === 0) return [];
     
-    const newItems = await db
+    return await db
       .insert(purchaseRequestItems)
       .values(items)
       .returning();
-    return newItems;
   }
 
   // RFQ (Quotation) operations

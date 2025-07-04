@@ -15,6 +15,16 @@ import { useState } from "react";
 import RequestPhase from "./request-phase";
 import ApprovalA1Phase from "./approval-a1-phase";
 import QuotationPhase from "./quotation-phase";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PurchaseCardProps {
   request: any;
@@ -26,6 +36,8 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
 
   const handleCardClick = () => {
     setIsEditModalOpen(true);
@@ -100,7 +112,8 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
 
   const archiveDirectMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", `/api/purchase-requests/${request.id}/archive-direct`);
+      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/archive-direct`);
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
@@ -189,7 +202,7 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
               {request.urgency && (
                 <Badge variant={request.urgency === "alto" ? "destructive" : "secondary"}>
                   {getUrgencyIcon(request.urgency)}
-                  {URGENCY_LABELS[request.urgency]}
+                  {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
                 </Badge>
               )}
             </div>
@@ -200,7 +213,7 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
                   size="icon"
                   onClick={(e) => {
                     e.stopPropagation();
-                    deleteMutation.mutate();
+                    setShowDeleteDialog(true);
                   }}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -211,7 +224,7 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
                 size="icon"
                 onClick={(e) => {
                   e.stopPropagation();
-                  archiveDirectMutation.mutate();
+                  setShowArchiveDialog(true);
                 }}
               >
                 <Archive className="h-4 w-4" />
@@ -382,6 +395,47 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
           </div>
         </div>
       )}
+
+      {/* Diálogo de confirmação para excluir */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Requisição</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta requisição? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteMutation.mutate()}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo de confirmação para arquivar */}
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Arquivar Requisição</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja arquivar esta requisição?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => archiveDirectMutation.mutate()}
+            >
+              Arquivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

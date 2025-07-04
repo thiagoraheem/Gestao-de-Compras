@@ -529,11 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { approved, rejectionReason, approverId } = req.body;
-      
-      // Debug: Log dos dados recebidos
-      console.log('Dados recebidos:', { id, approved, rejectionReason, approverId });
 
-      // Verificar se a fase atual é válida
       const request = await storage.getPurchaseRequestById(id);
       console.log('Solicitação atual:', request);
 
@@ -541,31 +537,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Request must be in the A1 approval phase" });
       }
 
-      // Garantindo que todos os campos sejam atualizados em uma única operação
       const updateData = {
         approverA1Id: approverId,
         approvedA1: approved,
         approvalDateA1: new Date(),
-        currentPhase: approved ? "cotacao" : "arquivado",
+        currentPhase: approved ? "cotacao" : "arquivado" as const,
         rejectionReasonA1: approved ? null : (rejectionReason || "Solicitação reprovada"),
-        updatedAt: new Date() // Garantir que o timestamp seja atualizado
+        updatedAt: new Date()
       };
 
-      // Debug: Log dos dados de atualização
-      console.log('Dados para atualização:', updateData);
-
-      // Atualizando a solicitação
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
-
-      // Debug: Log da solicitação atualizada
-      console.log('Solicitação após atualização:', updatedRequest);
-
       res.json(updatedRequest);
     } catch (error) {
-      // Debug: Log detalhado do erro
-      console.error("Error approving A1:", error);
-      console.error("Stack trace:", error.stack);
-      res.status(400).json({ message: "Failed to process approval", error: error.message });
+      if (error instanceof Error) {
+        console.error("Error approving A1:", error);
+        console.error("Stack trace:", error.stack);
+        res.status(400).json({ message: "Failed to process approval", error: error.message });
+      } else {
+        res.status(400).json({ message: "Failed to process approval" });
+      }
     }
   });
 
@@ -578,7 +568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         buyerId,
         totalValue,
         paymentMethodId,
-        currentPhase: "aprovacao_a2",
+        currentPhase: "aprovacao_a2" as const,
       };
       
       const request = await storage.updatePurchaseRequest(id, updates);
@@ -601,7 +591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         negotiatedValue,
         discountsObtained,
         deliveryDate: new Date(deliveryDate),
-        currentPhase: "pedido_compra",
+        currentPhase: "pedido_compra" as const,
       };
       
       const request = await storage.updatePurchaseRequest(id, updates);
@@ -620,7 +610,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = {
         purchaseDate: new Date(),
         purchaseObservations,
-        currentPhase: "conclusao_compra",
+        currentPhase: "conclusao_compra" as const,
       };
       
       const request = await storage.updatePurchaseRequest(id, updates);
@@ -639,7 +629,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = {
         receivedById,
         receivedDate: new Date(),
-        currentPhase: "recebimento",
+        currentPhase: "recebimento" as const,
       };
       
       const request = await storage.updatePurchaseRequest(id, updates);
@@ -655,7 +645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       
       const updates = {
-        currentPhase: "arquivado",
+        currentPhase: "arquivado" as const,
       };
       
       const request = await storage.updatePurchaseRequest(id, updates);
@@ -673,7 +663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { newPhase } = req.body;
 
       // Verificar se a fase é válida
-      const validPhases = ['solicitacao', 'aprovacao_a1', 'cotacao', 'aprovacao_a2', 'pedido_compra', 'recebimento', 'arquivado'];
+      const validPhases = ["solicitacao", "aprovacao_a1", "cotacao", "aprovacao_a2", "pedido_compra", "recebimento", "arquivado"] as const;
       if (!validPhases.includes(newPhase)) {
         return res.status(400).json({ message: "Invalid phase" });
       }
