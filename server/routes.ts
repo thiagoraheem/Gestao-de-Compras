@@ -403,12 +403,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedRequestData = insertPurchaseRequestSchema.parse(requestData);
       
       // Validate items if provided
-      let validatedItems = [];
+      let validatedItems: typeof insertPurchaseRequestItemSchema._type[] = [];
       if (items && Array.isArray(items)) {
         validatedItems = items.map((item: any) => insertPurchaseRequestItemSchema.parse({
           ...item,
-          purchaseRequestId: 0, // Será substituído depois com o ID correto
-          // Garantir que os valores são passados corretamente
+          purchaseRequestId: 0,
           itemNumber: item.itemNumber || '',
           description: item.description || '',
           unit: item.unit || '',
@@ -541,10 +540,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approverA1Id: approverId,
         approvedA1: approved,
         approvalDateA1: new Date(),
-        currentPhase: approved ? "cotacao" : "arquivado" as const,
+        currentPhase: approved ? "cotacao" : "arquivado",
         rejectionReasonA1: approved ? null : (rejectionReason || "Solicitação reprovada"),
         updatedAt: new Date()
-      };
+      } as const;
 
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
       res.json(updatedRequest);
@@ -610,9 +609,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = {
         purchaseDate: new Date(),
         purchaseObservations,
-        currentPhase: "conclusao_compra" as const,
-      };
-      
+        currentPhase: "pedido_compra"
+      } as const;
+
       const request = await storage.updatePurchaseRequest(id, updates);
       res.json(request);
     } catch (error) {

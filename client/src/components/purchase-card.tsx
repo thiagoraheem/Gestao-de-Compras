@@ -62,7 +62,7 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
       });
       return response;
     },
-    onSuccess: (response) => {
+    onSuccess: (response: any) => {
       // Atualiza os dados em cache
       queryClient.setQueryData(["/api/purchase-requests"], (oldData: any[]) => {
         if (!Array.isArray(oldData)) return oldData;
@@ -105,6 +105,27 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
       toast({
         title: "Erro",
         description: "Não foi possível excluir a requisição",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/archive`);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Requisição arquivada com sucesso",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível arquivar a requisição",
         variant: "destructive",
       });
     },
