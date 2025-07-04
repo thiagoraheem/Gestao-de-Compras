@@ -85,23 +85,35 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
 
   const approvalMutation = useMutation({
     mutationFn: async (data: ApprovalFormData) => {
-      await apiRequest("POST", `/api/purchase-requests/${request.id}/approve-a1`, {
+      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/approve-a1`, {
         approved: data.approved,
         rejectionReason: data.rejectionReason || null,
         approverId: user?.id || 1,
       });
+      return response;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (response, variables) => {
+      // Atualiza os dados em cache
+      queryClient.setQueryData(["/api/purchase-requests"], (oldData: any[]) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map(item =>
+          item.id === request.id ? response : item
+        );
+      });
+
+      // Invalida a query para garantir dados frescos
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+
       toast({
         title: "Sucesso",
         description: variables.approved 
           ? "Solicitação aprovada com sucesso!" 
-          : "Solicitação reprovada com justificativa registrada",
+          : "Solicitação reprovada e movida para Arquivado",
       });
-      form.reset();
-      setSelectedAction(null);
-      onClose?.();
+
+      if (onClose) {
+        onClose();
+      }
     },
     onError: (error: any) => {
       toast({

@@ -16,6 +16,9 @@ export default function KanbanColumn({ phase, title, requests }: KanbanColumnPro
     id: phase,
   });
   
+  // Criar IDs consistentes para os itens
+  const itemIds = requests.map((req) => `request-${req.id}`);
+
   return (
     <div className="flex-shrink-0 w-80">
       <div className="bg-white rounded-lg shadow-md h-full flex flex-col">
@@ -40,12 +43,12 @@ export default function KanbanColumn({ phase, title, requests }: KanbanColumnPro
           }`}
         >
           <SortableContext 
-            items={requests.map((req) => req.id.toString())} 
+            items={itemIds}
             strategy={verticalListSortingStrategy}
           >
             {requests.map((request) => (
               <PurchaseCard 
-                key={request.id} 
+                key={`request-${request.id}`}
                 request={request}
                 phase={phase}
               />

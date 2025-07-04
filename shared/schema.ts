@@ -133,8 +133,8 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   itemNumber: text("item_number").notNull(),
   description: text("description").notNull(),
   unit: text("unit").notNull(),
-  stockQuantity: decimal("stock_quantity", { precision: 10, scale: 2 }).notNull(),
-  averageMonthlyQuantity: decimal("average_monthly_quantity", { precision: 10, scale: 2 }).notNull(),
+  stockQuantity: decimal("stock_quantity", { precision: 10, scale: 2 }),
+  averageMonthlyQuantity: decimal("average_monthly_quantity", { precision: 10, scale: 2 }),
   requestedQuantity: decimal("requested_quantity", { precision: 10, scale: 2 }).notNull(),
   approvedQuantity: decimal("approved_quantity", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
@@ -554,6 +554,15 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
   totalValue: z.string().optional().transform((val) => val || null),
   negotiatedValue: z.string().optional().transform((val) => val || null),
   discountsObtained: z.string().optional().transform((val) => val || null),
+  currentPhase: z.enum([
+    'solicitacao',
+    'aprovacao_a1',
+    'cotacao',
+    'aprovacao_a2',
+    'pedido_compra',
+    'recebimento',
+    'arquivado'
+  ]).optional(),
 });
 
 export const insertPurchaseRequestItemSchema = createInsertSchema(purchaseRequestItems).omit({
@@ -561,10 +570,10 @@ export const insertPurchaseRequestItemSchema = createInsertSchema(purchaseReques
   createdAt: true,
   updatedAt: true,
 }).extend({
-  stockQuantity: z.string().transform((val) => val),
-  averageMonthlyQuantity: z.string().transform((val) => val),
-  requestedQuantity: z.string().transform((val) => val),
-  approvedQuantity: z.string().optional().transform((val) => val || null),
+  stockQuantity: z.union([z.string(), z.number(), z.undefined()]).optional().transform((val) => val?.toString() || "0"),
+  averageMonthlyQuantity: z.union([z.string(), z.number(), z.undefined()]).optional().transform((val) => val?.toString() || "0"),
+  requestedQuantity: z.union([z.string(), z.number()]).transform((val) => val.toString()),
+  approvedQuantity: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => val?.toString() || null),
 });
 
 export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({

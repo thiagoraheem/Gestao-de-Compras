@@ -38,20 +38,35 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
     transform,
     transition,
     isDragging: sortableIsDragging,
-  } = useSortable({ id: request.id.toString() });
+  } = useSortable({
+    id: `request-${request.id}`
+  });
 
   const approveA1Mutation = useMutation({
     mutationFn: async (data: { approved: boolean; rejectionReason?: string }) => {
-      await apiRequest("POST", `/api/purchase-requests/${request.id}/approve-a1`, {
+      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/approve-a1`, {
         ...data,
         approverId: 1, // TODO: Get from auth context
       });
+      return response;
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      // Atualiza os dados em cache
+      queryClient.setQueryData(["/api/purchase-requests"], (oldData: any[]) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map(item =>
+          item.id === request.id ? response : item
+        );
+      });
+
+      // Invalida a query para garantir dados frescos
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+
       toast({
         title: "Sucesso",
-        description: "Aprovação processada com sucesso",
+        description: response.approvedA1
+          ? "Solicitação aprovada com sucesso!"
+          : "Solicitação reprovada e movida para Arquivado",
       });
     },
     onError: () => {
@@ -232,7 +247,7 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
                   e.stopPropagation();
                   approveA1Mutation.mutate({ 
                     approved: false, 
-                    rejectionReason: "Necessita mais informações" 
+                    rejectionReason: "Reprovado via ação rápida"
                   });
                 }}
                 disabled={approveA1Mutation.isPending}

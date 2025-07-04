@@ -347,6 +347,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/purchase-requests", isAuthenticated, async (req, res) => {
+    try {
+      const requestData = insertPurchaseRequestSchema.parse(req.body);
+      const purchaseRequest = await storage.createPurchaseRequest(requestData);
+
+      // Adicionar itens da solicitação
+      if (req.body.items && Array.isArray(req.body.items)) {
+        for (const item of req.body.items) {
+          const itemData = insertPurchaseRequestItemSchema.parse({
+            ...item,
+            purchaseRequestId: purchaseRequest.id
+          });
+          await storage.createPurchaseRequestItem(itemData);
+        }
+      }
+
+      res.status(201).json(purchaseRequest);
+    } catch (error) {
+      console.error("Error creating purchase request:", error);
+      res.status(400).json({ message: "Invalid purchase request data" });
+    }
+  });
+
   app.get("/api/purchase-requests/phase/:phase", isAuthenticated, async (req, res) => {
     try {
       const phase = req.params.phase;
@@ -384,10 +407,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (items && Array.isArray(items)) {
         validatedItems = items.map((item: any) => insertPurchaseRequestItemSchema.parse({
           ...item,
-          stockQuantity: item.stockQuantity.toString(),
-          averageMonthlyQuantity: item.averageMonthlyQuantity.toString(),
-          requestedQuantity: item.requestedQuantity.toString(),
-          approvedQuantity: item.approvedQuantity?.toString(),
+          purchaseRequestId: 0, // Será substituído depois com o ID correto
+          // Garantir que os valores são passados corretamente
+          itemNumber: item.itemNumber || '',
+          description: item.description || '',
+          unit: item.unit || '',
+          requestedQuantity: item.requestedQuantity || 0,
+          approvedQuantity: undefined
         }));
       }
       
@@ -400,7 +426,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...item,
           purchaseRequestId: request.id,
         }));
-        await storage.createPurchaseRequestItems(itemsWithRequestId);
+
+        // Criar itens individualmente para evitar problemas de validação
+        for (const item of itemsWithRequestId) {
+          await storage.createPurchaseRequestItem(item);
+        }
       }
       
       res.status(201).json(request);
@@ -500,23 +530,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const { approved, rejectionReason, approverId } = req.body;
       
-      const updates: any = {
+      // Debug: Log dos dados recebidos
+      console.log('Dados recebidos:', { id, approved, rejectionReason, approverId });
+
+      // Verificar se a fase atual é válida
+      const request = await storage.getPurchaseRequestById(id);
+      console.log('Solicitação atual:', request);
+
+      if (!request || request.currentPhase !== "aprovacao_a1") {
+        return res.status(400).json({ message: "Request must be in the A1 approval phase" });
+      }
+
+      // Garantindo que todos os campos sejam atualizados em uma única operação
+      const updateData = {
         approverA1Id: approverId,
         approvedA1: approved,
         approvalDateA1: new Date(),
+        currentPhase: approved ? "cotacao" : "arquivado",
+        rejectionReasonA1: approved ? null : (rejectionReason || "Solicitação reprovada"),
+        updatedAt: new Date() // Garantir que o timestamp seja atualizado
       };
-      
-      if (approved) {
-        updates.currentPhase = "cotacao";
-      } else {
-        updates.rejectionReasonA1 = rejectionReason;
-      }
-      
-      const request = await storage.updatePurchaseRequest(id, updates);
-      res.json(request);
+
+      // Debug: Log dos dados de atualização
+      console.log('Dados para atualização:', updateData);
+
+      // Atualizando a solicitação
+      const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
+
+      // Debug: Log da solicitação atualizada
+      console.log('Solicitação após atualização:', updatedRequest);
+
+      res.json(updatedRequest);
     } catch (error) {
+      // Debug: Log detalhado do erro
       console.error("Error approving A1:", error);
-      res.status(400).json({ message: "Failed to process approval" });
+      console.error("Stack trace:", error.stack);
+      res.status(400).json({ message: "Failed to process approval", error: error.message });
     }
   });
 
@@ -614,6 +663,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error archiving request:", error);
       res.status(400).json({ message: "Failed to archive request" });
+    }
+  });
+
+  // Endpoint para atualizar a fase do cartão (Kanban)
+  app.patch("/api/purchase-requests/:id/update-phase", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { newPhase } = req.body;
+
+      // Verificar se a fase é válida
+      const validPhases = ['solicitacao', 'aprovacao_a1', 'cotacao', 'aprovacao_a2', 'pedido_compra', 'recebimento', 'arquivado'];
+      if (!validPhases.includes(newPhase)) {
+        return res.status(400).json({ message: "Invalid phase" });
+      }
+
+      const updates = {
+        currentPhase: newPhase,
+      };
+
+      const request = await storage.updatePurchaseRequest(id, updates);
+      res.json(request);
+    } catch (error) {
+      console.error("Error updating request phase:", error);
+      res.status(400).json({ message: "Failed to update phase" });
     }
   });
 

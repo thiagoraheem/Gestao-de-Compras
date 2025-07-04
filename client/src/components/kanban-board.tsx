@@ -20,8 +20,8 @@ export default function KanbanBoard() {
 
   const moveRequestMutation = useMutation({
     mutationFn: async ({ id, newPhase }: { id: number; newPhase: string }) => {
-      await apiRequest("PUT", `/api/purchase-requests/${id}`, {
-        currentPhase: newPhase,
+      await apiRequest("PATCH", `/api/purchase-requests/${id}/update-phase`, {
+        newPhase,
       });
     },
     onSuccess: () => {
@@ -46,31 +46,46 @@ export default function KanbanBoard() {
     
     // Find the active request for overlay
     const request = Array.isArray(purchaseRequests) 
-      ? purchaseRequests.find((req: any) => req.id.toString() === active.id)
+      ? purchaseRequests.find((req: any) => `request-${req.id}` === active.id)
       : undefined;
     setActiveRequest(request);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const requestId = active.id.toString().includes('-')
+        ? parseInt(active.id.toString().split('-')[1])
+        : parseInt(active.id.toString());
+
+      if (isNaN(requestId)) {
+        toast({
+          title: "Erro",
+          description: "ID do pedido inválido",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const newPhase = over.id.toString();
+
+      // Verificar se o destino é uma fase válida
+      const validPhases = ['solicitacao', 'aprovacao_a1', 'cotacao', 'aprovacao_a2', 'pedido_compra', 'recebimento', 'arquivado'];
+      if (!validPhases.includes(newPhase)) {
+        toast({
+          title: "Erro",
+          description: "Fase inválida",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      moveRequestMutation.mutate({ id: requestId, newPhase });
+    }
+
     setActiveId(null);
     setActiveRequest(null);
-
-    if (!over) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    // Check if we're dropping on a different phase
-    const activeRequest = Array.isArray(purchaseRequests)
-      ? purchaseRequests.find((req: any) => req.id.toString() === activeId)
-      : undefined;
-    if (activeRequest && activeRequest.currentPhase !== overId) {
-      moveRequestMutation.mutate({
-        id: parseInt(activeId),
-        newPhase: overId,
-      });
-    }
   };
 
   if (isLoading) {
