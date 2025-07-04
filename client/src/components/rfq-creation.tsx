@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -68,13 +68,36 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
     queryKey: ["/api/suppliers"],
   });
 
+  // Fetch existing purchase request items
+  const { data: purchaseRequestItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/purchase-requests/${purchaseRequest.id}/items`],
+  });
+
   const form = useForm<RFQCreationData>({
     resolver: zodResolver(rfqCreationSchema),
     defaultValues: {
       purchaseRequestId: purchaseRequest.id,
       quotationDeadline: format(addDays(new Date(), 7), "yyyy-MM-dd"),
       selectedSuppliers: [],
-      items: [
+      items: [],
+    },
+  });
+
+  // Set form items when purchase request items are loaded
+  useEffect(() => {
+    if (purchaseRequestItems.length > 0) {
+      const mappedItems = purchaseRequestItems.map(item => ({
+        itemCode: item.itemNumber || "",
+        description: item.description || "",
+        quantity: item.requestedQuantity?.toString() || "1",
+        unit: item.unit || "un",
+        specifications: "",
+        deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
+      }));
+      form.setValue("items", mappedItems);
+    } else if (purchaseRequestItems.length === 0) {
+      // Fallback to default item if no items exist
+      form.setValue("items", [
         {
           itemCode: "",
           description: purchaseRequest.justification || "",
@@ -83,9 +106,9 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
           specifications: "",
           deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
         }
-      ],
-    },
-  });
+      ]);
+    }
+  }, [purchaseRequestItems, purchaseRequest.justification]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -296,16 +319,39 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
                   <Package className="h-5 w-5" />
                   Itens da Solicitação
                 </CardTitle>
-                <Button type="button" onClick={addItem} size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Item
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {purchaseRequestItems.length > 0 ? 
+                      `${purchaseRequestItems.length} item(s) carregado(s)` : 
+                      "Carregando itens..."}
+                  </Badge>
+                  <Button type="button" onClick={addItem} size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Item
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {purchaseRequestItems.length > 0 && (
+                  <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                    <p className="text-sm text-blue-700">
+                      <strong>Itens carregados da solicitação original:</strong> 
+                      Revise e confirme os itens abaixo, adicionando especificações técnicas e prazos de entrega conforme necessário.
+                    </p>
+                  </div>
+                )}
+                
                 {fields.map((field, index) => (
                   <div key={field.id} className="border rounded-lg p-4 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium">Item {index + 1}</h4>
+                      <h4 className="font-medium flex items-center gap-2">
+                        Item {index + 1}
+                        {purchaseRequestItems[index] && (
+                          <Badge variant="secondary" className="text-xs">
+                            Original
+                          </Badge>
+                        )}
+                      </h4>
                       {fields.length > 1 && (
                         <Button
                           type="button"
@@ -318,15 +364,109 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
                       )}
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Original Request Data - Read-only presentation */}
+                    <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.itemCode`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-gray-600">Código do Item</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="EX: ITM-001" 
+                                  {...field} 
+                                  className="bg-white"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.quantity`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-gray-600">Quantidade</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  min="1" 
+                                  {...field} 
+                                  className="bg-white"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.unit`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-gray-600">Unidade</FormLabel>
+                              <FormControl>
+                                <Select value={field.value} onValueChange={field.onChange}>
+                                  <SelectTrigger className="bg-white">
+                                    <SelectValue placeholder="Selecione" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="un">Unidade</SelectItem>
+                                    <SelectItem value="kg">Kg</SelectItem>
+                                    <SelectItem value="m">Metro</SelectItem>
+                                    <SelectItem value="m2">Metro²</SelectItem>
+                                    <SelectItem value="m3">Metro³</SelectItem>
+                                    <SelectItem value="l">Litro</SelectItem>
+                                    <SelectItem value="cj">Conjunto</SelectItem>
+                                    <SelectItem value="pc">Peça</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.deliveryDeadline`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-blue-600 font-medium">Prazo de Entrega *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="date" 
+                                  {...field} 
+                                  className="bg-white border-blue-300 focus:border-blue-500"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Quotation-specific fields */}
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
-                        name={`items.${index}.itemCode`}
+                        name={`items.${index}.description`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Código do Item</FormLabel>
+                            <FormLabel className="text-gray-600">Descrição do Item</FormLabel>
                             <FormControl>
-                              <Input placeholder="EX: ITM-001" {...field} />
+                              <Textarea 
+                                placeholder="Descrição detalhada do item (carregada da solicitação original)"
+                                rows={2}
+                                {...field}
+                                className="bg-gray-50"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -335,96 +475,25 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
                       
                       <FormField
                         control={form.control}
-                        name={`items.${index}.quantity`}
+                        name={`items.${index}.specifications`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Quantidade</FormLabel>
+                            <FormLabel className="text-blue-600 font-medium">
+                              Especificações Técnicas para Cotação *
+                            </FormLabel>
                             <FormControl>
-                              <Input type="number" min="1" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.unit`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Unidade</FormLabel>
-                            <FormControl>
-                              <Select value={field.value} onValueChange={field.onChange}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="un">Unidade</SelectItem>
-                                  <SelectItem value="kg">Kg</SelectItem>
-                                  <SelectItem value="m">Metro</SelectItem>
-                                  <SelectItem value="m2">Metro²</SelectItem>
-                                  <SelectItem value="m3">Metro³</SelectItem>
-                                  <SelectItem value="l">Litro</SelectItem>
-                                  <SelectItem value="cj">Conjunto</SelectItem>
-                                  <SelectItem value="pc">Peça</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.deliveryDeadline`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Prazo de Entrega</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} />
+                              <Textarea 
+                                placeholder="Especificações técnicas detalhadas que serão enviadas aos fornecedores para cotação (marca, modelo, características técnicas, normas, etc.)"
+                                rows={3}
+                                {...field}
+                                className="bg-blue-50 border-blue-300 focus:border-blue-500"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
-                    
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.description`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Descrição</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Descrição detalhada do item"
-                              rows={2}
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.specifications`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Especificações Técnicas</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Especificações técnicas específicas deste item"
-                              rows={2}
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
                   </div>
                 ))}
               </CardContent>

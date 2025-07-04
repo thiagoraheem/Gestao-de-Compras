@@ -110,6 +110,12 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 4, 2025. Refatoração do sistema de criação de RFQ com carregamento automático de itens:
+  - ✓ RFQ agora carrega automaticamente todos os itens da solicitação original
+  - ✓ Interface melhorada com distinção visual entre dados originais e campos de cotação
+  - ✓ Campos de especificações técnicas e prazos de entrega destacados para preenchimento
+  - ✓ Validação e feedback visual aprimorados para facilitar o preenchimento
+  - ✓ Migração concluída para ambiente Replit com segurança e melhores práticas
 - July 4, 2025. Sistema de aprovação e layout totalmente funcional:
   - ✓ Correção do layout dos cards - títulos em uma linha, botões reorganizados
   - ✓ Sistema de permissões baseado em roles implementado (isApproverA1, isApproverA2, isBuyer)
