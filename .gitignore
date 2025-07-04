@@ -7,3 +7,4 @@ vite.config.ts.*
 /.idea
 /.idea/modules.xml
 /.idea/vcs.xml
+.env
