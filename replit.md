@@ -110,6 +110,16 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 4, 2025. Sistema de aprovação e layout totalmente funcional:
+  - ✓ Correção do layout dos cards - títulos em uma linha, botões reorganizados
+  - ✓ Sistema de permissões baseado em roles implementado (isApproverA1, isApproverA2, isBuyer)
+  - ✓ Fase A2 de aprovação criada com funcionalidade completa
+  - ✓ Histórico de aprovações com rastreamento de usuários e timestamps
+  - ✓ Visualizador de anexos integrado em todas as fases
+  - ✓ Botão de fechamento adicionado na fase de cotação
+  - ✓ Modal de edição corrigido para fase A2 - agora mostra interface correta
+  - ✓ Validação e persistência de dados aprimoradas
+  - ✓ Sistema de aprovação A1 e A2 totalmente operacional
 - July 3, 2025. Migração bem-sucedida para Replit e refatoração do layout:
   - Novo layout estilo Pipefy com header fixo e navegação horizontal
   - Kanban full-width sem sidebars, otimizado para visualização das fases
