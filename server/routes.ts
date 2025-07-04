@@ -545,14 +545,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       } as const;
 
-      // Create approval history entry (temporarily disabled until table is created)
-      // await storage.createApprovalHistory({
-      //   purchaseRequestId: id,
-      //   approverType: "A1",
-      //   approverId: approverId,
-      //   approved: approved,
-      //   rejectionReason: approved ? null : (rejectionReason || "Solicitação reprovada"),
-      // });
+      // Create approval history entry
+      await storage.createApprovalHistory({
+        purchaseRequestId: id,
+        approverType: "A1",
+        approverId: approverId,
+        approved: approved,
+        rejectionReason: approved ? null : (rejectionReason || "Solicitação reprovada"),
+      });
 
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
       res.json(updatedRequest);
@@ -603,14 +603,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       } as const;
 
-      // Create approval history entry (temporarily disabled until table is created)
-      // await storage.createApprovalHistory({
-      //   purchaseRequestId: id,
-      //   approverType: "A2",
-      //   approverId: approverId,
-      //   approved: approved,
-      //   rejectionReason: approved ? null : (rejectionReason || "Solicitação reprovada"),
-      // });
+      // Create approval history entry
+      await storage.createApprovalHistory({
+        purchaseRequestId: id,
+        approverType: "A2",
+        approverId: approverId,
+        approved: approved,
+        rejectionReason: approved ? null : (rejectionReason || "Solicitação reprovada"),
+      });
 
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
       res.json(updatedRequest);

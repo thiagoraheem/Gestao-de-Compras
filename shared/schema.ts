@@ -389,6 +389,18 @@ export const purchaseRequestsRelations = relations(purchaseRequests, ({ one, man
   suppliers: many(purchaseRequestSuppliers),
   attachments: many(attachments),
   items: many(purchaseRequestItems),
+  approvalHistory: many(approvalHistory),
+}));
+
+export const approvalHistoryRelations = relations(approvalHistory, ({ one }) => ({
+  purchaseRequest: one(purchaseRequests, {
+    fields: [approvalHistory.purchaseRequestId],
+    references: [purchaseRequests.id],
+  }),
+  approver: one(users, {
+    fields: [approvalHistory.approverId],
+    references: [users.id],
+  }),
 }));
 
 export const purchaseRequestSuppliersRelations = relations(purchaseRequestSuppliers, ({ one }) => ({

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Building2, Package, Calendar, Eye, Plus, Clock, CheckCircle } from "lucide-react";
+import { FileText, Building2, Package, Calendar, Eye, Plus, Clock, CheckCircle, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -78,6 +78,16 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
 
   return (
     <div className={className}>
+      {/* Header with close button */}
+      {onClose && (
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Gestão de Cotações</h2>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+      )}
+      
       <div className="space-y-6">
         {/* Request Information */}
         <Card>
