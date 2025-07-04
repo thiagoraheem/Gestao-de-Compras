@@ -38,7 +38,7 @@ import {
   type InsertSupplierQuotationItem,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, inArray, desc, like } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -88,6 +88,7 @@ export interface IStorage {
   updatePurchaseRequest(id: number, request: Partial<InsertPurchaseRequest>): Promise<PurchaseRequest>;
   getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequest[]>;
   getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]>;
+  deletePurchaseRequest(id: number): Promise<void>;
 
   // Purchase Request Items operations
   getPurchaseRequestItems(purchaseRequestId: number): Promise<PurchaseRequestItem[]>;
@@ -297,9 +298,29 @@ export class DatabaseStorage implements IStorage {
 
   async createPurchaseRequest(request: InsertPurchaseRequest): Promise<PurchaseRequest> {
     // Generate request number
-    const count = await db.select().from(purchaseRequests);
-    const requestNumber = `SOL-${new Date().getFullYear()}-${String(count.length + 1).padStart(3, '0')}`;
-    
+    const year = new Date().getFullYear();
+    const requests = await db
+      .select()
+      .from(purchaseRequests)
+      .orderBy(desc(purchaseRequests.requestNumber));
+
+    let maxSequence = 0;
+    const prefix = `SOL-${year}-`;
+
+    // Find the highest sequence number for the current year
+    for (const req of requests) {
+      if (req.requestNumber?.startsWith(prefix)) {
+        const sequence = parseInt(req.requestNumber.substring(prefix.length));
+        if (!isNaN(sequence) && sequence > maxSequence) {
+          maxSequence = sequence;
+        }
+      }
+    }
+
+    // Generate next sequence number
+    const nextSequence = maxSequence + 1;
+    const requestNumber = `${prefix}${String(nextSequence).padStart(3, '0')}`;
+
     const [newRequest] = await db
       .insert(purchaseRequests)
       .values({ ...request, requestNumber })
@@ -485,6 +506,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(supplierQuotationItems.id, id))
       .returning();
     return item;
+  }
+
+  async deletePurchaseRequest(id: number): Promise<void> {
+    // Primeiro, deletar todos os itens associados
+    await db.delete(purchaseRequestItems)
+      .where(eq(purchaseRequestItems.purchaseRequestId, id));
+
+    // Depois, deletar a requisição
+    await db.delete(purchaseRequests)
+      .where(eq(purchaseRequests.id, id));
   }
 
   async initializeDefaultData(): Promise<void> {

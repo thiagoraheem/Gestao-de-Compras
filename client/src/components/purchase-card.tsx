@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { URGENCY_LABELS, CATEGORY_LABELS, PurchasePhase, PURCHASE_PHASES, PHASE_LABELS } from "@/lib/types";
-import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive, Edit, GripVertical } from "lucide-react";
+import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive, Edit, GripVertical, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -78,15 +78,42 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
     },
   });
 
-  const archiveMutation = useMutation({
+  const deleteMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", `/api/purchase-requests/${request.id}/archive`);
+      await apiRequest("DELETE", `/api/purchase-requests/${request.id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       toast({
         title: "Sucesso",
-        description: "Item arquivado com sucesso",
+        description: "Requisição excluída com sucesso",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a requisição",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const archiveDirectMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/purchase-requests/${request.id}/archive-direct`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Requisição arquivada com sucesso",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível arquivar a requisição",
+        variant: "destructive",
       });
     },
   });
@@ -138,206 +165,223 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
 
   return (
     <>
-      <Card 
+      <Card
         ref={setNodeRef}
         style={style}
         {...attributes}
         className={cn(
-          "hover:shadow-md transition-shadow select-none cursor-pointer",
-          isArchived && "bg-gray-50",
-          sortableIsDragging && "z-10 rotate-3 shadow-lg"
+          "mb-2 cursor-pointer select-none",
+          isDragging && "opacity-50",
+          sortableIsDragging && "opacity-50"
         )}
-        onClick={handleCardClick}
       >
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div
-              {...listeners}
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded"
-              title="Arrastar para mover"
-            >
-              <GripVertical className="h-4 w-4 text-gray-400" />
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded"
+                title="Arrastar para mover"
+              >
+                <GripVertical className="h-4 w-4 text-gray-400" />
+              </div>
+              <Badge>{request.requestNumber}</Badge>
+              {request.urgency && (
+                <Badge variant={request.urgency === "alto" ? "destructive" : "secondary"}>
+                  {getUrgencyIcon(request.urgency)}
+                  {URGENCY_LABELS[request.urgency]}
+                </Badge>
+              )}
             </div>
-            <span className={cn(
-              "text-sm font-medium",
-              isArchived ? "text-gray-700" : "text-gray-900"
-            )}>
-              {request.requestNumber}
-            </span>
+            <div className="flex gap-2">
+              {phase === "solicitacao" && !request.approvedA1 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteMutation.mutate();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  archiveDirectMutation.mutate();
+                }}
+              >
+                <Archive className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditModalOpen(true);
+                }}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 hover:bg-gray-100"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsEditModalOpen(true);
-              }}
-            >
-              <Edit className="h-3 w-3" />
-            </Button>
-            <Badge className={cn("status-badge", getUrgencyClass(request.urgency))}>
-              {getUrgencyIcon(request.urgency)}
-              {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
-            </Badge>
+
+          <h4 className={cn(
+            "font-medium mb-2",
+            isArchived ? "text-gray-700" : "text-gray-900"
+          )}>
+            {request.justification}
+          </h4>
+
+          <div className={cn(
+            "text-sm space-y-1",
+            isArchived ? "text-gray-500" : "text-gray-600"
+          )}>
+            <p><strong>Categoria:</strong> {CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}</p>
+            {request.totalValue && (
+              <p><strong>Valor:</strong> {formatCurrency(request.totalValue)}</p>
+            )}
+            {phase === PURCHASE_PHASES.APROVACAO_A1 && (
+              <p><strong>Aprovador:</strong> Pendente</p>
+            )}
+            {phase === PURCHASE_PHASES.COTACAO && request.buyerId && (
+              <p><strong>Comprador:</strong> Atribuído</p>
+            )}
+            {phase === PURCHASE_PHASES.RECEBIMENTO && request.receivedById && (
+              <p><strong>Recebido por:</strong> Usuário</p>
+            )}
           </div>
-        </div>
-        
-        <h4 className={cn(
-          "font-medium mb-2",
-          isArchived ? "text-gray-700" : "text-gray-900"
-        )}>
-          {request.justification}
-        </h4>
-        
-        <div className={cn(
-          "text-sm space-y-1",
-          isArchived ? "text-gray-500" : "text-gray-600"
-        )}>
-          <p><strong>Categoria:</strong> {CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}</p>
-          {request.totalValue && (
-            <p><strong>Valor:</strong> {formatCurrency(request.totalValue)}</p>
-          )}
-          {phase === PURCHASE_PHASES.APROVACAO_A1 && (
-            <p><strong>Aprovador:</strong> Pendente</p>
-          )}
-          {phase === PURCHASE_PHASES.COTACAO && request.buyerId && (
-            <p><strong>Comprador:</strong> Atribuído</p>
-          )}
-          {phase === PURCHASE_PHASES.RECEBIMENTO && request.receivedById && (
-            <p><strong>Recebido por:</strong> Usuário</p>
-          )}
-        </div>
-        
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-          <span className="text-xs text-gray-500">
-            {formatDate(request.createdAt)}
-          </span>
-          <div className="flex items-center space-x-1">
-            <Paperclip className="text-gray-400 text-xs h-3 w-3" />
+
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
             <span className="text-xs text-gray-500">
-              {Math.floor(Math.random() * 3) + 1} anexos
+              {formatDate(request.createdAt)}
             </span>
+            <div className="flex items-center space-x-1">
+              <Paperclip className="text-gray-400 text-xs h-3 w-3" />
+              <span className="text-xs text-gray-500">
+                {Math.floor(Math.random() * 3) + 1} anexos
+              </span>
+            </div>
+          </div>
+
+          {/* Phase-specific actions */}
+          {phase === PURCHASE_PHASES.APROVACAO_A1 && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="flex space-x-2">
+                <Button
+                  size="sm"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    approveA1Mutation.mutate({ approved: true });
+                  }}
+                  disabled={approveA1Mutation.isPending}
+                >
+                  <Check className="mr-1 h-3 w-3" />
+                  Aprovar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    approveA1Mutation.mutate({
+                      approved: false,
+                      rejectionReason: "Reprovado via ação rápida"
+                    });
+                  }}
+                  disabled={approveA1Mutation.isPending}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Rejeitar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {phase === PURCHASE_PHASES.RECEBIMENTO && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  archiveMutation.mutate();
+                }}
+                disabled={archiveMutation.isPending}
+              >
+                <Archive className="mr-1 h-3 w-3" />
+                Arquivar
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Phase-specific Edit Modals */}
+      {isEditModalOpen && phase === PURCHASE_PHASES.SOLICITACAO && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <RequestPhase
+              request={request}
+              onClose={() => setIsEditModalOpen(false)}
+              className="p-6"
+            />
           </div>
         </div>
+      )}
 
-        {/* Phase-specific actions */}
-        {phase === PURCHASE_PHASES.APROVACAO_A1 && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <div className="flex space-x-2">
-              <Button
-                size="sm"
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  approveA1Mutation.mutate({ approved: true });
-                }}
-                disabled={approveA1Mutation.isPending}
-              >
-                <Check className="mr-1 h-3 w-3" />
-                Aprovar
+      {isEditModalOpen && phase === PURCHASE_PHASES.APROVACAO_A1 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <ApprovalA1Phase
+              request={request}
+              onClose={() => setIsEditModalOpen(false)}
+              className="p-6"
+            />
+          </div>
+        </div>
+      )}
+
+      {isEditModalOpen && phase === PURCHASE_PHASES.COTACAO && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <QuotationPhase
+              request={request}
+              onClose={() => setIsEditModalOpen(false)}
+              className="p-6"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Default Edit Dialog for other phases */}
+      {isEditModalOpen && phase !== PURCHASE_PHASES.SOLICITACAO && phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.COTACAO && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsEditModalOpen(false)}>
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">Editar Solicitação</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              <strong>Número:</strong> {request.requestNumber}
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              <strong>Fase Atual:</strong> {PHASE_LABELS[phase]}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                Fechar
               </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                className="flex-1"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  approveA1Mutation.mutate({ 
-                    approved: false, 
-                    rejectionReason: "Reprovado via ação rápida"
-                  });
-                }}
-                disabled={approveA1Mutation.isPending}
-              >
-                <X className="mr-1 h-3 w-3" />
-                Rejeitar
+              <Button onClick={() => setIsEditModalOpen(false)}>
+                Salvar
               </Button>
             </div>
           </div>
-        )}
-
-        {phase === PURCHASE_PHASES.RECEBIMENTO && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={(e) => {
-                e.stopPropagation();
-                archiveMutation.mutate();
-              }}
-              disabled={archiveMutation.isPending}
-            >
-              <Archive className="mr-1 h-3 w-3" />
-              Arquivar
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-    
-    {/* Phase-specific Edit Modals */}
-    {isEditModalOpen && phase === PURCHASE_PHASES.SOLICITACAO && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-          <RequestPhase 
-            request={request}
-            onClose={() => setIsEditModalOpen(false)} 
-            className="p-6"
-          />
         </div>
-      </div>
-    )}
-    
-    {isEditModalOpen && phase === PURCHASE_PHASES.APROVACAO_A1 && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-          <ApprovalA1Phase 
-            request={request}
-            onClose={() => setIsEditModalOpen(false)} 
-            className="p-6"
-          />
-        </div>
-      </div>
-    )}
-    
-    {isEditModalOpen && phase === PURCHASE_PHASES.COTACAO && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-          <QuotationPhase 
-            request={request}
-            onClose={() => setIsEditModalOpen(false)} 
-            className="p-6"
-          />
-        </div>
-      </div>
-    )}
-    
-    {/* Default Edit Dialog for other phases */}
-    {isEditModalOpen && phase !== PURCHASE_PHASES.SOLICITACAO && phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.COTACAO && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsEditModalOpen(false)}>
-        <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-          <h3 className="text-lg font-semibold mb-4">Editar Solicitação</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            <strong>Número:</strong> {request.requestNumber}
-          </p>
-          <p className="text-sm text-gray-600 mb-4">
-            <strong>Fase Atual:</strong> {PHASE_LABELS[phase]}
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-              Fechar
-            </Button>
-            <Button onClick={() => setIsEditModalOpen(false)}>
-              Salvar
-            </Button>
-          </div>
-        </div>
-      </div>
-    )}
+      )}
     </>
   );
 }

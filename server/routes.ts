@@ -945,6 +945,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rota para deletar uma requisição de compra
+  app.delete("/api/purchase-requests/:id", isAuthenticated, async (req, res) => {
+    try {
+      const requestId = Number(req.params.id);
+      const request = await storage.getPurchaseRequestById(requestId);
+
+      if (!request) {
+        return res.status(404).json({ message: "Requisição não encontrada" });
+      }
+
+      if (request.currentPhase !== "solicitacao") {
+        return res.status(400).json({ message: "Só é possível excluir requisições na fase de Solicitação" });
+      }
+
+      if (request.approvedA1 !== null) {
+        return res.status(400).json({ message: "Não é possível excluir uma requisição já aprovada/reprovada" });
+      }
+
+      await storage.deletePurchaseRequest(requestId);
+
+      res.json({ message: "Requisição excluída com sucesso" });
+    } catch (error) {
+      console.error("Erro ao excluir requisição:", error);
+      res.status(500).json({ message: "Erro ao excluir requisição" });
+    }
+  });
+
+  // Rota para arquivar diretamente uma requisição
+  app.post("/api/purchase-requests/:id/archive-direct", isAuthenticated, async (req, res) => {
+    try {
+      const requestId = Number(req.params.id);
+      const request = await storage.getPurchaseRequestById(requestId);
+
+      if (!request) {
+        return res.status(404).json({ message: "Requisição não encontrada" });
+      }
+
+      await storage.updatePurchaseRequest(requestId, {
+        currentPhase: "arquivado"
+      });
+
+      const updatedRequest = await storage.getPurchaseRequestById(requestId);
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error("Erro ao arquivar requisição:", error);
+      res.status(500).json({ message: "Erro ao arquivar requisição" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
