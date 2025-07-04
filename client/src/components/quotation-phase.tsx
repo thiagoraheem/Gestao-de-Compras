@@ -285,6 +285,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
         {showRFQCreation && (
           <RFQCreation
             purchaseRequest={request}
+            existingQuotation={quotation}
             onClose={() => setShowRFQCreation(false)}
             onComplete={() => {
               setShowRFQCreation(false);

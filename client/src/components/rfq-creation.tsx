@@ -55,11 +55,12 @@ type RFQCreationData = z.infer<typeof rfqCreationSchema>;
 
 interface RFQCreationProps {
   purchaseRequest: any;
+  existingQuotation?: any;
   onClose: () => void;
   onComplete: () => void;
 }
 
-export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RFQCreationProps) {
+export default function RFQCreation({ purchaseRequest, existingQuotation, onClose, onComplete }: RFQCreationProps) {
   const [attachments, setAttachments] = useState<File[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -71,6 +72,18 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
   // Fetch existing purchase request items
   const { data: purchaseRequestItems = [] } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${purchaseRequest.id}/items`],
+  });
+
+  // Fetch existing quotation items if editing
+  const { data: existingQuotationItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/quotations/${existingQuotation?.id}/items`],
+    enabled: !!existingQuotation?.id,
+  });
+
+  // Fetch existing supplier quotations if editing
+  const { data: existingSupplierQuotations = [] } = useQuery<any[]>({
+    queryKey: [`/api/quotations/${existingQuotation?.id}/supplier-quotations`],
+    enabled: !!existingQuotation?.id,
   });
 
   const form = useForm<RFQCreationData>({
@@ -85,7 +98,19 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
 
   // Set form items when purchase request items are loaded
   useEffect(() => {
-    if (purchaseRequestItems.length > 0) {
+    if (existingQuotation && existingQuotationItems.length > 0) {
+      // Load existing quotation items for editing
+      const mappedItems = existingQuotationItems.map(item => ({
+        itemCode: item.itemCode || "",
+        description: item.description || "",
+        quantity: item.quantity?.toString() || "1",
+        unit: item.unit || "un",
+        specifications: item.specifications || "",
+        deliveryDeadline: item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 15), "yyyy-MM-dd"),
+      }));
+      form.setValue("items", mappedItems);
+    } else if (purchaseRequestItems.length > 0) {
+      // Load purchase request items for new quotation
       const mappedItems = purchaseRequestItems.map(item => ({
         itemCode: item.itemNumber || "",
         description: item.description || "",
@@ -95,7 +120,7 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
       }));
       form.setValue("items", mappedItems);
-    } else if (purchaseRequestItems.length === 0) {
+    } else if (purchaseRequestItems.length === 0 && !existingQuotation) {
       // Fallback to default item if no items exist
       form.setValue("items", [
         {
@@ -108,7 +133,24 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
         }
       ]);
     }
-  }, [purchaseRequestItems, purchaseRequest.justification]);
+  }, [purchaseRequestItems, existingQuotationItems, existingQuotation, purchaseRequest.justification]);
+
+  // Set form values when existing quotation data is loaded
+  useEffect(() => {
+    if (existingQuotation) {
+      form.setValue("quotationDeadline", existingQuotation.quotationDeadline ? format(new Date(existingQuotation.quotationDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 7), "yyyy-MM-dd"));
+      form.setValue("termsAndConditions", existingQuotation.termsAndConditions || "");
+      form.setValue("technicalSpecs", existingQuotation.technicalSpecs || "");
+    }
+  }, [existingQuotation, form]);
+
+  // Set selected suppliers when existing supplier quotations are loaded
+  useEffect(() => {
+    if (existingSupplierQuotations.length > 0) {
+      const selectedSupplierIds = existingSupplierQuotations.map(sq => sq.supplierId);
+      form.setValue("selectedSuppliers", selectedSupplierIds);
+    }
+  }, [existingSupplierQuotations, form]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -249,7 +291,9 @@ export default function RFQCreation({ purchaseRequest, onClose, onComplete }: RF
       <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Criar Solicitação de Cotação (RFQ)</h2>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {existingQuotation ? 'Editar' : 'Criar'} Solicitação de Cotação (RFQ)
+            </h2>
             <p className="text-gray-600 mt-1">Solicitação: {purchaseRequest.requestNumber}</p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>

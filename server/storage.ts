@@ -479,7 +479,28 @@ export class DatabaseStorage implements IStorage {
 
   // Supplier Quotations operations
   async getSupplierQuotations(quotationId: number): Promise<SupplierQuotation[]> {
-    return await db.select().from(supplierQuotations).where(eq(supplierQuotations.quotationId, quotationId));
+    return await db
+      .select({
+        id: supplierQuotations.id,
+        quotationId: supplierQuotations.quotationId,
+        supplierId: supplierQuotations.supplierId,
+        status: supplierQuotations.status,
+        sentAt: supplierQuotations.sentAt,
+        receivedAt: supplierQuotations.receivedAt,
+        totalValue: supplierQuotations.totalValue,
+        paymentTerms: supplierQuotations.paymentTerms,
+        deliveryTerms: supplierQuotations.deliveryTerms,
+        observations: supplierQuotations.observations,
+        createdAt: supplierQuotations.createdAt,
+        supplier: {
+          id: suppliers.id,
+          name: suppliers.name,
+          email: suppliers.email,
+        }
+      })
+      .from(supplierQuotations)
+      .leftJoin(suppliers, eq(supplierQuotations.supplierId, suppliers.id))
+      .where(eq(supplierQuotations.quotationId, quotationId));
   }
 
   async getSupplierQuotationById(id: number): Promise<SupplierQuotation | undefined> {

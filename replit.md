@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 4, 2025. Sistema de e-mails e correção da exibição de fornecedores implementado:
+  - ✓ Serviço de e-mail integrado com nodemailer para envio automático de RFQs
+  - ✓ Correção do método getSupplierQuotations para incluir dados dos fornecedores via JOIN
+  - ✓ Funcionalidade de edição de RFQ implementada com carregamento de dados existentes
+  - ✓ Modal de edição agora carrega fornecedores previamente selecionados
+  - ✓ Interface aprimorada para distinguir entre criação e edição de cotações
+  - ✓ Sistema de envio de e-mails com tratamento de erros e feedback ao usuário
 - July 4, 2025. Refatoração do sistema de criação de RFQ com carregamento automático de itens:
   - ✓ RFQ agora carrega automaticamente todos os itens da solicitação original
   - ✓ Interface melhorada com distinção visual entre dados originais e campos de cotação
