@@ -31,7 +31,7 @@ import {
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import ItemsViewer from './items-viewer';
+import ApprovalItemsViewer from './approval-items-viewer';
 
 const approvalSchema = z.object({
   approved: z.boolean(),
@@ -284,7 +284,7 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
         </div>
 
         {/* Request Items */}
-        <ItemsViewer 
+        <ApprovalItemsViewer 
           items={requestItems} 
           requestId={request.id} 
           requestNumber={request.requestNumber} 
@@ -327,25 +327,28 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {approvalHistory.map((item: any, index: number) => (
-                  <div key={index} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{item.approver?.username}</span>
-                        <Badge variant={item.approved ? 'default' : 'destructive'}>
-                          {item.approved ? 'Aprovado' : 'Reprovado'}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(item.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                      </p>
+                  <div key={index} className="flex items-center justify-between p-2 border rounded">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={item.approved ? 'default' : 'destructive'} className="text-xs">
+                        {item.approved ? 'Aprovado' : 'Reprovado'}
+                      </Badge>
+                      <span className="text-sm font-medium">
+                        {item.approver?.firstName && item.approver?.lastName 
+                          ? `${item.approver.firstName} ${item.approver.lastName}`
+                          : item.approver?.username || 'N/A'
+                        }
+                      </span>
                       {item.rejectionReason && (
-                        <p className="text-sm mt-2 p-2 bg-destructive/10 rounded">
-                          {item.rejectionReason}
-                        </p>
+                        <span className="text-xs text-muted-foreground">
+                          - {item.rejectionReason}
+                        </span>
                       )}
                     </div>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(item.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                    </span>
                   </div>
                 ))}
               </div>
