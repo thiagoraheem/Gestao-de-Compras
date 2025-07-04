@@ -1,21 +1,20 @@
-import nodemailer from 'nodemailer';
-import type { Supplier } from '../shared/schema';
+import nodemailer from "nodemailer";
+import type { Supplier } from "../shared/schema";
 
 // Email configuration
 const createTransporter = () => {
   // For development - you can use email testing services like Ethereal Email
   // In production, configure with actual SMTP settings
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-    port: parseInt(process.env.SMTP_PORT || '587'),
+    host: process.env.SMTP_HOST || "smtp.ethereal.email",
+    port: parseInt(process.env.SMTP_PORT || "587"),
     secure: false, // true for 465, false for other ports
     auth: {
-      user: process.env.SMTP_USER || 'test@example.com',
-      pass: process.env.SMTP_PASS || 'test123'
-    }
+      user: process.env.SMTP_USER || "test@example.com",
+      pass: process.env.SMTP_PASS || "test123",
+    },
   });
 };
-
 interface RFQEmailData {
   quotationNumber: string;
   requestNumber: string;
@@ -33,7 +32,7 @@ interface RFQEmailData {
 
 export async function sendRFQToSuppliers(
   suppliers: Supplier[],
-  rfqData: RFQEmailData
+  rfqData: RFQEmailData,
 ): Promise<{ success: boolean; errors: string[] }> {
   const transporter = createTransporter();
   const errors: string[] = [];
@@ -47,31 +46,38 @@ export async function sendRFQToSuppliers(
 
     try {
       const emailHtml = generateRFQEmailHTML(supplier, rfqData);
-      
+
       const mailOptions = {
-        from: process.env.FROM_EMAIL || 'compras@empresa.com',
+        from: process.env.FROM_EMAIL || "compras@empresa.com",
         to: supplier.email,
         subject: `Solicitação de Cotação - ${rfqData.quotationNumber}`,
         html: emailHtml,
-        attachments: [] // Could add PDF attachments here
+        attachments: [], // Could add PDF attachments here
       };
 
       await transporter.sendMail(mailOptions);
       successCount++;
-      console.log(`RFQ enviado com sucesso para ${supplier.name} (${supplier.email})`);
+      console.log(
+        `RFQ enviado com sucesso para ${supplier.name} (${supplier.email})`,
+      );
     } catch (error) {
       console.error(`Erro ao enviar RFQ para ${supplier.name}:`, error);
-      errors.push(`Erro ao enviar para ${supplier.name}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      errors.push(
+        `Erro ao enviar para ${supplier.name}: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
+      );
     }
   }
 
   return {
     success: successCount > 0,
-    errors
+    errors,
   };
 }
 
-function generateRFQEmailHTML(supplier: Supplier, rfqData: RFQEmailData): string {
+function generateRFQEmailHTML(
+  supplier: Supplier,
+  rfqData: RFQEmailData,
+): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -100,7 +106,7 @@ function generateRFQEmailHTML(supplier: Supplier, rfqData: RFQEmailData): string
         <p>Solicitamos sua cotação para os itens relacionados na solicitação <strong>${rfqData.requestNumber}</strong>.</p>
         
         <div class="deadline">
-          <strong>⏰ Prazo para envio da cotação: ${new Date(rfqData.quotationDeadline).toLocaleDateString('pt-BR')}</strong>
+          <strong>⏰ Prazo para envio da cotação: ${new Date(rfqData.quotationDeadline).toLocaleDateString("pt-BR")}</strong>
         </div>
         
         <h3>Itens Solicitados:</h3>
@@ -115,31 +121,43 @@ function generateRFQEmailHTML(supplier: Supplier, rfqData: RFQEmailData): string
             </tr>
           </thead>
           <tbody>
-            ${rfqData.items.map(item => `
+            ${rfqData.items
+              .map(
+                (item) => `
               <tr>
                 <td>${item.itemCode}</td>
                 <td>${item.description}</td>
                 <td>${item.quantity}</td>
                 <td>${item.unit}</td>
-                <td>${item.specifications || '-'}</td>
+                <td>${item.specifications || "-"}</td>
               </tr>
-            `).join('')}
+            `,
+              )
+              .join("")}
           </tbody>
         </table>
         
-        ${rfqData.technicalSpecs ? `
+        ${
+          rfqData.technicalSpecs
+            ? `
           <h3>Especificações Técnicas:</h3>
           <div style="background: #f8f9fa; padding: 15px; border-radius: 4px;">
-            ${rfqData.technicalSpecs.replace(/\n/g, '<br>')}
+            ${rfqData.technicalSpecs.replace(/\n/g, "<br>")}
           </div>
-        ` : ''}
+        `
+            : ""
+        }
         
-        ${rfqData.termsAndConditions ? `
+        ${
+          rfqData.termsAndConditions
+            ? `
           <h3>Termos e Condições:</h3>
           <div style="background: #f8f9fa; padding: 15px; border-radius: 4px;">
-            ${rfqData.termsAndConditions.replace(/\n/g, '<br>')}
+            ${rfqData.termsAndConditions.replace(/\n/g, "<br>")}
           </div>
-        ` : ''}
+        `
+            : ""
+        }
         
         <h3>Informações Necessárias na Cotação:</h3>
         <ul>
@@ -171,7 +189,7 @@ export async function testEmailConfiguration(): Promise<boolean> {
     await transporter.verify();
     return true;
   } catch (error) {
-    console.error('Erro na configuração de e-mail:', error);
+    console.error("Erro na configuração de e-mail:", error);
     return false;
   }
 }
