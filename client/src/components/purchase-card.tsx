@@ -14,7 +14,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import RequestPhase from "./request-phase";
 import ApprovalA1Phase from "./approval-a1-phase";
+import ApprovalA2Phase from "./approval-a2-phase";
 import QuotationPhase from "./quotation-phase";
+import { useAuth } from "@/hooks/useAuth";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +37,7 @@ interface PurchaseCardProps {
 export default function PurchaseCard({ request, phase, isDragging = false }: PurchaseCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
@@ -58,12 +61,11 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
     mutationFn: async (data: { approved: boolean; rejectionReason?: string }) => {
       const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/approve-a1`, {
         ...data,
-        approverId: 1, // TODO: Get from auth context
+        approverId: user?.id || 1,
       });
       return response;
     },
     onSuccess: (response: any) => {
-      // Atualiza os dados em cache
       queryClient.setQueryData(["/api/purchase-requests"], (oldData: any[]) => {
         if (!Array.isArray(oldData)) return oldData;
         return oldData.map(item =>
@@ -71,7 +73,6 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
         );
       });
 
-      // Invalida a query para garantir dados frescos
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
 
       toast({
@@ -85,6 +86,40 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
       toast({
         title: "Erro",
         description: "Falha ao processar aprovação",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const approveA2Mutation = useMutation({
+    mutationFn: async (data: { approved: boolean; rejectionReason?: string }) => {
+      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/approve-a2`, {
+        ...data,
+        approverId: user?.id || 1,
+      });
+      return response;
+    },
+    onSuccess: (response: any) => {
+      queryClient.setQueryData(["/api/purchase-requests"], (oldData: any[]) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map(item =>
+          item.id === request.id ? response : item
+        );
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+
+      toast({
+        title: "Sucesso",
+        description: response.approvedA2
+          ? "Solicitação aprovada e movida para Pedido de Compra!"
+          : "Solicitação reprovada e movida para Arquivado",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Falha ao processar aprovação A2",
         variant: "destructive",
       });
     },
@@ -197,6 +232,13 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
     opacity: isDragging || sortableIsDragging ? 0.5 : 1,
   };
 
+  // Check user permissions for showing certain actions
+  const canApproveA1 = user?.isApproverA1 || false;
+  const canApproveA2 = user?.isApproverA2 || false;
+  const canEditInApprovalPhase = (phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1) || 
+                                (phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2) ||
+                                (phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.APROVACAO_A2);
+
   return (
     <>
       <Card
@@ -210,7 +252,8 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
         )}
       >
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
+          {/* Header with drag handle and request number */}
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div
                 {...listeners}
@@ -220,18 +263,13 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
                 <GripVertical className="h-4 w-4 text-gray-400" />
               </div>
               <Badge>{request.requestNumber}</Badge>
-              {request.urgency && (
-                <Badge variant={request.urgency === "alto" ? "destructive" : "secondary"}>
-                  {getUrgencyIcon(request.urgency)}
-                  {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
-                </Badge>
-              )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1">
               {phase === "solicitacao" && !request.approvedA1 && (
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-8 w-8"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowDeleteDialog(true);
@@ -243,6 +281,7 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowArchiveDialog(true);
@@ -250,31 +289,48 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
               >
                 <Archive className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditModalOpen(true);
-                }}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
+              {canEditInApprovalPhase && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditModalOpen(true);
+                  }}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 
+          {/* Title in one line */}
           <h4 className={cn(
-            "font-medium mb-2",
+            "font-medium mb-2 truncate",
             isArchived ? "text-gray-700" : "text-gray-900"
-          )}>
+          )} title={request.justification}>
             {request.justification}
           </h4>
 
+          {/* Urgency and category info */}
+          <div className="flex items-center gap-2 mb-3">
+            {request.urgency && (
+              <Badge variant={request.urgency === "alto" ? "destructive" : "secondary"} className="text-xs">
+                {getUrgencyIcon(request.urgency)}
+                {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-xs">
+              {CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}
+            </Badge>
+          </div>
+
+          {/* Additional info */}
           <div className={cn(
             "text-sm space-y-1",
             isArchived ? "text-gray-500" : "text-gray-600"
           )}>
-            <p><strong>Categoria:</strong> {CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}</p>
             {request.totalValue && (
               <p><strong>Valor:</strong> {formatCurrency(request.totalValue)}</p>
             )}
@@ -289,6 +345,7 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
             )}
           </div>
 
+          {/* Footer */}
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
             <span className="text-xs text-gray-500">
               {formatDate(request.createdAt)}
@@ -302,7 +359,7 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
           </div>
 
           {/* Phase-specific actions */}
-          {phase === PURCHASE_PHASES.APROVACAO_A1 && (
+          {phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1 && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <div className="flex space-x-2">
                 <Button
@@ -329,6 +386,41 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
                     });
                   }}
                   disabled={approveA1Mutation.isPending}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Rejeitar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2 && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="flex space-x-2">
+                <Button
+                  size="sm"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    approveA2Mutation.mutate({ approved: true });
+                  }}
+                  disabled={approveA2Mutation.isPending}
+                >
+                  <Check className="mr-1 h-3 w-3" />
+                  Aprovar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    approveA2Mutation.mutate({
+                      approved: false,
+                      rejectionReason: "Reprovado via ação rápida"
+                    });
+                  }}
+                  disabled={approveA2Mutation.isPending}
                 >
                   <X className="mr-1 h-3 w-3" />
                   Rejeitar
@@ -374,6 +466,18 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <ApprovalA1Phase
+              request={request}
+              onClose={() => setIsEditModalOpen(false)}
+              className="p-6"
+            />
+          </div>
+        </div>
+      )}
+
+      {isEditModalOpen && phase === PURCHASE_PHASES.APROVACAO_A2 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <ApprovalA2Phase
               request={request}
               onClose={() => setIsEditModalOpen(false)}
               className="p-6"

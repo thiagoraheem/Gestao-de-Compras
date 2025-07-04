@@ -34,6 +34,9 @@ import {
   type InsertSupplierQuotation,
   type SupplierQuotationItem,
   type InsertSupplierQuotationItem,
+  approvalHistory,
+  type ApprovalHistory,
+  type InsertApprovalHistory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -118,6 +121,10 @@ export interface IStorage {
   getSupplierQuotationItems(supplierQuotationId: number): Promise<SupplierQuotationItem[]>;
   createSupplierQuotationItem(item: InsertSupplierQuotationItem): Promise<SupplierQuotationItem>;
   updateSupplierQuotationItem(id: number, item: Partial<InsertSupplierQuotationItem>): Promise<SupplierQuotationItem>;
+
+  // Approval History operations
+  getApprovalHistory(purchaseRequestId: number): Promise<any[]>;
+  createApprovalHistory(approvalHistory: InsertApprovalHistory): Promise<ApprovalHistory>;
 
   // Initialize default data
   initializeDefaultData(): Promise<void>;
@@ -513,6 +520,36 @@ export class DatabaseStorage implements IStorage {
     // Depois, deletar a requisição
     await db.delete(purchaseRequests)
       .where(eq(purchaseRequests.id, id));
+  }
+
+  // Approval History operations
+  async getApprovalHistory(purchaseRequestId: number): Promise<any[]> {
+    return await db
+      .select({
+        id: approvalHistory.id,
+        approverType: approvalHistory.approverType,
+        approved: approvalHistory.approved,
+        rejectionReason: approvalHistory.rejectionReason,
+        createdAt: approvalHistory.createdAt,
+        approver: {
+          id: users.id,
+          username: users.username,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        }
+      })
+      .from(approvalHistory)
+      .leftJoin(users, eq(approvalHistory.approverId, users.id))
+      .where(eq(approvalHistory.purchaseRequestId, purchaseRequestId))
+      .orderBy(desc(approvalHistory.createdAt));
+  }
+
+  async createApprovalHistory(approvalHistoryData: InsertApprovalHistory): Promise<ApprovalHistory> {
+    const [newApprovalHistory] = await db
+      .insert(approvalHistory)
+      .values(approvalHistoryData)
+      .returning();
+    return newApprovalHistory;
   }
 
   async initializeDefaultData(): Promise<void> {

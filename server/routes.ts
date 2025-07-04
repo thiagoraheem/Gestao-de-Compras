@@ -545,6 +545,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       } as const;
 
+      // Create approval history entry
+      await storage.createApprovalHistory({
+        purchaseRequestId: id,
+        approverType: "A1",
+        approverId: approverId,
+        approved: approved,
+        rejectionReason: approved ? null : (rejectionReason || "Solicitação reprovada"),
+      });
+
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
       res.json(updatedRequest);
     } catch (error) {
@@ -578,26 +587,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/purchase-requests/:id/approve-a2", async (req, res) => {
+  app.post("/api/purchase-requests/:id/approve-a2", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { approverId, chosenSupplierId, choiceReason, negotiatedValue, discountsObtained, deliveryDate } = req.body;
-      
-      const updates = {
+      const { approved, rejectionReason, approverId } = req.body;
+
+      const request = await storage.getPurchaseRequestById(id);
+      if (!request || request.currentPhase !== "aprovacao_a2") {
+        return res.status(400).json({ message: "Request must be in the A2 approval phase" });
+      }
+
+      const updateData = {
         approverA2Id: approverId,
-        chosenSupplierId,
-        choiceReason,
-        negotiatedValue,
-        discountsObtained,
-        deliveryDate: new Date(deliveryDate),
-        currentPhase: "pedido_compra" as const,
-      };
-      
-      const request = await storage.updatePurchaseRequest(id, updates);
-      res.json(request);
+        currentPhase: approved ? "pedido_compra" : "arquivado",
+        updatedAt: new Date()
+      } as const;
+
+      // Create approval history entry
+      await storage.createApprovalHistory({
+        purchaseRequestId: id,
+        approverType: "A2",
+        approverId: approverId,
+        approved: approved,
+        rejectionReason: approved ? null : (rejectionReason || "Solicitação reprovada"),
+      });
+
+      const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
+      res.json(updatedRequest);
     } catch (error) {
       console.error("Error approving A2:", error);
-      res.status(400).json({ message: "Failed to process approval" });
+      res.status(400).json({ message: "Failed to process A2 approval" });
+    }
+  });
+
+  app.get("/api/purchase-requests/:id/approval-history", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const history = await storage.getApprovalHistory(id);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching approval history:", error);
+      res.status(500).json({ message: "Failed to fetch approval history" });
     }
   });
 

@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { PURCHASE_PHASES, PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import RequestPhase from "@/components/request-phase";
 import ApprovalA1Phase from "@/components/approval-a1-phase";
+import ApprovalA2Phase from "@/components/approval-a2-phase";
 import QuotationPhase from "@/components/quotation-phase";
 import { 
   FileText, 
@@ -86,6 +87,8 @@ export default function RequestManagementPage() {
         return <RequestPhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.APROVACAO_A1:
         return <ApprovalA1Phase request={selectedRequest} onClose={handleCloseModal} />;
+      case PURCHASE_PHASES.APROVACAO_A2:
+        return <ApprovalA2Phase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.COTACAO:
         return <QuotationPhase request={selectedRequest} onClose={handleCloseModal} />;
       default:

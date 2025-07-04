@@ -150,6 +150,17 @@ export const purchaseRequestSuppliers = pgTable("purchase_request_suppliers", {
   quotationDate: timestamp("quotation_date"),
 });
 
+// Approval History table
+export const approvalHistory = pgTable("approval_history", {
+  id: serial("id").primaryKey(),
+  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id).notNull(),
+  approverType: text("approver_type").notNull(), // 'A1', 'A2'
+  approverId: integer("approver_id").references(() => users.id).notNull(),
+  approved: boolean("approved").notNull(),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // File Attachments table
 export const attachments = pgTable("attachments", {
   id: serial("id").primaryKey(),
@@ -687,3 +698,11 @@ export type Receipt = typeof receipts.$inferSelect;
 export type InsertReceipt = z.infer<typeof insertReceiptSchema>;
 export type ReceiptItem = typeof receiptItems.$inferSelect;
 export type InsertReceiptItem = z.infer<typeof insertReceiptItemSchema>;
+export type ApprovalHistory = typeof approvalHistory.$inferSelect;
+
+// Insert schemas
+export const insertApprovalHistorySchema = createInsertSchema(approvalHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertApprovalHistory = z.infer<typeof insertApprovalHistorySchema>;
