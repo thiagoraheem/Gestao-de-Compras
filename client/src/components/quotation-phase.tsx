@@ -244,7 +244,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                           <span className="text-sm font-medium text-gray-500">Fornecedor</span>
-                          <p>{sq.supplier.name}</p>
+                          <p>{sq.supplier?.name || 'Fornecedor não definido'}</p>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Status</span>
