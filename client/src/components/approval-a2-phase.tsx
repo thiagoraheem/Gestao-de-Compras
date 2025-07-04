@@ -77,6 +77,15 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
     queryKey: ["/api/purchase-requests", request.id, "items"],
   });
 
+  // Transform items to match ApprovalItemData interface
+  const transformedItems = requestItems.map(item => ({
+    id: item.id,
+    itemNumber: item.itemNumber,
+    description: item.description,
+    unit: item.unit,
+    requestedQuantity: parseFloat(item.requestedQuantity || '0')
+  }));
+
   const form = useForm<ApprovalFormData>({
     resolver: zodResolver(approvalSchema),
     defaultValues: {
@@ -261,7 +270,7 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
 
         {/* Request Items */}
         <ApprovalItemsViewer 
-          items={requestItems} 
+          items={transformedItems} 
           requestId={request.id} 
           requestNumber={request.requestNumber}
         />

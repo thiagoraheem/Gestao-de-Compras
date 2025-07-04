@@ -11,7 +11,7 @@ export interface ApprovalItemData {
   itemNumber: string;
   description: string;
   unit: string;
-  requestedQuantity: number;
+  requestedQuantity: string | number;
 }
 
 interface ApprovalItemsViewerProps {
@@ -22,9 +22,11 @@ interface ApprovalItemsViewerProps {
 }
 
 export default function ApprovalItemsViewer({ items, requestId, requestNumber, className }: ApprovalItemsViewerProps) {
-  const formatNumber = (value: number | undefined): string => {
+  const formatNumber = (value: number | string | undefined): string => {
     if (value === undefined || value === null) return '0';
-    return value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(numValue)) return '0';
+    return numValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   };
 
   const handleExportToExcel = () => {
@@ -67,7 +69,7 @@ export default function ApprovalItemsViewer({ items, requestId, requestNumber, c
   };
 
   const getTotalRequested = () => {
-    return items.reduce((total, item) => total + item.requestedQuantity, 0);
+    return items.reduce((total, item) => total + Number(item.requestedQuantity || 0), 0);
   };
 
   if (items.length === 0) {
