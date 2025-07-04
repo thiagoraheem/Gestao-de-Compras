@@ -1096,6 +1096,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rota para atualizar cotação de fornecedor (marcar como recebida com valores)
+  app.post("/api/quotations/:quotationId/update-supplier-quotation", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const { supplierId, totalValue, observations } = req.body;
+      
+      if (!supplierId) {
+        return res.status(400).json({ message: "ID do fornecedor é obrigatório" });
+      }
+
+      // Buscar a cotação
+      const quotation = await storage.getQuotationById(quotationId);
+      if (!quotation) {
+        return res.status(404).json({ message: "Cotação não encontrada" });
+      }
+
+      // Buscar cotação do fornecedor
+      const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+      const supplierQuotation = supplierQuotations.find(sq => sq.supplierId === supplierId);
+      
+      if (!supplierQuotation) {
+        return res.status(404).json({ message: "Cotação do fornecedor não encontrada" });
+      }
+
+      // Atualizar a cotação do fornecedor
+      await storage.updateSupplierQuotation(supplierQuotation.id, {
+        status: "received",
+        totalValue: totalValue || null,
+        observations: observations || null,
+        receivedAt: new Date()
+      });
+
+      res.json({ message: "Cotação do fornecedor atualizada com sucesso" });
+    } catch (error) {
+      console.error("Error updating supplier quotation:", error);
+      res.status(500).json({ message: "Erro ao atualizar cotação do fornecedor" });
+    }
+  });
+
   // Rota para selecionar fornecedor vencedor na cotação
   app.post("/api/quotations/:quotationId/select-supplier", isAuthenticated, async (req, res) => {
     try {

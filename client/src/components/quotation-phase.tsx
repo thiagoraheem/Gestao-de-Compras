@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import RFQCreation from "./rfq-creation";
 import RFQAnalysis from "./rfq-analysis";
 import SupplierComparison from "./supplier-comparison";
+import UpdateSupplierQuotation from "./update-supplier-quotation";
 
 interface Quotation {
   id: number;
@@ -32,12 +33,14 @@ interface QuotationItem {
 
 interface SupplierQuotation {
   id: number;
+  supplierId: number;
   supplier: {
     name: string;
   };
   status: 'pending' | 'sent' | 'received' | 'expired';
   receivedAt?: string;
   totalValue?: string;
+  observations?: string;
 }
 
 interface QuotationPhaseProps {
@@ -50,6 +53,11 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
   const [showRFQCreation, setShowRFQCreation] = useState(false);
   const [showRFQAnalysis, setShowRFQAnalysis] = useState(false);
   const [showSupplierComparison, setShowSupplierComparison] = useState(false);
+  const [showUpdateQuotation, setShowUpdateQuotation] = useState(false);
+  const [selectedSupplierForUpdate, setSelectedSupplierForUpdate] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
   const { user } = useAuth();
 
   const { data: quotation, isLoading } = useQuery<Quotation>({
@@ -243,25 +251,60 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                 <div className="space-y-4">
                   {supplierQuotations.map((sq) => (
                     <div key={sq.id} className="border rounded-lg p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
                         <div>
                           <span className="text-sm font-medium text-gray-500">Fornecedor</span>
-                          <p>{sq.supplier?.name || 'Fornecedor não definido'}</p>
+                          <p className="font-medium">{sq.supplier?.name || 'Fornecedor não definido'}</p>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Status</span>
-                          <p>
+                          <Badge variant={
+                            sq.status === 'received' ? 'default' : 
+                            sq.status === 'sent' ? 'secondary' : 
+                            sq.status === 'expired' ? 'destructive' : 'outline'
+                          }>
                             {sq.status === 'pending' && 'Pendente'}
                             {sq.status === 'sent' && 'Enviada'}
                             {sq.status === 'received' && 'Recebida'}
                             {sq.status === 'expired' && 'Expirada'}
-                          </p>
+                          </Badge>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-gray-500">Recebido em</span>
-                          <p>{sq.receivedAt ? format(new Date(sq.receivedAt), "dd/MM/yyyy", { locale: ptBR }) : 'Não recebida'}</p>
+                          <span className="text-sm font-medium text-gray-500">Valor Total</span>
+                          <p className="font-medium">
+                            {sq.totalValue ? `R$ ${parseFloat(sq.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'}
+                          </p>
+                        </div>
+                        <div className="flex justify-end">
+                          {sq.status !== 'received' && user?.isBuyer && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setSelectedSupplierForUpdate({
+                                  id: (sq as any).supplierId || sq.id,
+                                  name: sq.supplier?.name || 'Fornecedor'
+                                });
+                                setShowUpdateQuotation(true);
+                              }}
+                              className="bg-blue-600 hover:bg-blue-700"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Marcar como Recebida
+                            </Button>
+                          )}
+                          {sq.status === 'received' && (
+                            <div className="text-sm text-green-600 font-medium">
+                              ✓ Recebida em {sq.receivedAt ? format(new Date(sq.receivedAt), "dd/MM/yyyy", { locale: ptBR }) : ''}
+                            </div>
+                          )}
                         </div>
                       </div>
+                      {(sq as any).observations && (
+                        <div className="mt-3 pt-3 border-t">
+                          <span className="text-sm font-medium text-gray-500">Observações:</span>
+                          <p className="text-sm mt-1">{(sq as any).observations}</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -326,6 +369,23 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
             onComplete={() => {
               setShowSupplierComparison(false);
               onClose?.(); // Close the entire quotation modal
+            }}
+          />
+        )}
+
+        {showUpdateQuotation && selectedSupplierForUpdate && quotation && (
+          <UpdateSupplierQuotation
+            isOpen={showUpdateQuotation}
+            onClose={() => {
+              setShowUpdateQuotation(false);
+              setSelectedSupplierForUpdate(null);
+            }}
+            quotationId={quotation.id}
+            supplierId={selectedSupplierForUpdate.id}
+            supplierName={selectedSupplierForUpdate.name}
+            onSuccess={() => {
+              // Refresh supplier quotations data
+              // The component will automatically refetch due to query invalidation
             }}
           />
         )}
