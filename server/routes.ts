@@ -713,7 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/purchase-requests/:id/attachments", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      // For now, return empty array as attachment functionality is not fully implemented
+      // Temporary implementation - returns empty array until file upload is fully implemented
       res.json([]);
     } catch (error) {
       console.error("Error fetching attachments:", error);
@@ -753,17 +753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Approval history routes
-  app.get("/api/purchase-requests/:id/approval-history", isAuthenticated, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      // For now, return empty array as approval history functionality is not fully implemented
-      res.json([]);
-    } catch (error) {
-      console.error("Error fetching approval history:", error);
-      res.status(500).json({ message: "Failed to fetch approval history" });
-    }
-  });
+  // Duplicate approval history route removed - using the working one above
 
   // Quotation history routes
   app.get("/api/purchase-requests/:id/quotation-history", isAuthenticated, async (req, res) => {
@@ -1103,6 +1093,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao arquivar requisição:", error);
       res.status(500).json({ message: "Erro ao arquivar requisição" });
+    }
+  });
+
+  // Rota para selecionar fornecedor vencedor na cotação
+  app.post("/api/quotations/:quotationId/select-supplier", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const { selectedSupplierId, totalValue, observations } = req.body;
+      
+      // Buscar a cotação
+      const quotation = await storage.getQuotationById(quotationId);
+      if (!quotation) {
+        return res.status(404).json({ message: "Cotação não encontrada" });
+      }
+      
+      // Atualizar a cotação (status e observações)
+      await storage.updateQuotation(quotationId, {
+        status: "approved",
+      });
+      
+      // Avançar a solicitação para aprovação A2
+      await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
+        currentPhase: "aprovacao_a2",
+        totalValue,
+        chosenSupplierId: selectedSupplierId,
+        choiceReason: observations
+      });
+      
+      res.json({ message: "Fornecedor selecionado com sucesso" });
+    } catch (error) {
+      console.error("Error selecting supplier:", error);
+      res.status(400).json({ message: "Failed to select supplier" });
+    }
+  });
+
+  // Rota para obter informações detalhadas de comparação de fornecedores
+  app.get("/api/quotations/:quotationId/supplier-comparison", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      
+      // Buscar cotações dos fornecedores
+      const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+      
+      // Para cada cotação de fornecedor, buscar os itens
+      const detailedComparison = await Promise.all(
+        supplierQuotations.map(async (sq: any) => {
+          const items = await storage.getSupplierQuotationItems(sq.id);
+          const totalValue = items.reduce((sum: number, item: any) => sum + (Number(item.unitPrice) * Number(item.quantity)), 0);
+          
+          return {
+            ...sq,
+            items,
+            totalValue,
+            deliveryDays: sq.deliveryDays || 30,
+            warranty: sq.warranty || "12 meses",
+            paymentTerms: sq.paymentTerms || "30 dias",
+            observations: sq.observations || "",
+            status: sq.status || "received"
+          };
+        })
+      );
+      
+      res.json(detailedComparison);
+    } catch (error) {
+      console.error("Error fetching supplier comparison:", error);
+      res.status(500).json({ message: "Failed to fetch supplier comparison" });
     }
   });
 

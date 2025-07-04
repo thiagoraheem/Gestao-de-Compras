@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/useAuth";
 import RFQCreation from "./rfq-creation";
 import RFQAnalysis from "./rfq-analysis";
+import SupplierComparison from "./supplier-comparison";
 
 interface Quotation {
   id: number;
@@ -48,6 +49,7 @@ interface QuotationPhaseProps {
 export default function QuotationPhase({ request, onClose, className }: QuotationPhaseProps) {
   const [showRFQCreation, setShowRFQCreation] = useState(false);
   const [showRFQAnalysis, setShowRFQAnalysis] = useState(false);
+  const [showSupplierComparison, setShowSupplierComparison] = useState(false);
   const { user } = useAuth();
 
   const { data: quotation, isLoading } = useQuery<Quotation>({
@@ -267,8 +269,8 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
             </Card>
 
             {/* Actions */}
-            {quotation.status === 'draft' && user?.isBuyer && (
-              <div className="flex justify-end">
+            <div className="flex justify-end gap-4">
+              {quotation.status === 'draft' && user?.isBuyer && (
                 <Button 
                   onClick={() => setShowRFQCreation(true)}
                   className="bg-blue-600 hover:bg-blue-700"
@@ -276,8 +278,18 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                   <Plus className="h-4 w-4 mr-2" />
                   Editar RFQ
                 </Button>
-              </div>
-            )}
+              )}
+              
+              {quotation.status === 'sent' && supplierQuotations.length > 0 && user?.isBuyer && (
+                <Button 
+                  onClick={() => setShowSupplierComparison(true)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Comparar e Selecionar Fornecedor
+                </Button>
+              )}
+            </div>
           </>
         )}
 
@@ -303,6 +315,17 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
             onComplete={() => {
               setShowRFQAnalysis(false);
               // TODO: Refresh data
+            }}
+          />
+        )}
+
+        {showSupplierComparison && quotation && (
+          <SupplierComparison
+            quotationId={quotation.id}
+            onClose={() => setShowSupplierComparison(false)}
+            onComplete={() => {
+              setShowSupplierComparison(false);
+              onClose?.(); // Close the entire quotation modal
             }}
           />
         )}

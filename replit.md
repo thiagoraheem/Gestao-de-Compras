@@ -110,6 +110,14 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 4, 2025. Sistema de comparação e seleção de fornecedores implementado:
+  - ✓ Corrigidas rotas duplicadas que causavam exibição incorreta de anexos e histórico
+  - ✓ Sistema completo de comparação de fornecedores na fase de cotação
+  - ✓ Interface para seleção de fornecedor vencedor com justificativa
+  - ✓ Validação que impede avanço da fase de cotação sem seleção de fornecedor
+  - ✓ Componente SupplierComparison com visualização detalhada de propostas
+  - ✓ Integração com API para persistir seleção e avançar automaticamente para Aprovação A2
+  - ✓ Migração completa para ambiente Replit com correção de problemas de relacionamento
 - July 4, 2025. Sistema de e-mails e correção da exibição de fornecedores implementado:
   - ✓ Serviço de e-mail integrado com nodemailer para envio automático de RFQs
   - ✓ Correção do método getSupplierQuotations para incluir dados dos fornecedores via JOIN
