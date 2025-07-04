@@ -39,7 +39,7 @@ import {
   type InsertApprovalHistory,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, like } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -415,8 +415,22 @@ export class DatabaseStorage implements IStorage {
   async createQuotation(quotationData: InsertQuotation): Promise<Quotation> {
     // Generate quotation number
     const year = new Date().getFullYear();
-    const count = await db.select().from(quotations).where(eq(quotations.quotationNumber, `COT-${year}-%`));
-    const quotationNumber = `COT-${year}-${String(count.length + 1).padStart(4, '0')}`;
+    const quotationsThisYear = await db
+      .select()
+      .from(quotations)
+      .where(like(quotations.quotationNumber, `COT-${year}-%`));
+
+    // Find the highest number used this year
+    let maxNumber = 0;
+    quotationsThisYear.forEach(q => {
+      const match = q.quotationNumber.match(/COT-\d{4}-(\d{4})/);
+      if (match) {
+        const num = parseInt(match[1]);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+
+    const quotationNumber = `COT-${year}-${String(maxNumber + 1).padStart(4, '0')}`;
 
     const [quotation] = await db
       .insert(quotations)
