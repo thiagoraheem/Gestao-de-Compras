@@ -499,7 +499,7 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
       )}
 
       {/* Default Edit Dialog for other phases */}
-      {isEditModalOpen && phase !== PURCHASE_PHASES.SOLICITACAO && phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.COTACAO && (
+      {isEditModalOpen && phase !== PURCHASE_PHASES.SOLICITACAO && phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.APROVACAO_A2 && phase !== PURCHASE_PHASES.COTACAO && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsEditModalOpen(false)}>
           <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4">Editar Solicitação</h3>
