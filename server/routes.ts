@@ -590,16 +590,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/purchase-requests/:id/approve-a2", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { approved, rejectionReason, approverId } = req.body;
+      const { approved, rejectionReason, rejectionAction, approverId } = req.body;
 
       const request = await storage.getPurchaseRequestById(id);
       if (!request || request.currentPhase !== "aprovacao_a2") {
         return res.status(400).json({ message: "Request must be in the A2 approval phase" });
       }
 
+      let newPhase = "pedido_compra";
+      if (!approved) {
+        // Handle rejection with two paths
+        if (rejectionAction === "recotacao") {
+          newPhase = "cotacao"; // Return to quotation phase
+        } else {
+          newPhase = "arquivado"; // Archive
+        }
+      }
+
       const updateData = {
         approverA2Id: approverId,
-        currentPhase: approved ? "pedido_compra" : "arquivado",
+        currentPhase: newPhase as any,
         updatedAt: new Date()
       } as const;
 
@@ -617,6 +627,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error approving A2:", error);
       res.status(400).json({ message: "Failed to process A2 approval" });
+    }
+  });
+
+  app.post("/api/purchase-requests/:id/confirm-receipt", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { receivedById } = req.body;
+
+      const request = await storage.getPurchaseRequestById(id);
+      if (!request || request.currentPhase !== "recebimento") {
+        return res.status(400).json({ message: "Request must be in the receiving phase" });
+      }
+
+      const updateData = {
+        receivedById: receivedById,
+        receivedDate: new Date(),
+        currentPhase: "conclusao_compra" as any,
+        updatedAt: new Date()
+      };
+
+      const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error("Error confirming receipt:", error);
+      res.status(400).json({ message: "Failed to confirm receipt" });
+    }
+  });
+
+  app.post("/api/purchase-requests/:id/report-issue", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { reportedById } = req.body;
+
+      const request = await storage.getPurchaseRequestById(id);
+      if (!request || request.currentPhase !== "recebimento") {
+        return res.status(400).json({ message: "Request must be in the receiving phase" });
+      }
+
+      const updateData = {
+        currentPhase: "pedido_compra" as any,
+        hasPendingIssue: true, // Add a flag to indicate there's a pending issue
+        updatedAt: new Date()
+      };
+
+      const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error("Error reporting issue:", error);
+      res.status(400).json({ message: "Failed to report issue" });
     }
   });
 

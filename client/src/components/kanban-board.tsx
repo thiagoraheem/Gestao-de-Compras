@@ -7,12 +7,23 @@ import { useState } from "react";
 import PurchaseCard from "./purchase-card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import RFQCreation from "./rfq-creation";
 
 export default function KanbanBoard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeRequest, setActiveRequest] = useState<any>(null);
+  const [showRFQModal, setShowRFQModal] = useState(false);
+  const [selectedRequestForRFQ, setSelectedRequestForRFQ] = useState<any>(null);
+  const [showRFQCreation, setShowRFQCreation] = useState(false);
 
   const { data: purchaseRequests, isLoading } = useQuery({
     queryKey: ["/api/purchase-requests"],
@@ -120,6 +131,21 @@ export default function KanbanBoard() {
       }, {})
     : {};
 
+  // Get approved requests that don't have RFQs for the shortcut button
+  const approvedRequests = Array.isArray(purchaseRequests) 
+    ? purchaseRequests.filter(request => 
+        request.currentPhase === PURCHASE_PHASES.COTACAO && 
+        request.approvedA1 && 
+        !request.hasQuotation
+      )
+    : [];
+
+  const handleCreateRFQ = (request: any) => {
+    setSelectedRequestForRFQ(request);
+    setShowRFQModal(false);
+    setShowRFQCreation(true);
+  };
+
   return (
     <DndContext
       collisionDetection={closestCorners}
@@ -150,6 +176,83 @@ export default function KanbanBoard() {
           </div>
         )}
       </DragOverlay>
+      
+      {/* RFQ Shortcut Button for Buyers */}
+      {user?.isBuyer && approvedRequests.length > 0 && (
+        <Button
+          className="fixed bottom-20 right-6 rounded-full w-14 h-14 shadow-lg bg-purple-600 hover:bg-purple-700 z-50"
+          onClick={() => setShowRFQModal(true)}
+          title="Criar RFQ para solicitação aprovada"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
+
+      {/* RFQ Selection Modal */}
+      <Dialog open={showRFQModal} onOpenChange={setShowRFQModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Selecionar Solicitação para RFQ</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {approvedRequests.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">
+                Nenhuma solicitação aprovada disponível para RFQ
+              </p>
+            ) : (
+              approvedRequests.map((request) => (
+                <Card key={request.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge>{request.requestNumber}</Badge>
+                          <Badge variant="outline">{request.category}</Badge>
+                        </div>
+                        <h4 className="font-medium mb-1">{request.justification}</h4>
+                        <p className="text-sm text-gray-600">
+                          <strong>Solicitante:</strong> {request.requester?.firstName} {request.requester?.lastName}
+                        </p>
+                        {request.totalValue && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Valor:</strong> {new Intl.NumberFormat('pt-BR', {
+                              style: 'currency',
+                              currency: 'BRL',
+                            }).format(Number(request.totalValue))}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => handleCreateRFQ(request)}
+                        className="bg-purple-600 hover:bg-purple-700"
+                      >
+                        Criar RFQ
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* RFQ Creation Modal */}
+      {showRFQCreation && selectedRequestForRFQ && (
+        <RFQCreation
+          purchaseRequest={selectedRequestForRFQ}
+          onClose={() => {
+            setShowRFQCreation(false);
+            setSelectedRequestForRFQ(null);
+          }}
+          onComplete={() => {
+            setShowRFQCreation(false);
+            setSelectedRequestForRFQ(null);
+            queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+          }}
+        />
+      )}
     </DndContext>
   );
 }

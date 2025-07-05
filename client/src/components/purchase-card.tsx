@@ -187,6 +187,53 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
     },
   });
 
+  const confirmReceiptMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/confirm-receipt`, {
+        receivedById: user?.id,
+      });
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Recebimento confirmado! Item movido para Conclusão.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível confirmar o recebimento",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const reportIssueMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/report-issue`, {
+        reportedById: user?.id,
+      });
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Pendência Reportada",
+        description: "Item retornado para Pedido de Compra com tag de pendência.",
+        variant: "destructive",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível reportar a pendência",
+        variant: "destructive",
+      });
+    },
+  });
+
   const getUrgencyIcon = (urgency: string) => {
     switch (urgency) {
       case "alto":
@@ -235,7 +282,8 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
   // Check user permissions for showing certain actions
   const canApproveA1 = user?.isApproverA1 || false;
   const canApproveA2 = user?.isApproverA2 || false;
-  const canEditInApprovalPhase = (phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1) || 
+  const canEditInApprovalPhase = phase === PURCHASE_PHASES.ARQUIVADO || // Always allow viewing history in archived phase
+                                (phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1) || 
                                 (phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2) ||
                                 (phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.APROVACAO_A2);
 
@@ -278,17 +326,19 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowArchiveDialog(true);
-                }}
-              >
-                <Archive className="h-4 w-4" />
-              </Button>
+              {!isArchived && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowArchiveDialog(true);
+                  }}
+                >
+                  <Archive className="h-4 w-4" />
+                </Button>
+              )}
               {canEditInApprovalPhase && (
                 <Button
                   variant="ghost"
@@ -324,6 +374,13 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
             <Badge variant="outline" className="text-xs">
               {CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}
             </Badge>
+            {/* Show red tag for items with pending issues */}
+            {request.hasPendingIssue && (
+              <Badge variant="destructive" className="text-xs">
+                <AlertCircle className="mr-1 h-3 w-3" />
+                Pendência
+              </Badge>
+            )}
           </div>
 
           {/* Additional info */}
@@ -334,6 +391,17 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
             {request.totalValue && (
               <p><strong>Valor:</strong> {formatCurrency(request.totalValue)}</p>
             )}
+            
+            {/* Show requester on all cards */}
+            {request.requester && (
+              <p><strong>Solicitante:</strong> {request.requester.firstName} {request.requester.lastName}</p>
+            )}
+            
+            {/* Show approver A1 name in RFQ phase */}
+            {phase === PURCHASE_PHASES.COTACAO && request.approverA1 && (
+              <p><strong>Aprovado por:</strong> {request.approverA1.firstName} {request.approverA1.lastName}</p>
+            )}
+            
             {phase === PURCHASE_PHASES.APROVACAO_A1 && (
               <p><strong>Aprovador:</strong> Pendente</p>
             )}
@@ -431,19 +499,33 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
 
           {phase === PURCHASE_PHASES.RECEBIMENTO && (
             <div className="mt-3 pt-3 border-t border-gray-100">
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  archiveMutation.mutate();
-                }}
-                disabled={archiveMutation.isPending}
-              >
-                <Archive className="mr-1 h-3 w-3" />
-                Arquivar
-              </Button>
+              <div className="flex space-x-2">
+                <Button
+                  size="sm"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    confirmReceiptMutation.mutate();
+                  }}
+                  disabled={confirmReceiptMutation.isPending}
+                >
+                  <Check className="mr-1 h-3 w-3" />
+                  Confirmar Recebimento
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    reportIssueMutation.mutate();
+                  }}
+                  disabled={reportIssueMutation.isPending}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Pendência
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

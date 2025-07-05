@@ -368,23 +368,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="technicalSpecs"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Especificações Técnicas Detalhadas</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Especificações técnicas detalhadas dos itens..."
-                          rows={4}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+
               </CardContent>
             </Card>
 

@@ -38,6 +38,7 @@ import AttachmentsViewer from "./attachments-viewer";
 const approvalSchema = z.object({
   approved: z.boolean(),
   rejectionReason: z.string().optional(),
+  rejectionAction: z.enum(['archive', 'recotacao']).optional(),
 }).refine((data) => {
   if (!data.approved && (!data.rejectionReason || data.rejectionReason.trim().length < 10)) {
     return false;
@@ -351,23 +352,52 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
                 </div>
 
                 {selectedAction === 'reject' && (
-                  <FormField
-                    control={form.control}
-                    name="rejectionReason"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Justificativa da Reprovação</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Explique o motivo da reprovação..."
-                            {...field}
-                            rows={4}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="rejectionAction"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Destino da Solicitação Reprovada</FormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              className="flex flex-col space-y-2"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="archive" id="archive" />
+                                <Label htmlFor="archive">Arquivar definitivamente</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="recotacao" id="recotacao" />
+                                <Label htmlFor="recotacao">Retornar para nova cotação</Label>
+                              </div>
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="rejectionReason"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Justificativa da Reprovação</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Explique o motivo da reprovação..."
+                              {...field}
+                              rows={4}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 )}
 
                 {selectedAction && (
