@@ -347,12 +347,11 @@ export class DatabaseStorage implements IStorage {
           email: approverA1User.email
         },
         // Check if quotation exists
-        hasQuotation: sql<boolean>`CASE WHEN ${quotations.id} IS NOT NULL THEN true ELSE false END`
+        hasQuotation: sql<boolean>`EXISTS(SELECT 1 FROM ${quotations} WHERE ${quotations.purchaseRequestId} = ${purchaseRequests.id})`
       })
       .from(purchaseRequests)
       .leftJoin(requesterUser, eq(purchaseRequests.requesterId, requesterUser.id))
       .leftJoin(approverA1User, eq(purchaseRequests.approverA1Id, approverA1User.id))
-      .leftJoin(quotations, eq(purchaseRequests.id, quotations.purchaseRequestId))
       .orderBy(desc(purchaseRequests.createdAt));
 
     return requests as any[];
