@@ -86,6 +86,24 @@
     background: hsl(210, 12%, 83%);
     border-radius: 4px;
   }
+
+  /* Mobile header fixes */
+  @media (max-width: 768px) {
+    .mobile-header {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+    
+    .mobile-title {
+      font-size: 1.25rem;
+    }
+    
+    .mobile-menu-button {
+      min-width: 2.25rem;
+      min-height: 2.25rem;
+      flex-shrink: 0;
+    }
+  }
   
   .status-badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;

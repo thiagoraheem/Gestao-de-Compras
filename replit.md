@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 6, 2025. Correções de interface mobile e implementação de filtros funcionais:
+  - ✓ Corrigido posicionamento do menu hambúrguer em dispositivos móveis (agora totalmente visível)
+  - ✓ Melhorado layout responsivo do header com flexbox otimizado
+  - ✓ Implementado sistema de filtros funcionais no kanban (departamento e urgência)
+  - ✓ Filtros carregam dados reais do banco (departamentos) e aplicam filtros em tempo real
+  - ✓ Layout mobile do kanban aprimorado com títulos e filtros verticais
+  - ✓ Adicionado scrollbar customizado para melhor experiência no kanban
 - July 6, 2025. Migração para Replit e correções críticas:
   - ✓ Migração bem-sucedida do projeto para ambiente Replit
   - ✓ Correção da contagem incorreta de anexos nos cards do kanban (substituído Math.random por busca real de dados)

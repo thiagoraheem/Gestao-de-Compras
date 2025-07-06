@@ -15,7 +15,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import RFQCreation from "./rfq-creation";
 
-export default function KanbanBoard() {
+interface KanbanBoardProps {
+  departmentFilter?: string;
+  urgencyFilter?: string;
+}
+
+export default function KanbanBoard({ departmentFilter = "all", urgencyFilter = "all" }: KanbanBoardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -120,15 +125,32 @@ export default function KanbanBoard() {
     );
   }
 
-  // Group requests by phase
-  const requestsByPhase = Array.isArray(purchaseRequests) 
-    ? purchaseRequests.reduce((acc: any, request: any) => {
-        const phase = request.currentPhase || PURCHASE_PHASES.SOLICITACAO;
-        if (!acc[phase]) acc[phase] = [];
-        acc[phase].push(request);
-        return acc;
-      }, {})
-    : {};
+  // Filter requests based on department and urgency
+  const filteredRequests = Array.isArray(purchaseRequests) 
+    ? purchaseRequests.filter((request: any) => {
+        let passesFilters = true;
+        
+        // Department filter
+        if (departmentFilter !== "all") {
+          passesFilters = passesFilters && request.departmentId?.toString() === departmentFilter;
+        }
+        
+        // Urgency filter
+        if (urgencyFilter !== "all") {
+          passesFilters = passesFilters && request.urgencyLevel === urgencyFilter;
+        }
+        
+        return passesFilters;
+      })
+    : [];
+
+  // Group filtered requests by phase
+  const requestsByPhase = filteredRequests.reduce((acc: any, request: any) => {
+    const phase = request.currentPhase || PURCHASE_PHASES.SOLICITACAO;
+    if (!acc[phase]) acc[phase] = [];
+    acc[phase].push(request);
+    return acc;
+  }, {});
 
   const handleCreateRFQ = (request: any) => {
     setSelectedRequestForRFQ(request);
@@ -141,8 +163,8 @@ export default function KanbanBoard() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-full overflow-x-auto px-6 py-4">
-        <div className="flex space-x-6" style={{ minWidth: "max-content", height: "calc(100vh - 200px)" }}>
+      <div className="h-full overflow-x-auto px-4 md:px-6 py-4 kanban-scroll">
+        <div className="flex space-x-4 md:space-x-6" style={{ minWidth: "max-content", height: "calc(100vh - 200px)" }}>
           {Object.values(PURCHASE_PHASES).map((phase) => (
             <KanbanColumn
               key={phase}

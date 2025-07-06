@@ -46,21 +46,21 @@ export default function PipefyHeader() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-      <div className="flex items-center justify-between px-6 py-3">
+      <div className="flex items-center justify-between px-4 md:px-6 py-3 mobile-header">
         {/* Logo e Nome */}
-        <div className="flex items-center space-x-8">
+        <div className="flex items-center space-x-2 md:space-x-8 flex-1 min-w-0">
           <Link href="/">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <ShoppingCart className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-semibold text-gray-900">
+              <span className="text-xl font-semibold text-gray-900 hidden sm:inline">
                 Compras
               </span>
             </div>
           </Link>
 
-          {/* Navegação */}
+          {/* Navegação Desktop */}
           <nav className="hidden md:flex space-x-6">
             {navigation.map((item) => {
               const Icon = item.icon;
@@ -84,64 +84,68 @@ export default function PipefyHeader() {
           </nav>
         </div>
 
-        {/* Mobile Menu Button */}
-        <div className="md:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </Button>
-        </div>
-
-        {/* User Menu */}
-        <div className="hidden md:flex items-center space-x-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-blue-600 text-white">
-                    {user?.firstName?.[0] || user?.username?.[0] || "U"}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <div className="flex items-center justify-start gap-2 p-2">
-                <div className="flex flex-col space-y-1 leading-none">
-                  <p className="font-medium">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <p className="w-[200px] truncate text-sm text-muted-foreground">
-                    {user?.email}
-                  </p>
+        {/* Right Side - User Menu Desktop + Mobile Menu Button */}
+        <div className="flex items-center space-x-2">
+          {/* User Menu Desktop */}
+          <div className="hidden md:flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback className="bg-blue-600 text-white">
+                      {user?.firstName?.[0] || user?.username?.[0] || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <div className="flex items-center justify-start gap-2 p-2">
+                  <div className="flex flex-col space-y-1 leading-none">
+                    <p className="font-medium">
+                      {user?.firstName} {user?.lastName}
+                    </p>
+                    <p className="w-[200px] truncate text-sm text-muted-foreground">
+                      {user?.email}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/profile">
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Perfil</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/change-password">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Alterar Senha</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Sair</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/profile">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Perfil</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/change-password">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Alterar Senha</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sair</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="h-9 w-9 mobile-menu-button"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
