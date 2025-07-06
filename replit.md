@@ -110,6 +110,12 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 6, 2025. Correção do sistema de comparação de fornecedores:
+  - ✓ Corrigido problema que exibia valores zerados na tela de comparação
+  - ✓ Sistema agora usa o valor total armazenado na base de dados
+  - ✓ Valores corretos são exibidos (R$ 1.500,00 e R$ 9.999,10)
+  - ✓ Removido campo de especificações técnicas da tela de criação de RFQ
+  - ✓ Comparação de fornecedores totalmente funcional
 - July 4, 2025. Sistema de comparação e seleção de fornecedores implementado:
   - ✓ Corrigidas rotas duplicadas que causavam exibição incorreta de anexos e histórico
   - ✓ Sistema completo de comparação de fornecedores na fase de cotação

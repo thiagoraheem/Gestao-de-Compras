@@ -106,9 +106,7 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
     );
   }
 
-  console.log('Suppliers data:', suppliersData);
   const receivedQuotations = suppliersData.filter(sq => sq.status === 'received');
-  console.log('Received quotations:', receivedQuotations);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

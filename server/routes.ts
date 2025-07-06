@@ -1238,12 +1238,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const detailedComparison = await Promise.all(
         supplierQuotations.map(async (sq: any) => {
           const items = await storage.getSupplierQuotationItems(sq.id);
-          const totalValue = items.reduce((sum: number, item: any) => sum + (Number(item.unitPrice) * Number(item.quantity)), 0);
           
           return {
             ...sq,
             items,
-            totalValue,
+            totalValue: Number(sq.totalValue) || 0, // Use the stored total value
             deliveryDays: sq.deliveryDays || 30,
             warranty: sq.warranty || "12 meses",
             paymentTerms: sq.paymentTerms || "30 dias",
