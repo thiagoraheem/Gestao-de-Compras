@@ -110,6 +110,12 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 6, 2025. Correção crítica no sistema de aprovação (dados incorretos):
+  - ✓ Corrigido bug grave onde a tela de aprovação exibia itens de TODAS as solicitações em vez de apenas a específica
+  - ✓ Problema estava nas query keys do React Query usando arrays multi-elemento incorretamente
+  - ✓ Corrigido query keys para usar URLs completas: `/api/purchase-requests/${id}/items`
+  - ✓ Aplicado fix nas fases de aprovação A1 e A2 para garantir dados corretos
+  - ✓ Sistema agora exibe apenas os itens da solicitação específica sendo aprovada
 - July 6, 2025. Melhorias na interface e funcionalidade do Kanban:
   - ✓ Removido botão global "+" de criação de RFQ da tela principal
   - ✓ Adicionado botão "Criar RFQ" dentro dos cards da fase de cotação (apenas quando não há RFQ criada)

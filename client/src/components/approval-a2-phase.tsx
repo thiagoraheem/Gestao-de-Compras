@@ -67,15 +67,15 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
   const canApprove = user?.isApproverA2 || false;
 
   const { data: attachments } = useQuery<any[]>({
-    queryKey: ["/api/purchase-requests", request.id, "attachments"],
+    queryKey: [`/api/purchase-requests/${request.id}/attachments`],
   });
 
   const { data: approvalHistory } = useQuery<any[]>({
-    queryKey: ["/api/purchase-requests", request.id, "approval-history"],
+    queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
   });
 
   const { data: requestItems = [] } = useQuery<any[]>({
-    queryKey: ["/api/purchase-requests", request.id, "items"],
+    queryKey: [`/api/purchase-requests/${request.id}/items`],
   });
 
   // Transform items to match ApprovalItemData interface
