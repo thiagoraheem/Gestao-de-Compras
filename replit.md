@@ -110,6 +110,12 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 6, 2025. Melhorias na interface e funcionalidade do Kanban:
+  - ✓ Removido botão global "+" de criação de RFQ da tela principal
+  - ✓ Adicionado botão "Criar RFQ" dentro dos cards da fase de cotação (apenas quando não há RFQ criada)
+  - ✓ Campo "Solicitante" incluído em todos os cards do Kanban
+  - ✓ Campo "Aprovador" incluído nos cards a partir da fase de cotação
+  - ✓ Interface mais limpa e contextual para criação de RFQs
 - July 6, 2025. Correção do sistema de comparação de fornecedores:
   - ✓ Corrigido problema que exibia valores zerados na tela de comparação
   - ✓ Sistema agora usa o valor total armazenado na base de dados

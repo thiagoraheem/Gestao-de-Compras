@@ -8,9 +8,10 @@ interface KanbanColumnProps {
   phase: PurchasePhase;
   title: string;
   requests: any[];
+  onCreateRFQ?: (request: any) => void;
 }
 
-export default function KanbanColumn({ phase, title, requests }: KanbanColumnProps) {
+export default function KanbanColumn({ phase, title, requests, onCreateRFQ }: KanbanColumnProps) {
   const phaseColor = PHASE_COLORS[phase];
   const { setNodeRef, isOver } = useDroppable({
     id: phase,
@@ -51,6 +52,7 @@ export default function KanbanColumn({ phase, title, requests }: KanbanColumnPro
                 key={`request-${request.id}`}
                 request={request}
                 phase={phase}
+                onCreateRFQ={onCreateRFQ}
               />
             ))}
           </SortableContext>

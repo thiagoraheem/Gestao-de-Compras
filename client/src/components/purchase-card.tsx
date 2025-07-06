@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { URGENCY_LABELS, CATEGORY_LABELS, PurchasePhase, PURCHASE_PHASES, PHASE_LABELS } from "@/lib/types";
-import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive, Edit, GripVertical, Trash2 } from "lucide-react";
+import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive, Edit, GripVertical, Trash2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -32,9 +32,10 @@ interface PurchaseCardProps {
   request: any;
   phase: PurchasePhase;
   isDragging?: boolean;
+  onCreateRFQ?: (request: any) => void;
 }
 
-export default function PurchaseCard({ request, phase, isDragging = false }: PurchaseCardProps) {
+export default function PurchaseCard({ request, phase, isDragging = false, onCreateRFQ }: PurchaseCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -397,19 +398,15 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
               <p><strong>Solicitante:</strong> {request.requester.firstName} {request.requester.lastName}</p>
             )}
             
-            {/* Show approver A1 name in RFQ phase */}
-            {phase === PURCHASE_PHASES.COTACAO && request.approverA1 && (
-              <p><strong>Aprovado por:</strong> {request.approverA1.firstName} {request.approverA1.lastName}</p>
+            {/* Show approver from cotacao phase onwards */}
+            {(phase === PURCHASE_PHASES.COTACAO || phase === PURCHASE_PHASES.APROVACAO_A2 || 
+              phase === PURCHASE_PHASES.PEDIDO_COMPRA || phase === PURCHASE_PHASES.RECEBIMENTO || 
+              phase === PURCHASE_PHASES.CONCLUSAO) && request.approverA1 && (
+              <p><strong>Aprovador:</strong> {request.approverA1.firstName} {request.approverA1.lastName}</p>
             )}
             
             {phase === PURCHASE_PHASES.APROVACAO_A1 && (
               <p><strong>Aprovador:</strong> Pendente</p>
-            )}
-            {phase === PURCHASE_PHASES.COTACAO && request.buyerId && (
-              <p><strong>Comprador:</strong> Atribuído</p>
-            )}
-            {phase === PURCHASE_PHASES.RECEBIMENTO && request.receivedById && (
-              <p><strong>Recebido por:</strong> Usuário</p>
             )}
           </div>
 
@@ -425,6 +422,23 @@ export default function PurchaseCard({ request, phase, isDragging = false }: Pur
               </span>
             </div>
           </div>
+
+          {/* RFQ Creation Button for Quotation Phase */}
+          {phase === PURCHASE_PHASES.COTACAO && user?.isBuyer && !request.hasQuotation && onCreateRFQ && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <Button
+                size="sm"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCreateRFQ(request);
+                }}
+              >
+                <Plus className="mr-1 h-3 w-3" />
+                Criar RFQ
+              </Button>
+            </div>
+          )}
 
           {/* Phase-specific actions */}
           {phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1 && (
