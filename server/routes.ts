@@ -1269,6 +1269,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PDF Generation routes
+  app.get("/api/purchase-requests/:id/pdf", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Import PDF service
+      const { PDFService } = await import('./pdf-service');
+      
+      // Generate PDF
+      const pdfBuffer = await PDFService.generatePurchaseOrderPDF(id);
+      
+      // Get purchase request to use in filename
+      const purchaseRequest = await storage.getPurchaseRequestById(id);
+      const filename = `Pedido_Compra_${purchaseRequest?.requestNumber || id}.pdf`;
+      
+      // Set headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      // Send PDF
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ 
+        message: "Erro ao gerar PDF",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

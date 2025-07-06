@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 6, 2025. Sistema de geração de PDF do Pedido de Compra implementado:
+  - ✓ Criado serviço de geração de PDF baseado no template Excel fornecido (PDFService)
+  - ✓ Implementado componente PurchaseOrderPhase com resumo completo do processo
+  - ✓ Adicionado botão de download de PDF na fase Pedido de Compra
+  - ✓ Rota API /api/purchase-requests/:id/pdf para gerar e baixar PDFs
+  - ✓ Interface mostra histórico de aprovações, fornecedor selecionado e todos os dados relevantes
+  - ✓ PDF segue estrutura do template da empresa com dados dinâmicos da solicitação
 - July 6, 2025. Correções de interface mobile e implementação de filtros funcionais:
   - ✓ Corrigido posicionamento do menu hambúrguer em dispositivos móveis (agora totalmente visível)
   - ✓ Melhorado layout responsivo do header com flexbox otimizado

@@ -13,6 +13,7 @@ import RequestPhase from "@/components/request-phase";
 import ApprovalA1Phase from "@/components/approval-a1-phase";
 import ApprovalA2Phase from "@/components/approval-a2-phase";
 import QuotationPhase from "@/components/quotation-phase";
+import PurchaseOrderPhase from "@/components/purchase-order-phase";
 import { 
   FileText, 
   CheckCircle, 
@@ -91,6 +92,8 @@ export default function RequestManagementPage() {
         return <ApprovalA2Phase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.COTACAO:
         return <QuotationPhase request={selectedRequest} onClose={handleCloseModal} />;
+      case PURCHASE_PHASES.PEDIDO_COMPRA:
+        return <PurchaseOrderPhase request={selectedRequest} onClose={handleCloseModal} />;
       default:
         return (
           <div className="p-8 text-center">
