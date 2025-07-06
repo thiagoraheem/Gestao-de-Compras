@@ -423,19 +423,25 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
             </div>
           </div>
 
-          {/* RFQ Creation Button for Quotation Phase */}
-          {phase === PURCHASE_PHASES.COTACAO && user?.isBuyer && !request.hasQuotation && onCreateRFQ && (
+          {/* RFQ Creation/Edit Button for Quotation Phase */}
+          {phase === PURCHASE_PHASES.COTACAO && user?.isBuyer && onCreateRFQ && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <Button
                 size="sm"
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onCreateRFQ(request);
+                  if (request.hasQuotation) {
+                    // Open edit modal for existing RFQ
+                    setIsEditModalOpen(true);
+                  } else {
+                    // Create new RFQ
+                    onCreateRFQ(request);
+                  }
                 }}
               >
                 <Plus className="mr-1 h-3 w-3" />
-                Criar RFQ
+                {request.hasQuotation ? "Visualizar RFQ" : "Criar RFQ"}
               </Button>
             </div>
           )}

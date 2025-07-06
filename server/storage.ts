@@ -39,7 +39,8 @@ import {
   type InsertApprovalHistory,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, like } from "drizzle-orm";
+import { eq, and, desc, like, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -129,6 +130,10 @@ export interface IStorage {
   // Initialize default data
   initializeDefaultData(): Promise<void>;
 }
+
+// Create aliases for user tables
+const requesterUser = alias(users, "requester_user");
+const approverA1User = alias(users, "approver_a1_user");
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
@@ -293,7 +298,64 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllPurchaseRequests(): Promise<PurchaseRequest[]> {
-    return await db.select().from(purchaseRequests).orderBy(desc(purchaseRequests.createdAt));
+    const requests = await db
+      .select({
+        id: purchaseRequests.id,
+        requestNumber: purchaseRequests.requestNumber,
+        requesterId: purchaseRequests.requesterId,
+        costCenterId: purchaseRequests.costCenterId,
+        category: purchaseRequests.category,
+        urgency: purchaseRequests.urgency,
+        justification: purchaseRequests.justification,
+        idealDeliveryDate: purchaseRequests.idealDeliveryDate,
+        availableBudget: purchaseRequests.availableBudget,
+        additionalInfo: purchaseRequests.additionalInfo,
+        currentPhase: purchaseRequests.currentPhase,
+        approverA1Id: purchaseRequests.approverA1Id,
+        approvedA1: purchaseRequests.approvedA1,
+        rejectionReasonA1: purchaseRequests.rejectionReasonA1,
+        approvalDateA1: purchaseRequests.approvalDateA1,
+        buyerId: purchaseRequests.buyerId,
+        totalValue: purchaseRequests.totalValue,
+        paymentMethodId: purchaseRequests.paymentMethodId,
+        approverA2Id: purchaseRequests.approverA2Id,
+        chosenSupplierId: purchaseRequests.chosenSupplierId,
+        choiceReason: purchaseRequests.choiceReason,
+        negotiatedValue: purchaseRequests.negotiatedValue,
+        discountsObtained: purchaseRequests.discountsObtained,
+        deliveryDate: purchaseRequests.deliveryDate,
+        purchaseDate: purchaseRequests.purchaseDate,
+        purchaseObservations: purchaseRequests.purchaseObservations,
+        receivedById: purchaseRequests.receivedById,
+        receivedDate: purchaseRequests.receivedDate,
+        createdAt: purchaseRequests.createdAt,
+        updatedAt: purchaseRequests.updatedAt,
+        // Requester data
+        requester: {
+          id: requesterUser.id,
+          firstName: requesterUser.firstName,
+          lastName: requesterUser.lastName,
+          username: requesterUser.username,
+          email: requesterUser.email
+        },
+        // Approver A1 data
+        approverA1: {
+          id: approverA1User.id,
+          firstName: approverA1User.firstName,
+          lastName: approverA1User.lastName,
+          username: approverA1User.username,
+          email: approverA1User.email
+        },
+        // Check if quotation exists
+        hasQuotation: sql<boolean>`CASE WHEN ${quotations.id} IS NOT NULL THEN true ELSE false END`
+      })
+      .from(purchaseRequests)
+      .leftJoin(requesterUser, eq(purchaseRequests.requesterId, requesterUser.id))
+      .leftJoin(approverA1User, eq(purchaseRequests.approverA1Id, approverA1User.id))
+      .leftJoin(quotations, eq(purchaseRequests.id, quotations.purchaseRequestId))
+      .orderBy(desc(purchaseRequests.createdAt));
+
+    return requests as any[];
   }
 
   async getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined> {
