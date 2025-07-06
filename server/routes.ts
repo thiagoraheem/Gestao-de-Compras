@@ -478,7 +478,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const purchaseRequestId = parseInt(req.params.id);
       const items = await storage.getPurchaseRequestItems(purchaseRequestId);
-      res.json(items);
+      
+      // Map the items to match the frontend EditableItem interface
+      const mappedItems = items.map(item => ({
+        id: item.id,
+        description: item.description,
+        unit: item.unit,
+        requestedQuantity: parseFloat(item.requestedQuantity) || 0
+      }));
+      
+      console.log(`[DEBUG] Fetched ${items.length} items for purchase request ${purchaseRequestId}:`, mappedItems);
+      res.json(mappedItems);
     } catch (error) {
       console.error("Error fetching purchase request items:", error);
       res.status(500).json({ message: "Failed to fetch items" });

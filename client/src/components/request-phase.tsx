@@ -73,6 +73,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   // Carregar itens existentes quando disponíveis (apenas uma vez)
   useEffect(() => {
     if (existingItems.length > 0 && !itemsLoaded) {
+      console.log('[DEBUG] Loading existing items:', existingItems);
       setRequestItems(existingItems);
       setItemsLoaded(true);
     }
