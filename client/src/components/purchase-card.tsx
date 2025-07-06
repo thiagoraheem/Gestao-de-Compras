@@ -17,6 +17,7 @@ import ApprovalA1Phase from "./approval-a1-phase";
 import ApprovalA2Phase from "./approval-a2-phase";
 import QuotationPhase from "./quotation-phase";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +43,12 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  
+  // Buscar anexos da solicitação
+  const { data: attachments = [] } = useQuery<any[]>({
+    queryKey: [`/api/purchase-requests/${request.id}/attachments`],
+    enabled: !!request?.id,
+  });
 
   const handleCardClick = () => {
     setIsEditModalOpen(true);
@@ -401,7 +408,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
             {/* Show approver from cotacao phase onwards */}
             {(phase === PURCHASE_PHASES.COTACAO || phase === PURCHASE_PHASES.APROVACAO_A2 || 
               phase === PURCHASE_PHASES.PEDIDO_COMPRA || phase === PURCHASE_PHASES.RECEBIMENTO || 
-              phase === PURCHASE_PHASES.CONCLUSAO) && request.approverA1 && (
+              phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) && request.approverA1 && (
               <p><strong>Aprovador:</strong> {request.approverA1.firstName} {request.approverA1.lastName}</p>
             )}
             
@@ -418,7 +425,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
             <div className="flex items-center space-x-1">
               <Paperclip className="text-gray-400 text-xs h-3 w-3" />
               <span className="text-xs text-gray-500">
-                {Math.floor(Math.random() * 3) + 1} anexos
+                {attachments.length} anexo{attachments.length !== 1 ? 's' : ''}
               </span>
             </div>
           </div>

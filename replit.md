@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 6, 2025. Migração para Replit e correções críticas:
+  - ✓ Migração bem-sucedida do projeto para ambiente Replit
+  - ✓ Correção da contagem incorreta de anexos nos cards do kanban (substituído Math.random por busca real de dados)
+  - ✓ Implementação de menu responsivo para dispositivos móveis no header principal
+  - ✓ Menu hambúrguer funcional com navegação completa para mobile
+  - ✓ Mapeamento correto de campos decimal do banco para interface (requestedQuantity)
+  - ✓ Sistema de anexos totalmente funcional nos cards do kanban
 - July 6, 2025. Correção crítica no sistema de aprovação (dados incorretos):
   - ✓ Corrigido bug grave onde a tela de aprovação exibia itens de TODAS as solicitações em vez de apenas a específica
   - ✓ Problema estava nas query keys do React Query usando arrays multi-elemento incorretamente

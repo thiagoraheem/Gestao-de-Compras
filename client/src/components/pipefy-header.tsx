@@ -18,11 +18,15 @@ import {
   LogOut,
   User,
   FileText,
+  Menu,
+  X,
 } from "lucide-react";
+import { useState } from "react";
 
 export default function PipefyHeader() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigation = [
     { name: "Kanban", href: "/", icon: ShoppingCart },
@@ -80,8 +84,23 @@ export default function PipefyHeader() {
           </nav>
         </div>
 
+        {/* Mobile Menu Button */}
+        <div className="md:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
+          </Button>
+        </div>
+
         {/* User Menu */}
-        <div className="flex items-center space-x-4">
+        <div className="hidden md:flex items-center space-x-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">
@@ -125,6 +144,73 @@ export default function PipefyHeader() {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden">
+          <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t border-gray-200 shadow-lg">
+            {navigation.map((item) => {
+              const Icon = item.icon;
+              const isActive = location === item.href;
+              return (
+                <Link key={item.name} href={item.href}>
+                  <div
+                    className={cn(
+                      "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    )}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>{item.name}</span>
+                  </div>
+                </Link>
+              );
+            })}
+            
+            {/* User info and logout for mobile */}
+            <div className="pt-4 border-t border-gray-200 mt-4">
+              <div className="flex items-center px-3 py-2">
+                <Avatar className="h-8 w-8 mr-3">
+                  <AvatarFallback className="bg-blue-600 text-white text-sm">
+                    {user?.firstName?.[0] || user?.username?.[0] || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.firstName} {user?.lastName}
+                  </p>
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                </div>
+              </div>
+              
+              <Link href="/profile">
+                <div className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
+                  <User className="w-5 h-5" />
+                  <span>Perfil</span>
+                </div>
+              </Link>
+              
+              <Link href="/change-password">
+                <div className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
+                  <Settings className="w-5 h-5" />
+                  <span>Alterar Senha</span>
+                </div>
+              </Link>
+              
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg w-full text-left"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Sair</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
