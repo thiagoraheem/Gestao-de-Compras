@@ -326,7 +326,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                 </Button>
               )}
               
-              {quotation.status === 'sent' && allSuppliersResponded && user?.isBuyer && (
+              {allSuppliersResponded && hasSupplierResponses && user?.isBuyer && (
                 <Button 
                   onClick={() => setShowSupplierComparison(true)}
                   className="bg-green-600 hover:bg-green-700"
