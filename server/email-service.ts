@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
-import type { Supplier } from "../shared/schema";
+import type { Supplier, User, PurchaseRequest } from "../shared/schema";
+import { storage } from "./storage";
 
 // Email configuration
 const createTransporter = () => {
@@ -176,6 +177,312 @@ function generateRFQEmailHTML(
       
       <div class="footer">
         <p>Esta é uma mensagem automática do sistema de compras.</p>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+// Workflow notification functions
+export async function notifyNewRequest(purchaseRequest: PurchaseRequest): Promise<void> {
+  try {
+    const buyers = await storage.getAllUsers();
+    const buyerUsers = buyers.filter(user => user.isBuyer);
+    
+    if (buyerUsers.length === 0) {
+      console.log("Nenhum comprador encontrado para notificação");
+      return;
+    }
+
+    // Get requester details
+    let requesterName = "N/A";
+    if (purchaseRequest.requesterId) {
+      const requester = await storage.getUser(purchaseRequest.requesterId);
+      requesterName = requester ? (requester.firstName ? `${requester.firstName} ${requester.lastName || ''}`.trim() : requester.username) : "N/A";
+    }
+
+    const transporter = createTransporter();
+    const emailPromises = buyerUsers.map(async (buyer) => {
+      if (!buyer.email) return;
+      
+      const mailOptions = {
+        from: process.env.FROM_EMAIL || "compras@empresa.com",
+        to: buyer.email,
+        subject: `Nova Solicitação de Compra - ${purchaseRequest.requestNumber}`,
+        html: generateNewRequestEmailHTML(buyer, purchaseRequest, requesterName),
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Notificação enviada para comprador: ${buyer.email}`);
+      } catch (error) {
+        console.error(`Erro ao enviar notificação para ${buyer.email}:`, error);
+      }
+    });
+
+    await Promise.all(emailPromises);
+  } catch (error) {
+    console.error("Erro ao notificar criação de solicitação:", error);
+  }
+}
+
+export async function notifyApprovalA1(purchaseRequest: PurchaseRequest): Promise<void> {
+  try {
+    const approvers = await storage.getAllUsers();
+    const approverA1Users = approvers.filter(user => user.isApproverA1);
+    
+    if (approverA1Users.length === 0) {
+      console.log("Nenhum aprovador A1 encontrado para notificação");
+      return;
+    }
+
+    // Get requester details
+    let requesterName = "N/A";
+    if (purchaseRequest.requesterId) {
+      const requester = await storage.getUser(purchaseRequest.requesterId);
+      requesterName = requester ? (requester.firstName ? `${requester.firstName} ${requester.lastName || ''}`.trim() : requester.username) : "N/A";
+    }
+
+    const transporter = createTransporter();
+    const emailPromises = approverA1Users.map(async (approver) => {
+      if (!approver.email) return;
+      
+      const mailOptions = {
+        from: process.env.FROM_EMAIL || "compras@empresa.com",
+        to: approver.email,
+        subject: `Solicitação Pendente de Aprovação A1 - ${purchaseRequest.requestNumber}`,
+        html: generateApprovalA1EmailHTML(approver, purchaseRequest, requesterName),
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Notificação A1 enviada para aprovador: ${approver.email}`);
+      } catch (error) {
+        console.error(`Erro ao enviar notificação A1 para ${approver.email}:`, error);
+      }
+    });
+
+    await Promise.all(emailPromises);
+  } catch (error) {
+    console.error("Erro ao notificar aprovação A1:", error);
+  }
+}
+
+export async function notifyApprovalA2(purchaseRequest: PurchaseRequest): Promise<void> {
+  try {
+    const approvers = await storage.getAllUsers();
+    const approverA2Users = approvers.filter(user => user.isApproverA2);
+    
+    if (approverA2Users.length === 0) {
+      console.log("Nenhum aprovador A2 encontrado para notificação");
+      return;
+    }
+
+    // Get requester details
+    let requesterName = "N/A";
+    if (purchaseRequest.requesterId) {
+      const requester = await storage.getUser(purchaseRequest.requesterId);
+      requesterName = requester ? (requester.firstName ? `${requester.firstName} ${requester.lastName || ''}`.trim() : requester.username) : "N/A";
+    }
+
+    // Get A1 approver name
+    let approverA1Name = "N/A";
+    if (purchaseRequest.approverA1Id) {
+      const approverA1 = await storage.getUser(purchaseRequest.approverA1Id);
+      approverA1Name = approverA1 ? (approverA1.firstName ? `${approverA1.firstName} ${approverA1.lastName || ''}`.trim() : approverA1.username) : "N/A";
+    }
+
+    const transporter = createTransporter();
+    const emailPromises = approverA2Users.map(async (approver) => {
+      if (!approver.email) return;
+      
+      const mailOptions = {
+        from: process.env.FROM_EMAIL || "compras@empresa.com",
+        to: approver.email,
+        subject: `Solicitação Pendente de Aprovação A2 - ${purchaseRequest.requestNumber}`,
+        html: generateApprovalA2EmailHTML(approver, purchaseRequest, requesterName, approverA1Name),
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Notificação A2 enviada para aprovador: ${approver.email}`);
+      } catch (error) {
+        console.error(`Erro ao enviar notificação A2 para ${approver.email}:`, error);
+      }
+    });
+
+    await Promise.all(emailPromises);
+  } catch (error) {
+    console.error("Erro ao notificar aprovação A2:", error);
+  }
+}
+
+// Email templates for notifications
+function generateNewRequestEmailHTML(buyer: User, purchaseRequest: PurchaseRequest, requesterName: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .header { background: #10b981; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .details { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
+        .button { background: #10b981; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Nova Solicitação de Compra</h1>
+        <h2>${purchaseRequest.requestNumber}</h2>
+      </div>
+      
+      <div class="content">
+        <p>Olá <strong>${buyer.firstName || buyer.username}</strong>,</p>
+        
+        <p>Uma nova solicitação de compra foi criada e está aguardando processamento.</p>
+        
+        <div class="details">
+          <h3>Detalhes da Solicitação:</h3>
+          <ul>
+            <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
+            <li><strong>Solicitante:</strong> ${requesterName}</li>
+            <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
+            <li><strong>Urgência:</strong> ${purchaseRequest.urgency}</li>
+            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : 'N/A'}</li>
+          </ul>
+        </div>
+        
+        <p>Acesse o sistema para processar esta solicitação.</p>
+        
+        <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}" class="button">
+          Acessar Sistema
+        </a>
+      </div>
+      
+      <div class="footer">
+        <p>Sistema de Gestão de Compras</p>
+        <p>Este é um e-mail automático, não responda.</p>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+function generateApprovalA1EmailHTML(approver: User, purchaseRequest: PurchaseRequest, requesterName: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .header { background: #f59e0b; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .details { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
+        .button { background: #f59e0b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+        .priority { background: #fef3c7; border: 1px solid #f59e0b; padding: 10px; border-radius: 4px; margin: 15px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Solicitação Pendente de Aprovação A1</h1>
+        <h2>${purchaseRequest.requestNumber}</h2>
+      </div>
+      
+      <div class="content">
+        <p>Olá <strong>${approver.firstName || approver.username}</strong>,</p>
+        
+        <p>Uma solicitação de compra está aguardando sua aprovação (Nível A1).</p>
+        
+        <div class="priority">
+          <strong>⚠️ Urgência: ${purchaseRequest.urgency}</strong>
+        </div>
+        
+        <div class="details">
+          <h3>Detalhes da Solicitação:</h3>
+          <ul>
+            <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
+            <li><strong>Solicitante:</strong> ${requesterName}</li>
+            <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
+            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(2) : 'N/A'}</li>
+            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : 'N/A'}</li>
+          </ul>
+        </div>
+        
+        <p>Por favor, analise a solicitação e tome a decisão de aprovação.</p>
+        
+        <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}" class="button">
+          Revisar e Aprovar
+        </a>
+      </div>
+      
+      <div class="footer">
+        <p>Sistema de Gestão de Compras</p>
+        <p>Este é um e-mail automático, não responda.</p>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+function generateApprovalA2EmailHTML(approver: User, purchaseRequest: PurchaseRequest, requesterName: string, approverA1Name: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .header { background: #dc2626; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .details { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
+        .button { background: #dc2626; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+        .priority { background: #fef3c7; border: 1px solid #f59e0b; padding: 10px; border-radius: 4px; margin: 15px 0; }
+        .high-priority { background: #fef2f2; border: 1px solid #dc2626; padding: 10px; border-radius: 4px; margin: 15px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Solicitação Pendente de Aprovação A2</h1>
+        <h2>${purchaseRequest.requestNumber}</h2>
+      </div>
+      
+      <div class="content">
+        <p>Olá <strong>${approver.firstName || approver.username}</strong>,</p>
+        
+        <p>Uma solicitação de compra passou pela primeira aprovação e está aguardando sua aprovação final (Nível A2).</p>
+        
+        <div class="${purchaseRequest.urgency === 'Alta' ? 'high-priority' : 'priority'}">
+          <strong>⚠️ Urgência: ${purchaseRequest.urgency}</strong>
+        </div>
+        
+        <div class="details">
+          <h3>Detalhes da Solicitação:</h3>
+          <ul>
+            <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
+            <li><strong>Solicitante:</strong> ${requesterName}</li>
+            <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
+            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(2) : 'N/A'}</li>
+            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : 'N/A'}</li>
+            <li><strong>Aprovador A1:</strong> ${approverA1Name}</li>
+          </ul>
+        </div>
+        
+        <p>Esta solicitação passou pela primeira aprovação e agora aguarda sua aprovação final.</p>
+        
+        <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}" class="button">
+          Revisar e Aprovar
+        </a>
+      </div>
+      
+      <div class="footer">
+        <p>Sistema de Gestão de Compras</p>
+        <p>Este é um e-mail automático, não responda.</p>
       </div>
     </body>
     </html>

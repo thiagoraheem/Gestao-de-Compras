@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 7, 2025. Sistema de notificações por e-mail implementado:
+  - ✓ Notificações automáticas para compradores quando nova solicitação é criada
+  - ✓ Notificações para aprovadores A1 quando solicitação entra na fase de aprovação A1
+  - ✓ Notificações para aprovadores A2 quando solicitação entra na fase de aprovação A2
+  - ✓ Templates de e-mail responsivos com detalhes completos da solicitação
+  - ✓ Sistema assíncrono para evitar bloqueio do workflow principal
+  - ✓ Filtros por roles (isBuyer, isApproverA1, isApproverA2) para envio direcionado
+  - ✓ Configuração via variáveis de ambiente (SMTP_HOST, SMTP_USER, SMTP_PASS, FROM_EMAIL)
+  - ✓ Integração com criação de solicitações e transições de fase via Kanban
 - July 6, 2025. Sistema de geração de PDF do Pedido de Compra implementado:
   - ✓ Criado serviço de geração de PDF baseado no template Excel fornecido (PDFService)
   - ✓ Implementado componente PurchaseOrderPhase com resumo completo do processo

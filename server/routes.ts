@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { sendRFQToSuppliers, notifyNewRequest, notifyApprovalA1, notifyApprovalA2, testEmailConfiguration } from "./email-service";
 import { 
   insertUserSchema, 
   insertDepartmentSchema, 
@@ -362,6 +363,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createPurchaseRequestItem(itemData);
         }
       }
+
+      // Send notification to buyers about the new request
+      notifyNewRequest(purchaseRequest).catch(error => {
+        console.error("Erro ao enviar notificação de nova solicitação:", error);
+      });
 
       res.status(201).json(purchaseRequest);
     } catch (error) {
@@ -771,6 +777,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const request = await storage.updatePurchaseRequest(id, updates);
+      
+      // Send email notifications based on the new phase
+      if (newPhase === "aprovacao_a1") {
+        notifyApprovalA1(request).catch(error => {
+          console.error("Erro ao enviar notificação para aprovadores A1:", error);
+        });
+      } else if (newPhase === "aprovacao_a2") {
+        notifyApprovalA2(request).catch(error => {
+          console.error("Erro ao enviar notificação para aprovadores A2:", error);
+        });
+      }
+      
       res.json(request);
     } catch (error) {
       console.error("Error updating request phase:", error);
@@ -1297,6 +1315,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Erro ao gerar PDF",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
+    }
+  });
+
+  // Test email configuration
+  app.get("/api/test-email", isAuthenticated, async (req, res) => {
+    try {
+      const isConfigured = await testEmailConfiguration();
+      res.json({ 
+        configured: isConfigured,
+        message: isConfigured ? "Configuração de e-mail válida" : "Erro na configuração de e-mail"
+      });
+    } catch (error) {
+      console.error("Erro ao testar configuração de e-mail:", error);
+      res.status(500).json({ message: "Erro ao testar configuração de e-mail" });
     }
   });
 
