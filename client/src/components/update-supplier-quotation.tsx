@@ -331,7 +331,6 @@ export default function UpdateSupplierQuotation({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Item</TableHead>
                         <TableHead>Descrição</TableHead>
                         <TableHead>Qtd</TableHead>
                         <TableHead>Unidade</TableHead>
@@ -347,11 +346,9 @@ export default function UpdateSupplierQuotation({
                       {quotationItems.map((item, index) => (
                         <TableRow key={item.id}>
                           <TableCell>
-                            <Badge variant="outline">{item.itemCode}</Badge>
-                          </TableCell>
-                          <TableCell>
                             <div className="max-w-48">
-                              <p className="text-sm">{item.description}</p>
+                              <p className="text-sm font-medium">{item.description}</p>
+                              <p className="text-xs text-gray-500 mt-1">Código: {item.itemCode}</p>
                               {item.specifications && (
                                 <p className="text-xs text-gray-500 mt-1">
                                   {item.specifications}
@@ -360,7 +357,7 @@ export default function UpdateSupplierQuotation({
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary">{item.quantity}</Badge>
+                            <Badge variant="secondary">{parseFloat(item.quantity).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</Badge>
                           </TableCell>
                           <TableCell>{item.unit}</TableCell>
                           <TableCell>
