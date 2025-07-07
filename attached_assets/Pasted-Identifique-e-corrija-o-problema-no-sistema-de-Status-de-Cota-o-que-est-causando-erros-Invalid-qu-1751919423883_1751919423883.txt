@@ -1,0 +1,37 @@
+Identifique e corrija o problema no sistema de Status de Cotação que está causando erros "Invalid quotation ID" nos cards do Kanban. O problema está relacionado à verificação do status das cotações na fase de "Cotação (RFQ)".
+
+Problemas identificados:
+
+Rota incorreta sendo chamada: O código está tentando chamar uma rota que não existe ou está mal configurada
+Lógica de verificação de status: A validação se uma cotação está pronta para avançar para Aprovação A2 não está funcionando corretamente
+Tratamento de erros: Os erros não estão sendo tratados adequadamente, causando spam no console
+O que deve ser corrigido:
+
+No arquivo purchase-card.tsx:
+
+Corrigir a query que verifica o status da cotação
+Garantir que a rota /api/quotations/purchase-request/${request.id}/status existe ou usar a rota correta
+Melhorar o tratamento de erros para evitar spam no console
+No backend (routes.ts):
+
+Verificar se existe a rota para verificar status de cotação
+Se não existir, criar a rota /api/quotations/purchase-request/:id/status
+A rota deve retornar um objeto com { isReady: boolean, reason: string }
+Lógica de negócio para o status:
+
+isReady: false, reason: "Nenhuma cotação criada" - quando não há RFQ
+isReady: false, reason: "Aguardando cotações de fornecedores" - quando RFQ existe mas nenhum fornecedor respondeu
+isReady: false, reason: "Aguardando seleção de fornecedor" - quando há cotações mas nenhum fornecedor foi escolhido
+isReady: true, reason: "Pronto para Aprovação A2" - quando há fornecedor escolhido
+Comportamento esperado:
+
+Os cards na fase "Cotação (RFQ)" devem mostrar um indicador visual claro do status
+Cores: vermelho para "Nenhuma cotação", laranja para "Aguardando", verde para "Pronto"
+Não deve haver erros no console
+O status deve atualizar automaticamente quando mudanças ocorrem
+Arquivos que provavelmente precisam ser modificados:
+
+client/src/components/purchase-card.tsx
+server/routes.ts
+Possivelmente client/src/components/quotation-phase.tsx
+Implemente a correção garantindo que o sistema seja robusto e não cause erros desnecessários no console.
