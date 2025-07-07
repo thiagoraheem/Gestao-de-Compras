@@ -334,38 +334,55 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
     queryKey: [`quotation-status`, request.id], // Use correct query key format
     enabled: phase === PURCHASE_PHASES.COTACAO,
     retry: 2,
-    staleTime: 5000, // Cache for 5 seconds
+    staleTime: 0, // No cache to avoid stale data issues
+    cacheTime: 0, // No cache time
+    refetchInterval: 5000, // Auto-refetch every 5 seconds
     queryFn: async () => {
       try {
-        // First check if quotation exists
+        // Use apiRequest but force cache invalidation
+        await queryClient.invalidateQueries({ 
+          queryKey: [`/api/quotations/purchase-request/${request.id}`] 
+        });
+        
         const quotation = await apiRequest("GET", `/api/quotations/purchase-request/${request.id}`);
         
-        // If no quotation exists
-        if (!quotation || !quotation.id) {
+        // If no quotation exists (null response)
+        if (!quotation) {
           return { isReady: false, reason: "Nenhuma cotação criada" };
         }
         
-        // Get supplier quotations using the quotation ID
-        const supplierQuotations = await apiRequest("GET", `/api/quotations/${quotation.id}/supplier-quotations`);
-        
-        // If no supplier quotations exist
-        if (!supplierQuotations || supplierQuotations.length === 0) {
-          return { isReady: false, reason: "Aguardando cotações de fornecedores" };
+        // Ensure quotation has an ID
+        if (!quotation.id) {
+          return { isReady: false, reason: "RFQ criado - Verificando dados" };
         }
         
-        // Check if any supplier quotations have been received
-        const receivedQuotations = supplierQuotations.filter((sq: any) => sq.status === 'received');
-        if (receivedQuotations.length === 0) {
-          return { isReady: false, reason: "Aguardando cotações de fornecedores" };
+        // If quotation exists, try to get supplier quotations
+        try {
+          const supplierQuotations = await apiRequest("GET", `/api/quotations/${quotation.id}/supplier-quotations`);
+          
+          // If no supplier quotations exist, RFQ is created but awaiting supplier responses
+          if (!supplierQuotations || supplierQuotations.length === 0) {
+            return { isReady: false, reason: "RFQ criado - Aguardando cotações" };
+          }
+          
+          // Check if any supplier quotations have been received
+          const receivedQuotations = supplierQuotations.filter((sq: any) => sq.status === 'received');
+          if (receivedQuotations.length === 0) {
+            return { isReady: false, reason: "Aguardando respostas dos fornecedores" };
+          }
+          
+          // Check if a supplier has been chosen
+          const hasChosenSupplier = supplierQuotations.some((sq: any) => sq.isChosen);
+          if (!hasChosenSupplier) {
+            return { isReady: false, reason: "Aguardando seleção de fornecedor" };
+          }
+          
+          return { isReady: true, reason: "Pronto para Aprovação A2" };
+        } catch (supplierError) {
+          // If we can't get supplier quotations but quotation exists, 
+          // it means RFQ is created but no suppliers assigned yet
+          return { isReady: false, reason: "RFQ criado - Configurando fornecedores" };
         }
-        
-        // Check if a supplier has been chosen
-        const hasChosenSupplier = supplierQuotations.some((sq: any) => sq.isChosen);
-        if (!hasChosenSupplier) {
-          return { isReady: false, reason: "Aguardando seleção de fornecedor" };
-        }
-        
-        return { isReady: true, reason: "Pronto para Aprovação A2" };
       } catch (error) {
         console.error("Error checking quotation status for request", request.id, ":", error);
         // Return a safe default instead of throwing
