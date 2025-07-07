@@ -559,6 +559,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase transition routes
+  app.post("/api/purchase-requests/:id/send-to-approval", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const request = await storage.getPurchaseRequestById(id);
+      if (!request || request.currentPhase !== "solicitacao") {
+        return res.status(400).json({ message: "Request must be in the request phase" });
+      }
+
+      const updateData = {
+        currentPhase: "aprovacao_a1" as any,
+        updatedAt: new Date()
+      };
+
+      const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
+      
+      // Send notification to approvers A1
+      try {
+        await notifyApprovalA1(updatedRequest);
+      } catch (emailError) {
+        console.error("Error sending approval notification:", emailError);
+        // Continue with the update even if email fails
+      }
+      
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error("Error sending to approval:", error);
+      res.status(400).json({ message: "Failed to send to approval" });
+    }
+  });
+
   app.post("/api/purchase-requests/:id/approve-a1", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

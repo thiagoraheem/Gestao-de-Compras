@@ -197,6 +197,27 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
     },
   });
 
+  const sendToApprovalMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/send-to-approval`);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Solicitação enviada para aprovação A1",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível enviar para aprovação",
+        variant: "destructive",
+      });
+    },
+  });
+
   const confirmReceiptMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/confirm-receipt`, {
@@ -435,6 +456,24 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
               </span>
             </div>
           </div>
+
+          {/* Send to Approval Button for Request Phase */}
+          {phase === PURCHASE_PHASES.SOLICITACAO && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <Button
+                size="sm"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sendToApprovalMutation.mutate();
+                }}
+                disabled={sendToApprovalMutation.isPending}
+              >
+                <Check className="mr-1 h-3 w-3" />
+                {sendToApprovalMutation.isPending ? "Enviando..." : "Enviar para Aprovação"}
+              </Button>
+            </div>
+          )}
 
           {/* RFQ Creation/Edit Button for Quotation Phase */}
           {phase === PURCHASE_PHASES.COTACAO && user?.isBuyer && onCreateRFQ && (

@@ -145,6 +145,28 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
     },
   });
 
+  const sendToApprovalMutation = useMutation({
+    mutationFn: async () => {
+      if (!request?.id) throw new Error("ID da solicitação não encontrado");
+      return await apiRequest("POST", `/api/purchase-requests/${request.id}/send-to-approval`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Solicitação enviada para aprovação A1",
+      });
+      onClose?.();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error?.message || "Não foi possível enviar para aprovação",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: RequestFormData) => {
     if (requestItems.length === 0) {
       toast({
@@ -440,14 +462,32 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                     type="button" 
                     variant="outline" 
                     onClick={onClose}
-                    disabled={saveRequestMutation.isPending}
+                    disabled={saveRequestMutation.isPending || sendToApprovalMutation.isPending}
                   >
                     Cancelar
                   </Button>
                 )}
+                
+                {/* Send to Approval button - only for editing requests in request phase */}
+                {request && request.currentPhase === "solicitacao" && (
+                  <Button 
+                    type="button"
+                    variant="default"
+                    onClick={() => sendToApprovalMutation.mutate()}
+                    disabled={sendToApprovalMutation.isPending || saveRequestMutation.isPending}
+                    className="min-w-[140px] bg-blue-600 hover:bg-blue-700"
+                  >
+                    {sendToApprovalMutation.isPending ? (
+                      "Enviando..."
+                    ) : (
+                      "Enviar para Aprovação"
+                    )}
+                  </Button>
+                )}
+                
                 <Button 
                   type="submit" 
-                  disabled={saveRequestMutation.isPending || !isFormValid}
+                  disabled={saveRequestMutation.isPending || sendToApprovalMutation.isPending || !isFormValid}
                   className="min-w-[140px]"
                 >
                   {saveRequestMutation.isPending || isUploading ? (
