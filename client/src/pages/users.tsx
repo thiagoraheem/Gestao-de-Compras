@@ -13,7 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Shield } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Edit, Shield, User, Building, Shield as ShieldIcon } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminRoute from "@/components/AdminRoute";
@@ -247,7 +248,7 @@ export default function UsersPage() {
           </Card>
 
       <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {editingUser ? "Editar Usuário" : "Novo Usuário"}
@@ -256,233 +257,241 @@ export default function UsersPage() {
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
-              <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Primeiro Nome</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              <Tabs defaultValue="dados-pessoais" className="flex-1 flex flex-col overflow-hidden">
+                <TabsList className="grid w-full grid-cols-3 mb-6">
+                  <TabsTrigger value="dados-pessoais" className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Dados Pessoais
+                  </TabsTrigger>
+                  <TabsTrigger value="departamento" className="flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    Departamento
+                  </TabsTrigger>
+                  <TabsTrigger value="permissoes" className="flex items-center gap-2">
+                    <ShieldIcon className="h-4 w-4" />
+                    Permissões
+                  </TabsTrigger>
+                </TabsList>
 
-                  <FormField
-                    control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Último Nome</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username *</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email *</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="email" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {!editingUser && (
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Senha *</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="password" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
-              <FormField
-                control={form.control}
-                name="departmentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Departamento</FormLabel>
-                    <Select 
-                      onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))} 
-                      value={field.value?.toString() || "none"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um departamento" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum departamento</SelectItem>
-                        {Array.isArray(departments) && departments.map((dept: any) => (
-                          <SelectItem key={dept.id} value={dept.id.toString()}>
-                            {dept.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-2">
-                <FormLabel>Centros de Custo</FormLabel>
-                <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
-                  {Array.isArray(costCenters) && costCenters.map((cc: any) => (
-                    <div key={cc.id} className="flex items-center space-x-2 py-1">
-                      <Checkbox
-                        id={`cc-${cc.id}`}
-                        checked={selectedCostCenters.includes(cc.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedCostCenters([...selectedCostCenters, cc.id]);
-                          } else {
-                            setSelectedCostCenters(selectedCostCenters.filter(id => id !== cc.id));
-                          }
-                        }}
+                <div className="flex-1 overflow-y-auto pr-2">
+                  <TabsContent value="dados-pessoais" className="space-y-4 mt-0">
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="firstName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Primeiro Nome *</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Digite o primeiro nome" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                      <label 
-                        htmlFor={`cc-${cc.id}`} 
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {cc.code} - {cc.name}
-                      </label>
+
+                      <FormField
+                        control={form.control}
+                        name="lastName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Último Nome *</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Digite o último nome" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
-                  ))}
-                  {(!Array.isArray(costCenters) || costCenters.length === 0) && (
-                    <p className="text-sm text-muted-foreground">Nenhum centro de custo disponível</p>
-                  )}
+
+                    <FormField
+                      control={form.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Digite o nome de usuário" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email *</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="email" placeholder="Digite o email" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {!editingUser && (
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Senha *</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="password" placeholder="Digite a senha" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="departamento" className="space-y-4 mt-0">
+                    <FormField
+                      control={form.control}
+                      name="departmentId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Departamento</FormLabel>
+                          <Select 
+                            onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))} 
+                            value={field.value?.toString() || "none"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o departamento" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhum departamento</SelectItem>
+                              {Array.isArray(departments) && departments.map((dept: any) => (
+                                <SelectItem key={dept.id} value={dept.id.toString()}>
+                                  {dept.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="space-y-3">
+                      <FormLabel>Centros de Custo</FormLabel>
+                      <div className="space-y-2">
+                        {Array.isArray(costCenters) && costCenters.map((cc: any) => (
+                          <div key={cc.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50">
+                            <Checkbox
+                              id={`cc-${cc.id}`}
+                              checked={selectedCostCenters.includes(cc.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedCostCenters([...selectedCostCenters, cc.id]);
+                                } else {
+                                  setSelectedCostCenters(selectedCostCenters.filter(id => id !== cc.id));
+                                }
+                              }}
+                            />
+                            <div className="flex-1 space-y-1">
+                              <label 
+                                htmlFor={`cc-${cc.id}`} 
+                                className="text-sm font-medium leading-none cursor-pointer"
+                              >
+                                {cc.name}
+                              </label>
+                              <p className="text-xs text-muted-foreground">
+                                {cc.code}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        {(!Array.isArray(costCenters) || costCenters.length === 0) && (
+                          <p className="text-sm text-muted-foreground py-4 text-center">
+                            Nenhum centro de custo disponível
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="permissoes" className="space-y-4 mt-0">
+                    <div className="space-y-1 mb-4">
+                      <h3 className="text-sm font-medium">Permissões do Sistema</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <FormField
+                        control={form.control}
+                        name="isBuyer"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="flex-1 space-y-1">
+                              <FormLabel className="text-sm font-medium">É Comprador</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Pode gerenciar a fase de cotação
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="isApproverA1"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="flex-1 space-y-1">
+                              <FormLabel className="text-sm font-medium">É Aprovador A1</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Pode aprovar solicitações iniciais
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="isApproverA2"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="flex-1 space-y-1">
+                              <FormLabel className="text-sm font-medium">É Aprovador A2</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Pode aprovar compras finais
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </TabsContent>
                 </div>
-              </div>
-
-              <div className="space-y-3">
-                <FormLabel>Permissões</FormLabel>
-                
-                <FormField
-                  control={form.control}
-                  name="isBuyer"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>É Comprador</FormLabel>
-                        <p className="text-sm text-muted-foreground">
-                          Pode gerenciar a fase de cotação
-                        </p>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="isApproverA1"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>É Aprovador A1</FormLabel>
-                        <p className="text-sm text-muted-foreground">
-                          Pode aprovar solicitações iniciais
-                        </p>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="isApproverA2"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>É Aprovador A2</FormLabel>
-                        <p className="text-sm text-muted-foreground">
-                          Pode aprovar compras finais
-                        </p>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="isAdmin"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-orange-600" />
-                          É Administrador
-                        </FormLabel>
-                        <p className="text-sm text-muted-foreground">
-                          Acesso completo ao sistema e gestão de usuários
-                        </p>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </div>
-              </div>
+              </Tabs>
               
-              <div className="flex justify-end space-x-3 pt-4 border-t">
+              <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
                 <Button type="button" variant="outline" onClick={handleCloseModal}>
                   Cancelar
                 </Button>
@@ -492,7 +501,7 @@ export default function UsersPage() {
                 >
                   {createUserMutation.isPending 
                     ? "Salvando..." 
-                    : editingUser ? "Atualizar" : "Criar"
+                    : editingUser ? "Atualizar Usuário" : "Criar Usuário"
                   }
                 </Button>
               </div>
