@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   Database,
+  BarChart3,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -39,6 +40,11 @@ export default function PipefyHeader() {
       },
     ];
 
+    // Manager/Admin-only dashboard
+    const managerNavigation = [
+      { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
+    ];
+
     // Admin-only navigation items
     const adminNavigation = [
       { name: "Fornecedores", href: "/suppliers", icon: Building },
@@ -47,7 +53,19 @@ export default function PipefyHeader() {
       { name: "Limpeza de Dados", href: "/admin/cleanup", icon: Database },
     ];
 
-    return user?.isAdmin ? [...baseNavigation, ...adminNavigation] : baseNavigation;
+    let navigation = [...baseNavigation];
+    
+    // Add dashboard for managers and admins
+    if (user?.isManager || user?.isAdmin) {
+      navigation = [...navigation, ...managerNavigation];
+    }
+    
+    // Add admin navigation for admins
+    if (user?.isAdmin) {
+      navigation = [...navigation, ...adminNavigation];
+    }
+    
+    return navigation;
   };
 
   const navigation = getNavigation();

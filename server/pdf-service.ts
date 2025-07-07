@@ -9,6 +9,260 @@ interface PurchaseOrderData {
 }
 
 export class PDFService {
+  static async generateDashboardPDF(dashboardData: any): Promise<Buffer> {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    try {
+      const page = await browser.newPage();
+      await page.setContent(this.generateDashboardHTML(dashboardData));
+      await page.emulateMediaType('screen');
+      
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20mm',
+          right: '20mm',
+          bottom: '20mm',
+          left: '20mm'
+        }
+      });
+      
+      return pdfBuffer;
+    } finally {
+      await browser.close();
+    }
+  }
+
+  private static generateDashboardHTML(data: any): string {
+    const formatCurrency = (value: number) => {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(value);
+    };
+
+    const formatDate = (date: Date) => {
+      return date.toLocaleDateString('pt-BR');
+    };
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Dashboard Executivo - Sistema de Compras</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 20px;
+              background-color: #f5f5f5;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 20px;
+              border-radius: 10px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 28px;
+            }
+            .header p {
+              margin: 5px 0 0 0;
+              font-size: 14px;
+              opacity: 0.9;
+            }
+            .kpi-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 20px;
+              margin-bottom: 30px;
+            }
+            .kpi-card {
+              background: white;
+              padding: 20px;
+              border-radius: 10px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              border-left: 4px solid #667eea;
+            }
+            .kpi-card h3 {
+              margin: 0 0 10px 0;
+              color: #333;
+              font-size: 14px;
+              font-weight: 500;
+            }
+            .kpi-card .value {
+              font-size: 24px;
+              font-weight: bold;
+              color: #667eea;
+              margin-bottom: 5px;
+            }
+            .kpi-card .subtitle {
+              font-size: 12px;
+              color: #666;
+            }
+            .charts-section {
+              margin-bottom: 30px;
+            }
+            .chart-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 20px;
+              margin-bottom: 20px;
+            }
+            .chart-card {
+              background: white;
+              padding: 20px;
+              border-radius: 10px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .chart-card h3 {
+              margin: 0 0 15px 0;
+              color: #333;
+              font-size: 16px;
+            }
+            .data-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            .data-table th,
+            .data-table td {
+              padding: 8px 12px;
+              text-align: left;
+              border-bottom: 1px solid #ddd;
+            }
+            .data-table th {
+              background-color: #f8f9fa;
+              font-weight: 600;
+              color: #333;
+            }
+            .data-table tr:hover {
+              background-color: #f8f9fa;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #ddd;
+              color: #666;
+              font-size: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Dashboard Executivo</h1>
+            <p>Sistema de Gestão de Compras - Relatório gerado em ${formatDate(new Date())}</p>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <h3>Solicitações Ativas</h3>
+              <div class="value">${data.totalActiveRequests || 0}</div>
+              <div class="subtitle">Total de solicitações em andamento</div>
+            </div>
+            
+            <div class="kpi-card">
+              <h3>Valor Total em Processamento</h3>
+              <div class="value">${formatCurrency(data.totalProcessingValue || 0)}</div>
+              <div class="subtitle">Valor total das solicitações ativas</div>
+            </div>
+            
+            <div class="kpi-card">
+              <h3>Tempo Médio de Aprovação</h3>
+              <div class="value">${data.averageApprovalTime || 0} dias</div>
+              <div class="subtitle">Média de tempo para aprovação</div>
+            </div>
+            
+            <div class="kpi-card">
+              <h3>Taxa de Aprovação</h3>
+              <div class="value">${data.approvalRate || 0}%</div>
+              <div class="subtitle">Percentual de aprovações</div>
+            </div>
+          </div>
+
+          <div class="charts-section">
+            <div class="chart-grid">
+              <div class="chart-card">
+                <h3>Solicitações por Departamento</h3>
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Departamento</th>
+                      <th>Quantidade</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${(data.requestsByDepartment || []).map((item: any) => `
+                      <tr>
+                        <td>${item.name}</td>
+                        <td>${item.value}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div class="chart-card">
+                <h3>Distribuição por Urgência</h3>
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Urgência</th>
+                      <th>Quantidade</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${(data.urgencyDistribution || []).map((item: any) => `
+                      <tr>
+                        <td>${item.name}</td>
+                        <td>${item.value}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <div class="chart-card">
+              <h3>Top Departamentos por Valor</h3>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Departamento</th>
+                    <th>Valor Total</th>
+                    <th>Quantidade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${(data.topDepartments || []).map((item: any) => `
+                    <tr>
+                      <td>${item.name}</td>
+                      <td>${formatCurrency(item.totalValue)}</td>
+                      <td>${item.requestCount}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>Relatório gerado automaticamente pelo Sistema de Gestão de Compras</p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
   private static async generatePurchaseOrderHTML(data: PurchaseOrderData): Promise<string> {
     const { purchaseRequest, items, supplier, approvalHistory } = data;
     

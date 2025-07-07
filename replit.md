@@ -110,6 +110,23 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 7, 2025. Dashboard Executivo implementado com sucesso:
+  - ✓ Criado Dashboard page com KPIs executivos e análises completas
+  - ✓ Implementado sistema de permissões (isManager) para acesso ao dashboard
+  - ✓ Adicionado campo isManager à tabela de usuários via schema
+  - ✓ Criado ManagerRoute component para controle de acesso
+  - ✓ Dashboard integrado ao header principal com ícone BarChart3
+  - ✓ API endpoint /api/dashboard com cálculos de métricas executivas
+  - ✓ Gráficos interativos: departamentos, urgência, tendências mensais, funil de conversão
+  - ✓ Filtros funcionais por período, departamento e status
+  - ✓ Tabelas de top departamentos, fornecedores e solicitações atrasadas
+  - ✓ Funcionalidade de exportação em PDF implementada
+  - ✓ Serviço PDF com template executivo profissional
+  - ✓ Endpoint /api/dashboard/export-pdf para download de relatórios
+  - ✓ Interface responsiva com design moderno usando Recharts
+  - ✓ Métricas de performance: tempo médio de aprovação, taxa de aprovação
+  - ✓ Sistema de cores baseado em status (verde, amarelo, vermelho)
+  - ✓ Navegação contextual baseada em roles (managers + admins)
 - July 7, 2025. Componente ConclusionPhase implementado com funcionalidade completa:
   - ✓ Criado componente React ConclusionPhase para fase "Conclusão de Compra"
   - ✓ Resumo completo da solicitação com dados do solicitante, departamento e centro de custo

@@ -16,10 +16,7 @@ import {
   Line,
   PieChart,
   Pie,
-  Cell,
-  FunnelChart,
-  Funnel,
-  LabelList
+  Cell
 } from "recharts";
 import { 
   TrendingUp, 
@@ -67,9 +64,28 @@ export default function Dashboard() {
     queryKey: ['/api/departments'],
   });
 
-  const handleExportPDF = () => {
-    // Implementation for PDF export
-    console.log("Exporting to PDF...");
+  const handleExportPDF = async () => {
+    try {
+      const response = await fetch(`/api/dashboard/export-pdf?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}`, {
+        method: 'GET',
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `dashboard-executivo-${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        console.error('Failed to export PDF');
+      }
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -322,25 +338,17 @@ export default function Dashboard() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Funil de Conversão</CardTitle>
+                  <CardTitle>Funil de Conversão por Fase</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <FunnelChart>
-                      <Funnel
-                        dataKey="value"
-                        data={dashboardData?.phaseConversion || []}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value }) => `${name}: ${value}`}
-                        outerRadius={80}
-                        fill="#0088FE"
-                      >
-                        <LabelList position="center" />
-                      </Funnel>
+                    <BarChart data={dashboardData?.phaseConversion || []} layout="horizontal">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis dataKey="name" type="category" width={100} />
                       <Tooltip />
-                    </FunnelChart>
+                      <Bar dataKey="value" fill="#00C49F" />
+                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>

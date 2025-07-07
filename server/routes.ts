@@ -1592,14 +1592,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Phase conversion funnel
+      const phaseNames = {
+        "solicitacao": "Solicitação",
+        "aprovacao_a1": "Aprovação A1", 
+        "cotacao": "Cotação",
+        "aprovacao_a2": "Aprovação A2",
+        "pedido_compra": "Pedido Compra",
+        "conclusao_compra": "Conclusão",
+        "recebimento": "Recebimento",
+        "arquivado": "Arquivado"
+      };
+      
       const phases = [
         "solicitacao", "aprovacao_a1", "cotacao", "aprovacao_a2", 
         "pedido_compra", "conclusao_compra", "recebimento", "arquivado"
       ];
       const phaseConversion = phases.map(phase => ({
-        name: phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        name: phaseNames[phase as keyof typeof phaseNames] || phase,
         value: filteredRequests.filter(req => req.currentPhase === phase).length
-      }));
+      })).filter(item => item.value > 0);
 
       // Top departments by value
       const topDepartments = departments.map(dept => {
@@ -1681,6 +1692,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       res.status(500).json({ message: "Failed to fetch dashboard data" });
+    }
+  });
+
+  // Dashboard PDF export
+  app.get('/api/dashboard/export-pdf', isAuthenticated, async (req, res) => {
+    try {
+      const { period, department, status } = req.query;
+      
+      // Get dashboard data (reuse the same logic)
+      const dashboardResponse = await fetch(`${req.protocol}://${req.get('host')}/api/dashboard?period=${period}&department=${department}&status=${status}`, {
+        headers: {
+          'Cookie': req.headers.cookie || ''
+        }
+      });
+      const dashboardData = await dashboardResponse.json();
+      
+      // Generate PDF using the PDF service
+      const pdfBuffer = await PDFService.generateDashboardPDF(dashboardData);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="dashboard-executivo-${new Date().toISOString().split('T')[0]}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating dashboard PDF:', error);
+      res.status(500).json({ error: 'Error generating PDF' });
     }
   });
 
