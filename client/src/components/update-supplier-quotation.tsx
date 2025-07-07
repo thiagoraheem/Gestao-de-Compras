@@ -154,14 +154,14 @@ export default function UpdateSupplierQuotation({
         
         const correspondingQuotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
         const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
-        const unitPrice = parseFloat(item.unitPrice.replace(/[^\d.,]/g, '').replace(',', '.'));
+        const unitPrice = parseNumberFromCurrency(item.unitPrice);
         
         return sum + (quantity * unitPrice);
       }, 0);
 
       const processedItems = data.items.map(item => ({
         quotationItemId: item.quotationItemId,
-        unitPrice: parseFloat(item.unitPrice.replace(/[^\d.,]/g, '').replace(',', '.')) || 0,
+        unitPrice: parseNumberFromCurrency(item.unitPrice),
         deliveryDays: item.deliveryDays ? parseInt(item.deliveryDays) : null,
         brand: item.brand || null,
         model: item.model || null,
@@ -255,20 +255,27 @@ export default function UpdateSupplierQuotation({
     updateMutation.mutate(data);
   };
 
-  const formatCurrency = (value: string) => {
+  const formatCurrencyInput = (value: string) => {
+    // Remove all non-numeric characters
+    let numericValue = value.replace(/[^\d]/g, '');
+    
+    // If empty, return empty
+    if (!numericValue) return '';
+    
+    // Convert to number and format with decimal places
+    const numberValue = parseInt(numericValue) / 100;
+    
+    return numberValue.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const parseNumberFromCurrency = (value: string) => {
     // Remove all non-numeric characters except comma and period
-    let numericValue = value.replace(/[^\d.,]/g, '');
-    
+    const cleanValue = value.replace(/[^\d.,]/g, '');
     // Replace comma with period for parsing
-    numericValue = numericValue.replace(',', '.');
-    
-    // Handle multiple periods by keeping only the last one
-    const parts = numericValue.split('.');
-    if (parts.length > 2) {
-      numericValue = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
-    }
-    
-    return numericValue;
+    return parseFloat(cleanValue.replace(',', '.')) || 0;
   };
 
   const calculateTotalValue = () => {
@@ -278,7 +285,7 @@ export default function UpdateSupplierQuotation({
       
       const correspondingQuotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
       const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
-      const unitPrice = parseFloat(item.unitPrice.replace(/[^\d.,]/g, '').replace(',', '.'));
+      const unitPrice = parseNumberFromCurrency(item.unitPrice);
       
       return sum + (quantity * unitPrice);
     }, 0);
@@ -365,22 +372,42 @@ export default function UpdateSupplierQuotation({
                                   <FormControl>
                                     <Input
                                       {...field}
-                                      placeholder="0,00"
+                                      placeholder="1.000,00"
                                       className="w-24"
                                       onChange={(e) => {
-                                        const formatted = formatCurrency(e.target.value);
-                                        field.onChange(formatted);
+                                        // Allow natural number input - user types 1000 and it becomes 1000.00
+                                        let inputValue = e.target.value;
+                                        
+                                        // If user is typing a number without formatting, keep it as is for now
+                                        if (/^\d+$/.test(inputValue)) {
+                                          field.onChange(inputValue);
+                                        } else {
+                                          // If already formatted or contains special chars, clean it
+                                          const cleanValue = inputValue.replace(/[^\d.,]/g, '');
+                                          field.onChange(cleanValue);
+                                        }
                                       }}
                                       onBlur={(e) => {
                                         // Format on blur for better display
                                         const value = e.target.value;
-                                        if (value && !isNaN(parseFloat(value.replace(',', '.')))) {
-                                          const number = parseFloat(value.replace(',', '.'));
-                                          const formatted = number.toLocaleString('pt-BR', {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          });
-                                          field.onChange(formatted);
+                                        if (value) {
+                                          // If it's a simple number (like 1000), treat it as currency value
+                                          if (/^\d+$/.test(value)) {
+                                            const number = parseFloat(value);
+                                            const formatted = number.toLocaleString('pt-BR', {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            });
+                                            field.onChange(formatted);
+                                          } else if (/^\d+[.,]\d+$/.test(value)) {
+                                            // If it already has decimal places
+                                            const number = parseFloat(value.replace(',', '.'));
+                                            const formatted = number.toLocaleString('pt-BR', {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            });
+                                            field.onChange(formatted);
+                                          }
                                         }
                                       }}
                                     />
@@ -397,7 +424,7 @@ export default function UpdateSupplierQuotation({
                                 if (!unitPrice) return "0,00";
                                 
                                 const quantity = parseFloat(item.quantity);
-                                const price = parseFloat(unitPrice.replace(/[^\d.,]/g, '').replace(',', '.'));
+                                const price = parseNumberFromCurrency(unitPrice);
                                 const total = quantity * price;
                                 
                                 return isNaN(total) ? "0,00" : total.toLocaleString('pt-BR', {
