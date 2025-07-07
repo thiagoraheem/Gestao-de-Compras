@@ -37,7 +37,6 @@ export default function ApprovalItemsViewer({ items, requestId, requestNumber, c
 
     // Prepare data for Excel
     const excelData = items.map(item => ({
-      'Item': item.itemNumber,
       'Descrição': item.description,
       'Unid.': item.unit,
       'Qtd. Requisitada': item.requestedQuantity
@@ -49,7 +48,6 @@ export default function ApprovalItemsViewer({ items, requestId, requestNumber, c
 
     // Set column widths
     const colWidths = [
-      { wch: 15 }, // Item
       { wch: 40 }, // Descrição
       { wch: 8 },  // Unid.
       { wch: 18 }  // Qtd. Requisitada
@@ -119,7 +117,6 @@ export default function ApprovalItemsViewer({ items, requestId, requestNumber, c
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px]">Item</TableHead>
                 <TableHead className="min-w-[200px]">Descrição</TableHead>
                 <TableHead className="w-[80px]">Unid.</TableHead>
                 <TableHead className="w-[120px]">Qtd. Requisitada</TableHead>
@@ -128,7 +125,6 @@ export default function ApprovalItemsViewer({ items, requestId, requestNumber, c
             <TableBody>
               {items.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.itemNumber}</TableCell>
                   <TableCell>{item.description}</TableCell>
                   <TableCell>{item.unit}</TableCell>
                   <TableCell className="text-right font-medium">{formatNumber(item.requestedQuantity)}</TableCell>
