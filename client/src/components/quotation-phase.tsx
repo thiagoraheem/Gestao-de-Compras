@@ -226,7 +226,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Quantidade</span>
-                          <p>{item.quantity} {item.unit}</p>
+                          <p>{Math.round(Number(item.quantity))} {item.unit}</p>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Prazo de Entrega</span>
