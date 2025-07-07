@@ -318,7 +318,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Solicitante</Label>
-                  <p className="text-lg">{purchaseRequest.requesterName}</p>
+                  <p className="text-lg">{purchaseRequest.requesterName || purchaseRequest.requesterUsername || 'N/A'}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Data de Criação</Label>
