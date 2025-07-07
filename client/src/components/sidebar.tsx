@@ -10,6 +10,7 @@ import {
   X,
   FileText,
   Plus,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,9 +20,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import NewRequestModal from "./new-request-modal";
+import { useAuth } from "@/hooks/useAuth";
 
 const navigation = [
   { name: "Kanban Board", href: "/", icon: Columns },
+  { name: "Dashboard", href: "/dashboard", icon: BarChart3, requiresManager: true },
   { name: "Gerenciar Solicitações", href: "/request-management", icon: FileText },
   { name: "Fornecedores", href: "/suppliers", icon: Truck },
   { name: "Usuários", href: "/users", icon: Users },
@@ -41,6 +44,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <>
@@ -86,6 +90,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
+              
+              // Check if user has permission to access this item
+              if (item.requiresManager && !user?.isManager && !user?.isAdmin) {
+                return null;
+              }
               
               return (
                 <Link key={item.name} href={item.href}>
@@ -139,6 +148,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 {navigation.map((item) => {
                   const Icon = item.icon;
                   const isActive = location === item.href;
+                  
+                  // Check if user has permission to access this item
+                  if (item.requiresManager && !user?.isManager && !user?.isAdmin) {
+                    return null;
+                  }
                   
                   return (
                     <Tooltip key={item.name} delayDuration={0}>

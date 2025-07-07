@@ -27,6 +27,7 @@ export const users = pgTable("users", {
   isApproverA1: boolean("is_approver_a1").default(false),
   isApproverA2: boolean("is_approver_a2").default(false),
   isAdmin: boolean("is_admin").default(false),
+  isManager: boolean("is_manager").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

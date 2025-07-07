@@ -16,6 +16,8 @@ import RequestManagementPage from "@/pages/request-management";
 import PipefyHeader from "@/components/pipefy-header";
 import FloatingNewRequestButton from "@/components/floating-new-request-button";
 import AdminCleanupPage from "@/pages/admin-cleanup";
+import DashboardPage from "@/pages/dashboard";
+import ManagerRoute from "@/components/manager-route";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -56,6 +58,11 @@ function Router() {
       <Switch>
         <Route path="/" component={KanbanPage} />
         <Route path="/kanban" component={KanbanPage} />
+        <Route path="/dashboard">
+          <ManagerRoute>
+            <DashboardPage />
+          </ManagerRoute>
+        </Route>
         <Route path="/request-management" component={RequestManagementPage} />
         <Route path="/suppliers" component={SuppliersPage} />
         <Route path="/users" component={UsersPage} />

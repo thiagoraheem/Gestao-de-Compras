@@ -30,6 +30,7 @@ const userSchema = z.object({
   isApproverA1: z.boolean().default(false),
   isApproverA2: z.boolean().default(false),
   isAdmin: z.boolean().default(false),
+  isManager: z.boolean().default(false),
 }).refine((data) => {
   // Password is required only when creating a new user
   if (!data.password || data.password === "") {
@@ -75,6 +76,7 @@ export default function UsersPage() {
       isApproverA1: false,
       isApproverA2: false,
       isAdmin: false,
+      isManager: false,
     },
   });
 
@@ -146,6 +148,7 @@ export default function UsersPage() {
       isApproverA1: user.isApproverA1 || false,
       isApproverA2: user.isApproverA2 || false,
       isAdmin: user.isAdmin || false,
+      isManager: user.isManager || false,
     });
     setIsModalOpen(true);
   };
@@ -163,6 +166,7 @@ export default function UsersPage() {
   const getUserRoles = (user: any) => {
     const roles = [];
     if (user.isAdmin) roles.push("Admin");
+    if (user.isManager) roles.push("Gerente");
     if (user.isBuyer) roles.push("Comprador");
     if (user.isApproverA1) roles.push("Aprovador A1");
     if (user.isApproverA2) roles.push("Aprovador A2");
@@ -481,6 +485,27 @@ export default function UsersPage() {
                               <FormLabel className="text-sm font-medium">É Aprovador A2</FormLabel>
                               <p className="text-xs text-muted-foreground">
                                 Pode aprovar compras finais
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="isManager"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="flex-1 space-y-1">
+                              <FormLabel className="text-sm font-medium">É Gerente</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Pode acessar dashboard executivo
                               </p>
                             </div>
                           </FormItem>

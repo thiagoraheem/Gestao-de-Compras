@@ -94,7 +94,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         departmentId: user.departmentId,
         isBuyer: user.isBuyer,
         isApproverA1: user.isApproverA1,
-        isApproverA2: user.isApproverA2
+        isApproverA2: user.isApproverA2,
+        isAdmin: user.isAdmin,
+        isManager: user.isManager
       });
     } catch (error) {
       console.error("Login error:", error);
@@ -127,7 +129,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isBuyer: user.isBuyer,
           isApproverA1: user.isApproverA1,
           isApproverA2: user.isApproverA2,
-          isAdmin: user.isAdmin
+          isAdmin: user.isAdmin,
+          isManager: user.isManager
         });
       } else {
         res.status(401).json({ message: "Unauthorized" });
@@ -1485,6 +1488,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Erro ao gerar PDF",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
+    }
+  });
+
+  // Dashboard API endpoints
+  app.get("/api/dashboard", isAuthenticated, async (req, res) => {
+    try {
+      const { period = "30", department = "all", status = "all" } = req.query;
+      
+      // Check if user is manager or admin
+      const user = await storage.getUser(req.session.userId!);
+      if (!user?.isManager && !user?.isAdmin) {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+
+      // Calculate date range
+      const daysAgo = parseInt(period as string);
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - daysAgo);
+
+      // Get all purchase requests within the period
+      const allRequests = await storage.getAllPurchaseRequests();
+      const filteredRequests = allRequests.filter(request => {
+        const createdAt = new Date(request.createdAt);
+        const isInPeriod = createdAt >= startDate;
+        
+        const departmentMatch = department === "all" || 
+          (request.costCenter?.departmentId === parseInt(department as string));
+        
+        const statusMatch = status === "all" || request.currentPhase === status;
+        
+        return isInPeriod && departmentMatch && statusMatch;
+      });
+
+      // Calculate KPIs
+      const totalActiveRequests = filteredRequests.filter(req => 
+        req.currentPhase !== "arquivado"
+      ).length;
+
+      const totalProcessingValue = filteredRequests.reduce((sum, req) => 
+        sum + (Number(req.totalValue) || Number(req.availableBudget) || 0), 0
+      );
+
+      // Calculate average approval time (simplified)
+      const approvedRequests = filteredRequests.filter(req => 
+        req.currentPhase !== "solicitacao" && req.approvalDateA1
+      );
+      const averageApprovalTime = approvedRequests.length > 0 
+        ? Math.round(approvedRequests.reduce((sum, req) => {
+            const created = new Date(req.createdAt);
+            const approved = new Date(req.approvalDateA1!);
+            return sum + (approved.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+          }, 0) / approvedRequests.length)
+        : 0;
+
+      // Calculate approval rate
+      const totalRequestsWithDecision = filteredRequests.filter(req => 
+        req.currentPhase !== "solicitacao"
+      ).length;
+      const approvedRequestsCount = filteredRequests.filter(req => 
+        req.approvedA1 !== false && req.currentPhase !== "solicitacao"
+      ).length;
+      const approvalRate = totalRequestsWithDecision > 0 
+        ? Math.round((approvedRequestsCount / totalRequestsWithDecision) * 100)
+        : 0;
+
+      // Get departments for analysis
+      const departments = await storage.getAllDepartments();
+      const requestsByDepartment = departments.map(dept => {
+        const deptRequests = filteredRequests.filter(req => 
+          req.costCenter?.departmentId === dept.id
+        );
+        return {
+          name: dept.name,
+          value: deptRequests.length
+        };
+      }).filter(item => item.value > 0);
+
+      // Urgency distribution
+      const urgencyDistribution = [
+        { name: "Baixa", value: filteredRequests.filter(req => req.urgency === "Baixo").length },
+        { name: "Média", value: filteredRequests.filter(req => req.urgency === "Médio").length },
+        { name: "Alta", value: filteredRequests.filter(req => req.urgency === "Alto").length }
+      ].filter(item => item.value > 0);
+
+      // Monthly trend (last 6 months)
+      const monthlyTrend = [];
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        
+        const monthRequests = allRequests.filter(req => {
+          const reqDate = new Date(req.createdAt);
+          return reqDate >= monthStart && reqDate <= monthEnd;
+        });
+
+        monthlyTrend.push({
+          month: date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+          requests: monthRequests.length
+        });
+      }
+
+      // Phase conversion funnel
+      const phases = [
+        "solicitacao", "aprovacao_a1", "cotacao", "aprovacao_a2", 
+        "pedido_compra", "conclusao_compra", "recebimento", "arquivado"
+      ];
+      const phaseConversion = phases.map(phase => ({
+        name: phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        value: filteredRequests.filter(req => req.currentPhase === phase).length
+      }));
+
+      // Top departments by value
+      const topDepartments = departments.map(dept => {
+        const deptRequests = filteredRequests.filter(req => 
+          req.costCenter?.departmentId === dept.id
+        );
+        const totalValue = deptRequests.reduce((sum, req) => 
+          sum + (Number(req.totalValue) || Number(req.availableBudget) || 0), 0
+        );
+        return {
+          name: dept.name,
+          totalValue,
+          requestCount: deptRequests.length
+        };
+      }).filter(item => item.totalValue > 0)
+        .sort((a, b) => b.totalValue - a.totalValue)
+        .slice(0, 5);
+
+      // Top suppliers (simplified - would need supplier data)
+      const suppliers = await storage.getAllSuppliers();
+      const topSuppliers = suppliers.map(supplier => {
+        const supplierRequests = filteredRequests.filter(req => 
+          req.chosenSupplierId === supplier.id
+        );
+        const totalValue = supplierRequests.reduce((sum, req) => 
+          sum + (Number(req.totalValue) || 0), 0
+        );
+        return {
+          name: supplier.name,
+          requestCount: supplierRequests.length,
+          totalValue
+        };
+      }).filter(item => item.requestCount > 0)
+        .sort((a, b) => b.requestCount - a.requestCount)
+        .slice(0, 5);
+
+      // Delayed requests (simplified SLA check)
+      const delayedRequests = filteredRequests.filter(req => {
+        const daysSinceCreated = (Date.now() - new Date(req.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceCreated > 15 && req.currentPhase !== "arquivado"; // 15 days SLA
+      }).map(req => ({
+        id: req.id,
+        requestNumber: req.requestNumber,
+        phase: req.currentPhase,
+        daysDelayed: Math.floor((Date.now() - new Date(req.createdAt).getTime()) / (1000 * 60 * 60 * 24)) - 15
+      }));
+
+      // Cost center summary
+      const costCenters = await storage.getAllCostCenters();
+      const costCenterSummary = costCenters.map(cc => {
+        const ccRequests = filteredRequests.filter(req => 
+          req.costCenterId === cc.id
+        );
+        const totalValue = ccRequests.reduce((sum, req) => 
+          sum + (Number(req.totalValue) || Number(req.availableBudget) || 0), 0
+        );
+        return {
+          name: cc.name,
+          totalValue,
+          requestCount: ccRequests.length
+        };
+      }).filter(item => item.totalValue > 0)
+        .sort((a, b) => b.totalValue - a.totalValue);
+
+      res.json({
+        totalActiveRequests,
+        totalProcessingValue,
+        averageApprovalTime,
+        approvalRate,
+        requestsByDepartment,
+        monthlyTrend,
+        urgencyDistribution,
+        phaseConversion,
+        topDepartments,
+        topSuppliers,
+        delayedRequests,
+        costCenterSummary
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard data" });
     }
   });
 
