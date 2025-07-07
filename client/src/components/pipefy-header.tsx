@@ -34,7 +34,7 @@ export default function PipefyHeader() {
     const baseNavigation = [
       { name: "Kanban", href: "/", icon: ShoppingCart },
       {
-        name: "Gerenciar Solicitações",
+        name: "Gerenciar",
         href: "/request-management",
         icon: FileText,
       },
@@ -54,17 +54,17 @@ export default function PipefyHeader() {
     ];
 
     let navigation = [...baseNavigation];
-    
+
     // Add dashboard for managers and admins
     if (user?.isManager || user?.isAdmin) {
       navigation = [...navigation, ...managerNavigation];
     }
-    
+
     // Add admin navigation for admins
     if (user?.isAdmin) {
       navigation = [...navigation, ...adminNavigation];
     }
-    
+
     return navigation;
   };
 
@@ -120,7 +120,10 @@ export default function PipefyHeader() {
           <div className="hidden md:flex items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Button
+                  variant="ghost"
+                  className="relative h-9 w-9 rounded-full"
+                >
                   <Avatar className="h-9 w-9">
                     <AvatarFallback className="bg-blue-600 text-white">
                       {user?.firstName?.[0] || user?.username?.[0] || "U"}
@@ -193,7 +196,7 @@ export default function PipefyHeader() {
                       "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                       isActive
                         ? "bg-blue-50 text-blue-700"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
                     )}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -203,7 +206,7 @@ export default function PipefyHeader() {
                 </Link>
               );
             })}
-            
+
             {/* User info and logout for mobile */}
             <div className="pt-4 border-t border-gray-200 mt-4">
               <div className="flex items-center px-3 py-2">
@@ -219,21 +222,21 @@ export default function PipefyHeader() {
                   <p className="text-xs text-gray-500">{user?.email}</p>
                 </div>
               </div>
-              
+
               <Link href="/profile">
                 <div className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
                   <User className="w-5 h-5" />
                   <span>Perfil</span>
                 </div>
               </Link>
-              
+
               <Link href="/change-password">
                 <div className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
                   <Settings className="w-5 h-5" />
                   <span>Alterar Senha</span>
                 </div>
               </Link>
-              
+
               <button
                 onClick={handleLogout}
                 className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg w-full text-left"
