@@ -55,6 +55,12 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
     queryKey: [`/api/quotations/${quotationId}/supplier-comparison`],
   });
 
+  // Fetch quotation items to get descriptions
+  const { data: quotationItems = [] } = useQuery({
+    queryKey: [`/api/quotations/${quotationId}/items`],
+    enabled: !!quotationId,
+  });
+
   const selectSupplierMutation = useMutation({
     mutationFn: async (data: { selectedSupplierId: number; totalValue: number; observations: string }) => {
       return apiRequest("POST", `/api/quotations/${quotationId}/select-supplier`, data);
@@ -191,7 +197,12 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                             {supplierData.items.slice(0, 3).map((item) => (
                               <div key={item.id} className="text-xs p-2 bg-gray-50 rounded">
                                 <div className="flex justify-between">
-                                  <span className="font-medium">Item #{item.quotationItemId}</span>
+                                  <span className="font-medium">
+                                    {(() => {
+                                      const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
+                                      return quotationItem ? quotationItem.description : `Item #${item.quotationItemId}`;
+                                    })()}
+                                  </span>
                                   <span>R$ {Number(item.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                 </div>
                                 {item.brand && (
@@ -259,7 +270,10 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                         ).map((quotationItemId) => (
                           <tr key={quotationItemId} className="border-b hover:bg-gray-50">
                             <td className="p-3 font-medium">
-                              Item #{quotationItemId}
+                              {(() => {
+                                const quotationItem = quotationItems.find(qi => qi.id === quotationItemId);
+                                return quotationItem ? quotationItem.description : `Item #${quotationItemId}`;
+                              })()}
                             </td>
                             {receivedQuotations.map((supplier) => {
                               const item = supplier.items.find(

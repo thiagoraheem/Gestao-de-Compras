@@ -110,6 +110,12 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 7, 2025. Melhoria na tela de comparação de fornecedores implementada com sucesso:
+  - ✓ Substituída exibição de "Item #" por descrições reais dos itens na comparação detalhada
+  - ✓ Adicionada consulta aos itens da cotação para obter descrições completas
+  - ✓ Atualizada tanto a tabela de comparação quanto os cards dos fornecedores
+  - ✓ Interface mais intuitiva mostrando "Colheres" em vez de "Item #20"
+  - ✓ Mantido fallback para casos onde a descrição não está disponível
 - July 7, 2025. Correção crítica do status de cotação nos cards do Kanban implementada com sucesso:
   - ✓ Corrigida rota de verificação de status de cotação de `/api/quotations/by-request/${id}/status` (inexistente) para `/api/quotations/purchase-request/${id}` (existente)
   - ✓ Melhorado tratamento de erros para evitar mensagens de "Erro ao verificar status"
