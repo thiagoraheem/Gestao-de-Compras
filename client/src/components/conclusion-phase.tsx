@@ -659,95 +659,22 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
           </Card>
         )}
 
-        {/* Archive Section */}
+        {/* Process Completion Status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Archive className="h-5 w-5" />
-              Finalização
+              <CheckCircle className="h-5 w-5" />
+              Status do Processo
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                <div>
-                  <p className="font-medium text-green-900">Processo Concluído</p>
-                  <p className="text-sm text-green-700">
-                    Todas as etapas foram executadas com sucesso. O processo está pronto para ser arquivado.
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-700">
-                    Pronto para arquivamento
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Após o arquivamento, esta solicitação será movida para a fase final.
-                  </p>
-                </div>
-                <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-green-600 hover:bg-green-700">
-                      <Archive className="h-4 w-4 mr-2" />
-                      Arquivar Solicitação
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Arquivar Solicitação</DialogTitle>
-                    </DialogHeader>
-                    <Form {...form}>
-                      <form onSubmit={form.handleSubmit(handleArchive)} className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="conclusionObservations"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Observações Finais (Opcional)</FormLabel>
-                              <FormControl>
-                                <Textarea 
-                                  {...field} 
-                                  placeholder="Adicione observações sobre a conclusão do processo..."
-                                  rows={4}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            onClick={() => setShowArchiveDialog(false)}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button 
-                            type="submit" 
-                            disabled={isArchiving}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            {isArchiving ? (
-                              <>
-                                <Clock className="h-4 w-4 mr-2 animate-spin" />
-                                Arquivando...
-                              </>
-                            ) : (
-                              <>
-                                <Archive className="h-4 w-4 mr-2" />
-                                Confirmar Arquivamento
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </form>
-                    </Form>
-                  </DialogContent>
-                </Dialog>
+            <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
+              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+              <div>
+                <p className="font-medium text-green-900">Processo Concluído</p>
+                <p className="text-sm text-green-700">
+                  Todas as etapas foram executadas com sucesso. O processo está finalizado.
+                </p>
               </div>
             </div>
           </CardContent>
