@@ -91,9 +91,12 @@ export function useAuth() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/check"] });
+      // Immediately set user to null to trigger immediate UI update
+      queryClient.setQueryData(["/api/auth/check"], null);
+      // Clear all cache data
       queryClient.clear();
-      window.location.href = "/";
+      // Force immediate redirect
+      window.location.replace("/");
     },
   });
 

@@ -71,6 +71,8 @@ export default function PipefyHeader() {
   const navigation = getNavigation();
 
   const handleLogout = async () => {
+    // Provide immediate visual feedback
+    setIsMobileMenuOpen(false);
     await logout();
   };
 
