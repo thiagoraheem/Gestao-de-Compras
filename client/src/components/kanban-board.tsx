@@ -79,18 +79,57 @@ export default function KanbanBoard({
       });
     },
     onError: (error: any) => {
-      const errorMessage = error?.message === "Você não possui permissão para mover cards da fase Aprovação A1" ||
-                           error?.message === "Você não possui permissão para mover cards da fase Aprovação A2"
-        ? error.message
-        : "Falha ao mover item";
+      let errorMessage = "Falha ao mover item";
+      
+      // Handle specific error messages from backend
+      if (error?.message) {
+        if (error.message.includes("permissão")) {
+          errorMessage = error.message;
+        } else if (error.message.includes("cotação")) {
+          errorMessage = error.message;
+        } else if (error.message.includes("fornecedor")) {
+          errorMessage = error.message;
+        } else if (error.message.includes("Aprovação A2")) {
+          errorMessage = error.message;
+        } else {
+          errorMessage = error.message;
+        }
+      }
       
       toast({
-        title: "Erro",
+        title: "Movimento Bloqueado",
         description: errorMessage,
         variant: "destructive",
       });
     },
   });
+
+  // Permission check function
+  const canUserDragCard = (phase: string) => {
+    if (phase === "aprovacao_a1" && !user?.isApproverA1) {
+      return false;
+    }
+    if (phase === "aprovacao_a2" && !user?.isApproverA2) {
+      return false;
+    }
+    return true;
+  };
+
+  // Function to check if quotation is ready for A2 approval
+  const isQuotationReadyForA2 = async (requestId: number): Promise<boolean> => {
+    try {
+      const quotation = await apiRequest("GET", `/api/quotations/by-request/${requestId}`);
+      if (!quotation) return false;
+      
+      const supplierQuotations = await apiRequest("GET", `/api/quotations/${quotation.id}/supplier-quotations`);
+      if (!supplierQuotations || supplierQuotations.length === 0) return false;
+      
+      return supplierQuotations.some((sq: any) => sq.isChosen);
+    } catch (error) {
+      console.error("Error checking quotation status:", error);
+      return false;
+    }
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -114,7 +153,7 @@ export default function KanbanBoard({
     setActiveRequest(request);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
@@ -162,6 +201,32 @@ export default function KanbanBoard({
       }
 
       const newPhase = over.id.toString();
+
+      // Check if moving from "Cotação" to "Aprovação A2" - validate quotation readiness
+      if (request.currentPhase === "cotacao" && newPhase === "aprovacao_a2") {
+        try {
+          const isReady = await isQuotationReadyForA2(requestId);
+          if (!isReady) {
+            toast({
+              title: "Cotação Incompleta",
+              description: "Para avançar para Aprovação A2, é necessário completar a análise de cotações e selecionar um fornecedor vencedor.",
+              variant: "destructive",
+            });
+            setActiveId(null);
+            setActiveRequest(null);
+            return;
+          }
+        } catch (error) {
+          toast({
+            title: "Erro de Validação",
+            description: "Erro ao verificar status da cotação. Tente novamente.",
+            variant: "destructive",
+          });
+          setActiveId(null);
+          setActiveRequest(null);
+          return;
+        }
+      }
 
       // Verificar se o destino é uma fase válida
       const validPhases = ['solicitacao', 'aprovacao_a1', 'cotacao', 'aprovacao_a2', 'pedido_compra', 'recebimento', 'arquivado'];
@@ -249,16 +314,7 @@ export default function KanbanBoard({
     setShowRFQCreation(true);
   };
 
-  // Check if user has permission to drag cards from specific phases
-  const canUserDragCard = (phase: string) => {
-    if (phase === "aprovacao_a1" && !user?.isApproverA1) {
-      return false;
-    }
-    if (phase === "aprovacao_a2" && !user?.isApproverA2) {
-      return false;
-    }
-    return true;
-  };
+
 
   return (
     <DndContext

@@ -856,6 +856,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Aprovação A2" });
       }
 
+      // Validate progression from "Cotação" to "Aprovação A2"
+      if (currentPhase === "cotacao" && newPhase === "aprovacao_a2") {
+        // Check if quotation exists
+        const quotation = await storage.getQuotationByPurchaseRequestId(id);
+        if (!quotation) {
+          return res.status(400).json({ message: "Não é possível avançar para Aprovação A2: Nenhuma cotação foi criada" });
+        }
+
+        // Check if at least one supplier quotation exists
+        const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+        if (!supplierQuotations || supplierQuotations.length === 0) {
+          return res.status(400).json({ message: "Não é possível avançar para Aprovação A2: Nenhuma cotação de fornecedor foi recebida" });
+        }
+
+        // Check if a supplier has been chosen
+        const hasChosenSupplier = supplierQuotations.some(sq => sq.isChosen);
+        if (!hasChosenSupplier) {
+          return res.status(400).json({ message: "Não é possível avançar para Aprovação A2: Nenhum fornecedor foi selecionado na análise de cotações" });
+        }
+      }
+
       // Automatic approval logic when moving from approval phases
       let updates: any = {
         currentPhase: newPhase,
@@ -910,6 +931,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating request phase:", error);
       res.status(400).json({ message: "Failed to update phase" });
+    }
+  });
+
+  // New route for advancing from "Pedido de Compra" to "Recebimento"
+  app.post("/api/purchase-requests/:id/advance-to-receipt", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = req.session.userId;
+
+      // Get current user data
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get current request data
+      const request = await storage.getPurchaseRequestById(id);
+      if (!request) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // Verify current phase is "pedido_compra"
+      if (request.currentPhase !== "pedido_compra") {
+        return res.status(400).json({ message: "Solicitação deve estar na fase 'Pedido de Compra' para avançar para recebimento" });
+      }
+
+      // Update phase to "recebimento"
+      const updatedRequest = await storage.updatePurchaseRequest(id, {
+        currentPhase: "recebimento",
+      });
+
+      // Create movement history entry
+      await storage.createApprovalHistory({
+        purchaseRequestId: id,
+        approverType: "MOVEMENT",
+        approverId: userId,
+        approved: true,
+        rejectionReason: null,
+      });
+
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error("Error advancing to receipt:", error);
+      res.status(400).json({ message: "Failed to advance to receipt" });
     }
   });
 

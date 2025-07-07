@@ -97,6 +97,35 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     },
   });
 
+  // Mutation para avançar para recebimento
+  const advanceToReceiptMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/advance-to-receipt`);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Solicitação movida para recebimento com sucesso!",
+      });
+      onClose(); // Close the modal after successful advance
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error?.message || "Falha ao avançar para recebimento",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAdvanceToReceipt = () => {
+    if (window.confirm("Confirma o avanço desta solicitação para a fase de Recebimento?")) {
+      advanceToReceiptMutation.mutate();
+    }
+  };
+
   // Função para download do PDF
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
@@ -169,6 +198,14 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            onClick={handleAdvanceToReceipt}
+            disabled={advanceToReceiptMutation.isPending}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Truck className="w-4 h-4 mr-2" />
+            {advanceToReceiptMutation.isPending ? "Avançando..." : "Avançar para Recebimento"}
+          </Button>
           <Button
             onClick={handleDownloadPDF}
             disabled={isDownloading}

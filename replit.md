@@ -110,6 +110,20 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 7, 2025. Validações de progressão de fase e botão de avanço implementados com sucesso:
+  - ✓ Validação obrigatória para progressão Cotação → Aprovação A2
+  - ✓ Verificação automática de cotação completa com fornecedor selecionado
+  - ✓ Bloqueio de movimentação sem análise finalizada e fornecedor vencedor escolhido
+  - ✓ Botão "Avançar para Recebimento" implementado na fase Pedido de Compra
+  - ✓ Funcionalidade de avanço disponível no card do Kanban e no modal PurchaseOrderPhase
+  - ✓ Confirmação obrigatória antes de mover para fase Recebimento
+  - ✓ Indicadores visuais de status em cards da fase Cotação
+  - ✓ Status "Pronto para Aprovação A2" vs "Aguardando seleção de fornecedor"
+  - ✓ API endpoint /api/purchase-requests/:id/advance-to-receipt implementado
+  - ✓ Validações de segurança no backend para progressões de fase
+  - ✓ Mensagens de erro específicas e descritivas para validações falhadas
+  - ✓ Integração completa com sistema de notificações e histórico
+  - ✓ Interface responsiva com feedback visual em tempo real
 - July 7, 2025. Sistema de controle de permissões rigoroso implementado com sucesso:
   - ✓ Controle de permissões por perfil para movimentação de cards no Kanban
   - ✓ Cards na fase "Aprovação A1" só podem ser movidos por usuários com isApproverA1: true

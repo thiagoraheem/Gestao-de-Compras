@@ -280,6 +280,60 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
     },
   });
 
+  const advanceToReceiptMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/advance-to-receipt`);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Solicitação movida para recebimento com sucesso!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error?.message || "Falha ao avançar para recebimento",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAdvanceToReceipt = (requestId: number) => {
+    // Show confirmation dialog
+    if (window.confirm("Confirma o avanço desta solicitação para a fase de Recebimento?")) {
+      advanceToReceiptMutation.mutate();
+    }
+  };
+
+  // Function to check if quotation is ready for A2 (for visual feedback)
+  const { data: quotationStatus } = useQuery({
+    queryKey: [`/api/quotations/by-request/${request.id}/status`],
+    enabled: phase === PURCHASE_PHASES.COTACAO,
+    queryFn: async () => {
+      try {
+        const quotation = await apiRequest("GET", `/api/quotations/by-request/${request.id}`);
+        if (!quotation) return { isReady: false, reason: "Nenhuma cotação criada" };
+        
+        const supplierQuotations = await apiRequest("GET", `/api/quotations/${quotation.id}/supplier-quotations`);
+        if (!supplierQuotations || supplierQuotations.length === 0) {
+          return { isReady: false, reason: "Aguardando cotações de fornecedores" };
+        }
+        
+        const hasChosenSupplier = supplierQuotations.some((sq: any) => sq.isChosen);
+        if (!hasChosenSupplier) {
+          return { isReady: false, reason: "Aguardando seleção de fornecedor" };
+        }
+        
+        return { isReady: true, reason: "Pronto para Aprovação A2" };
+      } catch (error) {
+        return { isReady: false, reason: "Erro ao verificar status" };
+      }
+    },
+  });
+
   const getUrgencyIcon = (urgency: string) => {
     switch (urgency) {
       case "alto":
@@ -531,7 +585,38 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
             </div>
           )}
 
+          {/* Quotation Status Indicator for Cotação phase */}
+          {phase === PURCHASE_PHASES.COTACAO && quotationStatus && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className={`flex items-center gap-2 p-2 rounded-md ${
+                quotationStatus.isReady 
+                  ? "text-green-700 bg-green-50" 
+                  : "text-orange-600 bg-orange-50"
+              }`}>
+                {quotationStatus.isReady ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Clock className="h-4 w-4" />
+                )}
+                <span className="text-sm font-medium">{quotationStatus.reason}</span>
+              </div>
+            </div>
+          )}
+
           {/* Phase-specific actions */}
+          {phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <Button
+                onClick={() => handleAdvanceToReceipt(request.id)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                size="sm"
+              >
+                <Check className="h-4 w-4 mr-2" />
+                Avançar para Recebimento
+              </Button>
+            </div>
+          )}
+
           {phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1 && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <div className="flex space-x-2">
