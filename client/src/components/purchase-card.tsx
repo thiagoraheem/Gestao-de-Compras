@@ -132,7 +132,14 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
         );
       });
 
+      // Comprehensive cache invalidation
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+      });
 
       toast({
         title: "Sucesso",
@@ -155,7 +162,14 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
       await apiRequest("DELETE", `/api/purchase-requests/${request.id}`);
     },
     onSuccess: () => {
+      // Comprehensive cache invalidation
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+      });
       toast({
         title: "Sucesso",
         description: "Requisição excluída com sucesso",
@@ -176,7 +190,14 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
       return response;
     },
     onSuccess: () => {
+      // Comprehensive cache invalidation
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+      });
       toast({
         title: "Sucesso",
         description: "Requisição arquivada com sucesso",
@@ -319,11 +340,11 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
         const quotation = await apiRequest("GET", `/api/quotations/purchase-request/${request.id}`);
         
         // If no quotation exists
-        if (!quotation) {
+        if (!quotation || !quotation.id) {
           return { isReady: false, reason: "Nenhuma cotação criada" };
         }
         
-        // Get supplier quotations using the quotation ID
+        // Get supplier quotations using the quotation ID - only if quotation exists
         const supplierQuotations = await apiRequest("GET", `/api/quotations/${quotation.id}/supplier-quotations`);
         
         // If no supplier quotations exist

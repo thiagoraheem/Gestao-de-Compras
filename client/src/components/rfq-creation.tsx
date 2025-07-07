@@ -234,8 +234,19 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         title: "RFQ criada com sucesso",
         description: "A solicitação de cotação foi criada e os e-mails foram enviados aos fornecedores selecionados.",
       });
+      // Invalidate all quotation-related queries
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      // Invalidate specific queries for this purchase request
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${data.purchaseRequestId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${data.purchaseRequestId}/status`] });
+      // Invalidate all queries starting with the purchase request API pattern
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${data.purchaseRequestId}`) ||
+          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+      });
       onComplete();
     },
     onError: (error) => {

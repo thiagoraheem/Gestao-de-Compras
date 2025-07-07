@@ -39,6 +39,9 @@ export default function KanbanBoard({
 
   const { data: purchaseRequests, isLoading } = useQuery({
     queryKey: ["/api/purchase-requests"],
+    refetchInterval: 10000, // Refetch every 10 seconds for kanban updates
+    refetchOnWindowFocus: true,
+    staleTime: 5000, // Consider data stale after 5 seconds
   });
 
   // Listen for URL-based request opening
@@ -72,7 +75,15 @@ export default function KanbanBoard({
       });
     },
     onSuccess: () => {
+      // Comprehensive cache invalidation for all related queries
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      // Invalidate all quotation status and related queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+      });
       toast({
         title: "Sucesso",
         description: "Item movido com sucesso!",
@@ -363,7 +374,14 @@ export default function KanbanBoard({
           onComplete={() => {
             setShowRFQCreation(false);
             setSelectedRequestForRFQ(null);
+            // Comprehensive cache invalidation
             queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+            queryClient.invalidateQueries({ 
+              predicate: (query) => 
+                query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+                query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+            });
           }}
         />
       )}

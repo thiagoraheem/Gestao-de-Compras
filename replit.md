@@ -110,6 +110,21 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 7, 2025. Correção crítica dos problemas de cache e atualização em tempo real implementada com sucesso:
+  - ✓ Corrigidos problemas de demora na atualização de informações após criação de RFQ
+  - ✓ Melhorada invalidação abrangente de cache em todas as mutações críticas
+  - ✓ Corrigido erro de quotation ID indefinido que causava chamadas para rotas inexistentes
+  - ✓ Eliminadas chamadas para /api/quotations/undefined/supplier-quotations
+  - ✓ Adicionado refetch automático para componentes críticos (5-10 segundos)
+  - ✓ Cache invalidation com predicados para limpeza abrangente de queries relacionadas
+  - ✓ Melhorado feedback visual imediato após operações de criação e movimentação
+  - ✓ Sistema de cache mais responsivo com staleTime otimizado
+  - ✓ Interface agora reflete mudanças imediatamente sem necessidade de F5
+- July 7, 2025. Correção dos filtros de Departamento e Urgência do Kanban implementada com sucesso:
+  - ✓ Filtro de Departamento corrigido para usar request.department.id em vez de request.departmentId
+  - ✓ Filtro de Urgência corrigido para usar valores corretos: "alto", "medio", "baixo"
+  - ✓ Ambos os filtros (mobile e desktop) atualizados com valores consistentes
+  - ✓ Filtros agora funcionam corretamente em vez de fazer todos os itens sumirem
 - July 7, 2025. Melhoria na tela de comparação de fornecedores implementada com sucesso:
   - ✓ Substituída exibição de "Item #" por descrições reais dos itens na comparação detalhada
   - ✓ Adicionada consulta aos itens da cotação para obter descrições completas
