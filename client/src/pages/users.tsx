@@ -95,10 +95,19 @@ export default function UsersPage() {
       });
       handleCloseModal();
     },
-    onError: () => {
+    onError: (error: any) => {
+      let errorMessage = "Falha ao salvar usuário";
+      
+      // Try to extract the specific error message from the API response
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
       toast({
         title: "Erro",
-        description: "Falha ao salvar usuário",
+        description: errorMessage,
         variant: "destructive",
       });
     },
