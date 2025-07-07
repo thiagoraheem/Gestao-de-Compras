@@ -1192,6 +1192,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotations/:quotationId/items", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
+      
+      if (isNaN(quotationId)) {
+        return res.status(400).json({ message: "Invalid quotation ID" });
+      }
+      
       const items = await storage.getQuotationItems(quotationId);
       res.json(items);
     } catch (error) {
@@ -1242,6 +1247,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotations/:quotationId/supplier-quotations", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
+      
+      if (isNaN(quotationId)) {
+        return res.status(400).json({ message: "Invalid quotation ID" });
+      }
+      
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
       res.json(supplierQuotations);
     } catch (error) {

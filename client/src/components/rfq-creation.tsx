@@ -34,7 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 const quotationItemSchema = z.object({
-  itemCode: z.string().min(1, "Código do item é obrigatório"),
+  itemCode: z.string().optional(),
   description: z.string().min(1, "Descrição é obrigatória"),
   quantity: z.string().min(1, "Quantidade é obrigatória"),
   unit: z.string().min(1, "Unidade é obrigatória"),
@@ -104,7 +104,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         itemCode: item.itemCode || "",
         description: item.description || "",
         quantity: item.quantity?.toString() || "1",
-        unit: item.unit || "un",
+        unit: item.unit || "UN",
         specifications: item.specifications || "",
         deliveryDeadline: item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 15), "yyyy-MM-dd"),
       }));
@@ -115,7 +115,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         itemCode: item.itemNumber || "",
         description: item.description || "",
         quantity: item.requestedQuantity?.toString() || "1",
-        unit: item.unit || "un",
+        unit: item.unit || "UN",
         specifications: "",
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
       }));
@@ -127,7 +127,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
           itemCode: "",
           description: purchaseRequest.justification || "",
           quantity: "1",
-          unit: "un",
+          unit: "UN",
           specifications: "",
           deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
         }
@@ -253,7 +253,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       itemCode: "",
       description: "",
       quantity: "1",
-      unit: "un",
+      unit: "UN",
       specifications: "",
       deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
     });
@@ -426,24 +426,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                     
                     {/* Original Request Data - Read-only presentation */}
                     <div className="bg-gray-50 p-3 rounded-lg mb-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.itemCode`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-gray-600">Código do Item</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="EX: ITM-001" 
-                                  {...field} 
-                                  className="bg-white"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         
                         <FormField
                           control={form.control}
@@ -476,14 +459,14 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                                     <SelectValue placeholder="Selecione" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="un">Unidade</SelectItem>
-                                    <SelectItem value="kg">Kg</SelectItem>
-                                    <SelectItem value="m">Metro</SelectItem>
-                                    <SelectItem value="m2">Metro²</SelectItem>
-                                    <SelectItem value="m3">Metro³</SelectItem>
-                                    <SelectItem value="l">Litro</SelectItem>
-                                    <SelectItem value="cj">Conjunto</SelectItem>
-                                    <SelectItem value="pc">Peça</SelectItem>
+                                    <SelectItem value="UN">Unidade</SelectItem>
+                                    <SelectItem value="KG">Kg</SelectItem>
+                                    <SelectItem value="M">Metro</SelectItem>
+                                    <SelectItem value="M2">Metro²</SelectItem>
+                                    <SelectItem value="M3">Metro³</SelectItem>
+                                    <SelectItem value="L">Litro</SelectItem>
+                                    <SelectItem value="CJ">Conjunto</SelectItem>
+                                    <SelectItem value="PC">Peça</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </FormControl>
