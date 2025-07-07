@@ -219,10 +219,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                   {quotationItems.map((item, index) => (
                     <div key={item.id} className="border rounded-lg p-4">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Código</span>
-                          <p>{item.itemCode}</p>
-                        </div>
+                        
                         <div>
                           <span className="text-sm font-medium text-gray-500">Descrição</span>
                           <p>{item.description}</p>
