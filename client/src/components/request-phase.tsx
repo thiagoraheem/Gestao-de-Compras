@@ -53,7 +53,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
 
   // Buscar itens existentes da solicitação se estiver editando
   const { data: existingItems = [] } = useQuery<EditableItem[]>({
-    queryKey: ["/api/purchase-requests", request?.id, "items"],
+    queryKey: [`/api/purchase-requests/${request?.id}/items`],
     enabled: !!request?.id,
   });
 
@@ -76,6 +76,8 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
       console.log('[DEBUG] Loading existing items:', existingItems);
       setRequestItems(existingItems);
       setItemsLoaded(true);
+      // Ensure the manual tab is selected when editing with existing items
+      setItemsMethod('manual');
     }
   }, [existingItems, itemsLoaded]);
 
@@ -122,7 +124,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests", request?.id, "items"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-requests/${request?.id}/items`] });
       toast({
         title: "Sucesso",
         description: request ? "Solicitação atualizada com sucesso!" : "Solicitação criada com sucesso!",
