@@ -1502,6 +1502,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Data cleanup endpoint (Admin only)
+  app.post("/api/admin/cleanup-purchase-data", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { confirmationText } = req.body;
+      
+      // Require confirmation text to prevent accidental deletions
+      if (confirmationText !== "CONFIRMAR LIMPEZA") {
+        return res.status(400).json({ 
+          message: "Texto de confirmação incorreto. Digite exatamente: CONFIRMAR LIMPEZA" 
+        });
+      }
+      
+      await storage.cleanupPurchaseRequestsData();
+      
+      res.json({ 
+        message: "Limpeza realizada com sucesso! Todos os dados de solicitações foram removidos, mantendo cadastros básicos.",
+        details: {
+          removed: [
+            "Solicitações de compra",
+            "Itens de solicitação", 
+            "Cotações",
+            "Itens de cotação",
+            "Cotações de fornecedores",
+            "Pedidos de compra",
+            "Recebimentos",
+            "Histórico de aprovações",
+            "Anexos"
+          ],
+          maintained: [
+            "Usuários",
+            "Departamentos", 
+            "Centros de custo",
+            "Fornecedores",
+            "Métodos de pagamento"
+          ]
+        }
+      });
+    } catch (error) {
+      console.error("Erro na limpeza de dados:", error);
+      res.status(500).json({ 
+        message: "Erro ao realizar limpeza de dados",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Archive purchase request endpoint for ConclusionPhase
   app.patch("/api/purchase-requests/:id/archive", isAuthenticated, async (req, res) => {
     try {

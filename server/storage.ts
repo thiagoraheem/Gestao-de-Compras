@@ -108,19 +108,19 @@ export interface IStorage {
   getQuotationByPurchaseRequestId(purchaseRequestId: number): Promise<Quotation | undefined>;
   createQuotation(quotation: InsertQuotation): Promise<Quotation>;
   updateQuotation(id: number, quotation: Partial<InsertQuotation>): Promise<Quotation>;
-  
+
   // Quotation Items operations
   getQuotationItems(quotationId: number): Promise<QuotationItem[]>;
   createQuotationItem(item: InsertQuotationItem): Promise<QuotationItem>;
   updateQuotationItem(id: number, item: Partial<InsertQuotationItem>): Promise<QuotationItem>;
   deleteQuotationItem(id: number): Promise<void>;
-  
+
   // Supplier Quotations operations
   getSupplierQuotations(quotationId: number): Promise<SupplierQuotation[]>;
   getSupplierQuotationById(id: number): Promise<SupplierQuotation | undefined>;
   createSupplierQuotation(supplierQuotation: InsertSupplierQuotation): Promise<SupplierQuotation>;
   updateSupplierQuotation(id: number, supplierQuotation: Partial<InsertSupplierQuotation>): Promise<SupplierQuotation>;
-  
+
   // Supplier Quotation Items operations
   getSupplierQuotationItems(supplierQuotationId: number): Promise<SupplierQuotationItem[]>;
   createSupplierQuotationItem(item: InsertSupplierQuotationItem): Promise<SupplierQuotationItem>;
@@ -135,6 +135,9 @@ export interface IStorage {
 
   // Initialize default data
   initializeDefaultData(): Promise<void>;
+
+  // Method to cleanup Purchase Requests data
+  cleanupPurchaseRequestsData(): Promise<void>;
 }
 
 // Create aliases for user tables
@@ -256,7 +259,7 @@ export class DatabaseStorage implements IStorage {
   async setUserCostCenters(userId: number, costCenterIds: number[]): Promise<void> {
     // Remove all existing associations
     await db.delete(userCostCenters).where(eq(userCostCenters.userId, userId));
-    
+
     // Add new associations
     if (costCenterIds.length > 0) {
       await db.insert(userCostCenters).values(
@@ -380,11 +383,11 @@ export class DatabaseStorage implements IStorage {
   async getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined> {
     // First get the basic purchase request data
     const [request] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, id));
-    
+
     if (!request) {
       return undefined;
     }
-    
+
     // Then get requester data if exists
     let requesterData = null;
     if (request.requesterId) {
@@ -397,7 +400,7 @@ export class DatabaseStorage implements IStorage {
         };
       }
     }
-    
+
     // Combine the data
     const result = {
       ...request,
@@ -405,7 +408,7 @@ export class DatabaseStorage implements IStorage {
       requesterUsername: requesterData?.requesterUsername || '',
       requesterEmail: requesterData?.requesterEmail || ''
     };
-    
+
     return result as any;
   }
 
@@ -498,7 +501,7 @@ export class DatabaseStorage implements IStorage {
 
   async createPurchaseRequestItems(items: InsertPurchaseRequestItem[]): Promise<PurchaseRequestItem[]> {
     if (items.length === 0) return [];
-    
+
     return await db
       .insert(purchaseRequestItems)
       .values(items)
@@ -703,10 +706,79 @@ export class DatabaseStorage implements IStorage {
     return attachment;
   }
 
+  async cleanupPurchaseRequestsData(): Promise<void> {
+    console.log("🧹 Iniciando limpeza dos dados de solicitações...");
+
+    try {
+      // Delete in the correct order to respect foreign key constraints
+
+      // 1. Delete receipt items first
+      await db.delete(sql`DELETE FROM receipt_items`);
+      console.log("✅ Receipt items deletados");
+
+      // 2. Delete receipts
+      await db.delete(sql`DELETE FROM receipts`);
+      console.log("✅ Receipts deletados");
+
+      // 3. Delete purchase order items
+      await db.delete(sql`DELETE FROM purchase_order_items`);
+      console.log("✅ Purchase order items deletados");
+
+      // 4. Delete purchase orders
+      await db.delete(sql`DELETE FROM purchase_orders`);
+      console.log("✅ Purchase orders deletados");
+
+      // 5. Delete supplier quotation items
+      await db.delete(sql`DELETE FROM supplier_quotation_items`);
+      console.log("✅ Supplier quotation items deletados");
+
+      // 6. Delete supplier quotations
+      await db.delete(sql`DELETE FROM supplier_quotations`);
+      console.log("✅ Supplier quotations deletados");
+
+      // 7. Delete quotation items
+      await db.delete(sql`DELETE FROM quotation_items`);
+      console.log("✅ Quotation items deletados");
+
+      // 8. Delete quotations
+      await db.delete(sql`DELETE FROM quotations`);
+      console.log("✅ Quotations deletados");
+
+      // 9. Delete attachments
+      await db.delete(sql`DELETE FROM attachments`);
+      console.log("✅ Attachments deletados");
+
+      // 10. Delete approval history
+      await db.delete(sql`DELETE FROM approval_history`);
+      console.log("✅ Approval history deletado");
+
+      // 11. Delete purchase request suppliers
+      await db.delete(sql`DELETE FROM purchase_request_suppliers`);
+      console.log("✅ Purchase request suppliers deletados");
+
+      // 12. Delete purchase request items
+      await db.delete(sql`DELETE FROM purchase_request_items`);
+      console.log("✅ Purchase request items deletados");
+
+      // 13. Finally, delete purchase requests
+      await db.delete(sql`DELETE FROM purchase_requests`);
+      console.log("✅ Purchase requests deletados");
+
+      console.log("🎉 Limpeza concluída com sucesso!");
+      console.log("📋 Dados mantidos: usuários, departamentos, centros de custo, fornecedores e métodos de pagamento");
+
+    } catch (error) {
+      console.error("❌ Erro durante a limpeza:", error);
+      throw error;
+    }
+  }
+
   async initializeDefaultData(): Promise<void> {
     // Check if data already exists
-    const existingPaymentMethods = await this.getAllPaymentMethods();
-    if (existingPaymentMethods.length > 0) return;
+    const existingUsers = await this.getAllUsers();
+    if (existingUsers.length > 0) {
+      return; // Data already initialized
+    }
 
     // Create default payment methods
     const defaultPaymentMethods = [
@@ -733,14 +805,14 @@ export class DatabaseStorage implements IStorage {
 
     for (const dept of defaultDepartments) {
       const department = await this.createDepartment(dept);
-      
+
       // Create cost centers for each department
       await this.createCostCenter({
         code: `${dept.name.toUpperCase()}-GER-001`,
         name: `${dept.name} - Geral`,
         departmentId: department.id,
       });
-      
+
       if (dept.name === "TI") {
         await this.createCostCenter({
           code: "TI-DEV-001",
