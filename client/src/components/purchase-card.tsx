@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { URGENCY_LABELS, CATEGORY_LABELS, PurchasePhase, PURCHASE_PHASES, PHASE_LABELS } from "@/lib/types";
-import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive, Edit, GripVertical, Trash2, Plus } from "lucide-react";
+import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive, Edit, GripVertical, Trash2, Plus, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -599,6 +599,27 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
                   Rejeitar
                 </Button>
               </div>
+            </div>
+          )}
+
+          {phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <Button
+                size="sm"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Usar a mutation de mudança de fase existente
+                  const requestId = request.id;
+                  // Simular o drag and drop programaticamente
+                  window.dispatchEvent(new CustomEvent('moveCardToPhase', {
+                    detail: { requestId, newPhase: 'recebimento' }
+                  }));
+                }}
+              >
+                <Truck className="mr-1 h-3 w-3" />
+                Avançar para Recebimento
+              </Button>
             </div>
           )}
 
