@@ -12,6 +12,7 @@ import {
   quotationItems,
   supplierQuotations,
   supplierQuotationItems,
+  attachments,
   type User,
   type InsertUser,
   type Department,
@@ -37,6 +38,8 @@ import {
   approvalHistory,
   type ApprovalHistory,
   type InsertApprovalHistory,
+  type Attachment,
+  type InsertAttachment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, like, sql } from "drizzle-orm";
@@ -126,6 +129,9 @@ export interface IStorage {
   // Approval History operations
   getApprovalHistory(purchaseRequestId: number): Promise<any[]>;
   createApprovalHistory(approvalHistory: InsertApprovalHistory): Promise<ApprovalHistory>;
+
+  // Attachment operations
+  createAttachment(attachment: InsertAttachment): Promise<Attachment>;
 
   // Initialize default data
   initializeDefaultData(): Promise<void>;
@@ -660,6 +666,14 @@ export class DatabaseStorage implements IStorage {
       .values(approvalHistoryData)
       .returning();
     return newApprovalHistory;
+  }
+
+  async createAttachment(attachmentData: InsertAttachment): Promise<Attachment> {
+    const [attachment] = await db
+      .insert(attachments)
+      .values(attachmentData)
+      .returning();
+    return attachment;
   }
 
   async initializeDefaultData(): Promise<void> {

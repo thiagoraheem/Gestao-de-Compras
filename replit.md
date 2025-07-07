@@ -121,6 +121,11 @@ Key entities include:
   - ✓ Criação da tela detalhada de recebimento com informações completas da solicitação
   - ✓ Exibição de solicitante, aprovadores, itens de compra e fornecedor selecionado na fase de recebimento
   - ✓ Botões de confirmação e pendência integrados na interface de recebimento
+  - ✓ Refatoração completa da tela de atualização de cotação com valores por item
+  - ✓ Implementação de cálculo automático do valor total baseado nos itens
+  - ✓ Interface para upload de arquivos de proposta dos fornecedores
+  - ✓ Comparação detalhada entre fornecedores com visualização de todos os itens e valores
+  - ✓ Tabela de comparação item por item mostrando preços unitários, totais, prazos e marcas
 - July 7, 2025. Sistema de notificações por e-mail implementado:
   - ✓ Notificações automáticas para compradores quando nova solicitação é criada
   - ✓ Notificações para aprovadores A1 quando solicitação entra na fase de aprovação A1

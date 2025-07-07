@@ -166,11 +166,12 @@ export const attachments = pgTable("attachments", {
   id: serial("id").primaryKey(),
   purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
   quotationId: integer("quotation_id").references(() => quotations.id),
+  supplierQuotationId: integer("supplier_quotation_id").references(() => supplierQuotations.id),
   fileName: text("file_name").notNull(),
   filePath: text("file_path").notNull(),
   fileType: text("file_type").notNull(),
   fileSize: integer("file_size"),
-  attachmentType: text("attachment_type").notNull(), // requisition, quotation, purchase_order, etc.
+  attachmentType: text("attachment_type").notNull(), // requisition, quotation, purchase_order, supplier_proposal, etc.
   uploadedAt: timestamp("uploaded_at").defaultNow(),
 });
 
@@ -621,6 +622,11 @@ export const insertQuotationItemSchema = createInsertSchema(quotationItems).omit
   deliveryDeadline: z.string().optional().transform((val) => val ? new Date(val) : null),
 });
 
+export const insertAttachmentSchema = createInsertSchema(attachments).omit({
+  id: true,
+  uploadedAt: true,
+});
+
 export const insertSupplierQuotationSchema = createInsertSchema(supplierQuotations).omit({
   id: true,
   createdAt: true,
@@ -689,6 +695,7 @@ export type InsertPurchaseRequest = z.infer<typeof insertPurchaseRequestSchema>;
 export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
 export type Attachment = typeof attachments.$inferSelect;
+export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
 export type PurchaseRequestSupplier = typeof purchaseRequestSuppliers.$inferSelect;
 export type PurchaseRequestItem = typeof purchaseRequestItems.$inferSelect;
 export type InsertPurchaseRequestItem = z.infer<typeof insertPurchaseRequestItemSchema>;

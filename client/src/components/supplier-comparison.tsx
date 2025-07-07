@@ -227,6 +227,88 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                 ))}
               </div>
 
+              {/* Detailed Items Comparison */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Comparação Detalhada de Itens
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-3 font-medium">Item</th>
+                          {receivedQuotations.map((supplier) => (
+                            <th key={supplier.id} className="text-center p-3 font-medium border-l">
+                              {supplier.supplier.name}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* Get all unique items from all suppliers */}
+                        {Array.from(
+                          new Set(
+                            receivedQuotations.flatMap(sq => 
+                              sq.items.map(item => item.quotationItemId)
+                            )
+                          )
+                        ).map((quotationItemId) => (
+                          <tr key={quotationItemId} className="border-b hover:bg-gray-50">
+                            <td className="p-3 font-medium">
+                              Item #{quotationItemId}
+                            </td>
+                            {receivedQuotations.map((supplier) => {
+                              const item = supplier.items.find(
+                                item => item.quotationItemId === quotationItemId
+                              );
+                              return (
+                                <td key={supplier.id} className="p-3 border-l text-center">
+                                  {item ? (
+                                    <div className="space-y-1">
+                                      <div className="font-bold text-green-600">
+                                        R$ {Number(item.unitPrice).toLocaleString('pt-BR', { 
+                                          minimumFractionDigits: 2 
+                                        })}
+                                      </div>
+                                      <div className="text-sm text-gray-600">
+                                        Total: R$ {Number(item.totalPrice).toLocaleString('pt-BR', { 
+                                          minimumFractionDigits: 2 
+                                        })}
+                                      </div>
+                                      {item.deliveryDays && (
+                                        <div className="text-xs text-blue-600">
+                                          {item.deliveryDays} dias
+                                        </div>
+                                      )}
+                                      {item.brand && (
+                                        <div className="text-xs text-gray-500">
+                                          {item.brand} {item.model}
+                                        </div>
+                                      )}
+                                      {item.observations && (
+                                        <div className="text-xs text-gray-400 italic">
+                                          {item.observations}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400 text-sm">Não cotado</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Observações da Decisão */}
               <Card className="mb-6">
                 <CardHeader>

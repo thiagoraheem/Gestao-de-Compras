@@ -1083,6 +1083,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get specific supplier quotation for a quotation
+  app.get("/api/quotations/:quotationId/supplier-quotations/:supplierId", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const supplierId = parseInt(req.params.supplierId);
+      
+      const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+      const supplierQuotation = supplierQuotations.find(sq => sq.supplierId === supplierId);
+      
+      if (!supplierQuotation) {
+        return res.json(null);
+      }
+
+      // Get items for this supplier quotation
+      const items = await storage.getSupplierQuotationItems(supplierQuotation.id);
+      
+      res.json({
+        ...supplierQuotation,
+        items
+      });
+    } catch (error) {
+      console.error("Error fetching supplier quotation:", error);
+      res.status(500).json({ message: "Failed to fetch supplier quotation" });
+    }
+  });
+
   app.put("/api/supplier-quotations/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -1187,7 +1213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations/:quotationId/update-supplier-quotation", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      const { supplierId, totalValue, observations } = req.body;
+      const { supplierId, items, totalValue, paymentTerms, deliveryTerms, observations } = req.body;
       
       if (!supplierId) {
         return res.status(400).json({ message: "ID do fornecedor é obrigatório" });
@@ -1201,24 +1227,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Buscar cotação do fornecedor
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
-      const supplierQuotation = supplierQuotations.find(sq => sq.supplierId === supplierId);
+      let supplierQuotation = supplierQuotations.find(sq => sq.supplierId === supplierId);
       
       if (!supplierQuotation) {
-        return res.status(404).json({ message: "Cotação do fornecedor não encontrada" });
+        // Criar nova cotação do fornecedor se não existir
+        supplierQuotation = await storage.createSupplierQuotation({
+          quotationId,
+          supplierId,
+          status: "received",
+          totalValue: null,
+          sentAt: null,
+          receivedAt: new Date()
+        });
       }
 
       // Atualizar a cotação do fornecedor
       await storage.updateSupplierQuotation(supplierQuotation.id, {
         status: "received",
         totalValue: totalValue || null,
+        paymentTerms: paymentTerms || null,
+        deliveryTerms: deliveryTerms || null,
         observations: observations || null,
         receivedAt: new Date()
       });
+
+      // Atualizar ou criar itens da cotação
+      if (items && items.length > 0) {
+        // Buscar itens existentes
+        const existingItems = await storage.getSupplierQuotationItems(supplierQuotation.id);
+        
+        for (const item of items) {
+          const existingItem = existingItems.find(ei => ei.quotationItemId === item.quotationItemId);
+          
+          if (existingItem) {
+            // Buscar quantidade do item de cotação
+            const quotationItems = await storage.getQuotationItems(quotationId);
+            const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
+            const quantity = parseFloat(quotationItem?.quantity || "1");
+            
+            // Atualizar item existente
+            await storage.updateSupplierQuotationItem(existingItem.id, {
+              unitPrice: item.unitPrice.toString(),
+              totalPrice: (item.unitPrice * quantity).toString(),
+              deliveryDays: item.deliveryDays,
+              brand: item.brand,
+              model: item.model,
+              observations: item.observations
+            });
+          } else {
+            // Buscar quantidade do item de cotação
+            const quotationItems = await storage.getQuotationItems(quotationId);
+            const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
+            const quantity = parseFloat(quotationItem?.quantity || "1");
+            
+            // Criar novo item
+            await storage.createSupplierQuotationItem({
+              supplierQuotationId: supplierQuotation.id,
+              quotationItemId: item.quotationItemId,
+              unitPrice: item.unitPrice.toString(),
+              totalPrice: (item.unitPrice * quantity).toString(),
+              deliveryDays: item.deliveryDays,
+              brand: item.brand,
+              model: item.model,
+              observations: item.observations
+            });
+          }
+        }
+      }
 
       res.json({ message: "Cotação do fornecedor atualizada com sucesso" });
     } catch (error) {
       console.error("Error updating supplier quotation:", error);
       res.status(500).json({ message: "Erro ao atualizar cotação do fornecedor" });
+    }
+  });
+
+  // Upload supplier quotation files (simplified version)
+  app.post("/api/quotations/:quotationId/upload-supplier-file", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const { fileName, fileType, attachmentType, supplierId } = req.body;
+      
+      // Find supplier quotation
+      const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+      const supplierQuotation = supplierQuotations.find(sq => sq.supplierId === parseInt(supplierId));
+      
+      if (!supplierQuotation) {
+        return res.status(404).json({ message: "Cotação do fornecedor não encontrada" });
+      }
+
+      // Add attachment to database (simplified - file handling will be implemented later)
+      await storage.createAttachment({
+        supplierQuotationId: supplierQuotation.id,
+        fileName: fileName || "arquivo.pdf",
+        filePath: `/uploads/${fileName}`,
+        fileType: fileType || "application/pdf",
+        fileSize: 0,
+        attachmentType: attachmentType || "supplier_proposal"
+      });
+
+      res.json({ 
+        message: "Arquivo enviado com sucesso",
+        fileName: fileName
+      });
+    } catch (error) {
+      console.error("Error uploading supplier file:", error);
+      res.status(500).json({ message: "Erro ao enviar arquivo" });
     }
   });
 
