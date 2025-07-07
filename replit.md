@@ -133,8 +133,9 @@ Key entities include:
 - July 7, 2025. Correção do nome do solicitante na tela de cotação:
   - ✓ Corrigido método getPurchaseRequestById para incluir dados do usuário solicitante
   - ✓ Simplificada consulta SQL para evitar erros com JOINs complexos
+  - ✓ Corrigido componente QuotationPhase para acessar dados do requester corretamente
   - ✓ Nome do solicitante agora aparece corretamente na interface de gestão de cotações
-  - ✓ Dados de usuário incluem nome completo, username e email do solicitante
+  - ✓ Suporte tanto para request.requesterName quanto request.requester.firstName/lastName
 - July 7, 2025. Sistema de notificações por e-mail implementado:
   - ✓ Notificações automáticas para compradores quando nova solicitação é criada
   - ✓ Notificações para aprovadores A1 quando solicitação entra na fase de aprovação A1

@@ -59,6 +59,8 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
     name: string;
   } | null>(null);
   const { user } = useAuth();
+  
+
 
   const { data: quotation, isLoading } = useQuery<Quotation>({
     queryKey: [`/api/quotations/purchase-request/${request.id}`],
@@ -115,7 +117,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-500">Solicitante</span>
-                <p>{request.requesterName}</p>
+                <p>{request.requesterName || (request.requester ? `${request.requester.firstName || ''} ${request.requester.lastName || ''}`.trim() : 'N/A')}</p>
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-500">Data da Solicitação</span>
