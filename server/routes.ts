@@ -856,15 +856,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Aprovação A2" });
       }
 
-      // Validação específica: Cotação -> Aprovação A2 só pode ser feita se houver fornecedor escolhido
-      if (currentPhase === "cotacao" && newPhase === "aprovacao_a2") {
-        if (!request.chosenSupplierId) {
-          return res.status(400).json({ 
-            message: "Para avançar para Aprovação A2, é necessário ter um fornecedor escolhido na cotação" 
-          });
-        }
-      }
-
       // Automatic approval logic when moving from approval phases
       let updates: any = {
         currentPhase: newPhase,

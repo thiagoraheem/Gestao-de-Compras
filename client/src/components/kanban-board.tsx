@@ -45,7 +45,7 @@ export default function KanbanBoard({
   useEffect(() => {
     const handleOpenRequestFromUrl = (event: any) => {
       const { requestId, phase } = event.detail;
-
+      
       if (purchaseRequests && Array.isArray(purchaseRequests)) {
         const request = purchaseRequests.find((req: any) => req.id === requestId);
         if (request) {
@@ -58,19 +58,12 @@ export default function KanbanBoard({
       }
     };
 
-    const handleMoveCardToPhase = (event: any) => {
-      const { requestId, newPhase } = event.detail;
-      moveRequestMutation.mutate({ id: requestId, newPhase });
-    };
-
     window.addEventListener('openRequestFromUrl', handleOpenRequestFromUrl);
-    window.addEventListener('moveCardToPhase', handleMoveCardToPhase);
-
+    
     return () => {
       window.removeEventListener('openRequestFromUrl', handleOpenRequestFromUrl);
-      window.removeEventListener('moveCardToPhase', handleMoveCardToPhase);
     };
-  }, [purchaseRequests, moveRequestMutation]);
+  }, [purchaseRequests]);
 
   const moveRequestMutation = useMutation({
     mutationFn: async ({ id, newPhase }: { id: number; newPhase: string }) => {
@@ -90,7 +83,7 @@ export default function KanbanBoard({
                            error?.message === "Você não possui permissão para mover cards da fase Aprovação A2"
         ? error.message
         : "Falha ao mover item";
-
+      
       toast({
         title: "Erro",
         description: errorMessage,
@@ -102,12 +95,12 @@ export default function KanbanBoard({
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     setActiveId(active.id as string);
-
+    
     // Find the active request for overlay
     const request = Array.isArray(purchaseRequests) 
       ? purchaseRequests.find((req: any) => `request-${req.id}` === active.id)
       : undefined;
-
+    
     // Check if user has permission to drag this card
     if (request && !canUserDragCard(request.currentPhase)) {
       toast({
@@ -117,7 +110,7 @@ export default function KanbanBoard({
       });
       return;
     }
-
+    
     setActiveRequest(request);
   };
 
@@ -216,29 +209,29 @@ export default function KanbanBoard({
   const filteredRequests = Array.isArray(purchaseRequests) 
     ? purchaseRequests.filter((request: any) => {
         let passesFilters = true;
-
+        
         // Department filter
         if (departmentFilter !== "all") {
           passesFilters = passesFilters && request.departmentId?.toString() === departmentFilter;
         }
-
+        
         // Urgency filter
         if (urgencyFilter !== "all") {
           passesFilters = passesFilters && request.urgency === urgencyFilter;
         }
-
+        
         // Date filter - apply to conclusion and archived items
         if (dateFilter && (request.currentPhase === PURCHASE_PHASES.ARQUIVADO || request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA)) {
           const requestDate = new Date(request.updatedAt || request.createdAt);
           const startDate = new Date(dateFilter.startDate);
           const endDate = new Date(dateFilter.endDate);
           endDate.setHours(23, 59, 59, 999); // Include the full end date
-
+          
           passesFilters = passesFilters && 
             requestDate >= startDate && 
             requestDate <= endDate;
         }
-
+        
         return passesFilters;
       })
     : [];
@@ -286,7 +279,7 @@ export default function KanbanBoard({
           ))}
         </div>
       </div>
-
+      
       <DragOverlay>
         {activeRequest && (
           <div className="rotate-6 transform">
@@ -298,7 +291,7 @@ export default function KanbanBoard({
           </div>
         )}
       </DragOverlay>
-
+      
 
 
 

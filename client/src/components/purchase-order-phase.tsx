@@ -170,19 +170,6 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={() => {
-              // Mover para fase de recebimento
-              window.dispatchEvent(new CustomEvent('moveCardToPhase', {
-                detail: { requestId: request.id, newPhase: 'recebimento' }
-              }));
-              onClose(); // Fechar o modal após avançar
-            }}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Truck className="w-4 h-4 mr-2" />
-            Avançar para Recebimento
-          </Button>
-          <Button
             onClick={handleDownloadPDF}
             disabled={isDownloading}
             className="bg-green-600 hover:bg-green-700"
