@@ -378,8 +378,57 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined> {
-    const [request] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, id));
-    return request || undefined;
+    const requesterUser = alias(users, 'requester');
+    const approverA1User = alias(users, 'approver_a1');
+    const approverA2User = alias(users, 'approver_a2');
+    
+    const [request] = await db.select({
+      id: purchaseRequests.id,
+      requestNumber: purchaseRequests.requestNumber,
+      requesterId: purchaseRequests.requesterId,
+      currentPhase: purchaseRequests.currentPhase,
+      priority: purchaseRequests.priority,
+      justification: purchaseRequests.justification,
+      requiredDate: purchaseRequests.requiredDate,
+      costCenterId: purchaseRequests.costCenterId,
+      availableBudget: purchaseRequests.availableBudget,
+      approverA1Id: purchaseRequests.approverA1Id,
+      approvedA1: purchaseRequests.approvedA1,
+      rejectionReasonA1: purchaseRequests.rejectionReasonA1,
+      approvalDateA1: purchaseRequests.approvalDateA1,
+      buyerId: purchaseRequests.buyerId,
+      totalValue: purchaseRequests.totalValue,
+      paymentMethodId: purchaseRequests.paymentMethodId,
+      approverA2Id: purchaseRequests.approverA2Id,
+      chosenSupplierId: purchaseRequests.chosenSupplierId,
+      choiceReason: purchaseRequests.choiceReason,
+      negotiatedValue: purchaseRequests.negotiatedValue,
+      discountsObtained: purchaseRequests.discountsObtained,
+      deliveryDate: purchaseRequests.deliveryDate,
+      purchaseDate: purchaseRequests.purchaseDate,
+      purchaseObservations: purchaseRequests.purchaseObservations,
+      receivedById: purchaseRequests.receivedById,
+      receivedDate: purchaseRequests.receivedDate,
+      createdAt: purchaseRequests.createdAt,
+      updatedAt: purchaseRequests.updatedAt,
+      // Requester data
+      requesterName: sql<string>`CONCAT(${requesterUser.firstName}, ' ', ${requesterUser.lastName})`,
+      requesterUsername: requesterUser.username,
+      requesterEmail: requesterUser.email,
+      // Approver A1 data
+      approverA1Name: sql<string>`CONCAT(${approverA1User.firstName}, ' ', ${approverA1User.lastName})`,
+      approverA1Username: approverA1User.username,
+      // Approver A2 data
+      approverA2Name: sql<string>`CONCAT(${approverA2User.firstName}, ' ', ${approverA2User.lastName})`,
+      approverA2Username: approverA2User.username,
+    })
+    .from(purchaseRequests)
+    .leftJoin(requesterUser, eq(purchaseRequests.requesterId, requesterUser.id))
+    .leftJoin(approverA1User, eq(purchaseRequests.approverA1Id, approverA1User.id))
+    .leftJoin(approverA2User, eq(purchaseRequests.approverA2Id, approverA2User.id))
+    .where(eq(purchaseRequests.id, id));
+    
+    return request as any || undefined;
   }
 
   async createPurchaseRequest(request: InsertPurchaseRequest): Promise<PurchaseRequest> {
