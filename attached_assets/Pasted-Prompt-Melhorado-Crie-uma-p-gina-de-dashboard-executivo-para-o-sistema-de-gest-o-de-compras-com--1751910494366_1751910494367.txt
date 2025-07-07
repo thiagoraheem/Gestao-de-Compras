@@ -1,0 +1,62 @@
+Prompt Melhorado:
+
+Crie uma página de dashboard executivo para o sistema de gestão de compras com as seguintes especificações:
+
+Objetivo: Fornecer uma visão gerencial completa do processo de compras através de KPIs e métricas relevantes para tomada de decisões estratégicas.
+
+Estrutura do Dashboard:
+
+Métricas Principais (Cards de Destaque):
+
+Total de solicitações ativas no mês
+Valor total em processos de compra
+Tempo médio de aprovação
+Taxa de aprovação (%) por fase
+Gráficos Analíticos:
+
+Gráfico de barras: Solicitações por departamento
+Gráfico de linha: Evolução temporal das solicitações (últimos 6 meses)
+Gráfico de pizza: Distribuição por nível de urgência
+Gráfico de funil: Conversão entre fases do processo
+Tabelas de Dados:
+
+Top 5 departamentos com maior volume de compras
+Fornecedores mais utilizados
+Solicitações em atraso (SLA)
+Resumo por centro de custo
+Filtros Interativos:
+
+Período (últimos 30/60/90 dias)
+Departamento específico
+Status da solicitação
+Requisitos Técnicos:
+
+Utilize os componentes de chart existentes (Recharts)
+Implemente filtros responsivos
+Crie queries otimizadas para agregação de dados
+Adicione loading states e tratamento de erros
+Mantenha o padrão visual do sistema (Tailwind + Shadcn/ui)
+Funcionalidades Extras:
+
+Exportação de relatórios em PDF
+Atualização automática dos dados
+Drill-down para detalhes específicos
+Indicadores de performance com cores (verde/amarelo/vermelho)
+Integração com Menu e Permissões:
+
+Adicione o item "Dashboard" no menu de navegação (sidebar.tsx) com ícone apropriado
+Implemente controle de acesso baseado em perfil gerencial
+Adicione o campo "isManager" (booleano) na tabela de usuários para identificar perfis gerenciais
+Atualize o formulário de cadastro/edição de usuários para incluir a opção "É Gerente"
+O dashboard deve ser acessível apenas para usuários com permissão gerencial (isManager = true)
+Rota e Navegação:
+
+Rota: /dashboard
+Adicionar item no menu entre "Kanban Board" e "Gerenciar Solicitações"
+Ícone sugerido: BarChart3 ou Dashboard do Lucide React
+Implementar middleware de verificação de permissão gerencial
+Estrutura de Permissões:
+
+Usuários com isManager = true podem acessar o dashboard
+Admins têm acesso automático ao dashboard
+Implementar componente ManagerRoute similar ao AdminRoute existente
