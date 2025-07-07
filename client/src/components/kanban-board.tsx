@@ -148,8 +148,8 @@ export default function KanbanBoard({
           passesFilters = passesFilters && request.urgency === urgencyFilter;
         }
         
-        // Date filter - only apply to archived items
-        if (dateFilter && request.currentPhase === PURCHASE_PHASES.ARQUIVADO) {
+        // Date filter - apply to conclusion and archived items
+        if (dateFilter && (request.currentPhase === PURCHASE_PHASES.ARQUIVADO || request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA)) {
           const requestDate = new Date(request.updatedAt || request.createdAt);
           const startDate = new Date(dateFilter.startDate);
           const endDate = new Date(dateFilter.endDate);

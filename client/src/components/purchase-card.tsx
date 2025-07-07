@@ -283,6 +283,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
   };
 
   const isArchived = phase === PURCHASE_PHASES.ARQUIVADO;
+  const isFinalPhase = phase === PURCHASE_PHASES.ARQUIVADO || phase === PURCHASE_PHASES.CONCLUSAO_COMPRA;
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -306,7 +307,8 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
         className={cn(
           "mb-2 cursor-pointer select-none",
           isDragging && "opacity-50",
-          sortableIsDragging && "opacity-50"
+          sortableIsDragging && "opacity-50",
+          isFinalPhase && "bg-gray-100 text-gray-600 border-gray-300"
         )}
       >
         <CardContent className="p-4">
@@ -336,7 +338,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
-              {!isArchived && (
+              {!isArchived && phase !== PURCHASE_PHASES.CONCLUSAO_COMPRA && (
                 <Button
                   variant="ghost"
                   size="icon"

@@ -256,14 +256,19 @@ export default function UpdateSupplierQuotation({
   };
 
   const formatCurrency = (value: string) => {
-    const numericValue = value.replace(/[^\d.,]/g, '');
-    const number = parseFloat(numericValue.replace(',', '.'));
-    if (isNaN(number)) return '';
+    // Remove all non-numeric characters except comma and period
+    let numericValue = value.replace(/[^\d.,]/g, '');
     
-    return number.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    // Replace comma with period for parsing
+    numericValue = numericValue.replace(',', '.');
+    
+    // Handle multiple periods by keeping only the last one
+    const parts = numericValue.split('.');
+    if (parts.length > 2) {
+      numericValue = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+    }
+    
+    return numericValue;
   };
 
   const calculateTotalValue = () => {
@@ -365,6 +370,18 @@ export default function UpdateSupplierQuotation({
                                       onChange={(e) => {
                                         const formatted = formatCurrency(e.target.value);
                                         field.onChange(formatted);
+                                      }}
+                                      onBlur={(e) => {
+                                        // Format on blur for better display
+                                        const value = e.target.value;
+                                        if (value && !isNaN(parseFloat(value.replace(',', '.')))) {
+                                          const number = parseFloat(value.replace(',', '.'));
+                                          const formatted = number.toLocaleString('pt-BR', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          });
+                                          field.onChange(formatted);
+                                        }
                                       }}
                                     />
                                   </FormControl>

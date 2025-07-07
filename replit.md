@@ -126,6 +126,10 @@ Key entities include:
   - ✓ Interface para upload de arquivos de proposta dos fornecedores
   - ✓ Comparação detalhada entre fornecedores com visualização de todos os itens e valores
   - ✓ Tabela de comparação item por item mostrando preços unitários, totais, prazos e marcas
+  - ✓ Correção do campo de valor monetário para permitir digitação natural sem formatação automática
+  - ✓ Aplicação do filtro de período para fase Conclusão (igual à fase Arquivado)
+  - ✓ Estilo acinzentado aplicado nas fases finais (Conclusão e Arquivado) seguindo padrão Pipefy
+  - ✓ Remoção do botão "Arquivar" da fase Conclusão por ser uma fase final
 - July 7, 2025. Sistema de notificações por e-mail implementado:
   - ✓ Notificações automáticas para compradores quando nova solicitação é criada
   - ✓ Notificações para aprovadores A1 quando solicitação entra na fase de aprovação A1
