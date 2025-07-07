@@ -378,57 +378,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined> {
-    const requesterUser = alias(users, 'requester');
-    const approverA1User = alias(users, 'approver_a1');
-    const approverA2User = alias(users, 'approver_a2');
+    // First get the basic purchase request data
+    const [request] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, id));
     
-    const [request] = await db.select({
-      id: purchaseRequests.id,
-      requestNumber: purchaseRequests.requestNumber,
-      requesterId: purchaseRequests.requesterId,
-      currentPhase: purchaseRequests.currentPhase,
-      priority: purchaseRequests.priority,
-      justification: purchaseRequests.justification,
-      requiredDate: purchaseRequests.requiredDate,
-      costCenterId: purchaseRequests.costCenterId,
-      availableBudget: purchaseRequests.availableBudget,
-      approverA1Id: purchaseRequests.approverA1Id,
-      approvedA1: purchaseRequests.approvedA1,
-      rejectionReasonA1: purchaseRequests.rejectionReasonA1,
-      approvalDateA1: purchaseRequests.approvalDateA1,
-      buyerId: purchaseRequests.buyerId,
-      totalValue: purchaseRequests.totalValue,
-      paymentMethodId: purchaseRequests.paymentMethodId,
-      approverA2Id: purchaseRequests.approverA2Id,
-      chosenSupplierId: purchaseRequests.chosenSupplierId,
-      choiceReason: purchaseRequests.choiceReason,
-      negotiatedValue: purchaseRequests.negotiatedValue,
-      discountsObtained: purchaseRequests.discountsObtained,
-      deliveryDate: purchaseRequests.deliveryDate,
-      purchaseDate: purchaseRequests.purchaseDate,
-      purchaseObservations: purchaseRequests.purchaseObservations,
-      receivedById: purchaseRequests.receivedById,
-      receivedDate: purchaseRequests.receivedDate,
-      createdAt: purchaseRequests.createdAt,
-      updatedAt: purchaseRequests.updatedAt,
-      // Requester data
-      requesterName: sql<string>`CONCAT(${requesterUser.firstName}, ' ', ${requesterUser.lastName})`,
-      requesterUsername: requesterUser.username,
-      requesterEmail: requesterUser.email,
-      // Approver A1 data
-      approverA1Name: sql<string>`CONCAT(${approverA1User.firstName}, ' ', ${approverA1User.lastName})`,
-      approverA1Username: approverA1User.username,
-      // Approver A2 data
-      approverA2Name: sql<string>`CONCAT(${approverA2User.firstName}, ' ', ${approverA2User.lastName})`,
-      approverA2Username: approverA2User.username,
-    })
-    .from(purchaseRequests)
-    .leftJoin(requesterUser, eq(purchaseRequests.requesterId, requesterUser.id))
-    .leftJoin(approverA1User, eq(purchaseRequests.approverA1Id, approverA1User.id))
-    .leftJoin(approverA2User, eq(purchaseRequests.approverA2Id, approverA2User.id))
-    .where(eq(purchaseRequests.id, id));
+    if (!request) {
+      return undefined;
+    }
     
-    return request as any || undefined;
+    // Then get requester data if exists
+    let requesterData = null;
+    if (request.requesterId) {
+      const [requester] = await db.select().from(users).where(eq(users.id, request.requesterId));
+      if (requester) {
+        requesterData = {
+          requesterName: `${requester.firstName || ''} ${requester.lastName || ''}`.trim(),
+          requesterUsername: requester.username,
+          requesterEmail: requester.email
+        };
+      }
+    }
+    
+    // Combine the data
+    const result = {
+      ...request,
+      requesterName: requesterData?.requesterName || '',
+      requesterUsername: requesterData?.requesterUsername || '',
+      requesterEmail: requesterData?.requesterEmail || ''
+    };
+    
+    return result as any;
   }
 
   async createPurchaseRequest(request: InsertPurchaseRequest): Promise<PurchaseRequest> {

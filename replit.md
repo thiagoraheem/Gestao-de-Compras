@@ -130,6 +130,11 @@ Key entities include:
   - ✓ Aplicação do filtro de período para fase Conclusão (igual à fase Arquivado)
   - ✓ Estilo acinzentado aplicado nas fases finais (Conclusão e Arquivado) seguindo padrão Pipefy
   - ✓ Remoção do botão "Arquivar" da fase Conclusão por ser uma fase final
+- July 7, 2025. Correção do nome do solicitante na tela de cotação:
+  - ✓ Corrigido método getPurchaseRequestById para incluir dados do usuário solicitante
+  - ✓ Simplificada consulta SQL para evitar erros com JOINs complexos
+  - ✓ Nome do solicitante agora aparece corretamente na interface de gestão de cotações
+  - ✓ Dados de usuário incluem nome completo, username e email do solicitante
 - July 7, 2025. Sistema de notificações por e-mail implementado:
   - ✓ Notificações automáticas para compradores quando nova solicitação é criada
   - ✓ Notificações para aprovadores A1 quando solicitação entra na fase de aprovação A1

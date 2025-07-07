@@ -398,7 +398,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: request.id,
         requestNumber: request.requestNumber,
         requesterName: request.requesterName,
-        requesterUsername: request.requesterUsername
+        requesterUsername: request.requesterUsername,
+        fullRequest: request
       });
       res.json(request);
     } catch (error) {
