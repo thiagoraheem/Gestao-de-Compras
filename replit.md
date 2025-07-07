@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 7, 2025. Correção crítica do status de cotação nos cards do Kanban implementada com sucesso:
+  - ✓ Corrigida rota de verificação de status de cotação de `/api/quotations/by-request/${id}/status` (inexistente) para `/api/quotations/purchase-request/${id}` (existente)
+  - ✓ Melhorado tratamento de erros para evitar mensagens de "Erro ao verificar status"
+  - ✓ Adicionada validação para cotações inexistentes com status "Nenhuma cotação criada"
+  - ✓ Verificação aprimorada do status de cotações de fornecedores (received vs pending)
+  - ✓ Indicadores visuais diferenciados para status de erro, carregamento e diferentes fases
+  - ✓ Sistema de retry configurado para melhor reliability
+  - ✓ Status específicos: "Nenhuma cotação criada", "Aguardando cotações", "Aguardando seleção", "Pronto para A2"
+  - ✓ Eliminadas chamadas para rotas inexistentes que causavam erros 400
 - July 7, 2025. Validações de progressão de fase e botão de avanço implementados com sucesso:
   - ✓ Validação obrigatória para progressão Cotação → Aprovação A2
   - ✓ Verificação automática de cotação completa com fornecedor selecionado

@@ -309,19 +309,35 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
   };
 
   // Function to check if quotation is ready for A2 (for visual feedback)
-  const { data: quotationStatus } = useQuery({
-    queryKey: [`/api/quotations/by-request/${request.id}/status`],
+  const { data: quotationStatus, isError: quotationStatusError } = useQuery({
+    queryKey: [`/api/quotations/purchase-request/${request.id}/status`],
     enabled: phase === PURCHASE_PHASES.COTACAO,
+    retry: 1,
     queryFn: async () => {
       try {
-        const quotation = await apiRequest("GET", `/api/quotations/by-request/${request.id}`);
-        if (!quotation) return { isReady: false, reason: "Nenhuma cotação criada" };
+        // Use the correct existing route
+        const quotation = await apiRequest("GET", `/api/quotations/purchase-request/${request.id}`);
         
+        // If no quotation exists
+        if (!quotation) {
+          return { isReady: false, reason: "Nenhuma cotação criada" };
+        }
+        
+        // Get supplier quotations using the quotation ID
         const supplierQuotations = await apiRequest("GET", `/api/quotations/${quotation.id}/supplier-quotations`);
+        
+        // If no supplier quotations exist
         if (!supplierQuotations || supplierQuotations.length === 0) {
           return { isReady: false, reason: "Aguardando cotações de fornecedores" };
         }
         
+        // Check if any supplier quotations have been received
+        const receivedQuotations = supplierQuotations.filter((sq: any) => sq.status === 'received');
+        if (receivedQuotations.length === 0) {
+          return { isReady: false, reason: "Aguardando cotações de fornecedores" };
+        }
+        
+        // Check if a supplier has been chosen
         const hasChosenSupplier = supplierQuotations.some((sq: any) => sq.isChosen);
         if (!hasChosenSupplier) {
           return { isReady: false, reason: "Aguardando seleção de fornecedor" };
@@ -329,7 +345,8 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
         
         return { isReady: true, reason: "Pronto para Aprovação A2" };
       } catch (error) {
-        return { isReady: false, reason: "Erro ao verificar status" };
+        console.error("Error checking quotation status:", error);
+        throw error; // Let React Query handle the error
       }
     },
   });
@@ -586,19 +603,27 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           )}
 
           {/* Quotation Status Indicator for Cotação phase */}
-          {phase === PURCHASE_PHASES.COTACAO && quotationStatus && (
+          {phase === PURCHASE_PHASES.COTACAO && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <div className={`flex items-center gap-2 p-2 rounded-md ${
-                quotationStatus.isReady 
-                  ? "text-green-700 bg-green-50" 
-                  : "text-orange-600 bg-orange-50"
+                quotationStatusError 
+                  ? "text-red-600 bg-red-50"
+                  : quotationStatus?.isReady 
+                    ? "text-green-700 bg-green-50" 
+                    : "text-orange-600 bg-orange-50"
               }`}>
-                {quotationStatus.isReady ? (
+                {quotationStatusError ? (
+                  <X className="h-4 w-4" />
+                ) : quotationStatus?.isReady ? (
                   <Check className="h-4 w-4" />
                 ) : (
                   <Clock className="h-4 w-4" />
                 )}
-                <span className="text-sm font-medium">{quotationStatus.reason}</span>
+                <span className="text-sm font-medium">
+                  {quotationStatusError 
+                    ? "Nenhuma cotação criada" 
+                    : quotationStatus?.reason || "Carregando status..."}
+                </span>
               </div>
             </div>
           )}
