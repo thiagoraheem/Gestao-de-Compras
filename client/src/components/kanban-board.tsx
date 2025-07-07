@@ -3,7 +3,7 @@ import { PURCHASE_PHASES, PHASE_LABELS } from "@/lib/types";
 import KanbanColumn from "./kanban-column";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PurchaseCard from "./purchase-card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,30 @@ export default function KanbanBoard({
   const { data: purchaseRequests, isLoading } = useQuery({
     queryKey: ["/api/purchase-requests"],
   });
+
+  // Listen for URL-based request opening
+  useEffect(() => {
+    const handleOpenRequestFromUrl = (event: any) => {
+      const { requestId, phase } = event.detail;
+      
+      if (purchaseRequests && Array.isArray(purchaseRequests)) {
+        const request = purchaseRequests.find((req: any) => req.id === requestId);
+        if (request) {
+          // Trigger the modal for the specific request based on its current phase
+          const cardElement = document.querySelector(`[data-request-id="${requestId}"]`);
+          if (cardElement) {
+            (cardElement as HTMLElement).click();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('openRequestFromUrl', handleOpenRequestFromUrl);
+    
+    return () => {
+      window.removeEventListener('openRequestFromUrl', handleOpenRequestFromUrl);
+    };
+  }, [purchaseRequests]);
 
   const moveRequestMutation = useMutation({
     mutationFn: async ({ id, newPhase }: { id: number; newPhase: string }) => {

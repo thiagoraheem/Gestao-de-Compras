@@ -43,6 +43,10 @@ function Router() {
   }
 
   if (!isAuthenticated) {
+    // Store the current URL to redirect after login
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('redirectAfterLogin', window.location.pathname + window.location.search);
+    }
     return <LoginPage />;
   }
 
@@ -50,6 +54,7 @@ function Router() {
     <AuthenticatedLayout>
       <Switch>
         <Route path="/" component={KanbanPage} />
+        <Route path="/kanban" component={KanbanPage} />
         <Route path="/request-management" component={RequestManagementPage} />
         <Route path="/suppliers" component={SuppliersPage} />
         <Route path="/users" component={UsersPage} />

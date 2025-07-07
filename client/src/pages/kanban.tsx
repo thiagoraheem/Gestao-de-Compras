@@ -3,12 +3,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { useLocation } from "wouter";
 
 export default function KanbanPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [selectedUrgency, setSelectedUrgency] = useState<string>("all");
+  const [, setLocation] = useLocation();
   
   // Date filter state - default to current month
   const currentDate = new Date();
@@ -23,6 +25,26 @@ export default function KanbanPage() {
   const { data: departments } = useQuery({
     queryKey: ["/api/departments"],
   });
+
+  // Check for URL parameters to auto-open specific requests
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestId = urlParams.get('request');
+    const phase = urlParams.get('phase');
+    
+    if (requestId) {
+      // Give the board a moment to load then trigger the request modal
+      setTimeout(() => {
+        const event = new CustomEvent('openRequestFromUrl', { 
+          detail: { 
+            requestId: parseInt(requestId), 
+            phase: phase || 'solicitacao' 
+          } 
+        });
+        window.dispatchEvent(event);
+      }, 500);
+    }
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen">

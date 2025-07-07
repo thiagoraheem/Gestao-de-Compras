@@ -1,19 +1,15 @@
 import nodemailer from "nodemailer";
 import type { Supplier, User, PurchaseRequest } from "../shared/schema";
 import { storage } from "./storage";
+import { config, buildRequestUrl } from "./config";
 
 // Email configuration
 const createTransporter = () => {
-  // For development - you can use email testing services like Ethereal Email
-  // In production, configure with actual SMTP settings
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.ethereal.email",
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: false, // true for 465, false for other ports
-    auth: {
-      user: process.env.SMTP_USER || "test@example.com",
-      pass: process.env.SMTP_PASS || "test123",
-    },
+    host: config.email.host,
+    port: config.email.port,
+    secure: config.email.secure,
+    auth: config.email.auth,
   });
 };
 interface RFQEmailData {
@@ -49,7 +45,7 @@ export async function sendRFQToSuppliers(
       const emailHtml = generateRFQEmailHTML(supplier, rfqData);
 
       const mailOptions = {
-        from: process.env.FROM_EMAIL || "compras@empresa.com",
+        from: config.email.from,
         to: supplier.email,
         subject: `Solicitação de Cotação - ${rfqData.quotationNumber}`,
         html: emailHtml,
@@ -206,7 +202,7 @@ export async function notifyNewRequest(purchaseRequest: PurchaseRequest): Promis
       if (!buyer.email) return;
       
       const mailOptions = {
-        from: process.env.FROM_EMAIL || "compras@empresa.com",
+        from: config.email.from,
         to: buyer.email,
         subject: `Nova Solicitação de Compra - ${purchaseRequest.requestNumber}`,
         html: generateNewRequestEmailHTML(buyer, purchaseRequest, requesterName),
@@ -248,7 +244,7 @@ export async function notifyApprovalA1(purchaseRequest: PurchaseRequest): Promis
       if (!approver.email) return;
       
       const mailOptions = {
-        from: process.env.FROM_EMAIL || "compras@empresa.com",
+        from: config.email.from,
         to: approver.email,
         subject: `Solicitação Pendente de Aprovação A1 - ${purchaseRequest.requestNumber}`,
         html: generateApprovalA1EmailHTML(approver, purchaseRequest, requesterName),
@@ -297,7 +293,7 @@ export async function notifyApprovalA2(purchaseRequest: PurchaseRequest): Promis
       if (!approver.email) return;
       
       const mailOptions = {
-        from: process.env.FROM_EMAIL || "compras@empresa.com",
+        from: config.email.from,
         to: approver.email,
         subject: `Solicitação Pendente de Aprovação A2 - ${purchaseRequest.requestNumber}`,
         html: generateApprovalA2EmailHTML(approver, purchaseRequest, requesterName, approverA1Name),
@@ -357,8 +353,8 @@ function generateNewRequestEmailHTML(buyer: User, purchaseRequest: PurchaseReque
         
         <p>Acesse o sistema para processar esta solicitação.</p>
         
-        <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}" class="button">
-          Acessar Sistema
+        <a href="${buildRequestUrl(purchaseRequest.id, 'solicitacao')}" class="button">
+          Ver Solicitação
         </a>
       </div>
       
@@ -415,8 +411,8 @@ function generateApprovalA1EmailHTML(approver: User, purchaseRequest: PurchaseRe
         
         <p>Por favor, analise a solicitação e tome a decisão de aprovação.</p>
         
-        <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}" class="button">
-          Revisar e Aprovar
+        <a href="${buildRequestUrl(purchaseRequest.id, 'aprovacao_a1')}" class="button">
+          Revisar e Aprovar A1
         </a>
       </div>
       
@@ -475,8 +471,8 @@ function generateApprovalA2EmailHTML(approver: User, purchaseRequest: PurchaseRe
         
         <p>Esta solicitação passou pela primeira aprovação e agora aguarda sua aprovação final.</p>
         
-        <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}" class="button">
-          Revisar e Aprovar
+        <a href="${buildRequestUrl(purchaseRequest.id, 'aprovacao_a2')}" class="button">
+          Revisar e Aprovar A2
         </a>
       </div>
       

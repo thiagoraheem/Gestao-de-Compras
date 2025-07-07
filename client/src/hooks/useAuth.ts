@@ -59,6 +59,13 @@ export function useAuth() {
         title: "Login bem-sucedido",
         description: "Bem-vindo de volta!",
       });
+      
+      // Check for stored redirect path
+      const redirectPath = sessionStorage.getItem('redirectAfterLogin');
+      if (redirectPath) {
+        sessionStorage.removeItem('redirectAfterLogin');
+        window.location.href = redirectPath;
+      }
     },
     onError: () => {
       toast({

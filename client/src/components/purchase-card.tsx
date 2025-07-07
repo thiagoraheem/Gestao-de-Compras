@@ -304,6 +304,8 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
         ref={setNodeRef}
         style={style}
         {...attributes}
+        data-request-id={request.id}
+        onClick={() => setIsEditModalOpen(true)}
         className={cn(
           "mb-2 cursor-pointer select-none",
           isDragging && "opacity-50",

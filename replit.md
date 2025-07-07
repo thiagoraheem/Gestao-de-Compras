@@ -110,6 +110,16 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 7, 2025. Sistema de notificações por e-mail com URLs configuráveis e autenticação com redirecionamento:
+  - ✓ URLs de acesso configuráveis através do arquivo config.ts usando BASE_URL
+  - ✓ Detecção automática do domínio Replit via REPLIT_DOMAINS
+  - ✓ Links diretos para solicitações específicas nos e-mails (/kanban?request=ID&phase=FASE)
+  - ✓ Sistema de redirecionamento pós-login para URLs de acesso direto via e-mail
+  - ✓ Armazenamento de URL de destino no sessionStorage quando usuário não autenticado
+  - ✓ Abertura automática de solicitações específicas via parâmetros de URL
+  - ✓ Configuração centralizada de e-mail usando config.ts em vez de variáveis espalhadas
+  - ✓ Links específicos para cada fase: Ver Solicitação, Revisar e Aprovar A1, Revisar e Aprovar A2
+  - ✓ Arquivo .env.example com documentação das variáveis de ambiente necessárias
 - July 7, 2025. Migração para Replit e melhorias na interface:
   - ✓ Migração bem-sucedida do projeto para ambiente Replit
   - ✓ Correção do layout dos botões na fase de recebimento (responsivo e melhor ajuste)
