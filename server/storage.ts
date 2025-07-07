@@ -8,11 +8,17 @@ import {
   paymentMethods,
   purchaseRequests,
   purchaseRequestItems,
+  purchaseRequestSuppliers,
   quotations,
   quotationItems,
   supplierQuotations,
   supplierQuotationItems,
+  purchaseOrders,
+  purchaseOrderItems,
+  receipts,
+  receiptItems,
   attachments,
+  approvalHistory,
   type User,
   type InsertUser,
   type Department,
@@ -35,7 +41,6 @@ import {
   type InsertSupplierQuotation,
   type SupplierQuotationItem,
   type InsertSupplierQuotationItem,
-  approvalHistory,
   type ApprovalHistory,
   type InsertApprovalHistory,
   type Attachment,
@@ -713,55 +718,55 @@ export class DatabaseStorage implements IStorage {
       // Delete in the correct order to respect foreign key constraints
 
       // 1. Delete receipt items first
-      await db.delete(sql`DELETE FROM receipt_items`);
+      await db.delete(receiptItems);
       console.log("✅ Receipt items deletados");
 
       // 2. Delete receipts
-      await db.delete(sql`DELETE FROM receipts`);
+      await db.delete(receipts);
       console.log("✅ Receipts deletados");
 
       // 3. Delete purchase order items
-      await db.delete(sql`DELETE FROM purchase_order_items`);
+      await db.delete(purchaseOrderItems);
       console.log("✅ Purchase order items deletados");
 
       // 4. Delete purchase orders
-      await db.delete(sql`DELETE FROM purchase_orders`);
+      await db.delete(purchaseOrders);
       console.log("✅ Purchase orders deletados");
 
       // 5. Delete supplier quotation items
-      await db.delete(sql`DELETE FROM supplier_quotation_items`);
+      await db.delete(supplierQuotationItems);
       console.log("✅ Supplier quotation items deletados");
 
       // 6. Delete supplier quotations
-      await db.delete(sql`DELETE FROM supplier_quotations`);
+      await db.delete(supplierQuotations);
       console.log("✅ Supplier quotations deletados");
 
       // 7. Delete quotation items
-      await db.delete(sql`DELETE FROM quotation_items`);
+      await db.delete(quotationItems);
       console.log("✅ Quotation items deletados");
 
       // 8. Delete quotations
-      await db.delete(sql`DELETE FROM quotations`);
+      await db.delete(quotations);
       console.log("✅ Quotations deletados");
 
       // 9. Delete attachments
-      await db.delete(sql`DELETE FROM attachments`);
+      await db.delete(attachments);
       console.log("✅ Attachments deletados");
 
       // 10. Delete approval history
-      await db.delete(sql`DELETE FROM approval_history`);
+      await db.delete(approvalHistory);
       console.log("✅ Approval history deletado");
 
       // 11. Delete purchase request suppliers
-      await db.delete(sql`DELETE FROM purchase_request_suppliers`);
+      await db.delete(purchaseRequestSuppliers);
       console.log("✅ Purchase request suppliers deletados");
 
       // 12. Delete purchase request items
-      await db.delete(sql`DELETE FROM purchase_request_items`);
+      await db.delete(purchaseRequestItems);
       console.log("✅ Purchase request items deletados");
 
       // 13. Finally, delete purchase requests
-      await db.delete(sql`DELETE FROM purchase_requests`);
+      await db.delete(purchaseRequests);
       console.log("✅ Purchase requests deletados");
 
       console.log("🎉 Limpeza concluída com sucesso!");
