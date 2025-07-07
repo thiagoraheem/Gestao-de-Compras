@@ -153,13 +153,10 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     (supplierQuotations.find((sq: any) => sq.isSelected) || supplierQuotations[0]) : null;
 
   // Organizar histórico de aprovações
-  console.log('[DEBUG] Approval history:', approvalHistory);
   const aprovacaoA1 = Array.isArray(approvalHistory) ? 
     approvalHistory.find((h: any) => h.approverType === 'A1') : null;
   const aprovacaoA2 = Array.isArray(approvalHistory) ? 
     approvalHistory.find((h: any) => h.approverType === 'A2') : null;
-  console.log('[DEBUG] Aprovação A1:', aprovacaoA1);
-  console.log('[DEBUG] Aprovação A2:', aprovacaoA2);
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -201,12 +198,12 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-muted-foreground" />
                 <span className="font-medium">Solicitante:</span>
-                <span>{request.requesterName || "Não informado"}</span>
+                <span>{request.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "Não informado"}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Building className="w-4 h-4 text-muted-foreground" />
                 <span className="font-medium">Departamento:</span>
-                <span>{request.departmentName || "Não informado"}</span>
+                <span>{request.department?.name || "Não informado"}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -218,8 +215,8 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-muted-foreground" />
                 <span className="font-medium">Urgência:</span>
-                <Badge variant={request.urgencyLevel === 'Alto' ? 'destructive' : 'secondary'}>
-                  {request.urgencyLevel}
+                <Badge variant={request.urgency === 'alto' ? 'destructive' : 'secondary'}>
+                  {request.urgency === 'alto' ? 'Alto' : request.urgency === 'medio' ? 'Médio' : request.urgency === 'baixo' ? 'Baixo' : request.urgency}
                 </Badge>
               </div>
               <div className="flex items-center gap-2">

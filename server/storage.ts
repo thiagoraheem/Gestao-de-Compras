@@ -346,12 +346,26 @@ export class DatabaseStorage implements IStorage {
           username: approverA1User.username,
           email: approverA1User.email
         },
+        // Cost Center and Department data
+        costCenter: {
+          id: costCenters.id,
+          code: costCenters.code,
+          name: costCenters.name,
+          departmentId: costCenters.departmentId
+        },
+        department: {
+          id: departments.id,
+          name: departments.name,
+          description: departments.description
+        },
         // Check if quotation exists
         hasQuotation: sql<boolean>`EXISTS(SELECT 1 FROM ${quotations} WHERE ${quotations.purchaseRequestId} = ${purchaseRequests.id})`
       })
       .from(purchaseRequests)
       .leftJoin(requesterUser, eq(purchaseRequests.requesterId, requesterUser.id))
       .leftJoin(approverA1User, eq(purchaseRequests.approverA1Id, approverA1User.id))
+      .leftJoin(costCenters, eq(purchaseRequests.costCenterId, costCenters.id))
+      .leftJoin(departments, eq(costCenters.departmentId, departments.id))
       .orderBy(desc(purchaseRequests.createdAt));
 
     return requests as any[];
