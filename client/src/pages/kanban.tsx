@@ -1,11 +1,24 @@
 import KanbanBoard from "@/components/kanban-board";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 
 export default function KanbanPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [selectedUrgency, setSelectedUrgency] = useState<string>("all");
+  
+  // Date filter state - default to current month
+  const currentDate = new Date();
+  const [dateFilter, setDateFilter] = useState<{
+    startDate: string;
+    endDate: string;
+  }>({
+    startDate: format(startOfMonth(currentDate), "yyyy-MM-dd"),
+    endDate: format(endOfMonth(currentDate), "yyyy-MM-dd")
+  });
 
   const { data: departments } = useQuery({
     queryKey: ["/api/departments"],
@@ -47,6 +60,30 @@ export default function KanbanPage() {
                 <SelectItem value="Baixo">Baixa</SelectItem>
               </SelectContent>
             </Select>
+            
+            {/* Date Filter for Archived Items */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="startDate" className="text-xs text-gray-600">Data Inicial</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={dateFilter.startDate}
+                  onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <Label htmlFor="endDate" className="text-xs text-gray-600">Data Final</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={dateFilter.endDate}
+                  onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
+                  className="text-sm"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -82,6 +119,26 @@ export default function KanbanPage() {
                 <SelectItem value="Baixo">Baixa</SelectItem>
               </SelectContent>
             </Select>
+            
+            {/* Date Filter for Archived Items */}
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="startDateDesktop" className="text-sm text-gray-600 whitespace-nowrap">Período:</Label>
+              <Input
+                id="startDateDesktop"
+                type="date"
+                value={dateFilter.startDate}
+                onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
+                className="w-32"
+              />
+              <span className="text-gray-500">até</span>
+              <Input
+                id="endDateDesktop"
+                type="date"
+                value={dateFilter.endDate}
+                onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
+                className="w-32"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -91,6 +148,7 @@ export default function KanbanPage() {
         <KanbanBoard 
           departmentFilter={selectedDepartment}
           urgencyFilter={selectedUrgency}
+          dateFilter={dateFilter}
         />
       </div>
     </div>

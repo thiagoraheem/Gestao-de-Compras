@@ -18,9 +18,17 @@ import RFQCreation from "./rfq-creation";
 interface KanbanBoardProps {
   departmentFilter?: string;
   urgencyFilter?: string;
+  dateFilter?: {
+    startDate: string;
+    endDate: string;
+  };
 }
 
-export default function KanbanBoard({ departmentFilter = "all", urgencyFilter = "all" }: KanbanBoardProps) {
+export default function KanbanBoard({ 
+  departmentFilter = "all", 
+  urgencyFilter = "all",
+  dateFilter
+}: KanbanBoardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -125,7 +133,7 @@ export default function KanbanBoard({ departmentFilter = "all", urgencyFilter = 
     );
   }
 
-  // Filter requests based on department and urgency
+  // Filter requests based on department, urgency, and date
   const filteredRequests = Array.isArray(purchaseRequests) 
     ? purchaseRequests.filter((request: any) => {
         let passesFilters = true;
@@ -137,7 +145,19 @@ export default function KanbanBoard({ departmentFilter = "all", urgencyFilter = 
         
         // Urgency filter
         if (urgencyFilter !== "all") {
-          passesFilters = passesFilters && request.urgencyLevel === urgencyFilter;
+          passesFilters = passesFilters && request.urgency === urgencyFilter;
+        }
+        
+        // Date filter - only apply to archived items
+        if (dateFilter && request.currentPhase === PURCHASE_PHASES.ARQUIVADO) {
+          const requestDate = new Date(request.updatedAt || request.createdAt);
+          const startDate = new Date(dateFilter.startDate);
+          const endDate = new Date(dateFilter.endDate);
+          endDate.setHours(23, 59, 59, 999); // Include the full end date
+          
+          passesFilters = passesFilters && 
+            requestDate >= startDate && 
+            requestDate <= endDate;
         }
         
         return passesFilters;

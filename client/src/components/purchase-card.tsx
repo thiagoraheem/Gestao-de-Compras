@@ -527,31 +527,31 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
           {phase === PURCHASE_PHASES.RECEBIMENTO && (
             <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="flex space-x-2">
+              <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
                 <Button
                   size="sm"
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     confirmReceiptMutation.mutate();
                   }}
                   disabled={confirmReceiptMutation.isPending}
                 >
-                  <Check className="mr-1 h-3 w-3" />
-                  Confirmar Recebimento
+                  <Check className="mr-1 h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">Confirmar Recebimento</span>
                 </Button>
                 <Button
                   size="sm"
                   variant="destructive"
-                  className="flex-1"
+                  className="flex-1 text-xs sm:text-sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     reportIssueMutation.mutate();
                   }}
                   disabled={reportIssueMutation.isPending}
                 >
-                  <X className="mr-1 h-3 w-3" />
-                  Pendência
+                  <X className="mr-1 h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">Pendência</span>
                 </Button>
               </div>
             </div>

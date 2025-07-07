@@ -110,6 +110,14 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 7, 2025. Migração para Replit e melhorias na interface:
+  - ✓ Migração bem-sucedida do projeto para ambiente Replit
+  - ✓ Correção do layout dos botões na fase de recebimento (responsivo e melhor ajuste)
+  - ✓ Implementação de filtro por período de data no kanban
+  - ✓ Filtro de data padrão para o mês atual e aplicado especificamente a itens arquivados
+  - ✓ Layout responsivo para filtros tanto em mobile quanto desktop
+  - ✓ Conexão com banco PostgreSQL configurada adequadamente
+  - ✓ Sistema totalmente funcional no ambiente Replit
 - July 7, 2025. Sistema de notificações por e-mail implementado:
   - ✓ Notificações automáticas para compradores quando nova solicitação é criada
   - ✓ Notificações para aprovadores A1 quando solicitação entra na fase de aprovação A1
