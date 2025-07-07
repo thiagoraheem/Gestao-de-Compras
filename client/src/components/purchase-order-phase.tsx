@@ -153,10 +153,13 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     (supplierQuotations.find((sq: any) => sq.isSelected) || supplierQuotations[0]) : null;
 
   // Organizar histórico de aprovações
+  console.log('[DEBUG] Approval history:', approvalHistory);
   const aprovacaoA1 = Array.isArray(approvalHistory) ? 
-    approvalHistory.find((h: any) => h.phase === 'aprovacao-a1') : null;
+    approvalHistory.find((h: any) => h.approverType === 'A1') : null;
   const aprovacaoA2 = Array.isArray(approvalHistory) ? 
-    approvalHistory.find((h: any) => h.phase === 'aprovacao-a2') : null;
+    approvalHistory.find((h: any) => h.approverType === 'A2') : null;
+  console.log('[DEBUG] Aprovação A1:', aprovacaoA1);
+  console.log('[DEBUG] Aprovação A2:', aprovacaoA2);
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -315,12 +318,12 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                 <div className="flex-1">
                   <div className="font-medium">Aprovação A1</div>
                   <div className="text-sm text-muted-foreground">
-                    {aprovacaoA1.decision} por {aprovacaoA1.userName} em{" "}
+                    {aprovacaoA1.approved ? 'Aprovado' : 'Rejeitado'} por {aprovacaoA1.approver?.firstName} {aprovacaoA1.approver?.lastName} em{" "}
                     {new Date(aprovacaoA1.createdAt).toLocaleDateString('pt-BR')}
                   </div>
-                  {aprovacaoA1.comments && (
+                  {aprovacaoA1.rejectionReason && (
                     <div className="text-sm text-muted-foreground">
-                      Comentários: {aprovacaoA1.comments}
+                      Motivo: {aprovacaoA1.rejectionReason}
                     </div>
                   )}
                 </div>
@@ -332,15 +335,20 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                 <div className="flex-1">
                   <div className="font-medium">Aprovação A2</div>
                   <div className="text-sm text-muted-foreground">
-                    {aprovacaoA2.decision} por {aprovacaoA2.userName} em{" "}
+                    {aprovacaoA2.approved ? 'Aprovado' : 'Rejeitado'} por {aprovacaoA2.approver?.firstName} {aprovacaoA2.approver?.lastName} em{" "}
                     {new Date(aprovacaoA2.createdAt).toLocaleDateString('pt-BR')}
                   </div>
-                  {aprovacaoA2.comments && (
+                  {aprovacaoA2.rejectionReason && (
                     <div className="text-sm text-muted-foreground">
-                      Comentários: {aprovacaoA2.comments}
+                      Motivo: {aprovacaoA2.rejectionReason}
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+            {!aprovacaoA1 && !aprovacaoA2 && (
+              <div className="text-center text-muted-foreground py-4">
+                Nenhuma aprovação encontrada no histórico
               </div>
             )}
           </div>
