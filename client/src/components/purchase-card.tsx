@@ -331,12 +331,13 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
   // Function to check if quotation is ready for A2 (for visual feedback)
   const { data: quotationStatus, isError: quotationStatusError } = useQuery({
-    queryKey: [`/api/quotations/purchase-request/${request.id}/status`],
+    queryKey: [`quotation-status`, request.id], // Use correct query key format
     enabled: phase === PURCHASE_PHASES.COTACAO,
-    retry: 1,
+    retry: 2,
+    staleTime: 5000, // Cache for 5 seconds
     queryFn: async () => {
       try {
-        // Use the correct existing route
+        // First check if quotation exists
         const quotation = await apiRequest("GET", `/api/quotations/purchase-request/${request.id}`);
         
         // If no quotation exists
@@ -344,7 +345,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           return { isReady: false, reason: "Nenhuma cotação criada" };
         }
         
-        // Get supplier quotations using the quotation ID - only if quotation exists
+        // Get supplier quotations using the quotation ID
         const supplierQuotations = await apiRequest("GET", `/api/quotations/${quotation.id}/supplier-quotations`);
         
         // If no supplier quotations exist
@@ -366,8 +367,9 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
         
         return { isReady: true, reason: "Pronto para Aprovação A2" };
       } catch (error) {
-        console.error("Error checking quotation status:", error);
-        throw error; // Let React Query handle the error
+        console.error("Error checking quotation status for request", request.id, ":", error);
+        // Return a safe default instead of throwing
+        return { isReady: false, reason: "Erro ao verificar status" };
       }
     },
   });

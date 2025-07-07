@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 7, 2025. Correção crítica das rotas de status de cotação e eliminação de erros "Invalid quotation ID":
+  - ✓ Corrigida rota incorreta `/api/quotations/by-request/${id}` para `/api/quotations/purchase-request/${id}` em kanban-board.tsx
+  - ✓ Melhorada query key do status de cotação para usar formato ['quotation-status', requestId] em purchase-card.tsx
+  - ✓ Adicionado tratamento de erro robusto que retorna status padrão em vez de gerar exceções
+  - ✓ Configurado staleTime de 5 segundos e retry de 2 tentativas para melhor performance
+  - ✓ Eliminados logs de erro "Invalid quotation ID" que apareciam no console
+  - ✓ Sistemas de verificação de status de cotação agora funcionam sem erros
+  - ✓ Interface visual mantém indicadores corretos: vermelho, laranja e verde conforme status
+  - ✓ Todos os cards na fase "Cotação (RFQ)" exibem status correto sem causar erros de rede
 - July 7, 2025. Correção crítica dos problemas de cache e atualização em tempo real implementada com sucesso:
   - ✓ Corrigidos problemas de demora na atualização de informações após criação de RFQ
   - ✓ Melhorada invalidação abrangente de cache em todas as mutações críticas

@@ -129,7 +129,7 @@ export default function KanbanBoard({
   // Function to check if quotation is ready for A2 approval
   const isQuotationReadyForA2 = async (requestId: number): Promise<boolean> => {
     try {
-      const quotation = await apiRequest("GET", `/api/quotations/by-request/${requestId}`);
+      const quotation = await apiRequest("GET", `/api/quotations/purchase-request/${requestId}`);
       if (!quotation) return false;
       
       const supplierQuotations = await apiRequest("GET", `/api/quotations/${quotation.id}/supplier-quotations`);
@@ -137,7 +137,7 @@ export default function KanbanBoard({
       
       return supplierQuotations.some((sq: any) => sq.isChosen);
     } catch (error) {
-      console.error("Error checking quotation status:", error);
+      console.error("Error checking quotation status for request", requestId, ":", error);
       return false;
     }
   };
