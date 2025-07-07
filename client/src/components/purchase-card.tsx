@@ -17,6 +17,7 @@ import ApprovalA1Phase from "./approval-a1-phase";
 import ApprovalA2Phase from "./approval-a2-phase";
 import QuotationPhase from "./quotation-phase";
 import PurchaseOrderPhase from "./purchase-order-phase";
+import ReceiptPhase from "./receipt-phase";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -614,8 +615,21 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </div>
         </div>
       )}
+
+      {isEditModalOpen && phase === PURCHASE_PHASES.RECEBIMENTO && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <ReceiptPhase
+              request={request}
+              onClose={() => setIsEditModalOpen(false)}
+              className="p-6"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Default Edit Dialog for other phases */}
-      {isEditModalOpen && phase !== PURCHASE_PHASES.SOLICITACAO && phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.APROVACAO_A2 && phase !== PURCHASE_PHASES.COTACAO && phase !== PURCHASE_PHASES.PEDIDO_COMPRA && (
+      {isEditModalOpen && phase !== PURCHASE_PHASES.SOLICITACAO && phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.APROVACAO_A2 && phase !== PURCHASE_PHASES.COTACAO && phase !== PURCHASE_PHASES.PEDIDO_COMPRA && phase !== PURCHASE_PHASES.RECEBIMENTO && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsEditModalOpen(false)}>
           <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4">Editar Solicitação</h3>
