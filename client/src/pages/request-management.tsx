@@ -38,20 +38,28 @@ export default function RequestManagementPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [newRequestModalOpen, setNewRequestModalOpen] = useState(false);
   const [filterPhase, setFilterPhase] = useState<string>('all');
+  const [filterUrgency, setFilterUrgency] = useState<string>('all');
+  const [filterDepartment, setFilterDepartment] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: requests, isLoading } = useQuery<any[]>({
     queryKey: ["/api/purchase-requests"],
   });
 
+  const { data: departments } = useQuery<any[]>({
+    queryKey: ["/api/departments"],
+  });
+
   const filteredRequests = requests?.filter(request => {
     const matchesPhase = filterPhase === 'all' || request.currentPhase === filterPhase;
+    const matchesUrgency = filterUrgency === 'all' || request.urgency === filterUrgency;
+    const matchesDepartment = filterDepartment === 'all' || request.departmentId?.toString() === filterDepartment;
     const matchesSearch = !searchTerm || 
       request.requestNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       request.justification.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (request.requester?.username || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesPhase && matchesSearch;
+    return matchesPhase && matchesUrgency && matchesDepartment && matchesSearch;
   }) || [];
 
   const handleOpenPhase = (request: any, phase: string) => {
@@ -182,7 +190,7 @@ export default function RequestManagementPage() {
                 className="flex-1"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <Select value={filterPhase} onValueChange={setFilterPhase}>
                 <SelectTrigger className="w-48">
@@ -193,6 +201,34 @@ export default function RequestManagementPage() {
                   {Object.entries(PURCHASE_PHASES).map(([key, value]) => (
                     <SelectItem key={value} value={value}>
                       {PHASE_LABELS[value]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={filterUrgency} onValueChange={setFilterUrgency}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filtrar por urgência..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Urgências</SelectItem>
+                  {Object.entries(URGENCY_LABELS).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filtrar por departamento..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Departamentos</SelectItem>
+                  {departments?.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id.toString()}>
+                      {dept.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
