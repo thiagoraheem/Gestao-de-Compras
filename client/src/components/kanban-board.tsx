@@ -275,12 +275,12 @@ export default function KanbanBoard({
     ? purchaseRequests.filter((request: any) => {
         let passesFilters = true;
         
-        // Department filter
+        // Department filter - use nested department object
         if (departmentFilter !== "all") {
-          passesFilters = passesFilters && request.departmentId?.toString() === departmentFilter;
+          passesFilters = passesFilters && request.department?.id?.toString() === departmentFilter;
         }
         
-        // Urgency filter
+        // Urgency filter - exact match
         if (urgencyFilter !== "all") {
           passesFilters = passesFilters && request.urgency === urgencyFilter;
         }

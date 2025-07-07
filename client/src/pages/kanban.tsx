@@ -77,9 +77,9 @@ export default function KanbanPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as Urgências</SelectItem>
-                <SelectItem value="Alto">Alta</SelectItem>
-                <SelectItem value="Médio">Média</SelectItem>
-                <SelectItem value="Baixo">Baixa</SelectItem>
+                <SelectItem value="alto">Alta</SelectItem>
+                <SelectItem value="medio">Média</SelectItem>
+                <SelectItem value="baixo">Baixa</SelectItem>
               </SelectContent>
             </Select>
             
@@ -136,9 +136,9 @@ export default function KanbanPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as Urgências</SelectItem>
-                <SelectItem value="Alto">Alta</SelectItem>
-                <SelectItem value="Médio">Média</SelectItem>
-                <SelectItem value="Baixo">Baixa</SelectItem>
+                <SelectItem value="alto">Alta</SelectItem>
+                <SelectItem value="medio">Média</SelectItem>
+                <SelectItem value="baixo">Baixa</SelectItem>
               </SelectContent>
             </Select>
             
