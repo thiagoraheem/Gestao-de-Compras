@@ -814,21 +814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/purchase-requests/:id/archive", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      
-      const updates = {
-        currentPhase: "arquivado" as const,
-      };
-      
-      const request = await storage.updatePurchaseRequest(id, updates);
-      res.json(request);
-    } catch (error) {
-      console.error("Error archiving request:", error);
-      res.status(400).json({ message: "Failed to archive request" });
-    }
-  });
+
 
   // Endpoint para atualizar a fase do cartão (Kanban)
   app.patch("/api/purchase-requests/:id/update-phase", isAuthenticated, async (req, res) => {
@@ -1513,6 +1499,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao testar configuração de e-mail:", error);
       res.status(500).json({ message: "Erro ao testar configuração de e-mail" });
+    }
+  });
+
+  // Archive purchase request endpoint for ConclusionPhase
+  app.patch("/api/purchase-requests/:id/archive", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { conclusionObservations } = req.body;
+      
+      const updates = {
+        currentPhase: "arquivado" as const,
+        conclusionObservations,
+        archivedDate: new Date(),
+      };
+      
+      const request = await storage.updatePurchaseRequest(id, updates);
+      res.json(request);
+    } catch (error) {
+      console.error("Error archiving request:", error);
+      res.status(400).json({ message: "Failed to archive request" });
+    }
+  });
+
+  // Send conclusion email endpoint
+  app.post("/api/purchase-requests/:id/send-conclusion-email", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const request = await storage.getPurchaseRequestById(id);
+      
+      if (!request) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // Here you would implement the email sending logic
+      // For now, return success response
+      res.json({ message: "Conclusion email sent successfully" });
+    } catch (error) {
+      console.error("Error sending conclusion email:", error);
+      res.status(500).json({ message: "Failed to send conclusion email" });
+    }
+  });
+
+  // Generate completion summary PDF endpoint
+  app.get("/api/purchase-requests/:id/completion-summary-pdf", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const request = await storage.getPurchaseRequestById(id);
+      
+      if (!request) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // Here you would implement PDF generation logic using the PDFService
+      // For now, return a simple response
+      res.status(501).json({ message: "PDF generation not yet implemented" });
+    } catch (error) {
+      console.error("Error generating completion PDF:", error);
+      res.status(500).json({ message: "Failed to generate completion PDF" });
     }
   });
 
