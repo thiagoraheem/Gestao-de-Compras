@@ -46,7 +46,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
-  
+
   // Buscar anexos da solicitação
   const { data: attachments = [] } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/attachments`],
@@ -334,40 +334,46 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
     queryKey: [`/api/quotations/purchase-request/${request.id}/status`],
     enabled: phase === PURCHASE_PHASES.COTACAO,
     retry: 1,
+    refetchInterval: 30000, // Refetch every 30 seconds
     queryFn: async () => {
       try {
         // Use the correct existing route
         const quotation = await apiRequest("GET", `/api/quotations/purchase-request/${request.id}`);
-        
-        // If no quotation exists
-        if (!quotation || !quotation.id) {
+
+        // If no quotation exists or quotation is null
+        if (!quotation || quotation === null || !quotation.id) {
           return { isReady: false, reason: "Nenhuma cotação criada" };
         }
-        
+
+        // Check quotation status
+        if (quotation.status === 'draft') {
+          return { isReady: false, reason: "RFQ em rascunho - não enviada" };
+        }
+
         // Get supplier quotations using the quotation ID - only if quotation exists
         const supplierQuotations = await apiRequest("GET", `/api/quotations/${quotation.id}/supplier-quotations`);
-        
+
         // If no supplier quotations exist
         if (!supplierQuotations || supplierQuotations.length === 0) {
-          return { isReady: false, reason: "Aguardando cotações de fornecedores" };
+          return { isReady: false, reason: "RFQ criada - aguardando fornecedores" };
         }
-        
+
         // Check if any supplier quotations have been received
         const receivedQuotations = supplierQuotations.filter((sq: any) => sq.status === 'received');
         if (receivedQuotations.length === 0) {
-          return { isReady: false, reason: "Aguardando cotações de fornecedores" };
+          return { isReady: false, reason: "RFQ enviada - aguardando respostas" };
         }
-        
-        // Check if a supplier has been chosen
-        const hasChosenSupplier = supplierQuotations.some((sq: any) => sq.isChosen);
-        if (!hasChosenSupplier) {
-          return { isReady: false, reason: "Aguardando seleção de fornecedor" };
+
+        // Check if a supplier has been chosen (via purchase request)
+        if (request.chosenSupplierId) {
+          return { isReady: true, reason: "Fornecedor selecionado - pronto para A2" };
         }
-        
-        return { isReady: true, reason: "Pronto para Aprovação A2" };
+
+        return { isReady: false, reason: `${receivedQuotations.length} cotação(ões) recebida(s) - aguardando seleção` };
       } catch (error) {
         console.error("Error checking quotation status:", error);
-        throw error; // Let React Query handle the error
+        // Return a fallback status instead of throwing
+        return { isReady: false, reason: "Erro ao verificar status da cotação" };
       }
     },
   });
@@ -537,19 +543,19 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
             {request.totalValue && (
               <p><strong>Valor:</strong> {formatCurrency(request.totalValue)}</p>
             )}
-            
+
             {/* Show requester on all cards */}
             {request.requester && (
               <p><strong>Solicitante:</strong> {request.requester.firstName} {request.requester.lastName}</p>
             )}
-            
+
             {/* Show approver from cotacao phase onwards */}
             {(phase === PURCHASE_PHASES.COTACAO || phase === PURCHASE_PHASES.APROVACAO_A2 || 
               phase === PURCHASE_PHASES.PEDIDO_COMPRA || phase === PURCHASE_PHASES.RECEBIMENTO || 
               phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) && request.approverA1 && (
               <p><strong>Aprovador:</strong> {request.approverA1.firstName} {request.approverA1.lastName}</p>
             )}
-            
+
             {phase === PURCHASE_PHASES.APROVACAO_A1 && (
               <p><strong>Aprovador:</strong> Pendente</p>
             )}
@@ -641,9 +647,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
                   <Clock className="h-4 w-4" />
                 )}
                 <span className="text-sm font-medium">
-                  {quotationStatusError 
-                    ? "Nenhuma cotação criada" 
-                    : quotationStatus?.reason || "Carregando status..."}
+                  {quotationStatus?.reason || "Verificando status..."}
                 </span>
               </div>
             </div>
@@ -832,8 +836,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
               className="p-6"
             />
           </div>
-        </div>
-      )}
+        </div>)}
 
       {isEditModalOpen && phase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
