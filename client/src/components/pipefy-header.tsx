@@ -20,6 +20,7 @@ import {
   FileText,
   Menu,
   X,
+  Database,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -43,6 +44,7 @@ export default function PipefyHeader() {
       { name: "Fornecedores", href: "/suppliers", icon: Building },
       { name: "Usuários", href: "/users", icon: Users },
       { name: "Departamentos", href: "/departments", icon: Building },
+      { name: "Limpeza de Dados", href: "/admin/cleanup", icon: Database },
     ];
 
     return user?.isAdmin ? [...baseNavigation, ...adminNavigation] : baseNavigation;

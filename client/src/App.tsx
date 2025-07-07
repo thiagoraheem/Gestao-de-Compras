@@ -15,6 +15,7 @@ import ChangePasswordPage from "@/pages/change-password";
 import RequestManagementPage from "@/pages/request-management";
 import PipefyHeader from "@/components/pipefy-header";
 import FloatingNewRequestButton from "@/components/floating-new-request-button";
+import AdminCleanupPage from "@/pages/admin-cleanup";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -59,6 +60,7 @@ function Router() {
         <Route path="/suppliers" component={SuppliersPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/departments" component={DepartmentsPage} />
+        <Route path="/admin/cleanup" component={AdminCleanupPage} />
         <Route path="/profile" component={ProfilePage} />
         <Route path="/change-password" component={ChangePasswordPage} />
         <Route component={NotFound} />
