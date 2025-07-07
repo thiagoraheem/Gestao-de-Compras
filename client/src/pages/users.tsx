@@ -13,9 +13,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit } from "lucide-react";
+import { Plus, Edit, Shield } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import AdminRoute from "@/components/AdminRoute";
 
 const userSchema = z.object({
   username: z.string().min(1, "Username é obrigatório"),
@@ -27,6 +28,7 @@ const userSchema = z.object({
   isBuyer: z.boolean().default(false),
   isApproverA1: z.boolean().default(false),
   isApproverA2: z.boolean().default(false),
+  isAdmin: z.boolean().default(false),
 }).refine((data) => {
   // Password is required only when creating a new user
   if (!data.password || data.password === "") {
@@ -71,6 +73,7 @@ export default function UsersPage() {
       isBuyer: false,
       isApproverA1: false,
       isApproverA2: false,
+      isAdmin: false,
     },
   });
 
@@ -141,6 +144,7 @@ export default function UsersPage() {
       isBuyer: user.isBuyer || false,
       isApproverA1: user.isApproverA1 || false,
       isApproverA2: user.isApproverA2 || false,
+      isAdmin: user.isAdmin || false,
     });
     setIsModalOpen(true);
   };
@@ -157,6 +161,7 @@ export default function UsersPage() {
 
   const getUserRoles = (user: any) => {
     const roles = [];
+    if (user.isAdmin) roles.push("Admin");
     if (user.isBuyer) roles.push("Comprador");
     if (user.isApproverA1) roles.push("Aprovador A1");
     if (user.isApproverA2) roles.push("Aprovador A2");
@@ -164,7 +169,8 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <AdminRoute>
+      <div className="max-w-7xl mx-auto p-6">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -449,6 +455,30 @@ export default function UsersPage() {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name="isAdmin"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="flex items-center gap-2">
+                          <Shield className="h-4 w-4 text-orange-600" />
+                          É Administrador
+                        </FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Acesso completo ao sistema e gestão de usuários
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
               </div>
               </div>
               
@@ -470,6 +500,7 @@ export default function UsersPage() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </AdminRoute>
   );
 }

@@ -17,6 +17,7 @@ interface User {
   isBuyer: boolean;
   isApproverA1: boolean;
   isApproverA2: boolean;
+  isAdmin: boolean;
 }
 
 export function useAuth() {

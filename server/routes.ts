@@ -34,6 +34,25 @@ function isAuthenticated(req: Request, res: Response, next: Function) {
   }
 }
 
+// Admin authorization middleware
+async function isAdmin(req: Request, res: Response, next: Function) {
+  try {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await storage.getUser(req.session.userId);
+    if (!user || !user.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Error checking admin permissions:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configure session
   app.use(session({
@@ -107,7 +126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           department,
           isBuyer: user.isBuyer,
           isApproverA1: user.isApproverA1,
-          isApproverA2: user.isApproverA2
+          isApproverA2: user.isApproverA2,
+          isAdmin: user.isAdmin
         });
       } else {
         res.status(401).json({ message: "Unauthorized" });
@@ -118,7 +138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Users routes
-  app.get("/api/users", isAuthenticated, async (req, res) => {
+  app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -128,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", isAuthenticated, async (req, res) => {
+  app.post("/api/users", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       const hashedPassword = await bcrypt.hash(userData.password, 10);
@@ -152,7 +172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/users/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const userData = insertUserSchema.partial().parse(req.body);
@@ -266,7 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/departments", isAuthenticated, async (req, res) => {
+  app.post("/api/departments", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const departmentData = insertDepartmentSchema.parse(req.body);
       const department = await storage.createDepartment(departmentData);
@@ -299,7 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/cost-centers", isAuthenticated, async (req, res) => {
+  app.post("/api/cost-centers", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const costCenterData = insertCostCenterSchema.parse(req.body);
       const costCenter = await storage.createCostCenter(costCenterData);
@@ -321,7 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/suppliers", isAuthenticated, async (req, res) => {
+  app.post("/api/suppliers", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const supplierData = insertSupplierSchema.parse(req.body);
       const supplier = await storage.createSupplier(supplierData);
@@ -332,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/suppliers/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/suppliers/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const supplierData = insertSupplierSchema.partial().parse(req.body);

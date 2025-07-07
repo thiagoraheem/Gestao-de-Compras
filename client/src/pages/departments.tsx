@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Building } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import AdminRoute from "@/components/AdminRoute";
 
 const departmentSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -121,7 +122,8 @@ export default function DepartmentsPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <AdminRoute>
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Departments */}
       <Card>
         <CardHeader>
@@ -354,6 +356,7 @@ export default function DepartmentsPage() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </AdminRoute>
   );
 }

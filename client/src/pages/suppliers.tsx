@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Edit } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import AdminRoute from "@/components/AdminRoute";
 
 const supplierSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -95,7 +96,8 @@ export default function SuppliersPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <AdminRoute>
+      <div className="max-w-7xl mx-auto p-6">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -264,6 +266,7 @@ export default function SuppliersPage() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </AdminRoute>
   );
 }

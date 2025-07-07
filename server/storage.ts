@@ -761,6 +761,7 @@ export class DatabaseStorage implements IStorage {
       isBuyer: true,
       isApproverA1: true,
       isApproverA2: true,
+      isAdmin: true,
     });
   }
 }

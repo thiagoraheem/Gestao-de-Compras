@@ -28,17 +28,27 @@ export default function PipefyHeader() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const navigation = [
-    { name: "Kanban", href: "/", icon: ShoppingCart },
-    {
-      name: "Gerenciar Solicitações",
-      href: "/request-management",
-      icon: FileText,
-    },
-    { name: "Fornecedores", href: "/suppliers", icon: Building },
-    { name: "Usuários", href: "/users", icon: Users },
-    { name: "Departamentos", href: "/departments", icon: Building },
-  ];
+  const getNavigation = () => {
+    const baseNavigation = [
+      { name: "Kanban", href: "/", icon: ShoppingCart },
+      {
+        name: "Gerenciar Solicitações",
+        href: "/request-management",
+        icon: FileText,
+      },
+    ];
+
+    // Admin-only navigation items
+    const adminNavigation = [
+      { name: "Fornecedores", href: "/suppliers", icon: Building },
+      { name: "Usuários", href: "/users", icon: Users },
+      { name: "Departamentos", href: "/departments", icon: Building },
+    ];
+
+    return user?.isAdmin ? [...baseNavigation, ...adminNavigation] : baseNavigation;
+  };
+
+  const navigation = getNavigation();
 
   const handleLogout = async () => {
     await logout();
