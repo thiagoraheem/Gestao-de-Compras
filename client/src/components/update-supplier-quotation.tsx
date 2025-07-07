@@ -391,17 +391,20 @@ export default function UpdateSupplierQuotation({
                                         // Format on blur for better display
                                         const value = e.target.value;
                                         if (value) {
+                                          let number;
                                           // If it's a simple number (like 1000), treat it as currency value
                                           if (/^\d+$/.test(value)) {
-                                            const number = parseFloat(value);
-                                            const formatted = number.toLocaleString('pt-BR', {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            });
-                                            field.onChange(formatted);
+                                            number = parseFloat(value);
                                           } else if (/^\d+[.,]\d+$/.test(value)) {
                                             // If it already has decimal places
-                                            const number = parseFloat(value.replace(',', '.'));
+                                            number = parseFloat(value.replace(',', '.'));
+                                          } else {
+                                            // Try to parse any formatted value
+                                            const cleanValue = value.replace(/[^\d.,]/g, '');
+                                            number = parseFloat(cleanValue.replace(',', '.'));
+                                          }
+                                          
+                                          if (!isNaN(number)) {
                                             const formatted = number.toLocaleString('pt-BR', {
                                               minimumFractionDigits: 2,
                                               maximumFractionDigits: 2,

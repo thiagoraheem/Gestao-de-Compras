@@ -136,6 +136,12 @@ Key entities include:
   - ✓ Corrigido componente QuotationPhase para acessar dados do requester corretamente
   - ✓ Nome do solicitante agora aparece corretamente na interface de gestão de cotações
   - ✓ Suporte tanto para request.requesterName quanto request.requester.firstName/lastName
+- July 7, 2025. Correção de problemas críticos na tela de Atualizar Cotação:
+  - ✓ Corrigido problema de valores incorretos (1000 → R$ 1,00 em vez de R$ 1.000,00)
+  - ✓ Melhorada lógica de formatação de valores monetários para entrada natural
+  - ✓ Corrigida condição para mostrar botão "Comparar e Selecionar Fornecedor"
+  - ✓ Botão agora aparece quando TODOS os fornecedores responderam (não apenas alguns)
+  - ✓ Sistema de valores monetários totalmente funcional e consistente
 - July 7, 2025. Sistema de notificações por e-mail implementado:
   - ✓ Notificações automáticas para compradores quando nova solicitação é criada
   - ✓ Notificações para aprovadores A1 quando solicitação entra na fase de aprovação A1

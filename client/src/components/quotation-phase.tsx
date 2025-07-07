@@ -78,6 +78,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
 
   const hasQuotation = !!quotation;
   const hasSupplierResponses = supplierQuotations.some(sq => sq.status === 'received');
+  const allSuppliersResponded = supplierQuotations.length > 0 && supplierQuotations.every(sq => sq.status === 'received');
 
   if (isLoading) {
     return (
@@ -325,7 +326,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                 </Button>
               )}
               
-              {quotation.status === 'sent' && supplierQuotations.length > 0 && user?.isBuyer && (
+              {quotation.status === 'sent' && allSuppliersResponded && user?.isBuyer && (
                 <Button 
                   onClick={() => setShowSupplierComparison(true)}
                   className="bg-green-600 hover:bg-green-700"
