@@ -394,6 +394,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!request) {
         return res.status(404).json({ message: "Purchase request not found" });
       }
+      console.log(`[DEBUG] Request ${id} data:`, {
+        id: request.id,
+        requestNumber: request.requestNumber,
+        requesterName: request.requesterName,
+        requesterUsername: request.requesterUsername
+      });
       res.json(request);
     } catch (error) {
       console.error("Error fetching purchase request:", error);
