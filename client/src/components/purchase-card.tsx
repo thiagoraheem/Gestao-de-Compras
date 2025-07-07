@@ -57,6 +57,19 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
     setIsEditModalOpen(true);
   };
 
+  // Check if user has permission to drag this card
+  const canUserDragCard = (phase: string) => {
+    if (phase === "aprovacao_a1" && !user?.isApproverA1) {
+      return false;
+    }
+    if (phase === "aprovacao_a2" && !user?.isApproverA2) {
+      return false;
+    }
+    return true;
+  };
+
+  const canDrag = canUserDragCard(phase);
+
   const {
     attributes,
     listeners,
@@ -65,7 +78,8 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
     transition,
     isDragging: sortableIsDragging,
   } = useSortable({
-    id: `request-${request.id}`
+    id: `request-${request.id}`,
+    disabled: !canDrag
   });
 
   const approveA1Mutation = useMutation({
@@ -309,7 +323,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging || sortableIsDragging ? 0.5 : 1,
+    opacity: isDragging || sortableIsDragging ? 0.5 : canDrag ? 1 : 0.7,
   };
 
   // Check user permissions for showing certain actions
@@ -332,7 +346,8 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           "mb-2 cursor-pointer select-none",
           isDragging && "opacity-50",
           sortableIsDragging && "opacity-50",
-          isFinalPhase && "bg-gray-100 text-gray-600 border-gray-300"
+          isFinalPhase && "bg-gray-100 text-gray-600 border-gray-300",
+          !canDrag && "cursor-not-allowed border-gray-300 bg-gray-50"
         )}
       >
         <CardContent className="p-4">
@@ -340,11 +355,14 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div
-                {...listeners}
-                className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded"
-                title="Arrastar para mover"
+                {...(canDrag ? listeners : {})}
+                className={cn(
+                  "p-1 rounded",
+                  canDrag ? "cursor-grab active:cursor-grabbing hover:bg-gray-100" : "cursor-not-allowed opacity-50"
+                )}
+                title={canDrag ? "Arrastar para mover" : "Você não tem permissão para mover este card"}
               >
-                <GripVertical className="h-4 w-4 text-gray-400" />
+                <GripVertical className={cn("h-4 w-4", canDrag ? "text-gray-400" : "text-gray-300")} />
               </div>
               <Badge>{request.requestNumber}</Badge>
             </div>
@@ -496,6 +514,20 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
                 <Plus className="mr-1 h-3 w-3" />
                 {request.hasQuotation ? "Visualizar RFQ" : "Criar RFQ"}
               </Button>
+            </div>
+          )}
+
+          {/* Permission Warning for Restricted Cards */}
+          {!canDrag && (phase === PURCHASE_PHASES.APROVACAO_A1 || phase === PURCHASE_PHASES.APROVACAO_A2) && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-md">
+                <TriangleAlert className="h-4 w-4" />
+                <span className="text-sm">
+                  {phase === PURCHASE_PHASES.APROVACAO_A1 
+                    ? "Permissão de Aprovação A1 necessária" 
+                    : "Permissão de Aprovação A2 necessária"}
+                </span>
+              </div>
             </div>
           )}
 

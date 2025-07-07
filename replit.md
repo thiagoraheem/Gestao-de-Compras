@@ -110,6 +110,21 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 7, 2025. Sistema de controle de permissões rigoroso implementado com sucesso:
+  - ✓ Controle de permissões por perfil para movimentação de cards no Kanban
+  - ✓ Cards na fase "Aprovação A1" só podem ser movidos por usuários com isApproverA1: true
+  - ✓ Cards na fase "Aprovação A2" só podem ser movidos por usuários com isApproverA2: true
+  - ✓ Aprovação automática por movimentação implementada no backend
+  - ✓ Movimento A1→Cotação registra automaticamente aprovação A1 com histórico
+  - ✓ Movimento A2→Pedido de Compra registra automaticamente aprovação A2 com histórico
+  - ✓ Visualização restrita com modal informativo para usuários sem permissão
+  - ✓ Modais A1/A2 mostram dados completos em modo somente leitura quando sem permissão
+  - ✓ Feedback visual: cards não arrastáveis têm cursor "not-allowed" e opacidade reduzida
+  - ✓ Validações de segurança no frontend (UX) e backend (segurança)
+  - ✓ Mensagens de erro específicas para tentativas de movimentação não autorizadas
+  - ✓ Drag handles desabilitados com tooltip explicativo para cards sem permissão
+  - ✓ Alertas visuais em cards restritos indicando permissão necessária
+  - ✓ Sistema mantém experiência fluida para usuários com permissões adequadas
 - July 7, 2025. Dashboard Executivo implementado com sucesso:
   - ✓ Criado Dashboard page com KPIs executivos e análises completas
   - ✓ Implementado sistema de permissões (isManager) para acesso ao dashboard

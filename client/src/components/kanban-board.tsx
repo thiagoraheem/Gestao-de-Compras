@@ -78,10 +78,15 @@ export default function KanbanBoard({
         description: "Item movido com sucesso!",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.message === "Você não possui permissão para mover cards da fase Aprovação A1" ||
+                           error?.message === "Você não possui permissão para mover cards da fase Aprovação A2"
+        ? error.message
+        : "Falha ao mover item";
+      
       toast({
         title: "Erro",
-        description: "Falha ao mover item",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -95,6 +100,17 @@ export default function KanbanBoard({
     const request = Array.isArray(purchaseRequests) 
       ? purchaseRequests.find((req: any) => `request-${req.id}` === active.id)
       : undefined;
+    
+    // Check if user has permission to drag this card
+    if (request && !canUserDragCard(request.currentPhase)) {
+      toast({
+        title: "Acesso Negado",
+        description: `Você não possui permissão para mover cards da fase ${PHASE_LABELS[request.currentPhase]}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setActiveRequest(request);
   };
 
@@ -112,6 +128,36 @@ export default function KanbanBoard({
           description: "ID do pedido inválido",
           variant: "destructive",
         });
+        setActiveId(null);
+        setActiveRequest(null);
+        return;
+      }
+
+      // Find the request to check current phase
+      const request = Array.isArray(purchaseRequests) 
+        ? purchaseRequests.find((req: any) => req.id === requestId)
+        : undefined;
+
+      if (!request) {
+        toast({
+          title: "Erro",
+          description: "Solicitação não encontrada",
+          variant: "destructive",
+        });
+        setActiveId(null);
+        setActiveRequest(null);
+        return;
+      }
+
+      // Check permissions before allowing the move
+      if (!canUserDragCard(request.currentPhase)) {
+        toast({
+          title: "Acesso Negado",
+          description: `Você não possui permissão para mover cards da fase ${PHASE_LABELS[request.currentPhase]}`,
+          variant: "destructive",
+        });
+        setActiveId(null);
+        setActiveRequest(null);
         return;
       }
 
@@ -125,6 +171,8 @@ export default function KanbanBoard({
           description: "Fase inválida",
           variant: "destructive",
         });
+        setActiveId(null);
+        setActiveRequest(null);
         return;
       }
 
@@ -199,6 +247,17 @@ export default function KanbanBoard({
   const handleCreateRFQ = (request: any) => {
     setSelectedRequestForRFQ(request);
     setShowRFQCreation(true);
+  };
+
+  // Check if user has permission to drag cards from specific phases
+  const canUserDragCard = (phase: string) => {
+    if (phase === "aprovacao_a1" && !user?.isApproverA1) {
+      return false;
+    }
+    if (phase === "aprovacao_a2" && !user?.isApproverA2) {
+      return false;
+    }
+    return true;
   };
 
   return (

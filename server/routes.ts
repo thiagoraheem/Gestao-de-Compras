@@ -819,11 +819,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
-  // Endpoint para atualizar a fase do cartão (Kanban)
+  // Endpoint para atualizar a fase do cartão (Kanban) com controle de permissões
   app.patch("/api/purchase-requests/:id/update-phase", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { newPhase } = req.body;
+      const userId = req.session.userId;
+
+      // Get current user data
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get current request data
+      const request = await storage.getPurchaseRequestById(id);
+      if (!request) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
 
       // Verificar se a fase é válida
       const validPhases = ["solicitacao", "aprovacao_a1", "cotacao", "aprovacao_a2", "pedido_compra", "recebimento", "arquivado"] as const;
@@ -831,24 +844,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid phase" });
       }
 
-      const updates = {
+      // Permission checks based on current phase and user permissions
+      const currentPhase = request.currentPhase;
+      
+      // Check if user has permission to move from current phase
+      if (currentPhase === "aprovacao_a1" && !user.isApproverA1) {
+        return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Aprovação A1" });
+      }
+      
+      if (currentPhase === "aprovacao_a2" && !user.isApproverA2) {
+        return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Aprovação A2" });
+      }
+
+      // Automatic approval logic when moving from approval phases
+      let updates: any = {
         currentPhase: newPhase,
       };
 
-      const request = await storage.updatePurchaseRequest(id, updates);
+      // Automatic A1 approval when moving from "aprovacao_a1" to "cotacao"
+      if (currentPhase === "aprovacao_a1" && newPhase === "cotacao" && user.isApproverA1) {
+        updates.approverA1Id = userId;
+        updates.approvalDateA1 = new Date();
+        updates.approvedA1 = true;
+        
+        // Create approval history entry
+        await storage.createApprovalHistory({
+          purchaseRequestId: id,
+          approverType: "A1",
+          approverId: userId,
+          approved: true,
+          rejectionReason: null,
+        });
+      }
+
+      // Automatic A2 approval when moving from "aprovacao_a2" to "pedido_compra"
+      if (currentPhase === "aprovacao_a2" && newPhase === "pedido_compra" && user.isApproverA2) {
+        updates.approverA2Id = userId;
+        updates.approvalDateA2 = new Date();
+        updates.approvedA2 = true;
+        
+        // Create approval history entry
+        await storage.createApprovalHistory({
+          purchaseRequestId: id,
+          approverType: "A2",
+          approverId: userId,
+          approved: true,
+          rejectionReason: null,
+        });
+      }
+
+      const updatedRequest = await storage.updatePurchaseRequest(id, updates);
       
       // Send email notifications based on the new phase
       if (newPhase === "aprovacao_a1") {
-        notifyApprovalA1(request).catch(error => {
+        notifyApprovalA1(updatedRequest).catch(error => {
           console.error("Erro ao enviar notificação para aprovadores A1:", error);
         });
       } else if (newPhase === "aprovacao_a2") {
-        notifyApprovalA2(request).catch(error => {
+        notifyApprovalA2(updatedRequest).catch(error => {
           console.error("Erro ao enviar notificação para aprovadores A2:", error);
         });
       }
       
-      res.json(request);
+      res.json(updatedRequest);
     } catch (error) {
       console.error("Error updating request phase:", error);
       res.status(400).json({ message: "Failed to update phase" });

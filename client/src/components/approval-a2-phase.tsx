@@ -15,7 +15,8 @@ import {
   Calendar,
   DollarSign,
   MessageSquare,
-  History
+  History,
+  Paperclip
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -140,14 +141,109 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
   if (!canApprove) {
     return (
       <Card className={cn("w-full max-w-4xl", className)}>
-        <CardContent className="p-6">
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Você não tem permissão para aprovar solicitações no nível A2. 
-              Entre em contato com o administrador do sistema.
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              Aprovação A2 - {request.requestNumber}
+            </CardTitle>
+            {onClose && (
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                ✕
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        
+        <CardContent className="p-6 space-y-6">
+          <Alert className="border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-700">
+              <strong>Visualização Somente Leitura:</strong> Você não possui permissão de aprovação nível A2. 
+              Entre em contato com o administrador do sistema para obter acesso.
             </AlertDescription>
           </Alert>
+
+          {/* Request Information - Read Only */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Solicitante</Label>
+              <p className="text-sm text-gray-900">{request.requesterName || 'N/A'}</p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Departamento</Label>
+              <p className="text-sm text-gray-900">{request.department || 'N/A'}</p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Centro de Custo</Label>
+              <p className="text-sm text-gray-900">{request.costCenter || 'N/A'}</p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Urgência</Label>
+              <Badge variant={request.urgency === 'alta' ? 'destructive' : request.urgency === 'media' ? 'secondary' : 'default'}>
+                {request.urgency}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Items Section - Read Only */}
+          {transformedItems.length > 0 && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">Itens da Solicitação</Label>
+              <div className="space-y-2">
+                {transformedItems.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium">{item.description}</p>
+                      <p className="text-sm text-gray-600">
+                        Quantidade: {item.requestedQuantity} {item.unit}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Approval History */}
+          {approvalHistory && approvalHistory.length > 0 && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">Histórico de Aprovações</Label>
+              <div className="space-y-2">
+                {approvalHistory.map((history: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{history.approverName}</p>
+                      <p className="text-sm text-gray-600">{history.approverType}</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant={history.approved ? 'default' : 'destructive'}>
+                        {history.approved ? 'Aprovado' : 'Reprovado'}
+                      </Badge>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {new Date(history.createdAt).toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Attachments */}
+          {attachments && attachments.length > 0 && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">Anexos</Label>
+              <div className="space-y-2">
+                {attachments.map((attachment: any) => (
+                  <div key={attachment.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <Paperclip className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm">{attachment.fileName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
