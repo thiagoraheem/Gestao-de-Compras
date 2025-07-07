@@ -142,7 +142,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(user);
     } catch (error) {
       console.error("Error creating user:", error);
-      res.status(400).json({ message: "Invalid user data" });
+      
+      // Check if it's a unique constraint violation for email
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505' && 'constraint' in error && error.constraint === 'users_email_unique') {
+        res.status(400).json({ message: "Este e-mail já está sendo usado por outro usuário" });
+      } else {
+        res.status(400).json({ message: "Dados do usuário inválidos" });
+      }
     }
   });
 
@@ -166,7 +172,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(user);
     } catch (error) {
       console.error("Error updating user:", error);
-      res.status(400).json({ message: "Invalid user data" });
+      
+      // Check if it's a unique constraint violation for email
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505' && 'constraint' in error && error.constraint === 'users_email_unique') {
+        res.status(400).json({ message: "Este e-mail já está sendo usado por outro usuário" });
+      } else {
+        res.status(400).json({ message: "Dados do usuário inválidos" });
+      }
     }
   });
 
@@ -186,7 +198,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(user);
     } catch (error) {
       console.error("Error updating profile:", error);
-      res.status(400).json({ message: "Failed to update profile" });
+      
+      // Check if it's a unique constraint violation for email
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505' && 'constraint' in error && error.constraint === 'users_email_unique') {
+        res.status(400).json({ message: "Este e-mail já está sendo usado por outro usuário" });
+      } else {
+        res.status(400).json({ message: "Falha ao atualizar perfil" });
+      }
     }
   });
 
