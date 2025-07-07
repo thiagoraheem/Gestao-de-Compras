@@ -538,7 +538,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
                   disabled={confirmReceiptMutation.isPending}
                 >
                   <Check className="mr-1 h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">Confirmar Recebimento</span>
+                  <span className="truncate">Confirmar</span>
                 </Button>
                 <Button
                   size="sm"
@@ -558,7 +558,6 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           )}
         </CardContent>
       </Card>
-
       {/* Phase-specific Edit Modals */}
       {isEditModalOpen && phase === PURCHASE_PHASES.SOLICITACAO && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -571,7 +570,6 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </div>
         </div>
       )}
-
       {isEditModalOpen && phase === PURCHASE_PHASES.APROVACAO_A1 && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -583,7 +581,6 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </div>
         </div>
       )}
-
       {isEditModalOpen && phase === PURCHASE_PHASES.APROVACAO_A2 && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -595,7 +592,6 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </div>
         </div>
       )}
-
       {isEditModalOpen && phase === PURCHASE_PHASES.COTACAO && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -607,7 +603,6 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </div>
         </div>
       )}
-
       {isEditModalOpen && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -619,7 +614,6 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </div>
         </div>
       )}
-
       {/* Default Edit Dialog for other phases */}
       {isEditModalOpen && phase !== PURCHASE_PHASES.SOLICITACAO && phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.APROVACAO_A2 && phase !== PURCHASE_PHASES.COTACAO && phase !== PURCHASE_PHASES.PEDIDO_COMPRA && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsEditModalOpen(false)}>
@@ -642,7 +636,6 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </div>
         </div>
       )}
-
       {/* Diálogo de confirmação para excluir */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
@@ -663,7 +656,6 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       {/* Diálogo de confirmação para arquivar */}
       <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
         <AlertDialogContent>
