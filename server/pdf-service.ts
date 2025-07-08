@@ -310,12 +310,12 @@ export class PDFService {
     body {
       font-family: Arial, sans-serif;
       font-size: 12px;
-      margin: 20px;
+      margin: 10px;
       color: #000;
     }
     .header {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
     }
     .header h1 {
       font-size: 16px;
@@ -327,7 +327,7 @@ export class PDFService {
       font-size: 11px;
     }
     .section {
-      margin: 15px 0;
+      margin: 10px 0;
     }
     .section-title {
       background-color: #f0f0f0;
@@ -370,11 +370,11 @@ export class PDFService {
       background-color: #f9f9f9;
     }
     .footer {
-      margin-top: 30px;
+      margin-top: 15px;
       font-size: 10px;
     }
     .signature-section {
-      margin-top: 40px;
+      margin-top: 20px;
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
       gap: 20px;
@@ -383,7 +383,7 @@ export class PDFService {
       text-align: center;
       border-top: 1px solid #000;
       padding-top: 5px;
-      margin-top: 60px;
+      margin-top: 40px;
     }
   </style>
 </head>
@@ -482,7 +482,7 @@ export class PDFService {
           <tr>
             <td class="text-center">${item.requestedQuantity}</td>
             <td class="text-center">${item.unit || 'UND'}</td>
-            <td>${item.itemCode} - ${item.description}</td>
+            <td>${item.itemCode || ''} ${item.itemCode ? '-' : ''} ${item.description}</td>
             <td class="text-right">R$ ${typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}</td>
             <td class="text-right">R$ ${typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}</td>
             <td class="text-right">R$ 0,00</td>
@@ -528,7 +528,7 @@ export class PDFService {
     ${approvalHistory.map(approval => `
       <div class="info-item">
         <strong>${approval.phase === 'aprovacao-a1' ? 'Aprovação A1' : 'Aprovação A2'}:</strong> 
-        ${approval.decision} em ${new Date(approval.createdAt).toLocaleDateString('pt-BR')} 
+        ${approval.decision || 'Aprovado'} em ${new Date(approval.createdAt).toLocaleDateString('pt-BR')} 
         por ${approval.userName || 'Sistema'}
         ${approval.comments ? ` - ${approval.comments}` : ''}
       </div>
