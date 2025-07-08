@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer';
+import htmlPdf from 'html-pdf-node';
 import { storage } from './storage';
 
 interface PurchaseOrderData {
@@ -9,6 +10,45 @@ interface PurchaseOrderData {
 }
 
 export class PDFService {
+  // Detecta o caminho do browser automaticamente
+  private static async findBrowserPath(): Promise<string | undefined> {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Possíveis caminhos de browsers em diferentes sistemas
+    const possiblePaths = [
+      // Windows
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+      // Linux/Unix
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/snap/bin/chromium',
+      // macOS
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+      // Nix store (comum em ambientes como Replit)
+      '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+      // Variáveis de ambiente
+      process.env.CHROMIUM_PATH,
+      process.env.CHROME_PATH,
+      process.env.GOOGLE_CHROME_BIN
+    ];
+
+    for (const browserPath of possiblePaths) {
+      if (browserPath && fs.existsSync(browserPath)) {
+        console.log(`Browser encontrado em: ${browserPath}`);
+        return browserPath;
+      }
+    }
+
+    console.log('Nenhum browser encontrado nos caminhos padrão, tentando usar browser padrão do sistema');
+    return undefined;
+  }
+
   // Método auxiliar para lançar browser com retry e fallback
   private static async launchBrowserWithRetry(retries: number = 3): Promise<any> {
     const baseArgs = [
@@ -31,21 +71,24 @@ export class PDFService {
       '--max_old_space_size=4096'
     ];
 
+    // Detectar caminho do browser automaticamente
+    const detectedBrowserPath = await this.findBrowserPath();
+
     const configurations = [
-      // Configuração 1: Com path específico do Chromium
+      // Configuração 1: Browser detectado automaticamente
+      ...(detectedBrowserPath ? [{
+        executablePath: detectedBrowserPath,
+        args: baseArgs,
+        headless: true,
+        timeout: 30000
+      }] : []),
+      // Configuração 2: Sem path específico (usa browser padrão do sistema)
       {
-        executablePath: process.env.CHROMIUM_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
         args: baseArgs,
         headless: true,
         timeout: 30000
       },
-      // Configuração 2: Sem path específico
-      {
-        args: baseArgs,
-        headless: true,
-        timeout: 30000
-      },
-      // Configuração 3: Minimal fallback
+      // Configuração 3: Minimal fallback com menos argumentos
       {
         args: [
           '--no-sandbox',
@@ -56,28 +99,116 @@ export class PDFService {
         ],
         headless: true,
         timeout: 30000
+      },
+      // Configuração 4: Ultra minimal para ambientes muito restritivos
+      {
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        headless: true,
+        timeout: 30000
       }
     ];
 
+    let lastError;
     for (let i = 0; i < configurations.length; i++) {
+      console.log(`Tentando configuração ${i + 1}/${configurations.length}:`, 
+                  configurations[i].executablePath || 'browser padrão do sistema');
+      
       for (let retry = 0; retry < retries; retry++) {
         try {
-          console.log(`Tentando lançar browser - Configuração ${i + 1}, Tentativa ${retry + 1}`);
+          console.log(`  - Tentativa ${retry + 1}/${retries}`);
           const browser = await puppeteer.launch(configurations[i]);
-          console.log(`Browser lançado com sucesso - Configuração ${i + 1}`);
+          console.log(`✓ Browser lançado com sucesso!`);
           return browser;
         } catch (error) {
-          console.error(`Erro ao lançar browser - Configuração ${i + 1}, Tentativa ${retry + 1}:`, error.message);
-          if (retry === retries - 1) {
-            console.log(`Todas as tentativas falharam para configuração ${i + 1}`);
-          } else {
-            await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1))); // Delay progressivo
+          lastError = error;
+          console.error(`  ✗ Erro na tentativa ${retry + 1}:`, error.message);
+          if (retry < retries - 1) {
+            const delay = 1000 * (retry + 1);
+            console.log(`  ⏳ Aguardando ${delay}ms antes da próxima tentativa...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       }
     }
     
-    throw new Error('Falha ao lançar browser após todas as tentativas e configurações');
+    console.error('❌ Todas as configurações e tentativas falharam');
+    throw new Error(`Falha ao lançar browser após todas as tentativas. Último erro: ${lastError?.message}`);
+  }
+
+  // Método de fallback usando html-pdf-node quando Puppeteer falhar
+  private static async generatePDFWithFallback(html: string, pdfType: string): Promise<Buffer> {
+    try {
+      console.log(`🔄 Tentando gerar PDF com Puppeteer para ${pdfType}...`);
+      return await this.generatePDFWithPuppeteer(html);
+    } catch (puppeteerError) {
+      console.error(`❌ Puppeteer falhou para ${pdfType}:`, puppeteerError.message);
+      console.log(`🔄 Tentando fallback com html-pdf-node para ${pdfType}...`);
+      
+      try {
+        const options = {
+          format: 'A4',
+          margin: {
+            top: '20mm',
+            right: '15mm',
+            bottom: '20mm', 
+            left: '15mm'
+          },
+          printBackground: true,
+          timeout: 30000
+        };
+
+        const file = { content: html };
+        const pdfBuffer = await htmlPdf.generatePdf(file, options);
+        console.log(`✅ PDF gerado com sucesso usando html-pdf-node para ${pdfType}`);
+        return pdfBuffer;
+      } catch (fallbackError) {
+        console.error(`❌ html-pdf-node também falhou para ${pdfType}:`, fallbackError.message);
+        throw new Error(`Ambos os geradores de PDF falharam. Puppeteer: ${puppeteerError.message}. Fallback: ${fallbackError.message}`);
+      }
+    }
+  }
+
+  // Geração de PDF usando Puppeteer (método original melhorado)
+  private static async generatePDFWithPuppeteer(html: string): Promise<Buffer> {
+    const browser = await this.launchBrowserWithRetry();
+    let page = null;
+    
+    try {
+      page = await browser.newPage();
+      await page.setDefaultTimeout(30000);
+      
+      await page.setContent(html, { 
+        waitUntil: 'networkidle0', 
+        timeout: 30000 
+      });
+      
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        margin: {
+          top: '20mm',
+          right: '15mm',
+          bottom: '20mm',
+          left: '15mm'
+        },
+        printBackground: true,
+        timeout: 30000
+      });
+
+      return pdfBuffer;
+    } finally {
+      if (page) {
+        try {
+          await page.close();
+        } catch (err) {
+          console.error('Error closing page:', err);
+        }
+      }
+      try {
+        await browser.close();
+      } catch (err) {
+        console.error('Error closing browser:', err);
+      }
+    }
   }
 
   static async generateCompletionSummaryPDF(purchaseRequestId: number): Promise<Buffer> {
@@ -112,32 +243,7 @@ export class PDFService {
         selectedSupplier
       });
 
-        await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
-        const pdfBuffer = await page.pdf({
-          format: 'A4',
-          printBackground: true,
-          margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
-          timeout: 30000
-        });
-
-        return pdfBuffer;
-      } catch (error) {
-        console.error('Error generating completion summary PDF:', error);
-        throw new Error(`Completion summary PDF generation failed: ${error.message}`);
-      } finally {
-        if (page) {
-          try {
-            await page.close();
-          } catch (err) {
-            console.error('Error closing page:', err);
-          }
-        }
-        try {
-          await browser.close();
-        } catch (err) {
-          console.error('Error closing browser:', err);
-        }
-      }
+        return await this.generatePDFWithFallback(html, 'completion-summary');
     } catch (error) {
       console.error('Error in generateCompletionSummaryPDF:', error);
       throw error;
@@ -145,47 +251,11 @@ export class PDFService {
   }
 
   static async generateDashboardPDF(dashboardData: any): Promise<Buffer> {
-    const browser = await this.launchBrowserWithRetry();
-    let page = null;
-    
     try {
-      page = await browser.newPage();
-      await page.setDefaultTimeout(30000);
-      
-      await page.setContent(this.generateDashboardHTML(dashboardData), { 
-        waitUntil: 'networkidle0', 
-        timeout: 30000 
-      });
-      
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '20mm',
-          right: '20mm',
-          bottom: '20mm',
-          left: '20mm'
-        },
-        timeout: 30000
-      });
-      
-      return pdfBuffer;
+      return await this.generatePDFWithFallback(this.generateDashboardHTML(dashboardData), 'dashboard');
     } catch (error) {
-      console.error('Error generating dashboard PDF:', error);
-      throw new Error(`Dashboard PDF generation failed: ${error.message}`);
-    } finally {
-      if (page) {
-        try {
-          await page.close();
-        } catch (err) {
-          console.error('Error closing page:', err);
-        }
-      }
-      try {
-        await browser.close();
-      } catch (err) {
-        console.error('Error closing browser:', err);
-      }
+      console.error('Error in generateDashboardPDF:', error);
+      throw error;
     }
   }
 
@@ -755,59 +825,8 @@ export class PDFService {
     // Gerar HTML
     const html = await this.generatePurchaseOrderHTML(data);
 
-    // Gerar PDF usando Puppeteer com configuração robusta
-    let browser = null;
-    try {
-      browser = await this.launchBrowserWithRetry();
-    } catch (error) {
-      console.error('Failed to launch browser:', error);
-      throw new Error(`Browser launch failed: ${error.message}`);
-    }
-
-    let page = null;
-    try {
-      page = await browser.newPage();
-      
-      // Set page timeout to prevent hanging
-      await page.setDefaultTimeout(30000);
-      
-      // Set content with proper wait conditions
-      await page.setContent(html, { 
-        waitUntil: 'networkidle0', 
-        timeout: 30000 
-      });
-      
-      // Generate PDF with timeout and error handling
-      const pdf = await page.pdf({
-        format: 'A4',
-        margin: {
-          top: '20mm',
-          right: '15mm',
-          bottom: '20mm',
-          left: '15mm'
-        },
-        printBackground: true,
-        timeout: 30000
-      });
-
-      return Buffer.from(pdf);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      throw new Error(`PDF generation failed: ${error.message}`);
-    } finally {
-      if (page) {
-        try {
-          await page.close();
-        } catch (err) {
-          console.error('Error closing page:', err);
-        }
-      }
-      try {
-        await browser.close();
-      } catch (err) {
-        console.error('Error closing browser:', err);
-      }
-    }
+    // Gerar PDF usando sistema de fallback robusto
+    return await this.generatePDFWithFallback(html, 'purchase-order');
   }
 
   private static generateCompletionSummaryHTML(data: any): string {
