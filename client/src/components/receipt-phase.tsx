@@ -59,6 +59,12 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   // Get selected supplier quotation
   const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0];
   
+  // Fetch supplier quotation items with prices
+  const { data: supplierQuotationItems = [] } = useQuery({
+    queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
+    enabled: !!selectedSupplierQuotation?.id,
+  });
+
   // Debug log to check data
   console.log('[ReceiptPhase] Data check:', {
     quotation,
@@ -68,12 +74,6 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
     supplierQuotationItemsCount: supplierQuotationItems.length,
     supplierQuotationItems,
     hasSupplierData: !!selectedSupplierQuotation?.supplier
-  });
-
-  // Fetch supplier quotation items with prices
-  const { data: supplierQuotationItems = [] } = useQuery({
-    queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
-    enabled: !!selectedSupplierQuotation?.id,
   });
 
   // Fetch quotation items to map descriptions
