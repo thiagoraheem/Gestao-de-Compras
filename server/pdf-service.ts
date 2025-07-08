@@ -9,43 +9,85 @@ interface PurchaseOrderData {
 }
 
 export class PDFService {
-  static async generateCompletionSummaryPDF(purchaseRequestId: number): Promise<Buffer> {
-    try {
-      const browser = await puppeteer.launch({
+  // Método auxiliar para lançar browser com retry e fallback
+  private static async launchBrowserWithRetry(retries: number = 3): Promise<any> {
+    const baseArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu',
+      '--disable-web-security',
+      '--disable-features=VizDisplayCompositor',
+      '--disable-background-timer-throttling',
+      '--disable-renderer-backgrounding',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-features=TranslateUI',
+      '--disable-ipc-flooding-protection',
+      '--memory-pressure-off',
+      '--max_old_space_size=4096'
+    ];
+
+    const configurations = [
+      // Configuração 1: Com path específico do Chromium
+      {
         executablePath: process.env.CHROMIUM_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+        args: baseArgs,
+        headless: true,
+        timeout: 30000
+      },
+      // Configuração 2: Sem path específico
+      {
+        args: baseArgs,
+        headless: true,
+        timeout: 30000
+      },
+      // Configuração 3: Minimal fallback
+      {
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
           '--single-process',
-          '--disable-gpu',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor'
+          '--disable-gpu'
         ],
-        headless: true
-      }).catch(async () => {
-        // Fallback: try without specifying executable path
-        return await puppeteer.launch({
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu',
-            '--disable-web-security',
-            '--disable-features=VizDisplayCompositor'
-          ],
-          headless: true
-        });
-      });
+        headless: true,
+        timeout: 30000
+      }
+    ];
 
-      const page = await browser.newPage();
+    for (let i = 0; i < configurations.length; i++) {
+      for (let retry = 0; retry < retries; retry++) {
+        try {
+          console.log(`Tentando lançar browser - Configuração ${i + 1}, Tentativa ${retry + 1}`);
+          const browser = await puppeteer.launch(configurations[i]);
+          console.log(`Browser lançado com sucesso - Configuração ${i + 1}`);
+          return browser;
+        } catch (error) {
+          console.error(`Erro ao lançar browser - Configuração ${i + 1}, Tentativa ${retry + 1}:`, error.message);
+          if (retry === retries - 1) {
+            console.log(`Todas as tentativas falharam para configuração ${i + 1}`);
+          } else {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1))); // Delay progressivo
+          }
+        }
+      }
+    }
+    
+    throw new Error('Falha ao lançar browser após todas as tentativas e configurações');
+  }
+
+  static async generateCompletionSummaryPDF(purchaseRequestId: number): Promise<Buffer> {
+    try {
+      const browser = await this.launchBrowserWithRetry();
+      let page = null;
+      
+      try {
+        page = await browser.newPage();
+        await page.setDefaultTimeout(30000);
       
       // Buscar dados da solicitação
       const { storage } = await import('./storage');
@@ -70,56 +112,50 @@ export class PDFService {
         selectedSupplier
       });
 
-      await page.setContent(html);
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
-      });
+        await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+        const pdfBuffer = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
+          timeout: 30000
+        });
 
-      await browser.close();
-      return pdfBuffer;
+        return pdfBuffer;
+      } catch (error) {
+        console.error('Error generating completion summary PDF:', error);
+        throw new Error(`Completion summary PDF generation failed: ${error.message}`);
+      } finally {
+        if (page) {
+          try {
+            await page.close();
+          } catch (err) {
+            console.error('Error closing page:', err);
+          }
+        }
+        try {
+          await browser.close();
+        } catch (err) {
+          console.error('Error closing browser:', err);
+        }
+      }
     } catch (error) {
-      console.error('Error generating completion summary PDF:', error);
+      console.error('Error in generateCompletionSummaryPDF:', error);
       throw error;
     }
   }
 
   static async generateDashboardPDF(dashboardData: any): Promise<Buffer> {
-    const browser = await puppeteer.launch({
-      executablePath: process.env.CHROMIUM_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
-      ]
-    }).catch(async () => {
-      // Fallback: try without specifying executable path
-      return await puppeteer.launch({
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process',
-          '--disable-gpu'
-        ],
-        headless: true
-      });
-    });
+    const browser = await this.launchBrowserWithRetry();
+    let page = null;
     
     try {
-      const page = await browser.newPage();
-      await page.setContent(this.generateDashboardHTML(dashboardData));
-      await page.emulateMediaType('screen');
+      page = await browser.newPage();
+      await page.setDefaultTimeout(30000);
+      
+      await page.setContent(this.generateDashboardHTML(dashboardData), { 
+        waitUntil: 'networkidle0', 
+        timeout: 30000 
+      });
       
       const pdfBuffer = await page.pdf({
         format: 'A4',
@@ -129,12 +165,27 @@ export class PDFService {
           right: '20mm',
           bottom: '20mm',
           left: '20mm'
-        }
+        },
+        timeout: 30000
       });
       
       return pdfBuffer;
+    } catch (error) {
+      console.error('Error generating dashboard PDF:', error);
+      throw new Error(`Dashboard PDF generation failed: ${error.message}`);
     } finally {
-      await browser.close();
+      if (page) {
+        try {
+          await page.close();
+        } catch (err) {
+          console.error('Error closing page:', err);
+        }
+      }
+      try {
+        await browser.close();
+      } catch (err) {
+        console.error('Error closing browser:', err);
+      }
     }
   }
 
@@ -704,43 +755,29 @@ export class PDFService {
     // Gerar HTML
     const html = await this.generatePurchaseOrderHTML(data);
 
-    // Gerar PDF usando Puppeteer
-    const browser = await puppeteer.launch({
-      executablePath: process.env.CHROMIUM_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor'
-      ],
-      headless: true
-    }).catch(async () => {
-      // Fallback: try without specifying executable path
-      return await puppeteer.launch({
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process',
-          '--disable-gpu'
-        ],
-        headless: true
-      });
-    });
-
+    // Gerar PDF usando Puppeteer com configuração robusta
+    let browser = null;
     try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      browser = await this.launchBrowserWithRetry();
+    } catch (error) {
+      console.error('Failed to launch browser:', error);
+      throw new Error(`Browser launch failed: ${error.message}`);
+    }
+
+    let page = null;
+    try {
+      page = await browser.newPage();
       
+      // Set page timeout to prevent hanging
+      await page.setDefaultTimeout(30000);
+      
+      // Set content with proper wait conditions
+      await page.setContent(html, { 
+        waitUntil: 'networkidle0', 
+        timeout: 30000 
+      });
+      
+      // Generate PDF with timeout and error handling
       const pdf = await page.pdf({
         format: 'A4',
         margin: {
@@ -749,12 +786,27 @@ export class PDFService {
           bottom: '20mm',
           left: '15mm'
         },
-        printBackground: true
+        printBackground: true,
+        timeout: 30000
       });
 
       return Buffer.from(pdf);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      throw new Error(`PDF generation failed: ${error.message}`);
     } finally {
-      await browser.close();
+      if (page) {
+        try {
+          await page.close();
+        } catch (err) {
+          console.error('Error closing page:', err);
+        }
+      }
+      try {
+        await browser.close();
+      } catch (err) {
+        console.error('Error closing browser:', err);
+      }
     }
   }
 

@@ -1,0 +1,22 @@
+Error generating PDF: TargetCloseError: Protocol error (Page.printToPDF): Target closed
+    at CallbackRegistry.clear (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/common/CallbackRegistry.js:78:36)
+    at CdpCDPSession.onClosed (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/CdpSession.js:111:25)
+    at #onClose (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Connection.js:177:21)
+    at WebSocket.<anonymous> (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/node/NodeWebSocketTransport.js:42:30)
+    at callListener (C:\Locador\compras\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Locador\compras\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Locador\compras\node_modules\ws\lib\websocket.js:272:10)
+    at Receiver.receiverOnFinish (C:\Locador\compras\node_modules\ws\lib\websocket.js:1209:20)
+    at Receiver.emit (node:events:518:28) {
+  cause: ProtocolError
+      at <instance_members_initializer> (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/common/CallbackRegistry.js:98:14)
+      at new Callback (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/common/CallbackRegistry.js:102:16)
+      at CallbackRegistry.create (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/common/CallbackRegistry.js:21:26)
+      at Connection._rawSend (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Connection.js:95:26)
+      at CdpCDPSession.send (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/CdpSession.js:70:33)
+      at CdpPage.createPDFStream (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Page.js:794:63)
+      at async CdpPage.pdf (file:///C:/Locador/compras/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Page.js:822:26)
+      at async PDFService2.generatePurchaseOrderPDF (file:///C:/Locador/compras/index.js:2455:23)
+      at async file:///C:/Locador/compras/index.js:4024:25
+}

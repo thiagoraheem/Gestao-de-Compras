@@ -110,6 +110,17 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 8, 2025. Correção crítica do erro de PDF em produção - sistema robusto de geração de PDF implementado:
+  - ✓ Identificado erro "TargetCloseError: Protocol error (Page.printToPDF): Target closed"
+  - ✓ Implementado sistema robusto de lançamento de browser com retry e fallback
+  - ✓ Adicionados timeouts adequados para todas as operações PDF (30 segundos)
+  - ✓ Melhorada gestão de recursos com fechamento adequado de páginas e browsers
+  - ✓ Implementadas 3 configurações de fallback para lançamento do browser
+  - ✓ Adicionado sistema de retry progressivo com delays entre tentativas
+  - ✓ Logs detalhados para debugging de problemas em produção
+  - ✓ Tratamento de erros robusto para evitar travamentos na geração de PDF
+  - ✓ Aplicado para todos os tipos de PDF: pedido de compra, dashboard e resumo de conclusão
+  - ✓ Configurações específicas para ambientes com recursos limitados
 - July 8, 2025. Correção crítica do erro de produção - arquivo PRODUCTION_DEPLOYMENT.md criado:
   - ✓ Identificado problema: aplicação rodando em produção sem build adequado
   - ✓ Erro "ENOENT: no such file or directory, open 'C:\Locador\client\index.html'" resolvido

@@ -57,6 +57,7 @@ project/
 1. **File not found errors**: Make sure `npm run build` completed successfully
 2. **Static files not served**: Check that `public/` directory exists with `index.html`
 3. **Environment detection**: Ensure `NODE_ENV=production` is set
+4. **PDF generation errors**: The system now includes robust error handling for PDF generation in production environments with limited resources
 
 ## Development vs Production
 
@@ -64,3 +65,14 @@ project/
 - **Production**: Runs `npm start` - uses built files from `dist/` and `public/`
 
 The current Replit environment runs in development mode, which is why it works here.
+
+## PDF Generation in Production
+
+The system now includes robust PDF generation that:
+- Retries browser launch with multiple fallback configurations
+- Handles resource limitations in production environments
+- Provides detailed error logging for debugging
+- Implements proper timeouts and resource cleanup
+- Works with both Chromium and system-installed browsers
+
+If PDF generation still fails in production, check the logs for specific browser launch errors and ensure Chromium or Chrome is properly installed.
