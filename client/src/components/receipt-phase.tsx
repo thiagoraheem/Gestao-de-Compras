@@ -39,29 +39,33 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   // Fetch request items
   const { data: items = [] } = useQuery({
     queryKey: [`/api/purchase-requests/${request.id}/items`],
-    enabled: !!request?.id,
   });
 
   // Fetch approval history
   const { data: approvalHistory = [] } = useQuery({
     queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
-    enabled: !!request?.id,
   });
 
   // Fetch supplier quotations to get selected supplier
   const { data: quotation } = useQuery({
-    queryKey: [`/api/quotations/purchase-request/${request?.id}`],
-    enabled: !!request?.id,
+    queryKey: [`/api/quotations/purchase-request/${request.id}`],
   });
 
   const { data: supplierQuotations = [] } = useQuery({
-    queryKey: [`/api/quotations/${(quotation as any)?.id}/supplier-quotations`],
-    enabled: !!(quotation as any)?.id,
+    queryKey: [`/api/quotations/${quotation?.id}/supplier-quotations`],
+    enabled: !!quotation?.id,
   });
 
   // Get selected supplier quotation
-  const selectedSupplierQuotation = Array.isArray(supplierQuotations) ? 
-    (supplierQuotations as any[]).find((sq: any) => sq.isChosen) : null;
+  const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0];
+  
+  // Debug log to check data
+  console.log('[ReceiptPhase] Data check:', {
+    quotation,
+    supplierQuotationsCount: supplierQuotations.length,
+    selectedSupplierQuotation,
+    hasSupplierData: !!selectedSupplierQuotation?.supplier
+  });
 
   // Fetch supplier quotation items with prices
   const { data: supplierQuotationItems = [] } = useQuery({
@@ -71,8 +75,8 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
 
   // Fetch quotation items to map descriptions
   const { data: quotationItems = [] } = useQuery({
-    queryKey: [`/api/quotations/${(quotation as any)?.id}/items`],
-    enabled: !!(quotation as any)?.id,
+    queryKey: [`/api/quotations/${quotation?.id}/items`],
+    enabled: !!quotation?.id,
   });
 
   // Mutations for receipt actions
