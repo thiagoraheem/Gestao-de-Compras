@@ -64,6 +64,9 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
     quotation,
     supplierQuotationsCount: supplierQuotations.length,
     selectedSupplierQuotation,
+    selectedSupplierQuotationId: selectedSupplierQuotation?.id,
+    supplierQuotationItemsCount: supplierQuotationItems.length,
+    supplierQuotationItems,
     hasSupplierData: !!selectedSupplierQuotation?.supplier
   });
 
@@ -360,9 +363,6 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                     <TableHead className="text-center">Unidade</TableHead>
                     <TableHead className="text-right">Valor Unit.</TableHead>
                     <TableHead className="text-right">Valor Total</TableHead>
-                    <TableHead className="text-center">Marca</TableHead>
-                    <TableHead className="text-center">Prazo</TableHead>
-                    <TableHead>Fornecedor</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -382,15 +382,6 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(item.totalPrice)}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {item.brand || '-'}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {item.deliveryTime || '-'}
-                      </TableCell>
-                      <TableCell>
-                        {item.supplier?.name || 'N/A'}
                       </TableCell>
                     </TableRow>
                   ))}
