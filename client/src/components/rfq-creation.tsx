@@ -74,6 +74,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
     queryKey: [`/api/purchase-requests/${purchaseRequest.id}/items`],
   });
 
+  // Fetch complete purchase request data with requester info
+  const { data: completeRequestData } = useQuery<any>({
+    queryKey: [`/api/purchase-requests/${purchaseRequest.id}`],
+  });
+
   // Fetch existing quotation items if editing
   const { data: existingQuotationItems = [] } = useQuery<any[]>({
     queryKey: [`/api/quotations/${existingQuotation?.id}/items`],
@@ -329,7 +334,14 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Solicitante</Label>
-                  <p className="text-lg">{purchaseRequest.requesterName || purchaseRequest.requesterUsername || 'N/A'}</p>
+                  <p className="text-lg">
+                    {completeRequestData?.requester 
+                      ? `${completeRequestData.requester.firstName} ${completeRequestData.requester.lastName}`.trim() || completeRequestData.requester.username
+                      : completeRequestData?.requesterName 
+                      || purchaseRequest.requesterName 
+                      || purchaseRequest.requesterUsername 
+                      || 'Carregando...'}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Data de Criação</Label>

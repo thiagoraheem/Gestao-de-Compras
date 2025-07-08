@@ -312,13 +312,39 @@ export default function KanbanBoard({
       })
     : [];
 
-  // Group filtered requests by phase
+  // Sort function: First by urgency (Alto > Médio > Baixo), then by date
+  const sortRequestsByPriority = (requests: any[]) => {
+    const urgencyOrder = { 'alto': 1, 'medio': 2, 'baixo': 3 };
+    
+    return [...requests].sort((a, b) => {
+      // First priority: urgency
+      const urgencyA = urgencyOrder[a.urgency as keyof typeof urgencyOrder] || 999;
+      const urgencyB = urgencyOrder[b.urgency as keyof typeof urgencyOrder] || 999;
+      
+      if (urgencyA !== urgencyB) {
+        return urgencyA - urgencyB;
+      }
+      
+      // Second priority: ideal delivery date (earlier dates first)
+      const dateA = new Date(a.idealDeliveryDate);
+      const dateB = new Date(b.idealDeliveryDate);
+      
+      return dateA.getTime() - dateB.getTime();
+    });
+  };
+
+  // Group filtered requests by phase and sort each phase
   const requestsByPhase = filteredRequests.reduce((acc: any, request: any) => {
     const phase = request.currentPhase || PURCHASE_PHASES.SOLICITACAO;
     if (!acc[phase]) acc[phase] = [];
     acc[phase].push(request);
     return acc;
   }, {});
+
+  // Apply sorting to each phase
+  Object.keys(requestsByPhase).forEach(phase => {
+    requestsByPhase[phase] = sortRequestsByPriority(requestsByPhase[phase]);
+  });
 
   const handleCreateRFQ = (request: any) => {
     setSelectedRequestForRFQ(request);

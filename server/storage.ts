@@ -386,35 +386,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined> {
-    // First get the basic purchase request data
-    const [request] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, id));
+    // Get purchase request with complete requester data via JOIN
+    const [request] = await db
+      .select({
+        id: purchaseRequests.id,
+        requestNumber: purchaseRequests.requestNumber,
+        title: purchaseRequests.title,
+        description: purchaseRequests.description,
+        urgency: purchaseRequests.urgency,
+        businessJustification: purchaseRequests.businessJustification,
+        estimatedValue: purchaseRequests.estimatedValue,
+        idealDeliveryDate: purchaseRequests.idealDeliveryDate,
+        currentPhase: purchaseRequests.currentPhase,
+        requesterId: purchaseRequests.requesterId,
+        approverA1Id: purchaseRequests.approverA1Id,
+        approverA2Id: purchaseRequests.approverA2Id,
+        costCenterId: purchaseRequests.costCenterId,
+        createdAt: purchaseRequests.createdAt,
+        updatedAt: purchaseRequests.updatedAt,
+        requester: {
+          id: users.id,
+          username: users.username,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email
+        },
+        // Legacy fields for backwards compatibility
+        requesterName: sql<string>`COALESCE(CONCAT(${users.firstName}, ' ', ${users.lastName}), ${users.username})`,
+        requesterUsername: users.username,
+        requesterEmail: users.email
+      })
+      .from(purchaseRequests)
+      .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
+      .where(eq(purchaseRequests.id, id));
 
-    if (!request) {
-      return undefined;
-    }
-
-    // Then get requester data if exists
-    let requesterData = null;
-    if (request.requesterId) {
-      const [requester] = await db.select().from(users).where(eq(users.id, request.requesterId));
-      if (requester) {
-        requesterData = {
-          requesterName: `${requester.firstName || ''} ${requester.lastName || ''}`.trim(),
-          requesterUsername: requester.username,
-          requesterEmail: requester.email
-        };
-      }
-    }
-
-    // Combine the data
-    const result = {
-      ...request,
-      requesterName: requesterData?.requesterName || '',
-      requesterUsername: requesterData?.requesterUsername || '',
-      requesterEmail: requesterData?.requesterEmail || ''
-    };
-
-    return result as any;
+    return request as any;
   }
 
   async createPurchaseRequest(request: InsertPurchaseRequest): Promise<PurchaseRequest> {
