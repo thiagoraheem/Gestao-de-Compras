@@ -404,23 +404,32 @@ export class DatabaseStorage implements IStorage {
         costCenterId: purchaseRequests.costCenterId,
         createdAt: purchaseRequests.createdAt,
         updatedAt: purchaseRequests.updatedAt,
-        requester: {
-          id: users.id,
-          username: users.username,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email
-        },
         // Legacy fields for backwards compatibility
-        requesterName: sql<string>`COALESCE(CONCAT(${users.firstName}, ' ', ${users.lastName}), ${users.username})`,
-        requesterUsername: users.username,
-        requesterEmail: users.email
+        requesterName: sql<string>`COALESCE(CONCAT(${users.firstName}, ' ', ${users.lastName}), ${users.username}, 'N/A')`,
+        requesterUsername: sql<string>`COALESCE(${users.username}, 'N/A')`,
+        requesterEmail: sql<string>`COALESCE(${users.email}, '')`
       })
       .from(purchaseRequests)
       .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
       .where(eq(purchaseRequests.id, id));
 
-    return request as any;
+    if (!request) {
+      return undefined;
+    }
+
+    // Add requester object for API compatibility
+    const result = {
+      ...request,
+      requester: request.requesterId ? {
+        id: request.requesterId,
+        username: request.requesterUsername,
+        firstName: request.requesterName?.split(' ')[0] || 'N/A',
+        lastName: request.requesterName?.split(' ').slice(1).join(' ') || '',
+        email: request.requesterEmail
+      } : null
+    };
+
+    return result as any;
   }
 
   async createPurchaseRequest(request: InsertPurchaseRequest): Promise<PurchaseRequest> {
