@@ -110,6 +110,19 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 8, 2025. Correção crítica da fase de conclusão - linha do tempo e valores dos itens implementada com sucesso:
+  - ✓ Corrigido problema de valores zerados nos itens da fase de conclusão
+  - ✓ Implementado carregamento correto de itens de cotação do fornecedor selecionado
+  - ✓ Corrigido mapeamento entre itens de solicitação e itens de cotação por descrição
+  - ✓ Melhorado cálculo de valores totais baseado nos preços do fornecedor escolhido
+  - ✓ Corrigida linha do tempo para mostrar informações completas das fases
+  - ✓ Adicionado suporte a labels de fase em português (PHASE_LABELS)
+  - ✓ Melhorado display de aprovadores com nomes completos
+  - ✓ Implementado status visual diferenciado para aprovações e rejeições
+  - ✓ Adicionado tratamento para histórico vazio com mensagem informativa
+  - ✓ Corrigido estado de loading para incluir carregamento de itens de cotação
+  - ✓ Valores agora exibem corretamente R$ 200,00 em vez de R$ 0,00
+  - ✓ Timeline mostra fases como "Aprovação A1", "Cotação (RFQ)" etc. em vez de valores vazios
 - July 8, 2025. Máscara de data brasileira implementada em todos os campos de data:
   - ✓ Criado componente DateInput com formatação brasileira DD/MM/AAAA
   - ✓ Substituído input type="date" por DateInput customizado em todos os formulários

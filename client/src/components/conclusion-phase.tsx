@@ -93,6 +93,15 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
     enabled: !!quotation?.id,
   });
 
+  // Find selected supplier quotation
+  const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0];
+  
+  // Fetch supplier quotation items to get pricing
+  const { data: supplierQuotationItems = [], isLoading: supplierQuotationItemsLoading } = useQuery({
+    queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
+    enabled: !!selectedSupplierQuotation?.id,
+  });
+
   // Archive mutation
   const archiveMutation = useMutation({
     mutationFn: async (data: ArchiveFormData) => {
@@ -184,9 +193,16 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   };
 
   // Calculate metrics
-  const selectedSupplier = supplierQuotations.find(sq => sq.status === 'selected');
+  const selectedSupplier = selectedSupplierQuotation;
   const totalProcessTime = request.createdAt ? differenceInDays(new Date(), new Date(request.createdAt)) : 0;
-  const totalItemsValue = items.reduce((sum: number, item: any) => sum + (item.requestedQuantity * (item.unitPrice || 0)), 0);
+  
+  // Calculate total items value using supplier quotation items
+  const totalItemsValue = supplierQuotationItems.reduce((sum: number, item: any) => {
+    const unitPrice = parseFloat(item.unitPrice) || 0;
+    const quantity = parseFloat(item.quantity) || 0;
+    return sum + (quantity * unitPrice);
+  }, 0);
+  
   const budgetSavings = request.availableBudget ? request.availableBudget - totalItemsValue : 0;
 
   // Get status indicators
@@ -221,7 +237,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
     }
   };
 
-  const isLoading = itemsLoading || approvalHistoryLoading || attachmentsLoading || quotationLoading;
+  const isLoading = itemsLoading || approvalHistoryLoading || attachmentsLoading || quotationLoading || supplierQuotationItemsLoading;
 
   if (isLoading) {
     return (
@@ -546,25 +562,50 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {approvalHistory.map((approval: any, index: number) => (
-                <div key={approval.id} className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <CheckCircle className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium">{approval.phase}</p>
-                      <span className="text-sm text-gray-500">
-                        {format(new Date(approval.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                      </span>
+              {approvalHistory.length > 0 ? (
+                approvalHistory.map((approval: any, index: number) => {
+                  const phaseLabel = PHASE_LABELS[approval.phase] || approval.phase;
+                  const isApproved = approval.approved !== false;
+                  
+                  return (
+                    <div key={approval.id} className="flex items-start gap-4">
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                        isApproved ? 'bg-green-100' : 'bg-red-100'
+                      }`}>
+                        {isApproved ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium">{phaseLabel}</p>
+                          <span className="text-sm text-gray-500">
+                            {format(new Date(approval.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {approval.approverName || approval.approver?.firstName + ' ' + approval.approver?.lastName || 'Sistema Automático'}
+                        </p>
+                        {approval.observations && (
+                          <p className="text-sm text-gray-600 mt-1">{approval.observations}</p>
+                        )}
+                        {approval.rejectionReason && (
+                          <p className="text-sm text-red-600 mt-1">
+                            <strong>Motivo:</strong> {approval.rejectionReason}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-600">{approval.approverName}</p>
-                    {approval.observations && (
-                      <p className="text-sm text-gray-600 mt-1">{approval.observations}</p>
-                    )}
-                  </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8">
+                  <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">Nenhum histórico de aprovação encontrado</p>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -594,8 +635,16 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                 <tbody>
                   {items.map((item: any) => {
                     const status = getItemStatus(item);
-                    const unitPrice = item.unitPrice || 0;
-                    const total = item.requestedQuantity * unitPrice;
+                    
+                    // Find matching supplier quotation item by description
+                    const supplierItem = supplierQuotationItems.find((sqi: any) => 
+                      sqi.description === item.description || 
+                      sqi.itemCode === item.itemCode
+                    );
+                    
+                    const unitPrice = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
+                    const quantity = parseFloat(item.requestedQuantity) || 0;
+                    const total = quantity * unitPrice;
                     
                     return (
                       <tr key={item.id} className="border-b">
@@ -608,8 +657,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                           </div>
                         </td>
                         <td className="py-2">{item.unit}</td>
-                        <td className="text-right py-2">{item.requestedQuantity}</td>
-                        <td className="text-right py-2">{item.requestedQuantity}</td>
+                        <td className="text-right py-2">{quantity}</td>
+                        <td className="text-right py-2">{quantity}</td>
                         <td className="text-right py-2">
                           {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </td>
