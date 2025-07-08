@@ -486,6 +486,100 @@ function generateApprovalA2EmailHTML(approver: User, purchaseRequest: PurchaseRe
 }
 
 // Test email configuration
+export async function notifyRejection(purchaseRequest: PurchaseRequest, rejectionReason: string, approverLevel: 'A1' | 'A2'): Promise<void> {
+  try {
+    // Get requester details
+    let requester = null;
+    if (purchaseRequest.requesterId) {
+      requester = await storage.getUser(purchaseRequest.requesterId);
+    }
+
+    if (!requester || !requester.email) {
+      console.log("Requester not found or no email address");
+      return;
+    }
+
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: config.email.from,
+      to: requester.email,
+      subject: `Solicitação Reprovada - ${purchaseRequest.requestNumber}`,
+      html: generateRejectionEmailHTML(requester, purchaseRequest, rejectionReason, approverLevel),
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Notificação de reprovação enviada para: ${requester.email}`);
+  } catch (error) {
+    console.error("Erro ao notificar reprovação:", error);
+  }
+}
+
+function generateRejectionEmailHTML(requester: any, purchaseRequest: PurchaseRequest, rejectionReason: string, approverLevel: 'A1' | 'A2'): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .header { background: #dc2626; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .details { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
+        .rejection-box { background: #fef2f2; border: 1px solid #dc2626; padding: 15px; border-radius: 4px; margin: 15px 0; }
+        .next-steps { background: #f0f9ff; border: 1px solid #3b82f6; padding: 15px; border-radius: 4px; margin: 15px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Solicitação Reprovada</h1>
+        <h2>${purchaseRequest.requestNumber}</h2>
+      </div>
+      
+      <div class="content">
+        <p>Olá <strong>${requester.firstName || requester.username}</strong>,</p>
+        
+        <p>Sua solicitação de compra foi <strong>reprovada</strong> na fase de Aprovação ${approverLevel}.</p>
+        
+        <div class="rejection-box">
+          <h3>📋 Motivo da Reprovação:</h3>
+          <p><strong>${rejectionReason}</strong></p>
+        </div>
+        
+        <div class="details">
+          <h3>📄 Detalhes da Solicitação:</h3>
+          <ul>
+            <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
+            <li><strong>Categoria:</strong> ${purchaseRequest.category}</li>
+            <li><strong>Urgência:</strong> ${purchaseRequest.urgency}</li>
+            <li><strong>Data da Reprovação:</strong> ${new Date().toLocaleDateString("pt-BR")}</li>
+          </ul>
+        </div>
+        
+        <div class="next-steps">
+          <h3>🔄 Próximos Passos:</h3>
+          <p>Você pode:</p>
+          <ul>
+            <li>Revisar os motivos da reprovação e fazer as correções necessárias</li>
+            <li>Criar uma nova solicitação com as informações atualizadas</li>
+            <li>Entrar em contato com o aprovador para esclarecimentos</li>
+          </ul>
+          <p><a href="${buildRequestUrl(purchaseRequest.id, 'arquivado')}" style="background: #dc2626; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0;">Ver Solicitação</a></p>
+        </div>
+        
+        <p>Em caso de dúvidas, entre em contato com a equipe de compras.</p>
+      </div>
+      
+      <div class="footer">
+        <p>Este é um e-mail automático, não responda.</p>
+        <p>Sistema de Gestão de Compras</p>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
 export async function testEmailConfiguration(): Promise<boolean> {
   try {
     const transporter = createTransporter();

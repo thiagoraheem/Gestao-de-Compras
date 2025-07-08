@@ -36,6 +36,7 @@ interface Item {
   unit: string;
   requestedQuantity: number;
   estimatedPrice?: number;
+  technicalSpecification?: string;
 }
 
 interface EnhancedNewRequestModalProps {
@@ -108,6 +109,7 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
       unit: "UN",
       requestedQuantity: 1,
       estimatedPrice: 0,
+      technicalSpecification: "",
     };
     setManualItems([...manualItems, newItem]);
   };
@@ -358,7 +360,7 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                       <div className="space-y-3">
                         {manualItems.map((item) => (
                           <Card key={item.id} className="p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
                               <div>
                                 <label className="text-sm font-medium">Nº Item</label>
                                 <Input
@@ -412,6 +414,16 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                                   <X className="w-4 h-4" />
                                 </Button>
                               </div>
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium">Especificação Técnica</label>
+                              <Textarea
+                                value={item.technicalSpecification || ''}
+                                onChange={(e) => updateManualItem(item.id, 'technicalSpecification', e.target.value)}
+                                placeholder="Especificações técnicas detalhadas (marca, modelo, características, etc.)"
+                                rows={2}
+                                className="mt-1"
+                              />
                             </div>
                           </Card>
                         ))}

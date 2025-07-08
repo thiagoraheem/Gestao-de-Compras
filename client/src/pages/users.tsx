@@ -31,6 +31,7 @@ const userSchema = z.object({
   isApproverA2: z.boolean().default(false),
   isAdmin: z.boolean().default(false),
   isManager: z.boolean().default(false),
+  isReceiver: z.boolean().default(false),
 }).refine((data) => {
   // Password is required only when creating a new user
   if (!data.password || data.password === "") {
@@ -77,6 +78,7 @@ export default function UsersPage() {
       isApproverA2: false,
       isAdmin: false,
       isManager: false,
+      isReceiver: false,
     },
   });
 
@@ -149,6 +151,7 @@ export default function UsersPage() {
       isApproverA2: user.isApproverA2 || false,
       isAdmin: user.isAdmin || false,
       isManager: user.isManager || false,
+      isReceiver: user.isReceiver || false,
     });
     setIsModalOpen(true);
   };
@@ -506,6 +509,27 @@ export default function UsersPage() {
                               <FormLabel className="text-sm font-medium">É Gerente</FormLabel>
                               <p className="text-xs text-muted-foreground">
                                 Pode acessar dashboard executivo
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="isReceiver"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="flex-1 space-y-1">
+                              <FormLabel className="text-sm font-medium">É Recebedor</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Pode acessar fase de recebimento de materiais
                               </p>
                             </div>
                           </FormItem>

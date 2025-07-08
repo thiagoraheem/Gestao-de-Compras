@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Building2, Package, Calendar, Eye, Plus, Clock, CheckCircle, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import RFQCreation from "./rfq-creation";
 import RFQAnalysis from "./rfq-analysis";
 import SupplierComparison from "./supplier-comparison";
@@ -59,6 +61,26 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
     name: string;
   } | null>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Mark supplier as no response
+  const markSupplierAsNoResponse = async (supplierQuotationId: number) => {
+    try {
+      await apiRequest("PUT", `/api/supplier-quotations/${supplierQuotationId}/mark-no-response`);
+      toast({
+        title: "Fornecedor marcado",
+        description: "Fornecedor marcado como não respondeu com sucesso.",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/${quotation?.id}/supplier-quotations`] });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível marcar o fornecedor como não respondeu.",
+        variant: "destructive",
+      });
+    }
+  };
   
 
 
@@ -263,11 +285,13 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                           <Badge variant={
                             sq.status === 'received' ? 'default' : 
                             sq.status === 'sent' ? 'secondary' : 
-                            sq.status === 'expired' ? 'destructive' : 'outline'
+                            sq.status === 'expired' ? 'destructive' : 
+                            sq.status === 'no_response' ? 'destructive' : 'outline'
                           }>
                             {sq.status === 'pending' && 'Pendente'}
                             {sq.status === 'sent' && 'Enviada'}
                             {sq.status === 'received' && 'Recebida'}
+                            {sq.status === 'no_response' && 'Não Respondeu'}
                             {sq.status === 'expired' && 'Expirada'}
                           </Badge>
                         </div>
@@ -277,22 +301,31 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                             {sq.totalValue ? `R$ ${parseFloat(sq.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'}
                           </p>
                         </div>
-                        <div className="flex justify-end">
-                          {sq.status !== 'received' && user?.isBuyer && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setSelectedSupplierForUpdate({
-                                  id: (sq as any).supplierId || sq.id,
-                                  name: sq.supplier?.name || 'Fornecedor'
-                                });
-                                setShowUpdateQuotation(true);
-                              }}
-                              className="bg-blue-600 hover:bg-blue-700"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Marcar como Recebida
-                            </Button>
+                        <div className="flex justify-end space-x-2">
+                          {sq.status !== 'received' && sq.status !== 'no_response' && user?.isBuyer && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedSupplierForUpdate({
+                                    id: (sq as any).supplierId || sq.id,
+                                    name: sq.supplier?.name || 'Fornecedor'
+                                  });
+                                  setShowUpdateQuotation(true);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Marcar como Recebida
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => markSupplierAsNoResponse(sq.id)}
+                              >
+                                Não Respondeu
+                              </Button>
+                            </>
                           )}
                           {sq.status === 'received' && (
                             <div className="text-sm text-green-600 font-medium">

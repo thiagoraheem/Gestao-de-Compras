@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { sendRFQToSuppliers, notifyNewRequest, notifyApprovalA1, notifyApprovalA2, testEmailConfiguration } from "./email-service";
+import { sendRFQToSuppliers, notifyNewRequest, notifyApprovalA1, notifyApprovalA2, notifyRejection, testEmailConfiguration } from "./email-service";
 import { 
   insertUserSchema, 
   insertDepartmentSchema, 
@@ -460,6 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: item.description || '',
           unit: item.unit || '',
           requestedQuantity: item.requestedQuantity || 0,
+          technicalSpecification: item.technicalSpecification || null,
           approvedQuantity: undefined
         }));
       }
@@ -644,6 +645,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
+      
+      // Send rejection notification email if request was rejected
+      if (!approved && rejectionReason) {
+        await notifyRejection(updatedRequest, rejectionReason, 'A1');
+      }
+      
       res.json(updatedRequest);
     } catch (error) {
       if (error instanceof Error) {
@@ -712,6 +719,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
+      
+      // Send rejection notification email if request was rejected
+      if (!approved && rejectionReason) {
+        await notifyRejection(updatedRequest, rejectionReason, 'A2');
+      }
+      
       res.json(updatedRequest);
     } catch (error) {
       console.error("Error approving A2:", error);
@@ -719,7 +732,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/purchase-requests/:id/confirm-receipt", isAuthenticated, async (req, res) => {
+  // Mark supplier as no response
+  app.post("/api/supplier-quotations/:id/mark-no-response", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const supplierQuotation = await storage.updateSupplierQuotation(id, {
+        status: "no_response",
+        updatedAt: new Date()
+      });
+      res.json(supplierQuotation);
+    } catch (error) {
+      console.error("Error marking supplier as no response:", error);
+      res.status(400).json({ message: "Failed to mark supplier as no response" });
+    }
+  });
+
+  // Get selected supplier for A2 approval
+  app.get("/api/purchase-requests/:id/selected-supplier", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Get quotation for this purchase request
+      const quotations = await storage.getQuotationsByPurchaseRequest(id);
+      if (!quotations || quotations.length === 0) {
+        return res.json(null);
+      }
+      
+      const quotation = quotations[0];
+      
+      // Get supplier quotations for this quotation
+      const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+      const selectedSupplier = supplierQuotations.find(sq => sq.isChosen);
+      
+      if (!selectedSupplier) {
+        return res.json(null);
+      }
+      
+      // Get supplier details
+      const supplier = await storage.getSupplier(selectedSupplier.supplierId);
+      
+      // Get supplier quotation items
+      const items = await storage.getSupplierQuotationItems(selectedSupplier.id);
+      
+      res.json({
+        supplier,
+        quotation: selectedSupplier,
+        items,
+        choiceReason: selectedSupplier.choiceReason
+      });
+    } catch (error) {
+      console.error("Error getting selected supplier:", error);
+      res.status(500).json({ message: "Failed to get selected supplier" });
+    }
+  });
+
+  // Add isReceiver permission check middleware
+  async function isReceiver(req: Request, res: Response, next: Function) {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const user = await storage.getUser(req.session.userId);
+    if (!user?.isReceiver && !user?.isAdmin) {
+      return res.status(403).json({ message: "Acesso negado: permissão de recebimento necessária" });
+    }
+    
+    next();
+  }
+
+  app.post("/api/purchase-requests/:id/confirm-receipt", isAuthenticated, isReceiver, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { receivedById } = req.body;
@@ -1590,6 +1671,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching supplier comparison:", error);
       res.status(500).json({ message: "Failed to fetch supplier comparison" });
+    }
+  });
+
+  // Rota para marcar fornecedor como não respondeu
+  app.put("/api/supplier-quotations/:id/mark-no-response", isAuthenticated, async (req, res) => {
+    try {
+      const supplierQuotationId = parseInt(req.params.id);
+      
+      const updatedSupplierQuotation = await storage.updateSupplierQuotation(supplierQuotationId, {
+        status: 'no_response'
+      });
+      
+      res.json(updatedSupplierQuotation);
+    } catch (error) {
+      console.error("Error marking supplier as no response:", error);
+      res.status(500).json({ message: "Failed to mark supplier as no response" });
     }
   });
 

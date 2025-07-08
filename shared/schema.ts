@@ -28,6 +28,7 @@ export const users = pgTable("users", {
   isApproverA2: boolean("is_approver_a2").default(false),
   isAdmin: boolean("is_admin").default(false),
   isManager: boolean("is_manager").default(false),
+  isReceiver: boolean("is_receiver").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -139,6 +140,7 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   averageMonthlyQuantity: decimal("average_monthly_quantity", { precision: 10, scale: 2 }),
   requestedQuantity: decimal("requested_quantity", { precision: 10, scale: 2 }).notNull(),
   approvedQuantity: decimal("approved_quantity", { precision: 10, scale: 2 }),
+  technicalSpecification: text("technical_specification"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -207,13 +209,15 @@ export const supplierQuotations = pgTable("supplier_quotations", {
   id: serial("id").primaryKey(),
   quotationId: integer("quotation_id").references(() => quotations.id).notNull(),
   supplierId: integer("supplier_id").references(() => suppliers.id).notNull(),
-  status: text("status").notNull().default("pending"), // pending, sent, received, expired, cancelled
+  status: text("status").notNull().default("pending"), // pending, sent, received, expired, cancelled, no_response
   sentAt: timestamp("sent_at"),
   receivedAt: timestamp("received_at"),
   totalValue: decimal("total_value", { precision: 15, scale: 2 }),
   paymentTerms: text("payment_terms"),
   deliveryTerms: text("delivery_terms"),
   observations: text("observations"),
+  isChosen: boolean("is_chosen").default(false),
+  choiceReason: text("choice_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
