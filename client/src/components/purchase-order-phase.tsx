@@ -79,7 +79,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   // Buscar items do fornecedor selecionado para obter preços
   const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0];
   
-  const { data: supplierQuotationItems = [] } = useQuery<any[]>({
+  const { data: supplierQuotationItems = [], isLoading: isLoadingSupplierItems } = useQuery<any[]>({
     queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
     enabled: !!selectedSupplierQuotation?.id,
   });
@@ -89,6 +89,8 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     queryKey: [`/api/suppliers/${selectedSupplierQuotation?.supplierId}`],
     enabled: !!selectedSupplierQuotation?.supplierId,
   });
+
+
 
   // Mutation para salvar observações
   const updateRequestMutation = useMutation({
@@ -354,59 +356,93 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
           <CardTitle>Itens Solicitados</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {itemsWithPrices.map((item: any, index: number) => (
-              <div key={index} className="flex justify-between items-center p-3 border rounded-lg">
-                <div className="flex-1">
-                  <div className="font-medium">{item.itemCode} - {item.description}</div>
-                  <div className="text-sm text-muted-foreground">
-                    Quantidade: {item.requestedQuantity} {item.unit || 'UND'}
-                  </div>
-                  {item.specifications && (
-                    <div className="text-sm text-muted-foreground">
-                      Especificações: {item.specifications}
-                    </div>
-                  )}
-                  {item.brand && (
-                    <div className="text-sm text-muted-foreground">
-                      Marca: {item.brand}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">
-                    R$ {typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Total: R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}
-                  </div>
-                </div>
-              </div>
-            ))}
-            <Separator />
-            <div className="flex justify-between items-center font-bold text-lg">
-              <span>Total Geral:</span>
-              <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
+          {isLoadingSupplierItems ? (
+            <div className="text-center py-4">Carregando itens...</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-200">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-200 px-4 py-2 text-left">Item</th>
+                    <th className="border border-gray-200 px-4 py-2 text-center">Qtd.</th>
+                    <th className="border border-gray-200 px-4 py-2 text-center">Unidade</th>
+                    <th className="border border-gray-200 px-4 py-2 text-center">Valor Unit.</th>
+                    <th className="border border-gray-200 px-4 py-2 text-center">Valor Total</th>
+                    <th className="border border-gray-200 px-4 py-2 text-center">Marca</th>
+                    <th className="border border-gray-200 px-4 py-2 text-center">Prazo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {itemsWithPrices.map((item: any, index: number) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="border border-gray-200 px-4 py-2">
+                        <div className="font-medium">{item.description}</div>
+                        {item.specifications && (
+                          <div className="text-sm text-muted-foreground">
+                            Especificações: {item.specifications}
+                          </div>
+                        )}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2 text-center">
+                        {item.requestedQuantity}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2 text-center">
+                        {item.unit || 'UND'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2 text-center">
+                        R$ {typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2 text-center font-medium">
+                        R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2 text-center">
+                        {item.brand || '-'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2 text-center">
+                        {item.deliveryTime || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50 font-bold">
+                    <td className="border border-gray-200 px-4 py-2" colSpan={4}>
+                      Total Geral:
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center">
+                      R$ {subtotal.toFixed(2).replace('.', ',')}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Fornecedor Selecionado */}
-      {selectedSupplier && (
+      {selectedSupplier && selectedSupplierQuotation && (
         <Card>
           <CardHeader>
-            <CardTitle>Fornecedor Selecionado</CardTitle>
+            <CardTitle>Fornecedor Vencedor</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div><span className="font-medium">Nome:</span> {selectedSupplier.supplierName}</div>
-              <div><span className="font-medium">Valor Total:</span> R$ {selectedSupplier.totalValue?.replace('.', ',')}</div>
-              <div><span className="font-medium">Prazo de Entrega:</span> {selectedSupplier.deliveryDays} dias</div>
-              <div><span className="font-medium">Condições de Pagamento:</span> {selectedSupplier.paymentTerms}</div>
-              {selectedSupplier.observations && (
-                <div><span className="font-medium">Observações:</span> {selectedSupplier.observations}</div>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div><span className="font-medium">Nome:</span> {selectedSupplier.name}</div>
+                <div><span className="font-medium">E-mail:</span> {selectedSupplier.email}</div>
+                <div><span className="font-medium">Telefone:</span> {selectedSupplier.phone}</div>
+                <div><span className="font-medium">CNPJ:</span> {selectedSupplier.cnpj}</div>
+              </div>
+              <div className="space-y-2">
+                <div><span className="font-medium">Valor Total da Proposta:</span> R$ {selectedSupplierQuotation.totalValue?.replace('.', ',')}</div>
+                <div><span className="font-medium">Prazo de Entrega:</span> {selectedSupplierQuotation.deliveryDays} dias</div>
+                <div><span className="font-medium">Condições de Pagamento:</span> {selectedSupplierQuotation.paymentTerms}</div>
+                {selectedSupplierQuotation.observations && (
+                  <div><span className="font-medium">Observações:</span> {selectedSupplierQuotation.observations}</div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
