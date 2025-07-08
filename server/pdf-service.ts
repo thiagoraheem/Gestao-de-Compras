@@ -292,7 +292,7 @@ export class PDFService {
     const { purchaseRequest, items, supplier, approvalHistory } = data;
     
     // Calcular totais
-    const subtotal = items.reduce((sum, item) => sum + (item.unitPrice * item.requestedQuantity), 0);
+    const subtotal = items.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
     const desconto = 0; // Por enquanto zero, pode ser implementado depois
     const valorFinal = subtotal - desconto;
     
@@ -483,10 +483,10 @@ export class PDFService {
             <td class="text-center">${item.requestedQuantity}</td>
             <td class="text-center">${item.unit || 'UND'}</td>
             <td>${item.itemCode} - ${item.description}</td>
-            <td class="text-right">R$ ${item.unitPrice?.toFixed(2).replace('.', ',') || '0,00'}</td>
-            <td class="text-right">R$ ${(item.unitPrice * item.requestedQuantity || 0).toFixed(2).replace('.', ',')}</td>
+            <td class="text-right">R$ ${typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}</td>
+            <td class="text-right">R$ ${typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}</td>
             <td class="text-right">R$ 0,00</td>
-            <td class="text-right">R$ ${(item.unitPrice * item.requestedQuantity || 0).toFixed(2).replace('.', ',')}</td>
+            <td class="text-right">R$ ${typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}</td>
             <td>${item.specifications || ''}</td>
           </tr>
         `).join('')}
@@ -597,10 +597,10 @@ export class PDFService {
             if (supplierItem) {
               return {
                 ...item,
-                unitPrice: supplierItem.unitPrice || 0,
+                unitPrice: Number(supplierItem.unitPrice) || 0,
                 brand: supplierItem.brand || '',
                 deliveryTime: supplierItem.deliveryTime || '',
-                totalPrice: (supplierItem.unitPrice || 0) * (item.requestedQuantity || 1)
+                totalPrice: (Number(supplierItem.unitPrice) || 0) * (Number(item.requestedQuantity) || 1)
               };
             }
           }

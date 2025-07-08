@@ -110,7 +110,7 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
-- July 8, 2025. Correção crítica dos valores zerados na fase Pedido de Compra e sistema de PDF implementada com sucesso:
+- July 8, 2025. Correção crítica dos valores zerados na fase Pedido de Compra e sistema de PDF implementada com sucesso e erro de geração de PDF corrigido:
   - ✓ Corrigido problema de valores zerados nos itens da fase Pedido de Compra
   - ✓ Implementado sistema de combinação de itens com preços do fornecedor selecionado
   - ✓ Corrigido cálculo de valores totais baseado nos preços dos itens do fornecedor
@@ -121,6 +121,11 @@ Key entities include:
   - ✓ Implementado sistema de fallback para geração de PDF em caso de falha
   - ✓ Aplicado correções tanto para PDF do dashboard quanto para pedido de compra
   - ✓ Valores agora são exibidos corretamente nos cards e PDFs gerados
+  - ✓ Corrigido erro "unitPrice.toFixed is not a function" tanto na interface quanto no PDF service
+  - ✓ Implementado verificação de tipo adequada para valores numéricos
+  - ✓ Corrigido mapeamento entre itens de solicitação e cotação usando descrições
+  - ✓ Aplicado Number() conversion para garantir cálculos corretos de subtotal
+  - ✓ PDF e interface agora mostram valores R$ 200,00 corretamente para cada item
 - July 8, 2025. Correção crítica do erro de database query em send-to-approval implementada com sucesso:
   - ✓ Corrigido erro "Cannot convert undefined or null to object" no getPurchaseRequestById
   - ✓ Refatorado método para usar queries separadas em vez de JOINs complexos do Drizzle
