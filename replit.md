@@ -110,6 +110,24 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 8, 2025. Máscara de data brasileira implementada em todos os campos de data:
+  - ✓ Criado componente DateInput com formatação brasileira DD/MM/AAAA
+  - ✓ Substituído input type="date" por DateInput customizado em todos os formulários
+  - ✓ Atualizado modal de nova solicitação com máscara de data brasileira
+  - ✓ Atualizado modal de nova solicitação aprimorado com máscara de data brasileira
+  - ✓ Atualizado modal de edição para campos de data de entrega e prazo ideal
+  - ✓ Atualizado formulário de criação de RFQ para prazo de cotação e entrega de itens
+  - ✓ Implementada conversão automática entre formato de exibição (DD/MM/AAAA) e formato ISO para banco
+  - ✓ Adicionada validação de data para garantir datas válidas
+  - ✓ Campos de data agora seguem padrão brasileiro como solicitado pelo usuário
+- July 8, 2025. Migração completa do Replit Agent para ambiente Replit realizada com sucesso:
+  - ✓ Verificação de pacotes instalados e dependências
+  - ✓ Confirmação de funcionamento da aplicação no ambiente Replit
+  - ✓ Banco de dados PostgreSQL inicializado com dados padrão
+  - ✓ Servidor Express rodando corretamente na porta 5000
+  - ✓ Interface React funcionando com hot-reload
+  - ✓ Sistema de autenticação operacional
+  - ✓ Todos os endpoints da API respondendo adequadamente
 - July 8, 2025. Correção crítica dos valores zerados na fase Pedido de Compra e sistema de PDF implementada com sucesso e erro de geração de PDF corrigido:
   - ✓ Corrigido problema de valores zerados nos itens da fase Pedido de Compra
   - ✓ Implementado sistema de combinação de itens com preços do fornecedor selecionado

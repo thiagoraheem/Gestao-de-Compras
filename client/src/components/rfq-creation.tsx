@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DateInput } from "@/components/ui/date-input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -357,7 +358,12 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                     <FormItem>
                       <FormLabel>Prazo para Envio de Cotações</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <DateInput
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          placeholder="DD/MM/AAAA"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -496,9 +502,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                             <FormItem>
                               <FormLabel className="text-blue-600 font-medium">Prazo de Entrega *</FormLabel>
                               <FormControl>
-                                <Input 
-                                  type="date" 
-                                  {...field} 
+                                <DateInput
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  onBlur={field.onBlur}
+                                  placeholder="DD/MM/AAAA"
                                   className="bg-white border-blue-300 focus:border-blue-500"
                                 />
                               </FormControl>

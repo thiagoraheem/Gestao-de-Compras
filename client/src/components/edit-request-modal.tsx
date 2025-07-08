@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { DateInput } from "@/components/ui/date-input";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { URGENCY_LEVELS, CATEGORY_OPTIONS, URGENCY_LABELS, CATEGORY_LABELS, PURCHASE_PHASES, PHASE_LABELS, PurchasePhase } from "@/lib/types";
@@ -327,7 +328,12 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
                 <FormItem>
                   <FormLabel>Data de Entrega</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <DateInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      placeholder="DD/MM/AAAA"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -504,7 +510,12 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
                     <FormItem>
                       <FormLabel>Prazo Ideal de Entrega</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <DateInput
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          placeholder="DD/MM/AAAA"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

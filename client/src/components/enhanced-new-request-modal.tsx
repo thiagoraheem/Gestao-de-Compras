@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DateInput } from "@/components/ui/date-input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
@@ -272,7 +273,12 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                       <FormItem>
                         <FormLabel>Prazo Ideal de Entrega</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                          <DateInput
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            placeholder="DD/MM/AAAA"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
