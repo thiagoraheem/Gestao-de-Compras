@@ -159,25 +159,16 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         sqi.itemCode === item.itemCode
       );
       
-      if (supplierItem) {
-        const unitPrice = parseFloat(supplierItem.unitPrice) || 0;
-        const quantity = parseFloat(item.requestedQuantity) || 0;
-        return {
-          ...item,
-          unitPrice: unitPrice,
-          totalPrice: unitPrice * quantity,
-          brand: supplierItem.brand || '',
-          deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
-          supplier: selectedSupplierQuotation?.supplier
-        };
-      }
+      const unitPrice = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
+      const quantity = parseFloat(item.requestedQuantity) || 0;
+      const totalPrice = quantity * unitPrice;
       
       return {
         ...item,
-        unitPrice: 0,
-        totalPrice: 0,
-        brand: '',
-        deliveryTime: '',
+        unitPrice: unitPrice,
+        totalPrice: totalPrice,
+        brand: supplierItem?.brand || '',
+        deliveryTime: supplierItem?.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
         supplier: selectedSupplierQuotation?.supplier
       };
     });

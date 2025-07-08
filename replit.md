@@ -110,7 +110,7 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
-- July 8, 2025. Migração completa do Replit Agent para Replit implementada com sucesso:
+- July 8, 2025. Migração completa do Replit Agent para Replit implementada com sucesso (migração finalizada):
   - ✓ Corrigido erro crítico de sintaxe no PDF service que impedia build de produção
   - ✓ Removido código duplicado e estruturas try/catch malformadas
   - ✓ Sistema de build agora funciona corretamente com npm run build
@@ -129,6 +129,8 @@ Key entities include:
   - ✓ Exibição em formato de tabela dos itens com valores unitários e totais na aprovação A2
   - ✓ Informações detalhadas do fornecedor: nome, email, telefone, CNPJ, condições de pagamento
   - ✓ Justificativa da escolha do fornecedor exibida em ambas as telas (aprovação e recebimento)
+  - ✓ Corrigido problema na tela de Recebimento de Material onde informações do fornecedor apareciam como N/A
+  - ✓ Tela de Recebimento agora exibe dados corretos do fornecedor selecionado igual à tela de Conclusão
 - July 8, 2025. Correção crítica do erro de PDF em produção - sistema robusto de geração de PDF implementado:
   - ✓ Identificado erro "TargetCloseError: Protocol error (Page.printToPDF): Target closed"
   - ✓ Implementado sistema robusto de lançamento de browser com retry e fallback
