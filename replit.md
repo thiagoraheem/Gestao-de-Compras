@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 8, 2025. Correção crítica do erro de database query em send-to-approval implementada com sucesso:
+  - ✓ Corrigido erro "Cannot convert undefined or null to object" no getPurchaseRequestById
+  - ✓ Refatorado método para usar queries separadas em vez de JOINs complexos do Drizzle
+  - ✓ Melhorado tratamento de dados de usuário nulos/indefinidos
+  - ✓ Sistema de envio para aprovação A1 totalmente funcional
+  - ✓ Erro que impedia movimentação de cards para aprovação resolvido
+  - ✓ Migração completa para ambiente Replit finalizada com sucesso
 - July 8, 2025. Remoção do campo "Orçamento Disponível" e seção de anexos da RFQ implementada com sucesso:
   - ✓ Removido campo "availableBudget" de todos os formulários de criação de solicitação
   - ✓ Campo removido de new-request-modal.tsx, enhanced-new-request-modal.tsx e edit-request-modal.tsx

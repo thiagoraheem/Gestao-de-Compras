@@ -386,47 +386,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined> {
-    // Get purchase request with complete requester data via JOIN
+    // First get the purchase request
     const [request] = await db
-      .select({
-        id: purchaseRequests.id,
-        requestNumber: purchaseRequests.requestNumber,
-        title: purchaseRequests.title,
-        description: purchaseRequests.description,
-        urgency: purchaseRequests.urgency,
-        businessJustification: purchaseRequests.businessJustification,
-        estimatedValue: purchaseRequests.estimatedValue,
-        idealDeliveryDate: purchaseRequests.idealDeliveryDate,
-        currentPhase: purchaseRequests.currentPhase,
-        requesterId: purchaseRequests.requesterId,
-        approverA1Id: purchaseRequests.approverA1Id,
-        approverA2Id: purchaseRequests.approverA2Id,
-        costCenterId: purchaseRequests.costCenterId,
-        createdAt: purchaseRequests.createdAt,
-        updatedAt: purchaseRequests.updatedAt,
-        // Legacy fields for backwards compatibility
-        requesterName: sql<string>`COALESCE(CONCAT(${users.firstName}, ' ', ${users.lastName}), ${users.username}, 'N/A')`,
-        requesterUsername: sql<string>`COALESCE(${users.username}, 'N/A')`,
-        requesterEmail: sql<string>`COALESCE(${users.email}, '')`
-      })
+      .select()
       .from(purchaseRequests)
-      .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
       .where(eq(purchaseRequests.id, id));
 
     if (!request) {
       return undefined;
     }
 
-    // Add requester object for API compatibility
+    // Then get the requester data separately if requesterId exists
+    let requester = null;
+    let requesterName = "N/A";
+    let requesterUsername = "N/A";
+    let requesterEmail = "";
+
+    if (request.requesterId) {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, request.requesterId));
+
+      if (user) {
+        requester = {
+          id: user.id,
+          username: user.username,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email
+        };
+        requesterName = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.username;
+        requesterUsername = user.username;
+        requesterEmail = user.email || '';
+      }
+    }
+
+    // Return the complete object with all necessary fields
     const result = {
       ...request,
-      requester: request.requesterId ? {
-        id: request.requesterId,
-        username: request.requesterUsername,
-        firstName: request.requesterName?.split(' ')[0] || 'N/A',
-        lastName: request.requesterName?.split(' ').slice(1).join(' ') || '',
-        email: request.requesterEmail
-      } : null
+      requester,
+      requesterName,
+      requesterUsername,
+      requesterEmail
     };
 
     return result as any;
