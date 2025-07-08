@@ -77,7 +77,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   });
 
   // Buscar items do fornecedor selecionado para obter preços
-  const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.selectedSupplier) || supplierQuotations[0];
+  const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0];
   
   const { data: supplierQuotationItems = [] } = useQuery<any[]>({
     queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
@@ -180,15 +180,35 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     updateRequestMutation.mutate(data);
   };
 
+  // Buscar itens da cotação para fazer a correspondência
+  const { data: quotationItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/quotations/${quotation?.id}/items`],
+    enabled: !!quotation?.id,
+  });
+
   // Combinar itens com preços do fornecedor selecionado
   const itemsWithPrices = Array.isArray(items) ? items.map(item => {
-    const supplierItem = supplierQuotationItems.find((si: any) => si.quotationItemId === item.id);
+    // Encontrar o item correspondente na cotação pela descrição
+    const quotationItem = quotationItems.find((qi: any) => qi.description === item.description);
+    if (quotationItem) {
+      // Encontrar o preço do fornecedor para este item da cotação
+      const supplierItem = supplierQuotationItems.find((si: any) => si.quotationItemId === quotationItem.id);
+      if (supplierItem) {
+        return {
+          ...item,
+          unitPrice: supplierItem.unitPrice || 0,
+          totalPrice: (supplierItem.unitPrice || 0) * (item.requestedQuantity || 1),
+          brand: supplierItem.brand || '',
+          deliveryTime: supplierItem.deliveryTime || ''
+        };
+      }
+    }
     return {
       ...item,
-      unitPrice: supplierItem?.unitPrice || 0,
-      totalPrice: (supplierItem?.unitPrice || 0) * (item.requestedQuantity || 1),
-      brand: supplierItem?.brand || '',
-      deliveryTime: supplierItem?.deliveryTime || ''
+      unitPrice: 0,
+      totalPrice: 0,
+      brand: '',
+      deliveryTime: ''
     };
   }) : [];
 
@@ -199,7 +219,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
 
   // Encontrar fornecedor selecionado
   const selectedSupplier = Array.isArray(supplierQuotations) ? 
-    (supplierQuotations.find((sq: any) => sq.selectedSupplier) || supplierQuotations[0]) : null;
+    (supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0]) : null;
 
   // Organizar histórico de aprovações
   const aprovacaoA1 = Array.isArray(approvalHistory) ? 

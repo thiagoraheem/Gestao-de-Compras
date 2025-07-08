@@ -575,8 +575,8 @@ export class PDFService {
     const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
     if (quotation) {
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
-      // Buscar o fornecedor selecionado (selectedSupplier = true)
-      const selectedSupplierQuotation = supplierQuotations.find(sq => sq.selectedSupplier) || supplierQuotations[0];
+      // Buscar o fornecedor selecionado (is_chosen = true)
+      const selectedSupplierQuotation = supplierQuotations.find(sq => sq.isChosen) || supplierQuotations[0];
       
       if (selectedSupplierQuotation) {
         supplier = await storage.getSupplierById(selectedSupplierQuotation.supplierId);
@@ -584,15 +584,32 @@ export class PDFService {
         // Buscar os itens do fornecedor selecionado com preços
         const supplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
         
+        // Primeiro, buscar os itens da cotação
+        const quotationItems = await storage.getQuotationItems(quotation.id);
+        
         // Combinar os itens da solicitação com os preços do fornecedor
         itemsWithPrices = items.map(item => {
-          const supplierItem = supplierItems.find(si => si.quotationItemId === item.id);
+          // Encontrar o item correspondente na cotação
+          const quotationItem = quotationItems.find(qi => qi.description === item.description);
+          if (quotationItem) {
+            // Encontrar o preço do fornecedor para este item da cotação
+            const supplierItem = supplierItems.find(si => si.quotationItemId === quotationItem.id);
+            if (supplierItem) {
+              return {
+                ...item,
+                unitPrice: supplierItem.unitPrice || 0,
+                brand: supplierItem.brand || '',
+                deliveryTime: supplierItem.deliveryTime || '',
+                totalPrice: (supplierItem.unitPrice || 0) * (item.requestedQuantity || 1)
+              };
+            }
+          }
           return {
             ...item,
-            unitPrice: supplierItem?.unitPrice || 0,
-            brand: supplierItem?.brand || '',
-            deliveryTime: supplierItem?.deliveryTime || '',
-            totalPrice: (supplierItem?.unitPrice || 0) * (item.requestedQuantity || 1)
+            unitPrice: 0,
+            brand: '',
+            deliveryTime: '',
+            totalPrice: 0
           };
         });
       }
