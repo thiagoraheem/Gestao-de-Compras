@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { X, Check, Package, User, Building, Calendar, DollarSign } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -48,6 +56,22 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
 
   const { data: supplierQuotations = [] } = useQuery({
     queryKey: [`/api/quotations/${(quotation as any)?.id}/supplier-quotations`],
+    enabled: !!(quotation as any)?.id,
+  });
+
+  // Get selected supplier quotation
+  const selectedSupplierQuotation = Array.isArray(supplierQuotations) ? 
+    (supplierQuotations as any[]).find((sq: any) => sq.isChosen) : null;
+
+  // Fetch supplier quotation items with prices
+  const { data: supplierQuotationItems = [] } = useQuery({
+    queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
+    enabled: !!selectedSupplierQuotation?.id,
+  });
+
+  // Fetch quotation items to map descriptions
+  const { data: quotationItems = [] } = useQuery({
+    queryKey: [`/api/quotations/${(quotation as any)?.id}/items`],
     enabled: !!(quotation as any)?.id,
   });
 
@@ -120,8 +144,50 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   };
 
   // Get selected supplier from quotations
-  const selectedSupplier = Array.isArray(supplierQuotations) ? 
-    (supplierQuotations as any[]).find((sq: any) => sq.isSelected) : null;
+  const selectedSupplier = selectedSupplierQuotation;
+
+  // Combine items with supplier quotation data
+  const itemsWithPrices = useMemo(() => {
+    if (!Array.isArray(items) || !Array.isArray(quotationItems) || !Array.isArray(supplierQuotationItems)) {
+      return [];
+    }
+
+    return (items as any[]).map((item: any) => {
+      // Find matching quotation item by description
+      const quotationItem = (quotationItems as any[]).find((qi: any) => 
+        qi.description?.trim() === item.description?.trim()
+      );
+      
+      if (quotationItem) {
+        // Find supplier pricing for this quotation item
+        const supplierItem = (supplierQuotationItems as any[]).find((sqi: any) => 
+          sqi.quotationItemId === quotationItem.id
+        );
+        
+        if (supplierItem) {
+          const unitPrice = Number(supplierItem.unitPrice) || 0;
+          const quantity = Number(item.requestedQuantity) || 1;
+          return {
+            ...item,
+            unitPrice: unitPrice,
+            totalPrice: unitPrice * quantity,
+            brand: supplierItem.brand || '',
+            deliveryDays: supplierItem.deliveryDays || '',
+            supplier: selectedSupplier?.supplier
+          };
+        }
+      }
+      
+      return {
+        ...item,
+        unitPrice: 0,
+        totalPrice: 0,
+        brand: '',
+        deliveryDays: '',
+        supplier: selectedSupplier?.supplier
+      };
+    });
+  }, [items, quotationItems, supplierQuotationItems, selectedSupplier]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -274,28 +340,80 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         </Card>
       )}
 
-      {/* Items */}
+      {/* Items Table */}
       <Card>
         <CardHeader>
           <CardTitle>Itens da Compra</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {Array.isArray(items) && items.length > 0 ? (
-              (items as any[]).map((item: any, index: number) => (
-                <div key={index} className="flex justify-between items-center p-2 border rounded">
-                  <div>
-                    <p className="font-medium">{item.description}</p>
-                    <p className="text-sm text-gray-500">
-                      Qtd: {item.requestedQuantity} {item.unit}
-                    </p>
-                  </div>
+          {itemsWithPrices.length > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="text-center">Qtd</TableHead>
+                    <TableHead className="text-center">Unidade</TableHead>
+                    <TableHead className="text-right">Valor Unit.</TableHead>
+                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead className="text-center">Marca</TableHead>
+                    <TableHead className="text-center">Prazo</TableHead>
+                    <TableHead>Fornecedor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {itemsWithPrices.map((item: any, index: number) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">
+                        {item.description}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {item.requestedQuantity}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {item.unit}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(item.unitPrice)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(item.totalPrice)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {item.brand || '-'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {item.deliveryDays ? `${item.deliveryDays} dias` : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {item.supplier?.name || 'N/A'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              {/* Total Summary */}
+              <div className="border-t bg-gray-50 p-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">
+                    Total Geral ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
+                  </span>
+                  <span className="text-lg font-bold text-green-600">
+                    {formatCurrency(
+                      itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
+                    )}
+                  </span>
                 </div>
-              ))
-            ) : (
-              <p className="text-gray-500">Nenhum item encontrado</p>
-            )}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Nenhum item encontrado</p>
+              <p className="text-sm">Os dados dos itens serão carregados automaticamente</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
