@@ -146,36 +146,30 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   // Get selected supplier from quotations
   const selectedSupplier = selectedSupplierQuotation;
 
-  // Combine items with supplier quotation data
+  // Combine items with supplier quotation data (same logic as conclusion phase)
   const itemsWithPrices = useMemo(() => {
-    if (!Array.isArray(items) || !Array.isArray(quotationItems) || !Array.isArray(supplierQuotationItems)) {
+    if (!Array.isArray(items) || !Array.isArray(supplierQuotationItems)) {
       return [];
     }
 
     return (items as any[]).map((item: any) => {
-      // Find matching quotation item by description
-      const quotationItem = (quotationItems as any[]).find((qi: any) => 
-        qi.description?.trim() === item.description?.trim()
+      // Find matching supplier quotation item by description (same as conclusion phase)
+      const supplierItem = (supplierQuotationItems as any[]).find((sqi: any) => 
+        sqi.description === item.description || 
+        sqi.itemCode === item.itemCode
       );
       
-      if (quotationItem) {
-        // Find supplier pricing for this quotation item
-        const supplierItem = (supplierQuotationItems as any[]).find((sqi: any) => 
-          sqi.quotationItemId === quotationItem.id
-        );
-        
-        if (supplierItem) {
-          const unitPrice = Number(supplierItem.unitPrice) || 0;
-          const quantity = Number(item.requestedQuantity) || 1;
-          return {
-            ...item,
-            unitPrice: unitPrice,
-            totalPrice: unitPrice * quantity,
-            brand: supplierItem.brand || '',
-            deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
-            supplier: selectedSupplierQuotation?.supplier
-          };
-        }
+      if (supplierItem) {
+        const unitPrice = parseFloat(supplierItem.unitPrice) || 0;
+        const quantity = parseFloat(item.requestedQuantity) || 0;
+        return {
+          ...item,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * quantity,
+          brand: supplierItem.brand || '',
+          deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
+          supplier: selectedSupplierQuotation?.supplier
+        };
       }
       
       return {
@@ -187,7 +181,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         supplier: selectedSupplierQuotation?.supplier
       };
     });
-  }, [items, quotationItems, supplierQuotationItems, selectedSupplierQuotation]);
+  }, [items, supplierQuotationItems, selectedSupplierQuotation]);
 
   return (
     <div className={cn("space-y-6", className)}>
