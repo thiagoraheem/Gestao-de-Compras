@@ -2060,9 +2060,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Purchase request not found" });
       }
 
-      // Here you would implement PDF generation logic using the PDFService
-      // For now, return a simple response
-      res.status(501).json({ message: "PDF generation not yet implemented" });
+      // Import PDF service
+      const { PDFService } = await import('./pdf-service');
+      
+      // Generate completion summary PDF
+      const pdfBuffer = await PDFService.generateCompletionSummaryPDF(id);
+      
+      // Set headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Conclusao_${request.requestNumber}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      // Send PDF
+      res.send(pdfBuffer);
     } catch (error) {
       console.error("Error generating completion PDF:", error);
       res.status(500).json({ message: "Failed to generate completion PDF" });

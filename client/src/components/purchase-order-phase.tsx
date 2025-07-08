@@ -318,6 +318,13 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                 <span className="font-medium">Categoria:</span>
                 <span>{request.category}</span>
               </div>
+              {selectedSupplierQuotation?.supplier && (
+                <div className="flex items-center gap-2">
+                  <Building className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium">Fornecedor Selecionado:</span>
+                  <span className="text-green-600 font-medium">{selectedSupplierQuotation.supplier.name}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-muted-foreground" />
                 <span className="font-medium">Entrega Ideal:</span>

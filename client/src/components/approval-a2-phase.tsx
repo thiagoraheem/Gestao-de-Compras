@@ -83,14 +83,55 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
     queryKey: [`/api/purchase-requests/${request.id}/selected-supplier`],
   });
 
-  // Transform items to match ApprovalItemData interface
-  const transformedItems = requestItems.map(item => ({
-    id: item.id,
-    itemNumber: item.itemNumber,
-    description: item.description,
-    unit: item.unit,
-    requestedQuantity: parseFloat(item.requestedQuantity || '0')
-  }));
+  // Buscar cotação para obter valores dos itens
+  const { data: quotation } = useQuery<any>({
+    queryKey: [`/api/quotations/purchase-request/${request.id}`],
+  });
+
+  const { data: supplierQuotations = [] } = useQuery<any[]>({
+    queryKey: [`/api/quotations/${quotation?.id}/supplier-quotations`],
+    enabled: !!quotation?.id,
+  });
+
+  // Buscar items do fornecedor selecionado para obter preços
+  const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0];
+  
+  const { data: supplierQuotationItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
+    enabled: !!selectedSupplierQuotation?.id,
+  });
+
+  const { data: quotationItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/quotations/${quotation?.id}/items`],
+    enabled: !!quotation?.id,
+  });
+
+  // Transform items to match ApprovalItemData interface with prices
+  const transformedItems = requestItems.map(item => {
+    // Encontrar o item correspondente na cotação pela descrição
+    const quotationItem = quotationItems.find((qi: any) => qi.description === item.description);
+    let unitPrice = 0;
+    let totalPrice = 0;
+    
+    if (quotationItem) {
+      // Encontrar o preço do fornecedor para este item da cotação
+      const supplierItem = supplierQuotationItems.find((si: any) => si.quotationItemId === quotationItem.id);
+      if (supplierItem) {
+        unitPrice = Number(supplierItem.unitPrice) || 0;
+        totalPrice = unitPrice * Number(item.requestedQuantity || 0);
+      }
+    }
+
+    return {
+      id: item.id,
+      itemNumber: item.itemNumber,
+      description: item.description,
+      unit: item.unit,
+      requestedQuantity: parseFloat(item.requestedQuantity || '0'),
+      unitPrice,
+      totalPrice
+    };
+  });
 
   const form = useForm<ApprovalFormData>({
     resolver: zodResolver(approvalSchema),
@@ -202,6 +243,12 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
                       <p className="text-sm text-gray-600">
                         Quantidade: {item.requestedQuantity} {item.unit}
                       </p>
+                      {item.unitPrice > 0 && (
+                        <p className="text-sm text-green-600 font-medium">
+                          Valor unitário: R$ {item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | 
+                          Total: R$ {item.totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}

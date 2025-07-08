@@ -9,6 +9,82 @@ interface PurchaseOrderData {
 }
 
 export class PDFService {
+  static async generateCompletionSummaryPDF(purchaseRequestId: number): Promise<Buffer> {
+    try {
+      const browser = await puppeteer.launch({
+        executablePath: process.env.CHROMIUM_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-gpu',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor'
+        ],
+        headless: true
+      }).catch(async () => {
+        // Fallback: try without specifying executable path
+        return await puppeteer.launch({
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu',
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor'
+          ],
+          headless: true
+        });
+      });
+
+      const page = await browser.newPage();
+      
+      // Buscar dados da solicitação
+      const { storage } = await import('./storage');
+      const purchaseRequest = await storage.getPurchaseRequestById(purchaseRequestId);
+      if (!purchaseRequest) {
+        throw new Error('Purchase request not found');
+      }
+
+      const items = await storage.getPurchaseRequestItems(purchaseRequestId);
+      const approvalHistory = await storage.getApprovalHistory(purchaseRequestId);
+      
+      // Buscar fornecedor selecionado
+      let selectedSupplier = null;
+      if (purchaseRequest.selectedSupplierId) {
+        selectedSupplier = await storage.getSupplierById(purchaseRequest.selectedSupplierId);
+      }
+
+      const html = this.generateCompletionSummaryHTML({
+        purchaseRequest,
+        items,
+        approvalHistory,
+        selectedSupplier
+      });
+
+      await page.setContent(html);
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
+      });
+
+      await browser.close();
+      return pdfBuffer;
+    } catch (error) {
+      console.error('Error generating completion summary PDF:', error);
+      throw error;
+    }
+  }
+
   static async generateDashboardPDF(dashboardData: any): Promise<Buffer> {
     const browser = await puppeteer.launch({
       executablePath: process.env.CHROMIUM_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
@@ -680,5 +756,236 @@ export class PDFService {
     } finally {
       await browser.close();
     }
+  }
+
+  private static generateCompletionSummaryHTML(data: any): string {
+    const { purchaseRequest, items, approvalHistory, selectedSupplier } = data;
+    
+    const formatDate = (date: Date) => {
+      return new Date(date).toLocaleDateString('pt-BR');
+    };
+
+    const formatCurrency = (value: number) => {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(value);
+    };
+
+    const totalValue = items.reduce((sum: number, item: any) => {
+      return sum + (Number(item.requestedQuantity) * Number(item.unitPrice || 0));
+    }, 0);
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Relatório de Conclusão - ${purchaseRequest.requestNumber}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            font-size: 12px;
+            line-height: 1.4;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+          }
+          .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+          }
+          .subtitle {
+            font-size: 16px;
+            color: #666;
+          }
+          .section {
+            margin-bottom: 25px;
+          }
+          .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+          }
+          .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+          }
+          .info-item {
+            margin-bottom: 8px;
+          }
+          .info-label {
+            font-weight: bold;
+            color: #555;
+          }
+          .info-value {
+            color: #333;
+          }
+          .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+          }
+          .table th, .table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+          }
+          .table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+          }
+          .total-row {
+            background-color: #f9f9f9;
+            font-weight: bold;
+          }
+          .timeline {
+            margin-top: 15px;
+          }
+          .timeline-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-left: 3px solid #007bff;
+            background-color: #f8f9fa;
+          }
+          .timeline-date {
+            font-weight: bold;
+            color: #007bff;
+          }
+          .timeline-action {
+            margin-top: 5px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="title">Relatório de Conclusão de Compra</div>
+          <div class="subtitle">Solicitação: ${purchaseRequest.requestNumber}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Informações Gerais</div>
+          <div class="info-grid">
+            <div>
+              <div class="info-item">
+                <span class="info-label">Solicitante:</span>
+                <span class="info-value">${purchaseRequest.requesterName || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Departamento:</span>
+                <span class="info-value">${purchaseRequest.department?.name || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Centro de Custo:</span>
+                <span class="info-value">${purchaseRequest.costCenter?.name || 'N/A'}</span>
+              </div>
+            </div>
+            <div>
+              <div class="info-item">
+                <span class="info-label">Data da Solicitação:</span>
+                <span class="info-value">${formatDate(purchaseRequest.createdAt)}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Data de Conclusão:</span>
+                <span class="info-value">${purchaseRequest.receivedDate ? formatDate(purchaseRequest.receivedDate) : 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Urgência:</span>
+                <span class="info-value">${purchaseRequest.urgency || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        ${selectedSupplier ? `
+        <div class="section">
+          <div class="section-title">Fornecedor Selecionado</div>
+          <div class="info-grid">
+            <div>
+              <div class="info-item">
+                <span class="info-label">Nome:</span>
+                <span class="info-value">${selectedSupplier.name}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">CNPJ:</span>
+                <span class="info-value">${selectedSupplier.cnpj || 'N/A'}</span>
+              </div>
+            </div>
+            <div>
+              <div class="info-item">
+                <span class="info-label">E-mail:</span>
+                <span class="info-value">${selectedSupplier.email || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Telefone:</span>
+                <span class="info-value">${selectedSupplier.phone || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
+        <div class="section">
+          <div class="section-title">Itens Adquiridos</div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Descrição</th>
+                <th>Unidade</th>
+                <th>Quantidade</th>
+                <th>Valor Unitário</th>
+                <th>Valor Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map((item: any) => `
+                <tr>
+                  <td>${item.description}</td>
+                  <td>${item.unit}</td>
+                  <td>${item.requestedQuantity}</td>
+                  <td>${formatCurrency(Number(item.unitPrice || 0))}</td>
+                  <td>${formatCurrency(Number(item.requestedQuantity) * Number(item.unitPrice || 0))}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="4"><strong>TOTAL GERAL</strong></td>
+                <td><strong>${formatCurrency(totalValue)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        ${approvalHistory.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Histórico de Aprovações</div>
+          <div class="timeline">
+            ${approvalHistory.map((approval: any) => `
+              <div class="timeline-item">
+                <div class="timeline-date">${formatDate(approval.approvedAt)}</div>
+                <div class="timeline-action">
+                  <strong>${approval.approver?.firstName} ${approval.approver?.lastName}</strong> 
+                  ${approval.approved ? 'aprovou' : 'rejeitou'} na fase <strong>${approval.phase}</strong>
+                  ${approval.reason ? `<br>Motivo: ${approval.reason}` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        ` : ''}
+
+      </body>
+      </html>
+    `;
   }
 }
