@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 8, 2025. Sistema de comparação de fornecedores aprimorado para permitir seleção parcial:
+  - ✓ Corrigida lógica de comparação para permitir seleção quando pelo menos um fornecedor respondeu
+  - ✓ Removido requisito de que TODOS os fornecedores precisam responder antes da comparação
+  - ✓ Melhorada condição `canCompareSuppliers` na quotation-phase.tsx
+  - ✓ Atualizada lógica em purchase-card.tsx para distinguir entre "sem respostas" e "algumas respostas"
+  - ✓ Sistema agora permite comparação e seleção mesmo quando alguns fornecedores marcam "não respondeu"
+  - ✓ Mantida funcionalidade de alert sobre fornecedores que não responderam
+  - ✓ Comparação filtra automaticamente apenas fornecedores que responderam
+  - ✓ Processo de cotação mais flexível e alinhado com realidade do mercado
 - July 8, 2025. Calendário de seleção de data implementado mantendo máscara brasileira:
   - ✓ Adicionado ícone de calendário no lado direito dos campos DateInput
   - ✓ Calendário visual integrado usando Popover e Calendar do shadcn/ui

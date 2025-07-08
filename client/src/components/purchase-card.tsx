@@ -367,8 +367,13 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           
           // Check if any supplier quotations have been received
           const receivedQuotations = supplierQuotations.filter((sq: any) => sq.status === 'received');
-          if (receivedQuotations.length === 0) {
+          const noResponseQuotations = supplierQuotations.filter((sq: any) => sq.status === 'no_response');
+          
+          // Allow comparison if at least one supplier has responded (even if others haven't)
+          if (receivedQuotations.length === 0 && noResponseQuotations.length === 0) {
             return { isReady: false, reason: "Aguardando respostas dos fornecedores" };
+          } else if (receivedQuotations.length === 0 && noResponseQuotations.length > 0) {
+            return { isReady: false, reason: "Nenhum fornecedor respondeu ainda" };
           }
           
           // Check if a supplier has been chosen

@@ -113,6 +113,7 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
   }
 
   const receivedQuotations = suppliersData.filter(sq => sq.status === 'received');
+  const noResponseQuotations = suppliersData.filter(sq => sq.status === 'no_response');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -134,6 +135,17 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
             </Alert>
           ) : (
             <>
+              {noResponseQuotations.length > 0 && (
+                <Alert className="mb-6">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Fornecedores que não responderam:</strong> {noResponseQuotations.map(sq => sq.supplier.name).join(", ")}
+                    <br />
+                    A comparação será feita apenas com os fornecedores que responderam.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
                 {receivedQuotations.map((supplierData) => (
                   <Card 
