@@ -194,10 +194,12 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       // Encontrar o preço do fornecedor para este item da cotação
       const supplierItem = supplierQuotationItems.find((si: any) => si.quotationItemId === quotationItem.id);
       if (supplierItem) {
+        const unitPrice = Number(supplierItem.unitPrice) || 0;
+        const quantity = Number(item.requestedQuantity) || 1;
         return {
           ...item,
-          unitPrice: supplierItem.unitPrice || 0,
-          totalPrice: (supplierItem.unitPrice || 0) * (item.requestedQuantity || 1),
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * quantity,
           brand: supplierItem.brand || '',
           deliveryTime: supplierItem.deliveryTime || ''
         };
@@ -214,7 +216,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
 
   // Calcular valores totais
   const subtotal = itemsWithPrices.reduce((sum: number, item: any) => 
-    sum + (item.totalPrice || 0), 0
+    sum + (Number(item.totalPrice) || 0), 0
   );
 
   // Encontrar fornecedor selecionado
@@ -362,10 +364,10 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                 </div>
                 <div className="text-right">
                   <div className="font-medium">
-                    R$ {item.unitPrice?.toFixed(2).replace('.', ',') || '0,00'}
+                    R$ {typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Total: R$ {item.totalPrice?.toFixed(2).replace('.', ',') || '0,00'}
+                    Total: R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}
                   </div>
                 </div>
               </div>
