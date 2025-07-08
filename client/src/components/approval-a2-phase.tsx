@@ -28,6 +28,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
@@ -256,30 +264,41 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
           )}
 
           {/* Selected Supplier */}
-          {selectedSupplier && (
+          {selectedSupplierQuotation && (
             <div>
               <Label className="text-sm font-medium text-gray-700 mb-3 block">Fornecedor Vencedor</Label>
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle className="h-5 w-5 text-green-600" />
-                  <h3 className="font-semibold text-green-800">{selectedSupplier.supplier?.name}</h3>
+                  <h3 className="font-semibold text-green-800">{selectedSupplierQuotation.supplier?.name}</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
+                    <p className="text-sm text-gray-600 mb-1">E-mail:</p>
+                    <p className="text-sm font-medium">{selectedSupplierQuotation.supplier?.email || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Telefone:</p>
+                    <p className="text-sm font-medium">{selectedSupplierQuotation.supplier?.phone || 'N/A'}</p>
+                  </div>
+                  <div>
                     <p className="text-sm text-gray-600 mb-1">Valor Total:</p>
                     <p className="font-medium text-green-700">
-                      R$ {parseFloat(selectedSupplier.quotation?.totalValue || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                      }).format(Number(selectedSupplierQuotation.totalValue || 0))}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Prazo de Entrega:</p>
-                    <p className="font-medium">{selectedSupplier.quotation?.deliveryTime || "N/A"}</p>
+                    <p className="text-sm text-gray-600 mb-1">Condições de Pagamento:</p>
+                    <p className="text-sm font-medium">{selectedSupplierQuotation.paymentTerms || "N/A"}</p>
                   </div>
                 </div>
-                {selectedSupplier.choiceReason && (
+                {selectedSupplierQuotation.choiceReason && (
                   <div className="mt-3">
                     <p className="text-sm text-gray-600 mb-1">Justificativa da Escolha:</p>
-                    <p className="text-sm text-gray-800">{selectedSupplier.choiceReason}</p>
+                    <p className="text-sm text-gray-700">{selectedSupplierQuotation.choiceReason}</p>
                   </div>
                 )}
               </div>
@@ -446,12 +465,148 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
           </Card>
         </div>
 
-        {/* Request Items */}
-        <ApprovalItemsViewer 
-          items={transformedItems} 
-          requestId={request.id} 
-          requestNumber={request.requestNumber}
-        />
+        {/* Winning Supplier Information */}
+        {selectedSupplierQuotation && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                Fornecedor Vencedor
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Nome do Fornecedor</Label>
+                  <p className="text-sm font-semibold mt-1">{selectedSupplierQuotation.supplier?.name || 'N/A'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">E-mail</Label>
+                  <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.email || 'N/A'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Telefone</Label>
+                  <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.phone || 'N/A'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">CNPJ</Label>
+                  <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.cnpj || 'N/A'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Valor Total da Proposta</Label>
+                  <p className="text-lg font-bold text-green-600 mt-1">
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL',
+                    }).format(Number(selectedSupplierQuotation.totalValue || 0))}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Condições de Pagamento</Label>
+                  <p className="text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
+                </div>
+              </div>
+              
+              {selectedSupplierQuotation.choiceReason && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <Label className="text-sm font-medium text-green-800">Justificativa da Escolha:</Label>
+                  <p className="text-sm text-green-700 mt-1">{selectedSupplierQuotation.choiceReason}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Items Table with Supplier Pricing */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Itens da Solicitação
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              {transformedItems.length} {transformedItems.length === 1 ? 'item cadastrado' : 'itens cadastrados'}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {transformedItems.length > 0 ? (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="text-center">Qtd</TableHead>
+                      <TableHead className="text-center">Unidade</TableHead>
+                      <TableHead className="text-right">Valor Unit.</TableHead>
+                      <TableHead className="text-right">Valor Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transformedItems.map((item: any, index: number) => (
+                      <TableRow key={item.id || index}>
+                        <TableCell className="font-medium">
+                          {item.description}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {item.requestedQuantity}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {item.unit}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {item.unitPrice > 0 ? (
+                            <span className="font-medium text-green-600">
+                              {new Intl.NumberFormat('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL',
+                              }).format(item.unitPrice)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {item.totalPrice > 0 ? (
+                            <span className="font-semibold text-green-600">
+                              {new Intl.NumberFormat('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL',
+                              }).format(item.totalPrice)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                
+                {/* Total Summary */}
+                <div className="border-t bg-gray-50 p-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">
+                      Total Geral ({transformedItems.length} {transformedItems.length === 1 ? 'item' : 'itens'})
+                    </span>
+                    <span className="text-lg font-bold text-green-600">
+                      {new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                      }).format(
+                        transformedItems.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Nenhum item encontrado</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Attachments */}
         <AttachmentsViewer 

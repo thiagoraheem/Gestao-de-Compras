@@ -124,6 +124,11 @@ Key entities include:
   - ✓ PDF agora mostra valores reais: R$ 150,00 (Placa mãe) e R$ 100,00 (Memoria ram)
   - ✓ Correção da lógica de busca por fornecedor escolhido (isChosen = true)
   - ✓ Campos de marca e prazo de entrega corretamente preenchidos no PDF
+  - ✓ Tela de recebimento aprimorada com tabela completa de itens incluindo valores e dados do fornecedor
+  - ✓ Tela de Aprovação A2 aprimorada com dados completos do fornecedor vencedor
+  - ✓ Exibição em formato de tabela dos itens com valores unitários e totais na aprovação A2
+  - ✓ Informações detalhadas do fornecedor: nome, email, telefone, CNPJ, condições de pagamento
+  - ✓ Justificativa da escolha do fornecedor exibida em ambas as telas (aprovação e recebimento)
 - July 8, 2025. Correção crítica do erro de PDF em produção - sistema robusto de geração de PDF implementado:
   - ✓ Identificado erro "TargetCloseError: Protocol error (Page.printToPDF): Target closed"
   - ✓ Implementado sistema robusto de lançamento de browser com retry e fallback
