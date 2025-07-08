@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 8, 2025. Remoção do campo "Orçamento Disponível" e seção de anexos da RFQ implementada com sucesso:
+  - ✓ Removido campo "availableBudget" de todos os formulários de criação de solicitação
+  - ✓ Campo removido de new-request-modal.tsx, enhanced-new-request-modal.tsx e edit-request-modal.tsx
+  - ✓ Campo mantido no schema do banco para retrocompatibilidade mas tornado opcional na interface
+  - ✓ Removida completamente a seção de upload de anexos da criação de RFQ (rfq-creation.tsx)
+  - ✓ Removido estado attachments, funções handleFileUpload e removeAttachment
+  - ✓ Removido import Upload e Card de anexos da tela de criação de RFQ
+  - ✓ Mantidos apenas anexos da solicitação original para visualização
+  - ✓ Interface mais limpa e focada nas informações essenciais da cotação
 - July 7, 2025. Correção crítica das rotas de status de cotação e eliminação de erros "Invalid quotation ID":
   - ✓ Corrigida rota incorreta `/api/quotations/by-request/${id}` para `/api/quotations/purchase-request/${id}` em kanban-board.tsx
   - ✓ Melhorada query key do status de cotação para usar formato ['quotation-status', requestId] em purchase-card.tsx

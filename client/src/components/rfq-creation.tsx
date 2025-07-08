@@ -11,7 +11,6 @@ import {
   Package, 
   Plus, 
   Trash2, 
-  Upload, 
   Send, 
   Save, 
   X,
@@ -61,7 +60,6 @@ interface RFQCreationProps {
 }
 
 export default function RFQCreation({ purchaseRequest, existingQuotation, onClose, onComplete }: RFQCreationProps) {
-  const [attachments, setAttachments] = useState<File[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -281,14 +279,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setAttachments(prev => [...prev, ...files]);
-  };
 
-  const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
-  };
 
   const onSubmit = (data: RFQCreationData) => {
     createRFQMutation.mutate(data);
@@ -610,56 +601,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
               </CardContent>
             </Card>
 
-            {/* Attachments */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5" />
-                  Anexos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Documentos de Referência</Label>
-                  <div className="mt-2 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                    <Label htmlFor="file-upload" className="cursor-pointer text-blue-600 hover:text-blue-500">
-                      Clique para selecionar arquivos
-                    </Label>
-                    <Input
-                      id="file-upload"
-                      type="file"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      PDF, DOC, XLS, PNG, JPG até 10MB cada
-                    </p>
-                  </div>
-                </div>
 
-                {attachments.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Arquivos Selecionados</Label>
-                    {attachments.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <span className="text-sm text-gray-700">{file.name}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeAttachment(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
             {/* Actions */}
             <div className="flex justify-end space-x-4 pt-6 border-t">

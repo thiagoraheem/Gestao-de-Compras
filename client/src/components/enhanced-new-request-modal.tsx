@@ -278,28 +278,7 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                   />
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="availableBudget"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Orçamento Disponível</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2 text-gray-500">R$</span>
-                          <Input 
-                            {...field} 
-                            placeholder="0,00" 
-                            className="pl-10"
-                            type="number"
-                            step="0.01"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+
 
                 <FormField
                   control={form.control}
