@@ -119,6 +119,11 @@ Key entities include:
   - ✓ Autenticação funcionando corretamente
   - ✓ Sistema Kanban operacional com todas as fases do processo de compra
   - ✓ APIs respondendo adequadamente para frontend e backend
+  - ✓ Corrigido problema crítico dos valores zerados no PDF do pedido de compra
+  - ✓ Mapeamento correto entre itens da solicitação e cotações do fornecedor selecionado
+  - ✓ PDF agora mostra valores reais: R$ 150,00 (Placa mãe) e R$ 100,00 (Memoria ram)
+  - ✓ Correção da lógica de busca por fornecedor escolhido (isChosen = true)
+  - ✓ Campos de marca e prazo de entrega corretamente preenchidos no PDF
 - July 8, 2025. Correção crítica do erro de PDF em produção - sistema robusto de geração de PDF implementado:
   - ✓ Identificado erro "TargetCloseError: Protocol error (Page.printToPDF): Target closed"
   - ✓ Implementado sistema robusto de lançamento de browser com retry e fallback

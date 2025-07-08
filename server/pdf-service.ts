@@ -779,21 +779,26 @@ export class PDFService {
         
         // Combinar os itens da solicitação com os preços do fornecedor
         itemsWithPrices = items.map(item => {
-          // Encontrar o item correspondente na cotação
-          const quotationItem = quotationItems.find(qi => qi.description === item.description);
+          // Encontrar o item correspondente na cotação usando descrição exata
+          const quotationItem = quotationItems.find(qi => qi.description?.trim() === item.description?.trim());
+          
           if (quotationItem) {
             // Encontrar o preço do fornecedor para este item da cotação
             const supplierItem = supplierItems.find(si => si.quotationItemId === quotationItem.id);
+            
             if (supplierItem) {
+              const unitPrice = Number(supplierItem.unitPrice) || 0;
+              const quantity = Number(item.requestedQuantity) || 1;
               return {
                 ...item,
-                unitPrice: Number(supplierItem.unitPrice) || 0,
+                unitPrice: unitPrice,
                 brand: supplierItem.brand || '',
-                deliveryTime: supplierItem.deliveryTime || '',
-                totalPrice: (Number(supplierItem.unitPrice) || 0) * (Number(item.requestedQuantity) || 1)
+                deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
+                totalPrice: unitPrice * quantity
               };
             }
           }
+          
           return {
             ...item,
             unitPrice: 0,
