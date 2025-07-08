@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 8, 2025. Calendário de seleção de data implementado mantendo máscara brasileira:
+  - ✓ Adicionado ícone de calendário no lado direito dos campos DateInput
+  - ✓ Calendário visual integrado usando Popover e Calendar do shadcn/ui
+  - ✓ Mantida funcionalidade de digitação manual com máscara DD/MM/AAAA
+  - ✓ Localização em português brasileiro (ptBR) para o calendário
+  - ✓ Conversão automática entre seleção visual e formato brasileiro
+  - ✓ Ambos os métodos (digitação e calendário) funcionam simultaneamente
+  - ✓ Validação de data mantida para ambos os inputs
+  - ✓ Interface intuitiva com ícone de calendário sempre visível
 - July 8, 2025. Correção crítica da fase de conclusão - linha do tempo e valores dos itens implementada com sucesso:
   - ✓ Corrigido problema de valores zerados nos itens da fase de conclusão
   - ✓ Implementado carregamento correto de itens de cotação do fornecedor selecionado

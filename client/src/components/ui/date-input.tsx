@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { Input } from "./input";
+import { Button } from "./button";
+import { Calendar } from "./calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { cn } from "@/lib/utils";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface DateInputProps {
   value?: string;
@@ -22,6 +28,7 @@ export function DateInput({
   name
 }: DateInputProps) {
   const [displayValue, setDisplayValue] = useState("");
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Convert ISO date to Brazilian format for display
   useEffect(() => {
@@ -81,17 +88,68 @@ export function DateInput({
     }
   };
 
+  const handleCalendarSelect = (date: Date | undefined) => {
+    if (date) {
+      // Format as Brazilian date for display
+      const formatted = format(date, "dd/MM/yyyy", { locale: ptBR });
+      setDisplayValue(formatted);
+      
+      // Convert to ISO format for form submission
+      const isoDate = format(date, "yyyy-MM-dd");
+      onChange?.(isoDate);
+    }
+    setCalendarOpen(false);
+  };
+
+  // Convert current value to Date object for calendar
+  const getSelectedDate = () => {
+    if (value && value.includes("-")) {
+      return new Date(value);
+    } else if (displayValue && displayValue.length === 10) {
+      const [day, month, year] = displayValue.split("/");
+      if (day && month && year && year.length === 4) {
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      }
+    }
+    return undefined;
+  };
+
   return (
-    <Input
-      type="text"
-      value={displayValue}
-      onChange={handleChange}
-      onBlur={onBlur}
-      placeholder={placeholder}
-      className={cn(className)}
-      disabled={disabled}
-      name={name}
-      maxLength={10}
-    />
+    <div className="relative">
+      <Input
+        type="text"
+        value={displayValue}
+        onChange={handleChange}
+        onBlur={onBlur}
+        placeholder={placeholder}
+        className={cn("pr-10", className)}
+        disabled={disabled}
+        name={name}
+        maxLength={10}
+      />
+      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+            disabled={disabled}
+            type="button"
+          >
+            <CalendarIcon className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={getSelectedDate()}
+            onSelect={handleCalendarSelect}
+            disabled={disabled}
+            initialFocus
+            locale={ptBR}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
