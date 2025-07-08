@@ -172,8 +172,8 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
             unitPrice: unitPrice,
             totalPrice: unitPrice * quantity,
             brand: supplierItem.brand || '',
-            deliveryDays: supplierItem.deliveryDays || '',
-            supplier: selectedSupplier?.supplier
+            deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
+            supplier: selectedSupplierQuotation?.supplier
           };
         }
       }
@@ -183,11 +183,11 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         unitPrice: 0,
         totalPrice: 0,
         brand: '',
-        deliveryDays: '',
-        supplier: selectedSupplier?.supplier
+        deliveryTime: '',
+        supplier: selectedSupplierQuotation?.supplier
       };
     });
-  }, [items, quotationItems, supplierQuotationItems, selectedSupplier]);
+  }, [items, quotationItems, supplierQuotationItems, selectedSupplierQuotation]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -306,36 +306,51 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         </Card>
       </div>
 
-      {/* Selected Supplier */}
-      {selectedSupplier && (
+      {/* Selected Supplier Information */}
+      {selectedSupplierQuotation && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5" />
+              <Building className="h-5 w-5 text-green-600" />
               Fornecedor Selecionado
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               <div>
-                <p className="text-sm font-medium text-gray-500">Nome</p>
-                <p className="text-sm mt-1">{selectedSupplier.supplier?.name}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Contato</p>
-                <p className="text-sm mt-1">{selectedSupplier.supplier?.contact || "N/A"}</p>
+                <p className="text-sm font-medium text-gray-500">Nome do Fornecedor</p>
+                <p className="text-sm font-semibold mt-1">{selectedSupplierQuotation.supplier?.name || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">E-mail</p>
-                <p className="text-sm mt-1">{selectedSupplier.supplier?.email || "N/A"}</p>
+                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.email || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Contato</p>
+                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.contact || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">CNPJ</p>
+                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.cnpj || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Valor Total da Proposta</p>
+                <p className="text-lg font-bold text-green-600 mt-1">
+                  {formatCurrency(selectedSupplierQuotation.totalValue)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Condições de Pagamento</p>
+                <p className="text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
               </div>
             </div>
-            <div className="mt-4">
-              <p className="text-sm font-medium text-gray-500">Valor Total da Cotação</p>
-              <p className="text-lg font-semibold text-green-600 mt-1">
-                {formatCurrency(selectedSupplier.totalValue)}
-              </p>
-            </div>
+            
+            {selectedSupplierQuotation.choiceReason && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm font-medium text-green-800">Justificativa da Escolha:</p>
+                <p className="text-sm text-green-700 mt-1">{selectedSupplierQuotation.choiceReason}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -383,7 +398,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                         {item.brand || '-'}
                       </TableCell>
                       <TableCell className="text-center">
-                        {item.deliveryDays ? `${item.deliveryDays} dias` : '-'}
+                        {item.deliveryTime || '-'}
                       </TableCell>
                       <TableCell>
                         {item.supplier?.name || 'N/A'}
