@@ -1,0 +1,51 @@
+PS C:\Locador\Arquivos\Gestao-de-Compras> npm run build
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+vite v5.4.19 building for production...
+transforming (3) src\main.tsxBrowserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+✓ 3409 modules transformed.
+../dist/public/index.html                     0.64 kB │ gzip:   0.39 kB
+../dist/public/assets/index-CJYlluv-.css     72.06 kB │ gzip:  12.48 kB
+../dist/public/assets/index-B2SSR1ZU.js   1,694.86 kB │ gzip: 491.64 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 55.61s
+X [ERROR] Expected "finally" but found "static"
+
+    server/pdf-service.ts:253:2:
+      253 │   static async generateDashboardPDF(dashboardData: any): Promise<Buffer> {
+          │   ~~~~~~
+          ╵   finally
+
+1 error
+node:child_process:922
+    throw err;
+    ^
+
+Error: Command failed: C:\Locador\Arquivos\Gestao-de-Compras\node_modules\@esbuild\win32-x64\esbuild.exe server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+    at genericNodeError (node:internal/errors:983:15)
+    at wrappedFn (node:internal/errors:537:14)
+    at checkExecSyncError (node:child_process:883:11)
+    at Object.execFileSync (node:child_process:919:15)
+    at Object.<anonymous> (C:\Locador\Arquivos\Gestao-de-Compras\node_modules\esbuild\bin\esbuild:221:28)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function._load (node:internal/modules/cjs/loader:1282:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14) {
+  status: 1,
+  signal: null,
+  output: [ null, null, null ],
+  pid: 496,
+  stdout: null,
+  stderr: null
+}
+
+Node.js v22.17.0

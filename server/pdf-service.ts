@@ -213,13 +213,6 @@ export class PDFService {
 
   static async generateCompletionSummaryPDF(purchaseRequestId: number): Promise<Buffer> {
     try {
-      const browser = await this.launchBrowserWithRetry();
-      let page = null;
-      
-      try {
-        page = await browser.newPage();
-        await page.setDefaultTimeout(30000);
-      
       // Buscar dados da solicitação
       const { storage } = await import('./storage');
       const purchaseRequest = await storage.getPurchaseRequestById(purchaseRequestId);
@@ -243,7 +236,7 @@ export class PDFService {
         selectedSupplier
       });
 
-        return await this.generatePDFWithFallback(html, 'completion-summary');
+      return await this.generatePDFWithFallback(html, 'completion-summary');
     } catch (error) {
       console.error('Error in generateCompletionSummaryPDF:', error);
       throw error;
