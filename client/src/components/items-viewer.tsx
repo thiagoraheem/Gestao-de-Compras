@@ -8,7 +8,6 @@ import { saveAs } from 'file-saver';
 
 export interface ItemData {
   id: number;
-  itemNumber: string;
   description: string;
   unit: string;
   stockQuantity: number;
@@ -38,7 +37,6 @@ export default function ItemsViewer({ items, requestId, requestNumber, className
 
     // Prepare data for Excel
     const excelData = items.map(item => ({
-      'Item': item.itemNumber,
       'Descrição': item.description,
       'Unid.': item.unit,
       'Qtd. Estoque': item.stockQuantity,
@@ -53,7 +51,6 @@ export default function ItemsViewer({ items, requestId, requestNumber, className
 
     // Set column widths
     const colWidths = [
-      { wch: 15 }, // Item
       { wch: 40 }, // Descrição
       { wch: 8 },  // Unid.
       { wch: 15 }, // Qtd. Estoque
@@ -130,7 +127,6 @@ export default function ItemsViewer({ items, requestId, requestNumber, className
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px]">Item</TableHead>
                 <TableHead className="min-w-[200px]">Descrição</TableHead>
                 <TableHead className="w-[80px]">Unid.</TableHead>
                 <TableHead className="w-[100px]">Qtd. Estoque</TableHead>
@@ -142,7 +138,6 @@ export default function ItemsViewer({ items, requestId, requestNumber, className
             <TableBody>
               {items.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.itemNumber}</TableCell>
                   <TableCell>{item.description}</TableCell>
                   <TableCell>{item.unit}</TableCell>
                   <TableCell className="text-right">{formatNumber(item.stockQuantity)}</TableCell>

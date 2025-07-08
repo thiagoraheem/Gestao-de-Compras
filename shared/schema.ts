@@ -135,7 +135,6 @@ export const purchaseRequests = pgTable("purchase_requests", {
 export const purchaseRequestItems = pgTable("purchase_request_items", {
   id: serial("id").primaryKey(),
   purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
-  itemNumber: text("item_number").notNull(),
   description: text("description").notNull(),
   unit: text("unit").notNull(),
   stockQuantity: decimal("stock_quantity", { precision: 10, scale: 2 }),

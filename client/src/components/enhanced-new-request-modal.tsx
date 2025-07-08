@@ -32,7 +32,6 @@ type RequestFormData = z.infer<typeof requestSchema>;
 
 interface Item {
   id: string;
-  itemNumber: string;
   description: string;
   unit: string;
   requestedQuantity: number;
@@ -105,7 +104,6 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
   const addManualItem = () => {
     const newItem: Item = {
       id: Date.now().toString(),
-      itemNumber: (manualItems.length + 1).toString().padStart(3, '0'),
       description: "",
       unit: "UN",
       requestedQuantity: 1,
@@ -366,15 +364,7 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                       <div className="space-y-3">
                         {manualItems.map((item) => (
                           <Card key={item.id} className="p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
-                              <div>
-                                <label className="text-sm font-medium">Nº Item</label>
-                                <Input
-                                  value={item.itemNumber}
-                                  onChange={(e) => updateManualItem(item.id, 'itemNumber', e.target.value)}
-                                  placeholder="001"
-                                />
-                              </div>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                               <div>
                                 <label className="text-sm font-medium">Descrição</label>
                                 <Input

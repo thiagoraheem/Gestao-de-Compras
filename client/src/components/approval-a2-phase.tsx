@@ -124,7 +124,6 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
 
     return {
       id: item.id,
-      itemNumber: item.itemNumber,
       description: item.description,
       unit: item.unit,
       requestedQuantity: parseFloat(item.requestedQuantity || '0'),

@@ -116,11 +116,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
     } else if (purchaseRequestItems.length > 0) {
       // Load purchase request items for new quotation
       const mappedItems = purchaseRequestItems.map(item => ({
-        itemCode: item.itemNumber || "",
+        itemCode: "",
         description: item.description || "",
         quantity: item.requestedQuantity?.toString() || "1",
         unit: item.unit || "UN",
-        specifications: "",
+        specifications: item.technicalSpecification || "",
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
       }));
       form.setValue("items", mappedItems);
@@ -145,8 +145,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       form.setValue("quotationDeadline", existingQuotation.quotationDeadline ? format(new Date(existingQuotation.quotationDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 7), "yyyy-MM-dd"));
       form.setValue("termsAndConditions", existingQuotation.termsAndConditions || "");
       form.setValue("technicalSpecs", existingQuotation.technicalSpecs || "");
+    } else if (purchaseRequest.additionalInfo) {
+      // Load technical specs from original request when creating new quotation
+      form.setValue("technicalSpecs", purchaseRequest.additionalInfo);
     }
-  }, [existingQuotation, form]);
+  }, [existingQuotation, purchaseRequest.additionalInfo, form]);
 
   // Set selected suppliers when existing supplier quotations are loaded
   useEffect(() => {

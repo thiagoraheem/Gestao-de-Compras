@@ -456,7 +456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedItems = items.map((item: any) => insertPurchaseRequestItemSchema.parse({
           ...item,
           purchaseRequestId: 0,
-          itemNumber: item.itemNumber || '',
+
           description: item.description || '',
           unit: item.unit || '',
           requestedQuantity: item.requestedQuantity || 0,

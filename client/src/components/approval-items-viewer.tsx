@@ -8,7 +8,6 @@ import { saveAs } from 'file-saver';
 
 export interface ApprovalItemData {
   id: number;
-  itemNumber: string;
   description: string;
   unit: string;
   requestedQuantity: string | number;

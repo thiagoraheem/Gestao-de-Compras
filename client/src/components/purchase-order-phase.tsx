@@ -84,6 +84,12 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     enabled: !!selectedSupplierQuotation?.id,
   });
 
+  // Buscar dados do fornecedor selecionado
+  const { data: selectedSupplier } = useQuery<any>({
+    queryKey: [`/api/suppliers/${selectedSupplierQuotation?.supplierId}`],
+    enabled: !!selectedSupplierQuotation?.supplierId,
+  });
+
   // Mutation para salvar observações
   const updateRequestMutation = useMutation({
     mutationFn: async (data: PurchaseOrderFormData) => {
@@ -219,9 +225,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     sum + (Number(item.totalPrice) || 0), 0
   );
 
-  // Encontrar fornecedor selecionado
-  const selectedSupplier = Array.isArray(supplierQuotations) ? 
-    (supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0]) : null;
+
 
   // Organizar histórico de aprovações
   const aprovacaoA1 = Array.isArray(approvalHistory) ? 
@@ -318,11 +322,11 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                 <span className="font-medium">Categoria:</span>
                 <span>{request.category}</span>
               </div>
-              {selectedSupplierQuotation?.supplier && (
+              {selectedSupplier && (
                 <div className="flex items-center gap-2">
                   <Building className="w-4 h-4 text-muted-foreground" />
                   <span className="font-medium">Fornecedor Selecionado:</span>
-                  <span className="text-green-600 font-medium">{selectedSupplierQuotation.supplier.name}</span>
+                  <span className="text-green-600 font-medium">{selectedSupplier.name}</span>
                 </div>
               )}
               <div className="flex items-center gap-2">

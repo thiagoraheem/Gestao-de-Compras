@@ -105,7 +105,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
         availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : undefined,
         idealDeliveryDate: data.idealDeliveryDate || undefined,
         items: requestItems.map(item => ({
-          itemNumber: item.description || '',
+
           description: item.description || '',
           unit: item.unit || '',
           stockQuantity: "0",

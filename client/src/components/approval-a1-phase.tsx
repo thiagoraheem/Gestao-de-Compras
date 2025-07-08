@@ -79,7 +79,6 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
   // Transform items to match ApprovalItemData interface
   const transformedItems = requestItems.map(item => ({
     id: item.id,
-    itemNumber: item.itemNumber,
     description: item.description,
     unit: item.unit,
     requestedQuantity: parseFloat(item.requestedQuantity || '0')
