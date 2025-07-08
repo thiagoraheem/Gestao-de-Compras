@@ -110,6 +110,17 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 8, 2025. Correção crítica dos valores zerados na fase Pedido de Compra e sistema de PDF implementada com sucesso:
+  - ✓ Corrigido problema de valores zerados nos itens da fase Pedido de Compra
+  - ✓ Implementado sistema de combinação de itens com preços do fornecedor selecionado
+  - ✓ Corrigido cálculo de valores totais baseado nos preços dos itens do fornecedor
+  - ✓ Adicionada query para buscar itens do fornecedor selecionado com preços unitários
+  - ✓ Melhorado display de informações incluindo marca e tempo de entrega
+  - ✓ Corrigido sistema de geração de PDF com configuração adequada do Chromium
+  - ✓ Instalado chromium como dependência do sistema e configurado path correto
+  - ✓ Implementado sistema de fallback para geração de PDF em caso de falha
+  - ✓ Aplicado correções tanto para PDF do dashboard quanto para pedido de compra
+  - ✓ Valores agora são exibidos corretamente nos cards e PDFs gerados
 - July 8, 2025. Correção crítica do erro de database query em send-to-approval implementada com sucesso:
   - ✓ Corrigido erro "Cannot convert undefined or null to object" no getPurchaseRequestById
   - ✓ Refatorado método para usar queries separadas em vez de JOINs complexos do Drizzle

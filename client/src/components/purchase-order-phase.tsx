@@ -76,6 +76,14 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     enabled: !!quotation?.id,
   });
 
+  // Buscar items do fornecedor selecionado para obter preços
+  const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.selectedSupplier) || supplierQuotations[0];
+  
+  const { data: supplierQuotationItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
+    enabled: !!selectedSupplierQuotation?.id,
+  });
+
   // Mutation para salvar observações
   const updateRequestMutation = useMutation({
     mutationFn: async (data: PurchaseOrderFormData) => {
@@ -172,14 +180,26 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     updateRequestMutation.mutate(data);
   };
 
+  // Combinar itens com preços do fornecedor selecionado
+  const itemsWithPrices = Array.isArray(items) ? items.map(item => {
+    const supplierItem = supplierQuotationItems.find((si: any) => si.quotationItemId === item.id);
+    return {
+      ...item,
+      unitPrice: supplierItem?.unitPrice || 0,
+      totalPrice: (supplierItem?.unitPrice || 0) * (item.requestedQuantity || 1),
+      brand: supplierItem?.brand || '',
+      deliveryTime: supplierItem?.deliveryTime || ''
+    };
+  }) : [];
+
   // Calcular valores totais
-  const subtotal = Array.isArray(items) ? items.reduce((sum: number, item: any) => 
-    sum + (item.unitPrice * item.requestedQuantity || 0), 0
-  ) : 0;
+  const subtotal = itemsWithPrices.reduce((sum: number, item: any) => 
+    sum + (item.totalPrice || 0), 0
+  );
 
   // Encontrar fornecedor selecionado
   const selectedSupplier = Array.isArray(supplierQuotations) ? 
-    (supplierQuotations.find((sq: any) => sq.isSelected) || supplierQuotations[0]) : null;
+    (supplierQuotations.find((sq: any) => sq.selectedSupplier) || supplierQuotations[0]) : null;
 
   // Organizar histórico de aprovações
   const aprovacaoA1 = Array.isArray(approvalHistory) ? 
@@ -302,7 +322,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {Array.isArray(items) && items.map((item: any, index: number) => (
+            {itemsWithPrices.map((item: any, index: number) => (
               <div key={index} className="flex justify-between items-center p-3 border rounded-lg">
                 <div className="flex-1">
                   <div className="font-medium">{item.itemCode} - {item.description}</div>
@@ -314,13 +334,18 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                       Especificações: {item.specifications}
                     </div>
                   )}
+                  {item.brand && (
+                    <div className="text-sm text-muted-foreground">
+                      Marca: {item.brand}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="font-medium">
                     R$ {item.unitPrice?.toFixed(2).replace('.', ',') || '0,00'}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Total: R$ {(item.unitPrice * item.requestedQuantity || 0).toFixed(2).replace('.', ',')}
+                    Total: R$ {item.totalPrice?.toFixed(2).replace('.', ',') || '0,00'}
                   </div>
                 </div>
               </div>

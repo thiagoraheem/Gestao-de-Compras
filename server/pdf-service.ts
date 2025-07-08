@@ -11,8 +11,33 @@ interface PurchaseOrderData {
 export class PDFService {
   static async generateDashboardPDF(dashboardData: any): Promise<Buffer> {
     const browser = await puppeteer.launch({
+      executablePath: process.env.CHROMIUM_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
+    }).catch(async () => {
+      // Fallback: try without specifying executable path
+      return await puppeteer.launch({
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-gpu'
+        ],
+        headless: true
+      });
     });
     
     try {
@@ -543,15 +568,33 @@ export class PDFService {
     // Buscar itens da solicitação
     const items = await storage.getPurchaseRequestItems(purchaseRequestId);
     
-    // Buscar fornecedor (assumindo que existe um fornecedor selecionado)
+    // Buscar fornecedor e valores dos itens do fornecedor selecionado
     let supplier = null;
+    let itemsWithPrices = items;
+    
     const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
     if (quotation) {
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
-      // Buscar o primeiro fornecedor se nenhum estiver selecionado especificamente
-      const selectedSupplierQuotation = supplierQuotations[0];
+      // Buscar o fornecedor selecionado (selectedSupplier = true)
+      const selectedSupplierQuotation = supplierQuotations.find(sq => sq.selectedSupplier) || supplierQuotations[0];
+      
       if (selectedSupplierQuotation) {
         supplier = await storage.getSupplierById(selectedSupplierQuotation.supplierId);
+        
+        // Buscar os itens do fornecedor selecionado com preços
+        const supplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+        
+        // Combinar os itens da solicitação com os preços do fornecedor
+        itemsWithPrices = items.map(item => {
+          const supplierItem = supplierItems.find(si => si.quotationItemId === item.id);
+          return {
+            ...item,
+            unitPrice: supplierItem?.unitPrice || 0,
+            brand: supplierItem?.brand || '',
+            deliveryTime: supplierItem?.deliveryTime || '',
+            totalPrice: (supplierItem?.unitPrice || 0) * (item.requestedQuantity || 1)
+          };
+        });
       }
     }
 
@@ -560,7 +603,7 @@ export class PDFService {
 
     const data: PurchaseOrderData = {
       purchaseRequest,
-      items,
+      items: itemsWithPrices,
       supplier,
       approvalHistory
     };
@@ -570,8 +613,35 @@ export class PDFService {
 
     // Gerar PDF usando Puppeteer
     const browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: process.env.CHROMIUM_PATH || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor'
+      ],
       headless: true
+    }).catch(async () => {
+      // Fallback: try without specifying executable path
+      return await puppeteer.launch({
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-gpu'
+        ],
+        headless: true
+      });
     });
 
     try {
