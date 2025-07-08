@@ -828,7 +828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/purchase-requests/:id/report-issue", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { reportedById } = req.body;
+      const { reportedById, pendencyReason } = req.body;
 
       const request = await storage.getPurchaseRequestById(id);
       if (!request || request.currentPhase !== "recebimento") {
@@ -837,7 +837,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updateData = {
         currentPhase: "pedido_compra" as any,
-        hasPendingIssue: true, // Add a flag to indicate there's a pending issue
+        hasPendency: true,
+        pendencyReason: pendencyReason || "Pendência reportada",
         updatedAt: new Date()
       };
 

@@ -192,10 +192,25 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       {/* Header com título e botão de fechar */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Pedido de Compra</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold">Pedido de Compra</h2>
+            {request.hasPendency && (
+              <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-300">
+                <X className="w-3 h-3 mr-1" />
+                PENDÊNCIA
+              </Badge>
+            )}
+          </div>
           <p className="text-muted-foreground">
             Solicitação {request.requestNumber} - Resumo completo do processo
           </p>
+          {request.hasPendency && request.pendencyReason && (
+            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-800">
+                <strong>Motivo da Pendência:</strong> {request.pendencyReason}
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <Button

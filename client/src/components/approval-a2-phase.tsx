@@ -79,6 +79,10 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
     queryKey: [`/api/purchase-requests/${request.id}/items`],
   });
 
+  const { data: selectedSupplier } = useQuery<any>({
+    queryKey: [`/api/purchase-requests/${request.id}/selected-supplier`],
+  });
+
   // Transform items to match ApprovalItemData interface
   const transformedItems = requestItems.map(item => ({
     id: item.id,
@@ -201,6 +205,37 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Selected Supplier */}
+          {selectedSupplier && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">Fornecedor Vencedor</Label>
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <h3 className="font-semibold text-green-800">{selectedSupplier.supplier?.name}</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Valor Total:</p>
+                    <p className="font-medium text-green-700">
+                      R$ {parseFloat(selectedSupplier.quotation?.totalValue || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Prazo de Entrega:</p>
+                    <p className="font-medium">{selectedSupplier.quotation?.deliveryTime || "N/A"}</p>
+                  </div>
+                </div>
+                {selectedSupplier.choiceReason && (
+                  <div className="mt-3">
+                    <p className="text-sm text-gray-600 mb-1">Justificativa da Escolha:</p>
+                    <p className="text-sm text-gray-800">{selectedSupplier.choiceReason}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

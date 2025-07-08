@@ -14,6 +14,7 @@ import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 // import ItemsViewer from "./items-viewer";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
+import PendencyModal from "./pendency-modal";
 
 interface ReceiptPhaseProps {
   request: any;
@@ -25,6 +26,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isPendencyModalOpen, setIsPendencyModalOpen] = useState(false);
 
   // Fetch request items
   const { data: items = [] } = useQuery({
@@ -75,14 +77,16 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   });
 
   const reportIssueMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (pendencyReason: string) => {
       const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/report-issue`, {
         reportedById: user?.id,
+        pendencyReason,
       });
       return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      setIsPendencyModalOpen(false);
       toast({
         title: "Pendência Reportada",
         description: "Item retornado para Pedido de Compra com tag de pendência.",
@@ -339,7 +343,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         </Button>
         <Button
           variant="destructive"
-          onClick={() => reportIssueMutation.mutate()}
+          onClick={() => setIsPendencyModalOpen(true)}
           disabled={reportIssueMutation.isPending}
         >
           <X className="mr-2 h-4 w-4" />
@@ -354,6 +358,14 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
           Confirmar Recebimento
         </Button>
       </div>
+
+      {/* Pendency Modal */}
+      <PendencyModal
+        isOpen={isPendencyModalOpen}
+        onClose={() => setIsPendencyModalOpen(false)}
+        onConfirm={(reason) => reportIssueMutation.mutate(reason)}
+        isLoading={reportIssueMutation.isPending}
+      />
     </div>
   );
 }

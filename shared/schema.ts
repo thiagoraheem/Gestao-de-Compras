@@ -124,6 +124,8 @@ export const purchaseRequests = pgTable("purchase_requests", {
   // Recebimento
   receivedById: integer("received_by_id").references(() => users.id),
   receivedDate: timestamp("received_date"),
+  hasPendency: boolean("has_pendency").default(false),
+  pendencyReason: text("pendency_reason"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
