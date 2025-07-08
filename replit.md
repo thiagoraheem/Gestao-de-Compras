@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 8, 2025. Correção crítica do erro de produção - arquivo PRODUCTION_DEPLOYMENT.md criado:
+  - ✓ Identificado problema: aplicação rodando em produção sem build adequado
+  - ✓ Erro "ENOENT: no such file or directory, open 'C:\Locador\client\index.html'" resolvido
+  - ✓ Criado guia completo de deploy para produção (PRODUCTION_DEPLOYMENT.md)
+  - ✓ Documentados comandos necessários: npm run build antes de npm start
+  - ✓ Explicado diferença entre desenvolvimento (npm run dev) e produção (npm start)
+  - ✓ Listadas variáveis de ambiente necessárias para produção
+  - ✓ Estrutura de arquivos após build documentada
+  - ✓ Guia de troubleshooting para erros comuns de produção
 - July 8, 2025. Tela de Pedido de Compra aprimorada com dados reais do fornecedor vencedor:
   - ✓ Corrigida lógica de seleção do fornecedor vencedor (isChosen = true)
   - ✓ Implementada tabela organizada para exibição de itens com valores reais
