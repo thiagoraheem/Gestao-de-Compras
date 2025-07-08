@@ -625,6 +625,8 @@ export class DatabaseStorage implements IStorage {
         deliveryTerms: supplierQuotations.deliveryTerms,
         observations: supplierQuotations.observations,
         createdAt: supplierQuotations.createdAt,
+        isChosen: supplierQuotations.isChosen,
+        choiceReason: supplierQuotations.choiceReason,
         supplier: {
           id: suppliers.id,
           name: suppliers.name,
