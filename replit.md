@@ -110,6 +110,17 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 8, 2025. Tela de Pedido de Compra aprimorada com dados reais do fornecedor vencedor:
+  - ✓ Corrigida lógica de seleção do fornecedor vencedor (isChosen = true)
+  - ✓ Implementada tabela organizada para exibição de itens com valores reais
+  - ✓ Adicionado quadro completo com informações do fornecedor vencedor
+  - ✓ Exibição correta de valores unitários, totais, marcas e prazos
+  - ✓ Valores agora mostram R$ 150,00 (Placa mãe) e R$ 100,00 (Memória) em vez de R$ 0,00
+  - ✓ Seção "Fornecedor Vencedor" com dados completos: nome, email, telefone, CNPJ
+  - ✓ Informações da proposta: valor total, prazo de entrega, condições de pagamento
+  - ✓ Interface responsiva e profissional para visualização de dados do pedido
+  - ✓ Integração correta com supplier_quotation_items para buscar preços reais
+  - ✓ Fallback para casos onde dados do fornecedor não estão disponíveis
 - July 8, 2025. Sistema de comparação de fornecedores aprimorado para permitir seleção parcial:
   - ✓ Corrigida lógica de comparação para permitir seleção quando pelo menos um fornecedor respondeu
   - ✓ Removido requisito de que TODOS os fornecedores precisam responder antes da comparação

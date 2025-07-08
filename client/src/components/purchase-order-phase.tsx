@@ -77,7 +77,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   });
 
   // Buscar items do fornecedor selecionado para obter preços
-  const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0];
+  const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen === true) || supplierQuotations.find((sq: any) => sq.totalValue);
   
   const { data: supplierQuotationItems = [], isLoading: isLoadingSupplierItems } = useQuery<any[]>({
     queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
@@ -421,26 +421,55 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
         </CardContent>
       </Card>
 
-      {/* Fornecedor Selecionado */}
-      {selectedSupplier && selectedSupplierQuotation && (
+      {/* Fornecedor Vencedor */}
+      {selectedSupplierQuotation && (
         <Card>
           <CardHeader>
-            <CardTitle>Fornecedor Vencedor</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Building className="w-5 h-5" />
+              Fornecedor Vencedor
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div><span className="font-medium">Nome:</span> {selectedSupplier.name}</div>
-                <div><span className="font-medium">E-mail:</span> {selectedSupplier.email}</div>
-                <div><span className="font-medium">Telefone:</span> {selectedSupplier.phone}</div>
-                <div><span className="font-medium">CNPJ:</span> {selectedSupplier.cnpj}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <div className="text-sm">
+                  <span className="font-medium text-gray-600">Nome:</span>
+                  <p className="text-lg font-semibold">{selectedSupplierQuotation.supplier?.name || selectedSupplier?.name}</p>
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium text-gray-600">E-mail:</span>
+                  <p>{selectedSupplierQuotation.supplier?.email || selectedSupplier?.email}</p>
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium text-gray-600">Telefone:</span>
+                  <p>{selectedSupplierQuotation.supplier?.phone || selectedSupplier?.phone || 'Não informado'}</p>
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium text-gray-600">CNPJ:</span>
+                  <p>{selectedSupplierQuotation.supplier?.cnpj || selectedSupplier?.cnpj || 'Não informado'}</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <div><span className="font-medium">Valor Total da Proposta:</span> R$ {selectedSupplierQuotation.totalValue?.replace('.', ',')}</div>
-                <div><span className="font-medium">Prazo de Entrega:</span> {selectedSupplierQuotation.deliveryDays} dias</div>
-                <div><span className="font-medium">Condições de Pagamento:</span> {selectedSupplierQuotation.paymentTerms}</div>
+              <div className="space-y-3">
+                <div className="text-sm">
+                  <span className="font-medium text-gray-600">Valor Total da Proposta:</span>
+                  <p className="text-lg font-semibold text-green-600">
+                    R$ {selectedSupplierQuotation.totalValue ? selectedSupplierQuotation.totalValue.replace('.', ',') : '0,00'}
+                  </p>
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium text-gray-600">Prazo de Entrega:</span>
+                  <p>{selectedSupplierQuotation.deliveryTerms || 'Não informado'}</p>
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium text-gray-600">Condições de Pagamento:</span>
+                  <p>{selectedSupplierQuotation.paymentTerms || 'Não informado'}</p>
+                </div>
                 {selectedSupplierQuotation.observations && (
-                  <div><span className="font-medium">Observações:</span> {selectedSupplierQuotation.observations}</div>
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-600">Observações:</span>
+                    <p>{selectedSupplierQuotation.observations}</p>
+                  </div>
                 )}
               </div>
             </div>
