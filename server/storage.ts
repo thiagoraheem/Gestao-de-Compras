@@ -46,7 +46,7 @@ import {
   type Attachment,
   type InsertAttachment,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, desc, like, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import bcrypt from "bcryptjs";
@@ -798,10 +798,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async initializeDefaultData(): Promise<void> {
-    // Check if data already exists
-    const existingUsers = await this.getAllUsers();
-    if (existingUsers.length > 0) {
-      return; // Data already initialized
+    // Check if admin user already exists
+    const adminUser = await this.getUserByUsername('admin');
+    if (adminUser) {
+      console.log("Admin user already exists, skipping initialization");
+      return; // Admin user already exists
     }
 
     // Create default payment methods

@@ -68,6 +68,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize default data
   await storage.initializeDefaultData();
+  
+
 
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
@@ -75,11 +77,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { username, password } = req.body;
       
       const user = await storage.getUserByUsername(username);
+      
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
       const isValidPassword = await bcrypt.compare(password, user.password);
+      
       if (!isValidPassword) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
