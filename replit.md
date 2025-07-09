@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 9, 2025. Correção crítica do cálculo de valores totais na atualização de cotação implementada com sucesso:
+  - ✓ Identificado problema na função parseNumberFromCurrency que não processava corretamente valores brasileiros
+  - ✓ Corrigido parsing de valores formatados como "2.500,00" (separador de milhares + decimal)
+  - ✓ Implementado tratamento específico para formato brasileiro (ponto = milhares, vírgula = decimal)
+  - ✓ Adicionado suporte para formatos "1000,50" e "2.500,00" simultaneamente
+  - ✓ Cálculo de valor total agora exibe corretamente R$ 5.360,00 em vez de R$ 365,00
+  - ✓ Valores individuais por item também corrigidos na interface de cotação
 - July 9, 2025. Correção crítica das mensagens de status de aprovação implementada com sucesso:
   - ✓ Identificado problema onde mensagens de aprovação mostravam texto incorreto
   - ✓ Corrigido approval-a1-phase.tsx: mensagem de aprovação agora mostra "Solicitação aprovada e movida para Cotação!"
