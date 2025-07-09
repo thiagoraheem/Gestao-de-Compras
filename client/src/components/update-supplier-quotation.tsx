@@ -272,10 +272,28 @@ export default function UpdateSupplierQuotation({
   };
 
   const parseNumberFromCurrency = (value: string) => {
+    if (!value) return 0;
+    
     // Remove all non-numeric characters except comma and period
-    const cleanValue = value.replace(/[^\d.,]/g, '');
-    // Replace comma with period for parsing
-    return parseFloat(cleanValue.replace(',', '.')) || 0;
+    let cleanValue = value.replace(/[^\d.,]/g, '');
+    
+    // Handle Brazilian format (e.g., "2.500,00" or "1.000,50")
+    if (cleanValue.includes('.') && cleanValue.includes(',')) {
+      // This is likely Brazilian format with thousands separator (.) and decimal (,)
+      // Remove the thousands separators (all dots except the last one before comma)
+      const parts = cleanValue.split(',');
+      if (parts.length === 2) {
+        // Remove all dots from the integer part
+        const integerPart = parts[0].replace(/\./g, '');
+        cleanValue = integerPart + '.' + parts[1];
+      }
+    } else if (cleanValue.includes(',') && !cleanValue.includes('.')) {
+      // This is likely just decimal separator as comma (e.g., "1000,50")
+      cleanValue = cleanValue.replace(',', '.');
+    }
+    // If only contains dots or only numbers, assume it's already in correct format
+    
+    return parseFloat(cleanValue) || 0;
   };
 
   const calculateTotalValue = () => {
