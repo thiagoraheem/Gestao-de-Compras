@@ -135,7 +135,7 @@ export class PDFService {
     throw new Error(`Falha ao lançar browser após todas as tentativas. Último erro: ${lastError?.message}`);
   }
 
-  // Método de fallback usando html-pdf-node quando Puppeteer falhar
+  // Método de fallback que retorna o HTML quando PDF falha
   private static async generatePDFWithFallback(html: string, pdfType: string): Promise<Buffer> {
     try {
       console.log(`🔄 Tentando gerar PDF com Puppeteer para ${pdfType}...`);
@@ -163,7 +163,33 @@ export class PDFService {
         return pdfBuffer;
       } catch (fallbackError) {
         console.error(`❌ html-pdf-node também falhou para ${pdfType}:`, fallbackError.message);
-        throw new Error(`Ambos os geradores de PDF falharam. Puppeteer: ${puppeteerError.message}. Fallback: ${fallbackError.message}`);
+        console.log(`🔄 Criando fallback como documento HTML para ${pdfType}...`);
+        
+        // Como último recurso, retorna o HTML como um "PDF" (o browser pode imprimir/salvar como PDF)
+        const htmlDocument = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pedido de Compra</title>
+    <style>
+        @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+        }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="background: #f0f0f0; padding: 10px; margin-bottom: 20px; border-radius: 5px;">
+        <strong>📄 Documento HTML</strong><br>
+        Use Ctrl+P (Cmd+P no Mac) para imprimir ou salvar como PDF
+    </div>
+    ${html}
+</body>
+</html>`;
+        
+        return Buffer.from(htmlDocument, 'utf8');
       }
     }
   }

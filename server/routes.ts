@@ -1721,15 +1721,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get purchase request to use in filename
       const purchaseRequest = await storage.getPurchaseRequestById(id);
-      const filename = `Pedido_Compra_${purchaseRequest?.requestNumber || id}.pdf`;
+      const filename = `Pedido_Compra_${purchaseRequest?.requestNumber || id}`;
       
-      // Set headers for PDF download
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      
-      // Send PDF
-      res.send(pdfBuffer);
+      // Check if the buffer is HTML (fallback mode)
+      const bufferString = pdfBuffer.toString('utf8');
+      if (bufferString.includes('<!DOCTYPE html>')) {
+        // Return HTML file for browser to print/save as PDF
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.html"`);
+        res.send(pdfBuffer);
+      } else {
+        // Return actual PDF
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
+      }
     } catch (error) {
       console.error("Error generating PDF:", error);
       res.status(500).json({ 

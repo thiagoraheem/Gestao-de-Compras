@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 9, 2025. Correção do sistema de geração de PDF com fallback robusto implementada com sucesso:
+  - ✓ Identificado problema de dependências faltantes do Chromium no ambiente Replit
+  - ✓ Implementado sistema de fallback que retorna HTML quando PDF falha
+  - ✓ Usuário pode usar Ctrl+P (Cmd+P no Mac) para imprimir ou salvar como PDF
+  - ✓ Fallback HTML contém instruções claras para o usuário
+  - ✓ Sistema detecta automaticamente se retornou PDF real ou HTML de fallback
+  - ✓ Geração de PDF agora é tolerante a falhas de dependências do sistema
 - July 9, 2025. Correção crítica do cálculo de valores totais na atualização de cotação implementada com sucesso:
   - ✓ Identificado problema na função parseNumberFromCurrency que não processava corretamente valores brasileiros
   - ✓ Corrigido parsing de valores formatados como "2.500,00" (separador de milhares + decimal)
