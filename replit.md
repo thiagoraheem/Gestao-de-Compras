@@ -110,6 +110,12 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 9, 2025. Correção crítica das mensagens de status de aprovação implementada com sucesso:
+  - ✓ Identificado problema onde mensagens de aprovação mostravam texto incorreto
+  - ✓ Corrigido approval-a1-phase.tsx: mensagem de aprovação agora mostra "Solicitação aprovada e movida para Cotação!"
+  - ✓ Padronizado título das mensagens de sucesso entre A1 e A2 para "Sucesso"
+  - ✓ Mantida mensagem correta para reprovações: "Solicitação reprovada e movida para Arquivado"
+  - ✓ Aprovações A1 e A2 agora exibem feedback de status correto para os usuários
 - July 9, 2025. Correção crítica do erro "data is not defined" no sistema de criação de RFQ implementada com sucesso:
   - ✓ Identificado problema no callback onSuccess da mutação RFQ onde tentava acessar `data.purchaseRequestId`
   - ✓ Corrigido erro de escopo - `data` não estava disponível no callback onSuccess

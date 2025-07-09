@@ -159,7 +159,7 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       toast({
-        title: "Aprovação A2 processada",
+        title: "Sucesso",
         description: selectedAction === 'approve' 
           ? "Solicitação aprovada e movida para Pedido de Compra!"
           : "Solicitação reprovada e movida para Arquivado",
