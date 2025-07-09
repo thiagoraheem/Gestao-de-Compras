@@ -31,6 +31,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateInput } from "@/components/ui/date-input";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 
 const quotationItemSchema = z.object({
@@ -62,6 +63,7 @@ interface RFQCreationProps {
 
 export default function RFQCreation({ purchaseRequest, existingQuotation, onClose, onComplete }: RFQCreationProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: suppliers = [] } = useQuery<any[]>({
@@ -175,7 +177,6 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
           quotationDeadline: data.quotationDeadline,
           termsAndConditions: data.termsAndConditions,
           technicalSpecs: data.technicalSpecs,
-          createdBy: 1, // TODO: Get from auth context
         }),
       });
 

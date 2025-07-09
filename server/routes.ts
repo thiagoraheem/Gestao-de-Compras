@@ -1160,8 +1160,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/quotations", isAuthenticated, async (req, res) => {
     try {
-      const quotationData = insertQuotationSchema.parse(req.body);
-      const quotation = await storage.createQuotation(quotationData);
+      // Create a schema that excludes createdBy from validation since we'll provide it from session
+      const quotationApiSchema = z.object({
+        purchaseRequestId: z.number(),
+        quotationDeadline: z.string().transform((val) => new Date(val)),
+        termsAndConditions: z.string().optional(),
+        technicalSpecs: z.string().optional(),
+      });
+      
+      const quotationDataForApi = quotationApiSchema.parse(req.body);
+      
+      // Use session user ID instead of frontend-provided createdBy for security
+      const quotation = await storage.createQuotation({
+        ...quotationDataForApi,
+        createdBy: req.session.userId!
+      });
       res.status(201).json(quotation);
     } catch (error) {
       console.error("Error creating quotation:", error);
