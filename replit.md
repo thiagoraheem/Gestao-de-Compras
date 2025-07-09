@@ -110,6 +110,20 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 9, 2025. Correção crítica do erro "data is not defined" no sistema de criação de RFQ implementada com sucesso:
+  - ✓ Identificado problema no callback onSuccess da mutação RFQ onde tentava acessar `data.purchaseRequestId`
+  - ✓ Corrigido erro de escopo - `data` não estava disponível no callback onSuccess
+  - ✓ Substituído `data.purchaseRequestId` por `purchaseRequest.id` que está disponível no escopo do componente
+  - ✓ Corrigidas todas as invalidações de cache para usar o ID correto da solicitação de compra
+  - ✓ Erro "data is not defined" totalmente resolvido - usuários podem criar RFQs sem erros JavaScript
+  - ✓ Sistema de cache invalidation funcionando corretamente após criação de RFQ
+- July 9, 2025. Correção crítica do erro de foreign key constraint no sistema de criação de cotação implementada com sucesso:
+  - ✓ Identificado problema onde RFQ creation tentava usar createdBy = 1 (usuário inexistente)
+  - ✓ Corrigido sistema de autenticação para usar ID do usuário da sessão (ID 3) em vez de valor hardcoded
+  - ✓ Atualizada validação do servidor para usar userId da sessão de forma segura
+  - ✓ Removida dependência do frontend de fornecer createdBy - agora é definido pelo servidor
+  - ✓ Teste bem-sucedido de criação de cotação com ID de usuário autenticado
+  - ✓ Sistema de segurança melhorado - server-side validation com dados de sessão
 - July 9, 2025. Migração completa do Replit Agent para Replit implementada com sucesso (migração finalizada):
   - ✓ Configuração do banco de dados PostgreSQL com 22 tabelas criadas manualmente
   - ✓ Correção de todos os erros de schema incluindo colunas ausentes (approver_a1_id, approver_a2_id, etc.)

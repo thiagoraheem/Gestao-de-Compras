@@ -246,12 +246,12 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       // Invalidate specific queries for this purchase request
-      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${data.purchaseRequestId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${data.purchaseRequestId}/status`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}/status`] });
       // Invalidate all queries starting with the purchase request API pattern
       queryClient.invalidateQueries({ 
         predicate: (query) => 
-          query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${data.purchaseRequestId}`) ||
+          query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
           query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
           query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
       });
