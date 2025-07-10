@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Building } from "lucide-react";
+import { Plus, Building, Edit, Check, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminRoute from "@/components/AdminRoute";
@@ -35,6 +35,8 @@ type CostCenterFormData = z.infer<typeof costCenterSchema>;
 export default function DepartmentsPage() {
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
   const [isCostCenterModalOpen, setIsCostCenterModalOpen] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<any>(null);
+  const [editingCostCenter, setEditingCostCenter] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -66,7 +68,11 @@ export default function DepartmentsPage() {
 
   const createDepartmentMutation = useMutation({
     mutationFn: async (data: DepartmentFormData) => {
-      const response = await apiRequest("POST", "/api/departments", data);
+      const endpoint = editingDepartment 
+        ? `/api/departments/${editingDepartment.id}`
+        : "/api/departments";
+      const method = editingDepartment ? "PUT" : "POST";
+      const response = await apiRequest(method, endpoint, data);
       return response.json();
     },
     onMutate: async (data) => {
@@ -112,17 +118,24 @@ export default function DepartmentsPage() {
       queryClient.refetchQueries({ queryKey: ["/api/users"] });
       
       setIsDeptModalOpen(false);
+      setEditingDepartment(null);
       deptForm.reset();
       toast({
         title: "Sucesso",
-        description: "Departamento criado com sucesso",
+        description: editingDepartment 
+          ? "Departamento atualizado com sucesso"
+          : "Departamento criado com sucesso",
       });
     },
   });
 
   const createCostCenterMutation = useMutation({
     mutationFn: async (data: CostCenterFormData) => {
-      const response = await apiRequest("POST", "/api/cost-centers", data);
+      const endpoint = editingCostCenter 
+        ? `/api/cost-centers/${editingCostCenter.id}`
+        : "/api/cost-centers";
+      const method = editingCostCenter ? "PUT" : "POST";
+      const response = await apiRequest(method, endpoint, data);
       return response.json();
     },
     onMutate: async (data) => {
@@ -176,10 +189,13 @@ export default function DepartmentsPage() {
       queryClient.refetchQueries({ queryKey: ["/api/users"] });
       
       setIsCostCenterModalOpen(false);
+      setEditingCostCenter(null);
       costCenterForm.reset();
       toast({
         title: "Sucesso",
-        description: "Centro de custo criado com sucesso",
+        description: editingCostCenter 
+          ? "Centro de custo atualizado com sucesso"
+          : "Centro de custo criado com sucesso",
       });
     },
   });
@@ -195,6 +211,38 @@ export default function DepartmentsPage() {
   const getDepartmentName = (departmentId: number) => {
     const dept = departments.find((d: any) => d.id === departmentId);
     return dept?.name || "Desconhecido";
+  };
+
+  const handleEditDepartment = (department: any) => {
+    setEditingDepartment(department);
+    deptForm.reset({
+      name: department.name || "",
+      description: department.description || "",
+    });
+    setIsDeptModalOpen(true);
+  };
+
+  const handleEditCostCenter = (costCenter: any) => {
+    setEditingCostCenter(costCenter);
+    costCenterForm.reset({
+      code: costCenter.code || "",
+      name: costCenter.name || "",
+      departmentId: costCenter.departmentId || 0,
+      description: costCenter.description || "",
+    });
+    setIsCostCenterModalOpen(true);
+  };
+
+  const handleCloseDeptModal = () => {
+    setIsDeptModalOpen(false);
+    setEditingDepartment(null);
+    deptForm.reset();
+  };
+
+  const handleCloseCostCenterModal = () => {
+    setIsCostCenterModalOpen(false);
+    setEditingCostCenter(null);
+    costCenterForm.reset();
   };
 
   return (
@@ -226,12 +274,13 @@ export default function DepartmentsPage() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Descrição</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {departments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={2} className="text-center py-8">
+                    <TableCell colSpan={3} className="text-center py-8">
                       Nenhum departamento encontrado
                     </TableCell>
                   </TableRow>
@@ -240,6 +289,15 @@ export default function DepartmentsPage() {
                     <TableRow key={dept.id}>
                       <TableCell className="font-medium">{dept.name}</TableCell>
                       <TableCell>{dept.description || "-"}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditDepartment(dept)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -274,12 +332,13 @@ export default function DepartmentsPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Departamento</TableHead>
                   <TableHead>Descrição</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {costCenters.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8">
+                    <TableCell colSpan={5} className="text-center py-8">
                       Nenhum centro de custo encontrado
                     </TableCell>
                   </TableRow>
@@ -290,6 +349,15 @@ export default function DepartmentsPage() {
                       <TableCell>{cc.name}</TableCell>
                       <TableCell>{getDepartmentName(cc.departmentId)}</TableCell>
                       <TableCell>{cc.description || "-"}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditCostCenter(cc)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -300,10 +368,12 @@ export default function DepartmentsPage() {
       </Card>
 
       {/* Department Modal */}
-      <Dialog open={isDeptModalOpen} onOpenChange={setIsDeptModalOpen}>
+      <Dialog open={isDeptModalOpen} onOpenChange={handleCloseDeptModal}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Novo Departamento</DialogTitle>
+            <DialogTitle>
+              {editingDepartment ? "Editar Departamento" : "Novo Departamento"}
+            </DialogTitle>
           </DialogHeader>
           <Form {...deptForm}>
             <form onSubmit={deptForm.handleSubmit(onSubmitDepartment)} className="space-y-4">
@@ -334,11 +404,13 @@ export default function DepartmentsPage() {
                 )}
               />
               <div className="flex justify-end space-x-3 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setIsDeptModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={handleCloseDeptModal}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={createDepartmentMutation.isPending}>
-                  {createDepartmentMutation.isPending ? "Criando..." : "Criar"}
+                  {createDepartmentMutation.isPending 
+                    ? (editingDepartment ? "Salvando..." : "Criando...") 
+                    : (editingDepartment ? "Salvar" : "Criar")}
                 </Button>
               </div>
             </form>
@@ -347,10 +419,12 @@ export default function DepartmentsPage() {
       </Dialog>
 
       {/* Cost Center Modal */}
-      <Dialog open={isCostCenterModalOpen} onOpenChange={setIsCostCenterModalOpen}>
+      <Dialog open={isCostCenterModalOpen} onOpenChange={handleCloseCostCenterModal}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Novo Centro de Custo</DialogTitle>
+            <DialogTitle>
+              {editingCostCenter ? "Editar Centro de Custo" : "Novo Centro de Custo"}
+            </DialogTitle>
           </DialogHeader>
           <Form {...costCenterForm}>
             <form onSubmit={costCenterForm.handleSubmit(onSubmitCostCenter)} className="space-y-4">
@@ -421,11 +495,13 @@ export default function DepartmentsPage() {
                 )}
               />
               <div className="flex justify-end space-x-3 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setIsCostCenterModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={handleCloseCostCenterModal}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={createCostCenterMutation.isPending}>
-                  {createCostCenterMutation.isPending ? "Criando..." : "Criar"}
+                  {createCostCenterMutation.isPending 
+                    ? (editingCostCenter ? "Salvando..." : "Criando...") 
+                    : (editingCostCenter ? "Salvar" : "Criar")}
                 </Button>
               </div>
             </form>

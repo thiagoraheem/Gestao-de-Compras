@@ -64,11 +64,17 @@ export interface IStorage {
   getAllDepartments(): Promise<Department[]>;
   createDepartment(department: InsertDepartment): Promise<Department>;
   getDepartmentById(id: number): Promise<Department | undefined>;
+  updateDepartment(id: number, department: Partial<InsertDepartment>): Promise<Department>;
 
   // Cost Center operations
   getAllCostCenters(): Promise<CostCenter[]>;
   getCostCentersByDepartment(departmentId: number): Promise<CostCenter[]>;
   createCostCenter(costCenter: InsertCostCenter): Promise<CostCenter>;
+  updateCostCenter(id: number, costCenter: Partial<InsertCostCenter>): Promise<CostCenter>;
+
+  // User delete operations
+  deleteUser(id: number): Promise<void>;
+  checkUserCanBeDeleted(id: number): Promise<{ canDelete: boolean; reason?: string; associatedRequests?: number }>;
 
   // User Department associations
   getUserDepartments(userId: number): Promise<number[]>;
@@ -186,6 +192,57 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users);
   }
 
+  async deleteUser(id: number): Promise<void> {
+    // Delete all user associations first
+    await db.delete(userDepartments).where(eq(userDepartments.userId, id));
+    await db.delete(userCostCenters).where(eq(userCostCenters.userId, id));
+    
+    // Delete the user
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  async checkUserCanBeDeleted(id: number): Promise<{ canDelete: boolean; reason?: string; associatedRequests?: number }> {
+    // Check if user has any purchase requests as requester
+    const requestsAsRequester = await db
+      .select({ count: sql<number>`COUNT(*)`.as('count') })
+      .from(purchaseRequests)
+      .where(eq(purchaseRequests.requesterId, id));
+
+    // Check if user has any purchase requests as approver A1
+    const requestsAsApproverA1 = await db
+      .select({ count: sql<number>`COUNT(*)`.as('count') })
+      .from(purchaseRequests)
+      .where(eq(purchaseRequests.approverA1Id, id));
+
+    // Check if user has any purchase requests as approver A2
+    const requestsAsApproverA2 = await db
+      .select({ count: sql<number>`COUNT(*)`.as('count') })
+      .from(purchaseRequests)
+      .where(eq(purchaseRequests.approverA2Id, id));
+
+    // Check approval history
+    const approvalHistoryCount = await db
+      .select({ count: sql<number>`COUNT(*)`.as('count') })
+      .from(approvalHistory)
+      .where(eq(approvalHistory.userId, id));
+
+    const totalRequests = Number(requestsAsRequester[0].count) + 
+                         Number(requestsAsApproverA1[0].count) + 
+                         Number(requestsAsApproverA2[0].count);
+
+    const totalApprovals = Number(approvalHistoryCount[0].count);
+
+    if (totalRequests > 0 || totalApprovals > 0) {
+      return {
+        canDelete: false,
+        reason: "Usuário possui solicitações de compra ou histórico de aprovações associadas",
+        associatedRequests: totalRequests + totalApprovals
+      };
+    }
+
+    return { canDelete: true };
+  }
+
   async getAllDepartments(): Promise<Department[]> {
     return await db.select().from(departments);
   }
@@ -203,6 +260,15 @@ export class DatabaseStorage implements IStorage {
     return department || undefined;
   }
 
+  async updateDepartment(id: number, updateData: Partial<InsertDepartment>): Promise<Department> {
+    const [department] = await db
+      .update(departments)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(departments.id, id))
+      .returning();
+    return department;
+  }
+
   async getAllCostCenters(): Promise<CostCenter[]> {
     return await db.select().from(costCenters);
   }
@@ -217,6 +283,15 @@ export class DatabaseStorage implements IStorage {
       .values(costCenter)
       .returning();
     return newCostCenter;
+  }
+
+  async updateCostCenter(id: number, updateData: Partial<InsertCostCenter>): Promise<CostCenter> {
+    const [costCenter] = await db
+      .update(costCenters)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(costCenters.id, id))
+      .returning();
+    return costCenter;
   }
 
   async getUserDepartments(userId: number): Promise<number[]> {

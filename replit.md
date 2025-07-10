@@ -110,6 +110,16 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 10, 2025. Funcionalidades completas de edição e exclusão implementadas em módulos administrativos:
+  - ✓ Sistema de edição para departamentos e centros de custo com pré-preenchimento de formulários
+  - ✓ Validação e verificação de segurança para exclusão de usuários
+  - ✓ Modal de confirmação com detalhes dos itens associados antes da exclusão
+  - ✓ Botões de editar e excluir integrados nas tabelas de usuários
+  - ✓ Títulos dinâmicos nos modais ("Novo" vs "Editar") baseados no contexto
+  - ✓ Funções de fechamento corretas para todos os modais com reset de estado
+  - ✓ Atualizações otimistas e invalidação abrangente de cache
+  - ✓ Mensagens de toast de sucesso/erro em português brasileiro
+  - ✓ Consistência com padrões existentes (React Query, Zod validation, shadcn/ui)
 - July 10, 2025. Correção crítica do sistema de atualizações instantâneas com otimizações avançadas implementada com sucesso:
   - ✓ Implementadas atualizações otimistas (optimistic updates) em todas as telas de cadastro
   - ✓ Cache invalidation agressivo com staleTime reduzido para 0 (dados imediatamente obsoletos)
