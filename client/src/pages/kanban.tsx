@@ -110,55 +110,60 @@ export default function KanbanPage() {
         </div>
 
         {/* Desktop Layout */}
-        <div className="hidden md:flex items-center justify-between">
-          <div>
+        <div className="hidden md:block">
+          {/* Title Section */}
+          <div className="mb-4">
             <h1 className="text-2xl font-semibold text-gray-900">Processo de Compras</h1>
             <p className="text-sm text-gray-500 mt-1">Gerencie suas solicitações de compra através do workflow Kanban</p>
           </div>
-          <div className="flex items-center space-x-3">
-            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Todos os Departamentos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Departamentos</SelectItem>
-                {Array.isArray(departments) && departments.map((dept: any) => (
-                  <SelectItem key={dept.id} value={dept.id.toString()}>
-                    {dept.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={selectedUrgency} onValueChange={setSelectedUrgency}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Todas as Urgências" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as Urgências</SelectItem>
-                <SelectItem value="alto">Alta</SelectItem>
-                <SelectItem value="medio">Média</SelectItem>
-                <SelectItem value="baixo">Baixa</SelectItem>
-              </SelectContent>
-            </Select>
+          
+          {/* Filters Section */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                <SelectTrigger className="w-56">
+                  <SelectValue placeholder="Todos os Departamentos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Departamentos</SelectItem>
+                  {Array.isArray(departments) && departments.map((dept: any) => (
+                    <SelectItem key={dept.id} value={dept.id.toString()}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={selectedUrgency} onValueChange={setSelectedUrgency}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Todas as Urgências" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Urgências</SelectItem>
+                  <SelectItem value="alto">Alta</SelectItem>
+                  <SelectItem value="medio">Média</SelectItem>
+                  <SelectItem value="baixo">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
             {/* Date Filter for Archived Items */}
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="startDateDesktop" className="text-sm text-gray-600 whitespace-nowrap">Período:</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="startDateDesktop" className="text-sm text-gray-600 whitespace-nowrap font-medium">Período:</Label>
               <Input
                 id="startDateDesktop"
                 type="date"
                 value={dateFilter.startDate}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-32"
+                className="w-40"
               />
-              <span className="text-gray-500">até</span>
+              <span className="text-gray-500 text-sm">até</span>
               <Input
                 id="endDateDesktop"
                 type="date"
                 value={dateFilter.endDate}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
-                className="w-32"
+                className="w-40"
               />
             </div>
           </div>
