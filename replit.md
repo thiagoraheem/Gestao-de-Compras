@@ -110,6 +110,12 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 10, 2025. Correção crítica no sistema de recuperação de senha - problema de importação corrigido:
+  - ✓ Identificado erro "gt is not defined" na validação de tokens de recuperação
+  - ✓ Corrigido import faltante da função 'gt' do drizzle-orm no arquivo storage.ts
+  - ✓ Sistema de validação de tokens agora funciona corretamente
+  - ✓ URLs de recuperação de senha agora validam tokens adequadamente
+  - ✓ Testado fluxo completo: geração → validação → redefinição de senha
 - July 10, 2025. Sistema completo de recuperação de senha implementado e integrado à tela de login:
   - ✓ Campos password_reset_token e password_reset_expires adicionados à tabela users
   - ✓ Página "Esqueceu sua senha?" criada com formulário de e-mail para recuperação

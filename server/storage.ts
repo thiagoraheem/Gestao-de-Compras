@@ -47,7 +47,7 @@ import {
   type InsertAttachment,
 } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, and, desc, like, sql } from "drizzle-orm";
+import { eq, and, desc, like, sql, gt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import bcrypt from "bcryptjs";
 
