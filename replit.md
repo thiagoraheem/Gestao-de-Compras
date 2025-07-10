@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 10, 2025. CORREÇÃO CRÍTICA DE SEGURANÇA: Sistema de sessões de usuário implementado com PostgreSQL:
+  - ✓ Identificado problema crítico onde usuários compartilhavam sessões entre computadores diferentes
+  - ✓ Implementado PostgreSQL como store de sessões em vez de memória compartilhada
+  - ✓ Adicionada biblioteca connect-pg-simple para gerenciamento seguro de sessões
+  - ✓ Cada computador/navegador agora tem sessão isolada e independente
+  - ✓ Configurado sameSite: 'lax' para proteção contra CSRF
+  - ✓ Implementado rolling sessions para renovar expiração com atividade
+  - ✓ Criação automática da tabela 'session' no PostgreSQL
+  - ✓ Sistema de segurança agora funciona corretamente - logins independentes por dispositivo
 - July 10, 2025. Migração bem-sucedida do Replit Agent para Replit implementada com sucesso:
   - ✓ Migração completa do projeto para ambiente Replit
   - ✓ Correção crítica da mensagem de aprovação A1 que exibia texto incorreto

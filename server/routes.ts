@@ -17,6 +17,8 @@ import {
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 
 // Session type declaration
 declare module "express-session" {
@@ -54,16 +56,27 @@ async function isAdmin(req: Request, res: Response, next: Function) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Configure session
+  // Configure PostgreSQL session store
+  const PgSession = connectPgSimple(session);
+  
+  // Configure session with PostgreSQL store
   app.use(session({
-    secret: process.env.SESSION_SECRET || 'your-secret-key-here',
+    store: new PgSession({
+      pool: pool,
+      tableName: 'session',
+      createTableIfMissing: true
+    }),
+    secret: process.env.SESSION_SECRET || 'your-secret-key-here-change-in-production',
     resave: false,
     saveUninitialized: false,
+    name: 'sessionId', // Custom session name
     cookie: {
       secure: false, // Set to true in production with HTTPS
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax' // Protect against CSRF
+    },
+    rolling: true // Reset expiration on activity
   }));
 
   // Initialize default data
