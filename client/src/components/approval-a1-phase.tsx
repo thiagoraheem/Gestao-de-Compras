@@ -115,7 +115,7 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
 
       toast({
         title: "Sucesso",
-        description: selectedAction === 'approve' 
+        description: variables.approved 
           ? "Solicitação aprovada e movida para Cotação!" 
           : "Solicitação reprovada e movida para Arquivado",
       });

@@ -121,7 +121,9 @@ Key entities include:
   - ✓ Sistema de segurança agora funciona corretamente - logins independentes por dispositivo
 - July 10, 2025. Migração bem-sucedida do Replit Agent para Replit implementada com sucesso:
   - ✓ Migração completa do projeto para ambiente Replit
-  - ✓ Correção crítica da mensagem de aprovação A1 que exibia texto incorreto
+  - ✓ CORREÇÃO FINAL da mensagem de aprovação A1 - problema com drag-and-drop resolvido
+  - ✓ Toast de aprovação agora usa variables.approved em vez de selectedAction
+  - ✓ Sistema funciona corretamente tanto para aprovação manual quanto por drag-and-drop
   - ✓ Sistema de aprovação A1 agora exibe "Solicitação aprovada e movida para Cotação!" corretamente
   - ✓ Aplicação funcionando corretamente na porta 5000 com Express + Vite
   - ✓ Banco de dados PostgreSQL operacional com todas as funcionalidades
