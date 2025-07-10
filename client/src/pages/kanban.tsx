@@ -118,7 +118,7 @@ export default function KanbanPage() {
           </div>
           
           {/* Filters Section */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
                 <SelectTrigger className="w-44 h-8 text-sm">
@@ -148,22 +148,22 @@ export default function KanbanPage() {
             </div>
             
             {/* Date Filter for Archived Items */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <Label htmlFor="startDateDesktop" className="text-xs text-gray-600 whitespace-nowrap font-medium">Período:</Label>
               <Input
                 id="startDateDesktop"
                 type="date"
                 value={dateFilter.startDate}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-32 h-8 text-sm"
+                className="w-36 h-8 text-xs"
               />
-              <span className="text-gray-500 text-xs">até</span>
+              <span className="text-gray-500 text-xs whitespace-nowrap">até</span>
               <Input
                 id="endDateDesktop"
                 type="date"
                 value={dateFilter.endDate}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
-                className="w-32 h-8 text-sm"
+                className="w-36 h-8 text-xs"
               />
             </div>
           </div>
