@@ -39,9 +39,10 @@ export default function KanbanBoard({
 
   const { data: purchaseRequests, isLoading } = useQuery({
     queryKey: ["/api/purchase-requests"],
-    refetchInterval: 10000, // Refetch every 10 seconds for kanban updates
+    refetchInterval: 3000, // More frequent refetch - every 3 seconds for kanban updates
     refetchOnWindowFocus: true,
-    staleTime: 5000, // Consider data stale after 5 seconds
+    refetchOnMount: true,
+    staleTime: 1000, // Very short stale time - 1 second for real-time feel
   });
 
   // Listen for URL-based request opening
@@ -74,22 +75,30 @@ export default function KanbanBoard({
         newPhase,
       });
     },
-    onSuccess: () => {
-      // Comprehensive cache invalidation for all related queries
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-      // Invalidate all quotation status and related queries
-      queryClient.invalidateQueries({ 
-        predicate: (query) => 
-          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+    onMutate: async ({ id, newPhase }) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["/api/purchase-requests"] });
+      
+      // Snapshot the previous value
+      const previousRequests = queryClient.getQueryData(["/api/purchase-requests"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData(["/api/purchase-requests"], (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((request: any) =>
+          request.id === id ? { ...request, currentPhase: newPhase } : request
+        );
       });
-      toast({
-        title: "Sucesso",
-        description: "Item movido com sucesso!",
-      });
+      
+      // Return a context object with the snapshotted value
+      return { previousRequests };
     },
-    onError: (error: any) => {
+    onError: (error, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousRequests) {
+        queryClient.setQueryData(["/api/purchase-requests"], context.previousRequests);
+      }
+      
       let errorMessage = "Falha ao mover item";
       
       // Handle specific error messages from backend
@@ -111,6 +120,25 @@ export default function KanbanBoard({
         title: "Movimento Bloqueado",
         description: errorMessage,
         variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      // Comprehensive cache invalidation for all related queries
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      // Invalidate all quotation status and related queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+      });
+      
+      // Force immediate refetch for absolute certainty
+      queryClient.refetchQueries({ queryKey: ["/api/purchase-requests"] });
+      
+      toast({
+        title: "Sucesso",
+        description: "Item movido com sucesso!",
       });
     },
   });

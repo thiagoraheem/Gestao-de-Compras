@@ -97,7 +97,15 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
       await apiRequest("POST", "/api/purchase-requests", requestData);
     },
     onSuccess: () => {
+      // Comprehensive cache invalidation and immediate refetch
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      
+      // Force immediate refetch for real-time feedback
+      queryClient.refetchQueries({ queryKey: ["/api/purchase-requests"] });
+      
       toast({
         title: "Sucesso",
         description: "Solicitação criada com sucesso!",
