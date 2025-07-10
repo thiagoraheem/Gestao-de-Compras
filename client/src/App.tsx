@@ -46,9 +46,12 @@ function Router() {
   }
 
   if (!isAuthenticated) {
-    // Store the current URL to redirect after login
+    // Store the current URL to redirect after login, but only if it's not the root
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('redirectAfterLogin', window.location.pathname + window.location.search);
+      const currentPath = window.location.pathname + window.location.search;
+      if (currentPath !== '/' && !currentPath.includes('login')) {
+        sessionStorage.setItem('redirectAfterLogin', currentPath);
+      }
     }
     return <LoginPage />;
   }

@@ -14,11 +14,10 @@ import {
 import Notifications from "./notifications";
 
 export default function Navbar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    window.location.href = "/";
+  const handleLogout = () => {
+    logout();
   };
 
   const getInitials = () => {
