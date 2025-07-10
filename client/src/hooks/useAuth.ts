@@ -65,7 +65,10 @@ export function useAuth() {
       const redirectPath = sessionStorage.getItem('redirectAfterLogin');
       if (redirectPath) {
         sessionStorage.removeItem('redirectAfterLogin');
-        window.location.href = redirectPath;
+        window.location.replace(redirectPath);
+      } else {
+        // Default redirect to kanban
+        window.location.replace('/kanban');
       }
     },
     onError: () => {
@@ -84,6 +87,7 @@ export function useAuth() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (!response.ok) {
         throw new Error("Logout failed");
@@ -95,8 +99,21 @@ export function useAuth() {
       queryClient.setQueryData(["/api/auth/check"], null);
       // Clear all cache data
       queryClient.clear();
-      // Force immediate redirect
-      window.location.replace("/");
+      // Clear any stored redirect path
+      sessionStorage.removeItem('redirectAfterLogin');
+      
+      // Force immediate redirect with cache busting
+      // Using replace to avoid back button issues
+      const timestamp = Date.now();
+      window.location.replace(`/?_=${timestamp}`);
+    },
+    onError: () => {
+      // Even if server logout fails, clear local state and redirect
+      queryClient.setQueryData(["/api/auth/check"], null);
+      queryClient.clear();
+      sessionStorage.removeItem('redirectAfterLogin');
+      const timestamp = Date.now();
+      window.location.replace(`/?_=${timestamp}`);
     },
   });
 
