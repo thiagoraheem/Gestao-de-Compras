@@ -3,7 +3,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
@@ -55,9 +62,9 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <Button
+              type="submit"
+              className="w-full"
               disabled={isLoggingIn || !username || !password}
             >
               {isLoggingIn ? (
@@ -71,7 +78,7 @@ export default function LoginPage() {
             </Button>
           </CardFooter>
         </form>
-        <div className="pb-6 px-6 text-center text-sm text-muted-foreground">
+        <div className="pb-6 px-6 text-center text-sm text-muted-foreground hidden">
           <p>Usuário padrão: admin</p>
           <p>Senha padrão: admin123</p>
         </div>

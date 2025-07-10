@@ -88,9 +88,68 @@ export default function UsersPage() {
         ? `/api/users/${editingUser.id}`
         : "/api/users";
       const method = editingUser ? "PUT" : "POST";
-      await apiRequest(method, endpoint, {
+      const response = await apiRequest(method, endpoint, {
         ...data,
         costCenterIds: selectedCostCenters
+      });
+      return response.json();
+    },
+    onMutate: async (data) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["/api/users"] });
+      
+      // Snapshot the previous value
+      const previousUsers = queryClient.getQueryData(["/api/users"]);
+      
+      if (!editingUser) {
+        // For new users, add optimistic entry
+        queryClient.setQueryData(["/api/users"], (old: any[]) => {
+          if (!Array.isArray(old)) return old;
+          const optimisticUser = {
+            id: Date.now(), // Temporary ID
+            ...data,
+            department: data.departmentId ? departments.find(d => d.id === data.departmentId) : null,
+            costCenters: selectedCostCenters.map(id => costCenters.find(cc => cc.id === id)).filter(Boolean)
+          };
+          return [...old, optimisticUser];
+        });
+      } else {
+        // For editing, update existing user
+        queryClient.setQueryData(["/api/users"], (old: any[]) => {
+          if (!Array.isArray(old)) return old;
+          return old.map(user => 
+            user.id === editingUser.id 
+              ? { 
+                  ...user, 
+                  ...data,
+                  department: data.departmentId ? departments.find(d => d.id === data.departmentId) : null,
+                  costCenters: selectedCostCenters.map(id => costCenters.find(cc => cc.id === id)).filter(Boolean)
+                }
+              : user
+          );
+        });
+      }
+      
+      // Return a context object with the snapshotted value
+      return { previousUsers };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousUsers) {
+        queryClient.setQueryData(["/api/users"], context.previousUsers);
+      }
+      
+      let errorMessage = "Falha ao salvar usuário";
+      if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive",
       });
     },
     onSuccess: () => {
@@ -106,8 +165,10 @@ export default function UsersPage() {
           query.queryKey[0]?.toString().includes(`/cost-centers`)
       });
       
-      // Force immediate refetch of all user data
+      // Force immediate refetch for real data
       queryClient.refetchQueries({ queryKey: ["/api/users"] });
+      queryClient.refetchQueries({ queryKey: ["/api/cost-centers"] });
+      queryClient.refetchQueries({ queryKey: ["/api/departments"] });
       
       toast({
         title: "Sucesso",
@@ -116,22 +177,6 @@ export default function UsersPage() {
           : "Usuário criado com sucesso!",
       });
       handleCloseModal();
-    },
-    onError: (error: any) => {
-      let errorMessage = "Falha ao salvar usuário";
-      
-      // Try to extract the specific error message from the API response
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-
-      toast({
-        title: "Erro",
-        description: errorMessage,
-        variant: "destructive",
-      });
     },
   });
 
