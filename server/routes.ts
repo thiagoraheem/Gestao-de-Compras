@@ -1361,6 +1361,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Import email service
         const { sendRFQToSuppliers } = await import('./email-service');
         
+        // Get logged-in user's email
+        const loggedUser = await storage.getUser(req.session.userId!);
+        const senderEmail = loggedUser?.email;
+        
         // Prepare email data
         const rfqData = {
           quotationNumber: quotation.quotationNumber,
@@ -1377,8 +1381,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           technicalSpecs: quotation.technicalSpecs || ''
         };
 
-        // Send emails
-        const emailResult = await sendRFQToSuppliers(selectedSuppliers, rfqData);
+        // Send emails with logged-in user's email as sender
+        const emailResult = await sendRFQToSuppliers(selectedSuppliers, rfqData, senderEmail);
         
         // Update quotation status to 'sent'
         await storage.updateQuotation(quotationId, { 

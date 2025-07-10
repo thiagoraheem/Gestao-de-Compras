@@ -30,6 +30,7 @@ interface RFQEmailData {
 export async function sendRFQToSuppliers(
   suppliers: Supplier[],
   rfqData: RFQEmailData,
+  senderEmail?: string,
 ): Promise<{ success: boolean; errors: string[] }> {
   const transporter = createTransporter();
   const errors: string[] = [];
@@ -45,7 +46,7 @@ export async function sendRFQToSuppliers(
       const emailHtml = generateRFQEmailHTML(supplier, rfqData);
 
       const mailOptions = {
-        from: config.email.from,
+        from: senderEmail || config.email.from,
         to: supplier.email,
         subject: `Solicitação de Cotação - ${rfqData.quotationNumber}`,
         html: emailHtml,

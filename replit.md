@@ -110,6 +110,12 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 10, 2025. Personalização do remetente de e-mails RFQ implementada com sucesso:
+  - ✓ Campo "De" dos e-mails para fornecedores agora usa o e-mail do usuário logado no sistema
+  - ✓ Função sendRFQToSuppliers atualizada para aceitar parâmetro senderEmail opcional
+  - ✓ Sistema obtém automaticamente o e-mail do usuário da sessão ativa
+  - ✓ Fallback para e-mail padrão do sistema caso usuário não tenha e-mail cadastrado
+  - ✓ Fornecedores agora recebem e-mails diretamente do comprador responsável pela cotação
 - July 10, 2025. CORREÇÃO CRÍTICA: Problema de carregamento de especificações técnicas na criação de RFQ solucionado:
   - ✓ Identificado problema de race condition onde especificações técnicas não apareciam no primeiro carregamento
   - ✓ Implementado sistema robusto de loading states para aguardar carregamento completo dos dados
