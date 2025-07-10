@@ -77,16 +77,16 @@ export default function PipefyHeader() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border shadow-sm">
       <div className="flex items-center justify-between px-4 md:px-6 py-3 mobile-header">
         {/* Logo e Nome */}
         <div className="flex items-center space-x-2 md:space-x-8 flex-1 min-w-0">
           <Link href="/">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <ShoppingCart className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-semibold text-gray-900 hidden sm:inline">
+              <span className="text-xl font-semibold text-foreground hidden sm:inline">
                 Compras
               </span>
             </div>
@@ -103,8 +103,8 @@ export default function PipefyHeader() {
                     className={cn(
                       "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                       isActive
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted",
                     )}
                   >
                     <Icon className="w-4 h-4" />
@@ -127,7 +127,7 @@ export default function PipefyHeader() {
                   className="relative h-9 w-9 rounded-full"
                 >
                   <Avatar className="h-9 w-9">
-                    <AvatarFallback className="bg-blue-600 text-white">
+                    <AvatarFallback className="bg-primary text-primary-foreground">
                       {user?.firstName?.[0] || user?.username?.[0] || "U"}
                     </AvatarFallback>
                   </Avatar>
@@ -187,7 +187,7 @@ export default function PipefyHeader() {
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t border-gray-200 shadow-lg">
+          <div className="px-2 pt-2 pb-3 space-y-1 bg-background border-t border-border shadow-lg">
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
@@ -197,8 +197,8 @@ export default function PipefyHeader() {
                     className={cn(
                       "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                       isActive
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted",
                     )}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -210,30 +210,30 @@ export default function PipefyHeader() {
             })}
 
             {/* User info and logout for mobile */}
-            <div className="pt-4 border-t border-gray-200 mt-4">
+            <div className="pt-4 border-t border-border mt-4">
               <div className="flex items-center px-3 py-2">
                 <Avatar className="h-8 w-8 mr-3">
-                  <AvatarFallback className="bg-blue-600 text-white text-sm">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                     {user?.firstName?.[0] || user?.username?.[0] || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     {user?.firstName} {user?.lastName}
                   </p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
                 </div>
               </div>
 
               <Link href="/profile">
-                <div className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg">
                   <User className="w-5 h-5" />
                   <span>Perfil</span>
                 </div>
               </Link>
 
               <Link href="/change-password">
-                <div className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg">
                   <Settings className="w-5 h-5" />
                   <span>Alterar Senha</span>
                 </div>
@@ -241,7 +241,7 @@ export default function PipefyHeader() {
 
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg w-full text-left"
+                className="flex items-center space-x-3 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg w-full text-left"
               >
                 <LogOut className="w-5 h-5" />
                 <span>Sair</span>
