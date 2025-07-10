@@ -34,7 +34,6 @@ export default function LoginPage() {
         <div className="absolute bottom-20 left-20 w-24 h-24 border-2 border-orange-300 rounded-full"></div>
         <div className="absolute bottom-40 right-10 w-16 h-16 border-2 border-orange-300 rounded-full"></div>
       </div>
-      
       {/* Main Login Card */}
       <Card className="w-full max-w-md shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
         <CardHeader className="space-y-6 text-center pt-8 pb-6">
@@ -45,9 +44,8 @@ export default function LoginPage() {
           
           {/* Title */}
           <div className="space-y-2">
-            <CardTitle className="text-2xl font-bold text-orange-600">
-              Sistema de Compras
-            </CardTitle>
+            <CardTitle className="text-2xl font-bold text-orange-600">LOCADOR
+            Módulo de Compras</CardTitle>
             <CardDescription className="text-gray-600 text-sm leading-relaxed">
               Gestão completa de equipamentos e veículos
             </CardDescription>
