@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2, Eye, EyeOff, Wrench } from "lucide-react";
+import { Construction, Building2, Car } from "lucide-react";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -27,12 +27,17 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-100 flex items-center justify-center relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-10 left-10 w-32 h-32 border-2 border-orange-300 rounded-full"></div>
-        <div className="absolute top-40 right-20 w-20 h-20 border-2 border-orange-300 rounded-full"></div>
-        <div className="absolute bottom-20 left-20 w-24 h-24 border-2 border-orange-300 rounded-full"></div>
-        <div className="absolute bottom-40 right-10 w-16 h-16 border-2 border-orange-300 rounded-full"></div>
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 opacity-10">
+          <Construction size={120} className="text-primary" />
+        </div>
+        <div className="absolute bottom-20 right-10 opacity-10">
+          <Building2 size={100} className="text-primary" />
+        </div>
+        <div className="absolute top-1/2 left-5 opacity-5">
+          <Car size={80} className="text-primary" />
+        </div>
       </div>
       {/* Main Login Card */}
       <Card className="w-full max-w-md shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
@@ -41,33 +46,34 @@ export default function LoginPage() {
           <div className="mx-auto w-16 h-16 bg-gradient-to-r from-orange-400 to-orange-600 rounded-full flex items-center justify-center shadow-lg">
             <Wrench className="h-8 w-8 text-white" />
           </div>
-          
+
           {/* Title */}
           <div className="space-y-2">
-            <CardTitle className="text-2xl font-bold text-orange-600">LOCADOR
-            Módulo de Compras</CardTitle>
+            <CardTitle className="text-2xl font-bold text-orange-600">
+              Sistema <i>LOCADOR</i>
+            </CardTitle>
             <CardDescription className="text-gray-600 text-sm leading-relaxed">
-              Gestão completa de equipamentos e veículos
+              Módulo de Gestão de Compras.
             </CardDescription>
           </div>
-          
+
           {/* Feature Icons */}
           <div className="flex justify-center items-center space-x-6 text-xs text-gray-500">
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+            <div className="flex items-center gap-1">
+              <Construction size={14} />
               <span>Equipamentos</span>
             </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+            <div className="flex items-center gap-1">
+              <Building2 size={14} />
               <span>Imóveis</span>
             </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+            <div className="flex items-center gap-1">
+              <Car size={14} />
               <span>Veículos</span>
             </div>
           </div>
         </CardHeader>
-        
+
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6 px-8">
             {/* Username Field */}
@@ -86,7 +92,7 @@ export default function LoginPage() {
                 className="h-12 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
               />
             </div>
-            
+
             {/* Password Field */}
             <div className="space-y-2">
               <Label htmlFor="password" className="text-gray-700 font-medium">
@@ -118,7 +124,7 @@ export default function LoginPage() {
               </div>
             </div>
           </CardContent>
-          
+
           <CardFooter className="px-8 pb-8">
             <div className="w-full space-y-4">
               {/* Login Button */}
@@ -136,7 +142,7 @@ export default function LoginPage() {
                   "Entrar no Sistema"
                 )}
               </Button>
-              
+
               {/* Forgot Password Link */}
               <div className="text-center">
                 <button
@@ -150,11 +156,11 @@ export default function LoginPage() {
             </div>
           </CardFooter>
         </form>
-        
+
         {/* Footer */}
         <div className="pb-6 px-8 text-center text-xs text-gray-400 space-y-1">
-          <p>Sistema de Compras v2.0 • Gestão de Equipamentos</p>
-          <p>Construção Civil • Plataformas Elevatórias • Imóveis • Veículos</p>
+          <p>Locador v2.0 • Gestão de Compras</p>
+          <p>Equipamentos • Plataformas Elevatórias • Imóveis • Veículos</p>
         </div>
       </Card>
     </div>
