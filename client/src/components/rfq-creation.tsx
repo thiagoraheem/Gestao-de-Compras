@@ -122,10 +122,12 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         description: item.description || "",
         quantity: item.requestedQuantity?.toString() || "1",
         unit: item.unit || "UN",
-        specifications: item.technicalSpecification || "",
+        specifications: item.technicalSpecification || "", // Load technical specifications from original request
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
       }));
       form.setValue("items", mappedItems);
+      // Force form to re-render with new values
+      form.trigger("items");
     } else if (purchaseRequestItems.length === 0 && !existingQuotation) {
       // Fallback to default item if no items exist
       form.setValue("items", [
@@ -134,12 +136,12 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
           description: purchaseRequest.justification || "",
           quantity: "1",
           unit: "UN",
-          specifications: "",
+          specifications: purchaseRequest.additionalInfo || "", // Load from additional info if available
           deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
         }
       ]);
     }
-  }, [purchaseRequestItems, existingQuotationItems, existingQuotation, purchaseRequest.justification]);
+  }, [purchaseRequestItems, existingQuotationItems, existingQuotation, purchaseRequest.justification, purchaseRequest.additionalInfo, form]);
 
   // Set form values when existing quotation data is loaded
   useEffect(() => {
@@ -392,6 +394,23 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="technicalSpecs"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Especificações Técnicas Gerais</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Especificações técnicas gerais da solicitação (carregadas automaticamente da solicitação original)"
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
               </CardContent>
             </Card>
@@ -448,8 +467,8 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                       )}
                     </div>
                     
-                    {/* Original Request Data - Read-only presentation */}
-                    <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                    {/* Editable Item Fields */}
+                    <div className="bg-blue-50 p-3 rounded-lg mb-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         
                         <FormField
@@ -457,13 +476,13 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                           name={`items.${index}.quantity`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-gray-600">Quantidade</FormLabel>
+                              <FormLabel className="text-gray-700 font-medium">Quantidade</FormLabel>
                               <FormControl>
                                 <Input 
                                   type="number" 
                                   min="1" 
                                   {...field} 
-                                  className="bg-white"
+                                  className="bg-white border-blue-300 focus:border-blue-500"
                                 />
                               </FormControl>
                               <FormMessage />
@@ -476,11 +495,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                           name={`items.${index}.unit`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-gray-600">Unidade</FormLabel>
+                              <FormLabel className="text-gray-700 font-medium">Unidade</FormLabel>
                               <FormControl>
                                 <Select value={field.value} onValueChange={field.onChange}>
-                                  <SelectTrigger className="bg-white">
-                                    <SelectValue placeholder="Selecione" />
+                                  <SelectTrigger className="bg-white border-blue-300 focus:border-blue-500">
+                                    <SelectValue placeholder="Unidade" />
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="UN">Unidade</SelectItem>
@@ -528,13 +547,13 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                         name={`items.${index}.description`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-gray-600">Descrição do Item</FormLabel>
+                            <FormLabel className="text-gray-700 font-medium">Descrição do Item</FormLabel>
                             <FormControl>
                               <Textarea 
                                 placeholder="Descrição detalhada do item (carregada da solicitação original)"
                                 rows={2}
                                 {...field}
-                                className="bg-gray-50"
+                                className="bg-white border-gray-300 focus:border-blue-500"
                               />
                             </FormControl>
                             <FormMessage />
@@ -555,7 +574,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                                 placeholder="Especificações técnicas detalhadas que serão enviadas aos fornecedores para cotação (marca, modelo, características técnicas, normas, etc.)"
                                 rows={3}
                                 {...field}
-                                className="bg-blue-50 border-blue-300 focus:border-blue-500"
+                                className="bg-white border-blue-300 focus:border-blue-500"
                               />
                             </FormControl>
                             <FormMessage />
