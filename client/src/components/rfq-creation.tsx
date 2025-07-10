@@ -137,6 +137,16 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       // Clear existing fields and append new items
       form.setValue("items", []);
       mappedItems.forEach(item => append(item));
+      
+      // Force update individual field values to ensure they are properly synchronized
+      setTimeout(() => {
+        mappedItems.forEach((item, index) => {
+          form.setValue(`items.${index}.specifications`, item.specifications);
+          form.setValue(`items.${index}.description`, item.description);
+          form.setValue(`items.${index}.quantity`, item.quantity);
+          form.setValue(`items.${index}.unit`, item.unit);
+        });
+      }, 100);
     } else if (purchaseRequestItems.length === 0 && !existingQuotation && fields.length === 0) {
       // Fallback to default item if no items exist
       const defaultItem = {
