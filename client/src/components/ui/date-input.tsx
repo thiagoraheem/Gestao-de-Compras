@@ -48,17 +48,36 @@ export function DateInput({
     // Remove all non-numeric characters
     const numbers = input.replace(/\D/g, "");
     
-    // Apply mask DD/MM/YYYY
+    // Limit to maximum 8 digits (DDMMYYYY)
+    const limitedNumbers = numbers.substring(0, 8);
+    
+    // Apply mask DD/MM/YYYY with validation
     let formatted = "";
     
-    if (numbers.length >= 1) {
-      formatted += numbers.substring(0, 2);
+    if (limitedNumbers.length >= 1) {
+      // Day validation: limit to 31
+      const day = limitedNumbers.substring(0, 2);
+      const dayNum = parseInt(day, 10);
+      if (dayNum > 31 && limitedNumbers.length >= 2) {
+        formatted += "31";
+      } else {
+        formatted += day;
+      }
     }
-    if (numbers.length >= 3) {
-      formatted += "/" + numbers.substring(2, 4);
+    if (limitedNumbers.length >= 3) {
+      // Month validation: limit to 12
+      const month = limitedNumbers.substring(2, 4);
+      const monthNum = parseInt(month, 10);
+      if (monthNum > 12 && limitedNumbers.length >= 4) {
+        formatted += "/12";
+      } else {
+        formatted += "/" + month;
+      }
     }
-    if (numbers.length >= 5) {
-      formatted += "/" + numbers.substring(4, 8);
+    if (limitedNumbers.length >= 5) {
+      // Year validation: must be 4 digits and reasonable range
+      const year = limitedNumbers.substring(4, 8);
+      formatted += "/" + year;
     }
     
     return formatted;
@@ -73,19 +92,30 @@ export function DateInput({
     if (formatted.length === 10) {
       const [day, month, year] = formatted.split("/");
       if (day && month && year && year.length === 4) {
-        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-        // Validate the date
-        if (date.getFullYear() === parseInt(year) && 
-            date.getMonth() === parseInt(month) - 1 && 
-            date.getDate() === parseInt(day)) {
-          const isoDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-          onChange?.(isoDate);
+        const dayNum = parseInt(day, 10);
+        const monthNum = parseInt(month, 10);
+        const yearNum = parseInt(year, 10);
+        
+        // Additional validation for reasonable date ranges
+        if (dayNum >= 1 && dayNum <= 31 && 
+            monthNum >= 1 && monthNum <= 12 && 
+            yearNum >= 1900 && yearNum <= 2100) {
+          
+          const date = new Date(yearNum, monthNum - 1, dayNum);
+          // Validate the date exists (e.g., not Feb 30)
+          if (date.getFullYear() === yearNum && 
+              date.getMonth() === monthNum - 1 && 
+              date.getDate() === dayNum) {
+            const isoDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+            onChange?.(isoDate);
+            return;
+          }
         }
       }
-    } else {
-      // Clear the value if incomplete
-      onChange?.("");
     }
+    
+    // Clear the value if incomplete or invalid
+    onChange?.("");
   };
 
   const handleCalendarSelect = (date: Date | undefined) => {
