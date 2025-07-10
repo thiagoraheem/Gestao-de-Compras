@@ -49,16 +49,16 @@ export default function KanbanPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Board Header - estilo Pipefy */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 md:px-6 py-4 shadow-sm">
+      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 md:px-6 py-3 shadow-sm">
         {/* Mobile Layout */}
-        <div className="flex flex-col space-y-4 md:hidden">
+        <div className="flex flex-col space-y-3 md:hidden">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Processo de Compras</h1>
-            <p className="text-sm text-gray-500 mt-1">Gerencie suas solicitações através do workflow Kanban</p>
+            <h1 className="text-lg font-semibold text-gray-900">Processo de Compras</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Gerencie suas solicitações através do workflow Kanban</p>
           </div>
-          <div className="flex flex-col space-y-2">
+          <div className="flex flex-col space-y-1.5">
             <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full h-8 text-sm">
                 <SelectValue placeholder="Todos os Departamentos" />
               </SelectTrigger>
               <SelectContent>
@@ -72,7 +72,7 @@ export default function KanbanPage() {
             </Select>
             
             <Select value={selectedUrgency} onValueChange={setSelectedUrgency}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full h-8 text-sm">
                 <SelectValue placeholder="Todas as Urgências" />
               </SelectTrigger>
               <SelectContent>
@@ -84,7 +84,7 @@ export default function KanbanPage() {
             </Select>
             
             {/* Date Filter for Archived Items */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1.5">
               <div>
                 <Label htmlFor="startDate" className="text-xs text-gray-600">Data Inicial</Label>
                 <Input
@@ -92,7 +92,7 @@ export default function KanbanPage() {
                   type="date"
                   value={dateFilter.startDate}
                   onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="text-sm"
+                  className="text-xs h-8"
                 />
               </div>
               <div>
@@ -102,7 +102,7 @@ export default function KanbanPage() {
                   type="date"
                   value={dateFilter.endDate}
                   onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="text-sm"
+                  className="text-xs h-8"
                 />
               </div>
             </div>
@@ -112,16 +112,16 @@ export default function KanbanPage() {
         {/* Desktop Layout */}
         <div className="hidden md:block">
           {/* Title Section */}
-          <div className="mb-4">
-            <h1 className="text-2xl font-semibold text-gray-900">Processo de Compras</h1>
-            <p className="text-sm text-gray-500 mt-1">Gerencie suas solicitações de compra através do workflow Kanban</p>
+          <div className="mb-3">
+            <h1 className="text-xl font-semibold text-gray-900">Processo de Compras</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Gerencie suas solicitações de compra através do workflow Kanban</p>
           </div>
           
           {/* Filters Section */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
               <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                <SelectTrigger className="w-56">
+                <SelectTrigger className="w-44 h-8 text-sm">
                   <SelectValue placeholder="Todos os Departamentos" />
                 </SelectTrigger>
                 <SelectContent>
@@ -135,7 +135,7 @@ export default function KanbanPage() {
               </Select>
               
               <Select value={selectedUrgency} onValueChange={setSelectedUrgency}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-36 h-8 text-sm">
                   <SelectValue placeholder="Todas as Urgências" />
                 </SelectTrigger>
                 <SelectContent>
@@ -148,22 +148,22 @@ export default function KanbanPage() {
             </div>
             
             {/* Date Filter for Archived Items */}
-            <div className="flex items-center gap-2">
-              <Label htmlFor="startDateDesktop" className="text-sm text-gray-600 whitespace-nowrap font-medium">Período:</Label>
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor="startDateDesktop" className="text-xs text-gray-600 whitespace-nowrap font-medium">Período:</Label>
               <Input
                 id="startDateDesktop"
                 type="date"
                 value={dateFilter.startDate}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-40"
+                className="w-32 h-8 text-sm"
               />
-              <span className="text-gray-500 text-sm">até</span>
+              <span className="text-gray-500 text-xs">até</span>
               <Input
                 id="endDateDesktop"
                 type="date"
                 value={dateFilter.endDate}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
-                className="w-40"
+                className="w-32 h-8 text-sm"
               />
             </div>
           </div>
