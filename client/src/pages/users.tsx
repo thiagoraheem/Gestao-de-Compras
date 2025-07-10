@@ -94,7 +94,21 @@ export default function UsersPage() {
       });
     },
     onSuccess: () => {
+      // Comprehensive cache invalidation for user-related data
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      
+      // Invalidate user-specific cost center queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0]?.toString().includes(`/api/users/`) &&
+          query.queryKey[0]?.toString().includes(`/cost-centers`)
+      });
+      
+      // Force immediate refetch of all user data
+      queryClient.refetchQueries({ queryKey: ["/api/users"] });
+      
       toast({
         title: "Sucesso",
         description: editingUser 

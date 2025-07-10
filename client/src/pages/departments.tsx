@@ -69,7 +69,14 @@ export default function DepartmentsPage() {
       await apiRequest("POST", "/api/departments", data);
     },
     onSuccess: () => {
+      // Comprehensive cache invalidation for department-related data
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
+      
+      // Force immediate refetch for immediate UI feedback
+      queryClient.refetchQueries({ queryKey: ["/api/departments"] });
+      
       setIsDeptModalOpen(false);
       deptForm.reset();
       toast({
@@ -91,7 +98,21 @@ export default function DepartmentsPage() {
       await apiRequest("POST", "/api/cost-centers", data);
     },
     onSuccess: () => {
+      // Comprehensive cache invalidation for cost center-related data
       queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      
+      // Invalidate user-specific cost center queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0]?.toString().includes(`/api/users/`) &&
+          query.queryKey[0]?.toString().includes(`/cost-centers`)
+      });
+      
+      // Force immediate refetch for immediate UI feedback
+      queryClient.refetchQueries({ queryKey: ["/api/cost-centers"] });
+      
       setIsCostCenterModalOpen(false);
       costCenterForm.reset();
       toast({

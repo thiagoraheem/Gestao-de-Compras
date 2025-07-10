@@ -110,6 +110,22 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 10, 2025. Otimização crítica do sistema de cache para eliminar atrasos na atualização de dados implementada com sucesso:
+  - ✓ Reduzido staleTime global do React Query de Infinity para 2 segundos para feedback em tempo real
+  - ✓ Habilitado refetchOnWindowFocus e refetchOnMount para melhor responsividade
+  - ✓ Implementado invalidação abrangente de cache em todas as mutações críticas
+  - ✓ Adicionado refetchQueries forçado após operações de criação/atualização
+  - ✓ Implementadas atualizações otimistas (optimistic updates) no Kanban para feedback visual imediato
+  - ✓ Melhorado sistema de invalidação por predicados para capturar todas as queries relacionadas
+  - ✓ Reduzido intervalo de refetch no Kanban de 10s para 3s para maior responsividade
+  - ✓ Adicionada invalidação cruzada entre usuários, departamentos e centros de custo
+  - ✓ Sistema agora reflete mudanças imediatamente sem necessidade de F5 ou espera
+- July 10, 2025. Filtro de centros de custo por usuário na criação de solicitações implementado com sucesso:
+  - ✓ Modal de nova solicitação agora filtra centros de custo pelos associados ao usuário logado
+  - ✓ Modal aprimorado de nova solicitação também implementado com filtro de centros de custo
+  - ✓ Correção do campo requesterId para usar o usuário autenticado em vez de valor hardcoded
+  - ✓ Integração com hook useAuth para obter dados do usuário atual
+  - ✓ Sistema de segurança melhorado evitando associações incorretas de centros de custo
 - July 9, 2025. Correção do sistema de geração de PDF com fallback robusto implementada com sucesso:
   - ✓ Identificado problema de dependências faltantes do Chromium no ambiente Replit
   - ✓ Implementado sistema de fallback que retorna HTML quando PDF falha
