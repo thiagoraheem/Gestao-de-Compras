@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DateInput } from "@/components/ui/date-input";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { URGENCY_LEVELS, CATEGORY_OPTIONS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import { CloudUpload } from "lucide-react";
 
@@ -35,10 +36,24 @@ interface NewRequestModalProps {
 export default function NewRequestModal({ open, onOpenChange }: NewRequestModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
-  const { data: costCenters } = useQuery<any[]>({
+  // Get user's cost center IDs
+  const { data: userCostCenterIds } = useQuery<number[]>({
+    queryKey: ["/api/users", user?.id, "cost-centers"],
+    queryFn: () => fetch(`/api/users/${user?.id}/cost-centers`).then(res => res.json()),
+    enabled: !!user?.id,
+  });
+
+  // Get all cost centers
+  const { data: allCostCenters } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
   });
+
+  // Filter cost centers based on user's assigned cost centers
+  const costCenters = allCostCenters?.filter(center => 
+    userCostCenterIds?.includes(center.id)
+  ) || [];
 
   const form = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema),
@@ -57,7 +72,7 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
     mutationFn: async (data: RequestFormData) => {
       const requestData = {
         ...data,
-        requesterId: 1, // TODO: Get from auth context
+        requesterId: user?.id || 1,
         costCenterId: Number(data.costCenterId),
         availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : undefined,
         idealDeliveryDate: data.idealDeliveryDate || undefined,
