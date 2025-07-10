@@ -87,6 +87,28 @@
     border-radius: 4px;
   }
 
+  /* Navigation fixes */
+  .navigation-item {
+    color: hsl(25, 5.3%, 44.7%) !important;
+  }
+
+  .navigation-item:hover {
+    color: hsl(24, 95%, 53%) !important;
+  }
+
+  .navigation-item.active {
+    color: hsl(24, 95%, 53%) !important;
+  }
+
+  /* Fix blue elements in navigation */
+  nav a[style*="color: rgb(59, 130, 246)"] {
+    color: hsl(25, 5.3%, 44.7%) !important;
+  }
+
+  nav a[style*="color: rgb(59, 130, 246)"]:hover {
+    color: hsl(24, 95%, 53%) !important;
+  }
+
   /* Mobile header fixes */
   @media (max-width: 768px) {
     .mobile-header {
@@ -96,12 +118,6 @@
 
     .mobile-title {
       font-size: 1.25rem;
-    }
-
-    .mobile-menu-button {
-      min-width: 2.25rem;
-      min-height: 2.25rem;
-      flex-shrink: 0;
     }
   }
 
