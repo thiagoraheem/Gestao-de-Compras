@@ -49,7 +49,7 @@ export default function Navbar() {
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
               <ShoppingCart className="text-primary text-2xl mr-3" />
-              <h1 className="text-xl font-semibold text-gray-900">Sistema de Compras</h1>
+              <h1 className="text-xl font-semibold text-foreground">Sistema de Compras</h1>
             </div>
           </div>
 
@@ -63,8 +63,8 @@ export default function Navbar() {
                     <AvatarFallback>{getInitials()}</AvatarFallback>
                   </Avatar>
                   <div className="text-sm text-left">
-                    <p className="font-medium text-gray-900">{getDisplayName()}</p>
-                    <p className="text-gray-500 text-xs">
+                    <p className="font-medium text-foreground">{getDisplayName()}</p>
+                    <p className="text-muted-foreground text-xs">
                       {user?.department?.name || "Sem departamento"} • {getRoles()}
                     </p>
                   </div>
