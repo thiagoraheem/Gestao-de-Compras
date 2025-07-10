@@ -27,6 +27,7 @@ const updateSupplierQuotationSchema = z.object({
   })),
   paymentTerms: z.string().optional(),
   deliveryTerms: z.string().optional(),
+  warrantyPeriod: z.string().optional(),
   observations: z.string().optional(),
 });
 
@@ -57,6 +58,7 @@ interface ExistingSupplierQuotation {
   items: SupplierQuotationItem[];
   paymentTerms?: string;
   deliveryTerms?: string;
+  warrantyPeriod?: string;
   observations?: string;
 }
 
@@ -101,6 +103,7 @@ export default function UpdateSupplierQuotation({
       items: [],
       paymentTerms: "",
       deliveryTerms: "",
+      warrantyPeriod: "",
       observations: "",
     },
   });
@@ -142,6 +145,7 @@ export default function UpdateSupplierQuotation({
       form.setValue("items", formItems);
       form.setValue("paymentTerms", existingSupplierQuotation.paymentTerms || "");
       form.setValue("deliveryTerms", existingSupplierQuotation.deliveryTerms || "");
+      form.setValue("warrantyPeriod", existingSupplierQuotation.warrantyPeriod || "");
       form.setValue("observations", existingSupplierQuotation.observations || "");
     }
   }, [existingSupplierQuotation, quotationItems, form]);
@@ -174,6 +178,7 @@ export default function UpdateSupplierQuotation({
         totalValue,
         paymentTerms: data.paymentTerms || null,
         deliveryTerms: data.deliveryTerms || null,
+        warrantyPeriod: data.warrantyPeriod || null,
         observations: data.observations || null,
       });
     },
@@ -554,7 +559,7 @@ export default function UpdateSupplierQuotation({
                 <CardTitle>Condições Comerciais</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="paymentTerms"
@@ -584,6 +589,23 @@ export default function UpdateSupplierQuotation({
                             {...field}
                             placeholder="Ex: FOB, CIF, entrega no local..."
                             className="resize-none"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="warrantyPeriod"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Período de Garantia</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Ex: 12 meses, 2 anos..."
                           />
                         </FormControl>
                         <FormMessage />

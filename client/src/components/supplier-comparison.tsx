@@ -41,6 +41,7 @@ interface SupplierQuotationData {
   items: SupplierQuotationItem[];
   deliveryDays: number;
   warranty: string;
+  warrantyPeriod: string;
   paymentTerms: string;
   observations: string;
 }
@@ -196,10 +197,10 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                           <p className="text-sm mt-1">{supplierData.paymentTerms}</p>
                         </div>
 
-                        {/* Garantia */}
+                        {/* Período de Garantia */}
                         <div>
-                          <span className="text-sm font-medium text-gray-600">Garantia:</span>
-                          <p className="text-sm mt-1">{supplierData.warranty}</p>
+                          <span className="text-sm font-medium text-gray-600">Período de Garantia:</span>
+                          <p className="text-sm mt-1">{supplierData.warrantyPeriod || supplierData.warranty || "Não informado"}</p>
                         </div>
 
                         {/* Itens */}

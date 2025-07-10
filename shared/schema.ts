@@ -218,6 +218,7 @@ export const supplierQuotations = pgTable("supplier_quotations", {
   totalValue: decimal("total_value", { precision: 15, scale: 2 }),
   paymentTerms: text("payment_terms"),
   deliveryTerms: text("delivery_terms"),
+  warrantyPeriod: text("warranty_period"), // Período de garantia (ex: "12 meses", "24 meses", "1 ano")
   observations: text("observations"),
   isChosen: boolean("is_chosen").default(false),
   choiceReason: text("choice_reason"),

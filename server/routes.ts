@@ -1650,7 +1650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations/:quotationId/update-supplier-quotation", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      const { supplierId, items, totalValue, paymentTerms, deliveryTerms, observations } = req.body;
+      const { supplierId, items, totalValue, paymentTerms, deliveryTerms, warrantyPeriod, observations } = req.body;
       
       if (!supplierId) {
         return res.status(400).json({ message: "ID do fornecedor é obrigatório" });
@@ -1684,6 +1684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalValue: totalValue || null,
         paymentTerms: paymentTerms || null,
         deliveryTerms: deliveryTerms || null,
+        warrantyPeriod: warrantyPeriod || null,
         observations: observations || null,
         receivedAt: new Date()
       });
@@ -1824,6 +1825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             totalValue: Number(sq.totalValue) || 0, // Use the stored total value
             deliveryDays: sq.deliveryDays || 30,
             warranty: sq.warranty || "12 meses",
+            warrantyPeriod: sq.warrantyPeriod || "12 meses",
             paymentTerms: sq.paymentTerms || "30 dias",
             observations: sq.observations || "",
             status: sq.status || "received"
