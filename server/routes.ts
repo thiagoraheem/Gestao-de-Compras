@@ -209,6 +209,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check if user can be deleted
+  app.get("/api/users/:id/can-delete", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = await storage.checkUserCanBeDeleted(id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking if user can be deleted:", error);
+      res.status(500).json({ message: "Failed to check user deletion eligibility" });
+    }
+  });
+
+  // Delete user
+  app.delete("/api/users/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Check if user can be deleted first
+      const canDeleteCheck = await storage.checkUserCanBeDeleted(id);
+      if (!canDeleteCheck.canDelete) {
+        return res.status(400).json({ 
+          message: canDeleteCheck.reason,
+          associatedRequests: canDeleteCheck.associatedRequests
+        });
+      }
+
+      await storage.deleteUser(id);
+      res.json({ message: "Usuário excluído com sucesso" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
   // Update user profile (without password)
   app.patch("/api/users/:id", isAuthenticated, async (req, res) => {
     try {
@@ -304,6 +338,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/departments/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const departmentData = insertDepartmentSchema.partial().parse(req.body);
+      const department = await storage.updateDepartment(id, departmentData);
+      res.json(department);
+    } catch (error) {
+      console.error("Error updating department:", error);
+      res.status(400).json({ message: "Failed to update department" });
+    }
+  });
+
   // Cost Centers routes
   app.get("/api/cost-centers", isAuthenticated, async (req, res) => {
     try {
@@ -334,6 +380,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating cost center:", error);
       res.status(400).json({ message: "Invalid cost center data" });
+    }
+  });
+
+  app.put("/api/cost-centers/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const costCenterData = insertCostCenterSchema.partial().parse(req.body);
+      const costCenter = await storage.updateCostCenter(id, costCenterData);
+      res.json(costCenter);
+    } catch (error) {
+      console.error("Error updating cost center:", error);
+      res.status(400).json({ message: "Failed to update cost center" });
     }
   });
 
