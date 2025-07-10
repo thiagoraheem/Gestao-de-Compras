@@ -1797,7 +1797,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Get supplier details
           const supplier = await storage.getSupplierById(sq.supplierId);
           
-          // Get attachments for this supplier quotation
+          // Get attachments for this supplier quotation - using a simple query since we don't have a storage method
+          const { db } = await import('./db');
+          const { attachments } = await import('../shared/schema');
+          const { eq } = await import('drizzle-orm');
           const sqAttachments = await db.select().from(attachments).where(eq(attachments.supplierQuotationId, sq.id));
           
           return sqAttachments.map((attachment: any) => ({
