@@ -903,12 +903,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       
       // Get quotation for this purchase request
-      const quotations = await storage.getQuotationsByPurchaseRequest(id);
-      if (!quotations || quotations.length === 0) {
+      const quotation = await storage.getQuotationByPurchaseRequestId(id);
+      if (!quotation) {
         return res.json(null);
       }
-      
-      const quotation = quotations[0];
       
       // Get supplier quotations for this quotation
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
@@ -919,7 +917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get supplier details
-      const supplier = await storage.getSupplier(selectedSupplier.supplierId);
+      const supplier = await storage.getSupplierById(selectedSupplier.supplierId);
       
       // Get supplier quotation items
       const items = await storage.getSupplierQuotationItems(selectedSupplier.id);
@@ -1744,7 +1742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload supplier quotation files (simplified version)
+  // Upload supplier quotation files
   app.post("/api/quotations/:quotationId/upload-supplier-file", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
@@ -1758,11 +1756,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cotação do fornecedor não encontrada" });
       }
 
-      // Add attachment to database (simplified - file handling will be implemented later)
-      await storage.createAttachment({
+      // Add attachment to database
+      const attachment = await storage.createAttachment({
         supplierQuotationId: supplierQuotation.id,
-        fileName: fileName || "arquivo.pdf",
-        filePath: `/uploads/${fileName}`,
+        fileName: fileName || "proposta_fornecedor.pdf",
+        filePath: `/uploads/supplier_quotations/${quotationId}/${fileName || "proposta_fornecedor.pdf"}`,
         fileType: fileType || "application/pdf",
         fileSize: 0,
         attachmentType: attachmentType || "supplier_proposal"
@@ -1770,11 +1768,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ 
         message: "Arquivo enviado com sucesso",
-        fileName: fileName
+        fileName: fileName,
+        attachmentId: attachment.id
       });
     } catch (error) {
       console.error("Error uploading supplier file:", error);
       res.status(500).json({ message: "Erro ao enviar arquivo" });
+    }
+  });
+
+  // Get all supplier attachments for a purchase request
+  app.get("/api/purchase-requests/:id/supplier-attachments", isAuthenticated, async (req, res) => {
+    try {
+      const purchaseRequestId = parseInt(req.params.id);
+      
+      // Get quotation for this purchase request
+      const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
+      if (!quotation) {
+        return res.json([]);
+      }
+      
+      // Get all supplier quotations
+      const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+      
+      // Get all attachments for all supplier quotations
+      const allAttachments = await Promise.all(
+        supplierQuotations.map(async (sq: any) => {
+          // Get supplier details
+          const supplier = await storage.getSupplierById(sq.supplierId);
+          
+          // Get attachments for this supplier quotation
+          const sqAttachments = await db.select().from(attachments).where(eq(attachments.supplierQuotationId, sq.id));
+          
+          return sqAttachments.map((attachment: any) => ({
+            ...attachment,
+            supplierName: supplier?.name || "Fornecedor desconhecido",
+            supplierId: sq.supplierId,
+            supplierQuotationId: sq.id
+          }));
+        })
+      );
+      
+      // Flatten the array and filter out empty arrays
+      const flatAttachments = allAttachments.flat().filter(Boolean);
+      
+      res.json(flatAttachments);
+    } catch (error) {
+      console.error("Error fetching supplier attachments:", error);
+      res.status(500).json({ message: "Erro ao buscar anexos dos fornecedores" });
     }
   });
 

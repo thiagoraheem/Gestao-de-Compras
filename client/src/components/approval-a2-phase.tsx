@@ -79,6 +79,11 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
     queryKey: [`/api/purchase-requests/${request.id}/attachments`],
   });
 
+  // Buscar anexos de fornecedores para esta solicitação
+  const { data: supplierAttachments } = useQuery<any[]>({
+    queryKey: [`/api/purchase-requests/${request.id}/supplier-attachments`],
+  });
+
   const { data: approvalHistory } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
   });
@@ -614,6 +619,59 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
           requestId={request.id}
           requestNumber={request.requestNumber}
         />
+
+        {/* Supplier Attachments */}
+        {supplierAttachments && supplierAttachments.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                Anexos dos Fornecedores
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Propostas e documentos enviados pelos fornecedores
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {supplierAttachments.map((attachment: any) => (
+                  <div key={attachment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded-full">
+                        <Paperclip className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{attachment.fileName}</p>
+                        <p className="text-xs text-gray-500">
+                          {attachment.supplierName} • {attachment.fileType}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {attachment.attachmentType === 'supplier_proposal' ? 'Proposta' : 'Documento'}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-blue-600 hover:text-blue-700"
+                        onClick={() => {
+                          // In a real implementation, this would download or preview the file
+                          toast({
+                            title: "Visualizar Arquivo",
+                            description: `Abrindo ${attachment.fileName}...`,
+                          });
+                        }}
+                      >
+                        Visualizar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Approval History */}
         {approvalHistory && approvalHistory.length > 0 && (
