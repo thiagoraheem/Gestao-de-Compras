@@ -595,7 +595,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: item.id,
         description: item.description,
         unit: item.unit,
-        requestedQuantity: parseFloat(item.requestedQuantity) || 0
+        requestedQuantity: parseFloat(item.requestedQuantity) || 0,
+        technicalSpecification: item.technicalSpecification || ""
       }));
       
       console.log(`[DEBUG] Fetched ${items.length} items for purchase request ${purchaseRequestId}:`, mappedItems);
