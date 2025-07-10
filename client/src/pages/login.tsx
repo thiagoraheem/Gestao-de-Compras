@@ -11,8 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, Eye, EyeOff, Wrench } from "lucide-react";
-import { Construction, Building2, Car } from "lucide-react";
+import { Loader2, Eye, EyeOff, Wrench, Construction, Building2, Car } from "lucide-react";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");

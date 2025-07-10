@@ -102,6 +102,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
     },
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "items",
+  });
+
   // Set form items when purchase request items are loaded
   useEffect(() => {
     if (existingQuotation && existingQuotationItems.length > 0) {
@@ -114,8 +119,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         specifications: item.specifications || "",
         deliveryDeadline: item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 15), "yyyy-MM-dd"),
       }));
-      form.setValue("items", mappedItems);
-    } else if (purchaseRequestItems.length > 0 && form.getValues("items").length === 0) {
+      
+      // Clear existing fields and append new items
+      form.setValue("items", []);
+      mappedItems.forEach(item => append(item));
+    } else if (purchaseRequestItems.length > 0 && fields.length === 0) {
       // Load purchase request items for new quotation, only if no items are currently set
       const mappedItems = purchaseRequestItems.map(item => ({
         itemCode: "",
@@ -125,21 +133,26 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         specifications: item.technicalSpecification || "", // Load technical specifications from original request
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
       }));
-      form.setValue("items", mappedItems);
-    } else if (purchaseRequestItems.length === 0 && !existingQuotation && form.getValues("items").length === 0) {
+      
+      // Clear existing fields and append new items
+      form.setValue("items", []);
+      mappedItems.forEach(item => append(item));
+    } else if (purchaseRequestItems.length === 0 && !existingQuotation && fields.length === 0) {
       // Fallback to default item if no items exist
-      form.setValue("items", [
-        {
-          itemCode: "",
-          description: purchaseRequest.justification || "",
-          quantity: "1",
-          unit: "UN",
-          specifications: purchaseRequest.additionalInfo || "", // Load from additional info if available
-          deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
-        }
-      ]);
+      const defaultItem = {
+        itemCode: "",
+        description: purchaseRequest.justification || "",
+        quantity: "1",
+        unit: "UN",
+        specifications: purchaseRequest.additionalInfo || "", // Load from additional info if available
+        deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
+      };
+      
+      // Clear existing fields and append default item
+      form.setValue("items", []);
+      append(defaultItem);
     }
-  }, [purchaseRequestItems, existingQuotationItems, existingQuotation]);
+  }, [purchaseRequestItems, existingQuotationItems, existingQuotation, fields.length, append]);
 
   // Set form values when existing quotation data is loaded
   useEffect(() => {
@@ -160,11 +173,6 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       form.setValue("selectedSuppliers", selectedSupplierIds);
     }
   }, [existingSupplierQuotations, form]);
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "items",
-  });
 
   const createRFQMutation = useMutation({
     mutationFn: async (data: RFQCreationData & { sendEmail?: boolean }) => {
