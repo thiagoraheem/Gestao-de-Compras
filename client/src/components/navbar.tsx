@@ -52,10 +52,10 @@ export default function Navbar() {
               <h1 className="text-xl font-semibold text-gray-900">Sistema de Compras</h1>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <Notifications />
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center space-x-2 px-2">

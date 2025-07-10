@@ -5,7 +5,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DndContext,
   DragEndEvent,
-  DragOverlay,
   DragStartEvent,
   closestCorners,
 } from "@dnd-kit/core";
