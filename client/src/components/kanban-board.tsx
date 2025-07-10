@@ -6,6 +6,7 @@ import {
   DndContext,
   DragEndEvent,
   DragStartEvent,
+  DragOverlay,
   closestCorners,
 } from "@dnd-kit/core";
 import { useState, useEffect } from "react";
