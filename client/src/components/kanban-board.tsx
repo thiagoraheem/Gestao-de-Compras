@@ -336,7 +336,7 @@ export default function KanbanBoard({
       <div className="h-full overflow-x-auto px-6 py-4">
         <div
           className="flex space-x-6"
-          style={{ minWidth: "max-content", height: "calc(100vh - 200px)" }}
+          style={{ minWidth: "max-content", height: "100%" }}
         >
           {Object.values(PURCHASE_PHASES).map((phase) => (
             <div key={phase} className="flex-shrink-0 w-80">
@@ -442,7 +442,7 @@ export default function KanbanBoard({
       <div className="h-full overflow-x-auto px-4 md:px-6 py-4 kanban-scroll">
         <div
           className="flex space-x-4 md:space-x-6"
-          style={{ minWidth: "max-content", height: "calc(100vh - 200px)" }}
+          style={{ minWidth: "max-content", height: "100%" }}
         >
           {Object.values(PURCHASE_PHASES).map((phase) => (
             <KanbanColumn

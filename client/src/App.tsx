@@ -25,7 +25,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <PipefyHeader />
-      <main className="pt-16 min-h-screen">
+      <main className="pt-16 h-screen">
         {children}
       </main>
       <FloatingNewRequestButton />

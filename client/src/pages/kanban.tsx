@@ -53,7 +53,7 @@ export default function KanbanPage() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-full">
       {/* Board Header - estilo Pipefy */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 md:px-6 py-3 shadow-sm">
         {/* Mobile Layout */}
