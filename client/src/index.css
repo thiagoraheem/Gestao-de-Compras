@@ -25,10 +25,10 @@
   --radius: 0.5rem;
 
   /* Custom Kanban colors */
-  --kanban-solicitacao: hsl(207, 90%, 54%);
+  --kanban-solicitacao: hsl(24, 95%, 53%);
   --kanban-aprovacao-a1: hsl(38, 92%, 50%);
   --kanban-cotacao: hsl(263, 70%, 50%);
-  --kanban-aprovacao-a2: hsl(231, 48%, 48%);
+  --kanban-aprovacao-a2: hsl(207, 90%, 54%);
   --kanban-pedido: hsl(180, 25%, 25%);
   --kanban-conclusao: hsl(142, 71%, 45%);
   --kanban-recebimento: hsl(152, 81%, 43%);
