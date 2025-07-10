@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import LoginPage from "@/pages/login";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import NotFound from "@/pages/not-found";
 import KanbanPage from "@/pages/kanban";
 import SuppliersPage from "@/pages/suppliers";
@@ -49,11 +51,19 @@ function Router() {
     // Store the current URL to redirect after login, but only if it's not the root
     if (typeof window !== 'undefined') {
       const currentPath = window.location.pathname + window.location.search;
-      if (currentPath !== '/' && !currentPath.includes('login')) {
+      if (currentPath !== '/' && !currentPath.includes('login') && !currentPath.includes('forgot-password') && !currentPath.includes('reset-password')) {
         sessionStorage.setItem('redirectAfterLogin', currentPath);
       }
     }
-    return <LoginPage />;
+    
+    // Public routes (no authentication required)
+    return (
+      <Switch>
+        <Route path="/forgot-password" component={ForgotPasswordPage} />
+        <Route path="/reset-password" component={ResetPasswordPage} />
+        <Route component={LoginPage} />
+      </Switch>
+    );
   }
 
   return (
