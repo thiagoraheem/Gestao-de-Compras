@@ -104,9 +104,6 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
 
   // Set form items when purchase request items are loaded
   useEffect(() => {
-    // Only set items once when data is first loaded, avoid re-renders
-    if (form.getValues("items").length > 0) return; // Don't reload if items already exist
-    
     if (existingQuotation && existingQuotationItems.length > 0) {
       // Load existing quotation items for editing
       const mappedItems = existingQuotationItems.map(item => ({
@@ -117,12 +114,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         specifications: item.specifications || "",
         deliveryDeadline: item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 15), "yyyy-MM-dd"),
       }));
-      form.reset({
-        ...form.getValues(),
-        items: mappedItems,
-      });
-    } else if (purchaseRequestItems.length > 0) {
-      // Load purchase request items for new quotation
+      form.setValue("items", mappedItems);
+    } else if (purchaseRequestItems.length > 0 && form.getValues("items").length === 0) {
+      // Load purchase request items for new quotation, only if no items are currently set
       const mappedItems = purchaseRequestItems.map(item => ({
         itemCode: "",
         description: item.description || "",
@@ -131,27 +125,21 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         specifications: item.technicalSpecification || "", // Load technical specifications from original request
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
       }));
-      form.reset({
-        ...form.getValues(),
-        items: mappedItems,
-      });
-    } else if (purchaseRequestItems.length === 0 && !existingQuotation) {
+      form.setValue("items", mappedItems);
+    } else if (purchaseRequestItems.length === 0 && !existingQuotation && form.getValues("items").length === 0) {
       // Fallback to default item if no items exist
-      form.reset({
-        ...form.getValues(),
-        items: [
-          {
-            itemCode: "",
-            description: purchaseRequest.justification || "",
-            quantity: "1",
-            unit: "UN",
-            specifications: purchaseRequest.additionalInfo || "", // Load from additional info if available
-            deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
-          }
-        ],
-      });
+      form.setValue("items", [
+        {
+          itemCode: "",
+          description: purchaseRequest.justification || "",
+          quantity: "1",
+          unit: "UN",
+          specifications: purchaseRequest.additionalInfo || "", // Load from additional info if available
+          deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
+        }
+      ]);
     }
-  }, [purchaseRequestItems.length, existingQuotationItems.length, existingQuotation?.id]);
+  }, [purchaseRequestItems, existingQuotationItems, existingQuotation]);
 
   // Set form values when existing quotation data is loaded
   useEffect(() => {
