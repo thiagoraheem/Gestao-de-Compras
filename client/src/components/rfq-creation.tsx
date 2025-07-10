@@ -65,29 +65,30 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   const { data: suppliers = [] } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
   });
 
   // Fetch existing purchase request items
-  const { data: purchaseRequestItems = [] } = useQuery<any[]>({
+  const { data: purchaseRequestItems = [], isLoading: itemsLoading } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${purchaseRequest.id}/items`],
   });
 
   // Fetch complete purchase request data with requester info
-  const { data: completeRequestData } = useQuery<any>({
+  const { data: completeRequestData, isLoading: requestLoading } = useQuery<any>({
     queryKey: [`/api/purchase-requests/${purchaseRequest.id}`],
   });
 
   // Fetch existing quotation items if editing
-  const { data: existingQuotationItems = [] } = useQuery<any[]>({
+  const { data: existingQuotationItems = [], isLoading: quotationItemsLoading } = useQuery<any[]>({
     queryKey: [`/api/quotations/${existingQuotation?.id}/items`],
     enabled: !!existingQuotation?.id,
   });
 
   // Fetch existing supplier quotations if editing
-  const { data: existingSupplierQuotations = [] } = useQuery<any[]>({
+  const { data: existingSupplierQuotations = [], isLoading: supplierQuotationsLoading } = useQuery<any[]>({
     queryKey: [`/api/quotations/${existingQuotation?.id}/supplier-quotations`],
     enabled: !!existingQuotation?.id,
   });
@@ -107,8 +108,23 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
     name: "items",
   });
 
-  // Set form items when purchase request items are loaded
+  // Check if we have all the data we need
+  const isLoadingData = existingQuotation 
+    ? quotationItemsLoading || supplierQuotationsLoading
+    : itemsLoading || requestLoading;
+
+  // Set form items when all data is loaded
   useEffect(() => {
+    // Don't proceed if data is still loading
+    if (isLoadingData) {
+      return;
+    }
+
+    // If we already have items loaded and this is not a data change, don't re-load
+    if (fields.length > 0 && isDataLoaded) {
+      return;
+    }
+
     if (existingQuotation && existingQuotationItems.length > 0) {
       // Load existing quotation items for editing
       const mappedItems = existingQuotationItems.map(item => ({
@@ -123,8 +139,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       // Clear existing fields and append new items
       form.setValue("items", []);
       mappedItems.forEach(item => append(item));
-    } else if (purchaseRequestItems.length > 0 && fields.length === 0) {
-      // Load purchase request items for new quotation, only if no items are currently set
+      setIsDataLoaded(true);
+    } else if (purchaseRequestItems.length > 0) {
+      // Load purchase request items for new quotation
       const mappedItems = purchaseRequestItems.map(item => ({
         itemCode: "",
         description: item.description || "",
@@ -134,9 +151,16 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
       }));
       
-      // Replace all fields at once instead of clearing and appending
+      // Replace all fields at once
       form.setValue("items", mappedItems);
-    } else if (purchaseRequestItems.length === 0 && !existingQuotation && fields.length === 0) {
+      
+      // Force trigger re-render to ensure fields are properly populated
+      setTimeout(() => {
+        form.trigger("items");
+      }, 50);
+      
+      setIsDataLoaded(true);
+    } else if (!existingQuotation && purchaseRequestItems.length === 0) {
       // Fallback to default item if no items exist
       const defaultItem = {
         itemCode: "",
@@ -149,8 +173,18 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       
       // Set the default item directly
       form.setValue("items", [defaultItem]);
+      setIsDataLoaded(true);
     }
-  }, [purchaseRequestItems, existingQuotationItems, existingQuotation, fields.length, form]);
+  }, [
+    purchaseRequestItems, 
+    existingQuotationItems, 
+    existingQuotation, 
+    fields.length, 
+    form, 
+    isLoadingData, 
+    isDataLoaded,
+    append
+  ]);
 
   // Set form values when existing quotation data is loaded
   useEffect(() => {
@@ -303,6 +337,19 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       description: "A RFQ foi salva como rascunho.",
     });
   };
+
+  // Show loading state while data is being fetched
+  if (isLoadingData) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-md w-full p-6 text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <h3 className="text-lg font-semibold mb-2">Carregando dados da solicitação...</h3>
+          <p className="text-gray-600">Aguarde enquanto os dados são carregados.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

@@ -110,6 +110,14 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 10, 2025. CORREÇÃO CRÍTICA: Problema de carregamento de especificações técnicas na criação de RFQ solucionado:
+  - ✓ Identificado problema de race condition onde especificações técnicas não apareciam no primeiro carregamento
+  - ✓ Implementado sistema robusto de loading states para aguardar carregamento completo dos dados
+  - ✓ Adicionado indicador visual de carregamento enquanto dados são buscados do servidor
+  - ✓ Melhorada lógica de população de campos do formulário com state management adequado
+  - ✓ Form trigger implementado para garantir sincronização correta de todos os campos
+  - ✓ Especificações técnicas agora carregam corretamente na primeira abertura da tela
+  - ✓ Sistema de migração do Replit Agent para Replit finalizado com sucesso
 - July 10, 2025. CORREÇÃO CRÍTICA DE SEGURANÇA: Sistema de sessões de usuário implementado com PostgreSQL:
   - ✓ Identificado problema crítico onde usuários compartilhavam sessões entre computadores diferentes
   - ✓ Implementado PostgreSQL como store de sessões em vez de memória compartilhada
