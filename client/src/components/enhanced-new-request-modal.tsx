@@ -94,7 +94,55 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
         items: itemsMethod === 'manual' ? manualItems : undefined,
         attachedFile: uploadedFile,
       };
-      await apiRequest("POST", "/api/purchase-requests", requestData);
+      const response = await apiRequest("POST", "/api/purchase-requests", requestData);
+      return response.json();
+    },
+    onMutate: async (data) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/purchase-requests"] });
+      
+      // Snapshot the previous value
+      const previousRequests = queryClient.getQueryData(["/api/purchase-requests"]);
+      
+      // Optimistically add new request
+      queryClient.setQueryData(["/api/purchase-requests"], (old: any[]) => {
+        if (!Array.isArray(old)) return old;
+        const costCenter = costCenters.find(cc => cc.id === Number(data.costCenterId));
+        const optimisticRequest = {
+          id: Date.now(), // Temporary ID
+          requestNumber: `SOL-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
+          phase: "Solicitação",
+          urgency: data.urgency,
+          category: data.category,
+          justification: data.justification,
+          costCenterId: Number(data.costCenterId),
+          costCenter: costCenter,
+          department: costCenter?.department,
+          requesterId: user?.id || 1,
+          requester: {
+            firstName: user?.firstName || "Usuário",
+            lastName: user?.lastName || "Atual"
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          items: itemsMethod === 'manual' ? manualItems : []
+        };
+        return [optimisticRequest, ...old];
+      });
+      
+      return { previousRequests };
+    },
+    onError: (err, variables, context) => {
+      // Roll back on error
+      if (context?.previousRequests) {
+        queryClient.setQueryData(["/api/purchase-requests"], context.previousRequests);
+      }
+      
+      toast({
+        title: "Erro",
+        description: "Falha ao criar solicitação",
+        variant: "destructive",
+      });
     },
     onSuccess: () => {
       // Comprehensive cache invalidation and immediate refetch
@@ -103,8 +151,11 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
       queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
       
-      // Force immediate refetch for real-time feedback
-      queryClient.refetchQueries({ queryKey: ["/api/purchase-requests"] });
+      // Force immediate refetch for real data
+      queryClient.refetchQueries({ 
+        queryKey: ["/api/purchase-requests"],
+        type: 'active'
+      });
       
       toast({
         title: "Sucesso",
@@ -114,13 +165,6 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
       setManualItems([]);
       setUploadedFile(null);
       onOpenChange(false);
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Falha ao criar solicitação",
-        variant: "destructive",
-      });
     },
   });
 

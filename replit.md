@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 10, 2025. Correção crítica do sistema de atualizações instantâneas com otimizações avançadas implementada com sucesso:
+  - ✓ Implementadas atualizações otimistas (optimistic updates) em todas as telas de cadastro
+  - ✓ Cache invalidation agressivo com staleTime reduzido para 0 (dados imediatamente obsoletos)
+  - ✓ Sistema de rollback automático em caso de erro nas mutações
+  - ✓ Invalidação forçada e refetch imediato após todas as operações CRUD
+  - ✓ Usuários, departamentos, fornecedores e solicitações agora aparecem instantaneamente
+  - ✓ Eliminada necessidade de F5 ou CTRL+F5 para ver dados atualizados
+  - ✓ Feedback visual imediato com toast notifications de sucesso/erro
+  - ✓ Sistema robusto de detecção e correção de falhas nas atualizações
 - July 10, 2025. Otimização crítica do sistema de cache para eliminar atrasos na atualização de dados implementada com sucesso:
   - ✓ Reduzido staleTime global do React Query de Infinity para 2 segundos para feedback em tempo real
   - ✓ Habilitado refetchOnWindowFocus e refetchOnMount para melhor responsividade

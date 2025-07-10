@@ -53,21 +53,64 @@ export default function SuppliersPage() {
     mutationFn: async (data: SupplierFormData) => {
       const url = editingSupplier ? `/api/suppliers/${editingSupplier.id}` : "/api/suppliers";
       const method = editingSupplier ? "PUT" : "POST";
-      await apiRequest(method, url, data);
+      const response = await apiRequest(method, url, data);
+      return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
-      handleCloseModal();
-      toast({
-        title: "Sucesso",
-        description: editingSupplier ? "Fornecedor atualizado com sucesso" : "Fornecedor criado com sucesso",
-      });
+    onMutate: async (data) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/suppliers"] });
+      
+      // Snapshot the previous value
+      const previousSuppliers = queryClient.getQueryData(["/api/suppliers"]);
+      
+      if (!editingSupplier) {
+        // Optimistically add new supplier
+        queryClient.setQueryData(["/api/suppliers"], (old: any[]) => {
+          if (!Array.isArray(old)) return old;
+          const optimisticSupplier = {
+            id: Date.now(), // Temporary ID
+            ...data,
+            createdAt: new Date().toISOString()
+          };
+          return [...old, optimisticSupplier];
+        });
+      } else {
+        // Optimistically update existing supplier
+        queryClient.setQueryData(["/api/suppliers"], (old: any[]) => {
+          if (!Array.isArray(old)) return old;
+          return old.map(supplier => 
+            supplier.id === editingSupplier.id 
+              ? { ...supplier, ...data }
+              : supplier
+          );
+        });
+      }
+      
+      return { previousSuppliers };
     },
-    onError: () => {
+    onError: (err, variables, context) => {
+      // Roll back on error
+      if (context?.previousSuppliers) {
+        queryClient.setQueryData(["/api/suppliers"], context.previousSuppliers);
+      }
+      
       toast({
         title: "Erro",
         description: "Falha ao salvar fornecedor",
         variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      // Comprehensive cache invalidation for supplier-related data
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      
+      // Force immediate refetch for real data
+      queryClient.refetchQueries({ queryKey: ["/api/suppliers"] });
+      
+      handleCloseModal();
+      toast({
+        title: "Sucesso",
+        description: editingSupplier ? "Fornecedor atualizado com sucesso" : "Fornecedor criado com sucesso",
       });
     },
   });

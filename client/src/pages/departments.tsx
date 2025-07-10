@@ -66,7 +66,40 @@ export default function DepartmentsPage() {
 
   const createDepartmentMutation = useMutation({
     mutationFn: async (data: DepartmentFormData) => {
-      await apiRequest("POST", "/api/departments", data);
+      const response = await apiRequest("POST", "/api/departments", data);
+      return response.json();
+    },
+    onMutate: async (data) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/departments"] });
+      
+      // Snapshot the previous value
+      const previousDepartments = queryClient.getQueryData(["/api/departments"]);
+      
+      // Optimistically add new department
+      queryClient.setQueryData(["/api/departments"], (old: any[]) => {
+        if (!Array.isArray(old)) return old;
+        const optimisticDept = {
+          id: Date.now(), // Temporary ID
+          ...data,
+          createdAt: new Date().toISOString()
+        };
+        return [...old, optimisticDept];
+      });
+      
+      return { previousDepartments };
+    },
+    onError: (err, variables, context) => {
+      // Roll back on error
+      if (context?.previousDepartments) {
+        queryClient.setQueryData(["/api/departments"], context.previousDepartments);
+      }
+      
+      toast({
+        title: "Erro",
+        description: "Falha ao criar departamento",
+        variant: "destructive",
+      });
     },
     onSuccess: () => {
       // Comprehensive cache invalidation for department-related data
@@ -74,8 +107,9 @@ export default function DepartmentsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
       
-      // Force immediate refetch for immediate UI feedback
+      // Force immediate refetch for real data
       queryClient.refetchQueries({ queryKey: ["/api/departments"] });
+      queryClient.refetchQueries({ queryKey: ["/api/users"] });
       
       setIsDeptModalOpen(false);
       deptForm.reset();
@@ -84,18 +118,45 @@ export default function DepartmentsPage() {
         description: "Departamento criado com sucesso",
       });
     },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Falha ao criar departamento",
-        variant: "destructive",
-      });
-    },
   });
 
   const createCostCenterMutation = useMutation({
     mutationFn: async (data: CostCenterFormData) => {
-      await apiRequest("POST", "/api/cost-centers", data);
+      const response = await apiRequest("POST", "/api/cost-centers", data);
+      return response.json();
+    },
+    onMutate: async (data) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/cost-centers"] });
+      
+      // Snapshot the previous value
+      const previousCostCenters = queryClient.getQueryData(["/api/cost-centers"]);
+      
+      // Optimistically add new cost center
+      queryClient.setQueryData(["/api/cost-centers"], (old: any[]) => {
+        if (!Array.isArray(old)) return old;
+        const optimisticCC = {
+          id: Date.now(), // Temporary ID
+          ...data,
+          department: departments.find(d => d.id === data.departmentId),
+          createdAt: new Date().toISOString()
+        };
+        return [...old, optimisticCC];
+      });
+      
+      return { previousCostCenters };
+    },
+    onError: (err, variables, context) => {
+      // Roll back on error
+      if (context?.previousCostCenters) {
+        queryClient.setQueryData(["/api/cost-centers"], context.previousCostCenters);
+      }
+      
+      toast({
+        title: "Erro",
+        description: "Falha ao criar centro de custo",
+        variant: "destructive",
+      });
     },
     onSuccess: () => {
       // Comprehensive cache invalidation for cost center-related data
@@ -110,21 +171,15 @@ export default function DepartmentsPage() {
           query.queryKey[0]?.toString().includes(`/cost-centers`)
       });
       
-      // Force immediate refetch for immediate UI feedback
+      // Force immediate refetch for real data
       queryClient.refetchQueries({ queryKey: ["/api/cost-centers"] });
+      queryClient.refetchQueries({ queryKey: ["/api/users"] });
       
       setIsCostCenterModalOpen(false);
       costCenterForm.reset();
       toast({
         title: "Sucesso",
         description: "Centro de custo criado com sucesso",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Falha ao criar centro de custo",
-        variant: "destructive",
       });
     },
   });
