@@ -21,22 +21,19 @@ import {
   ShoppingCart, 
   Search, 
   Filter,
-  Plus,
   Calendar,
   DollarSign,
   User,
   Building
 } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
 
 export default function RequestManagementPage() {
   const { user } = useAuth();
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [selectedPhase, setSelectedPhase] = useState<string>('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [newRequestModalOpen, setNewRequestModalOpen] = useState(false);
   const [filterPhase, setFilterPhase] = useState<string>('all');
   const [filterUrgency, setFilterUrgency] = useState<string>('all');
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
@@ -171,10 +168,6 @@ export default function RequestManagementPage() {
             Gerencie solicitações de compra através das diferentes fases do processo
           </p>
         </div>
-        <Button onClick={() => setNewRequestModalOpen(true)} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Solicitação
-        </Button>
       </div>
 
       {/* Filters */}
@@ -287,19 +280,10 @@ export default function RequestManagementPage() {
                   </h3>
                   <p className="text-muted-foreground">
                     {phase === PURCHASE_PHASES.SOLICITACAO 
-                      ? "Crie uma nova solicitação para começar"
+                      ? "Use o botão no canto inferior esquerdo para criar uma nova solicitação"
                       : "As solicitações aparecerão aqui conforme avançam no processo"
                     }
                   </p>
-                  {phase === PURCHASE_PHASES.SOLICITACAO && (
-                    <Button 
-                      onClick={() => setNewRequestModalOpen(true)} 
-                      className="mt-4"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nova Solicitação
-                    </Button>
-                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -400,16 +384,6 @@ export default function RequestManagementPage() {
           </TabsContent>
         ))}
       </Tabs>
-
-      {/* New Request Modal */}
-      <Dialog open={newRequestModalOpen} onOpenChange={setNewRequestModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Nova Solicitação de Compra</DialogTitle>
-          </DialogHeader>
-          <RequestPhase onClose={() => setNewRequestModalOpen(false)} />
-        </DialogContent>
-      </Dialog>
 
       {/* Phase Processing Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
