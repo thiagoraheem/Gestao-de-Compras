@@ -149,6 +149,11 @@ export interface IStorage {
 
   // Method to cleanup Purchase Requests data
   cleanupPurchaseRequestsData(): Promise<void>;
+
+  // Password reset methods
+  generatePasswordResetToken(email: string): Promise<string | null>;
+  validatePasswordResetToken(token: string): Promise<User | null>;
+  resetPassword(token: string, newPassword: string): Promise<boolean>;
 }
 
 // Create aliases for user tables
@@ -869,6 +874,75 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("❌ Erro durante a limpeza:", error);
       throw error;
+    }
+  }
+
+  async generatePasswordResetToken(email: string): Promise<string | null> {
+    try {
+      const user = await this.getUserByEmail(email);
+      if (!user) {
+        return null;
+      }
+
+      // Generate a secure random token
+      const crypto = await import('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Set expiration to 1 hour from now
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      await db.update(users)
+        .set({
+          passwordResetToken: token,
+          passwordResetExpires: expiresAt,
+        })
+        .where(eq(users.id, user.id));
+
+      return token;
+    } catch (error) {
+      console.error("Error generating password reset token:", error);
+      throw new Error("Failed to generate password reset token");
+    }
+  }
+
+  async validatePasswordResetToken(token: string): Promise<User | null> {
+    try {
+      const [user] = await db.select()
+        .from(users)
+        .where(and(
+          eq(users.passwordResetToken, token),
+          gt(users.passwordResetExpires, new Date())
+        ));
+
+      return user || null;
+    } catch (error) {
+      console.error("Error validating password reset token:", error);
+      return null;
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+    try {
+      const user = await this.validatePasswordResetToken(token);
+      if (!user) {
+        return false;
+      }
+
+      const bcrypt = await import('bcryptjs');
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      await db.update(users)
+        .set({
+          password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpires: null,
+        })
+        .where(eq(users.id, user.id));
+
+      return true;
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      return false;
     }
   }
 

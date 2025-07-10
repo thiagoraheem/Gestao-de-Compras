@@ -144,6 +144,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Password recovery endpoints
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "E-mail é obrigatório" });
+      }
+
+      const token = await storage.generatePasswordResetToken(email);
+      
+      if (token) {
+        const user = await storage.getUserByEmail(email);
+        if (user) {
+          // Import email service
+          const { sendPasswordResetEmail } = await import('./email-service');
+          await sendPasswordResetEmail(user, token);
+        }
+      }
+      
+      // Always return success to prevent email enumeration
+      res.json({ message: "Se o e-mail existir em nossa base, você receberá instruções de recuperação" });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  app.post("/api/auth/validate-reset-token", async (req, res) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ message: "Token é obrigatório" });
+      }
+
+      const user = await storage.validatePasswordResetToken(token);
+      
+      if (!user) {
+        return res.status(400).json({ message: "Token inválido ou expirado" });
+      }
+
+      res.json({ message: "Token válido" });
+    } catch (error) {
+      console.error("Validate reset token error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token e senha são obrigatórios" });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ message: "A senha deve ter no mínimo 6 caracteres" });
+      }
+
+      const success = await storage.resetPassword(token, password);
+      
+      if (!success) {
+        return res.status(400).json({ message: "Token inválido ou expirado" });
+      }
+
+      res.json({ message: "Senha redefinida com sucesso" });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
   // Users routes
   app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
     try {

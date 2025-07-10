@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2, Eye, EyeOff, Wrench, Construction, Building2, Car } from "lucide-react";
+import { Link } from "wouter";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -144,13 +145,15 @@ export default function LoginPage() {
 
               {/* Forgot Password Link */}
               <div className="text-center">
-                <button
-                  type="button"
-                  className="text-sm text-gray-500 hover:text-orange-600 transition-colors underline"
-                  disabled={isLoggingIn}
-                >
-                  Esqueceu sua senha?
-                </button>
+                <Link href="/forgot-password">
+                  <button
+                    type="button"
+                    className="text-sm text-gray-500 hover:text-orange-600 transition-colors underline"
+                    disabled={isLoggingIn}
+                  >
+                    Esqueceu sua senha?
+                  </button>
+                </Link>
               </div>
             </div>
           </CardFooter>

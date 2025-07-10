@@ -110,6 +110,17 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 10, 2025. Sistema completo de recuperação de senha implementado e integrado à tela de login:
+  - ✓ Campos password_reset_token e password_reset_expires adicionados à tabela users
+  - ✓ Página "Esqueceu sua senha?" criada com formulário de e-mail para recuperação
+  - ✓ Página de redefinição de senha com validação de token segura
+  - ✓ Sistema de tokens seguros com expiração de 1 hora para segurança
+  - ✓ APIs completas: /api/auth/forgot-password, /api/auth/validate-reset-token, /api/auth/reset-password
+  - ✓ Serviço de e-mail integrado com templates profissionais para recuperação
+  - ✓ Link "Esqueceu sua senha?" funcional na tela de login direcionando para recuperação
+  - ✓ Rotas públicas configuradas no App.tsx para páginas de recuperação
+  - ✓ Validação de formulários com feedback visual e tratamento de erros
+  - ✓ Sistema totalmente funcional e integrado ao fluxo de autenticação existente
 - July 10, 2025. Funcionalidades completas de edição e exclusão implementadas em módulos administrativos:
   - ✓ Sistema de edição para departamentos e centros de custo com pré-preenchimento de formulários
   - ✓ Validação e verificação de segurança para exclusão de usuários

@@ -29,6 +29,8 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").default(false),
   isManager: boolean("is_manager").default(false),
   isReceiver: boolean("is_receiver").default(false),
+  passwordResetToken: text("password_reset_token"),
+  passwordResetExpires: timestamp("password_reset_expires"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

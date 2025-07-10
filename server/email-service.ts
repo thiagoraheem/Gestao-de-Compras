@@ -580,6 +580,96 @@ function generateRejectionEmailHTML(requester: any, purchaseRequest: PurchaseReq
   `;
 }
 
+export async function sendPasswordResetEmail(user: User, resetToken: string): Promise<void> {
+  const transporter = createTransporter();
+  
+  const resetUrl = `${config.baseUrl}/reset-password?token=${resetToken}`;
+  
+  const emailHtml = generatePasswordResetEmailHTML(user, resetUrl);
+  
+  const mailOptions = {
+    from: config.email.from,
+    to: user.email,
+    subject: "Recuperação de Senha - Sistema LOCADOR",
+    html: emailHtml,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`E-mail de recuperação enviado para ${user.email}`);
+  } catch (error) {
+    console.error(`Erro ao enviar e-mail de recuperação para ${user.email}:`, error);
+    throw new Error("Falha ao enviar e-mail de recuperação");
+  }
+}
+
+function generatePasswordResetEmailHTML(user: User, resetUrl: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 0 auto; background: #f8f9fa; }
+        .header { background: linear-gradient(135deg, #f97316, #ea580c); color: white; padding: 30px 20px; text-align: center; }
+        .content { background: white; padding: 30px 20px; margin: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .button { display: inline-block; background: linear-gradient(135deg, #f97316, #ea580c); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }
+        .button:hover { opacity: 0.9; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 4px; color: #856404; }
+        .logo { font-size: 24px; font-weight: bold; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">Sistema LOCADOR</div>
+          <h1>Recuperação de Senha</h1>
+        </div>
+        
+        <div class="content">
+          <p>Olá, <strong>${user.firstName || user.username}</strong>!</p>
+          
+          <p>Recebemos uma solicitação para redefinir a senha da sua conta no Sistema LOCADOR.</p>
+          
+          <p>Para criar uma nova senha, clique no botão abaixo:</p>
+          
+          <div style="text-align: center;">
+            <a href="${resetUrl}" class="button">Redefinir Senha</a>
+          </div>
+          
+          <p>Ou copie e cole este link no seu navegador:</p>
+          <p style="word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;">
+            ${resetUrl}
+          </p>
+          
+          <div class="warning">
+            <strong>⚠️ Importante:</strong>
+            <ul>
+              <li>Este link expira em 1 hora por motivos de segurança</li>
+              <li>Se você não solicitou esta alteração, ignore este e-mail</li>
+              <li>Sua senha atual permanece inalterada até que você defina uma nova</li>
+            </ul>
+          </div>
+          
+          <p>Se você precisar de ajuda, entre em contato com nossa equipe de suporte.</p>
+          
+          <p>Atenciosamente,<br>
+          <strong>Equipe Sistema LOCADOR</strong></p>
+        </div>
+        
+        <div class="footer">
+          <p>Sistema LOCADOR - Gestão de Compras</p>
+          <p>Equipamentos • Plataformas Elevatórias • Imóveis • Veículos</p>
+          <p>Este é um e-mail automático, não responda a esta mensagem.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
 export async function testEmailConfiguration(): Promise<boolean> {
   try {
     const transporter = createTransporter();
