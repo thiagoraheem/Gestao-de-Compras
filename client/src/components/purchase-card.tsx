@@ -103,7 +103,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
       toast({
         title: "Sucesso",
         description: response.approvedA1
-          ? "Solicitação aprovada com sucesso!"
+          ? "Solicitação aprovada e movida para Cotação!"
           : "Solicitação reprovada e movida para Arquivado",
       });
     },
