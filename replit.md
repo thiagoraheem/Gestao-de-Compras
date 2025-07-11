@@ -110,6 +110,14 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 11, 2025. Migração do Replit Agent para Replit finalizada com sistema de pendências implementado:
+  - ✓ Migração completa do projeto para ambiente Replit sem erros
+  - ✓ Corrigido warning do React Fragment que gerava logs de erro no console
+  - ✓ Implementado sistema de exibição de pendências em cards de Pedido de Compra
+  - ✓ Badge vermelha "Pendência" exibida quando solicitação retorna do Recebimento com problema
+  - ✓ Área dedicada na tela de detalhes do Pedido de Compra para mostrar motivo da pendência
+  - ✓ Sistema funcionando corretamente na porta 5000 sem erros de aplicação
+  - ✓ Banco de dados PostgreSQL operacional com todas as funcionalidades preservadas
 - July 11, 2025. Correção crítica do sistema de upload de arquivos na cotação de fornecedores implementada com sucesso:
   - ✓ Identificado problema onde upload de arquivos na cotação mostrava sucesso mas falha não era detectada
   - ✓ Rota backend não estava configurada corretamente para receber arquivos via multer

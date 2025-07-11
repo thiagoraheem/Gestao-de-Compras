@@ -672,10 +672,10 @@ export default function PurchaseCard({
               }
             </Badge>
             {/* Show red tag for items with pending issues returned from receipt */}
-            {request.hasPendency && (
-              <Badge variant="destructive" className="text-xs">
+            {request.hasPendency && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
+              <Badge variant="destructive" className="text-xs bg-red-500 text-white">
                 <AlertCircle className="mr-1 h-3 w-3" />
-                Retorno
+                Pendência
               </Badge>
             )}
           </div>
