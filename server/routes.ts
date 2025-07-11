@@ -2395,6 +2395,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Serve uploaded supplier quotation files
+  app.get("/api/files/supplier-quotations/:filename", isAuthenticated, async (req, res) => {
+    try {
+      const filename = req.params.filename;
+      const filePath = path.join(process.cwd(), 'uploads', 'supplier_quotations', filename);
+      
+      console.log("Serving file:", filePath);
+      
+      // Check if file exists
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "Arquivo não encontrado" });
+      }
+      
+      // Get file stats
+      const stats = fs.statSync(filePath);
+      const fileSize = stats.size;
+      
+      // Set appropriate headers
+      const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Length', fileSize);
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      
+      // Stream the file
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("Error serving supplier quotation file:", error);
+      res.status(500).json({ message: "Erro ao servir arquivo" });
+    }
+  });
+
   // Test email configuration
   app.get("/api/test-email", isAuthenticated, async (req, res) => {
     try {

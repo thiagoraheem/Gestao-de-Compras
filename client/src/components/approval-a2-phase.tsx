@@ -649,11 +649,18 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
                         size="sm"
                         className="text-blue-600 hover:text-blue-700"
                         onClick={() => {
-                          // In a real implementation, this would download or preview the file
-                          toast({
-                            title: "Visualizar Arquivo",
-                            description: `Abrindo ${attachment.fileName}...`,
-                          });
+                          // Extract filename from filePath
+                          const filename = attachment.filePath.split('/').pop();
+                          if (filename) {
+                            const fileUrl = `/api/files/supplier-quotations/${filename}`;
+                            window.open(fileUrl, '_blank');
+                          } else {
+                            toast({
+                              title: "Erro",
+                              description: "Nome do arquivo não encontrado",
+                              variant: "destructive",
+                            });
+                          }
                         }}
                       >
                         Visualizar
