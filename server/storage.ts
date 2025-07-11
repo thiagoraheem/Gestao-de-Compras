@@ -211,7 +211,7 @@ export class DatabaseStorage implements IStorage {
     // Delete all user associations first
     await db.delete(userDepartments).where(eq(userDepartments.userId, id));
     await db.delete(userCostCenters).where(eq(userCostCenters.userId, id));
-    
+
     // Delete the user
     await db.delete(users).where(eq(users.id, id));
   }
@@ -862,7 +862,8 @@ export class DatabaseStorage implements IStorage {
       // Delete in the correct order to respect foreign key constraints
 
       // 1. Delete receipt items first
-      await db.delete(receiptItems);
+      await db```text
+.delete(receiptItems);
       console.log("✅ Receipt items deletados");
 
       // 2. Delete receipts
@@ -920,43 +921,6 @@ export class DatabaseStorage implements IStorage {
       console.error("❌ Erro durante a limpeza:", error);
       throw error;
     }
-  } Attachments deletados");
-
-      // 7. Delete supplier quotations
-      await db.delete(supplierQuotations);
-      console.log("✅ Supplier quotations deletados");
-
-      // 8. Delete quotation items
-      await db.delete(quotationItems);
-      console.log("✅ Quotation items deletados");
-
-      // 9. Delete quotations
-      await db.delete(quotations);
-      console.log("✅ Quotations deletados");
-
-      // 10. Delete approval history
-      await db.delete(approvalHistory);
-      console.log("✅ Approval history deletado");
-
-      // 11. Delete purchase request suppliers
-      await db.delete(purchaseRequestSuppliers);
-      console.log("✅ Purchase request suppliers deletados");
-
-      // 12. Delete purchase request items
-      await db.delete(purchaseRequestItems);
-      console.log("✅ Purchase request items deletados");
-
-      // 13. Finally, delete purchase requests
-      await db.delete(purchaseRequests);
-      console.log("✅ Purchase requests deletados");
-
-      console.log("🎉 Limpeza concluída com sucesso!");
-      console.log("📋 Dados mantidos: usuários, departamentos, centros de custo, fornecedores e métodos de pagamento");
-
-    } catch (error) {
-      console.error("❌ Erro durante a limpeza:", error);
-      throw error;
-    }
   }
 
   async generatePasswordResetToken(email: string): Promise<string | null> {
@@ -968,7 +932,7 @@ export class DatabaseStorage implements IStorage {
 
       // Generate a secure random token
       const token = Math.random().toString(36).substr(2, 15) + Math.random().toString(36).substr(2, 15);
-      
+
       // Set expiration to 1 hour from now
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 1);
@@ -1021,71 +985,6 @@ export class DatabaseStorage implements IStorage {
           password: hashedPassword,
           passwordResetToken: null,
           passwordResetExpires: null
-        })
-        .where(eq(users.id, user.id));
-
-      return true;
-    } catch (error) {
-      console.error("Error resetting password:", error);
-      return false;
-    }
-  });
-      if (!user) {
-        return null;
-      }
-
-      // Generate a secure random token
-      const crypto = await import('crypto');
-      const token = crypto.randomBytes(32).toString('hex');
-      
-      // Set expiration to 1 hour from now
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-      await db.update(users)
-        .set({
-          passwordResetToken: token,
-          passwordResetExpires: expiresAt,
-        })
-        .where(eq(users.id, user.id));
-
-      return token;
-    } catch (error) {
-      console.error("Error generating password reset token:", error);
-      throw new Error("Failed to generate password reset token");
-    }
-  }
-
-  async validatePasswordResetToken(token: string): Promise<User | null> {
-    try {
-      const [user] = await db.select()
-        .from(users)
-        .where(and(
-          eq(users.passwordResetToken, token),
-          gt(users.passwordResetExpires, new Date())
-        ));
-
-      return user || null;
-    } catch (error) {
-      console.error("Error validating password reset token:", error);
-      return null;
-    }
-  }
-
-  async resetPassword(token: string, newPassword: string): Promise<boolean> {
-    try {
-      const user = await this.validatePasswordResetToken(token);
-      if (!user) {
-        return false;
-      }
-
-      const bcrypt = await import('bcryptjs');
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-      await db.update(users)
-        .set({
-          password: hashedPassword,
-          passwordResetToken: null,
-          passwordResetExpires: null,
         })
         .where(eq(users.id, user.id));
 
