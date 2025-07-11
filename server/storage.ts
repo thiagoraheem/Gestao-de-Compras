@@ -422,6 +422,8 @@ export class DatabaseStorage implements IStorage {
         purchaseObservations: purchaseRequests.purchaseObservations,
         receivedById: purchaseRequests.receivedById,
         receivedDate: purchaseRequests.receivedDate,
+        hasPendency: purchaseRequests.hasPendency,
+        pendencyReason: purchaseRequests.pendencyReason,
         createdAt: purchaseRequests.createdAt,
         updatedAt: purchaseRequests.updatedAt,
         // Requester data
