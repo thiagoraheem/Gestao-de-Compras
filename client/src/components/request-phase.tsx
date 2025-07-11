@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { DateInput } from "@/components/ui/date-input";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { URGENCY_LEVELS, CATEGORY_OPTIONS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
@@ -230,36 +231,33 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   const isFormValid = form.formState.isValid && requestItems.length > 0;
 
   return (
-    <Card className={cn("w-full max-w-4xl", className)}>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            {request ? 'Editar Solicitação de Compra' : 'Nova Solicitação de Compra'}
-          </div>
-          {onClose && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Fechar</span>
-            </Button>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Required Fields Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-foreground flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                Campos Obrigatórios
-              </h3>
-              
+    <div className={cn("w-full max-w-4xl", className)}>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <FileText className="h-6 w-6" />
+          {request ? 'Editar Solicitação de Compra' : 'Nova Solicitação de Compra'}
+        </h2>
+        {onClose && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="h-8 w-8 p-0"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Fechar</span>
+          </Button>
+        )}
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Informações Básicas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Informações Básicas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -274,7 +272,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                           disabled={costCentersLoading}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione o centro de custo..." />
+                            <SelectValue placeholder="Selecione..." />
                           </SelectTrigger>
                           <SelectContent>
                             {costCenters && (costCenters as any[]).map((center: any) => (
@@ -299,7 +297,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                       <FormControl>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione a categoria..." />
+                            <SelectValue placeholder="Selecione..." />
                           </SelectTrigger>
                           <SelectContent>
                             {Object.entries(CATEGORY_OPTIONS).map(([key, value]) => (
@@ -316,32 +314,51 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="urgency"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Grau de Urgência *</FormLabel>
-                    <FormControl>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o grau de urgência..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(URGENCY_LEVELS).map(([key, value]) => (
-                            <SelectItem key={value} value={value}>
-                              {URGENCY_LABELS[value]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="urgency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Urgência *</FormLabel>
+                      <FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(URGENCY_LEVELS).map(([key, value]) => (
+                              <SelectItem key={value} value={value}>
+                                {URGENCY_LABELS[value]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-
+                <FormField
+                  control={form.control}
+                  name="idealDeliveryDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prazo Ideal de Entrega</FormLabel>
+                      <FormControl>
+                        <DateInput
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          placeholder="DD/MM/AAAA"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}
@@ -361,27 +378,8 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                   </FormItem>
                 )}
               />
-            </div>
 
-            {/* Optional Fields Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-foreground">Informações Adicionais</h3>
-              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="idealDeliveryDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Prazo Ideal de Entrega</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
                 <FormField
                   control={form.control}
                   name="availableBudget"
@@ -425,7 +423,8 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                   </FormItem>
                 )}
               />
-            </div>
+            </CardContent>
+          </Card>
 
             {/* Items Management Section */}
             <Card>
@@ -533,7 +532,6 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
             </div>
           </form>
         </Form>
-      </CardContent>
-    </Card>
-  );
-}
+      </div>
+    );
+  }
