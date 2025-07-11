@@ -569,7 +569,7 @@ export default function UpdateSupplierQuotation({
                     </TableHeader>
                     <TableBody>
                       {quotationItems.map((item, index) => (
-                        <React.Fragment key={item.id}>
+                        <div key={item.id}>
                           <TableRow>
                             <TableCell>
                               <div className="max-w-48">
@@ -777,7 +777,7 @@ export default function UpdateSupplierQuotation({
                               </TableCell>
                             </TableRow>
                           )}
-                        </React.Fragment>
+                        </div>
                       ))}
                     </TableBody>
                   </Table>

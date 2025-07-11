@@ -21,6 +21,7 @@ const supplierSchema = z.object({
   cnpj: z.string().min(1, "CNPJ é obrigatório"),
   contact: z.string().min(1, "Contato é obrigatório"),
   email: z.string().email("Email inválido"),
+  phone: z.string().optional(),
   address: z.string().optional(),
   paymentTerms: z.string().optional(),
 });
@@ -44,6 +45,7 @@ export default function SuppliersPage() {
       cnpj: "",
       contact: "",
       email: "",
+      phone: "",
       address: "",
       paymentTerms: "",
     },
@@ -128,6 +130,7 @@ export default function SuppliersPage() {
       cnpj: supplier.cnpj || "",
       contact: supplier.contact || "",
       email: supplier.email || "",
+      phone: supplier.phone || "",
       address: supplier.address || "",
       paymentTerms: supplier.paymentTerms || "",
     });
@@ -166,13 +169,14 @@ export default function SuppliersPage() {
                   <TableHead>CNPJ</TableHead>
                   <TableHead>Contato</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Telefone</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {suppliers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       Nenhum fornecedor encontrado
                     </TableCell>
                   </TableRow>
@@ -183,6 +187,7 @@ export default function SuppliersPage() {
                       <TableCell>{supplier.cnpj}</TableCell>
                       <TableCell>{supplier.contact}</TableCell>
                       <TableCell>{supplier.email}</TableCell>
+                      <TableCell>{supplier.phone || "Não informado"}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -260,6 +265,20 @@ export default function SuppliersPage() {
                     <FormLabel>Email *</FormLabel>
                     <FormControl>
                       <Input {...field} type="email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefone</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="(11) 99999-9999" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
