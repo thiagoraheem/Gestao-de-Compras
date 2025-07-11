@@ -3,10 +3,29 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
@@ -14,24 +33,36 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { DollarSign, FileText, CheckCircle, X, Upload, Package, Calculator } from "lucide-react";
+import {
+  DollarSign,
+  FileText,
+  CheckCircle,
+  X,
+  Upload,
+  Package,
+  Calculator,
+} from "lucide-react";
 
 const updateSupplierQuotationSchema = z.object({
-  items: z.array(z.object({
-    quotationItemId: z.number(),
-    unitPrice: z.string().min(1, "Preço unitário é obrigatório"),
-    deliveryDays: z.string().optional(),
-    brand: z.string().optional(),
-    model: z.string().optional(),
-    observations: z.string().optional(),
-  })),
+  items: z.array(
+    z.object({
+      quotationItemId: z.number(),
+      unitPrice: z.string().min(1, "Preço unitário é obrigatório"),
+      deliveryDays: z.string().optional(),
+      brand: z.string().optional(),
+      model: z.string().optional(),
+      observations: z.string().optional(),
+    }),
+  ),
   paymentTerms: z.string().optional(),
   deliveryTerms: z.string().optional(),
   warrantyPeriod: z.string().optional(),
   observations: z.string().optional(),
 });
 
-type UpdateSupplierQuotationData = z.infer<typeof updateSupplierQuotationSchema>;
+type UpdateSupplierQuotationData = z.infer<
+  typeof updateSupplierQuotationSchema
+>;
 
 interface QuotationItem {
   id: number;
@@ -77,7 +108,7 @@ export default function UpdateSupplierQuotation({
   quotationId,
   supplierId,
   supplierName,
-  onSuccess
+  onSuccess,
 }: UpdateSupplierQuotationProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -86,16 +117,21 @@ export default function UpdateSupplierQuotation({
   const queryClient = useQueryClient();
 
   // Fetch quotation items
-  const { data: quotationItems = [], isLoading: isLoadingItems } = useQuery<QuotationItem[]>({
+  const { data: quotationItems = [], isLoading: isLoadingItems } = useQuery<
+    QuotationItem[]
+  >({
     queryKey: [`/api/quotations/${quotationId}/items`],
     enabled: !!quotationId && isOpen,
   });
 
   // Fetch existing supplier quotation items
-  const { data: existingSupplierQuotation } = useQuery<ExistingSupplierQuotation | null>({
-    queryKey: [`/api/quotations/${quotationId}/supplier-quotations/${supplierId}`],
-    enabled: !!quotationId && !!supplierId && isOpen,
-  });
+  const { data: existingSupplierQuotation } =
+    useQuery<ExistingSupplierQuotation | null>({
+      queryKey: [
+        `/api/quotations/${quotationId}/supplier-quotations/${supplierId}`,
+      ],
+      enabled: !!quotationId && !!supplierId && isOpen,
+    });
 
   const form = useForm<UpdateSupplierQuotationData>({
     resolver: zodResolver(updateSupplierQuotationSchema),
@@ -111,7 +147,7 @@ export default function UpdateSupplierQuotation({
   // Initialize form with quotation items
   useEffect(() => {
     if (quotationItems.length > 0) {
-      const formItems = quotationItems.map(item => ({
+      const formItems = quotationItems.map((item) => ({
         quotationItemId: item.id,
         unitPrice: "",
         deliveryDays: "",
@@ -119,7 +155,7 @@ export default function UpdateSupplierQuotation({
         model: "",
         observations: "",
       }));
-      
+
       form.setValue("items", formItems);
     }
   }, [quotationItems, form]);
@@ -127,11 +163,11 @@ export default function UpdateSupplierQuotation({
   // Load existing supplier quotation data
   useEffect(() => {
     if (existingSupplierQuotation && existingSupplierQuotation.items) {
-      const formItems = quotationItems.map(item => {
+      const formItems = quotationItems.map((item) => {
         const existingItem = existingSupplierQuotation.items.find(
-          (si: SupplierQuotationItem) => si.quotationItemId === item.id
+          (si: SupplierQuotationItem) => si.quotationItemId === item.id,
         );
-        
+
         return {
           quotationItemId: item.id,
           unitPrice: existingItem?.unitPrice || "",
@@ -141,12 +177,24 @@ export default function UpdateSupplierQuotation({
           observations: existingItem?.observations || "",
         };
       });
-      
+
       form.setValue("items", formItems);
-      form.setValue("paymentTerms", existingSupplierQuotation.paymentTerms || "");
-      form.setValue("deliveryTerms", existingSupplierQuotation.deliveryTerms || "");
-      form.setValue("warrantyPeriod", existingSupplierQuotation.warrantyPeriod || "");
-      form.setValue("observations", existingSupplierQuotation.observations || "");
+      form.setValue(
+        "paymentTerms",
+        existingSupplierQuotation.paymentTerms || "",
+      );
+      form.setValue(
+        "deliveryTerms",
+        existingSupplierQuotation.deliveryTerms || "",
+      );
+      form.setValue(
+        "warrantyPeriod",
+        existingSupplierQuotation.warrantyPeriod || "",
+      );
+      form.setValue(
+        "observations",
+        existingSupplierQuotation.observations || "",
+      );
     }
   }, [existingSupplierQuotation, quotationItems, form]);
 
@@ -155,15 +203,19 @@ export default function UpdateSupplierQuotation({
       // Calculate total value from items
       const totalValue = data.items.reduce((sum, item) => {
         if (!item.unitPrice) return sum;
-        
-        const correspondingQuotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
-        const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+
+        const correspondingQuotationItem = quotationItems.find(
+          (qi) => qi.id === item.quotationItemId,
+        );
+        const quantity = parseFloat(
+          correspondingQuotationItem?.quantity || "0",
+        );
         const unitPrice = parseNumberFromCurrency(item.unitPrice);
-        
-        return sum + (quantity * unitPrice);
+
+        return sum + quantity * unitPrice;
       }, 0);
 
-      const processedItems = data.items.map(item => ({
+      const processedItems = data.items.map((item) => ({
         quotationItemId: item.quotationItemId,
         unitPrice: parseNumberFromCurrency(item.unitPrice),
         deliveryDays: item.deliveryDays ? parseInt(item.deliveryDays) : null,
@@ -172,27 +224,31 @@ export default function UpdateSupplierQuotation({
         observations: item.observations || null,
       }));
 
-      return apiRequest("POST", `/api/quotations/${quotationId}/update-supplier-quotation`, {
-        supplierId,
-        items: processedItems,
-        totalValue,
-        paymentTerms: data.paymentTerms || null,
-        deliveryTerms: data.deliveryTerms || null,
-        warrantyPeriod: data.warrantyPeriod || null,
-        observations: data.observations || null,
-      });
+      return apiRequest(
+        "POST",
+        `/api/quotations/${quotationId}/update-supplier-quotation`,
+        {
+          supplierId,
+          items: processedItems,
+          totalValue,
+          paymentTerms: data.paymentTerms || null,
+          deliveryTerms: data.deliveryTerms || null,
+          warrantyPeriod: data.warrantyPeriod || null,
+          observations: data.observations || null,
+        },
+      );
     },
     onSuccess: async () => {
       // Upload files if any
       if (selectedFiles.length > 0) {
         await uploadFiles();
       }
-      
+
       toast({
         title: "Sucesso",
         description: "Cotação do fornecedor atualizada com sucesso!",
       });
-      
+
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({
         queryKey: [`/api/quotations/${quotationId}/supplier-quotations`],
@@ -200,7 +256,7 @@ export default function UpdateSupplierQuotation({
       queryClient.invalidateQueries({
         queryKey: [`/api/quotations/${quotationId}/supplier-comparison`],
       });
-      
+
       form.reset();
       setSelectedFiles([]);
       onClose();
@@ -229,8 +285,12 @@ export default function UpdateSupplierQuotation({
         formData.append("attachmentType", "supplier_proposal");
         formData.append("supplierId", supplierId.toString());
 
-        await apiRequest("POST", `/api/quotations/${quotationId}/upload-supplier-file`, formData);
-        
+        await apiRequest(
+          "POST",
+          `/api/quotations/${quotationId}/upload-supplier-file`,
+          formData,
+        );
+
         setUploadProgress(((i + 1) / selectedFiles.length) * 100);
       }
     } catch (error) {
@@ -253,7 +313,7 @@ export default function UpdateSupplierQuotation({
   };
 
   const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (data: UpdateSupplierQuotationData) => {
@@ -262,15 +322,15 @@ export default function UpdateSupplierQuotation({
 
   const formatCurrencyInput = (value: string) => {
     // Remove all non-numeric characters
-    let numericValue = value.replace(/[^\d]/g, '');
-    
+    let numericValue = value.replace(/[^\d]/g, "");
+
     // If empty, return empty
-    if (!numericValue) return '';
-    
+    if (!numericValue) return "";
+
     // Convert to number and format with decimal places
     const numberValue = parseInt(numericValue) / 100;
-    
-    return numberValue.toLocaleString('pt-BR', {
+
+    return numberValue.toLocaleString("pt-BR", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -278,26 +338,26 @@ export default function UpdateSupplierQuotation({
 
   const parseNumberFromCurrency = (value: string) => {
     if (!value) return 0;
-    
+
     // Remove all non-numeric characters except comma and period
-    let cleanValue = value.replace(/[^\d.,]/g, '');
-    
+    let cleanValue = value.replace(/[^\d.,]/g, "");
+
     // Handle Brazilian format (e.g., "2.500,00" or "1.000,50")
-    if (cleanValue.includes('.') && cleanValue.includes(',')) {
+    if (cleanValue.includes(".") && cleanValue.includes(",")) {
       // This is likely Brazilian format with thousands separator (.) and decimal (,)
       // Remove the thousands separators (all dots except the last one before comma)
-      const parts = cleanValue.split(',');
+      const parts = cleanValue.split(",");
       if (parts.length === 2) {
         // Remove all dots from the integer part
-        const integerPart = parts[0].replace(/\./g, '');
-        cleanValue = integerPart + '.' + parts[1];
+        const integerPart = parts[0].replace(/\./g, "");
+        cleanValue = integerPart + "." + parts[1];
       }
-    } else if (cleanValue.includes(',') && !cleanValue.includes('.')) {
+    } else if (cleanValue.includes(",") && !cleanValue.includes(".")) {
       // This is likely just decimal separator as comma (e.g., "1000,50")
-      cleanValue = cleanValue.replace(',', '.');
+      cleanValue = cleanValue.replace(",", ".");
     }
     // If only contains dots or only numbers, assume it's already in correct format
-    
+
     return parseFloat(cleanValue) || 0;
   };
 
@@ -305,12 +365,14 @@ export default function UpdateSupplierQuotation({
     const watchedItems = form.watch("items");
     return watchedItems.reduce((sum, item) => {
       if (!item.unitPrice) return sum;
-      
-      const correspondingQuotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
+
+      const correspondingQuotationItem = quotationItems.find(
+        (qi) => qi.id === item.quotationItemId,
+      );
       const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
       const unitPrice = parseNumberFromCurrency(item.unitPrice);
-      
-      return sum + (quantity * unitPrice);
+
+      return sum + quantity * unitPrice;
     }, 0);
   };
 
@@ -340,7 +402,10 @@ export default function UpdateSupplierQuotation({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-6"
+          >
             {/* Items Section */}
             <Card>
               <CardHeader>
@@ -370,8 +435,9 @@ export default function UpdateSupplierQuotation({
                         <TableRow key={item.id}>
                           <TableCell>
                             <div className="max-w-48">
-                              <p className="text-sm font-medium">{item.description}</p>
-                              <p className="text-xs text-gray-500 mt-1">Código: {item.itemCode}</p>
+                              <p className="text-sm font-medium">
+                                {item.description}
+                              </p>
                               {item.specifications && (
                                 <p className="text-xs text-gray-500 mt-1">
                                   {item.specifications}
@@ -380,7 +446,12 @@ export default function UpdateSupplierQuotation({
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary">{parseFloat(item.quantity).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</Badge>
+                            <Badge variant="secondary">
+                              {parseFloat(item.quantity).toLocaleString(
+                                "pt-BR",
+                                { maximumFractionDigits: 0 },
+                              )}
+                            </Badge>
                           </TableCell>
                           <TableCell>{item.unit}</TableCell>
                           <TableCell>
@@ -397,13 +468,16 @@ export default function UpdateSupplierQuotation({
                                       onChange={(e) => {
                                         // Allow natural number input - user types 1000 and it becomes 1000.00
                                         let inputValue = e.target.value;
-                                        
+
                                         // If user is typing a number without formatting, keep it as is for now
                                         if (/^\d+$/.test(inputValue)) {
                                           field.onChange(inputValue);
                                         } else {
                                           // If already formatted or contains special chars, clean it
-                                          const cleanValue = inputValue.replace(/[^\d.,]/g, '');
+                                          const cleanValue = inputValue.replace(
+                                            /[^\d.,]/g,
+                                            "",
+                                          );
                                           field.onChange(cleanValue);
                                         }
                                       }}
@@ -415,20 +489,30 @@ export default function UpdateSupplierQuotation({
                                           // If it's a simple number (like 1000), treat it as currency value
                                           if (/^\d+$/.test(value)) {
                                             number = parseFloat(value);
-                                          } else if (/^\d+[.,]\d+$/.test(value)) {
+                                          } else if (
+                                            /^\d+[.,]\d+$/.test(value)
+                                          ) {
                                             // If it already has decimal places
-                                            number = parseFloat(value.replace(',', '.'));
+                                            number = parseFloat(
+                                              value.replace(",", "."),
+                                            );
                                           } else {
                                             // Try to parse any formatted value
-                                            const cleanValue = value.replace(/[^\d.,]/g, '');
-                                            number = parseFloat(cleanValue.replace(',', '.'));
+                                            const cleanValue = value.replace(
+                                              /[^\d.,]/g,
+                                              "",
+                                            );
+                                            number = parseFloat(
+                                              cleanValue.replace(",", "."),
+                                            );
                                           }
-                                          
+
                                           if (!isNaN(number)) {
-                                            const formatted = number.toLocaleString('pt-BR', {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            });
+                                            const formatted =
+                                              number.toLocaleString("pt-BR", {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                              });
                                             field.onChange(formatted);
                                           }
                                         }
@@ -442,18 +526,24 @@ export default function UpdateSupplierQuotation({
                           </TableCell>
                           <TableCell>
                             <div className="font-medium text-green-600">
-                              R$ {(() => {
-                                const unitPrice = form.watch(`items.${index}.unitPrice`);
+                              R${" "}
+                              {(() => {
+                                const unitPrice = form.watch(
+                                  `items.${index}.unitPrice`,
+                                );
                                 if (!unitPrice) return "0,00";
-                                
+
                                 const quantity = parseFloat(item.quantity);
-                                const price = parseNumberFromCurrency(unitPrice);
+                                const price =
+                                  parseNumberFromCurrency(unitPrice);
                                 const total = quantity * price;
-                                
-                                return isNaN(total) ? "0,00" : total.toLocaleString('pt-BR', {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                });
+
+                                return isNaN(total)
+                                  ? "0,00"
+                                  : total.toLocaleString("pt-BR", {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    });
                               })()}
                             </div>
                           </TableCell>
@@ -535,15 +625,18 @@ export default function UpdateSupplierQuotation({
                     </TableBody>
                   </Table>
                 </div>
-                
+
                 <Separator className="my-4" />
-                
+
                 <div className="flex justify-end">
                   <div className="text-right">
-                    <p className="text-sm text-gray-600">Valor Total da Proposta</p>
+                    <p className="text-sm text-gray-600">
+                      Valor Total da Proposta
+                    </p>
                     <p className="text-2xl font-bold text-green-600 flex items-center gap-2">
                       <Calculator className="h-5 w-5" />
-                      R$ {calculateTotalValue().toLocaleString('pt-BR', {
+                      R${" "}
+                      {calculateTotalValue().toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -577,7 +670,7 @@ export default function UpdateSupplierQuotation({
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="deliveryTerms"
@@ -595,7 +688,7 @@ export default function UpdateSupplierQuotation({
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="warrantyPeriod"
@@ -613,7 +706,7 @@ export default function UpdateSupplierQuotation({
                     )}
                   />
                 </div>
-                
+
                 <FormField
                   control={form.control}
                   name="observations"
@@ -664,12 +757,17 @@ export default function UpdateSupplierQuotation({
                       />
                     </label>
                   </div>
-                  
+
                   {selectedFiles.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-sm font-medium">Arquivos selecionados:</p>
+                      <p className="text-sm font-medium">
+                        Arquivos selecionados:
+                      </p>
                       {selectedFiles.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                        >
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-blue-500" />
                             <span className="text-sm">{file.name}</span>
@@ -689,10 +787,10 @@ export default function UpdateSupplierQuotation({
                       ))}
                     </div>
                   )}
-                  
+
                   {isUploading && (
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                         style={{ width: `${uploadProgress}%` }}
                       />
@@ -706,8 +804,8 @@ export default function UpdateSupplierQuotation({
               <Button variant="outline" onClick={onClose} type="button">
                 Cancelar
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={updateMutation.isPending || isUploading}
                 className="min-w-32"
               >
