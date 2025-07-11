@@ -110,6 +110,20 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 11, 2025. Remoção completa do sistema de anexos de solicitação original implementada com sucesso:
+  - ✓ Identificado e removido completamente o sistema de upload de anexos na criação de solicitações
+  - ✓ Removidas queries de anexos dos componentes approval-a1-phase.tsx e approval-a2-phase.tsx
+  - ✓ Removidas seções AttachmentsViewer das telas de aprovação A1 e A2
+  - ✓ Removidas rotas backend GET/POST /api/purchase-requests/:id/attachments
+  - ✓ Removida configuração multer específica para uploads de purchase requests
+  - ✓ Limpeza do banco de dados - removido 1 registro órfão de attachment
+  - ✓ Sistema de anexos de fornecedores mantido intacto e funcionando
+  - ✓ Sistema de anexos de cotações mantido intacto e funcionando
+  - ✓ Componente AttachmentsViewer preservado para outros tipos de anexos
+  - ✓ Migração da Replit Agent para Replit finalizada com sucesso
+  - ✓ Aplicação funcionando corretamente com todas as funcionalidades preservadas
+
+## Changelog
 - July 10, 2025. Correção crítica na rotina de limpeza de dados - ordem das exclusões ajustada:
   - ✓ Identificado problema de constraint de chave estrangeira na limpeza de dados
   - ✓ Corrigida ordem de exclusão: attachments agora são deletados antes das supplier_quotations

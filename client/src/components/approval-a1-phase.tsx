@@ -86,9 +86,7 @@ export default function ApprovalA1Phase({
   // Check if user has A1 approval permissions
   const canApprove = user?.isApproverA1 || false;
 
-  const { data: attachments } = useQuery<any[]>({
-    queryKey: [`/api/purchase-requests/${request.id}/attachments`],
-  });
+  // Removed attachments query - no longer showing purchase request attachments
 
   const { data: approvalHistory } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
@@ -490,13 +488,7 @@ export default function ApprovalA1Phase({
           requestNumber={request.requestNumber}
         />
 
-        {/* Attachments */}
-        <AttachmentsViewer 
-          attachments={attachments || []}
-          requestId={request.id}
-          requestNumber={request.requestNumber}
-          readonly={true}
-        />
+        {/* Attachments section removed - no longer showing purchase request attachments */}
 
         {/* Approval History */}
         {approvalHistory && approvalHistory.length > 0 && (

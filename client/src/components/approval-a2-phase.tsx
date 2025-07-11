@@ -75,9 +75,7 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
   // Check if user has A2 approval permissions
   const canApprove = user?.isApproverA2 || false;
 
-  const { data: attachments } = useQuery<any[]>({
-    queryKey: [`/api/purchase-requests/${request.id}/attachments`],
-  });
+  // Removed attachments query - no longer showing purchase request attachments
 
   // Buscar anexos de fornecedores para esta solicitação
   const { data: supplierAttachments } = useQuery<any[]>({
@@ -613,12 +611,7 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
           </CardContent>
         </Card>
 
-        {/* Attachments */}
-        <AttachmentsViewer 
-          attachments={attachments || []}
-          requestId={request.id}
-          requestNumber={request.requestNumber}
-        />
+        {/* Attachments section removed - no longer showing purchase request attachments */}
 
         {/* Supplier Attachments */}
         {supplierAttachments && supplierAttachments.length > 0 && (

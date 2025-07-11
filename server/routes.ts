@@ -83,54 +83,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     rolling: true // Reset expiration on activity
   }));
 
-  // Configure multer for file uploads
-  const storage_config = multer.diskStorage({
-    destination: (req, file, cb) => {
-      const purchaseRequestId = req.params.id;
-      const uploadPath = path.join(process.cwd(), 'uploads', 'purchase-requests', purchaseRequestId);
-      
-      // Create directory if it doesn't exist
-      if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, { recursive: true });
-      }
-      
-      cb(null, uploadPath);
-    },
-    filename: (req, file, cb) => {
-      // Generate unique filename with timestamp
-      const timestamp = Date.now();
-      const extension = path.extname(file.originalname);
-      const baseName = path.basename(file.originalname, extension);
-      const safeBaseName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_');
-      cb(null, `${timestamp}_${safeBaseName}${extension}`);
-    }
-  });
-
-  const upload = multer({
-    storage: storage_config,
-    limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB limit
-    },
-    fileFilter: (req, file, cb) => {
-      // Allow specific file types
-      const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'image/jpeg',
-        'image/png',
-        'image/jpg',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      ];
-      
-      if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new Error('Tipo de arquivo não permitido. Apenas PDF, DOC, DOCX, JPG, PNG, XLS, XLSX são aceitos.'));
-      }
-    }
-  });
+  // Multer configuration removed - was specific to purchase request attachments
+  // Supplier uploads now use a different approach
 
   // Initialize default data
   await storage.initializeDefaultData();
@@ -1261,75 +1215,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Attachment routes
-  app.get("/api/purchase-requests/:id/attachments", isAuthenticated, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      
-      // Import database and schema
-      const { db } = await import('./db');
-      const { attachments } = await import('../shared/schema');
-      const { eq } = await import('drizzle-orm');
-      
-      // Get attachments for this purchase request
-      const purchaseAttachments = await db
-        .select()
-        .from(attachments)
-        .where(eq(attachments.purchaseRequestId, id));
-      
-      // Map to include download URLs
-      const attachmentsWithUrls = purchaseAttachments.map(attachment => ({
-        ...attachment,
-        downloadUrl: `/api/attachments/${attachment.id}/download`,
-        url: `/api/attachments/${attachment.id}/download`
-      }));
-      
-      res.json(attachmentsWithUrls);
-    } catch (error) {
-      console.error("Error fetching attachments:", error);
-      res.status(500).json({ message: "Failed to fetch attachments" });
-    }
-  });
+  // Attachment routes for purchase requests removed - only keeping supplier attachments
 
-  app.post("/api/purchase-requests/:id/attachments", isAuthenticated, upload.array('files', 10), async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const files = req.files as Express.Multer.File[];
-      
-      if (!files || files.length === 0) {
-        return res.status(400).json({ message: "Nenhum arquivo enviado" });
-      }
-      
-      const attachmentPromises = files.map(async (file) => {
-        const attachment = await storage.createAttachment({
-          purchaseRequestId: id,
-          quotationId: null,
-          supplierQuotationId: null,
-          fileName: file.originalname,
-          filePath: file.path,
-          fileType: file.mimetype,
-          fileSize: file.size,
-          attachmentType: 'purchase_request'
-        });
-        
-        return {
-          ...attachment,
-          downloadUrl: `/api/attachments/${attachment.id}/download`,
-          url: `/api/attachments/${attachment.id}/download`
-        };
-      });
-      
-      const savedAttachments = await Promise.all(attachmentPromises);
-      
-      res.status(201).json({
-        message: `${files.length} arquivo(s) enviado(s) com sucesso`,
-        attachments: savedAttachments
-      });
-    } catch (error) {
-      console.error("Error uploading attachments:", error);
-      res.status(400).json({ message: "Erro ao enviar arquivos" });
-    }
-  });
+  // POST route for purchase request attachments removed
 
   // Download attachment route
   app.get("/api/attachments/:id/download", isAuthenticated, async (req, res) => {
