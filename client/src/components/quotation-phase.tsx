@@ -331,8 +331,26 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                             </>
                           )}
                           {sq.status === 'received' && (
-                            <div className="text-sm text-green-600 font-medium">
-                              ✓ Recebida em {sq.receivedAt ? format(new Date(sq.receivedAt), "dd/MM/yyyy", { locale: ptBR }) : ''}
+                            <div className="flex items-center gap-2">
+                              <div className="text-sm text-green-600 font-medium">
+                                ✓ Recebida em {sq.receivedAt ? format(new Date(sq.receivedAt), "dd/MM/yyyy", { locale: ptBR }) : ''}
+                              </div>
+                              {user?.isBuyer && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedSupplierForUpdate({
+                                      id: (sq as any).supplierId || sq.id,
+                                      name: sq.supplier?.name || 'Fornecedor'
+                                    });
+                                    setShowUpdateQuotation(true);
+                                  }}
+                                  className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Visualizar/Editar
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>

@@ -1,0 +1,85 @@
+Você precisa implementar as seguintes funcionalidades no sistema de compras:
+
+1. PROBLEMA ATUAL
+Após atualizar a cotação do fornecedor, o sistema marca como "Recebido"
+Não há opção de visualizar nem alterar os dados inseridos
+Não é possível visualizar os arquivos anexados
+Não há como corrigir valores informados incorretamente
+2. FUNCIONALIDADES NECESSÁRIAS
+A. Visualização de Cotações Recebidas
+Criar botão "Visualizar Cotação" para fornecedores com status "Recebida"
+Exibir todos os dados preenchidos anteriormente:
+Preços unitários de cada item
+Prazos de entrega
+Marcas e modelos
+Condições comerciais (pagamento, entrega, garantia)
+Observações
+Mostrar arquivos anexados com opção de download
+B. Edição de Cotações Recebidas
+Permitir edição de todos os campos da cotação
+Manter histórico das alterações
+Permitir adicionar novos anexos
+Recalcular automaticamente os valores totais
+C. Gerenciamento de Anexos
+Visualizar anexos existentes
+Fazer upload de novos arquivos
+Remover anexos desnecessários
+Organizar anexos por tipo (proposta, especificação, etc.)
+3. IMPLEMENTAÇÃO TÉCNICA
+Modificações no Componente QuotationPhase:
+// Adicionar botão "Visualizar/Editar" para cotações recebidas
+{sq.status === 'received' && (
+  <Button
+    size="sm"
+    onClick={() => {
+      setSelectedSupplierForUpdate({
+        id: sq.supplierId,
+        name: sq.supplier?.name || 'Fornecedor'
+      });
+      setShowUpdateQuotation(true);
+    }}
+    className="bg-blue-600 hover:bg-blue-700"
+  >
+    <Eye className="h-4 w-4 mr-2" />
+    Visualizar/Editar
+  </Button>
+)}
+Modificações no UpdateSupplierQuotation:
+Adicionar modo de visualização/edição
+Carregar dados existentes automaticamente
+Permitir alteração mesmo com status "received"
+Implementar sistema de versionamento das alterações
+Melhorias no Sistema de Anexos:
+Exibir anexos existentes na abertura do modal
+Permitir download individual de cada arquivo
+Organizar por data de upload
+Adicionar preview quando possível
+4. REGRAS DE NEGÓCIO
+Permissões: Apenas usuários com perfil de comprador podem visualizar/editar
+Histórico: Manter registro de todas as alterações com timestamp
+Notificações: Enviar alerta quando cotação for alterada após recebimento
+Validação: Manter validações de campos obrigatórios
+Backup: Preservar versão anterior antes de salvar alterações
+5. INTERFACE DO USUÁRIO
+Título do Modal: "Visualizar/Editar Cotação - [Nome do Fornecedor]"
+Indicador Visual: Badge mostrando "Última atualização: [data/hora]"
+Histórico: Seção expansível mostrando histórico de alterações
+Anexos: Seção dedicada para gerenciar arquivos
+Botões: "Salvar Alterações", "Cancelar", "Visualizar Histórico"
+6. ENDPOINTS DA API
+Certifique-se de que existam endpoints para:
+
+GET /api/quotations/:id/supplier-quotations/:supplierId/history
+PUT /api/quotations/:id/supplier-quotations/:supplierId/update
+GET /api/quotations/:id/supplier-quotations/:supplierId/attachments
+DELETE /api/quotations/:id/supplier-quotations/:supplierId/attachments/:attachmentId
+7. RESULTADO ESPERADO
+Após a implementação, o usuário deve conseguir:
+
+Clicar em "Visualizar/Editar" em cotações recebidas
+Ver todos os dados preenchidos anteriormente
+Alterar qualquer campo necessário
+Gerenciar arquivos anexados
+Salvar alterações mantendo histórico
+Receber confirmação das alterações
+Mantenha o padrão visual existente e garanta que a funcionalidade seja intuitiva e responsiva.

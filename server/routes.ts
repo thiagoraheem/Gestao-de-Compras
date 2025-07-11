@@ -1896,6 +1896,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get supplier quotation attachments
+  app.get("/api/quotations/:quotationId/supplier-quotations/:supplierId/attachments", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const supplierId = parseInt(req.params.supplierId);
+      
+      // Find the supplier quotation
+      const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+      const supplierQuotation = supplierQuotations.find(sq => sq.supplierId === supplierId);
+      
+      if (!supplierQuotation) {
+        return res.json([]);
+      }
+      
+      // Get attachments for this supplier quotation
+      const { db } = await import('./db');
+      const { attachments } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const sqAttachments = await db.select().from(attachments).where(eq(attachments.supplierQuotationId, supplierQuotation.id));
+      
+      res.json(sqAttachments);
+    } catch (error) {
+      console.error("Error fetching supplier quotation attachments:", error);
+      res.status(500).json({ message: "Erro ao buscar anexos da cotação" });
+    }
+  });
+
   // Rota para selecionar fornecedor vencedor na cotação
   app.post("/api/quotations/:quotationId/select-supplier", isAuthenticated, async (req, res) => {
     try {

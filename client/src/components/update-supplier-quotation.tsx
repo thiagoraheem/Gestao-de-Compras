@@ -33,6 +33,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   DollarSign,
   FileText,
@@ -41,6 +43,11 @@ import {
   Upload,
   Package,
   Calculator,
+  Download,
+  Trash2,
+  Clock,
+  Eye,
+  History,
 } from "lucide-react";
 
 const updateSupplierQuotationSchema = z.object({
@@ -91,6 +98,19 @@ interface ExistingSupplierQuotation {
   deliveryTerms?: string;
   warrantyPeriod?: string;
   observations?: string;
+  status?: string;
+  receivedAt?: string;
+  totalValue?: string;
+}
+
+interface SupplierAttachment {
+  id: number;
+  fileName: string;
+  filePath: string;
+  fileType: string;
+  fileSize: number;
+  uploadedAt: string;
+  attachmentType: string;
 }
 
 interface UpdateSupplierQuotationProps {
@@ -113,6 +133,7 @@ export default function UpdateSupplierQuotation({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [viewMode, setViewMode] = useState<'edit' | 'view'>('edit');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -132,6 +153,12 @@ export default function UpdateSupplierQuotation({
       ],
       enabled: !!quotationId && !!supplierId && isOpen,
     });
+
+  // Fetch existing attachments
+  const { data: existingAttachments = [] } = useQuery<SupplierAttachment[]>({
+    queryKey: [`/api/quotations/${quotationId}/supplier-quotations/${supplierId}/attachments`],
+    enabled: !!quotationId && !!supplierId && isOpen,
+  });
 
   const form = useForm<UpdateSupplierQuotationData>({
     resolver: zodResolver(updateSupplierQuotationSchema),
@@ -159,6 +186,13 @@ export default function UpdateSupplierQuotation({
       form.setValue("items", formItems);
     }
   }, [quotationItems, form]);
+
+  // Determine view mode based on quotation status
+  useEffect(() => {
+    if (existingSupplierQuotation) {
+      setViewMode(existingSupplierQuotation.status === 'received' ? 'view' : 'edit');
+    }
+  }, [existingSupplierQuotation]);
 
   // Load existing supplier quotation data
   useEffect(() => {
@@ -414,9 +448,35 @@ export default function UpdateSupplierQuotation({
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
-            Atualizar Cotação - {supplierName}
+            {viewMode === 'view' ? (
+              <>
+                <Eye className="h-5 w-5" />
+                Visualizar Cotação - {supplierName}
+              </>
+            ) : (
+              <>
+                <DollarSign className="h-5 w-5" />
+                Atualizar Cotação - {supplierName}
+              </>
+            )}
           </DialogTitle>
+          {existingSupplierQuotation && (
+            <div className="flex items-center gap-4 mt-2">
+              <Badge variant={existingSupplierQuotation.status === 'received' ? 'default' : 'secondary'}>
+                {existingSupplierQuotation.status === 'received' ? 'Recebida' : 'Pendente'}
+              </Badge>
+              {existingSupplierQuotation.receivedAt && (
+                <span className="text-sm text-gray-500">
+                  Recebida em: {format(new Date(existingSupplierQuotation.receivedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </span>
+              )}
+              {existingSupplierQuotation.totalValue && (
+                <span className="text-sm font-semibold text-green-600">
+                  Total: R$ {parseFloat(existingSupplierQuotation.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
+          )}
         </DialogHeader>
 
         <Form {...form}>
@@ -479,7 +539,9 @@ export default function UpdateSupplierQuotation({
                                         {...field}
                                         placeholder="1.000,00"
                                         className="w-24"
+                                        readOnly={viewMode === 'view'}
                                         onChange={(e) => {
+                                          if (viewMode === 'view') return;
                                           // Allow natural number input - user types 1000 and it becomes 1000.00
                                           let inputValue = e.target.value;
 
@@ -497,6 +559,7 @@ export default function UpdateSupplierQuotation({
                                           }
                                         }}
                                         onBlur={(e) => {
+                                          if (viewMode === 'view') return;
                                           // Format on blur for better display
                                           const value = e.target.value;
                                           if (value) {
@@ -574,6 +637,7 @@ export default function UpdateSupplierQuotation({
                                         placeholder="30"
                                         type="number"
                                         className="w-20"
+                                        readOnly={viewMode === 'view'}
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -592,6 +656,7 @@ export default function UpdateSupplierQuotation({
                                         {...field}
                                         placeholder="Marca"
                                         className="w-24"
+                                        readOnly={viewMode === 'view'}
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -610,6 +675,7 @@ export default function UpdateSupplierQuotation({
                                         {...field}
                                         placeholder="Modelo"
                                         className="w-24"
+                                        readOnly={viewMode === 'view'}
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -628,6 +694,7 @@ export default function UpdateSupplierQuotation({
                                         {...field}
                                         placeholder="Observações"
                                         className="w-32"
+                                        readOnly={viewMode === 'view'}
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -695,6 +762,7 @@ export default function UpdateSupplierQuotation({
                             {...field}
                             placeholder="Ex: 30 dias, boleto bancário..."
                             className="resize-none"
+                            readOnly={viewMode === 'view'}
                           />
                         </FormControl>
                         <FormMessage />
@@ -713,6 +781,7 @@ export default function UpdateSupplierQuotation({
                             {...field}
                             placeholder="Ex: FOB, CIF, entrega no local..."
                             className="resize-none"
+                            readOnly={viewMode === 'view'}
                           />
                         </FormControl>
                         <FormMessage />
@@ -730,6 +799,7 @@ export default function UpdateSupplierQuotation({
                           <Input
                             {...field}
                             placeholder="Ex: 12 meses, 2 anos..."
+                            readOnly={viewMode === 'view'}
                           />
                         </FormControl>
                         <FormMessage />
@@ -749,6 +819,7 @@ export default function UpdateSupplierQuotation({
                           {...field}
                           placeholder="Observações adicionais sobre a proposta..."
                           className="resize-none"
+                          readOnly={viewMode === 'view'}
                         />
                       </FormControl>
                       <FormMessage />
@@ -758,14 +829,88 @@ export default function UpdateSupplierQuotation({
               </CardContent>
             </Card>
 
+            {/* Existing Attachments Section */}
+            {existingAttachments.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Anexos Existentes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {existingAttachments.map((attachment) => (
+                      <div key={attachment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-5 w-5 text-blue-500" />
+                          <div>
+                            <p className="font-medium">{attachment.fileName}</p>
+                            <p className="text-sm text-gray-500">
+                              {(attachment.fileSize / 1024 / 1024).toFixed(2)} MB • 
+                              Enviado em {format(new Date(attachment.uploadedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              // Download attachment
+                              const link = document.createElement('a');
+                              link.href = `/api/attachments/${attachment.id}/download`;
+                              link.download = attachment.fileName;
+                              link.click();
+                            }}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Baixar
+                          </Button>
+                          {viewMode === 'edit' && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={async () => {
+                                try {
+                                  await apiRequest("DELETE", `/api/attachments/${attachment.id}`);
+                                  toast({
+                                    title: "Sucesso",
+                                    description: "Anexo removido com sucesso.",
+                                  });
+                                  // Refresh attachments
+                                  queryClient.invalidateQueries({
+                                    queryKey: [`/api/quotations/${quotationId}/supplier-quotations/${supplierId}/attachments`],
+                                  });
+                                } catch (error) {
+                                  toast({
+                                    title: "Erro",
+                                    description: "Não foi possível remover o anexo.",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* File Upload Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5" />
-                  Anexar Proposta do Fornecedor
-                </CardTitle>
-              </CardHeader>
+            {viewMode === 'edit' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Upload className="h-5 w-5" />
+                    Anexar Proposta do Fornecedor
+                  </CardTitle>
+                </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div>
@@ -830,28 +975,40 @@ export default function UpdateSupplierQuotation({
                 </div>
               </CardContent>
             </Card>
+            )}
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={onClose} type="button">
-                Cancelar
+                {viewMode === 'view' ? 'Fechar' : 'Cancelar'}
               </Button>
-              <Button
-                type="submit"
-                disabled={updateMutation.isPending || isUploading}
-                className="min-w-32"
-              >
-                {updateMutation.isPending ? (
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 animate-spin" />
-                    Salvando...
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" />
-                    Salvar Cotação
-                  </div>
-                )}
-              </Button>
+              {viewMode === 'edit' && (
+                <Button
+                  type="submit"
+                  disabled={updateMutation.isPending || isUploading}
+                  className="min-w-32"
+                >
+                  {updateMutation.isPending ? (
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 animate-spin" />
+                      Salvando...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4" />
+                      Salvar Cotação
+                    </div>
+                  )}
+                </Button>
+              )}
+              {viewMode === 'view' && (
+                <Button
+                  onClick={() => setViewMode('edit')}
+                  className="min-w-32"
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Editar Cotação
+                </Button>
+              )}
             </div>
           </form>
         </Form>
