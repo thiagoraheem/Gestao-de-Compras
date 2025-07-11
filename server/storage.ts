@@ -836,21 +836,21 @@ export class DatabaseStorage implements IStorage {
       await db.delete(supplierQuotationItems);
       console.log("✅ Supplier quotation items deletados");
 
-      // 6. Delete supplier quotations
+      // 6. Delete attachments BEFORE deleting supplier quotations (FK constraint)
+      await db.delete(attachments);
+      console.log("✅ Attachments deletados");
+
+      // 7. Delete supplier quotations
       await db.delete(supplierQuotations);
       console.log("✅ Supplier quotations deletados");
 
-      // 7. Delete quotation items
+      // 8. Delete quotation items
       await db.delete(quotationItems);
       console.log("✅ Quotation items deletados");
 
-      // 8. Delete quotations
+      // 9. Delete quotations
       await db.delete(quotations);
       console.log("✅ Quotations deletados");
-
-      // 9. Delete attachments
-      await db.delete(attachments);
-      console.log("✅ Attachments deletados");
 
       // 10. Delete approval history
       await db.delete(approvalHistory);
