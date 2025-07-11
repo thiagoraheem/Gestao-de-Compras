@@ -150,18 +150,51 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
       if (!request?.id) throw new Error("ID da solicitação não encontrado");
       return await apiRequest("POST", `/api/purchase-requests/${request.id}/send-to-approval`);
     },
+    onMutate: async () => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/purchase-requests"] });
+
+      // Snapshot the previous value
+      const previousRequests = queryClient.getQueryData(["/api/purchase-requests"]);
+
+      // Optimistically update the request phase
+      queryClient.setQueryData(["/api/purchase-requests"], (old: any[]) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((item) =>
+          item.id === request?.id
+            ? { ...item, currentPhase: "aprovacao_a1", updatedAt: new Date().toISOString() }
+            : item
+        );
+      });
+
+      return { previousRequests };
+    },
     onSuccess: () => {
+      // Comprehensive cache invalidation
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
+      });
+      
+      // Force refetch to ensure we have the latest data
+      queryClient.refetchQueries({ queryKey: ["/api/purchase-requests"] });
+      
       toast({
         title: "Sucesso",
         description: "Solicitação enviada para aprovação A1",
       });
       onClose?.();
     },
-    onError: (error: any) => {
+    onError: (err, variables, context) => {
+      // Roll back on error
+      if (context?.previousRequests) {
+        queryClient.setQueryData(["/api/purchase-requests"], context.previousRequests);
+      }
+      
       toast({
         title: "Erro",
-        description: error?.message || "Não foi possível enviar para aprovação",
+        description: err?.message || "Não foi possível enviar para aprovação",
         variant: "destructive",
       });
     },

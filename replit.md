@@ -110,6 +110,14 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 11, 2025. Correção crítica do sistema de envio para aprovação na tela de edição de solicitação implementada com sucesso:
+  - ✓ Identificado problema onde tela de "Editar Solicitação" não movia cards para fase "Aprovação A1"
+  - ✓ Corrigido sendToApprovalMutation em request-phase.tsx com optimistic updates
+  - ✓ Adicionado sistema de cache invalidation abrangente para garantir sincronização UI-backend
+  - ✓ Implementado rollback automático em caso de erro na operação
+  - ✓ Melhorado feedback visual imediato com atualização otimista do estado
+  - ✓ Corrigido sendToApprovalMutation em purchase-card.tsx com as mesmas melhorias
+  - ✓ Sistema de envio para aprovação agora funciona corretamente tanto no card quanto na tela de edição
 - July 11, 2025. Migração completa do Replit Agent para Replit finalizada com correção do sistema de criação de locais de entrega:
   - ✓ Migração bem-sucedida do projeto para ambiente Replit
   - ✓ Corrigido erro crítico na função apiRequest do queryClient.ts
