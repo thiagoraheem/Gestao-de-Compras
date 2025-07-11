@@ -48,6 +48,7 @@ const quotationItemSchema = z.object({
 const rfqCreationSchema = z.object({
   purchaseRequestId: z.number(),
   quotationDeadline: z.string(),
+  deliveryLocationId: z.number().min(1, "Selecione um local de entrega"),
   termsAndConditions: z.string().optional(),
   technicalSpecs: z.string().optional(),
   selectedSuppliers: z.array(z.number()).min(1, "Selecione pelo menos um fornecedor"),
@@ -72,6 +73,10 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
 
   const { data: suppliers = [] } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
+  });
+
+  const { data: deliveryLocations = [] } = useQuery<any[]>({
+    queryKey: ["/api/delivery-locations"],
   });
 
   // Fetch existing purchase request items
@@ -101,6 +106,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
     defaultValues: {
       purchaseRequestId: purchaseRequest.id,
       quotationDeadline: format(addDays(new Date(), 7), "yyyy-MM-dd"),
+      deliveryLocationId: 0,
       selectedSuppliers: [],
       items: [],
     },
@@ -425,6 +431,34 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                           onBlur={field.onBlur}
                           placeholder="DD/MM/AAAA"
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="deliveryLocationId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Local de Entrega *</FormLabel>
+                      <FormControl>
+                        <Select 
+                          value={field.value.toString()} 
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o local de entrega" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {deliveryLocations.map((location) => (
+                              <SelectItem key={location.id} value={location.id.toString()}>
+                                {location.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

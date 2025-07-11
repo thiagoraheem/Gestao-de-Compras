@@ -1438,6 +1438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotationApiSchema = z.object({
         purchaseRequestId: z.number(),
         quotationDeadline: z.string().transform((val) => new Date(val)),
+        deliveryLocationId: z.number(),
         termsAndConditions: z.string().optional(),
         technicalSpecs: z.string().optional(),
       });
