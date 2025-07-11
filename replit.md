@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 11, 2025. Migração completa do Replit Agent para Replit finalizada com correção do sistema de criação de locais de entrega:
+  - ✓ Migração bem-sucedida do projeto para ambiente Replit
+  - ✓ Corrigido erro crítico na função apiRequest do queryClient.ts
+  - ✓ Ajustada ordem de parâmetros: apiRequest(url, { method, body }) em vez de apiRequest(method, url, data)
+  - ✓ Melhoradas mensagens de erro para criação de locais de entrega em português
+  - ✓ Adicionado tratamento específico para violações de constraint única (nomes duplicados)
+  - ✓ Sistema de locais de entrega agora funciona corretamente para criação e edição
+  - ✓ Aplicação rodando estável na porta 5000 com PostgreSQL operacional
+  - ✓ Todos os componentes e APIs respondendo adequadamente
 - July 11, 2025. Correção crítica de exibição de dados de fornecedores na tela "Pedido de Compra" implementada com sucesso:
   - ✓ Identificado problema onde API de cotações de fornecedores retornava dados incompletos
   - ✓ Corrigida query getSupplierQuotations no storage.ts para incluir todos os campos de fornecedor
