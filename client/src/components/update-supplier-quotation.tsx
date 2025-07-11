@@ -432,195 +432,208 @@ export default function UpdateSupplierQuotation({
                     </TableHeader>
                     <TableBody>
                       {quotationItems.map((item, index) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            <div className="max-w-48">
-                              <p className="text-sm font-medium">
-                                {item.description}
-                              </p>
-                              {item.specifications && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {item.specifications}
+                        <>
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <div className="max-w-48">
+                                <p className="text-sm font-medium">
+                                  {item.description}
                                 </p>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">
-                              {parseFloat(item.quantity).toLocaleString(
-                                "pt-BR",
-                                { maximumFractionDigits: 0 },
-                              )}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{item.unit}</TableCell>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.unitPrice`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="1.000,00"
-                                      className="w-24"
-                                      onChange={(e) => {
-                                        // Allow natural number input - user types 1000 and it becomes 1000.00
-                                        let inputValue = e.target.value;
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">
+                                {parseFloat(item.quantity).toLocaleString(
+                                  "pt-BR",
+                                  { maximumFractionDigits: 0 },
+                                )}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{item.unit}</TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.unitPrice`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="1.000,00"
+                                        className="w-24"
+                                        onChange={(e) => {
+                                          // Allow natural number input - user types 1000 and it becomes 1000.00
+                                          let inputValue = e.target.value;
 
-                                        // If user is typing a number without formatting, keep it as is for now
-                                        if (/^\d+$/.test(inputValue)) {
-                                          field.onChange(inputValue);
-                                        } else {
-                                          // If already formatted or contains special chars, clean it
-                                          const cleanValue = inputValue.replace(
-                                            /[^\d.,]/g,
-                                            "",
-                                          );
-                                          field.onChange(cleanValue);
-                                        }
-                                      }}
-                                      onBlur={(e) => {
-                                        // Format on blur for better display
-                                        const value = e.target.value;
-                                        if (value) {
-                                          let number;
-                                          // If it's a simple number (like 1000), treat it as currency value
-                                          if (/^\d+$/.test(value)) {
-                                            number = parseFloat(value);
-                                          } else if (
-                                            /^\d+[.,]\d+$/.test(value)
-                                          ) {
-                                            // If it already has decimal places
-                                            number = parseFloat(
-                                              value.replace(",", "."),
-                                            );
+                                          // If user is typing a number without formatting, keep it as is for now
+                                          if (/^\d+$/.test(inputValue)) {
+                                            field.onChange(inputValue);
                                           } else {
-                                            // Try to parse any formatted value
-                                            const cleanValue = value.replace(
-                                              /[^\d.,]/g,
-                                              "",
-                                            );
-                                            number = parseFloat(
-                                              cleanValue.replace(",", "."),
-                                            );
+                                            // If already formatted or contains special chars, clean it
+                                            const cleanValue =
+                                              inputValue.replace(
+                                                /[^\d.,]/g,
+                                                "",
+                                              );
+                                            field.onChange(cleanValue);
                                           }
+                                        }}
+                                        onBlur={(e) => {
+                                          // Format on blur for better display
+                                          const value = e.target.value;
+                                          if (value) {
+                                            let number;
+                                            // If it's a simple number (like 1000), treat it as currency value
+                                            if (/^\d+$/.test(value)) {
+                                              number = parseFloat(value);
+                                            } else if (
+                                              /^\d+[.,]\d+$/.test(value)
+                                            ) {
+                                              // If it already has decimal places
+                                              number = parseFloat(
+                                                value.replace(",", "."),
+                                              );
+                                            } else {
+                                              // Try to parse any formatted value
+                                              const cleanValue = value.replace(
+                                                /[^\d.,]/g,
+                                                "",
+                                              );
+                                              number = parseFloat(
+                                                cleanValue.replace(",", "."),
+                                              );
+                                            }
 
-                                          if (!isNaN(number)) {
-                                            const formatted =
-                                              number.toLocaleString("pt-BR", {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                              });
-                                            field.onChange(formatted);
+                                            if (!isNaN(number)) {
+                                              const formatted =
+                                                number.toLocaleString("pt-BR", {
+                                                  minimumFractionDigits: 2,
+                                                  maximumFractionDigits: 2,
+                                                });
+                                              field.onChange(formatted);
+                                            }
                                           }
-                                        }
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <div className="font-medium text-green-600">
-                              R${" "}
-                              {(() => {
-                                const unitPrice = form.watch(
-                                  `items.${index}.unitPrice`,
-                                );
-                                if (!unitPrice) return "0,00";
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium text-green-600">
+                                R${" "}
+                                {(() => {
+                                  const unitPrice = form.watch(
+                                    `items.${index}.unitPrice`,
+                                  );
+                                  if (!unitPrice) return "0,00";
 
-                                const quantity = parseFloat(item.quantity);
-                                const price =
-                                  parseNumberFromCurrency(unitPrice);
-                                const total = quantity * price;
+                                  const quantity = parseFloat(item.quantity);
+                                  const price =
+                                    parseNumberFromCurrency(unitPrice);
+                                  const total = quantity * price;
 
-                                return isNaN(total)
-                                  ? "0,00"
-                                  : total.toLocaleString("pt-BR", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    });
-                              })()}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.deliveryDays`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="30"
-                                      type="number"
-                                      className="w-20"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.brand`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="Marca"
-                                      className="w-24"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.model`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="Modelo"
-                                      className="w-24"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.observations`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="Observações"
-                                      className="w-32"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                        </TableRow>
+                                  return isNaN(total)
+                                    ? "0,00"
+                                    : total.toLocaleString("pt-BR", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      });
+                                })()}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.deliveryDays`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="30"
+                                        type="number"
+                                        className="w-20"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.brand`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="Marca"
+                                        className="w-24"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.model`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="Modelo"
+                                        className="w-24"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.observations`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="Observações"
+                                        className="w-32"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                          </TableRow>
+                          {item.specifications && (
+                            <TableRow key={`${item.id}-spec`}>
+                              <TableCell
+                                colSpan={9}
+                                className="bg-gray-50 border-t-0 pt-0"
+                              >
+                                <div className="text-xs text-gray-600 italic">
+                                  <span className="font-medium">
+                                    Especificações:
+                                  </span>{" "}
+                                  {item.specifications}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
                       ))}
                     </TableBody>
                   </Table>
