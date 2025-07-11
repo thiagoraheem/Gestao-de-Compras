@@ -673,20 +673,13 @@ export default function PurchaseCard({
             </Badge>
             {/* Show red tag for items with pending issues returned from receipt */}
             {request.hasPendency && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
-              <Badge variant="destructive" className="text-xs bg-red-500 text-white border-red-600">
-                <AlertCircle className="mr-1 h-3 w-3" />
-                Pendência
-              </Badge>
+              <div title={request.pendencyReason || "Solicitação retornou com pendência"}>
+                <Badge variant="destructive" className="text-xs bg-red-500 text-white border-red-600 cursor-help">
+                  <AlertCircle className="mr-1 h-3 w-3" />
+                  Pendência
+                </Badge>
+              </div>
             )}
-            {/* Force show for debugging - remove this after testing */}
-            {request.requestNumber === 'SOL-2025-002' && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
-              <Badge variant="destructive" className="text-xs bg-red-500 text-white border-red-600">
-                <AlertCircle className="mr-1 h-3 w-3" />
-                TESTE PENDÊNCIA
-              </Badge>
-            )}
-            {/* Debug: log the request data for SOL-2025-002 */}
-            {request.requestNumber === 'SOL-2025-002' && console.log('SOL-2025-002 data:', { hasPendency: request.hasPendency, pendencyReason: request.pendencyReason, phase, request })}
           </div>
 
           {/* Additional info */}

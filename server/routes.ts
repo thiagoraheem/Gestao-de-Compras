@@ -578,11 +578,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/purchase-requests", isAuthenticated, async (req, res) => {
     try {
       const requests = await storage.getAllPurchaseRequests();
-      // Debug: check if pendency data is included for SOL-2025-002
-      const sol002 = requests.find(r => r.requestNumber === 'SOL-2025-002');
-      if (sol002) {
-        console.log('SOL-2025-002 API response:', { hasPendency: sol002.hasPendency, pendencyReason: sol002.pendencyReason });
-      }
       res.json(requests);
     } catch (error) {
       console.error("Error fetching purchase requests:", error);
