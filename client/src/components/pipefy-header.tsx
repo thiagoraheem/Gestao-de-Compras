@@ -22,6 +22,7 @@ import {
   X,
   Database,
   BarChart3,
+  MapPin,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -50,6 +51,7 @@ export default function PipefyHeader() {
       { name: "Fornecedores", href: "/suppliers", icon: Building },
       { name: "Usuários", href: "/users", icon: Users },
       { name: "Departamentos", href: "/departments", icon: Building },
+      { name: "Locais de Entrega", href: "/delivery-locations", icon: MapPin },
       { name: "Limpeza de Dados", href: "/admin/cleanup", icon: Database },
     ];
 

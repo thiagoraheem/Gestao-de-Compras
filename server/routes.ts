@@ -7,6 +7,7 @@ import {
   insertDepartmentSchema, 
   insertCostCenterSchema, 
   insertSupplierSchema, 
+  insertDeliveryLocationSchema,
   insertPurchaseRequestSchema,
   insertPurchaseRequestItemSchema,
   insertQuotationSchema,
@@ -571,6 +572,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching payment methods:", error);
       res.status(500).json({ message: "Failed to fetch payment methods" });
+    }
+  });
+
+  // Delivery Locations routes
+  app.get("/api/delivery-locations", isAuthenticated, async (req, res) => {
+    try {
+      const deliveryLocations = await storage.getAllDeliveryLocations();
+      res.json(deliveryLocations);
+    } catch (error) {
+      console.error("Error fetching delivery locations:", error);
+      res.status(500).json({ message: "Failed to fetch delivery locations" });
+    }
+  });
+
+  app.get("/api/delivery-locations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deliveryLocation = await storage.getDeliveryLocationById(id);
+      if (!deliveryLocation) {
+        return res.status(404).json({ message: "Delivery location not found" });
+      }
+      res.json(deliveryLocation);
+    } catch (error) {
+      console.error("Error fetching delivery location:", error);
+      res.status(500).json({ message: "Failed to fetch delivery location" });
+    }
+  });
+
+  app.post("/api/delivery-locations", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const deliveryLocationData = insertDeliveryLocationSchema.parse(req.body);
+      const deliveryLocation = await storage.createDeliveryLocation(deliveryLocationData);
+      res.status(201).json(deliveryLocation);
+    } catch (error) {
+      console.error("Error creating delivery location:", error);
+      res.status(400).json({ message: "Invalid delivery location data" });
+    }
+  });
+
+  app.put("/api/delivery-locations/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deliveryLocationData = insertDeliveryLocationSchema.partial().parse(req.body);
+      const deliveryLocation = await storage.updateDeliveryLocation(id, deliveryLocationData);
+      res.json(deliveryLocation);
+    } catch (error) {
+      console.error("Error updating delivery location:", error);
+      res.status(400).json({ message: "Invalid delivery location data" });
+    }
+  });
+
+  app.delete("/api/delivery-locations/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteDeliveryLocation(id);
+      res.json({ message: "Delivery location deactivated successfully" });
+    } catch (error) {
+      console.error("Error deactivating delivery location:", error);
+      res.status(500).json({ message: "Failed to deactivate delivery location" });
     }
   });
 

@@ -9,6 +9,7 @@ import {
   purchaseRequests,
   purchaseRequestItems,
   purchaseRequestSuppliers,
+  deliveryLocations,
   quotations,
   quotationItems,
   supplierQuotations,
@@ -33,6 +34,8 @@ import {
   type InsertPurchaseRequestItem,
   type PaymentMethod,
   type InsertPaymentMethod,
+  type DeliveryLocation,
+  type InsertDeliveryLocation,
   type Quotation,
   type InsertQuotation,
   type QuotationItem,
@@ -96,6 +99,13 @@ export interface IStorage {
   // Payment Method operations
   getAllPaymentMethods(): Promise<PaymentMethod[]>;
   createPaymentMethod(paymentMethod: InsertPaymentMethod): Promise<PaymentMethod>;
+
+  // Delivery Location operations
+  getAllDeliveryLocations(): Promise<DeliveryLocation[]>;
+  getDeliveryLocationById(id: number): Promise<DeliveryLocation | undefined>;
+  createDeliveryLocation(deliveryLocation: InsertDeliveryLocation): Promise<DeliveryLocation>;
+  updateDeliveryLocation(id: number, deliveryLocation: Partial<InsertDeliveryLocation>): Promise<DeliveryLocation>;
+  deleteDeliveryLocation(id: number): Promise<void>;
 
   // Purchase Request operations
   getAllPurchaseRequests(): Promise<PurchaseRequest[]>;
@@ -389,6 +399,39 @@ export class DatabaseStorage implements IStorage {
       .values(paymentMethod)
       .returning();
     return newPaymentMethod;
+  }
+
+  async getAllDeliveryLocations(): Promise<DeliveryLocation[]> {
+    return await db.select().from(deliveryLocations).where(eq(deliveryLocations.active, true));
+  }
+
+  async getDeliveryLocationById(id: number): Promise<DeliveryLocation | undefined> {
+    const [location] = await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, id));
+    return location || undefined;
+  }
+
+  async createDeliveryLocation(deliveryLocation: InsertDeliveryLocation): Promise<DeliveryLocation> {
+    const [newLocation] = await db
+      .insert(deliveryLocations)
+      .values(deliveryLocation)
+      .returning();
+    return newLocation;
+  }
+
+  async updateDeliveryLocation(id: number, deliveryLocation: Partial<InsertDeliveryLocation>): Promise<DeliveryLocation> {
+    const [updatedLocation] = await db
+      .update(deliveryLocations)
+      .set({ ...deliveryLocation, updatedAt: new Date() })
+      .where(eq(deliveryLocations.id, id))
+      .returning();
+    return updatedLocation;
+  }
+
+  async deleteDeliveryLocation(id: number): Promise<void> {
+    await db
+      .update(deliveryLocations)
+      .set({ active: false, updatedAt: new Date() })
+      .where(eq(deliveryLocations.id, id));
   }
 
   async getAllPurchaseRequests(): Promise<PurchaseRequest[]> {

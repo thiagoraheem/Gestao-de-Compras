@@ -182,11 +182,26 @@ export const attachments = pgTable("attachments", {
   uploadedAt: timestamp("uploaded_at").defaultNow(),
 });
 
+// Delivery Locations table
+export const deliveryLocations = pgTable("delivery_locations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  address: text("address").notNull(),
+  contactPerson: text("contact_person"),
+  phone: text("phone"),
+  email: text("email"),
+  observations: text("observations"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // RFQ (Request for Quotation) tables
 export const quotations = pgTable("quotations", {
   id: serial("id").primaryKey(),
   quotationNumber: text("quotation_number").notNull().unique(),
   purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id).notNull(),
+  deliveryLocationId: integer("delivery_location_id").references(() => deliveryLocations.id),
   status: text("status").notNull().default("draft"), // draft, sent, received, analyzed, approved, rejected
   quotationDeadline: timestamp("quotation_deadline").notNull(),
   termsAndConditions: text("terms_and_conditions"),
@@ -443,11 +458,20 @@ export const attachmentsRelations = relations(attachments, ({ one }) => ({
   }),
 }));
 
+// Delivery Locations Relations
+export const deliveryLocationsRelations = relations(deliveryLocations, ({ many }) => ({
+  quotations: many(quotations),
+}));
+
 // RFQ Relations
 export const quotationsRelations = relations(quotations, ({ one, many }) => ({
   purchaseRequest: one(purchaseRequests, {
     fields: [quotations.purchaseRequestId],
     references: [purchaseRequests.id],
+  }),
+  deliveryLocation: one(deliveryLocations, {
+    fields: [quotations.deliveryLocationId],
+    references: [deliveryLocations.id],
   }),
   createdBy: one(users, {
     fields: [quotations.createdBy],
@@ -614,6 +638,12 @@ export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit
   id: true,
 });
 
+export const insertDeliveryLocationSchema = createInsertSchema(deliveryLocations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // RFQ Insert schemas
 export const insertQuotationSchema = createInsertSchema(quotations).omit({
   id: true,
@@ -704,6 +734,8 @@ export type PurchaseRequest = typeof purchaseRequests.$inferSelect;
 export type InsertPurchaseRequest = z.infer<typeof insertPurchaseRequestSchema>;
 export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
+export type DeliveryLocation = typeof deliveryLocations.$inferSelect;
+export type InsertDeliveryLocation = z.infer<typeof insertDeliveryLocationSchema>;
 export type Attachment = typeof attachments.$inferSelect;
 export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
 export type PurchaseRequestSupplier = typeof purchaseRequestSuppliers.$inferSelect;

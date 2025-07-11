@@ -12,6 +12,7 @@ import KanbanPage from "@/pages/kanban";
 import SuppliersPage from "@/pages/suppliers";
 import UsersPage from "@/pages/users";
 import DepartmentsPage from "@/pages/departments";
+import DeliveryLocationsPage from "@/pages/delivery-locations";
 import ProfilePage from "@/pages/profile";
 import ChangePasswordPage from "@/pages/change-password";
 import RequestManagementPage from "@/pages/request-management";
@@ -80,6 +81,7 @@ function Router() {
         <Route path="/suppliers" component={SuppliersPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/departments" component={DepartmentsPage} />
+        <Route path="/delivery-locations" component={DeliveryLocationsPage} />
         <Route path="/admin/cleanup" component={AdminCleanupPage} />
         <Route path="/profile" component={ProfilePage} />
         <Route path="/change-password" component={ChangePasswordPage} />
