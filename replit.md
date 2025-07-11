@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 11, 2025. Correção crítica de exibição de dados de fornecedores na tela "Pedido de Compra" implementada com sucesso:
+  - ✓ Identificado problema onde API de cotações de fornecedores retornava dados incompletos
+  - ✓ Corrigida query getSupplierQuotations no storage.ts para incluir todos os campos de fornecedor
+  - ✓ Adicionados campos phone, cnpj, contact, address e paymentTerms na consulta de fornecedores
+  - ✓ Corrigido formulário de cadastro de fornecedores para incluir campo telefone
+  - ✓ Atualizada tabela de exibição de fornecedores para mostrar telefone
+  - ✓ Campo telefone agora exibe valores reais (92992002858) em vez de "Não informado"
+  - ✓ Campos CNPJ e condições de pagamento agora exibem dados corretos na tela Pedido de Compra
+  - ✓ Migração do Replit Agent para Replit finalizada com todas as funcionalidades preservadas
 - July 11, 2025. Correção crítica do sistema de upload de arquivos para fornecedores implementada com sucesso:
   - ✓ Corrigido problema crítico no endpoint /api/quotations/:id/upload-supplier-file que retornava "Nenhum arquivo foi enviado"
   - ✓ Corrigida função apiRequest no queryClient para lidar corretamente com FormData (não definir Content-Type)

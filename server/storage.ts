@@ -930,6 +930,11 @@ export class DatabaseStorage implements IStorage {
           id: suppliers.id,
           name: suppliers.name,
           email: suppliers.email,
+          phone: suppliers.phone,
+          cnpj: suppliers.cnpj,
+          contact: suppliers.contact,
+          address: suppliers.address,
+          paymentTerms: suppliers.paymentTerms,
         },
       })
       .from(supplierQuotations)
