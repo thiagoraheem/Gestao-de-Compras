@@ -99,7 +99,7 @@ function generateRFQEmailHTML(
       </div>
       
       <div class="content">
-        <p>Prezado(a) <strong>${supplier.name}</strong>,</p>
+        <p>Prezado(a) <strong>${supplier.contact ?? supplier.name}</strong>,</p>
         
         <p>Solicitamos sua cotação para os itens relacionados na solicitação <strong>${rfqData.requestNumber}</strong>.</p>
         
@@ -111,7 +111,6 @@ function generateRFQEmailHTML(
         <table class="item-table">
           <thead>
             <tr>
-              <th>Código</th>
               <th>Descrição</th>
               <th>Quantidade</th>
               <th>Unidade</th>
@@ -123,7 +122,6 @@ function generateRFQEmailHTML(
               .map(
                 (item) => `
               <tr>
-                <td>${item.itemCode}</td>
                 <td>${item.description}</td>
                 <td>${item.quantity}</td>
                 <td>${item.unit}</td>
@@ -181,11 +179,13 @@ function generateRFQEmailHTML(
 }
 
 // Workflow notification functions
-export async function notifyNewRequest(purchaseRequest: PurchaseRequest): Promise<void> {
+export async function notifyNewRequest(
+  purchaseRequest: PurchaseRequest,
+): Promise<void> {
   try {
     const buyers = await storage.getAllUsers();
-    const buyerUsers = buyers.filter(user => user.isBuyer);
-    
+    const buyerUsers = buyers.filter((user) => user.isBuyer);
+
     if (buyerUsers.length === 0) {
       console.log("Nenhum comprador encontrado para notificação");
       return;
@@ -195,18 +195,26 @@ export async function notifyNewRequest(purchaseRequest: PurchaseRequest): Promis
     let requesterName = "N/A";
     if (purchaseRequest.requesterId) {
       const requester = await storage.getUser(purchaseRequest.requesterId);
-      requesterName = requester ? (requester.firstName ? `${requester.firstName} ${requester.lastName || ''}`.trim() : requester.username) : "N/A";
+      requesterName = requester
+        ? requester.firstName
+          ? `${requester.firstName} ${requester.lastName || ""}`.trim()
+          : requester.username
+        : "N/A";
     }
 
     const transporter = createTransporter();
     const emailPromises = buyerUsers.map(async (buyer) => {
       if (!buyer.email) return;
-      
+
       const mailOptions = {
         from: config.email.from,
         to: buyer.email,
         subject: `Nova Solicitação de Compra - ${purchaseRequest.requestNumber}`,
-        html: generateNewRequestEmailHTML(buyer, purchaseRequest, requesterName),
+        html: generateNewRequestEmailHTML(
+          buyer,
+          purchaseRequest,
+          requesterName,
+        ),
       };
 
       try {
@@ -223,11 +231,13 @@ export async function notifyNewRequest(purchaseRequest: PurchaseRequest): Promis
   }
 }
 
-export async function notifyApprovalA1(purchaseRequest: PurchaseRequest): Promise<void> {
+export async function notifyApprovalA1(
+  purchaseRequest: PurchaseRequest,
+): Promise<void> {
   try {
     const approvers = await storage.getAllUsers();
-    const approverA1Users = approvers.filter(user => user.isApproverA1);
-    
+    const approverA1Users = approvers.filter((user) => user.isApproverA1);
+
     if (approverA1Users.length === 0) {
       console.log("Nenhum aprovador A1 encontrado para notificação");
       return;
@@ -237,25 +247,36 @@ export async function notifyApprovalA1(purchaseRequest: PurchaseRequest): Promis
     let requesterName = "N/A";
     if (purchaseRequest.requesterId) {
       const requester = await storage.getUser(purchaseRequest.requesterId);
-      requesterName = requester ? (requester.firstName ? `${requester.firstName} ${requester.lastName || ''}`.trim() : requester.username) : "N/A";
+      requesterName = requester
+        ? requester.firstName
+          ? `${requester.firstName} ${requester.lastName || ""}`.trim()
+          : requester.username
+        : "N/A";
     }
 
     const transporter = createTransporter();
     const emailPromises = approverA1Users.map(async (approver) => {
       if (!approver.email) return;
-      
+
       const mailOptions = {
         from: config.email.from,
         to: approver.email,
         subject: `Solicitação Pendente de Aprovação A1 - ${purchaseRequest.requestNumber}`,
-        html: generateApprovalA1EmailHTML(approver, purchaseRequest, requesterName),
+        html: generateApprovalA1EmailHTML(
+          approver,
+          purchaseRequest,
+          requesterName,
+        ),
       };
 
       try {
         await transporter.sendMail(mailOptions);
         console.log(`Notificação A1 enviada para aprovador: ${approver.email}`);
       } catch (error) {
-        console.error(`Erro ao enviar notificação A1 para ${approver.email}:`, error);
+        console.error(
+          `Erro ao enviar notificação A1 para ${approver.email}:`,
+          error,
+        );
       }
     });
 
@@ -265,11 +286,13 @@ export async function notifyApprovalA1(purchaseRequest: PurchaseRequest): Promis
   }
 }
 
-export async function notifyApprovalA2(purchaseRequest: PurchaseRequest): Promise<void> {
+export async function notifyApprovalA2(
+  purchaseRequest: PurchaseRequest,
+): Promise<void> {
   try {
     const approvers = await storage.getAllUsers();
-    const approverA2Users = approvers.filter(user => user.isApproverA2);
-    
+    const approverA2Users = approvers.filter((user) => user.isApproverA2);
+
     if (approverA2Users.length === 0) {
       console.log("Nenhum aprovador A2 encontrado para notificação");
       return;
@@ -279,32 +302,48 @@ export async function notifyApprovalA2(purchaseRequest: PurchaseRequest): Promis
     let requesterName = "N/A";
     if (purchaseRequest.requesterId) {
       const requester = await storage.getUser(purchaseRequest.requesterId);
-      requesterName = requester ? (requester.firstName ? `${requester.firstName} ${requester.lastName || ''}`.trim() : requester.username) : "N/A";
+      requesterName = requester
+        ? requester.firstName
+          ? `${requester.firstName} ${requester.lastName || ""}`.trim()
+          : requester.username
+        : "N/A";
     }
 
     // Get A1 approver name
     let approverA1Name = "N/A";
     if (purchaseRequest.approverA1Id) {
       const approverA1 = await storage.getUser(purchaseRequest.approverA1Id);
-      approverA1Name = approverA1 ? (approverA1.firstName ? `${approverA1.firstName} ${approverA1.lastName || ''}`.trim() : approverA1.username) : "N/A";
+      approverA1Name = approverA1
+        ? approverA1.firstName
+          ? `${approverA1.firstName} ${approverA1.lastName || ""}`.trim()
+          : approverA1.username
+        : "N/A";
     }
 
     const transporter = createTransporter();
     const emailPromises = approverA2Users.map(async (approver) => {
       if (!approver.email) return;
-      
+
       const mailOptions = {
         from: config.email.from,
         to: approver.email,
         subject: `Solicitação Pendente de Aprovação A2 - ${purchaseRequest.requestNumber}`,
-        html: generateApprovalA2EmailHTML(approver, purchaseRequest, requesterName, approverA1Name),
+        html: generateApprovalA2EmailHTML(
+          approver,
+          purchaseRequest,
+          requesterName,
+          approverA1Name,
+        ),
       };
 
       try {
         await transporter.sendMail(mailOptions);
         console.log(`Notificação A2 enviada para aprovador: ${approver.email}`);
       } catch (error) {
-        console.error(`Erro ao enviar notificação A2 para ${approver.email}:`, error);
+        console.error(
+          `Erro ao enviar notificação A2 para ${approver.email}:`,
+          error,
+        );
       }
     });
 
@@ -315,7 +354,11 @@ export async function notifyApprovalA2(purchaseRequest: PurchaseRequest): Promis
 }
 
 // Email templates for notifications
-function generateNewRequestEmailHTML(buyer: User, purchaseRequest: PurchaseRequest, requesterName: string): string {
+function generateNewRequestEmailHTML(
+  buyer: User,
+  purchaseRequest: PurchaseRequest,
+  requesterName: string,
+): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -348,13 +391,13 @@ function generateNewRequestEmailHTML(buyer: User, purchaseRequest: PurchaseReque
             <li><strong>Solicitante:</strong> ${requesterName}</li>
             <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
             <li><strong>Urgência:</strong> ${purchaseRequest.urgency}</li>
-            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : 'N/A'}</li>
+            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : "N/A"}</li>
           </ul>
         </div>
         
         <p>Acesse o sistema para processar esta solicitação.</p>
         
-        <a href="${buildRequestUrl(purchaseRequest.id, 'solicitacao')}" class="button">
+        <a href="${buildRequestUrl(purchaseRequest.id, "solicitacao")}" class="button">
           Ver Solicitação
         </a>
       </div>
@@ -368,7 +411,11 @@ function generateNewRequestEmailHTML(buyer: User, purchaseRequest: PurchaseReque
   `;
 }
 
-function generateApprovalA1EmailHTML(approver: User, purchaseRequest: PurchaseRequest, requesterName: string): string {
+function generateApprovalA1EmailHTML(
+  approver: User,
+  purchaseRequest: PurchaseRequest,
+  requesterName: string,
+): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -405,14 +452,14 @@ function generateApprovalA1EmailHTML(approver: User, purchaseRequest: PurchaseRe
             <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
             <li><strong>Solicitante:</strong> ${requesterName}</li>
             <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
-            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(2) : 'N/A'}</li>
-            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : 'N/A'}</li>
+            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(2) : "N/A"}</li>
+            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : "N/A"}</li>
           </ul>
         </div>
         
         <p>Por favor, analise a solicitação e tome a decisão de aprovação.</p>
         
-        <a href="${buildRequestUrl(purchaseRequest.id, 'aprovacao_a1')}" class="button">
+        <a href="${buildRequestUrl(purchaseRequest.id, "aprovacao_a1")}" class="button">
           Revisar e Aprovar A1
         </a>
       </div>
@@ -426,7 +473,12 @@ function generateApprovalA1EmailHTML(approver: User, purchaseRequest: PurchaseRe
   `;
 }
 
-function generateApprovalA2EmailHTML(approver: User, purchaseRequest: PurchaseRequest, requesterName: string, approverA1Name: string): string {
+function generateApprovalA2EmailHTML(
+  approver: User,
+  purchaseRequest: PurchaseRequest,
+  requesterName: string,
+  approverA1Name: string,
+): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -454,7 +506,7 @@ function generateApprovalA2EmailHTML(approver: User, purchaseRequest: PurchaseRe
         
         <p>Uma solicitação de compra passou pela primeira aprovação e está aguardando sua aprovação final (Nível A2).</p>
         
-        <div class="${purchaseRequest.urgency === 'Alta' ? 'high-priority' : 'priority'}">
+        <div class="${purchaseRequest.urgency === "Alta" ? "high-priority" : "priority"}">
           <strong>⚠️ Urgência: ${purchaseRequest.urgency}</strong>
         </div>
         
@@ -464,15 +516,15 @@ function generateApprovalA2EmailHTML(approver: User, purchaseRequest: PurchaseRe
             <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
             <li><strong>Solicitante:</strong> ${requesterName}</li>
             <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
-            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(2) : 'N/A'}</li>
-            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : 'N/A'}</li>
+            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(2) : "N/A"}</li>
+            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : "N/A"}</li>
             <li><strong>Aprovador A1:</strong> ${approverA1Name}</li>
           </ul>
         </div>
         
         <p>Esta solicitação passou pela primeira aprovação e agora aguarda sua aprovação final.</p>
         
-        <a href="${buildRequestUrl(purchaseRequest.id, 'aprovacao_a2')}" class="button">
+        <a href="${buildRequestUrl(purchaseRequest.id, "aprovacao_a2")}" class="button">
           Revisar e Aprovar A2
         </a>
       </div>
@@ -487,7 +539,11 @@ function generateApprovalA2EmailHTML(approver: User, purchaseRequest: PurchaseRe
 }
 
 // Test email configuration
-export async function notifyRejection(purchaseRequest: PurchaseRequest, rejectionReason: string, approverLevel: 'A1' | 'A2'): Promise<void> {
+export async function notifyRejection(
+  purchaseRequest: PurchaseRequest,
+  rejectionReason: string,
+  approverLevel: "A1" | "A2",
+): Promise<void> {
   try {
     // Get requester details
     let requester = null;
@@ -501,12 +557,17 @@ export async function notifyRejection(purchaseRequest: PurchaseRequest, rejectio
     }
 
     const transporter = createTransporter();
-    
+
     const mailOptions = {
       from: config.email.from,
       to: requester.email,
       subject: `Solicitação Reprovada - ${purchaseRequest.requestNumber}`,
-      html: generateRejectionEmailHTML(requester, purchaseRequest, rejectionReason, approverLevel),
+      html: generateRejectionEmailHTML(
+        requester,
+        purchaseRequest,
+        rejectionReason,
+        approverLevel,
+      ),
     };
 
     await transporter.sendMail(mailOptions);
@@ -516,7 +577,12 @@ export async function notifyRejection(purchaseRequest: PurchaseRequest, rejectio
   }
 }
 
-function generateRejectionEmailHTML(requester: any, purchaseRequest: PurchaseRequest, rejectionReason: string, approverLevel: 'A1' | 'A2'): string {
+function generateRejectionEmailHTML(
+  requester: any,
+  purchaseRequest: PurchaseRequest,
+  rejectionReason: string,
+  approverLevel: "A1" | "A2",
+): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -566,7 +632,7 @@ function generateRejectionEmailHTML(requester: any, purchaseRequest: PurchaseReq
             <li>Criar uma nova solicitação com as informações atualizadas</li>
             <li>Entrar em contato com o aprovador para esclarecimentos</li>
           </ul>
-          <p><a href="${buildRequestUrl(purchaseRequest.id, 'arquivado')}" style="background: #dc2626; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0;">Ver Solicitação</a></p>
+          <p><a href="${buildRequestUrl(purchaseRequest.id, "arquivado")}" style="background: #dc2626; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0;">Ver Solicitação</a></p>
         </div>
         
         <p>Em caso de dúvidas, entre em contato com a equipe de compras.</p>
@@ -581,13 +647,16 @@ function generateRejectionEmailHTML(requester: any, purchaseRequest: PurchaseReq
   `;
 }
 
-export async function sendPasswordResetEmail(user: User, resetToken: string): Promise<void> {
+export async function sendPasswordResetEmail(
+  user: User,
+  resetToken: string,
+): Promise<void> {
   const transporter = createTransporter();
-  
+
   const resetUrl = `${config.baseUrl}/reset-password?token=${resetToken}`;
-  
+
   const emailHtml = generatePasswordResetEmailHTML(user, resetUrl);
-  
+
   const mailOptions = {
     from: config.email.from,
     to: user.email,
@@ -599,7 +668,10 @@ export async function sendPasswordResetEmail(user: User, resetToken: string): Pr
     await transporter.sendMail(mailOptions);
     console.log(`E-mail de recuperação enviado para ${user.email}`);
   } catch (error) {
-    console.error(`Erro ao enviar e-mail de recuperação para ${user.email}:`, error);
+    console.error(
+      `Erro ao enviar e-mail de recuperação para ${user.email}:`,
+      error,
+    );
     throw new Error("Falha ao enviar e-mail de recuperação");
   }
 }

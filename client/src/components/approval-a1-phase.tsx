@@ -5,7 +5,14 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -15,37 +22,45 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
-import { 
-  CheckCircle, 
-  XCircle, 
-  FileText, 
-  Calendar, 
-  DollarSign, 
-  User, 
-  Building, 
+import {
+  CheckCircle,
+  XCircle,
+  FileText,
+  Calendar,
+  DollarSign,
+  User,
+  Building,
   AlertTriangle,
   Clock,
   MessageSquare,
   History,
-  Paperclip
+  Paperclip,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import ApprovalItemsViewer from './approval-items-viewer';
+import ApprovalItemsViewer from "./approval-items-viewer";
 
-const approvalSchema = z.object({
-  approved: z.boolean(),
-  rejectionReason: z.string().optional(),
-}).refine((data) => {
-  if (!data.approved && (!data.rejectionReason || data.rejectionReason.trim().length < 10)) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Justificativa de reprovação deve ter pelo menos 10 caracteres",
-  path: ["rejectionReason"],
-});
+const approvalSchema = z
+  .object({
+    approved: z.boolean(),
+    rejectionReason: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (
+        !data.approved &&
+        (!data.rejectionReason || data.rejectionReason.trim().length < 10)
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Justificativa de reprovação deve ter pelo menos 10 caracteres",
+      path: ["rejectionReason"],
+    },
+  );
 
 type ApprovalFormData = z.infer<typeof approvalSchema>;
 
@@ -55,11 +70,17 @@ interface ApprovalA1PhaseProps {
   className?: string;
 }
 
-export default function ApprovalA1Phase({ request, onClose, className }: ApprovalA1PhaseProps) {
+export default function ApprovalA1Phase({
+  request,
+  onClose,
+  className,
+}: ApprovalA1PhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | null>(null);
+  const [selectedAction, setSelectedAction] = useState<
+    "approve" | "reject" | null
+  >(null);
 
   // Check if user has A1 approval permissions
   const canApprove = user?.isApproverA1 || false;
@@ -77,11 +98,11 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
   });
 
   // Transform items to match ApprovalItemData interface
-  const transformedItems = requestItems.map(item => ({
+  const transformedItems = requestItems.map((item) => ({
     id: item.id,
     description: item.description,
     unit: item.unit,
-    requestedQuantity: parseFloat(item.requestedQuantity || '0')
+    requestedQuantity: parseFloat(item.requestedQuantity || "0"),
   }));
 
   const form = useForm<ApprovalFormData>({
@@ -94,19 +115,23 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
 
   const approvalMutation = useMutation({
     mutationFn: async (data: ApprovalFormData) => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/approve-a1`, {
-        approved: data.approved,
-        rejectionReason: data.rejectionReason || null,
-        approverId: user?.id || 1,
-      });
+      const response = await apiRequest(
+        "POST",
+        `/api/purchase-requests/${request.id}/approve-a1`,
+        {
+          approved: data.approved,
+          rejectionReason: data.rejectionReason || null,
+          approverId: user?.id || 1,
+        },
+      );
       return response;
     },
     onSuccess: (response, variables) => {
       // Atualiza os dados em cache
       queryClient.setQueryData(["/api/purchase-requests"], (oldData: any[]) => {
         if (!Array.isArray(oldData)) return oldData;
-        return oldData.map(item =>
-          item.id === request.id ? response : item
+        return oldData.map((item) =>
+          item.id === request.id ? response : item,
         );
       });
 
@@ -115,9 +140,9 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
 
       toast({
         title: "Sucesso",
-        description: variables.approved 
-          ? "Solicitação aprovada e movida para Cotação!" 
-          : "Solicitação reprovada e movida para Arquivado",
+        description: variables.approved
+          ? "Solicitação aprovada e movida para Cotação! "
+          : "Solicitação reprovada e movida para Arquivado ",
       });
 
       if (onClose) {
@@ -138,14 +163,14 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
   };
 
   const handleApprove = () => {
-    setSelectedAction('approve');
-    form.setValue('approved', true);
-    form.setValue('rejectionReason', '');
+    setSelectedAction("approve");
+    form.setValue("approved", true);
+    form.setValue("rejectionReason", "");
   };
 
   const handleReject = () => {
-    setSelectedAction('reject');
-    form.setValue('approved', false);
+    setSelectedAction("reject");
+    form.setValue("approved", false);
   };
 
   if (!canApprove) {
@@ -164,33 +189,56 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
             )}
           </div>
         </CardHeader>
-        
+
         <CardContent className="p-6 space-y-6">
           <Alert className="border-amber-200 bg-amber-50">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-700">
-              <strong>Visualização Somente Leitura:</strong> Você não possui permissão de aprovação nível A1. 
-              Entre em contato com o administrador do sistema para obter acesso.
+              <strong>Visualização Somente Leitura:</strong> Você não possui
+              permissão de aprovação nível A1. Entre em contato com o
+              administrador do sistema para obter acesso.
             </AlertDescription>
           </Alert>
 
           {/* Request Information - Read Only */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label className="text-sm font-medium text-gray-700">Solicitante</Label>
-              <p className="text-sm text-gray-900">{request.requesterName || 'N/A'}</p>
+              <Label className="text-sm font-medium text-gray-700">
+                Solicitante
+              </Label>
+              <p className="text-sm text-gray-900">
+                {request.requesterName || "N/A"}
+              </p>
             </div>
             <div>
-              <Label className="text-sm font-medium text-gray-700">Departamento</Label>
-              <p className="text-sm text-gray-900">{request.department || 'N/A'}</p>
+              <Label className="text-sm font-medium text-gray-700">
+                Departamento
+              </Label>
+              <p className="text-sm text-gray-900">
+                {request.department || "N/A"}
+              </p>
             </div>
             <div>
-              <Label className="text-sm font-medium text-gray-700">Centro de Custo</Label>
-              <p className="text-sm text-gray-900">{request.costCenter || 'N/A'}</p>
+              <Label className="text-sm font-medium text-gray-700">
+                Centro de Custo
+              </Label>
+              <p className="text-sm text-gray-900">
+                {request.costCenter || "N/A"}
+              </p>
             </div>
             <div>
-              <Label className="text-sm font-medium text-gray-700">Urgência</Label>
-              <Badge variant={request.urgency === 'alta' ? 'destructive' : request.urgency === 'media' ? 'secondary' : 'default'}>
+              <Label className="text-sm font-medium text-gray-700">
+                Urgência
+              </Label>
+              <Badge
+                variant={
+                  request.urgency === "alta"
+                    ? "destructive"
+                    : request.urgency === "media"
+                      ? "secondary"
+                      : "default"
+                }
+              >
                 {request.urgency}
               </Badge>
             </div>
@@ -199,10 +247,15 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
           {/* Items Section - Read Only */}
           {transformedItems.length > 0 && (
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Itens da Solicitação</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                Itens da Solicitação
+              </Label>
               <div className="space-y-2">
                 {transformedItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
                     <div className="flex-1">
                       <p className="font-medium">{item.description}</p>
                       <p className="text-sm text-gray-600">
@@ -218,20 +271,29 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
           {/* Approval History */}
           {approvalHistory && approvalHistory.length > 0 && (
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Histórico de Aprovações</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                Histórico de Aprovações
+              </Label>
               <div className="space-y-2">
                 {approvalHistory.map((history: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
                     <div>
                       <p className="font-medium">{history.approverName}</p>
-                      <p className="text-sm text-gray-600">{history.approverType}</p>
+                      <p className="text-sm text-gray-600">
+                        {history.approverType}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <Badge variant={history.approved ? 'default' : 'destructive'}>
-                        {history.approved ? 'Aprovado' : 'Reprovado'}
+                      <Badge
+                        variant={history.approved ? "default" : "destructive"}
+                      >
+                        {history.approved ? "Aprovado" : "Reprovado"}
                       </Badge>
                       <p className="text-sm text-gray-500 mt-1">
-                        {new Date(history.createdAt).toLocaleString('pt-BR')}
+                        {new Date(history.createdAt).toLocaleString("pt-BR")}
                       </p>
                     </div>
                   </div>
@@ -243,10 +305,15 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
           {/* Attachments */}
           {attachments && attachments.length > 0 && (
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Anexos</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                Anexos
+              </Label>
               <div className="space-y-2">
                 {attachments.map((attachment: any) => (
-                  <div key={attachment.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                  <div
+                    key={attachment.id}
+                    className="flex items-center gap-2 p-2 bg-gray-50 rounded"
+                  >
                     <Paperclip className="h-4 w-4 text-gray-400" />
                     <span className="text-sm">{attachment.fileName}</span>
                   </div>
@@ -268,8 +335,11 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
             Aprovação A1 - Solicitação #{request.requestNumber}
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={request.urgency === 'alto' ? 'destructive' : 'secondary'}>
-              {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS] || request.urgency}
+            <Badge
+              variant={request.urgency === "alto" ? "destructive" : "secondary"}
+            >
+              {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS] ||
+                request.urgency}
             </Badge>
             <Button
               variant="ghost"
@@ -283,7 +353,7 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
           </div>
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent className="space-y-6">
         {/* Request Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -299,60 +369,81 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Solicitante:</span>
+                  <span className="text-sm text-muted-foreground">
+                    Solicitante:
+                  </span>
                   <span className="font-medium">
-                    {request.requester?.firstName && request.requester?.lastName 
+                    {request.requester?.firstName && request.requester?.lastName
                       ? `${request.requester.firstName} ${request.requester.lastName}`
-                      : request.requester?.username || 'N/A'
-                    }
+                      : request.requester?.username || "N/A"}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <Building className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Centro de Custo:</span>
+                  <span className="text-sm text-muted-foreground">
+                    Centro de Custo:
+                  </span>
                   <span className="font-medium">
                     {request.costCenter?.code} - {request.costCenter?.name}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Categoria:</span>
+                  <span className="text-sm text-muted-foreground">
+                    Categoria:
+                  </span>
                   <Badge variant="outline">
-                    {request.category in CATEGORY_LABELS ? CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS] : request.category}
+                    {request.category in CATEGORY_LABELS
+                      ? CATEGORY_LABELS[
+                          request.category as keyof typeof CATEGORY_LABELS
+                        ]
+                      : request.category}
                   </Badge>
                 </div>
-                
+
                 {request.idealDeliveryDate && (
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Prazo Ideal:</span>
+                    <span className="text-sm text-muted-foreground">
+                      Prazo Ideal:
+                    </span>
                     <span className="font-medium">
-                      {format(new Date(request.idealDeliveryDate), 'dd/MM/yyyy', { locale: ptBR })}
+                      {format(
+                        new Date(request.idealDeliveryDate),
+                        "dd/MM/yyyy",
+                        { locale: ptBR },
+                      )}
                     </span>
                   </div>
                 )}
-                
+
                 {request.availableBudget && (
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Orçamento:</span>
+                    <span className="text-sm text-muted-foreground">
+                      Orçamento:
+                    </span>
                     <span className="font-medium">
-                      R$ {parseFloat(request.availableBudget).toLocaleString('pt-BR', { 
-                        minimumFractionDigits: 2 
-                      })}
+                      R${" "}
+                      {parseFloat(request.availableBudget).toLocaleString(
+                        "pt-BR",
+                        {
+                          minimumFractionDigits: 2,
+                        },
+                      )}
                     </span>
                   </div>
                 )}
-                
+
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Criado:</span>
                   <span className="font-medium">
-                    {formatDistanceToNow(new Date(request.createdAt), { 
-                      addSuffix: true, 
-                      locale: ptBR 
+                    {formatDistanceToNow(new Date(request.createdAt), {
+                      addSuffix: true,
+                      locale: ptBR,
                     })}
                   </span>
                 </div>
@@ -370,12 +461,16 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-32">
-                <p className="text-sm leading-relaxed">{request.justification}</p>
+                <p className="text-sm leading-relaxed">
+                  {request.justification}
+                </p>
               </ScrollArea>
-              
+
               {request.additionalInfo && (
                 <div className="mt-4 pt-4 border-t">
-                  <h4 className="text-sm font-medium mb-2">Informações Adicionais:</h4>
+                  <h4 className="text-sm font-medium mb-2">
+                    Informações Adicionais:
+                  </h4>
                   <ScrollArea className="h-20">
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {request.additionalInfo}
@@ -388,9 +483,9 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
         </div>
 
         {/* Request Items */}
-        <ApprovalItemsViewer 
-          items={transformedItems} 
-          requestId={request.id} 
+        <ApprovalItemsViewer
+          items={transformedItems}
+          requestId={request.id}
           requestNumber={request.requestNumber}
         />
 
@@ -406,12 +501,19 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {attachments.map((attachment: any, index: number) => (
-                  <div key={index} className="flex items-center gap-2 p-3 border rounded-lg">
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 p-3 border rounded-lg"
+                  >
                     <FileText className="h-4 w-4 text-muted-foreground" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{attachment.fileName}</p>
+                      <p className="text-sm font-medium truncate">
+                        {attachment.fileName}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {attachment.fileSize ? `${(attachment.fileSize / 1024 / 1024).toFixed(2)} MB` : 'N/A'}
+                        {attachment.fileSize
+                          ? `${(attachment.fileSize / 1024 / 1024).toFixed(2)} MB`
+                          : "N/A"}
                       </p>
                     </div>
                   </div>
@@ -433,16 +535,21 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
             <CardContent>
               <div className="space-y-2">
                 {approvalHistory.map((item: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-2 border rounded">
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-2 border rounded"
+                  >
                     <div className="flex items-center gap-2">
-                      <Badge variant={item.approved ? 'default' : 'destructive'} className="text-xs">
-                        {item.approved ? 'Aprovado' : 'Reprovado'}
+                      <Badge
+                        variant={item.approved ? "default" : "destructive"}
+                        className="text-xs"
+                      >
+                        {item.approved ? "Aprovado" : "Reprovado"}
                       </Badge>
                       <span className="text-sm font-medium">
-                        {item.approver?.firstName && item.approver?.lastName 
+                        {item.approver?.firstName && item.approver?.lastName
                           ? `${item.approver.firstName} ${item.approver.lastName}`
-                          : item.approver?.username || 'N/A'
-                        }
+                          : item.approver?.username || "N/A"}
                       </span>
                       {item.rejectionReason && (
                         <span className="text-xs text-muted-foreground">
@@ -451,7 +558,9 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(item.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                      {format(new Date(item.createdAt), "dd/MM/yyyy HH:mm", {
+                        locale: ptBR,
+                      })}
                     </span>
                   </div>
                 ))}
@@ -469,23 +578,30 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
                 {/* Action Buttons */}
                 <div className="flex gap-4">
                   <Button
                     type="button"
                     onClick={handleApprove}
-                    variant={selectedAction === 'approve' ? 'default' : 'outline'}
+                    variant={
+                      selectedAction === "approve" ? "default" : "outline"
+                    }
                     className="flex items-center gap-2"
                   >
                     <CheckCircle className="h-4 w-4" />
                     Aprovar Solicitação
                   </Button>
-                  
+
                   <Button
                     type="button"
                     onClick={handleReject}
-                    variant={selectedAction === 'reject' ? 'destructive' : 'outline'}
+                    variant={
+                      selectedAction === "reject" ? "destructive" : "outline"
+                    }
                     className="flex items-center gap-2"
                   >
                     <XCircle className="h-4 w-4" />
@@ -494,7 +610,7 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
                 </div>
 
                 {/* Rejection Reason Field */}
-                {selectedAction === 'reject' && (
+                {selectedAction === "reject" && (
                   <FormField
                     control={form.control}
                     name="rejectionReason"
@@ -532,16 +648,16 @@ export default function ApprovalA1Phase({ request, onClose, className }: Approva
                     <Button
                       type="submit"
                       disabled={approvalMutation.isPending}
-                      variant={selectedAction === 'approve' ? 'default' : 'destructive'}
+                      variant={
+                        selectedAction === "approve" ? "default" : "destructive"
+                      }
                       className="min-w-[120px]"
                     >
-                      {approvalMutation.isPending ? (
-                        "Processando..."
-                      ) : selectedAction === 'approve' ? (
-                        "Confirmar Aprovação"
-                      ) : (
-                        "Confirmar Reprovação"
-                      )}
+                      {approvalMutation.isPending
+                        ? "Processando..."
+                        : selectedAction === "approve"
+                          ? "Confirmar Aprovação"
+                          : "Confirmar Reprovação"}
                     </Button>
                   </div>
                 )}

@@ -1,8 +1,26 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { URGENCY_LABELS, CATEGORY_LABELS, PurchasePhase, PURCHASE_PHASES, PHASE_LABELS } from "@/lib/types";
-import { Paperclip, Clock, TriangleAlert, AlertCircle, Check, X, Archive, Edit, GripVertical, Trash2, Plus } from "lucide-react";
+import {
+  URGENCY_LABELS,
+  CATEGORY_LABELS,
+  PurchasePhase,
+  PURCHASE_PHASES,
+  PHASE_LABELS,
+} from "@/lib/types";
+import {
+  Paperclip,
+  Clock,
+  TriangleAlert,
+  AlertCircle,
+  Check,
+  X,
+  Archive,
+  Edit,
+  GripVertical,
+  Trash2,
+  Plus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -39,14 +57,19 @@ interface PurchaseCardProps {
   onCreateRFQ?: (request: any) => void;
 }
 
-export default function PurchaseCard({ request, phase, isDragging = false, onCreateRFQ }: PurchaseCardProps) {
+export default function PurchaseCard({
+  request,
+  phase,
+  isDragging = false,
+  onCreateRFQ,
+}: PurchaseCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
-  
+
   // Buscar anexos da solicitação
   const { data: attachments = [] } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/attachments`],
@@ -79,22 +102,29 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
     isDragging: sortableIsDragging,
   } = useSortable({
     id: `request-${request.id}`,
-    disabled: !canDrag
+    disabled: !canDrag,
   });
 
   const approveA1Mutation = useMutation({
-    mutationFn: async (data: { approved: boolean; rejectionReason?: string }) => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/approve-a1`, {
-        ...data,
-        approverId: user?.id || 1,
-      });
+    mutationFn: async (data: {
+      approved: boolean;
+      rejectionReason?: string;
+    }) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/purchase-requests/${request.id}/approve-a1`,
+        {
+          ...data,
+          approverId: user?.id || 1,
+        },
+      );
       return response;
     },
-    onSuccess: (response: any) => {
+    onSuccess: (response, variables) => {
       queryClient.setQueryData(["/api/purchase-requests"], (oldData: any[]) => {
         if (!Array.isArray(oldData)) return oldData;
-        return oldData.map(item =>
-          item.id === request.id ? response : item
+        return oldData.map((item) =>
+          item.id === request.id ? response : item,
         );
       });
 
@@ -102,7 +132,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
       toast({
         title: "Sucesso",
-        description: response.approvedA1
+        description: variables.approved
           ? "Solicitação aprovada e movida para Cotação!"
           : "Solicitação reprovada e movida para Arquivado",
       });
@@ -117,28 +147,35 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
   });
 
   const approveA2Mutation = useMutation({
-    mutationFn: async (data: { approved: boolean; rejectionReason?: string }) => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/approve-a2`, {
-        ...data,
-        approverId: user?.id || 1,
-      });
+    mutationFn: async (data: {
+      approved: boolean;
+      rejectionReason?: string;
+    }) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/purchase-requests/${request.id}/approve-a2`,
+        {
+          ...data,
+          approverId: user?.id || 1,
+        },
+      );
       return response;
     },
     onSuccess: (response: any) => {
       queryClient.setQueryData(["/api/purchase-requests"], (oldData: any[]) => {
         if (!Array.isArray(oldData)) return oldData;
-        return oldData.map(item =>
-          item.id === request.id ? response : item
+        return oldData.map((item) =>
+          item.id === request.id ? response : item,
         );
       });
 
       // Comprehensive cache invalidation
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-      queryClient.invalidateQueries({ 
-        predicate: (query) => 
+      queryClient.invalidateQueries({
+        predicate: (query) =>
           query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
       });
 
       toast({
@@ -165,10 +202,10 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
       // Comprehensive cache invalidation
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-      queryClient.invalidateQueries({ 
-        predicate: (query) => 
+      queryClient.invalidateQueries({
+        predicate: (query) =>
           query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
       });
       toast({
         title: "Sucesso",
@@ -186,17 +223,20 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
   const archiveMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/archive`);
+      const response = await apiRequest(
+        "POST",
+        `/api/purchase-requests/${request.id}/archive`,
+      );
       return response;
     },
     onSuccess: () => {
       // Comprehensive cache invalidation
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-      queryClient.invalidateQueries({ 
-        predicate: (query) => 
+      queryClient.invalidateQueries({
+        predicate: (query) =>
           query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
       });
       toast({
         title: "Sucesso",
@@ -214,7 +254,10 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
   const archiveDirectMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/archive-direct`);
+      const response = await apiRequest(
+        "POST",
+        `/api/purchase-requests/${request.id}/archive-direct`,
+      );
       return response;
     },
     onSuccess: () => {
@@ -235,7 +278,10 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
   const sendToApprovalMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/send-to-approval`);
+      const response = await apiRequest(
+        "POST",
+        `/api/purchase-requests/${request.id}/send-to-approval`,
+      );
       return response;
     },
     onSuccess: () => {
@@ -256,9 +302,13 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
   const confirmReceiptMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/confirm-receipt`, {
-        receivedById: user?.id,
-      });
+      const response = await apiRequest(
+        "POST",
+        `/api/purchase-requests/${request.id}/confirm-receipt`,
+        {
+          receivedById: user?.id,
+        },
+      );
       return response;
     },
     onSuccess: () => {
@@ -279,16 +329,21 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
   const reportIssueMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/report-issue`, {
-        reportedById: user?.id,
-      });
+      const response = await apiRequest(
+        "POST",
+        `/api/purchase-requests/${request.id}/report-issue`,
+        {
+          reportedById: user?.id,
+        },
+      );
       return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       toast({
         title: "Pendência Reportada",
-        description: "Item retornado para Pedido de Compra com tag de pendência.",
+        description:
+          "Item retornado para Pedido de Compra com tag de pendência.",
         variant: "destructive",
       });
     },
@@ -303,7 +358,10 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
   const advanceToReceiptMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/advance-to-receipt`);
+      const response = await apiRequest(
+        "POST",
+        `/api/purchase-requests/${request.id}/advance-to-receipt`,
+      );
       return response;
     },
     onSuccess: () => {
@@ -324,7 +382,11 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
   const handleAdvanceToReceipt = (requestId: number) => {
     // Show confirmation dialog
-    if (window.confirm("Confirma o avanço desta solicitação para a fase de Recebimento?")) {
+    if (
+      window.confirm(
+        "Confirma o avanço desta solicitação para a fase de Recebimento?",
+      )
+    ) {
       advanceToReceiptMutation.mutate();
     }
   };
@@ -340,56 +402,94 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
     queryFn: async () => {
       try {
         // Use apiRequest but force cache invalidation
-        await queryClient.invalidateQueries({ 
-          queryKey: [`/api/quotations/purchase-request/${request.id}`] 
+        await queryClient.invalidateQueries({
+          queryKey: [`/api/quotations/purchase-request/${request.id}`],
         });
-        
-        const quotation = await apiRequest("GET", `/api/quotations/purchase-request/${request.id}`);
-        
+
+        const quotation = await apiRequest(
+          "GET",
+          `/api/quotations/purchase-request/${request.id}`,
+        );
+
         // If no quotation exists (null response)
         if (!quotation) {
           return { isReady: false, reason: "Nenhuma cotação criada" };
         }
-        
+
         // Ensure quotation has an ID
         if (!quotation.id) {
           return { isReady: false, reason: "RFQ criado - Verificando dados" };
         }
-        
+
         // If quotation exists, try to get supplier quotations
         try {
-          const supplierQuotations = await apiRequest("GET", `/api/quotations/${quotation.id}/supplier-quotations`);
-          
+          const supplierQuotations = await apiRequest(
+            "GET",
+            `/api/quotations/${quotation.id}/supplier-quotations`,
+          );
+
           // If no supplier quotations exist, RFQ is created but awaiting supplier responses
           if (!supplierQuotations || supplierQuotations.length === 0) {
-            return { isReady: false, reason: "RFQ criado - Aguardando cotações" };
+            return {
+              isReady: false,
+              reason: "RFQ criado - Aguardando cotações",
+            };
           }
-          
+
           // Check if any supplier quotations have been received
-          const receivedQuotations = supplierQuotations.filter((sq: any) => sq.status === 'received');
-          const noResponseQuotations = supplierQuotations.filter((sq: any) => sq.status === 'no_response');
-          
+          const receivedQuotations = supplierQuotations.filter(
+            (sq: any) => sq.status === "received",
+          );
+          const noResponseQuotations = supplierQuotations.filter(
+            (sq: any) => sq.status === "no_response",
+          );
+
           // Allow comparison if at least one supplier has responded (even if others haven't)
-          if (receivedQuotations.length === 0 && noResponseQuotations.length === 0) {
-            return { isReady: false, reason: "Aguardando respostas dos fornecedores" };
-          } else if (receivedQuotations.length === 0 && noResponseQuotations.length > 0) {
-            return { isReady: false, reason: "Nenhum fornecedor respondeu ainda" };
+          if (
+            receivedQuotations.length === 0 &&
+            noResponseQuotations.length === 0
+          ) {
+            return {
+              isReady: false,
+              reason: "Aguardando respostas dos fornecedores",
+            };
+          } else if (
+            receivedQuotations.length === 0 &&
+            noResponseQuotations.length > 0
+          ) {
+            return {
+              isReady: false,
+              reason: "Nenhum fornecedor respondeu ainda",
+            };
           }
-          
+
           // Check if a supplier has been chosen
-          const hasChosenSupplier = supplierQuotations.some((sq: any) => sq.isChosen);
+          const hasChosenSupplier = supplierQuotations.some(
+            (sq: any) => sq.isChosen,
+          );
           if (!hasChosenSupplier) {
-            return { isReady: false, reason: "Aguardando seleção de fornecedor" };
+            return {
+              isReady: false,
+              reason: "Aguardando seleção de fornecedor",
+            };
           }
-          
+
           return { isReady: true, reason: "Pronto para Aprovação A2" };
         } catch (supplierError) {
-          // If we can't get supplier quotations but quotation exists, 
+          // If we can't get supplier quotations but quotation exists,
           // it means RFQ is created but no suppliers assigned yet
-          return { isReady: false, reason: "RFQ criado - Configurando fornecedores" };
+          return {
+            isReady: false,
+            reason: "RFQ criado - Configurando fornecedores",
+          };
         }
       } catch (error) {
-        console.error("Error checking quotation status for request", request.id, ":", error);
+        console.error(
+          "Error checking quotation status for request",
+          request.id,
+          ":",
+          error,
+        );
         // Return a safe default instead of throwing
         return { isReady: false, reason: "Erro ao verificar status" };
       }
@@ -420,22 +520,24 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
 
   const formatCurrency = (value: any) => {
     if (!value) return null;
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
     }).format(Number(value));
   };
 
   const formatDate = (date: any) => {
     if (!date) return null;
-    return formatDistanceToNow(new Date(date), { 
-      addSuffix: true, 
-      locale: ptBR 
+    return formatDistanceToNow(new Date(date), {
+      addSuffix: true,
+      locale: ptBR,
     });
   };
 
   const isArchived = phase === PURCHASE_PHASES.ARQUIVADO;
-  const isFinalPhase = phase === PURCHASE_PHASES.ARQUIVADO || phase === PURCHASE_PHASES.CONCLUSAO_COMPRA;
+  const isFinalPhase =
+    phase === PURCHASE_PHASES.ARQUIVADO ||
+    phase === PURCHASE_PHASES.CONCLUSAO_COMPRA;
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -445,10 +547,12 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
   // Check user permissions for showing certain actions
   const canApproveA1 = user?.isApproverA1 || false;
   const canApproveA2 = user?.isApproverA2 || false;
-  const canEditInApprovalPhase = phase === PURCHASE_PHASES.ARQUIVADO || // Always allow viewing history in archived phase
-                                (phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1) || 
-                                (phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2) ||
-                                (phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.APROVACAO_A2);
+  const canEditInApprovalPhase =
+    phase === PURCHASE_PHASES.ARQUIVADO || // Always allow viewing history in archived phase
+    (phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1) ||
+    (phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2) ||
+    (phase !== PURCHASE_PHASES.APROVACAO_A1 &&
+      phase !== PURCHASE_PHASES.APROVACAO_A2);
 
   return (
     <>
@@ -463,7 +567,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           isDragging && "opacity-50",
           sortableIsDragging && "opacity-50",
           isFinalPhase && "bg-gray-100 text-gray-600 border-gray-300",
-          !canDrag && "cursor-not-allowed border-gray-300 bg-gray-50"
+          !canDrag && "cursor-not-allowed border-gray-300 bg-gray-50",
         )}
       >
         <CardContent className="p-4">
@@ -474,11 +578,22 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
                 {...(canDrag ? listeners : {})}
                 className={cn(
                   "p-1 rounded",
-                  canDrag ? "cursor-grab active:cursor-grabbing hover:bg-gray-100" : "cursor-not-allowed opacity-50"
+                  canDrag
+                    ? "cursor-grab active:cursor-grabbing hover:bg-gray-100"
+                    : "cursor-not-allowed opacity-50",
                 )}
-                title={canDrag ? "Arrastar para mover" : "Você não tem permissão para mover este card"}
+                title={
+                  canDrag
+                    ? "Arrastar para mover"
+                    : "Você não tem permissão para mover este card"
+                }
               >
-                <GripVertical className={cn("h-4 w-4", canDrag ? "text-gray-400" : "text-gray-300")} />
+                <GripVertical
+                  className={cn(
+                    "h-4 w-4",
+                    canDrag ? "text-gray-400" : "text-gray-300",
+                  )}
+                />
               </div>
               <Badge>{request.requestNumber}</Badge>
             </div>
@@ -526,23 +641,35 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </div>
 
           {/* Title in one line */}
-          <h4 className={cn(
-            "font-medium mb-2 truncate",
-            isArchived ? "text-gray-700" : "text-gray-900"
-          )} title={request.justification}>
+          <h4
+            className={cn(
+              "font-medium mb-2 truncate",
+              isArchived ? "text-gray-700" : "text-gray-900",
+            )}
+            title={request.justification}
+          >
             {request.justification}
           </h4>
 
           {/* Urgency and category info */}
           <div className="flex items-center gap-2 mb-3">
             {request.urgency && (
-              <Badge variant={request.urgency === "alto" ? "destructive" : "secondary"} className="text-xs">
+              <Badge
+                variant={
+                  request.urgency === "alto" ? "destructive" : "secondary"
+                }
+                className="text-xs"
+              >
                 {getUrgencyIcon(request.urgency)}
                 {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
               </Badge>
             )}
             <Badge variant="outline" className="text-xs">
-              {CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}
+              {
+                CATEGORY_LABELS[
+                  request.category as keyof typeof CATEGORY_LABELS
+                ]
+              }
             </Badge>
             {/* Show red tag for items with pending issues */}
             {request.hasPendingIssue && (
@@ -554,28 +681,43 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </div>
 
           {/* Additional info */}
-          <div className={cn(
-            "text-sm space-y-1",
-            isArchived ? "text-gray-500" : "text-gray-600"
-          )}>
-            {request.totalValue && (
-              <p><strong>Valor:</strong> {formatCurrency(request.totalValue)}</p>
+          <div
+            className={cn(
+              "text-sm space-y-1",
+              isArchived ? "text-gray-500" : "text-gray-600",
             )}
-            
+          >
+            {request.totalValue && (
+              <p>
+                <strong>Valor:</strong> {formatCurrency(request.totalValue)}
+              </p>
+            )}
+
             {/* Show requester on all cards */}
             {request.requester && (
-              <p><strong>Solicitante:</strong> {request.requester.firstName} {request.requester.lastName}</p>
+              <p>
+                <strong>Solicitante:</strong> {request.requester.firstName}{" "}
+                {request.requester.lastName}
+              </p>
             )}
-            
+
             {/* Show approver from cotacao phase onwards */}
-            {(phase === PURCHASE_PHASES.COTACAO || phase === PURCHASE_PHASES.APROVACAO_A2 || 
-              phase === PURCHASE_PHASES.PEDIDO_COMPRA || phase === PURCHASE_PHASES.RECEBIMENTO || 
-              phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) && request.approverA1 && (
-              <p><strong>Aprovador:</strong> {request.approverA1.firstName} {request.approverA1.lastName}</p>
-            )}
-            
+            {(phase === PURCHASE_PHASES.COTACAO ||
+              phase === PURCHASE_PHASES.APROVACAO_A2 ||
+              phase === PURCHASE_PHASES.PEDIDO_COMPRA ||
+              phase === PURCHASE_PHASES.RECEBIMENTO ||
+              phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) &&
+              request.approverA1 && (
+                <p>
+                  <strong>Aprovador:</strong> {request.approverA1.firstName}{" "}
+                  {request.approverA1.lastName}
+                </p>
+              )}
+
             {phase === PURCHASE_PHASES.APROVACAO_A1 && (
-              <p><strong>Aprovador:</strong> Pendente</p>
+              <p>
+                <strong>Aprovador:</strong> Pendente
+              </p>
             )}
           </div>
 
@@ -587,7 +729,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
             <div className="flex items-center space-x-1">
               <Paperclip className="text-gray-400 text-xs h-3 w-3" />
               <span className="text-xs text-gray-500">
-                {attachments.length} anexo{attachments.length !== 1 ? 's' : ''}
+                {attachments.length} anexo{attachments.length !== 1 ? "s" : ""}
               </span>
             </div>
           </div>
@@ -605,58 +747,66 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
                 disabled={sendToApprovalMutation.isPending}
               >
                 <Check className="mr-1 h-3 w-3" />
-                {sendToApprovalMutation.isPending ? "Enviando..." : "Enviar para Aprovação"}
+                {sendToApprovalMutation.isPending
+                  ? "Enviando..."
+                  : "Enviar para Aprovação"}
               </Button>
             </div>
           )}
 
           {/* RFQ Creation/Edit Button for Quotation Phase */}
-          {phase === PURCHASE_PHASES.COTACAO && user?.isBuyer && onCreateRFQ && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <Button
-                size="sm"
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (request.hasQuotation) {
-                    // Open edit modal for existing RFQ
-                    setIsEditModalOpen(true);
-                  } else {
-                    // Create new RFQ
-                    onCreateRFQ(request);
-                  }
-                }}
-              >
-                <Plus className="mr-1 h-3 w-3" />
-                {request.hasQuotation ? "Visualizar RFQ" : "Criar RFQ"}
-              </Button>
-            </div>
-          )}
+          {phase === PURCHASE_PHASES.COTACAO &&
+            user?.isBuyer &&
+            onCreateRFQ && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Button
+                  size="sm"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (request.hasQuotation) {
+                      // Open edit modal for existing RFQ
+                      setIsEditModalOpen(true);
+                    } else {
+                      // Create new RFQ
+                      onCreateRFQ(request);
+                    }
+                  }}
+                >
+                  <Plus className="mr-1 h-3 w-3" />
+                  {request.hasQuotation ? "Visualizar RFQ" : "Criar RFQ"}
+                </Button>
+              </div>
+            )}
 
           {/* Permission Warning for Restricted Cards */}
-          {!canDrag && (phase === PURCHASE_PHASES.APROVACAO_A1 || phase === PURCHASE_PHASES.APROVACAO_A2) && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-md">
-                <TriangleAlert className="h-4 w-4" />
-                <span className="text-sm">
-                  {phase === PURCHASE_PHASES.APROVACAO_A1 
-                    ? "Permissão de Aprovação A1 necessária" 
-                    : "Permissão de Aprovação A2 necessária"}
-                </span>
+          {!canDrag &&
+            (phase === PURCHASE_PHASES.APROVACAO_A1 ||
+              phase === PURCHASE_PHASES.APROVACAO_A2) && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-md">
+                  <TriangleAlert className="h-4 w-4" />
+                  <span className="text-sm">
+                    {phase === PURCHASE_PHASES.APROVACAO_A1
+                      ? "Permissão de Aprovação A1 necessária"
+                      : "Permissão de Aprovação A2 necessária"}
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Quotation Status Indicator for Cotação phase */}
           {phase === PURCHASE_PHASES.COTACAO && (
             <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className={`flex items-center gap-2 p-2 rounded-md ${
-                quotationStatusError 
-                  ? "text-red-600 bg-red-50"
-                  : quotationStatus?.isReady 
-                    ? "text-green-700 bg-green-50" 
-                    : "text-orange-600 bg-orange-50"
-              }`}>
+              <div
+                className={`flex items-center gap-2 p-2 rounded-md ${
+                  quotationStatusError
+                    ? "text-red-600 bg-red-50"
+                    : quotationStatus?.isReady
+                      ? "text-green-700 bg-green-50"
+                      : "text-orange-600 bg-orange-50"
+                }`}
+              >
                 {quotationStatusError ? (
                   <X className="h-4 w-4" />
                 ) : quotationStatus?.isReady ? (
@@ -665,8 +815,8 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
                   <Clock className="h-4 w-4" />
                 )}
                 <span className="text-sm font-medium">
-                  {quotationStatusError 
-                    ? "Nenhuma cotação criada" 
+                  {quotationStatusError
+                    ? "Nenhuma cotação criada"
                     : quotationStatus?.reason || "Carregando status..."}
                 </span>
               </div>
@@ -710,7 +860,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
                     e.stopPropagation();
                     approveA1Mutation.mutate({
                       approved: false,
-                      rejectionReason: "Reprovado via ação rápida"
+                      rejectionReason: "Reprovado via ação rápida",
                     });
                   }}
                   disabled={approveA1Mutation.isPending}
@@ -745,7 +895,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
                     e.stopPropagation();
                     approveA2Mutation.mutate({
                       approved: false,
-                      rejectionReason: "Reprovado via ação rápida"
+                      rejectionReason: "Reprovado via ação rápida",
                     });
                   }}
                   disabled={approveA2Mutation.isPending}
@@ -872,34 +1022,51 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
       )}
 
       {/* Default Edit Dialog for other phases */}
-      {isEditModalOpen && phase !== PURCHASE_PHASES.SOLICITACAO && phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.APROVACAO_A2 && phase !== PURCHASE_PHASES.COTACAO && phase !== PURCHASE_PHASES.PEDIDO_COMPRA && phase !== PURCHASE_PHASES.RECEBIMENTO && phase !== PURCHASE_PHASES.CONCLUSAO_COMPRA && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsEditModalOpen(false)}>
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">Editar Solicitação</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              <strong>Número:</strong> {request.requestNumber}
-            </p>
-            <p className="text-sm text-gray-600 mb-4">
-              <strong>Fase Atual:</strong> {PHASE_LABELS[phase]}
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                Fechar
-              </Button>
-              <Button onClick={() => setIsEditModalOpen(false)}>
-                Salvar
-              </Button>
+      {isEditModalOpen &&
+        phase !== PURCHASE_PHASES.SOLICITACAO &&
+        phase !== PURCHASE_PHASES.APROVACAO_A1 &&
+        phase !== PURCHASE_PHASES.APROVACAO_A2 &&
+        phase !== PURCHASE_PHASES.COTACAO &&
+        phase !== PURCHASE_PHASES.PEDIDO_COMPRA &&
+        phase !== PURCHASE_PHASES.RECEBIMENTO &&
+        phase !== PURCHASE_PHASES.CONCLUSAO_COMPRA && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            onClick={() => setIsEditModalOpen(false)}
+          >
+            <div
+              className="bg-white p-6 rounded-lg max-w-md w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold mb-4">Editar Solicitação</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                <strong>Número:</strong> {request.requestNumber}
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                <strong>Fase Atual:</strong> {PHASE_LABELS[phase]}
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditModalOpen(false)}
+                >
+                  Fechar
+                </Button>
+                <Button onClick={() => setIsEditModalOpen(false)}>
+                  Salvar
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
       {/* Diálogo de confirmação para excluir */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Requisição</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta requisição? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir esta requisição? Esta ação não pode
+              ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -924,9 +1091,7 @@ export default function PurchaseCard({ request, phase, isDragging = false, onCre
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => archiveDirectMutation.mutate()}
-            >
+            <AlertDialogAction onClick={() => archiveDirectMutation.mutate()}>
               Arquivar
             </AlertDialogAction>
           </AlertDialogFooter>
