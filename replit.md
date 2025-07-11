@@ -119,6 +119,9 @@ Key entities include:
   - ✓ Campo telefone agora exibe valores reais (92992002858) em vez de "Não informado"
   - ✓ Campos CNPJ e condições de pagamento agora exibem dados corretos na tela Pedido de Compra
   - ✓ Migração do Replit Agent para Replit finalizada com todas as funcionalidades preservadas
+  - ✓ Corrigido problema de persistência do campo "Observações do Pedido de Compra"
+  - ✓ Adicionada rota PATCH para atualizações parciais de purchase requests
+  - ✓ Implementado useEffect para recarregar dados do formulário após salvamento bem-sucedido
 - July 11, 2025. Correção crítica do sistema de upload de arquivos para fornecedores implementada com sucesso:
   - ✓ Corrigido problema crítico no endpoint /api/quotations/:id/upload-supplier-file que retornava "Nenhum arquivo foi enviado"
   - ✓ Corrigida função apiRequest no queryClient para lidar corretamente com FormData (não definir Content-Type)

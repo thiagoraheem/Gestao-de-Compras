@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,6 +50,13 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     },
   });
 
+  // Reset form when request data changes (including after successful updates)
+  useEffect(() => {
+    form.reset({
+      purchaseObservations: request?.purchaseObservations || "",
+    });
+  }, [request?.purchaseObservations, form]);
+
   // Buscar dados relacionados
   const { data: items = [] } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request?.id}/items`],
@@ -97,12 +104,14 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     mutationFn: async (data: PurchaseOrderFormData) => {
       return apiRequest("PATCH", `/api/purchase-requests/${request.id}`, data);
     },
-    onSuccess: () => {
+    onSuccess: (updatedRequest) => {
       toast({
         title: "Sucesso",
         description: "Observações do pedido atualizadas com sucesso!",
       });
+      // Invalidate queries to refetch updated data
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === "/api/purchase-requests" });
     },
     onError: () => {
       toast({

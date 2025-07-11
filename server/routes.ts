@@ -778,6 +778,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/purchase-requests/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Validate request data (only partial update)
+      const validatedRequestData = insertPurchaseRequestSchema.partial().parse(req.body);
+      
+      // Update the purchase request
+      const request = await storage.updatePurchaseRequest(id, validatedRequestData);
+      
+      res.json(request);
+    } catch (error) {
+      console.error("Error updating purchase request:", error);
+      res.status(400).json({ message: "Invalid purchase request data" });
+    }
+  });
+
   // Purchase Request Items routes
   app.get("/api/purchase-requests/:id/items", isAuthenticated, async (req, res) => {
     try {
