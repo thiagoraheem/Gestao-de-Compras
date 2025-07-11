@@ -110,6 +110,16 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 11, 2025. Correção crítica do sistema de upload de arquivos na cotação de fornecedores implementada com sucesso:
+  - ✓ Identificado problema onde upload de arquivos na cotação mostrava sucesso mas falha não era detectada
+  - ✓ Rota backend não estava configurada corretamente para receber arquivos via multer
+  - ✓ Criada configuração quotationUpload com multer para arquivos de cotação de fornecedores
+  - ✓ Corrigida rota /api/quotations/:id/upload-supplier-file para usar multer.single('file')
+  - ✓ Implementado filtro de tipos de arquivo (PDF, DOC, DOCX, XLS, XLSX, TXT, PNG, JPG)
+  - ✓ Definido limite de 10MB para uploads de arquivos
+  - ✓ Melhorada notificação de sucesso para ser precisa - diferencia entre sucesso total e parcial
+  - ✓ Upload agora salva arquivos na pasta uploads/supplier_quotations com nomes únicos
+  - ✓ Sistema de upload de fornecedores agora funciona corretamente
 - July 11, 2025. Remoção completa do sistema de anexos de solicitação original implementada com sucesso:
   - ✓ Identificado e removido completamente o sistema de upload de anexos na criação de solicitações
   - ✓ Removidas queries de anexos dos componentes approval-a1-phase.tsx e approval-a2-phase.tsx

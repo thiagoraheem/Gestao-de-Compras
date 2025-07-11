@@ -24,6 +24,46 @@ import path from "path";
 import fs from "fs";
 import mime from "mime-types";
 
+// Configuração do multer para upload de arquivos de cotação
+const quotationUpload = multer({
+  storage: multer.diskStorage({
+    destination: function (req, file, cb) {
+      const uploadDir = './uploads/supplier_quotations';
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  }),
+  fileFilter: function (req, file, cb) {
+    // Aceitar apenas arquivos PDF, DOC, DOCX, XLS, XLSX, TXT, PNG, JPG, JPEG
+    const allowedMimeTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'image/png',
+      'image/jpeg',
+      'image/jpg'
+    ];
+    
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de arquivo não suportado. Apenas PDF, DOC, DOCX, XLS, XLSX, TXT, PNG, JPG são permitidos.'));
+    }
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  }
+});
+
 // Session type declaration
 declare module "express-session" {
   interface SessionData {
@@ -1773,10 +1813,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload supplier quotation files
-  app.post("/api/quotations/:quotationId/upload-supplier-file", isAuthenticated, async (req, res) => {
+  app.post("/api/quotations/:quotationId/upload-supplier-file", isAuthenticated, quotationUpload.single('file'), async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      const { fileName, fileType, attachmentType, supplierId } = req.body;
+      const { attachmentType, supplierId } = req.body;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo foi enviado" });
+      }
       
       // Find supplier quotation
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
@@ -1789,16 +1833,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add attachment to database
       const attachment = await storage.createAttachment({
         supplierQuotationId: supplierQuotation.id,
-        fileName: fileName || "proposta_fornecedor.pdf",
-        filePath: `/uploads/supplier_quotations/${quotationId}/${fileName || "proposta_fornecedor.pdf"}`,
-        fileType: fileType || "application/pdf",
-        fileSize: 0,
+        fileName: req.file.filename,
+        filePath: `/uploads/supplier_quotations/${req.file.filename}`,
+        fileType: req.file.mimetype,
+        fileSize: req.file.size,
         attachmentType: attachmentType || "supplier_proposal"
       });
 
       res.json({ 
         message: "Arquivo enviado com sucesso",
-        fileName: fileName,
+        fileName: req.file.filename,
         attachmentId: attachment.id
       });
     } catch (error) {

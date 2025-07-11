@@ -239,15 +239,33 @@ export default function UpdateSupplierQuotation({
       );
     },
     onSuccess: async () => {
+      let uploadSuccess = true;
+      
       // Upload files if any
       if (selectedFiles.length > 0) {
-        await uploadFiles();
+        try {
+          await uploadFiles();
+        } catch (error) {
+          uploadSuccess = false;
+          console.error("Upload failed:", error);
+        }
       }
 
-      toast({
-        title: "Sucesso",
-        description: "Cotação do fornecedor atualizada com sucesso!",
-      });
+      // Show success message only if everything succeeded
+      if (uploadSuccess) {
+        toast({
+          title: "Sucesso",
+          description: selectedFiles.length > 0 
+            ? "Cotação do fornecedor atualizada e arquivos enviados com sucesso!" 
+            : "Cotação do fornecedor atualizada com sucesso!",
+        });
+      } else {
+        toast({
+          title: "Parcialmente concluído",
+          description: "Cotação foi atualizada, mas houve erro no upload dos arquivos.",
+          variant: "destructive",
+        });
+      }
 
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({
