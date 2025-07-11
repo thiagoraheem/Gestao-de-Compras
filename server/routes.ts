@@ -607,7 +607,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(deliveryLocation);
     } catch (error) {
       console.error("Error creating delivery location:", error);
-      res.status(400).json({ message: "Invalid delivery location data" });
+      
+      // Check for specific database constraint errors
+      if (error instanceof Error) {
+        if (error.message.includes('unique constraint') || error.message.includes('duplicate key')) {
+          return res.status(400).json({ message: "Já existe um local de entrega com este nome" });
+        }
+        if (error.message.includes('not null constraint')) {
+          return res.status(400).json({ message: "Todos os campos obrigatórios devem ser preenchidos" });
+        }
+      }
+      
+      res.status(400).json({ message: "Erro ao criar local de entrega" });
     }
   });
 
@@ -619,7 +630,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(deliveryLocation);
     } catch (error) {
       console.error("Error updating delivery location:", error);
-      res.status(400).json({ message: "Invalid delivery location data" });
+      
+      // Check for specific database constraint errors
+      if (error instanceof Error) {
+        if (error.message.includes('unique constraint') || error.message.includes('duplicate key')) {
+          return res.status(400).json({ message: "Já existe um local de entrega com este nome" });
+        }
+        if (error.message.includes('not null constraint')) {
+          return res.status(400).json({ message: "Todos os campos obrigatórios devem ser preenchidos" });
+        }
+      }
+      
+      res.status(400).json({ message: "Erro ao atualizar local de entrega" });
     }
   });
 
