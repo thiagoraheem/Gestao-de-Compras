@@ -8,6 +8,7 @@ interface PurchaseOrderData {
   supplier: any;
   approvalHistory: any[];
   selectedSupplierQuotation?: any;
+  deliveryLocation?: any;
 }
 
 export class PDFService {
@@ -506,7 +507,7 @@ export class PDFService {
   }
 
   private static async generatePurchaseOrderHTML(data: PurchaseOrderData): Promise<string> {
-    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation } = data;
+    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation } = data;
     
     // Função para formatar data brasileira
     const formatBrazilianDate = (dateString: string | null | undefined): string => {
@@ -647,17 +648,26 @@ export class PDFService {
     <div class="section">
       <div class="section-title">LOCAL DE ENTREGA</div>
       <div class="info-item">
-        <span class="info-label">ENDEREÇO:</span> Av. Nathan Lemos Xavier de Albuquerque, 1.328
+        <span class="info-label">LOCAL:</span> ${deliveryLocation?.name || 'Sede da empresa'}
       </div>
       <div class="info-item">
-        <span class="info-label">BAIRRO:</span> Novo Aleixo
+        <span class="info-label">ENDEREÇO:</span> ${deliveryLocation?.address || 'Av. Nathan Lemos Xavier de Albuquerque, 1.328, Novo Aleixo, Manaus-AM, 69098-145'}
       </div>
+      ${deliveryLocation?.contactPerson ? `
       <div class="info-item">
-        <span class="info-label">CEP:</span> 69098-145
+        <span class="info-label">RESPONSÁVEL:</span> ${deliveryLocation.contactPerson}
       </div>
+      ` : ''}
+      ${deliveryLocation?.phone ? `
       <div class="info-item">
-        <span class="info-label">CIDADE:</span> Manaus-AM
+        <span class="info-label">TELEFONE:</span> ${deliveryLocation.phone}
       </div>
+      ` : ''}
+      ${deliveryLocation?.email ? `
+      <div class="info-item">
+        <span class="info-label">EMAIL:</span> ${deliveryLocation.email}
+      </div>
+      ` : ''}
     </div>
   </div>
 
@@ -803,8 +813,14 @@ export class PDFService {
     let supplier = null;
     let selectedSupplierQuotation = null;
     let itemsWithPrices = items;
+    let deliveryLocation = null;
     
     const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
+    
+    // Buscar local de entrega se a cotação existir
+    if (quotation && quotation.deliveryLocationId) {
+      deliveryLocation = await storage.getDeliveryLocationById(quotation.deliveryLocationId);
+    }
     if (quotation) {
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
       // Buscar o fornecedor selecionado (is_chosen = true)
@@ -863,7 +879,8 @@ export class PDFService {
       items: itemsWithPrices,
       supplier,
       approvalHistory,
-      selectedSupplierQuotation
+      selectedSupplierQuotation,
+      deliveryLocation
     };
 
     // Gerar HTML
