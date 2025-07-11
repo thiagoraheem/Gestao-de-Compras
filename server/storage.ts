@@ -67,17 +67,29 @@ export interface IStorage {
   getAllDepartments(): Promise<Department[]>;
   createDepartment(department: InsertDepartment): Promise<Department>;
   getDepartmentById(id: number): Promise<Department | undefined>;
-  updateDepartment(id: number, department: Partial<InsertDepartment>): Promise<Department>;
+  updateDepartment(
+    id: number,
+    department: Partial<InsertDepartment>,
+  ): Promise<Department>;
 
   // Cost Center operations
   getAllCostCenters(): Promise<CostCenter[]>;
   getCostCentersByDepartment(departmentId: number): Promise<CostCenter[]>;
   createCostCenter(costCenter: InsertCostCenter): Promise<CostCenter>;
-  updateCostCenter(id: number, costCenter: Partial<InsertCostCenter>): Promise<CostCenter>;
+  updateCostCenter(
+    id: number,
+    costCenter: Partial<InsertCostCenter>,
+  ): Promise<CostCenter>;
 
   // User delete operations
   deleteUser(id: number): Promise<void>;
-  checkUserCanBeDeleted(id: number): Promise<{ canDelete: boolean; reason?: string; associatedRequests?: number }>;
+  checkUserCanBeDeleted(
+    id: number,
+  ): Promise<{
+    canDelete: boolean;
+    reason?: string;
+    associatedRequests?: number;
+  }>;
 
   // User Department associations
   getUserDepartments(userId: number): Promise<number[]>;
@@ -94,62 +106,108 @@ export interface IStorage {
   getAllSuppliers(): Promise<Supplier[]>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
   getSupplierById(id: number): Promise<Supplier | undefined>;
-  updateSupplier(id: number, supplier: Partial<InsertSupplier>): Promise<Supplier>;
+  updateSupplier(
+    id: number,
+    supplier: Partial<InsertSupplier>,
+  ): Promise<Supplier>;
 
   // Payment Method operations
   getAllPaymentMethods(): Promise<PaymentMethod[]>;
-  createPaymentMethod(paymentMethod: InsertPaymentMethod): Promise<PaymentMethod>;
+  createPaymentMethod(
+    paymentMethod: InsertPaymentMethod,
+  ): Promise<PaymentMethod>;
 
   // Delivery Location operations
   getAllDeliveryLocations(): Promise<DeliveryLocation[]>;
   getDeliveryLocationById(id: number): Promise<DeliveryLocation | undefined>;
-  createDeliveryLocation(deliveryLocation: InsertDeliveryLocation): Promise<DeliveryLocation>;
-  updateDeliveryLocation(id: number, deliveryLocation: Partial<InsertDeliveryLocation>): Promise<DeliveryLocation>;
+  createDeliveryLocation(
+    deliveryLocation: InsertDeliveryLocation,
+  ): Promise<DeliveryLocation>;
+  updateDeliveryLocation(
+    id: number,
+    deliveryLocation: Partial<InsertDeliveryLocation>,
+  ): Promise<DeliveryLocation>;
   deleteDeliveryLocation(id: number): Promise<void>;
 
   // Purchase Request operations
   getAllPurchaseRequests(): Promise<PurchaseRequest[]>;
   getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined>;
-  createPurchaseRequest(request: InsertPurchaseRequest): Promise<PurchaseRequest>;
-  updatePurchaseRequest(id: number, request: Partial<InsertPurchaseRequest>): Promise<PurchaseRequest>;
+  createPurchaseRequest(
+    request: InsertPurchaseRequest,
+  ): Promise<PurchaseRequest>;
+  updatePurchaseRequest(
+    id: number,
+    request: Partial<InsertPurchaseRequest>,
+  ): Promise<PurchaseRequest>;
   getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequest[]>;
   getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]>;
   deletePurchaseRequest(id: number): Promise<void>;
 
   // Purchase Request Items operations
-  getPurchaseRequestItems(purchaseRequestId: number): Promise<PurchaseRequestItem[]>;
-  createPurchaseRequestItem(item: InsertPurchaseRequestItem): Promise<PurchaseRequestItem>;
-  updatePurchaseRequestItem(id: number, item: Partial<InsertPurchaseRequestItem>): Promise<PurchaseRequestItem>;
+  getPurchaseRequestItems(
+    purchaseRequestId: number,
+  ): Promise<PurchaseRequestItem[]>;
+  createPurchaseRequestItem(
+    item: InsertPurchaseRequestItem,
+  ): Promise<PurchaseRequestItem>;
+  updatePurchaseRequestItem(
+    id: number,
+    item: Partial<InsertPurchaseRequestItem>,
+  ): Promise<PurchaseRequestItem>;
   deletePurchaseRequestItem(id: number): Promise<void>;
-  createPurchaseRequestItems(items: InsertPurchaseRequestItem[]): Promise<PurchaseRequestItem[]>;
+  createPurchaseRequestItems(
+    items: InsertPurchaseRequestItem[],
+  ): Promise<PurchaseRequestItem[]>;
 
   // RFQ (Quotation) operations
   getAllQuotations(): Promise<Quotation[]>;
   getQuotationById(id: number): Promise<Quotation | undefined>;
-  getQuotationByPurchaseRequestId(purchaseRequestId: number): Promise<Quotation | undefined>;
+  getQuotationByPurchaseRequestId(
+    purchaseRequestId: number,
+  ): Promise<Quotation | undefined>;
   createQuotation(quotation: InsertQuotation): Promise<Quotation>;
-  updateQuotation(id: number, quotation: Partial<InsertQuotation>): Promise<Quotation>;
+  updateQuotation(
+    id: number,
+    quotation: Partial<InsertQuotation>,
+  ): Promise<Quotation>;
 
   // Quotation Items operations
   getQuotationItems(quotationId: number): Promise<QuotationItem[]>;
   createQuotationItem(item: InsertQuotationItem): Promise<QuotationItem>;
-  updateQuotationItem(id: number, item: Partial<InsertQuotationItem>): Promise<QuotationItem>;
+  updateQuotationItem(
+    id: number,
+    item: Partial<InsertQuotationItem>,
+  ): Promise<QuotationItem>;
   deleteQuotationItem(id: number): Promise<void>;
 
   // Supplier Quotations operations
   getSupplierQuotations(quotationId: number): Promise<SupplierQuotation[]>;
   getSupplierQuotationById(id: number): Promise<SupplierQuotation | undefined>;
-  createSupplierQuotation(supplierQuotation: InsertSupplierQuotation): Promise<SupplierQuotation>;
-  updateSupplierQuotation(id: number, supplierQuotation: Partial<InsertSupplierQuotation>): Promise<SupplierQuotation>;
+  createSupplierQuotation(
+    supplierQuotation: InsertSupplierQuotation,
+  ): Promise<SupplierQuotation>;
+  updateSupplierQuotation(
+    id: number,
+    supplierQuotation: Partial<InsertSupplierQuotation>,
+  ): Promise<SupplierQuotation>;
 
   // Supplier Quotation Items operations
-  getSupplierQuotationItems(supplierQuotationId: number): Promise<SupplierQuotationItem[]>;
-  createSupplierQuotationItem(item: InsertSupplierQuotationItem): Promise<SupplierQuotationItem>;
-  updateSupplierQuotationItem(id: number, item: Partial<InsertSupplierQuotationItem>): Promise<SupplierQuotationItem>;
+  getSupplierQuotationItems(
+    supplierQuotationId: number,
+  ): Promise<SupplierQuotationItem[]>;
+  createSupplierQuotationItem(
+    item: InsertSupplierQuotationItem,
+  ): Promise<SupplierQuotationItem>;
+  updateSupplierQuotationItem(
+    id: number,
+    item: Partial<InsertSupplierQuotationItem>,
+  ): Promise<SupplierQuotationItem>;
 
   // Approval History operations
   getApprovalHistory(purchaseRequestId: number): Promise<any[]>;
-  createApprovalHistory(approvalHistory: InsertApprovalHistory): Promise<ApprovalHistory>;
+  createApprovalHistory(
+    approvalHistory: InsertApprovalHistory,
+  ): Promise<ApprovalHistory>;
 
   // Attachment operations
   createAttachment(attachment: InsertAttachment): Promise<Attachment>;
@@ -177,7 +235,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username));
     return user || undefined;
   }
 
@@ -187,10 +248,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
@@ -216,42 +274,50 @@ export class DatabaseStorage implements IStorage {
     await db.delete(users).where(eq(users.id, id));
   }
 
-  async checkUserCanBeDeleted(id: number): Promise<{ canDelete: boolean; reason?: string; associatedRequests?: number }> {
+  async checkUserCanBeDeleted(
+    id: number,
+  ): Promise<{
+    canDelete: boolean;
+    reason?: string;
+    associatedRequests?: number;
+  }> {
     // Check if user has any purchase requests as requester
     const requestsAsRequester = await db
-      .select({ count: sql<number>`COUNT(*)`.as('count') })
+      .select({ count: sql<number>`COUNT(*)`.as("count") })
       .from(purchaseRequests)
       .where(eq(purchaseRequests.requesterId, id));
 
     // Check if user has any purchase requests as approver A1
     const requestsAsApproverA1 = await db
-      .select({ count: sql<number>`COUNT(*)`.as('count') })
+      .select({ count: sql<number>`COUNT(*)`.as("count") })
       .from(purchaseRequests)
       .where(eq(purchaseRequests.approverA1Id, id));
 
     // Check if user has any purchase requests as approver A2
     const requestsAsApproverA2 = await db
-      .select({ count: sql<number>`COUNT(*)`.as('count') })
+      .select({ count: sql<number>`COUNT(*)`.as("count") })
       .from(purchaseRequests)
       .where(eq(purchaseRequests.approverA2Id, id));
 
     // Check approval history
     const approvalHistoryCount = await db
-      .select({ count: sql<number>`COUNT(*)`.as('count') })
+      .select({ count: sql<number>`COUNT(*)`.as("count") })
       .from(approvalHistory)
       .where(eq(approvalHistory.userId, id));
 
-    const totalRequests = Number(requestsAsRequester[0].count) + 
-                         Number(requestsAsApproverA1[0].count) + 
-                         Number(requestsAsApproverA2[0].count);
+    const totalRequests =
+      Number(requestsAsRequester[0].count) +
+      Number(requestsAsApproverA1[0].count) +
+      Number(requestsAsApproverA2[0].count);
 
     const totalApprovals = Number(approvalHistoryCount[0].count);
 
     if (totalRequests > 0 || totalApprovals > 0) {
       return {
         canDelete: false,
-        reason: "Usuário possui solicitações de compra ou histórico de aprovações associadas",
-        associatedRequests: totalRequests + totalApprovals
+        reason:
+          "Usuário possui solicitações de compra ou histórico de aprovações associadas",
+        associatedRequests: totalRequests + totalApprovals,
       };
     }
 
@@ -271,11 +337,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDepartmentById(id: number): Promise<Department | undefined> {
-    const [department] = await db.select().from(departments).where(eq(departments.id, id));
+    const [department] = await db
+      .select()
+      .from(departments)
+      .where(eq(departments.id, id));
     return department || undefined;
   }
 
-  async updateDepartment(id: number, updateData: Partial<InsertDepartment>): Promise<Department> {
+  async updateDepartment(
+    id: number,
+    updateData: Partial<InsertDepartment>,
+  ): Promise<Department> {
     const [department] = await db
       .update(departments)
       .set({ ...updateData, updatedAt: new Date() })
@@ -288,8 +360,13 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(costCenters);
   }
 
-  async getCostCentersByDepartment(departmentId: number): Promise<CostCenter[]> {
-    return await db.select().from(costCenters).where(eq(costCenters.departmentId, departmentId));
+  async getCostCentersByDepartment(
+    departmentId: number,
+  ): Promise<CostCenter[]> {
+    return await db
+      .select()
+      .from(costCenters)
+      .where(eq(costCenters.departmentId, departmentId));
   }
 
   async createCostCenter(costCenter: InsertCostCenter): Promise<CostCenter> {
@@ -300,7 +377,10 @@ export class DatabaseStorage implements IStorage {
     return newCostCenter;
   }
 
-  async updateCostCenter(id: number, updateData: Partial<InsertCostCenter>): Promise<CostCenter> {
+  async updateCostCenter(
+    id: number,
+    updateData: Partial<InsertCostCenter>,
+  ): Promise<CostCenter> {
     const [costCenter] = await db
       .update(costCenters)
       .set({ ...updateData, updatedAt: new Date() })
@@ -314,20 +394,31 @@ export class DatabaseStorage implements IStorage {
       .select({ departmentId: userDepartments.departmentId })
       .from(userDepartments)
       .where(eq(userDepartments.userId, userId));
-    return userDepts.map(ud => ud.departmentId!).filter(id => id !== null);
+    return userDepts.map((ud) => ud.departmentId!).filter((id) => id !== null);
   }
 
-  async assignUserToDepartment(userId: number, departmentId: number): Promise<void> {
+  async assignUserToDepartment(
+    userId: number,
+    departmentId: number,
+  ): Promise<void> {
     await db
       .insert(userDepartments)
       .values({ userId, departmentId })
       .onConflictDoNothing();
   }
 
-  async removeUserFromDepartment(userId: number, departmentId: number): Promise<void> {
+  async removeUserFromDepartment(
+    userId: number,
+    departmentId: number,
+  ): Promise<void> {
     await db
       .delete(userDepartments)
-      .where(and(eq(userDepartments.userId, userId), eq(userDepartments.departmentId, departmentId)));
+      .where(
+        and(
+          eq(userDepartments.userId, userId),
+          eq(userDepartments.departmentId, departmentId),
+        ),
+      );
   }
 
   async getUserCostCenters(userId: number): Promise<number[]> {
@@ -335,31 +426,49 @@ export class DatabaseStorage implements IStorage {
       .select({ costCenterId: userCostCenters.costCenterId })
       .from(userCostCenters)
       .where(eq(userCostCenters.userId, userId));
-    return userCostCentersList.map(uc => uc.costCenterId!).filter(id => id !== null);
+    return userCostCentersList
+      .map((uc) => uc.costCenterId!)
+      .filter((id) => id !== null);
   }
 
-  async assignUserToCostCenter(userId: number, costCenterId: number): Promise<void> {
+  async assignUserToCostCenter(
+    userId: number,
+    costCenterId: number,
+  ): Promise<void> {
     await db
       .insert(userCostCenters)
       .values({ userId, costCenterId })
       .onConflictDoNothing();
   }
 
-  async removeUserFromCostCenter(userId: number, costCenterId: number): Promise<void> {
+  async removeUserFromCostCenter(
+    userId: number,
+    costCenterId: number,
+  ): Promise<void> {
     await db
       .delete(userCostCenters)
-      .where(and(eq(userCostCenters.userId, userId), eq(userCostCenters.costCenterId, costCenterId)));
+      .where(
+        and(
+          eq(userCostCenters.userId, userId),
+          eq(userCostCenters.costCenterId, costCenterId),
+        ),
+      );
   }
 
-  async setUserCostCenters(userId: number, costCenterIds: number[]): Promise<void> {
+  async setUserCostCenters(
+    userId: number,
+    costCenterIds: number[],
+  ): Promise<void> {
     // Remove all existing associations
     await db.delete(userCostCenters).where(eq(userCostCenters.userId, userId));
 
     // Add new associations
     if (costCenterIds.length > 0) {
-      await db.insert(userCostCenters).values(
-        costCenterIds.map(costCenterId => ({ userId, costCenterId }))
-      );
+      await db
+        .insert(userCostCenters)
+        .values(
+          costCenterIds.map((costCenterId) => ({ userId, costCenterId })),
+        );
     }
   }
 
@@ -376,11 +485,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSupplierById(id: number): Promise<Supplier | undefined> {
-    const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, id));
+    const [supplier] = await db
+      .select()
+      .from(suppliers)
+      .where(eq(suppliers.id, id));
     return supplier || undefined;
   }
 
-  async updateSupplier(id: number, supplier: Partial<InsertSupplier>): Promise<Supplier> {
+  async updateSupplier(
+    id: number,
+    supplier: Partial<InsertSupplier>,
+  ): Promise<Supplier> {
     const [updatedSupplier] = await db
       .update(suppliers)
       .set(supplier)
@@ -393,7 +508,9 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(paymentMethods);
   }
 
-  async createPaymentMethod(paymentMethod: InsertPaymentMethod): Promise<PaymentMethod> {
+  async createPaymentMethod(
+    paymentMethod: InsertPaymentMethod,
+  ): Promise<PaymentMethod> {
     const [newPaymentMethod] = await db
       .insert(paymentMethods)
       .values(paymentMethod)
@@ -402,15 +519,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllDeliveryLocations(): Promise<DeliveryLocation[]> {
-    return await db.select().from(deliveryLocations).where(eq(deliveryLocations.active, true));
+    return await db
+      .select()
+      .from(deliveryLocations)
+      .where(eq(deliveryLocations.active, true));
   }
 
-  async getDeliveryLocationById(id: number): Promise<DeliveryLocation | undefined> {
-    const [location] = await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, id));
+  async getDeliveryLocationById(
+    id: number,
+  ): Promise<DeliveryLocation | undefined> {
+    const [location] = await db
+      .select()
+      .from(deliveryLocations)
+      .where(eq(deliveryLocations.id, id));
     return location || undefined;
   }
 
-  async createDeliveryLocation(deliveryLocation: InsertDeliveryLocation): Promise<DeliveryLocation> {
+  async createDeliveryLocation(
+    deliveryLocation: InsertDeliveryLocation,
+  ): Promise<DeliveryLocation> {
     const [newLocation] = await db
       .insert(deliveryLocations)
       .values(deliveryLocation)
@@ -418,7 +545,10 @@ export class DatabaseStorage implements IStorage {
     return newLocation;
   }
 
-  async updateDeliveryLocation(id: number, deliveryLocation: Partial<InsertDeliveryLocation>): Promise<DeliveryLocation> {
+  async updateDeliveryLocation(
+    id: number,
+    deliveryLocation: Partial<InsertDeliveryLocation>,
+  ): Promise<DeliveryLocation> {
     const [updatedLocation] = await db
       .update(deliveryLocations)
       .set({ ...deliveryLocation, updatedAt: new Date() })
@@ -475,7 +605,7 @@ export class DatabaseStorage implements IStorage {
           firstName: requesterUser.firstName,
           lastName: requesterUser.lastName,
           username: requesterUser.username,
-          email: requesterUser.email
+          email: requesterUser.email,
         },
         // Approver A1 data
         approverA1: {
@@ -483,26 +613,32 @@ export class DatabaseStorage implements IStorage {
           firstName: approverA1User.firstName,
           lastName: approverA1User.lastName,
           username: approverA1User.username,
-          email: approverA1User.email
+          email: approverA1User.email,
         },
         // Cost Center and Department data
         costCenter: {
           id: costCenters.id,
           code: costCenters.code,
           name: costCenters.name,
-          departmentId: costCenters.departmentId
+          departmentId: costCenters.departmentId,
         },
         department: {
           id: departments.id,
           name: departments.name,
-          description: departments.description
+          description: departments.description,
         },
         // Check if quotation exists
-        hasQuotation: sql<boolean>`EXISTS(SELECT 1 FROM ${quotations} WHERE ${quotations.purchaseRequestId} = ${purchaseRequests.id})`
+        hasQuotation: sql<boolean>`EXISTS(SELECT 1 FROM ${quotations} WHERE ${quotations.purchaseRequestId} = ${purchaseRequests.id})`,
       })
       .from(purchaseRequests)
-      .leftJoin(requesterUser, eq(purchaseRequests.requesterId, requesterUser.id))
-      .leftJoin(approverA1User, eq(purchaseRequests.approverA1Id, approverA1User.id))
+      .leftJoin(
+        requesterUser,
+        eq(purchaseRequests.requesterId, requesterUser.id),
+      )
+      .leftJoin(
+        approverA1User,
+        eq(purchaseRequests.approverA1Id, approverA1User.id),
+      )
       .leftJoin(costCenters, eq(purchaseRequests.costCenterId, costCenters.id))
       .leftJoin(departments, eq(costCenters.departmentId, departments.id))
       .orderBy(desc(purchaseRequests.createdAt));
@@ -510,7 +646,9 @@ export class DatabaseStorage implements IStorage {
     return requests as any[];
   }
 
-  async getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined> {
+  async getPurchaseRequestById(
+    id: number,
+  ): Promise<PurchaseRequest | undefined> {
     // First get the purchase request
     const [request] = await db
       .select()
@@ -539,11 +677,13 @@ export class DatabaseStorage implements IStorage {
           username: user.username,
           firstName: user.firstName,
           lastName: user.lastName,
-          email: user.email
+          email: user.email,
         };
-        requesterName = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.username;
+        requesterName = user.firstName
+          ? `${user.firstName} ${user.lastName || ""}`.trim()
+          : user.username;
         requesterUsername = user.username;
-        requesterEmail = user.email || '';
+        requesterEmail = user.email || "";
       }
     }
 
@@ -553,13 +693,15 @@ export class DatabaseStorage implements IStorage {
       requester,
       requesterName,
       requesterUsername,
-      requesterEmail
+      requesterEmail,
     };
 
     return result as any;
   }
 
-  async createPurchaseRequest(request: InsertPurchaseRequest): Promise<PurchaseRequest> {
+  async createPurchaseRequest(
+    request: InsertPurchaseRequest,
+  ): Promise<PurchaseRequest> {
     // Generate request number
     const year = new Date().getFullYear();
     const requests = await db
@@ -582,7 +724,7 @@ export class DatabaseStorage implements IStorage {
 
     // Generate next sequence number
     const nextSequence = maxSequence + 1;
-    const requestNumber = `${prefix}${String(nextSequence).padStart(3, '0')}`;
+    const requestNumber = `${prefix}${String(nextSequence).padStart(3, "0")}`;
 
     const [newRequest] = await db
       .insert(purchaseRequests)
@@ -591,7 +733,10 @@ export class DatabaseStorage implements IStorage {
     return newRequest;
   }
 
-  async updatePurchaseRequest(id: number, request: Partial<InsertPurchaseRequest>): Promise<PurchaseRequest> {
+  async updatePurchaseRequest(
+    id: number,
+    request: Partial<InsertPurchaseRequest>,
+  ): Promise<PurchaseRequest> {
     const [updatedRequest] = await db
       .update(purchaseRequests)
       .set({ ...request, updatedAt: new Date() })
@@ -617,7 +762,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Purchase Request Items operations
-  async getPurchaseRequestItems(purchaseRequestId: number): Promise<PurchaseRequestItem[]> {
+  async getPurchaseRequestItems(
+    purchaseRequestId: number,
+  ): Promise<PurchaseRequestItem[]> {
     return await db
       .select()
       .from(purchaseRequestItems)
@@ -625,7 +772,9 @@ export class DatabaseStorage implements IStorage {
       .orderBy(purchaseRequestItems.id);
   }
 
-  async createPurchaseRequestItem(item: InsertPurchaseRequestItem): Promise<PurchaseRequestItem> {
+  async createPurchaseRequestItem(
+    item: InsertPurchaseRequestItem,
+  ): Promise<PurchaseRequestItem> {
     const [newItem] = await db
       .insert(purchaseRequestItems)
       .values(item)
@@ -633,7 +782,10 @@ export class DatabaseStorage implements IStorage {
     return newItem;
   }
 
-  async updatePurchaseRequestItem(id: number, item: Partial<InsertPurchaseRequestItem>): Promise<PurchaseRequestItem> {
+  async updatePurchaseRequestItem(
+    id: number,
+    item: Partial<InsertPurchaseRequestItem>,
+  ): Promise<PurchaseRequestItem> {
     const [updatedItem] = await db
       .update(purchaseRequestItems)
       .set({ ...item, updatedAt: new Date() })
@@ -643,30 +795,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePurchaseRequestItem(id: number): Promise<void> {
-    await db.delete(purchaseRequestItems).where(eq(purchaseRequestItems.id, id));
+    await db
+      .delete(purchaseRequestItems)
+      .where(eq(purchaseRequestItems.id, id));
   }
 
-  async createPurchaseRequestItems(items: InsertPurchaseRequestItem[]): Promise<PurchaseRequestItem[]> {
+  async createPurchaseRequestItems(
+    items: InsertPurchaseRequestItem[],
+  ): Promise<PurchaseRequestItem[]> {
     if (items.length === 0) return [];
 
-    return await db
-      .insert(purchaseRequestItems)
-      .values(items)
-      .returning();
+    return await db.insert(purchaseRequestItems).values(items).returning();
   }
 
   // RFQ (Quotation) operations
   async getAllQuotations(): Promise<Quotation[]> {
-    return await db.select().from(quotations).orderBy(desc(quotations.createdAt));
+    return await db
+      .select()
+      .from(quotations)
+      .orderBy(desc(quotations.createdAt));
   }
 
   async getQuotationById(id: number): Promise<Quotation | undefined> {
-    const [quotation] = await db.select().from(quotations).where(eq(quotations.id, id));
+    const [quotation] = await db
+      .select()
+      .from(quotations)
+      .where(eq(quotations.id, id));
     return quotation || undefined;
   }
 
-  async getQuotationByPurchaseRequestId(purchaseRequestId: number): Promise<Quotation | undefined> {
-    const [quotation] = await db.select().from(quotations).where(eq(quotations.purchaseRequestId, purchaseRequestId));
+  async getQuotationByPurchaseRequestId(
+    purchaseRequestId: number,
+  ): Promise<Quotation | undefined> {
+    const [quotation] = await db
+      .select()
+      .from(quotations)
+      .where(eq(quotations.purchaseRequestId, purchaseRequestId));
     return quotation || undefined;
   }
 
@@ -680,7 +844,7 @@ export class DatabaseStorage implements IStorage {
 
     // Find the highest number used this year
     let maxNumber = 0;
-    quotationsThisYear.forEach(q => {
+    quotationsThisYear.forEach((q) => {
       const match = q.quotationNumber.match(/COT-\d{4}-(\d{4})/);
       if (match) {
         const num = parseInt(match[1]);
@@ -688,7 +852,7 @@ export class DatabaseStorage implements IStorage {
       }
     });
 
-    const quotationNumber = `COT-${year}-${String(maxNumber + 1).padStart(4, '0')}`;
+    const quotationNumber = `COT-${year}-${String(maxNumber + 1).padStart(4, "0")}`;
 
     const [quotation] = await db
       .insert(quotations)
@@ -700,7 +864,10 @@ export class DatabaseStorage implements IStorage {
     return quotation;
   }
 
-  async updateQuotation(id: number, quotationData: Partial<InsertQuotation>): Promise<Quotation> {
+  async updateQuotation(
+    id: number,
+    quotationData: Partial<InsertQuotation>,
+  ): Promise<Quotation> {
     const [quotation] = await db
       .update(quotations)
       .set({ ...quotationData, updatedAt: new Date() })
@@ -711,18 +878,23 @@ export class DatabaseStorage implements IStorage {
 
   // Quotation Items operations
   async getQuotationItems(quotationId: number): Promise<QuotationItem[]> {
-    return await db.select().from(quotationItems).where(eq(quotationItems.quotationId, quotationId));
+    return await db
+      .select()
+      .from(quotationItems)
+      .where(eq(quotationItems.quotationId, quotationId));
   }
 
-  async createQuotationItem(itemData: InsertQuotationItem): Promise<QuotationItem> {
-    const [item] = await db
-      .insert(quotationItems)
-      .values(itemData)
-      .returning();
+  async createQuotationItem(
+    itemData: InsertQuotationItem,
+  ): Promise<QuotationItem> {
+    const [item] = await db.insert(quotationItems).values(itemData).returning();
     return item;
   }
 
-  async updateQuotationItem(id: number, itemData: Partial<InsertQuotationItem>): Promise<QuotationItem> {
+  async updateQuotationItem(
+    id: number,
+    itemData: Partial<InsertQuotationItem>,
+  ): Promise<QuotationItem> {
     const [item] = await db
       .update(quotationItems)
       .set(itemData)
@@ -736,7 +908,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Supplier Quotations operations
-  async getSupplierQuotations(quotationId: number): Promise<SupplierQuotation[]> {
+  async getSupplierQuotations(
+    quotationId: number,
+  ): Promise<SupplierQuotation[]> {
     return await db
       .select({
         id: supplierQuotations.id,
@@ -756,19 +930,26 @@ export class DatabaseStorage implements IStorage {
           id: suppliers.id,
           name: suppliers.name,
           email: suppliers.email,
-        }
+        },
       })
       .from(supplierQuotations)
       .leftJoin(suppliers, eq(supplierQuotations.supplierId, suppliers.id))
       .where(eq(supplierQuotations.quotationId, quotationId));
   }
 
-  async getSupplierQuotationById(id: number): Promise<SupplierQuotation | undefined> {
-    const [supplierQuotation] = await db.select().from(supplierQuotations).where(eq(supplierQuotations.id, id));
+  async getSupplierQuotationById(
+    id: number,
+  ): Promise<SupplierQuotation | undefined> {
+    const [supplierQuotation] = await db
+      .select()
+      .from(supplierQuotations)
+      .where(eq(supplierQuotations.id, id));
     return supplierQuotation || undefined;
   }
 
-  async createSupplierQuotation(supplierQuotationData: InsertSupplierQuotation): Promise<SupplierQuotation> {
+  async createSupplierQuotation(
+    supplierQuotationData: InsertSupplierQuotation,
+  ): Promise<SupplierQuotation> {
     const [supplierQuotation] = await db
       .insert(supplierQuotations)
       .values(supplierQuotationData)
@@ -776,7 +957,10 @@ export class DatabaseStorage implements IStorage {
     return supplierQuotation;
   }
 
-  async updateSupplierQuotation(id: number, supplierQuotationData: Partial<InsertSupplierQuotation>): Promise<SupplierQuotation> {
+  async updateSupplierQuotation(
+    id: number,
+    supplierQuotationData: Partial<InsertSupplierQuotation>,
+  ): Promise<SupplierQuotation> {
     const [supplierQuotation] = await db
       .update(supplierQuotations)
       .set(supplierQuotationData)
@@ -786,11 +970,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Supplier Quotation Items operations
-  async getSupplierQuotationItems(supplierQuotationId: number): Promise<SupplierQuotationItem[]> {
-    return await db.select().from(supplierQuotationItems).where(eq(supplierQuotationItems.supplierQuotationId, supplierQuotationId));
+  async getSupplierQuotationItems(
+    supplierQuotationId: number,
+  ): Promise<SupplierQuotationItem[]> {
+    return await db
+      .select()
+      .from(supplierQuotationItems)
+      .where(
+        eq(supplierQuotationItems.supplierQuotationId, supplierQuotationId),
+      );
   }
 
-  async createSupplierQuotationItem(itemData: InsertSupplierQuotationItem): Promise<SupplierQuotationItem> {
+  async createSupplierQuotationItem(
+    itemData: InsertSupplierQuotationItem,
+  ): Promise<SupplierQuotationItem> {
     const [item] = await db
       .insert(supplierQuotationItems)
       .values(itemData)
@@ -798,7 +991,10 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async updateSupplierQuotationItem(id: number, itemData: Partial<InsertSupplierQuotationItem>): Promise<SupplierQuotationItem> {
+  async updateSupplierQuotationItem(
+    id: number,
+    itemData: Partial<InsertSupplierQuotationItem>,
+  ): Promise<SupplierQuotationItem> {
     const [item] = await db
       .update(supplierQuotationItems)
       .set(itemData)
@@ -809,12 +1005,12 @@ export class DatabaseStorage implements IStorage {
 
   async deletePurchaseRequest(id: number): Promise<void> {
     // Primeiro, deletar todos os itens associados
-    await db.delete(purchaseRequestItems)
+    await db
+      .delete(purchaseRequestItems)
       .where(eq(purchaseRequestItems.purchaseRequestId, id));
 
     // Depois, deletar a requisição
-    await db.delete(purchaseRequests)
-      .where(eq(purchaseRequests.id, id));
+    await db.delete(purchaseRequests).where(eq(purchaseRequests.id, id));
   }
 
   // Approval History operations
@@ -831,7 +1027,7 @@ export class DatabaseStorage implements IStorage {
           username: users.username,
           firstName: users.firstName,
           lastName: users.lastName,
-        }
+        },
       })
       .from(approvalHistory)
       .leftJoin(users, eq(approvalHistory.approverId, users.id))
@@ -839,7 +1035,9 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(approvalHistory.createdAt));
   }
 
-  async createApprovalHistory(approvalHistoryData: InsertApprovalHistory): Promise<ApprovalHistory> {
+  async createApprovalHistory(
+    approvalHistoryData: InsertApprovalHistory,
+  ): Promise<ApprovalHistory> {
     const [newApprovalHistory] = await db
       .insert(approvalHistory)
       .values(approvalHistoryData)
@@ -847,7 +1045,9 @@ export class DatabaseStorage implements IStorage {
     return newApprovalHistory;
   }
 
-  async createAttachment(attachmentData: InsertAttachment): Promise<Attachment> {
+  async createAttachment(
+    attachmentData: InsertAttachment,
+  ): Promise<Attachment> {
     const [attachment] = await db
       .insert(attachments)
       .values(attachmentData)
@@ -862,8 +1062,7 @@ export class DatabaseStorage implements IStorage {
       // Delete in the correct order to respect foreign key constraints
 
       // 1. Delete receipt items first
-      await db```text
-.delete(receiptItems);
+      await db.delete(receiptItems);
       console.log("✅ Receipt items deletados");
 
       // 2. Delete receipts
@@ -915,8 +1114,9 @@ export class DatabaseStorage implements IStorage {
       console.log("✅ Purchase requests deletados");
 
       console.log("🎉 Limpeza concluída com sucesso!");
-      console.log("📋 Dados mantidos: usuários, departamentos, centros de custo, fornecedores, métodos de pagamento e locais de entrega");
-
+      console.log(
+        "📋 Dados mantidos: usuários, departamentos, centros de custo, fornecedores, métodos de pagamento e locais de entrega",
+      );
     } catch (error) {
       console.error("❌ Erro durante a limpeza:", error);
       throw error;
@@ -931,17 +1131,20 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Generate a secure random token
-      const token = Math.random().toString(36).substr(2, 15) + Math.random().toString(36).substr(2, 15);
+      const token =
+        Math.random().toString(36).substr(2, 15) +
+        Math.random().toString(36).substr(2, 15);
 
       // Set expiration to 1 hour from now
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 1);
 
       // Update user with reset token and expiration
-      await db.update(users)
+      await db
+        .update(users)
         .set({
           passwordResetToken: token,
-          passwordResetExpires: expiresAt
+          passwordResetExpires: expiresAt,
         })
         .where(eq(users.id, user.id));
 
@@ -954,13 +1157,14 @@ export class DatabaseStorage implements IStorage {
 
   async validatePasswordResetToken(token: string): Promise<User | null> {
     try {
-      const user = await db.select()
+      const user = await db
+        .select()
         .from(users)
         .where(
           and(
             eq(users.passwordResetToken, token),
-            gt(users.passwordResetExpires, new Date())
-          )
+            gt(users.passwordResetExpires, new Date()),
+          ),
         )
         .limit(1);
 
@@ -980,11 +1184,12 @@ export class DatabaseStorage implements IStorage {
 
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-      await db.update(users)
+      await db
+        .update(users)
         .set({
           password: hashedPassword,
           passwordResetToken: null,
-          passwordResetExpires: null
+          passwordResetExpires: null,
         })
         .where(eq(users.id, user.id));
 
@@ -997,7 +1202,7 @@ export class DatabaseStorage implements IStorage {
 
   async initializeDefaultData(): Promise<void> {
     // Check if admin user already exists
-    const adminUser = await this.getUserByUsername('admin');
+    const adminUser = await this.getUserByUsername("admin");
     if (adminUser) {
       console.log("Admin user already exists, skipping initialization");
       return; // Admin user already exists
