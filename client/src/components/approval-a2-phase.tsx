@@ -16,7 +16,8 @@ import {
   DollarSign,
   MessageSquare,
   History,
-  Paperclip
+  Paperclip,
+  BarChart3
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import ApprovalItemsViewer from "./approval-items-viewer";
 import AttachmentsViewer from "./attachments-viewer";
+import SupplierComparisonReadonly from "./supplier-comparison-readonly";
 
 const approvalSchema = z.object({
   approved: z.boolean(),
@@ -71,6 +73,7 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | null>(null);
+  const [showComparison, setShowComparison] = useState(false);
 
   // Check if user has A2 approval permissions
   const canApprove = user?.isApproverA2 || false;
@@ -353,6 +356,7 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
   }
 
   return (
+    <>
     <Card className={cn("w-full max-w-4xl", className)}>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -712,6 +716,28 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
           </Card>
         )}
 
+        {/* Supplier Comparison */}
+        {quotation?.id && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg">Comparação de Fornecedores</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-gray-600 mb-4">
+                Visualize a comparação completa dos fornecedores que foi feita na fase de cotação para auxiliar na tomada de decisão.
+              </div>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setShowComparison(true)}
+              >
+                <BarChart3 className="mr-2 h-4 w-4" />
+                Ver Comparação de Fornecedores
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Approval Actions */}
         <Card>
           <CardHeader>
@@ -814,5 +840,14 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
         </Card>
       </CardContent>
     </Card>
+    
+    {/* Supplier Comparison Modal */}
+    {showComparison && quotation?.id && (
+      <SupplierComparisonReadonly 
+        quotationId={quotation.id}
+        onClose={() => setShowComparison(false)}
+      />
+    )}
+    </>
   );
 }

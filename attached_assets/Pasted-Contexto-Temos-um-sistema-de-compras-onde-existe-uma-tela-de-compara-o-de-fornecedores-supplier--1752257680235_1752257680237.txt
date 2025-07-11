@@ -1,0 +1,44 @@
+Contexto:
+Temos um sistema de compras onde existe uma tela de comparação de fornecedores (supplier-comparison.tsx) que é usada na fase de Cotação. Agora precisamos disponibilizar essa mesma visualização (somente leitura) na fase de Aprovação A2.
+
+Requisito:
+Adicionar um botão "Ver Comparação de Fornecedores" na tela de Aprovação A2 (approval-a2-phase.tsx) que abre um popup/modal com a tela de comparação de fornecedores em modo somente leitura.
+
+Implementação Necessária:
+
+Criar componente de comparação somente leitura (supplier-comparison-readonly.tsx):
+
+Baseado no componente existente supplier-comparison.tsx
+Remover todas as funcionalidades de seleção e ações
+Manter apenas a visualização dos dados dos fornecedores
+Incluir comparação detalhada de itens e informações dos fornecedores
+Adicionar botão "Fechar" para sair do modal
+Modificar approval-a2-phase.tsx:
+
+Adicionar botão "Ver Comparação de Fornecedores" na seção de ações
+Implementar estado para controlar abertura/fechamento do modal
+Integrar o novo componente de comparação readonly
+Posicionar o botão de forma visível e intuitiva
+Funcionalidades do componente readonly:
+
+Exibir todos os fornecedores que responderam à cotação
+Mostrar comparação lado a lado dos fornecedores
+Incluir tabela de comparação detalhada de itens
+Destacar o fornecedor vencedor (se houver)
+Modo somente visualização (sem possibilidade de alteração)
+Arquivos a serem modificados/criados:
+
+client/src/components/supplier-comparison-readonly.tsx (novo arquivo)
+client/src/components/approval-a2-phase.tsx (modificação)
+API necessária:
+
+Reutilizar endpoint existente: /api/quotations/${quotationId}/supplier-comparison
+Endpoint já está implementado no backend
+Esforço estimado:
+
+Baixo a médio (2-4 horas)
+Reutilização de código existente
+Apenas adaptação para modo readonly
+Integração simples com componente existente
+Resultado esperado:
+O Aprovador A2 poderá visualizar a comparação completa dos fornecedores através de um botão na tela de aprovação, facilitando a tomada de decisão baseada na análise comparativa que foi feita na fase de cotação.
