@@ -881,9 +881,46 @@ export class DatabaseStorage implements IStorage {
       await db.delete(supplierQuotationItems);
       console.log("✅ Supplier quotation items deletados");
 
-      // 6. Delete attachments BEFORE deleting supplier quotations (FK constraint)
+      // 6. Delete attachments (all types)
       await db.delete(attachments);
       console.log("✅ Attachments deletados");
+
+      // 7. Delete supplier quotations
+      await db.delete(supplierQuotations);
+      console.log("✅ Supplier quotations deletados");
+
+      // 8. Delete quotation items
+      await db.delete(quotationItems);
+      console.log("✅ Quotation items deletados");
+
+      // 9. Delete quotations
+      await db.delete(quotations);
+      console.log("✅ Quotations deletados");
+
+      // 10. Delete approval history
+      await db.delete(approvalHistory);
+      console.log("✅ Approval history deletado");
+
+      // 11. Delete purchase request suppliers
+      await db.delete(purchaseRequestSuppliers);
+      console.log("✅ Purchase request suppliers deletados");
+
+      // 12. Delete purchase request items
+      await db.delete(purchaseRequestItems);
+      console.log("✅ Purchase request items deletados");
+
+      // 13. Finally, delete purchase requests
+      await db.delete(purchaseRequests);
+      console.log("✅ Purchase requests deletados");
+
+      console.log("🎉 Limpeza concluída com sucesso!");
+      console.log("📋 Dados mantidos: usuários, departamentos, centros de custo, fornecedores, métodos de pagamento e locais de entrega");
+
+    } catch (error) {
+      console.error("❌ Erro durante a limpeza:", error);
+      throw error;
+    }
+  } Attachments deletados");
 
       // 7. Delete supplier quotations
       await db.delete(supplierQuotations);
@@ -925,6 +962,74 @@ export class DatabaseStorage implements IStorage {
   async generatePasswordResetToken(email: string): Promise<string | null> {
     try {
       const user = await this.getUserByEmail(email);
+      if (!user) {
+        return null;
+      }
+
+      // Generate a secure random token
+      const token = Math.random().toString(36).substr(2, 15) + Math.random().toString(36).substr(2, 15);
+      
+      // Set expiration to 1 hour from now
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 1);
+
+      // Update user with reset token and expiration
+      await db.update(users)
+        .set({
+          passwordResetToken: token,
+          passwordResetExpires: expiresAt
+        })
+        .where(eq(users.id, user.id));
+
+      return token;
+    } catch (error) {
+      console.error("Error generating password reset token:", error);
+      return null;
+    }
+  }
+
+  async validatePasswordResetToken(token: string): Promise<User | null> {
+    try {
+      const user = await db.select()
+        .from(users)
+        .where(
+          and(
+            eq(users.passwordResetToken, token),
+            gt(users.passwordResetExpires, new Date())
+          )
+        )
+        .limit(1);
+
+      return user[0] || null;
+    } catch (error) {
+      console.error("Error validating password reset token:", error);
+      return null;
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+    try {
+      const user = await this.validatePasswordResetToken(token);
+      if (!user) {
+        return false;
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      await db.update(users)
+        .set({
+          password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpires: null
+        })
+        .where(eq(users.id, user.id));
+
+      return true;
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      return false;
+    }
+  });
       if (!user) {
         return null;
       }

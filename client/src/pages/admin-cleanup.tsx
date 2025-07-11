@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -127,6 +126,7 @@ export default function AdminCleanupPage() {
                 "Centros de custo",
                 "Fornecedores",
                 "Métodos de pagamento",
+                "Locais de entrega",
                 "Configurações do sistema"
               ].map((item, index) => (
                 <li key={index} className="flex items-center gap-2 text-sm">
