@@ -36,14 +36,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   const queryClient = useQueryClient();
   const [isPendencyModalOpen, setIsPendencyModalOpen] = useState(false);
 
-  // Debug temporário - verificar campos da request
-  console.log('Receipt Phase - Request data:', {
-    id: request.id,
-    purchaseOrderObservations: request.purchaseOrderObservations,
-    purchaseObservations: request.purchaseObservations,
-    observations: request.observations,
-    allObservationFields: Object.keys(request).filter(key => key.toLowerCase().includes('observ'))
-  });
+  
 
   // Fetch request items
   const { data: items = [] } = useQuery({
@@ -366,24 +359,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         </Card>
       )}
 
-      {/* Debug - Temporário para verificar campos disponíveis */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="text-red-600 text-sm">Debug - Campos da Request</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-xs text-red-600 overflow-auto">
-              {JSON.stringify({
-                purchaseOrderObservations: request.purchaseOrderObservations,
-                purchaseObservations: request.purchaseObservations,
-                observations: request.observations,
-                allKeys: Object.keys(request).filter(key => key.toLowerCase().includes('observ'))
-              }, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
+      
 
       {/* Items Table */}
       <Card>
