@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { X, Check, Package, User, Building, Calendar, DollarSign } from "lucide-react";
+import { X, Check, Package, User, Building, Calendar, DollarSign, FileText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
@@ -334,6 +334,25 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                 <p className="text-sm text-green-700 mt-1">{selectedSupplierQuotation.choiceReason}</p>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Purchase Order Observations */}
+      {request.purchaseOrderObservations && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              Observações do Pedido de Compra
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 whitespace-pre-wrap">
+                {request.purchaseOrderObservations}
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}

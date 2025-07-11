@@ -122,6 +122,8 @@ Key entities include:
   - ✓ Corrigido problema de persistência do campo "Observações do Pedido de Compra"
   - ✓ Adicionada rota PATCH para atualizações parciais de purchase requests
   - ✓ Implementado useEffect para recarregar dados do formulário após salvamento bem-sucedido
+  - ✓ Observações do Pedido de Compra agora aparecem na fase de Recebimento de Material
+  - ✓ Seção dedicada com destaque visual azul para observações na tela de recebimento
 - July 11, 2025. Correção crítica do sistema de upload de arquivos para fornecedores implementada com sucesso:
   - ✓ Corrigido problema crítico no endpoint /api/quotations/:id/upload-supplier-file que retornava "Nenhum arquivo foi enviado"
   - ✓ Corrigida função apiRequest no queryClient para lidar corretamente com FormData (não definir Content-Type)
