@@ -1879,8 +1879,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotationId = parseInt(req.params.quotationId);
       const { attachmentType, supplierId } = req.body;
       
+      console.log("Upload request received:", {
+        quotationId,
+        attachmentType,
+        supplierId,
+        hasFile: !!req.file,
+        fileName: req.file?.originalname,
+        fileSize: req.file?.size
+      });
+      
       if (!req.file) {
+        console.error("No file received in upload request");
         return res.status(400).json({ message: "Nenhum arquivo foi enviado" });
+      }
+      
+      if (!supplierId) {
+        console.error("No supplierId provided in upload request");
+        return res.status(400).json({ message: "ID do fornecedor é obrigatório" });
       }
       
       // Find supplier quotation
@@ -1888,22 +1903,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const supplierQuotation = supplierQuotations.find(sq => sq.supplierId === parseInt(supplierId));
       
       if (!supplierQuotation) {
+        console.error("Supplier quotation not found:", { quotationId, supplierId });
         return res.status(404).json({ message: "Cotação do fornecedor não encontrada" });
       }
 
+      console.log("Creating attachment for supplier quotation:", supplierQuotation.id);
+      
       // Add attachment to database
       const attachment = await storage.createAttachment({
         supplierQuotationId: supplierQuotation.id,
-        fileName: req.file.filename,
+        fileName: req.file.originalname,
         filePath: `/uploads/supplier_quotations/${req.file.filename}`,
         fileType: req.file.mimetype,
         fileSize: req.file.size,
         attachmentType: attachmentType || "supplier_proposal"
       });
 
+      console.log("Attachment created successfully:", attachment.id);
+
       res.json({ 
         message: "Arquivo enviado com sucesso",
-        fileName: req.file.filename,
+        fileName: req.file.originalname,
         attachmentId: attachment.id
       });
     } catch (error) {

@@ -110,6 +110,14 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 11, 2025. Correção crítica do sistema de upload de arquivos para fornecedores implementada com sucesso:
+  - ✓ Corrigido problema crítico no endpoint /api/quotations/:id/upload-supplier-file que retornava "Nenhum arquivo foi enviado"
+  - ✓ Corrigida função apiRequest no queryClient para lidar corretamente com FormData (não definir Content-Type)
+  - ✓ Adicionados logs detalhados no backend para debug de uploads
+  - ✓ Implementada validação robusta de arquivos no frontend (tipo e tamanho)
+  - ✓ Melhorado tratamento de erros com mensagens específicas para o usuário
+  - ✓ Garantida validação de limite de 10MB e tipos de arquivo permitidos
+  - ✓ Sistema de upload de arquivos de cotação agora funciona corretamente
 - July 11, 2025. Migração completa do Replit Agent para Replit e correção crítica do sistema de PDF do Pedido de Compra:
   - ✓ Migração bem-sucedida do projeto para ambiente Replit com todas as funcionalidades preservadas
   - ✓ Corrigido campo "Solicitante" no PDF - agora exibe nome completo do solicitante da requisição

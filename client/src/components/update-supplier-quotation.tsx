@@ -332,29 +332,88 @@ export default function UpdateSupplierQuotation({
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
+        
+        // Validate file before upload
+        if (!validateFile(file)) {
+          throw new Error(`Arquivo ${file.name} não é válido`);
+        }
+
+        console.log("Uploading file:", {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          supplierId,
+          quotationId
+        });
+
         const formData = new FormData();
         formData.append("file", file);
         formData.append("attachmentType", "supplier_proposal");
         formData.append("supplierId", supplierId.toString());
 
-        await apiRequest(
+        const response = await apiRequest(
           "POST",
           `/api/quotations/${quotationId}/upload-supplier-file`,
           formData,
         );
 
+        console.log("Upload response:", response);
         setUploadProgress(((i + 1) / selectedFiles.length) * 100);
       }
-    } catch (error) {
+
+      toast({
+        title: "Sucesso",
+        description: `${selectedFiles.length} arquivo(s) enviado(s) com sucesso!`,
+      });
+    } catch (error: any) {
+      console.error("Upload error:", error);
       toast({
         title: "Erro no upload",
-        description: "Alguns arquivos não puderam ser enviados.",
+        description: error?.message || "Alguns arquivos não puderam ser enviados.",
         variant: "destructive",
       });
+      throw error; // Re-throw to be caught by the calling function
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
     }
+  };
+
+  const validateFile = (file: File): boolean => {
+    // Check file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast({
+        title: "Arquivo muito grande",
+        description: `O arquivo ${file.name} excede o limite de 10MB.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Check file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'image/png',
+      'image/jpeg',
+      'image/jpg'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Tipo de arquivo não suportado",
+        description: `O arquivo ${file.name} não é um tipo suportado. Apenas PDF, DOC, DOCX, XLS, XLSX, TXT, PNG, JPG são permitidos.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
