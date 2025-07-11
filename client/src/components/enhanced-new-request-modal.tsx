@@ -95,7 +95,7 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
         items: itemsMethod === 'manual' ? manualItems : undefined,
         attachedFile: uploadedFile,
       };
-      const response = await apiRequest("POST", "/api/purchase-requests", requestData);
+      const response = await apiRequest("/api/purchase-requests", { method: "POST", body: requestData });
       return response.json();
     },
     onMutate: async (data) => {

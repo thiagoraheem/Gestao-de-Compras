@@ -111,11 +111,13 @@ export default function PurchaseCard({
       rejectionReason?: string;
     }) => {
       const response = await apiRequest(
-        "POST",
         `/api/purchase-requests/${request.id}/approve-a1`,
         {
-          ...data,
-          approverId: user?.id || 1,
+          method: "POST",
+          body: {
+            ...data,
+            approverId: user?.id || 1,
+          },
         },
       );
       return response;
@@ -152,11 +154,13 @@ export default function PurchaseCard({
       rejectionReason?: string;
     }) => {
       const response = await apiRequest(
-        "POST",
         `/api/purchase-requests/${request.id}/approve-a2`,
         {
-          ...data,
-          approverId: user?.id || 1,
+          method: "POST",
+          body: {
+            ...data,
+            approverId: user?.id || 1,
+          },
         },
       );
       return response;
@@ -196,7 +200,7 @@ export default function PurchaseCard({
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("DELETE", `/api/purchase-requests/${request.id}`);
+      await apiRequest(`/api/purchase-requests/${request.id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       // Comprehensive cache invalidation
@@ -224,8 +228,8 @@ export default function PurchaseCard({
   const archiveMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest(
-        "POST",
         `/api/purchase-requests/${request.id}/archive`,
+        { method: "POST" },
       );
       return response;
     },
@@ -255,8 +259,8 @@ export default function PurchaseCard({
   const archiveDirectMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest(
-        "POST",
         `/api/purchase-requests/${request.id}/archive-direct`,
+        { method: "POST" },
       );
       return response;
     },
@@ -279,8 +283,8 @@ export default function PurchaseCard({
   const sendToApprovalMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest(
-        "POST",
         `/api/purchase-requests/${request.id}/send-to-approval`,
+        { method: "POST" },
       );
       return response;
     },
@@ -303,10 +307,12 @@ export default function PurchaseCard({
   const confirmReceiptMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest(
-        "POST",
         `/api/purchase-requests/${request.id}/confirm-receipt`,
         {
-          receivedById: user?.id,
+          method: "POST",
+          body: {
+            receivedById: user?.id,
+          },
         },
       );
       return response;
@@ -330,10 +336,12 @@ export default function PurchaseCard({
   const reportIssueMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest(
-        "POST",
         `/api/purchase-requests/${request.id}/report-issue`,
         {
-          reportedById: user?.id,
+          method: "POST",
+          body: {
+            reportedById: user?.id,
+          },
         },
       );
       return response;
@@ -359,8 +367,8 @@ export default function PurchaseCard({
   const advanceToReceiptMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest(
-        "POST",
         `/api/purchase-requests/${request.id}/advance-to-receipt`,
+        { method: "POST" },
       );
       return response;
     },
@@ -407,7 +415,6 @@ export default function PurchaseCard({
         });
 
         const quotation = await apiRequest(
-          "GET",
           `/api/quotations/purchase-request/${request.id}`,
         );
 
@@ -424,7 +431,6 @@ export default function PurchaseCard({
         // If quotation exists, try to get supplier quotations
         try {
           const supplierQuotations = await apiRequest(
-            "GET",
             `/api/quotations/${quotation.id}/supplier-quotations`,
           );
 
