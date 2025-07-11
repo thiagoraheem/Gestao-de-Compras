@@ -110,6 +110,16 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 11, 2025. Migração completa do Replit Agent para Replit e correção crítica do sistema de PDF do Pedido de Compra:
+  - ✓ Migração bem-sucedida do projeto para ambiente Replit com todas as funcionalidades preservadas
+  - ✓ Corrigido campo "Solicitante" no PDF - agora exibe nome completo do solicitante da requisição
+  - ✓ Corrigido campo "Prazo de Entrega" para usar prazo negociado com fornecedor selecionado
+  - ✓ Confirmada busca correta das "Condições de Pagamento" da cotação do fornecedor
+  - ✓ Removidas colunas desnecessárias "DESCONTO" e "VALOR FINAL" da tabela do PDF
+  - ✓ Adicionada coluna "MARCA" para melhor identificação dos itens
+  - ✓ Layout do PDF limpo e profissional com todas as informações corretas
+  - ✓ Aplicação funcionando corretamente na porta 5000 com PostgreSQL
+  - ✓ Sistema de autenticação e APIs respondendo adequadamente
 - July 11, 2025. Correção crítica do sistema de upload de arquivos na cotação de fornecedores e PDF do Pedido de Compra:
   - ✓ Migração completa do projeto para ambiente Replit sem erros
   - ✓ Corrigido warning do React Fragment que gerava logs de erro no console

@@ -668,7 +668,7 @@ export class PDFService {
           <span class="info-label">SOLICITAÇÃO:</span> ${purchaseRequest.requestNumber}
         </div>
         <div class="info-item">
-          <span class="info-label">SOLICITANTE:</span> ${purchaseRequest.requesterName || 'Não informado'}
+          <span class="info-label">SOLICITANTE:</span> ${purchaseRequest.requesterName || (purchaseRequest.requester ? `${purchaseRequest.requester.firstName || ''} ${purchaseRequest.requester.lastName || ''}`.trim() : 'Não informado')}
         </div>
         <div class="info-item">
           <span class="info-label">DEPARTAMENTO:</span> ${purchaseRequest.departmentName || 'Não informado'}
@@ -679,7 +679,7 @@ export class PDFService {
           <span class="info-label">DATA PEDIDO:</span> ${new Date().toLocaleDateString('pt-BR')}
         </div>
         <div class="info-item">
-          <span class="info-label">PRAZO ENTREGA:</span> ${formatBrazilianDate(purchaseRequest.idealDeliveryDate)}
+          <span class="info-label">PRAZO ENTREGA:</span> ${selectedSupplierQuotation?.deliveryDate ? formatBrazilianDate(selectedSupplierQuotation.deliveryDate) : (selectedSupplierQuotation?.deliveryTerms || formatBrazilianDate(purchaseRequest.idealDeliveryDate))}
         </div>
         <div class="info-item">
           <span class="info-label">COND. PAGAMENTO:</span> ${selectedSupplierQuotation?.paymentTerms || supplier?.paymentTerms || 'A definir'}
@@ -695,10 +695,9 @@ export class PDFService {
           <th class="text-center">QUANT.</th>
           <th class="text-center">UND</th>
           <th>ITEM</th>
+          <th class="text-center">MARCA</th>
           <th class="text-center">VL. UNITÁRIO</th>
           <th class="text-center">VL. TOTAL</th>
-          <th class="text-center">DESCONTO</th>
-          <th class="text-center">VALOR FINAL</th>
           <th>OBSERVAÇÃO</th>
         </tr>
       </thead>
@@ -708,9 +707,8 @@ export class PDFService {
             <td class="text-center">${item.requestedQuantity}</td>
             <td class="text-center">${item.unit || 'UND'}</td>
             <td>${item.itemCode || ''} ${item.itemCode ? '-' : ''} ${item.description}</td>
+            <td class="text-center">${item.brand || 'Não informado'}</td>
             <td class="text-right">R$ ${typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}</td>
-            <td class="text-right">R$ ${typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}</td>
-            <td class="text-right">R$ 0,00</td>
             <td class="text-right">R$ ${typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}</td>
             <td>${item.specifications || ''}</td>
           </tr>
@@ -722,8 +720,7 @@ export class PDFService {
             <td class="text-center">&nbsp;</td>
             <td class="text-center">&nbsp;</td>
             <td>&nbsp;</td>
-            <td class="text-right">&nbsp;</td>
-            <td class="text-right">&nbsp;</td>
+            <td class="text-center">&nbsp;</td>
             <td class="text-right">&nbsp;</td>
             <td class="text-right">&nbsp;</td>
             <td>&nbsp;</td>
@@ -731,10 +728,8 @@ export class PDFService {
         `).join('')}
         
         <tr class="total-row">
-          <td colspan="4" class="text-right"><strong>TOTAL GERAL:</strong></td>
+          <td colspan="5" class="text-right"><strong>TOTAL GERAL:</strong></td>
           <td class="text-right"><strong>R$ ${subtotal.toFixed(2).replace('.', ',')}</strong></td>
-          <td class="text-right"><strong>R$ ${desconto.toFixed(2).replace('.', ',')}</strong></td>
-          <td class="text-right"><strong>R$ ${valorFinal.toFixed(2).replace('.', ',')}</strong></td>
           <td>&nbsp;</td>
         </tr>
       </tbody>
@@ -763,7 +758,7 @@ export class PDFService {
   <div class="signature-section">
     <div class="signature-box">
       <div>Solicitante</div>
-      <div style="font-size: 10px; margin-top: 5px;">${purchaseRequest.requesterName || ''}</div>
+      <div style="font-size: 10px; margin-top: 5px;">${purchaseRequest.requesterName || (purchaseRequest.requester ? `${purchaseRequest.requester.firstName || ''} ${purchaseRequest.requester.lastName || ''}`.trim() : '')}</div>
     </div>
     <div class="signature-box">
       <div>Aprovação A1</div>
