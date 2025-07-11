@@ -73,6 +73,9 @@ export const suppliers = pgTable("suppliers", {
   cnpj: text("cnpj"),
   contact: text("contact"),
   email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  paymentTerms: text("payment_terms"),
   productsServices: text("products_services"),
   createdAt: timestamp("created_at").defaultNow(),
 });
