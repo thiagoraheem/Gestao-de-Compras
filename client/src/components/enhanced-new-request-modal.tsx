@@ -17,7 +17,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { URGENCY_LEVELS, CATEGORY_OPTIONS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Edit3 } from "lucide-react";
 import FileUpload from "./file-upload";
 
 const requestSchema = z.object({
