@@ -16,7 +16,8 @@ import {
   X,
   Building2,
   FileText,
-  Clock
+  Clock,
+  UserPlus
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
+import SupplierCreationModal from "./supplier-creation-modal";
 
 const quotationItemSchema = z.object({
   itemCode: z.string().optional(),
@@ -66,6 +68,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [showSupplierCreationModal, setShowSupplierCreationModal] = useState(false);
 
   const { data: suppliers = [] } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
@@ -352,19 +355,20 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {existingQuotation ? 'Editar' : 'Criar'} Solicitação de Cotação (RFQ)
-            </h2>
-            <p className="text-gray-600 mt-1">Solicitação: {purchaseRequest.requestNumber}</p>
+    <>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {existingQuotation ? 'Editar' : 'Criar'} Solicitação de Cotação (RFQ)
+              </h2>
+              <p className="text-gray-600 mt-1">Solicitação: {purchaseRequest.requestNumber}</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-5 w-5" />
+            </Button>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-6">
@@ -641,9 +645,21 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
             {/* Supplier Selection */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  Seleção de Fornecedores
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Seleção de Fornecedores
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowSupplierCreationModal(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Novo Fornecedor
+                  </Button>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -716,5 +732,24 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         </Form>
       </div>
     </div>
+    
+    {/* Supplier Creation Modal */}
+    <SupplierCreationModal
+      isOpen={showSupplierCreationModal}
+      onClose={() => setShowSupplierCreationModal(false)}
+      onSuccess={(newSupplier) => {
+        // Invalidate and refetch suppliers to ensure the list is updated
+        queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
+        
+        // Automatically select the newly created supplier
+        const currentSelected = form.getValues("selectedSuppliers");
+        form.setValue("selectedSuppliers", [...currentSelected, newSupplier.id]);
+        toast({
+          title: "Fornecedor criado",
+          description: `${newSupplier.name} foi criado e selecionado automaticamente para cotação.`,
+        });
+      }}
+    />
+    </>
   );
 }
