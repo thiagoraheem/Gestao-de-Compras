@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { URGENCY_LEVELS, CATEGORY_OPTIONS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import { CloudUpload, Plus, X, FileSpreadsheet, Edit3 } from "lucide-react";
+import FileUpload from "./file-upload";
 
 const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
@@ -539,6 +540,7 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
               </CardContent>
             </Card>
 
+            {/* Seção de anexos será adicionada após criar solicitação */}
             {/* Botões */}
             <div className="flex justify-end space-x-3">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

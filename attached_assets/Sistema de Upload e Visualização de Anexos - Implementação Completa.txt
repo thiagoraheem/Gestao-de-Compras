@@ -1,0 +1,58 @@
+SISTEMA DE UPLOAD E VISUALIZAÇÃO DE ANEXOS - IMPLEMENTAÇÃO COMPLETA
+
+CONTEXTO:
+Tenho um sistema de gerenciamento de compras onde preciso implementar upload e visualização de anexos para as solicitações de compra.
+
+IMPLEMENTAÇÃO REALIZADA:
+
+1. CONFIGURAÇÃO DO MULTER (server/routes.ts):
+   - Configuração de armazenamento com multer.diskStorage
+   - Validação de tipos de arquivo (PDF, DOC, DOCX, JPG, PNG, XLS, XLSX)
+   - Limite de tamanho de 10MB por arquivo
+   - Diretório organizado por ID da solicitação: uploads/purchase-requests/[id]
+   - Geração de nomes únicos com timestamp
+
+2. ROTAS DE API IMPLEMENTADAS:
+   - GET /api/purchase-requests/:id/attachments - Listar anexos
+   - POST /api/purchase-requests/:id/attachments - Upload de anexos
+   - GET /api/attachments/:id/download - Download de arquivos
+
+3. COMPONENTE FileUpload (client/src/components/file-upload.tsx):
+   - Interface drag-and-drop para upload
+   - Validação de tipos e tamanhos de arquivo
+   - Progresso de upload visual
+   - Suporte a múltiplos arquivos (até 10)
+   - Feedback visual com ícones por tipo de arquivo
+
+4. COMPONENTE AttachmentsViewer (client/src/components/attachments-viewer.tsx):
+   - Listagem de anexos com metadados
+   - Visualização de arquivos em modal
+   - Download de arquivos
+   - Ícones diferenciados por tipo
+
+5. INTEGRAÇÃO NAS TELAS:
+   - Modal de nova solicitação preparado para anexos
+   - Telas de aprovação A1 e A2 com visualização de anexos
+   - Modo readonly para aprovadores
+
+6. BANCO DE DADOS:
+   - Tabela attachments já existente com campos adequados
+   - Relacionamento com purchase_requests
+   - Campos: fileName, filePath, fileType, fileSize, attachmentType
+
+FUNCIONALIDADES IMPLEMENTADAS:
+✅ Upload de múltiplos arquivos
+✅ Validação de tipos e tamanhos
+✅ Armazenamento seguro com nomes únicos
+✅ Download de arquivos
+✅ Visualização em telas de aprovação
+✅ Interface responsiva e intuitiva
+✅ Feedback visual e mensagens de erro
+✅ Segurança com autenticação obrigatória
+
+PRÓXIMOS PASSOS SUGERIDOS:
+- Adicionar preview de imagens no viewer
+- Implementar exclusão de anexos
+- Adicionar anexos nas fases de cotação
+- Compressão de arquivos grandes
+- Logs de acesso aos arquivos

@@ -125,9 +125,9 @@ export default function AttachmentsViewer({
                       >
                         {(attachment.fileName || attachment.name || '').split('.').pop()?.toUpperCase() || 'FILE'}
                       </Badge>
-                      {attachment.size && (
+                      {(attachment.size || attachment.fileSize) && (
                         <span className="text-xs text-muted-foreground">
-                          {formatFileSize(attachment.size)}
+                          {formatFileSize(attachment.size || attachment.fileSize)}
                         </span>
                       )}
                     </div>
@@ -147,8 +147,15 @@ export default function AttachmentsViewer({
                     size="sm"
                     onClick={() => {
                       // Handle download
-                      if (attachment.url) {
-                        window.open(attachment.url, '_blank');
+                      if (attachment.url || attachment.downloadUrl) {
+                        const downloadUrl = attachment.url || attachment.downloadUrl;
+                        // Create a temporary link to trigger download
+                        const link = document.createElement('a');
+                        link.href = downloadUrl;
+                        link.download = attachment.fileName || attachment.name || 'download';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
                       }
                     }}
                     title="Baixar"
@@ -223,8 +230,15 @@ export default function AttachmentsViewer({
                 </Button>
                 <Button
                   onClick={() => {
-                    if (selectedAttachment.url) {
-                      window.open(selectedAttachment.url, '_blank');
+                    if (selectedAttachment.url || selectedAttachment.downloadUrl) {
+                      const downloadUrl = selectedAttachment.url || selectedAttachment.downloadUrl;
+                      // Create a temporary link to trigger download
+                      const link = document.createElement('a');
+                      link.href = downloadUrl;
+                      link.download = selectedAttachment.fileName || selectedAttachment.name || 'download';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
                     }
                   }}
                 >

@@ -40,6 +40,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import ApprovalItemsViewer from "./approval-items-viewer";
+import AttachmentsViewer from "./attachments-viewer";
 
 const approvalSchema = z
   .object({
@@ -490,38 +491,12 @@ export default function ApprovalA1Phase({
         />
 
         {/* Attachments */}
-        {attachments && attachments.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Anexos ({attachments.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {attachments.map((attachment: any, index: number) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 p-3 border rounded-lg"
-                  >
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {attachment.fileName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {attachment.fileSize
-                          ? `${(attachment.fileSize / 1024 / 1024).toFixed(2)} MB`
-                          : "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <AttachmentsViewer 
+          attachments={attachments || []}
+          requestId={request.id}
+          requestNumber={request.requestNumber}
+          readonly={true}
+        />
 
         {/* Approval History */}
         {approvalHistory && approvalHistory.length > 0 && (
