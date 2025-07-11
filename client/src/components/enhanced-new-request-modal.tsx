@@ -3,20 +3,49 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateInput } from "@/components/ui/date-input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { URGENCY_LEVELS, CATEGORY_OPTIONS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
+import {
+  URGENCY_LEVELS,
+  CATEGORY_OPTIONS,
+  URGENCY_LABELS,
+  CATEGORY_LABELS,
+} from "@/lib/types";
 import { Plus, X, Edit3 } from "lucide-react";
 import FileUpload from "./file-upload";
 
@@ -24,7 +53,9 @@ const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
   category: z.string().min(1, "Categoria é obrigatória"),
   urgency: z.string().min(1, "Urgência é obrigatória"),
-  justification: z.string().min(10, "Justificativa deve ter pelo menos 10 caracteres"),
+  justification: z
+    .string()
+    .min(10, "Justificativa deve ter pelo menos 10 caracteres"),
   idealDeliveryDate: z.string().optional(),
   availableBudget: z.string().optional(),
   additionalInfo: z.string().optional(),
@@ -46,18 +77,22 @@ interface EnhancedNewRequestModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export default function EnhancedNewRequestModal({ open, onOpenChange }: EnhancedNewRequestModalProps) {
+export default function EnhancedNewRequestModal({
+  open,
+  onOpenChange,
+}: EnhancedNewRequestModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [itemsMethod, setItemsMethod] = useState<'manual' | 'upload'>('manual');
+  const [itemsMethod, setItemsMethod] = useState<"manual" | "upload">("manual");
   const [manualItems, setManualItems] = useState<Item[]>([]);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   // Get user's cost center IDs
   const { data: userCostCenterIds } = useQuery<number[]>({
     queryKey: ["/api/users", user?.id, "cost-centers"],
-    queryFn: () => fetch(`/api/users/${user?.id}/cost-centers`).then(res => res.json()),
+    queryFn: () =>
+      fetch(`/api/users/${user?.id}/cost-centers`).then((res) => res.json()),
     enabled: !!user?.id,
   });
 
@@ -67,9 +102,10 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
   });
 
   // Filter cost centers based on user's assigned cost centers
-  const costCenters = allCostCenters?.filter(center => 
-    userCostCenterIds?.includes(center.id)
-  ) || [];
+  const costCenters =
+    allCostCenters?.filter((center) =>
+      userCostCenterIds?.includes(center.id),
+    ) || [];
 
   const form = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema),
@@ -90,12 +126,17 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
         ...data,
         requesterId: user?.id || 1,
         costCenterId: Number(data.costCenterId),
-        availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : undefined,
+        availableBudget: data.availableBudget
+          ? parseFloat(data.availableBudget)
+          : undefined,
         idealDeliveryDate: data.idealDeliveryDate || undefined,
-        items: itemsMethod === 'manual' ? manualItems : undefined,
+        items: itemsMethod === "manual" ? manualItems : undefined,
         attachedFile: uploadedFile,
       };
-      const response = await apiRequest("/api/purchase-requests", { method: "POST", body: requestData });
+      const response = await apiRequest("/api/purchase-requests", {
+        method: "POST",
+        body: requestData,
+      });
       return response.json();
     },
     onMutate: async (data) => {
@@ -103,12 +144,16 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
       await queryClient.cancelQueries({ queryKey: ["/api/purchase-requests"] });
 
       // Snapshot the previous value
-      const previousRequests = queryClient.getQueryData(["/api/purchase-requests"]);
+      const previousRequests = queryClient.getQueryData([
+        "/api/purchase-requests",
+      ]);
 
       // Optimistically add new request
       queryClient.setQueryData(["/api/purchase-requests"], (old: any[]) => {
         if (!Array.isArray(old)) return old;
-        const costCenter = costCenters.find(cc => cc.id === Number(data.costCenterId));
+        const costCenter = costCenters.find(
+          (cc) => cc.id === Number(data.costCenterId),
+        );
         const optimisticRequest = {
           id: Date.now(), // Temporary ID
           requestNumber: `SOL-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
@@ -122,11 +167,11 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
           requesterId: user?.id || 1,
           requester: {
             firstName: user?.firstName || "Usuário",
-            lastName: user?.lastName || "Atual"
+            lastName: user?.lastName || "Atual",
           },
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          items: itemsMethod === 'manual' ? manualItems : []
+          items: itemsMethod === "manual" ? manualItems : [],
         };
         return [optimisticRequest, ...old];
       });
@@ -136,7 +181,10 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
     onError: (err, variables, context) => {
       // Roll back on error
       if (context?.previousRequests) {
-        queryClient.setQueryData(["/api/purchase-requests"], context.previousRequests);
+        queryClient.setQueryData(
+          ["/api/purchase-requests"],
+          context.previousRequests,
+        );
       }
 
       toast({
@@ -153,9 +201,9 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
 
       // Force immediate refetch for real data
-      queryClient.refetchQueries({ 
+      queryClient.refetchQueries({
         queryKey: ["/api/purchase-requests"],
-        type: 'active'
+        type: "active",
       });
 
       toast({
@@ -182,37 +230,20 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
   };
 
   const removeManualItem = (id: string) => {
-    setManualItems(manualItems.filter(item => item.id !== id));
+    setManualItems(manualItems.filter((item) => item.id !== id));
   };
 
   const updateManualItem = (id: string, field: keyof Item, value: any) => {
-    setManualItems(manualItems.map(item => 
-      item.id === id ? { ...item, [field]: value } : item
-    ));
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        setUploadedFile(file);
-        toast({
-          title: "Arquivo anexado",
-          description: `Planilha ${file.name} anexada com sucesso!`,
-        });
-      } else {
-        toast({
-          title: "Formato inválido",
-          description: "Por favor, selecione um arquivo Excel (.xlsx ou .xls)",
-          variant: "destructive",
-        });
-      }
-    }
+    setManualItems(
+      manualItems.map((item) =>
+        item.id === id ? { ...item, [field]: value } : item,
+      ),
+    );
   };
 
   const onSubmit = (data: RequestFormData) => {
     // Validação: deve ter itens manuais OU arquivo anexado
-    if (itemsMethod === 'manual' && manualItems.length === 0) {
+    if (itemsMethod === "manual" && manualItems.length === 0) {
       toast({
         title: "Itens obrigatórios",
         description: "Adicione pelo menos um item à solicitação",
@@ -221,7 +252,7 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
       return;
     }
 
-    if (itemsMethod === 'upload' && !uploadedFile) {
+    if (itemsMethod === "upload" && !uploadedFile) {
       toast({
         title: "Arquivo obrigatório",
         description: "Anexe uma planilha com os itens da solicitação",
@@ -235,7 +266,10 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="new-request-description">
+      <DialogContent
+        className="sm:max-w-4xl max-h-[90vh] overflow-y-auto"
+        aria-describedby="new-request-description"
+      >
         <DialogHeader>
           <DialogTitle>Nova Solicitação de Compra</DialogTitle>
         </DialogHeader>
@@ -267,11 +301,15 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {costCenters && (costCenters as any[]).map((center: any) => (
-                                <SelectItem key={center.id} value={center.id.toString()}>
-                                  {center.code} - {center.name}
-                                </SelectItem>
-                              ))}
+                              {costCenters &&
+                                (costCenters as any[]).map((center: any) => (
+                                  <SelectItem
+                                    key={center.id}
+                                    value={center.id.toString()}
+                                  >
+                                    {center.code} - {center.name}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                         </FormControl>
@@ -287,16 +325,21 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                       <FormItem>
                         <FormLabel>Categoria de Compra *</FormLabel>
                         <FormControl>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {Object.entries(CATEGORY_OPTIONS).map(([key, value]) => (
-                                <SelectItem key={value} value={value}>
-                                  {CATEGORY_LABELS[value]}
-                                </SelectItem>
-                              ))}
+                              {Object.entries(CATEGORY_OPTIONS).map(
+                                ([key, value]) => (
+                                  <SelectItem key={value} value={value}>
+                                    {CATEGORY_LABELS[value]}
+                                  </SelectItem>
+                                ),
+                              )}
                             </SelectContent>
                           </Select>
                         </FormControl>
@@ -314,16 +357,21 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                       <FormItem>
                         <FormLabel>Urgência *</FormLabel>
                         <FormControl>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {Object.entries(URGENCY_LEVELS).map(([key, value]) => (
-                                <SelectItem key={value} value={value}>
-                                  {URGENCY_LABELS[value]}
-                                </SelectItem>
-                              ))}
+                              {Object.entries(URGENCY_LEVELS).map(
+                                ([key, value]) => (
+                                  <SelectItem key={value} value={value}>
+                                    {URGENCY_LABELS[value]}
+                                  </SelectItem>
+                                ),
+                              )}
                             </SelectContent>
                           </Select>
                         </FormControl>
@@ -352,8 +400,6 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                   />
                 </div>
 
-
-
                 <FormField
                   control={form.control}
                   name="justification"
@@ -361,8 +407,8 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                     <FormItem>
                       <FormLabel>Justificativa *</FormLabel>
                       <FormControl>
-                        <Textarea 
-                          {...field} 
+                        <Textarea
+                          {...field}
                           rows={3}
                           placeholder="Descreva a necessidade e justificativa para esta compra..."
                         />
@@ -379,8 +425,8 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                     <FormItem>
                       <FormLabel>Informações Adicionais</FormLabel>
                       <FormControl>
-                        <Textarea 
-                          {...field} 
+                        <Textarea
+                          {...field}
                           rows={2}
                           placeholder="Informações complementares sobre a solicitação..."
                         />
@@ -396,14 +442,18 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Itens da Solicitação</CardTitle>
-                <CardDescription>
-                  Escolha como deseja adicionar os itens: cadastro manual ou upload de planilha
-                </CardDescription>
+                <CardDescription></CardDescription>
               </CardHeader>
               <CardContent>
-                <Tabs value={itemsMethod} onValueChange={(value) => setItemsMethod(value as 'manual' | 'upload')}>
+                <Tabs
+                  value={itemsMethod}
+                  onValueChange={(value) => setItemsMethod(value as "manual")}
+                >
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="manual" className="flex items-center gap-2">
+                    <TabsTrigger
+                      value="manual"
+                      className="flex items-center gap-2"
+                    >
                       <Edit3 className="w-4 h-4" />
                       Cadastro Manual
                     </TabsTrigger>
@@ -412,7 +462,12 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                   <TabsContent value="manual" className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium">Itens Cadastrados</h4>
-                      <Button type="button" onClick={addManualItem} variant="outline" size="sm">
+                      <Button
+                        type="button"
+                        onClick={addManualItem}
+                        variant="outline"
+                        size="sm"
+                      >
                         <Plus className="w-4 h-4 mr-2" />
                         Adicionar Item
                       </Button>
@@ -422,7 +477,9 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                       <div className="text-center py-8 text-gray-500">
                         <Edit3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                         <p>Nenhum item cadastrado ainda.</p>
-                        <p className="text-sm">Clique em "Adicionar Item" para começar.</p>
+                        <p className="text-sm">
+                          Clique em "Adicionar Item" para começar.
+                        </p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -430,18 +487,30 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                           <Card key={item.id} className="p-4">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                               <div>
-                                <label className="text-sm font-medium">Descrição</label>
+                                <label className="text-sm font-medium">
+                                  Descrição
+                                </label>
                                 <Input
                                   value={item.description}
-                                  onChange={(e) => updateManualItem(item.id, 'description', e.target.value)}
+                                  onChange={(e) =>
+                                    updateManualItem(
+                                      item.id,
+                                      "description",
+                                      e.target.value,
+                                    )
+                                  }
                                   placeholder="Descrição do item"
                                 />
                               </div>
                               <div>
-                                <label className="text-sm font-medium">Unidade</label>
-                                <Select 
-                                  value={item.unit} 
-                                  onValueChange={(value) => updateManualItem(item.id, 'unit', value)}
+                                <label className="text-sm font-medium">
+                                  Unidade
+                                </label>
+                                <Select
+                                  value={item.unit}
+                                  onValueChange={(value) =>
+                                    updateManualItem(item.id, "unit", value)
+                                  }
                                 >
                                   <SelectTrigger>
                                     <SelectValue />
@@ -456,18 +525,26 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                                 </Select>
                               </div>
                               <div>
-                                <label className="text-sm font-medium">Quantidade</label>
+                                <label className="text-sm font-medium">
+                                  Quantidade
+                                </label>
                                 <Input
                                   type="number"
                                   value={item.requestedQuantity}
-                                  onChange={(e) => updateManualItem(item.id, 'requestedQuantity', parseInt(e.target.value) || 0)}
+                                  onChange={(e) =>
+                                    updateManualItem(
+                                      item.id,
+                                      "requestedQuantity",
+                                      parseInt(e.target.value) || 0,
+                                    )
+                                  }
                                   min="1"
                                 />
                               </div>
                               <div className="flex items-end">
-                                <Button 
-                                  type="button" 
-                                  variant="outline" 
+                                <Button
+                                  type="button"
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => removeManualItem(item.id)}
                                 >
@@ -476,10 +553,18 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
                               </div>
                             </div>
                             <div>
-                              <label className="text-sm font-medium">Especificação Técnica</label>
+                              <label className="text-sm font-medium">
+                                Especificação Técnica
+                              </label>
                               <Textarea
-                                value={item.technicalSpecification || ''}
-                                onChange={(e) => updateManualItem(item.id, 'technicalSpecification', e.target.value)}
+                                value={item.technicalSpecification || ""}
+                                onChange={(e) =>
+                                  updateManualItem(
+                                    item.id,
+                                    "technicalSpecification",
+                                    e.target.value,
+                                  )
+                                }
                                 placeholder="Especificações técnicas detalhadas (marca, modelo, características, etc.)"
                                 rows={2}
                                 className="mt-1"
@@ -497,11 +582,17 @@ export default function EnhancedNewRequestModal({ open, onOpenChange }: Enhanced
             {/* Seção de anexos será adicionada após criar solicitação */}
             {/* Botões */}
             <div className="flex justify-end space-x-3">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancelar
               </Button>
               <Button type="submit" disabled={createRequestMutation.isPending}>
-                {createRequestMutation.isPending ? "Criando..." : "Criar Solicitação"}
+                {createRequestMutation.isPending
+                  ? "Criando..."
+                  : "Criar Solicitação"}
               </Button>
             </div>
           </form>
