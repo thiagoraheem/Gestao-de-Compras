@@ -215,6 +215,13 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
     }
   }, [existingSupplierQuotations, form]);
 
+  // Set delivery location to first available option when delivery locations are loaded
+  useEffect(() => {
+    if (deliveryLocations.length > 0 && form.getValues("deliveryLocationId") === 0) {
+      form.setValue("deliveryLocationId", deliveryLocations[0].id);
+    }
+  }, [deliveryLocations, form]);
+
   const createRFQMutation = useMutation({
     mutationFn: async (data: RFQCreationData & { sendEmail?: boolean }) => {
       // Create quotation
@@ -224,6 +231,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         body: JSON.stringify({
           purchaseRequestId: data.purchaseRequestId,
           quotationDeadline: data.quotationDeadline,
+          deliveryLocationId: data.deliveryLocationId,
           termsAndConditions: data.termsAndConditions,
           technicalSpecs: data.technicalSpecs,
         }),
