@@ -36,6 +36,15 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   const queryClient = useQueryClient();
   const [isPendencyModalOpen, setIsPendencyModalOpen] = useState(false);
 
+  // Debug temporário - verificar campos da request
+  console.log('Receipt Phase - Request data:', {
+    id: request.id,
+    purchaseOrderObservations: request.purchaseOrderObservations,
+    purchaseObservations: request.purchaseObservations,
+    observations: request.observations,
+    allObservationFields: Object.keys(request).filter(key => key.toLowerCase().includes('observ'))
+  });
+
   // Fetch request items
   const { data: items = [] } = useQuery({
     queryKey: [`/api/purchase-requests/${request.id}/items`],
@@ -339,7 +348,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
       )}
 
       {/* Purchase Order Observations */}
-      {request.purchaseOrderObservations && (
+      {(request.purchaseOrderObservations || request.purchaseObservations) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -350,9 +359,28 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
           <CardContent>
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800 whitespace-pre-wrap">
-                {request.purchaseOrderObservations}
+                {request.purchaseOrderObservations || request.purchaseObservations || 'Nenhuma observação encontrada'}
               </p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Debug - Temporário para verificar campos disponíveis */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-600 text-sm">Debug - Campos da Request</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="text-xs text-red-600 overflow-auto">
+              {JSON.stringify({
+                purchaseOrderObservations: request.purchaseOrderObservations,
+                purchaseObservations: request.purchaseObservations,
+                observations: request.observations,
+                allKeys: Object.keys(request).filter(key => key.toLowerCase().includes('observ'))
+              }, null, 2)}
+            </pre>
           </CardContent>
         </Card>
       )}
