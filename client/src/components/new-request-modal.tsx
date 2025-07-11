@@ -3,18 +3,41 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DateInput } from "@/components/ui/date-input";
-import { apiRequest } from "@/lib/queryClient";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import { URGENCY_LEVELS, CATEGORY_OPTIONS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
-import { CloudUpload } from "lucide-react";
 
 const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
@@ -85,10 +108,10 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
-      
+
       // Force immediate refetch for real-time feedback
       queryClient.refetchQueries({ queryKey: ["/api/purchase-requests"] });
-      
+
       toast({
         title: "Sucesso",
         description: "Solicitação criada com sucesso!",
@@ -118,7 +141,7 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
         <p id="new-request-description" className="sr-only">
           Formulário para criar uma nova solicitação de compra no sistema
         </p>
-        
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -149,7 +172,7 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="category"
@@ -201,7 +224,7 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="idealDeliveryDate"
@@ -220,23 +243,6 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
                   </FormItem>
                 )}
               />
-            </div>
-
-            <div>
-              <FormLabel>Upload de Planilha (Requisição de Compra) *</FormLabel>
-              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-primary transition-colors">
-                <div className="space-y-1 text-center">
-                  <CloudUpload className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="flex text-sm text-gray-600">
-                    <label className="relative cursor-pointer bg-white rounded-md font-medium text-primary hover:text-primary/80">
-                      <span>Clique para fazer upload</span>
-                      <Input type="file" className="sr-only" accept=".xlsx,.xls,.csv" />
-                    </label>
-                    <p className="pl-1">ou arraste e solte</p>
-                  </div>
-                  <p className="text-xs text-gray-500">XLS, XLSX, CSV até 10MB</p>
-                </div>
-              </div>
             </div>
 
             <FormField
