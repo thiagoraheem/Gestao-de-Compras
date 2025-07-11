@@ -1896,6 +1896,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all attachments for a quotation (from all suppliers)
+  app.get("/api/quotations/:quotationId/attachments", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      
+      // Get all supplier quotations for this quotation
+      const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+      
+      // Get all attachments for all supplier quotations
+      const { db } = await import('./db');
+      const { attachments } = await import('../shared/schema');
+      const { eq, inArray } = await import('drizzle-orm');
+      
+      if (supplierQuotations.length === 0) {
+        return res.json([]);
+      }
+      
+      const supplierQuotationIds = supplierQuotations.map(sq => sq.id);
+      const allAttachments = await db.select().from(attachments)
+        .where(inArray(attachments.supplierQuotationId, supplierQuotationIds));
+      
+      // Add supplier information to attachments
+      const attachmentsWithSupplier = await Promise.all(
+        allAttachments.map(async (attachment) => {
+          const supplierQuotation = supplierQuotations.find(sq => sq.id === attachment.supplierQuotationId);
+          const supplier = supplierQuotation ? await storage.getSupplierById(supplierQuotation.supplierId) : null;
+          
+          return {
+            ...attachment,
+            supplierName: supplier?.name || "Fornecedor desconhecido",
+            supplierId: supplierQuotation?.supplierId,
+          };
+        })
+      );
+      
+      res.json(attachmentsWithSupplier);
+    } catch (error) {
+      console.error("Error fetching quotation attachments:", error);
+      res.status(500).json({ message: "Erro ao buscar anexos da cotação" });
+    }
+  });
+
   // Get supplier quotation attachments
   app.get("/api/quotations/:quotationId/supplier-quotations/:supplierId/attachments", isAuthenticated, async (req, res) => {
     try {

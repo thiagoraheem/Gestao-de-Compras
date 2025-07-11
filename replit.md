@@ -123,6 +123,12 @@ Key entities include:
     - ✓ Prazo de entrega corrigido para usar idealDeliveryDate formatado em dd/mm/aaaa
     - ✓ Condição de pagamento busca primeiro da cotação do fornecedor, depois do fornecedor
     - ✓ Removido campo "Transportadora" do PDF conforme solicitado
+  - ✓ Tela de Conclusão aprimorada com correções solicitadas:
+    - ✓ Removido quadro "Economia" da exibição de métricas
+    - ✓ Corrigido dados do solicitante e centro de custo com busca das entidades relacionadas
+    - ✓ Implementado sistema de exibição de todos os anexos disponíveis (solicitação + cotações)
+    - ✓ Anexos organizados por tipo: "Anexos da Solicitação" e "Anexos de Cotações"
+    - ✓ Rota API criada para buscar anexos de cotações de fornecedores
   - ✓ Sistema funcionando corretamente na porta 5000 sem erros de aplicação
   - ✓ Banco de dados PostgreSQL operacional com todas as funcionalidades preservadas
 - July 11, 2025. Correção crítica do sistema de upload de arquivos na cotação de fornecedores implementada com sucesso:

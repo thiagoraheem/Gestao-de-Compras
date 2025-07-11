@@ -84,6 +84,26 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
     queryKey: [`/api/purchase-requests/${request.id}/attachments`],
   });
 
+  // Buscar dados do solicitante
+  const { data: requester, isLoading: requesterLoading } = useQuery({
+    queryKey: [`/api/users/${request.requesterId}`],
+    enabled: !!request.requesterId,
+  });
+
+  // Buscar dados do centro de custo
+  const { data: allCostCenters = [], isLoading: costCentersLoading } = useQuery({
+    queryKey: ['/api/cost-centers'],
+  });
+
+  // Buscar departamento
+  const { data: allDepartments = [], isLoading: departmentsLoading } = useQuery({
+    queryKey: ['/api/departments'],
+  });
+
+  // Encontrar centro de custo e departamento
+  const costCenter = allCostCenters.find((cc: any) => cc.id === request.costCenterId);
+  const department = costCenter ? allDepartments.find((d: any) => d.id === costCenter.departmentId) : null;
+
   const { data: quotation, isLoading: quotationLoading } = useQuery({
     queryKey: [`/api/quotations/purchase-request/${request.id}`],
   });
@@ -100,6 +120,12 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   const { data: supplierQuotationItems = [], isLoading: supplierQuotationItemsLoading } = useQuery({
     queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
     enabled: !!selectedSupplierQuotation?.id,
+  });
+
+  // Buscar anexos de cotações de fornecedores
+  const { data: quotationAttachments = [], isLoading: quotationAttachmentsLoading } = useQuery({
+    queryKey: [`/api/quotations/${quotation?.id}/attachments`],
+    enabled: !!quotation?.id,
   });
 
   // Archive mutation
@@ -237,7 +263,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
     }
   };
 
-  const isLoading = itemsLoading || approvalHistoryLoading || attachmentsLoading || quotationLoading || supplierQuotationItemsLoading;
+  const isLoading = itemsLoading || approvalHistoryLoading || attachmentsLoading || quotationLoading || supplierQuotationItemsLoading || requesterLoading || costCentersLoading || departmentsLoading || quotationAttachmentsLoading;
 
   if (isLoading) {
     return (
@@ -290,7 +316,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
       <div className="space-y-6">
         {/* Process Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -313,24 +339,6 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Economia</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {budgetSavings.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </p>
-                </div>
-                {budgetSavings > 0 ? (
-                  <TrendingDown className="h-8 w-8 text-green-500" />
-                ) : (
-                  <TrendingUp className="h-8 w-8 text-red-500" />
-                )}
               </div>
             </CardContent>
           </Card>
@@ -378,16 +386,20 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               <div className="space-y-4">
                 <div>
                   <span className="text-sm font-medium text-gray-500">Solicitante</span>
-                  <p className="font-medium">{request.requesterName}</p>
-                  <p className="text-sm text-gray-600">{request.requesterEmail}</p>
+                  <p className="font-medium">
+                    {requester ? `${requester.firstName} ${requester.lastName}` : request.requesterName || 'Não informado'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {requester?.email || request.requesterEmail || 'Não informado'}
+                  </p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">Departamento</span>
-                  <p>{request.departmentName}</p>
+                  <p>{department?.name || request.departmentName || 'Não informado'}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">Centro de Custo</span>
-                  <p>{request.costCenterName}</p>
+                  <p>{costCenter ? `${costCenter.code} - ${costCenter.name}` : request.costCenterName || 'Não informado'}</p>
                 </div>
               </div>
               
@@ -681,32 +693,77 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
         </Card>
 
         {/* Attachments */}
-        {attachments.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Anexos do Processo
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {attachments.map((attachment: any) => (
-                  <div key={attachment.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                    <FileText className="h-8 w-8 text-blue-500" />
-                    <div className="flex-1">
-                      <p className="font-medium">{attachment.filename}</p>
-                      <p className="text-sm text-gray-600">{attachment.fileType}</p>
-                    </div>
-                    <Button variant="ghost" size="sm">
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Anexos do Processo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Anexos da Solicitação Original */}
+              {attachments.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Anexos da Solicitação</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {attachments.map((attachment: any) => (
+                      <div key={attachment.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                        <FileText className="h-8 w-8 text-blue-500" />
+                        <div className="flex-1">
+                          <p className="font-medium">{attachment.fileName || attachment.filename}</p>
+                          <p className="text-sm text-gray-600">{attachment.fileType}</p>
+                          <p className="text-xs text-gray-500">
+                            {attachment.attachmentType === 'requisition' ? 'Anexo de Solicitação' : attachment.attachmentType}
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={`/api/attachments/${attachment.id}/download`} target="_blank">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                </div>
+              )}
+
+              {/* Anexos de Cotações de Fornecedores */}
+              {quotationAttachments.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Anexos de Cotações</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {quotationAttachments.map((attachment: any) => (
+                      <div key={attachment.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                        <FileText className="h-8 w-8 text-green-500" />
+                        <div className="flex-1">
+                          <p className="font-medium">{attachment.fileName || attachment.filename}</p>
+                          <p className="text-sm text-gray-600">{attachment.fileType}</p>
+                          <p className="text-xs text-gray-500">
+                            Proposta de {attachment.supplierName || 'Fornecedor'}
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={`/api/attachments/${attachment.id}/download`} target="_blank">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Mensagem quando não há anexos */}
+              {attachments.length === 0 && quotationAttachments.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                  <p>Nenhum anexo encontrado para esta solicitação</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Process Completion Status */}
         <Card>
