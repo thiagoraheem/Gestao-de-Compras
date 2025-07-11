@@ -671,11 +671,11 @@ export default function PurchaseCard({
                 ]
               }
             </Badge>
-            {/* Show red tag for items with pending issues */}
-            {request.hasPendingIssue && (
+            {/* Show red tag for items with pending issues returned from receipt */}
+            {request.hasPendency && (
               <Badge variant="destructive" className="text-xs">
                 <AlertCircle className="mr-1 h-3 w-3" />
-                Pendência
+                Retorno
               </Badge>
             )}
           </div>
