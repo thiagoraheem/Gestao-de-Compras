@@ -7,6 +7,7 @@ interface PurchaseOrderData {
   items: any[];
   supplier: any;
   approvalHistory: any[];
+  selectedSupplierQuotation?: any;
 }
 
 export class PDFService {
@@ -505,7 +506,18 @@ export class PDFService {
   }
 
   private static async generatePurchaseOrderHTML(data: PurchaseOrderData): Promise<string> {
-    const { purchaseRequest, items, supplier, approvalHistory } = data;
+    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation } = data;
+    
+    // Função para formatar data brasileira
+    const formatBrazilianDate = (dateString: string | null | undefined): string => {
+      if (!dateString) return 'Não informado';
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR');
+      } catch {
+        return 'Não informado';
+      }
+    };
     
     // Calcular totais
     const subtotal = items.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
@@ -646,9 +658,6 @@ export class PDFService {
       <div class="info-item">
         <span class="info-label">CIDADE:</span> Manaus-AM
       </div>
-      <div class="info-item">
-        <span class="info-label">TRANSPORTADORA:</span> Não se Aplica
-      </div>
     </div>
   </div>
 
@@ -670,10 +679,10 @@ export class PDFService {
           <span class="info-label">DATA PEDIDO:</span> ${new Date().toLocaleDateString('pt-BR')}
         </div>
         <div class="info-item">
-          <span class="info-label">PRAZO ENTREGA:</span> ${purchaseRequest.expectedDelivery || 'Não informado'}
+          <span class="info-label">PRAZO ENTREGA:</span> ${formatBrazilianDate(purchaseRequest.idealDeliveryDate)}
         </div>
         <div class="info-item">
-          <span class="info-label">COND. PAGAMENTO:</span> ${supplier?.paymentTerms || 'A combinar'}
+          <span class="info-label">COND. PAGAMENTO:</span> ${selectedSupplierQuotation?.paymentTerms || supplier?.paymentTerms || 'A definir'}
         </div>
       </div>
     </div>
@@ -784,15 +793,27 @@ export class PDFService {
     // Buscar itens da solicitação
     const items = await storage.getPurchaseRequestItems(purchaseRequestId);
     
+    // Buscar departamento através do cost center
+    let department = null;
+    if (purchaseRequest.costCenterId) {
+      // Buscar todos os cost centers e encontrar o específico
+      const allCostCenters = await storage.getAllCostCenters();
+      const costCenter = allCostCenters.find(cc => cc.id === purchaseRequest.costCenterId);
+      if (costCenter && costCenter.departmentId) {
+        department = await storage.getDepartmentById(costCenter.departmentId);
+      }
+    }
+    
     // Buscar fornecedor e valores dos itens do fornecedor selecionado
     let supplier = null;
+    let selectedSupplierQuotation = null;
     let itemsWithPrices = items;
     
     const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
     if (quotation) {
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
       // Buscar o fornecedor selecionado (is_chosen = true)
-      const selectedSupplierQuotation = supplierQuotations.find(sq => sq.isChosen) || supplierQuotations[0];
+      selectedSupplierQuotation = supplierQuotations.find(sq => sq.isChosen) || supplierQuotations[0];
       
       if (selectedSupplierQuotation) {
         supplier = await storage.getSupplierById(selectedSupplierQuotation.supplierId);
@@ -840,10 +861,14 @@ export class PDFService {
     const approvalHistory = await storage.getApprovalHistory(purchaseRequestId);
 
     const data: PurchaseOrderData = {
-      purchaseRequest,
+      purchaseRequest: {
+        ...purchaseRequest,
+        departmentName: department?.name || 'Não informado'
+      },
       items: itemsWithPrices,
       supplier,
-      approvalHistory
+      approvalHistory,
+      selectedSupplierQuotation
     };
 
     // Gerar HTML

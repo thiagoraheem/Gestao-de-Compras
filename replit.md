@@ -110,7 +110,7 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
-- July 11, 2025. Migração do Replit Agent para Replit finalizada com sistema de pendências implementado:
+- July 11, 2025. Correção crítica do sistema de upload de arquivos na cotação de fornecedores e PDF do Pedido de Compra:
   - ✓ Migração completa do projeto para ambiente Replit sem erros
   - ✓ Corrigido warning do React Fragment que gerava logs de erro no console
   - ✓ Implementado sistema completo de exibição de pendências em cards de Pedido de Compra
@@ -118,6 +118,11 @@ Key entities include:
   - ✓ Tooltip no badge de pendência mostra a mensagem completa ao passar o mouse
   - ✓ Área dedicada na tela de detalhes do Pedido de Compra para mostrar motivo da pendência
   - ✓ Campos has_pendency e pendency_reason corretamente mapeados da API
+  - ✓ Corrigido sistema de geração de PDF do Pedido de Compra:
+    - ✓ Departamento agora busca corretamente através do relacionamento cost center → department
+    - ✓ Prazo de entrega corrigido para usar idealDeliveryDate formatado em dd/mm/aaaa
+    - ✓ Condição de pagamento busca primeiro da cotação do fornecedor, depois do fornecedor
+    - ✓ Removido campo "Transportadora" do PDF conforme solicitado
   - ✓ Sistema funcionando corretamente na porta 5000 sem erros de aplicação
   - ✓ Banco de dados PostgreSQL operacional com todas as funcionalidades preservadas
 - July 11, 2025. Correção crítica do sistema de upload de arquivos na cotação de fornecedores implementada com sucesso:
