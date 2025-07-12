@@ -210,6 +210,10 @@ export const quotations = pgTable("quotations", {
   termsAndConditions: text("terms_and_conditions"),
   technicalSpecs: text("technical_specs"),
   createdBy: integer("created_by").references(() => users.id).notNull(),
+  // Multiple RFQs support
+  isActive: boolean("is_active").default(true),
+  rfqVersion: integer("rfq_version").default(1),
+  parentQuotationId: integer("parent_quotation_id").references(() => quotations.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

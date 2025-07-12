@@ -165,6 +165,9 @@ export interface IStorage {
   getQuotationByPurchaseRequestId(
     purchaseRequestId: number,
   ): Promise<Quotation | undefined>;
+  getRFQHistoryByPurchaseRequestId(
+    purchaseRequestId: number,
+  ): Promise<Quotation[]>;
   createQuotation(quotation: InsertQuotation): Promise<Quotation>;
   updateQuotation(
     id: number,
@@ -830,11 +833,50 @@ export class DatabaseStorage implements IStorage {
     const [quotation] = await db
       .select()
       .from(quotations)
-      .where(eq(quotations.purchaseRequestId, purchaseRequestId));
+      .where(
+        and(
+          eq(quotations.purchaseRequestId, purchaseRequestId),
+          eq(quotations.isActive, true)
+        )
+      );
     return quotation || undefined;
   }
 
+  async getRFQHistoryByPurchaseRequestId(
+    purchaseRequestId: number,
+  ): Promise<Quotation[]> {
+    const quotationHistory = await db
+      .select()
+      .from(quotations)
+      .where(eq(quotations.purchaseRequestId, purchaseRequestId))
+      .orderBy(desc(quotations.createdAt));
+    return quotationHistory;
+  }
+
   async createQuotation(quotationData: InsertQuotation): Promise<Quotation> {
+    // Check if there's an existing quotation for this purchase request
+    const existingQuotations = await db
+      .select()
+      .from(quotations)
+      .where(eq(quotations.purchaseRequestId, quotationData.purchaseRequestId))
+      .orderBy(desc(quotations.rfqVersion));
+
+    // If there's an existing quotation, deactivate it and create a new version
+    let newVersion = 1;
+    let parentQuotationId: number | undefined;
+    
+    if (existingQuotations.length > 0) {
+      const currentQuotation = existingQuotations[0];
+      newVersion = (currentQuotation.rfqVersion || 1) + 1;
+      parentQuotationId = currentQuotation.id;
+      
+      // Deactivate the current quotation
+      await db
+        .update(quotations)
+        .set({ isActive: false })
+        .where(eq(quotations.id, currentQuotation.id));
+    }
+
     // Generate quotation number
     const year = new Date().getFullYear();
     const quotationsThisYear = await db
@@ -859,6 +901,9 @@ export class DatabaseStorage implements IStorage {
       .values({
         ...quotationData,
         quotationNumber,
+        rfqVersion: newVersion,
+        parentQuotationId,
+        isActive: true,
       })
       .returning();
     return quotation;

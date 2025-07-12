@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -56,6 +57,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
   const [showRFQAnalysis, setShowRFQAnalysis] = useState(false);
   const [showSupplierComparison, setShowSupplierComparison] = useState(false);
   const [showUpdateQuotation, setShowUpdateQuotation] = useState(false);
+  const [showRFQHistory, setShowRFQHistory] = useState(false);
   const [selectedSupplierForUpdate, setSelectedSupplierForUpdate] = useState<{
     id: number;
     name: string;
@@ -98,6 +100,11 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
   const { data: supplierQuotations = [] } = useQuery<SupplierQuotation[]>({
     queryKey: [`/api/quotations/${quotation?.id}/supplier-quotations`],
     enabled: !!quotation?.id,
+  });
+
+  const { data: rfqHistory = [] } = useQuery<Quotation[]>({
+    queryKey: [`/api/quotations/purchase-request/${request.id}/history`],
+    enabled: showRFQHistory,
   });
 
   const hasQuotation = !!quotation;
@@ -206,7 +213,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle className="h-5 w-5 text-green-600" />
-                  RFQ Criada - {quotation.quotationNumber}
+                  RFQ Ativa - {quotation.quotationNumber}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -230,6 +237,37 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                     <p>{supplierQuotations.length}</p>
                   </div>
                 </div>
+                
+                {/* Option to create new RFQ */}
+                {user?.isBuyer && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm text-gray-600">
+                          Precisa de uma nova cotação? Você pode criar uma nova RFQ mantenendo o histórico anterior.
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button 
+                          onClick={() => setShowRFQHistory(true)}
+                          variant="outline"
+                          className="ml-4"
+                        >
+                          <Clock className="h-4 w-4 mr-2" />
+                          Histórico
+                        </Button>
+                        <Button 
+                          onClick={() => setShowRFQCreation(true)}
+                          variant="outline"
+                          className="ml-2"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Nova RFQ
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -445,6 +483,62 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
             }}
           />
         )}
+
+        {/* RFQ History Dialog */}
+        <Dialog open={showRFQHistory} onOpenChange={setShowRFQHistory}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Histórico de RFQs</DialogTitle>
+              <DialogDescription>
+                Histórico completo de todas as RFQs criadas para esta solicitação
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {rfqHistory.length === 0 ? (
+                <p className="text-gray-500">Nenhuma RFQ encontrada no histórico.</p>
+              ) : (
+                rfqHistory.map((rfq, index) => (
+                  <Card key={rfq.id} className={rfq.isActive ? "border-blue-500 bg-blue-50" : "border-gray-200"}>
+                    <CardHeader>
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg">
+                          {rfq.quotationNumber} 
+                          {rfq.isActive && <Badge className="ml-2 bg-blue-600">Ativa</Badge>}
+                          {!rfq.isActive && <Badge variant="outline" className="ml-2">Inativa</Badge>}
+                        </CardTitle>
+                        <div className="text-sm text-gray-500">
+                          Versão {rfq.rfqVersion || 1}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Status</span>
+                          <p className="text-sm">
+                            {rfq.status === 'draft' && 'Rascunho'}
+                            {rfq.status === 'sent' && 'Enviada'}
+                            {rfq.status === 'received' && 'Recebida'}
+                            {rfq.status === 'analyzed' && 'Analisada'}
+                            {rfq.status === 'approved' && 'Aprovada'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Prazo para Resposta</span>
+                          <p className="text-sm">{format(new Date(rfq.quotationDeadline), "dd/MM/yyyy", { locale: ptBR })}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Criada em</span>
+                          <p className="text-sm">{format(new Date(rfq.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

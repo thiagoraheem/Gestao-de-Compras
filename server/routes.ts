@@ -1471,6 +1471,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/quotations/purchase-request/:purchaseRequestId/history", isAuthenticated, async (req, res) => {
+    try {
+      const purchaseRequestId = parseInt(req.params.purchaseRequestId);
+      const quotationHistory = await storage.getRFQHistoryByPurchaseRequestId(purchaseRequestId);
+      res.json(quotationHistory);
+    } catch (error) {
+      console.error("Error fetching quotation history:", error);
+      res.status(500).json({ message: "Failed to fetch quotation history" });
+    }
+  });
+
   app.post("/api/quotations", isAuthenticated, async (req, res) => {
     try {
       // Create a schema that excludes createdBy from validation since we'll provide it from session

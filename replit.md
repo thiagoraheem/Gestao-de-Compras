@@ -110,6 +110,16 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 12, 2025. Migração completa do Replit Agent para Replit com suporte a múltiplas RFQs e melhorias A2 implementada com sucesso:
+  - ✓ Migração bem-sucedida do projeto para ambiente Replit
+  - ✓ Adicionados campos de banco de dados para suporte a múltiplas RFQs (isActive, rfqVersion, parentQuotationId)
+  - ✓ Implementado sistema de versionamento de RFQs com desativação automática de versões anteriores
+  - ✓ Criado componente de histórico de RFQs com visualização de todas as versões
+  - ✓ Adicionados botões "Nova RFQ" e "Histórico" na fase de cotação
+  - ✓ Implementada API para recuperação de histórico de RFQs por solicitação
+  - ✓ Melhorias na fase de Aprovação A2 com opções de rejeição (arquivar ou retornar para cotação)
+  - ✓ Sistema de controle de versão permite criar novas cotações mantendo histórico anterior
+  - ✓ Aplicação funcionando corretamente no ambiente Replit com todas as funcionalidades preservadas
 - July 11, 2025. Correção crítica do sistema de envio para aprovação na tela de edição de solicitação implementada com sucesso:
   - ✓ Identificado problema onde tela de "Editar Solicitação" não movia cards para fase "Aprovação A1"
   - ✓ Corrigido sendToApprovalMutation em request-phase.tsx com optimistic updates
