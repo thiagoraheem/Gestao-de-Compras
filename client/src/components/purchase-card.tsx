@@ -70,6 +70,7 @@ export default function PurchaseCard({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [initialA2Action, setInitialA2Action] = useState<'approve' | 'reject' | null>(null);
 
   // Buscar anexos da solicitação
   const { data: attachments = [] } = useQuery<any[]>({
@@ -945,7 +946,8 @@ export default function PurchaseCard({
                   className="flex-1 bg-green-500 hover:bg-green-600 text-white"
                   onClick={(e) => {
                     e.stopPropagation();
-                    approveA2Mutation.mutate({ approved: true });
+                    setInitialA2Action('approve');
+                    setIsEditModalOpen(true);
                   }}
                   disabled={approveA2Mutation.isPending}
                 >
@@ -958,10 +960,8 @@ export default function PurchaseCard({
                   className="flex-1"
                   onClick={(e) => {
                     e.stopPropagation();
-                    approveA2Mutation.mutate({
-                      approved: false,
-                      rejectionReason: "Reprovado via ação rápida",
-                    });
+                    setInitialA2Action('reject');
+                    setIsEditModalOpen(true);
                   }}
                   disabled={approveA2Mutation.isPending}
                 >
@@ -1033,8 +1033,12 @@ export default function PurchaseCard({
           <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <ApprovalA2Phase
               request={request}
-              onClose={() => setIsEditModalOpen(false)}
+              onClose={() => {
+                setIsEditModalOpen(false);
+                setInitialA2Action(null);
+              }}
               className="p-6"
+              initialAction={initialA2Action}
             />
           </div>
         </div>

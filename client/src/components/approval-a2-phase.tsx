@@ -66,13 +66,14 @@ interface ApprovalA2PhaseProps {
   request: any;
   onClose?: () => void;
   className?: string;
+  initialAction?: 'approve' | 'reject' | null;
 }
 
-export default function ApprovalA2Phase({ request, onClose, className }: ApprovalA2PhaseProps) {
+export default function ApprovalA2Phase({ request, onClose, className, initialAction = null }: ApprovalA2PhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | null>(null);
+  const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | null>(initialAction);
   const [showComparison, setShowComparison] = useState(false);
 
   // Check if user has A2 approval permissions
@@ -149,7 +150,7 @@ export default function ApprovalA2Phase({ request, onClose, className }: Approva
   const form = useForm<ApprovalFormData>({
     resolver: zodResolver(approvalSchema),
     defaultValues: {
-      approved: false,
+      approved: initialAction === 'approve' ? true : false,
       rejectionReason: "",
     },
   });
