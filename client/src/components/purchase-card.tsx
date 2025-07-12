@@ -195,7 +195,9 @@ export default function PurchaseCard({
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest(`/api/purchase-requests/${request.id}`, { method: "DELETE" });
+      await apiRequest(`/api/purchase-requests/${request.id}`, {
+        method: "DELETE",
+      });
     },
     onSuccess: () => {
       // Comprehensive cache invalidation
@@ -288,15 +290,21 @@ export default function PurchaseCard({
       await queryClient.cancelQueries({ queryKey: ["/api/purchase-requests"] });
 
       // Snapshot the previous value
-      const previousRequests = queryClient.getQueryData(["/api/purchase-requests"]);
+      const previousRequests = queryClient.getQueryData([
+        "/api/purchase-requests",
+      ]);
 
       // Optimistically update the request phase
       queryClient.setQueryData(["/api/purchase-requests"], (old: any[]) => {
         if (!Array.isArray(old)) return old;
         return old.map((item) =>
           item.id === request.id
-            ? { ...item, currentPhase: "aprovacao_a1", updatedAt: new Date().toISOString() }
-            : item
+            ? {
+                ...item,
+                currentPhase: "aprovacao_a1",
+                updatedAt: new Date().toISOString(),
+              }
+            : item,
         );
       });
 
@@ -321,7 +329,10 @@ export default function PurchaseCard({
     onError: (err, variables, context) => {
       // Roll back on error
       if (context?.previousRequests) {
-        queryClient.setQueryData(["/api/purchase-requests"], context.previousRequests);
+        queryClient.setQueryData(
+          ["/api/purchase-requests"],
+          context.previousRequests,
+        );
       }
 
       toast({
@@ -581,21 +592,22 @@ export default function PurchaseCard({
   // Check user permissions for showing certain actions
   const canApproveA1 = user?.isApproverA1 || false;
   const canApproveA2 = user?.isApproverA2 || false;
-  
+
   // Check if user can drag this card
-  const canDrag = 
-    phase === PURCHASE_PHASES.SOLICITACAO || // Always allow dragging from request phase
+  const canDrag2 =
+    (canDrag && phase === PURCHASE_PHASES.SOLICITACAO) || // Always allow dragging from request phase
     phase === PURCHASE_PHASES.COTACAO || // Always allow dragging from quotation phase
-    (phase === PURCHASE_PHASES.APROVACAO_A1) || // Allow dragging from A1 (permission check happens in kanban-board)
-    (phase === PURCHASE_PHASES.APROVACAO_A2) || // Allow dragging from A2 (permission check happens in kanban-board)
+    phase === PURCHASE_PHASES.APROVACAO_A1 || // Allow dragging from A1 (permission check happens in kanban-board)
+    phase === PURCHASE_PHASES.APROVACAO_A2 || // Allow dragging from A2 (permission check happens in kanban-board)
     phase === PURCHASE_PHASES.PEDIDO_COMPRA || // Allow dragging from purchase order phase
     phase === PURCHASE_PHASES.RECEBIMENTO; // Allow dragging from receipt phase
-  
+
   const canEditInApprovalPhase =
     phase === PURCHASE_PHASES.ARQUIVADO || // Always allow viewing history in archived phase
     (phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1) ||
     (phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2) ||
-    (phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.APROVACAO_A2.APROVACAO_A1 &&
+    (phase !== PURCHASE_PHASES.APROVACAO_A1 &&
+      phase !== PURCHASE_PHASES.APROVACAO_A2.APROVACAO_A1 &&
       phase !== PURCHASE_PHASES.APROVACAO_A2);
 
   return (
@@ -611,7 +623,7 @@ export default function PurchaseCard({
           isDragging && "opacity-50",
           sortableIsDragging && "opacity-50",
           isFinalPhase && "bg-gray-100 text-gray-600 border-gray-300",
-          !canDrag && "cursor-not-allowed border-gray-300 bg-gray-50",
+          !canDrag2 && "cursor-not-allowed border-gray-300 bg-gray-50",
         )}
       >
         <CardContent className="p-4">
@@ -619,15 +631,15 @@ export default function PurchaseCard({
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div
-                {...(canDrag ? listeners : {})}
+                {...(canDrag2 ? listeners : {})}
                 className={cn(
                   "p-1 rounded",
-                  canDrag
+                  canDrag2
                     ? "cursor-grab active:cursor-grabbing hover:bg-gray-100"
                     : "cursor-not-allowed opacity-50",
                 )}
                 title={
-                  canDrag
+                  canDrag2
                     ? "Arrastar para mover"
                     : "Você não tem permissão para mover este card"
                 }
@@ -635,7 +647,7 @@ export default function PurchaseCard({
                 <GripVertical
                   className={cn(
                     "h-4 w-4",
-                    canDrag ? "text-gray-400" : "text-gray-300",
+                    canDrag2 ? "text-gray-400" : "text-gray-300",
                   )}
                 />
               </div>
@@ -717,8 +729,15 @@ export default function PurchaseCard({
             </Badge>
             {/* Show red tag for items with pending issues returned from receipt */}
             {request.hasPendency && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
-              <div title={request.pendencyReason || "Solicitação retornou com pendência"}>
-                <Badge variant="destructive" className="text-xs bg-red-500 text-white border-red-600 cursor-help">
+              <div
+                title={
+                  request.pendencyReason || "Solicitação retornou com pendência"
+                }
+              >
+                <Badge
+                  variant="destructive"
+                  className="text-xs bg-red-500 text-white border-red-600 cursor-help"
+                >
                   <AlertCircle className="mr-1 h-3 w-3" />
                   Pendência
                 </Badge>
@@ -969,7 +988,7 @@ export default function PurchaseCard({
                   <span className="truncate">Confirmar</span>
                 </Button>
                 <Button
-size="sm"
+                  size="sm"
                   variant="destructive"
                   className="flex-1 text-xs sm:text-sm"
                   onClick={(e) => {
