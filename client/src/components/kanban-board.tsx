@@ -263,6 +263,8 @@ export default function KanbanBoard({
         return;
       }
 
+      const newPhase = over.id.toString();
+
       // Check permissions before allowing the move
       if (!canUserDragCard(request.currentPhase, newPhase)) {
         toast({
@@ -274,8 +276,6 @@ export default function KanbanBoard({
         setActiveRequest(null);
         return;
       }
-
-      const newPhase = over.id.toString();
 
       // Check if moving from "Cotação" to "Aprovação A2" - validate quotation readiness
       if (request.currentPhase === "cotacao" && newPhase === "aprovacao_a2") {
