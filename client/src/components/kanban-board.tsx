@@ -168,6 +168,12 @@ export default function KanbanBoard({
 
   // Permission check function
   const canUserDragCard = (phase: string, targetPhase?: string) => {
+    // If targetPhase is not provided, we're checking if the card can be dragged at all
+    if (!targetPhase) {
+      // Allow dragging from any phase - the target validation will happen in handleDragEnd
+      return true;
+    }
+    
     // Allow moving from Aprovação A1 back to Solicitação (for corrections)
     if (phase === "aprovacao_a1" && targetPhase === "solicitacao") {
       return true;

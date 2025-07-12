@@ -581,11 +581,21 @@ export default function PurchaseCard({
   // Check user permissions for showing certain actions
   const canApproveA1 = user?.isApproverA1 || false;
   const canApproveA2 = user?.isApproverA2 || false;
+  
+  // Check if user can drag this card
+  const canDrag = 
+    phase === PURCHASE_PHASES.SOLICITACAO || // Always allow dragging from request phase
+    phase === PURCHASE_PHASES.COTACAO || // Always allow dragging from quotation phase
+    (phase === PURCHASE_PHASES.APROVACAO_A1) || // Allow dragging from A1 (permission check happens in kanban-board)
+    (phase === PURCHASE_PHASES.APROVACAO_A2) || // Allow dragging from A2 (permission check happens in kanban-board)
+    phase === PURCHASE_PHASES.PEDIDO_COMPRA || // Allow dragging from purchase order phase
+    phase === PURCHASE_PHASES.RECEBIMENTO; // Allow dragging from receipt phase
+  
   const canEditInApprovalPhase =
     phase === PURCHASE_PHASES.ARQUIVADO || // Always allow viewing history in archived phase
     (phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1) ||
     (phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2) ||
-    (phase !== PURCHASE_PHASES.APROVACAO_A1 &&
+    (phase !== PURCHASE_PHASES.APROVACAO_A1 && phase !== PURCHASE_PHASES.APROVACAO_A2.APROVACAO_A1 &&
       phase !== PURCHASE_PHASES.APROVACAO_A2);
 
   return (
