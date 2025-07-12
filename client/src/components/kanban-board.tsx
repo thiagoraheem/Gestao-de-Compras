@@ -178,17 +178,25 @@ export default function KanbanBoard({
     if (phase === "aprovacao_a1" && targetPhase === "solicitacao") {
       return true;
     }
+    
     // Allow moving from Aprovação A2 back to earlier phases (for corrections)
     if (phase === "aprovacao_a2" && (targetPhase === "solicitacao" || targetPhase === "aprovacao_a1" || targetPhase === "cotacao")) {
       return true;
     }
-    // Normal permission checks for other movements
-    if (phase === "aprovacao_a1" && !user?.isApproverA1) {
+    
+    // Allow moving from any phase to solicitacao (return to start)
+    if (targetPhase === "solicitacao") {
+      return true;
+    }
+    
+    // Normal permission checks for moving OUT of approval phases
+    if (phase === "aprovacao_a1" && targetPhase !== "solicitacao" && !user?.isApproverA1) {
       return false;
     }
-    if (phase === "aprovacao_a2" && !user?.isApproverA2) {
+    if (phase === "aprovacao_a2" && targetPhase !== "solicitacao" && !user?.isApproverA2) {
       return false;
     }
+    
     return true;
   };
 
@@ -236,13 +244,26 @@ export default function KanbanBoard({
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    
+    console.log("🎯 handleDragEnd triggered", { 
+      activeId: active.id, 
+      overId: over?.id,
+      hasOver: !!over 
+    });
 
     if (over && active.id !== over.id) {
       const requestId = active.id.toString().includes("-")
         ? parseInt(active.id.toString().split("-")[1])
         : parseInt(active.id.toString());
 
+      console.log("🔍 Processing drag end", { 
+        originalActiveId: active.id,
+        extractedRequestId: requestId,
+        targetPhase: over.id.toString()
+      });
+
       if (isNaN(requestId)) {
+        console.error("❌ Invalid request ID", { activeId: active.id, requestId });
         toast({
           title: "Erro",
           description: "ID do pedido inválido",
@@ -271,8 +292,21 @@ export default function KanbanBoard({
 
       const newPhase = over.id.toString();
 
+      console.log("🔐 Checking permissions", {
+        currentPhase: request.currentPhase,
+        newPhase,
+        userId: user?.id,
+        isApproverA1: user?.isApproverA1,
+        isApproverA2: user?.isApproverA2
+      });
+
       // Check permissions before allowing the move
       if (!canUserDragCard(request.currentPhase, newPhase)) {
+        console.log("❌ Permission denied for drag movement", {
+          from: request.currentPhase,
+          to: newPhase,
+          user: user?.username
+        });
         toast({
           title: "Acesso Negado",
           description: `Você não possui permissão para mover cards da fase ${PHASE_LABELS[request.currentPhase]} para ${PHASE_LABELS[newPhase]}`,
@@ -332,7 +366,13 @@ export default function KanbanBoard({
         return;
       }
 
+      console.log("✅ Executing phase update", { requestId, newPhase });
       moveRequestMutation.mutate({ id: requestId, newPhase });
+    } else {
+      console.log("⚠️ Drag cancelled - no valid target or same position", {
+        hasOver: !!over,
+        samePosition: active.id === over?.id
+      });
     }
 
     setActiveId(null);

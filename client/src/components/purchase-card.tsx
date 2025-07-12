@@ -846,9 +846,8 @@ export default function PurchaseCard({
             )}
 
           {/* Permission Warning for Restricted Cards */}
-          {!canDrag &&
-            (phase === PURCHASE_PHASES.APROVACAO_A1 ||
-              phase === PURCHASE_PHASES.APROVACAO_A2) && (
+          {((phase === PURCHASE_PHASES.APROVACAO_A1 && !canApproveA1) ||
+            (phase === PURCHASE_PHASES.APROVACAO_A2 && !canApproveA2)) && (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-md">
                   <TriangleAlert className="h-4 w-4" />
