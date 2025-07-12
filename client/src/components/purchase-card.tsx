@@ -20,6 +20,7 @@ import {
   GripVertical,
   Trash2,
   Plus,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -29,7 +30,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import RequestPhase from "./request-phase";
 import ApprovalA1Phase from "./approval-a1-phase";
 import ApprovalA2Phase from "./approval-a2-phase";
@@ -80,18 +81,12 @@ export default function PurchaseCard({
     setIsEditModalOpen(true);
   };
 
-  // Check if user has permission to drag this card
-  const canUserDragCard = (phase: string) => {
-    if (phase === "aprovacao_a1" && !user?.isApproverA1) {
-      return false;
-    }
-    if (phase === "aprovacao_a2" && !user?.isApproverA2) {
-      return false;
-    }
+  // Check if user can drag this card
+  const canDrag = useMemo(() => {
+    // Always allow dragging - permission check will be done in kanban-board
+    // based on source and target phases
     return true;
-  };
-
-  const canDrag = canUserDragCard(phase);
+  }, [phase, user]);
 
   const {
     attributes,
@@ -314,10 +309,10 @@ export default function PurchaseCard({
         predicate: (query) =>
           query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
       });
-      
+
       // Force refetch to ensure we have the latest data
       queryClient.refetchQueries({ queryKey: ["/api/purchase-requests"] });
-      
+
       toast({
         title: "Sucesso",
         description: "Solicitação enviada para aprovação A1",
@@ -328,7 +323,7 @@ export default function PurchaseCard({
       if (context?.previousRequests) {
         queryClient.setQueryData(["/api/purchase-requests"], context.previousRequests);
       }
-      
+
       toast({
         title: "Erro",
         description: "Não foi possível enviar para aprovação",
@@ -964,7 +959,7 @@ export default function PurchaseCard({
                   <span className="truncate">Confirmar</span>
                 </Button>
                 <Button
-                  size="sm"
+size="sm"
                   variant="destructive"
                   className="flex-1 text-xs sm:text-sm"
                   onClick={(e) => {

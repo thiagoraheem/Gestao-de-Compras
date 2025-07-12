@@ -167,7 +167,16 @@ export default function KanbanBoard({
   });
 
   // Permission check function
-  const canUserDragCard = (phase: string) => {
+  const canUserDragCard = (phase: string, targetPhase?: string) => {
+    // Allow moving from Aprovação A1 back to Solicitação (for corrections)
+    if (phase === "aprovacao_a1" && targetPhase === "solicitacao") {
+      return true;
+    }
+    // Allow moving from Aprovação A2 back to earlier phases (for corrections)
+    if (phase === "aprovacao_a2" && (targetPhase === "solicitacao" || targetPhase === "aprovacao_a1" || targetPhase === "cotacao")) {
+      return true;
+    }
+    // Normal permission checks for other movements
     if (phase === "aprovacao_a1" && !user?.isApproverA1) {
       return false;
     }
@@ -213,15 +222,8 @@ export default function KanbanBoard({
       ? purchaseRequests.find((req: any) => `request-${req.id}` === active.id)
       : undefined;
 
-    // Check if user has permission to drag this card
-    if (request && !canUserDragCard(request.currentPhase)) {
-      toast({
-        title: "Acesso Negado",
-        description: `Você não possui permissão para mover cards da fase ${PHASE_LABELS[request.currentPhase]}`,
-        variant: "destructive",
-      });
-      return;
-    }
+    // Store request for later permission check in handleDragEnd
+    // We'll check permissions with target phase in handleDragEnd
 
     setActiveRequest(request);
   };
@@ -262,10 +264,10 @@ export default function KanbanBoard({
       }
 
       // Check permissions before allowing the move
-      if (!canUserDragCard(request.currentPhase)) {
+      if (!canUserDragCard(request.currentPhase, newPhase)) {
         toast({
           title: "Acesso Negado",
-          description: `Você não possui permissão para mover cards da fase ${PHASE_LABELS[request.currentPhase]}`,
+          description: `Você não possui permissão para mover cards da fase ${PHASE_LABELS[request.currentPhase]} para ${PHASE_LABELS[newPhase]}`,
           variant: "destructive",
         });
         setActiveId(null);
