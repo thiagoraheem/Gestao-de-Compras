@@ -594,13 +594,14 @@ export default function PurchaseCard({
   const canApproveA2 = user?.isApproverA2 || false;
 
   // Check if user can drag this card
-  const canDrag2 =
-    (canDrag && phase === PURCHASE_PHASES.SOLICITACAO) || // Always allow dragging from request phase
+  const canDragCard = useMemo(() => {
+    return (canDrag && phase === PURCHASE_PHASES.SOLICITACAO) || // Always allow dragging from request phase
     phase === PURCHASE_PHASES.COTACAO || // Always allow dragging from quotation phase
     phase === PURCHASE_PHASES.APROVACAO_A1 || // Allow dragging from A1 (permission check happens in kanban-board)
     phase === PURCHASE_PHASES.APROVACAO_A2 || // Allow dragging from A2 (permission check happens in kanban-board)
     phase === PURCHASE_PHASES.PEDIDO_COMPRA || // Allow dragging from purchase order phase
-    phase === PURCHASE_PHASES.RECEBIMENTO; // Allow dragging from receipt phase
+    phase === PURCHASE_PHASES.RECEBIMENTO;
+  }, [canDrag, phase]); // Allow dragging from receipt phase
 
   const canEditInApprovalPhase =
     phase === PURCHASE_PHASES.ARQUIVADO || // Always allow viewing history in archived phase
@@ -623,7 +624,7 @@ export default function PurchaseCard({
           isDragging && "opacity-50",
           sortableIsDragging && "opacity-50",
           isFinalPhase && "bg-gray-100 text-gray-600 border-gray-300",
-          !canDrag2 && "cursor-not-allowed border-gray-300 bg-gray-50",
+          !canDragCard && "cursor-not-allowed border-gray-300 bg-gray-50",
         )}
       >
         <CardContent className="p-4">
@@ -631,15 +632,15 @@ export default function PurchaseCard({
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div
-                {...(canDrag2 ? listeners : {})}
+                {...(canDragCard ? listeners : {})}
                 className={cn(
                   "p-1 rounded",
-                  canDrag2
+                  canDragCard
                     ? "cursor-grab active:cursor-grabbing hover:bg-gray-100"
                     : "cursor-not-allowed opacity-50",
                 )}
                 title={
-                  canDrag2
+                  canDragCard
                     ? "Arrastar para mover"
                     : "Você não tem permissão para mover este card"
                 }
@@ -647,7 +648,7 @@ export default function PurchaseCard({
                 <GripVertical
                   className={cn(
                     "h-4 w-4",
-                    canDrag2 ? "text-gray-400" : "text-gray-300",
+                    canDragCard ? "text-gray-400" : "text-gray-300",
                   )}
                 />
               </div>
