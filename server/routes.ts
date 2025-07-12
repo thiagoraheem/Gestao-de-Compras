@@ -2122,6 +2122,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cotação não encontrada" });
       }
       
+      // Buscar todas as cotações dos fornecedores
+      const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+      
+      // Marcar todas as cotações como não escolhidas primeiro
+      await Promise.all(
+        supplierQuotations.map(sq => 
+          storage.updateSupplierQuotation(sq.id, { isChosen: false })
+        )
+      );
+      
+      // Marcar apenas a cotação do fornecedor selecionado como escolhida
+      const selectedSupplierQuotation = supplierQuotations.find(sq => sq.supplierId === selectedSupplierId);
+      if (selectedSupplierQuotation) {
+        await storage.updateSupplierQuotation(selectedSupplierQuotation.id, { 
+          isChosen: true,
+          choiceReason: observations
+        });
+      }
+      
       // Atualizar a cotação (status e observações)
       await storage.updateQuotation(quotationId, {
         status: "approved",

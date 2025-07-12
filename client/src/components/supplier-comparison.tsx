@@ -64,14 +64,21 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
 
   const selectSupplierMutation = useMutation({
     mutationFn: async (data: { selectedSupplierId: number; totalValue: number; observations: string }) => {
-      return apiRequest("POST", `/api/quotations/${quotationId}/select-supplier`, data);
+      return apiRequest(`/api/quotations/${quotationId}/select-supplier`, { method: "POST", body: data });
     },
     onSuccess: () => {
       toast({
         title: "Fornecedor selecionado",
         description: "O fornecedor foi selecionado com sucesso e a solicitação avançou para Aprovação A2.",
       });
+      // Invalidate all related queries to ensure UI updates immediately
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-comparison`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-quotations`] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] && typeof query.queryKey[0] === 'string' &&
+        (query.queryKey[0].includes('quotations') || query.queryKey[0].includes('purchase-requests'))
+      });
       onComplete();
     },
     onError: () => {
