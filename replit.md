@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 12, 2025. Correção crítica do sistema de aprovação A2 - botão de rejeição aprimorado com modal de opções:
+  - ✓ Corrigido botão "Rejeitar" da fase A2 para abrir modal de aprovação em vez de rejeitar diretamente
+  - ✓ Implementado parâmetro initialAction para pré-selecionar opção de rejeição no modal
+  - ✓ Adicionado estado de controle para distinguir entre cliques de aprovar e rejeitar
+  - ✓ Corrigida mensagem de sucesso para mostrar destino correto baseado na ação de rejeição
+  - ✓ Melhorado formato da requisição API para consistência com outros componentes
+  - ✓ Adicionado logging para debug do processo de aprovação A2
+  - ✓ Sistema agora permite escolher entre "Arquivar definitivamente" ou "Retornar para nova cotação"
+  - ✓ Aplicação funcionando corretamente com feedback visual adequado
 - July 12, 2025. Migração completa do Replit Agent para Replit com suporte a múltiplas RFQs e melhorias A2 implementada com sucesso:
   - ✓ Migração bem-sucedida do projeto para ambiente Replit
   - ✓ Adicionados campos de banco de dados para suporte a múltiplas RFQs (isActive, rfqVersion, parentQuotationId)

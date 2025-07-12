@@ -984,6 +984,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const { approved, rejectionReason, rejectionAction, approverId } = req.body;
 
+      console.log("A2 approval received:", { approved, rejectionReason, rejectionAction, approverId });
+
       const request = await storage.getPurchaseRequestById(id);
       if (!request || request.currentPhase !== "aprovacao_a2") {
         return res.status(400).json({ message: "Request must be in the A2 approval phase" });
@@ -994,10 +996,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Handle rejection with two paths
         if (rejectionAction === "recotacao") {
           newPhase = "cotacao"; // Return to quotation phase
+          console.log("Setting newPhase to 'cotacao' for new quotation");
         } else {
           newPhase = "arquivado"; // Archive
+          console.log("Setting newPhase to 'arquivado' for archive");
         }
       }
+      
+      console.log("Final newPhase:", newPhase);
 
       const updateData = {
         approverA2Id: approverId,

@@ -157,19 +157,31 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
 
   const approvalMutation = useMutation({
     mutationFn: async (data: ApprovalFormData) => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/approve-a2`, {
-        ...data,
-        approverId: user?.id,
+      console.log("Sending A2 approval data:", data);
+      const response = await apiRequest(`/api/purchase-requests/${request.id}/approve-a2`, {
+        method: "POST",
+        body: {
+          ...data,
+          approverId: user?.id,
+        },
       });
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      
+      let message = "Solicitação aprovada e movida para Pedido de Compra!";
+      if (!variables.approved) {
+        if (variables.rejectionAction === "recotacao") {
+          message = "Solicitação reprovada e movida para nova Cotação!";
+        } else {
+          message = "Solicitação reprovada e movida para Arquivado!";
+        }
+      }
+      
       toast({
         title: "Sucesso",
-        description: selectedAction === 'approve' 
-          ? "Solicitação aprovada e movida para Pedido de Compra!"
-          : "Solicitação reprovada e movida para Arquivado",
+        description: message,
       });
       onClose?.();
     },
