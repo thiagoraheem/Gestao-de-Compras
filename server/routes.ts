@@ -1835,6 +1835,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotationId = parseInt(req.params.quotationId);
       const { supplierId, items, totalValue, paymentTerms, deliveryTerms, warrantyPeriod, observations } = req.body;
       
+      console.log("Update supplier quotation request:", {
+        quotationId,
+        supplierId,
+        items: items?.length || 0,
+        totalValue,
+        paymentTerms,
+        deliveryTerms,
+        warrantyPeriod,
+        observations
+      });
+      
       if (!supplierId) {
         return res.status(400).json({ message: "ID do fornecedor é obrigatório" });
       }
@@ -1862,7 +1873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Atualizar a cotação do fornecedor
-      await storage.updateSupplierQuotation(supplierQuotation.id, {
+      const updateData = {
         status: "received",
         totalValue: totalValue || null,
         paymentTerms: paymentTerms || null,
@@ -1870,7 +1881,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         warrantyPeriod: warrantyPeriod || null,
         observations: observations || null,
         receivedAt: new Date()
-      });
+      };
+      console.log("Updating supplier quotation with data:", updateData);
+      
+      await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
 
       // Atualizar ou criar itens da cotação
       if (items && items.length > 0) {

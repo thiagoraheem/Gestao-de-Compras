@@ -259,16 +259,18 @@ export default function UpdateSupplierQuotation({
       }));
 
       return apiRequest(
-        "POST",
         `/api/quotations/${quotationId}/update-supplier-quotation`,
         {
-          supplierId,
-          items: processedItems,
-          totalValue,
-          paymentTerms: data.paymentTerms || null,
-          deliveryTerms: data.deliveryTerms || null,
-          warrantyPeriod: data.warrantyPeriod || null,
-          observations: data.observations || null,
+          method: "POST",
+          body: {
+            supplierId,
+            items: processedItems,
+            totalValue,
+            paymentTerms: data.paymentTerms || null,
+            deliveryTerms: data.deliveryTerms || null,
+            warrantyPeriod: data.warrantyPeriod || null,
+            observations: data.observations || null,
+          },
         },
       );
     },
@@ -352,9 +354,11 @@ export default function UpdateSupplierQuotation({
         formData.append("supplierId", supplierId.toString());
 
         const response = await apiRequest(
-          "POST",
           `/api/quotations/${quotationId}/upload-supplier-file`,
-          formData,
+          {
+            method: "POST",
+            body: formData,
+          },
         );
 
         console.log("Upload response:", response);
