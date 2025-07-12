@@ -116,6 +116,10 @@ export const purchaseRequests = pgTable("purchase_requests", {
   
   // Aprovação A2
   approverA2Id: integer("approver_a2_id").references(() => users.id),
+  approvedA2: boolean("approved_a2"),
+  rejectionReasonA2: text("rejection_reason_a2"),
+  rejectionActionA2: text("rejection_action_a2"), // 'arquivar' or 'recotacao'
+  approvalDateA2: timestamp("approval_date_a2"),
   chosenSupplierId: integer("chosen_supplier_id").references(() => suppliers.id),
   choiceReason: text("choice_reason"), // Melhor Preço, Melhor Relacionamento, etc.
   negotiatedValue: decimal("negotiated_value", { precision: 10, scale: 2 }),

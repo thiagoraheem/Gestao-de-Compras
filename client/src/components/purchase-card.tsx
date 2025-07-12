@@ -50,6 +50,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface PurchaseCardProps {
   request: any;
@@ -744,6 +750,27 @@ export default function PurchaseCard({
                   Pendência
                 </Badge>
               </div>
+            )}
+            {/* Show red tag for items rejected from A2 and returned to quotation */}
+            {request.approvedA2 === false && 
+             request.rejectionActionA2 === "recotacao" && 
+             phase === PURCHASE_PHASES.COTACAO && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="destructive"
+                      className="text-xs bg-red-500 text-white border-red-600 cursor-help"
+                    >
+                      <X className="mr-1 h-3 w-3" />
+                      Nec.Cotação
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{request.rejectionReasonA2 || "Reprovada em Aprovação A2 - necessária nova cotação"}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
 

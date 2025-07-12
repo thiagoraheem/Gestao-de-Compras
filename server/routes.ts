@@ -1007,6 +1007,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updateData = {
         approverA2Id: approverId,
+        approvedA2: approved,
+        rejectionReasonA2: approved ? null : rejectionReason,
+        rejectionActionA2: approved ? null : rejectionAction,
+        approvalDateA2: new Date(),
         currentPhase: newPhase as any,
         updatedAt: new Date()
       } as const;
