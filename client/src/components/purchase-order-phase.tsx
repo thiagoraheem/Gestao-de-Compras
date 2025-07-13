@@ -102,7 +102,10 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   // Mutation para salvar observações
   const updateRequestMutation = useMutation({
     mutationFn: async (data: PurchaseOrderFormData) => {
-      return apiRequest("PATCH", `/api/purchase-requests/${request.id}`, data);
+      return apiRequest(`/api/purchase-requests/${request.id}`, {
+        method: "PATCH",
+        body: data
+      });
     },
     onSuccess: (updatedRequest) => {
       toast({
@@ -148,7 +151,9 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   });
 
   const handleAdvanceToReceipt = () => {
+    console.log("handleAdvanceToReceipt called for request:", request.id);
     if (window.confirm("Confirma o avanço desta solicitação para a fase de Recebimento?")) {
+      console.log("User confirmed, calling mutation...");
       advanceToReceiptMutation.mutate();
     }
   };
