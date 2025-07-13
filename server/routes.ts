@@ -53,7 +53,7 @@ const quotationUpload = multer({
       'image/jpeg',
       'image/jpg'
     ];
-    
+
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -103,7 +103,7 @@ async function isAdmin(req: Request, res: Response, next: Function) {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configure PostgreSQL session store
   const PgSession = connectPgSimple(session);
-  
+
   // Configure session with PostgreSQL store
   app.use(session({
     store: new PgSession({
@@ -129,26 +129,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize default data
   await storage.initializeDefaultData();
-  
+
 
 
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      
+
       const user = await storage.getUserByUsername(username);
-      
+
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
-      
+
       const isValidPassword = await bcrypt.compare(password, user.password);
-      
+
       if (!isValidPassword) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
-      
+
       req.session.userId = user.id;
       res.json({ 
         id: user.id,
@@ -209,13 +209,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/forgot-password", async (req, res) => {
     try {
       const { email } = req.body;
-      
+
       if (!email) {
         return res.status(400).json({ message: "E-mail é obrigatório" });
       }
 
       const token = await storage.generatePasswordResetToken(email);
-      
+
       if (token) {
         const user = await storage.getUserByEmail(email);
         if (user) {
@@ -224,7 +224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await sendPasswordResetEmail(user, token);
         }
       }
-      
+
       // Always return success to prevent email enumeration
       res.json({ message: "Se o e-mail existir em nossa base, você receberá instruções de recuperação" });
     } catch (error) {
@@ -236,13 +236,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/validate-reset-token", async (req, res) => {
     try {
       const { token } = req.body;
-      
+
       if (!token) {
         return res.status(400).json({ message: "Token é obrigatório" });
       }
 
       const user = await storage.validatePasswordResetToken(token);
-      
+
       if (!user) {
         return res.status(400).json({ message: "Token inválido ou expirado" });
       }
@@ -257,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/reset-password", async (req, res) => {
     try {
       const { token, password } = req.body;
-      
+
       if (!token || !password) {
         return res.status(400).json({ message: "Token e senha são obrigatórios" });
       }
@@ -267,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const success = await storage.resetPassword(token, password);
-      
+
       if (!success) {
         return res.status(400).json({ message: "Token inválido ou expirado" });
       }
@@ -295,16 +295,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userData = insertUserSchema.parse(req.body);
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       const user = await storage.createUser({ ...userData, password: hashedPassword });
-      
+
       // Set user cost centers if provided
       if (req.body.costCenterIds && Array.isArray(req.body.costCenterIds)) {
         await storage.setUserCostCenters(user.id, req.body.costCenterIds);
       }
-      
+
       res.status(201).json(user);
     } catch (error) {
       console.error("Error creating user:", error);
-      
+
       // Check if it's a unique constraint violation for email
       if (error && typeof error === 'object' && 'code' in error && error.code === '23505' && 'constraint' in error && error.constraint === 'users_email_unique') {
         res.status(400).json({ message: "Este e-mail já está sendo usado por outro usuário" });
@@ -318,23 +318,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const userData = insertUserSchema.partial().parse(req.body);
-      
+
       // If password is provided, hash it
       if (userData.password) {
         userData.password = await bcrypt.hash(userData.password, 10);
       }
-      
+
       const user = await storage.updateUser(id, userData);
-      
+
       // Update user cost centers if provided
       if (req.body.costCenterIds !== undefined) {
         await storage.setUserCostCenters(id, req.body.costCenterIds);
       }
-      
+
       res.json(user);
     } catch (error) {
       console.error("Error updating user:", error);
-      
+
       // Check if it's a unique constraint violation for email
       if (error && typeof error === 'object' && 'code' in error && error.code === '23505' && 'constraint' in error && error.constraint === 'users_email_unique') {
         res.status(400).json({ message: "Este e-mail já está sendo usado por outro usuário" });
@@ -360,7 +360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/users/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       // Check if user can be deleted first
       const canDeleteCheck = await storage.checkUserCanBeDeleted(id);
       if (!canDeleteCheck.canDelete) {
@@ -383,18 +383,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.id);
       const sessionUserId = (req.session as any).userId;
-      
+
       // Users can only update their own profile
       if (userId !== sessionUserId) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      
+
       const { firstName, lastName, email } = req.body;
       const user = await storage.updateUser(userId, { firstName, lastName, email });
       res.json(user);
     } catch (error) {
       console.error("Error updating profile:", error);
-      
+
       // Check if it's a unique constraint violation for email
       if (error && typeof error === 'object' && 'code' in error && error.code === '23505' && 'constraint' in error && error.constraint === 'users_email_unique') {
         res.status(400).json({ message: "Este e-mail já está sendo usado por outro usuário" });
@@ -409,30 +409,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.id);
       const sessionUserId = (req.session as any).userId;
-      
+
       // Users can only change their own password
       if (userId !== sessionUserId) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      
+
       const { currentPassword, newPassword } = req.body;
-      
+
       // Get user to verify current password
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
       // Verify current password
       const isValidPassword = await bcrypt.compare(currentPassword, user.password);
       if (!isValidPassword) {
         return res.status(400).json({ message: "Senha atual incorreta" });
       }
-      
+
       // Hash new password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       await storage.updateUser(userId, { password: hashedPassword });
-      
+
       res.json({ message: "Password changed successfully" });
     } catch (error) {
       console.error("Error changing password:", error);
@@ -607,7 +607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(deliveryLocation);
     } catch (error) {
       console.error("Error creating delivery location:", error);
-      
+
       // Check for specific database constraint errors
       if (error instanceof Error) {
         if (error.message.includes('unique constraint') || error.message.includes('duplicate key')) {
@@ -617,7 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "Todos os campos obrigatórios devem ser preenchidos" });
         }
       }
-      
+
       res.status(400).json({ message: "Erro ao criar local de entrega" });
     }
   });
@@ -630,7 +630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(deliveryLocation);
     } catch (error) {
       console.error("Error updating delivery location:", error);
-      
+
       // Check for specific database constraint errors
       if (error instanceof Error) {
         if (error.message.includes('unique constraint') || error.message.includes('duplicate key')) {
@@ -640,7 +640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "Todos os campos obrigatórios devem ser preenchidos" });
         }
       }
-      
+
       res.status(400).json({ message: "Erro ao atualizar local de entrega" });
     }
   });
@@ -724,10 +724,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/purchase-requests", isAuthenticated, async (req, res) => {
     try {
       const { items, ...requestData } = req.body;
-      
+
       // Validate request data
       const validatedRequestData = insertPurchaseRequestSchema.parse(requestData);
-      
+
       // Validate items if provided
       let validatedItems: typeof insertPurchaseRequestItemSchema._type[] = [];
       if (items && Array.isArray(items)) {
@@ -742,10 +742,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           approvedQuantity: undefined
         }));
       }
-      
+
       // Create the request
       const request = await storage.createPurchaseRequest(validatedRequestData);
-      
+
       // Create items if any
       if (validatedItems.length > 0) {
         const itemsWithRequestId = validatedItems.map(item => ({
@@ -758,7 +758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createPurchaseRequestItem(item);
         }
       }
-      
+
       res.status(201).json(request);
     } catch (error) {
       console.error("Error creating purchase request:", error);
@@ -770,13 +770,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { items, ...requestData } = req.body;
-      
+
       // Validate request data
       const validatedRequestData = insertPurchaseRequestSchema.partial().parse(requestData);
-      
+
       // Update the purchase request
       const request = await storage.updatePurchaseRequest(id, validatedRequestData);
-      
+
       // Handle items if provided
       if (items && Array.isArray(items)) {
         // First, remove all existing items
@@ -784,7 +784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const item of existingItems) {
           await storage.deletePurchaseRequestItem(item.id);
         }
-        
+
         // Then, add new items
         const validatedItems = items.map(item => insertPurchaseRequestItemSchema.parse({
           ...item,
@@ -792,7 +792,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
         await storage.createPurchaseRequestItems(validatedItems);
       }
-      
+
       res.json(request);
     } catch (error) {
       console.error("Error updating purchase request:", error);
@@ -803,13 +803,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/purchase-requests/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       // Validate request data (only partial update)
       const validatedRequestData = insertPurchaseRequestSchema.partial().parse(req.body);
-      
+
       // Update the purchase request
       const request = await storage.updatePurchaseRequest(id, validatedRequestData);
-      
+
       res.json(request);
     } catch (error) {
       console.error("Error updating purchase request:", error);
@@ -822,7 +822,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const purchaseRequestId = parseInt(req.params.id);
       const items = await storage.getPurchaseRequestItems(purchaseRequestId);
-      
+
       // Map the items to match the frontend EditableItem interface
       const mappedItems = items.map(item => ({
         id: item.id,
@@ -831,7 +831,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         requestedQuantity: parseFloat(item.requestedQuantity) || 0,
         technicalSpecification: item.technicalSpecification || ""
       }));
-      
+
       console.log(`[DEBUG] Fetched ${items.length} items for purchase request ${purchaseRequestId}:`, mappedItems);
       res.json(mappedItems);
     } catch (error) {
@@ -882,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/purchase-requests/:id/send-to-approval", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       const request = await storage.getPurchaseRequestById(id);
       if (!request || request.currentPhase !== "solicitacao") {
         return res.status(400).json({ message: "Request must be in the request phase" });
@@ -894,7 +894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
-      
+
       // Send notification to approvers A1
       try {
         await notifyApprovalA1(updatedRequest);
@@ -902,7 +902,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error sending approval notification:", emailError);
         // Continue with the update even if email fails
       }
-      
+
       res.json(updatedRequest);
     } catch (error) {
       console.error("Error sending to approval:", error);
@@ -941,12 +941,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
-      
+
       // Send rejection notification email if request was rejected
       if (!approved && rejectionReason) {
         await notifyRejection(updatedRequest, rejectionReason, 'A1');
       }
-      
+
       res.json(updatedRequest);
     } catch (error) {
       if (error instanceof Error) {
@@ -963,14 +963,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { buyerId, totalValue, paymentMethodId } = req.body;
-      
+
       const updates = {
         buyerId,
         totalValue,
         paymentMethodId,
         currentPhase: "aprovacao_a2" as const,
       };
-      
+
       const request = await storage.updatePurchaseRequest(id, updates);
       res.json(request);
     } catch (error) {
@@ -993,7 +993,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let newPhase = "pedido_compra";
       if (!approved) {
-        // Handle rejection with two paths
         if (rejectionAction === "recotacao") {
           newPhase = "cotacao"; // Return to quotation phase
           console.log("Setting newPhase to 'cotacao' for new quotation");
@@ -1002,15 +1001,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log("Setting newPhase to 'arquivado' for archive");
         }
       }
-      
+
       console.log("Final newPhase:", newPhase);
 
       const updateData = {
         approverA2Id: approverId,
+        approvalDateA2: new Date(),
         approvedA2: approved,
         rejectionReasonA2: approved ? null : rejectionReason,
         rejectionActionA2: approved ? null : rejectionAction,
-        approvalDateA2: new Date(),
         currentPhase: newPhase as any,
         updatedAt: new Date()
       } as const;
@@ -1025,12 +1024,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
-      
+
       // Send rejection notification email if request was rejected
       if (!approved && rejectionReason) {
         await notifyRejection(updatedRequest, rejectionReason, 'A2');
       }
-      
+
       res.json(updatedRequest);
     } catch (error) {
       console.error("Error approving A2:", error);
@@ -1057,27 +1056,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/purchase-requests/:id/selected-supplier", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       // Get quotation for this purchase request
       const quotation = await storage.getQuotationByPurchaseRequestId(id);
       if (!quotation) {
         return res.json(null);
       }
-      
+
       // Get supplier quotations for this quotation
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
       const selectedSupplier = supplierQuotations.find(sq => sq.isChosen);
-      
+
       if (!selectedSupplier) {
         return res.json(null);
       }
-      
+
       // Get supplier details
       const supplier = await storage.getSupplierById(selectedSupplier.supplierId);
-      
+
       // Get supplier quotation items
       const items = await storage.getSupplierQuotationItems(selectedSupplier.id);
-      
+
       res.json({
         supplier,
         quotation: selectedSupplier,
@@ -1095,12 +1094,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    
+
     const user = await storage.getUser(req.session.userId);
     if (!user?.isReceiver && !user?.isAdmin) {
       return res.status(403).json({ message: "Acesso negado: permissão de recebimento necessária" });
     }
-    
+
     next();
   }
 
@@ -1169,7 +1168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { purchaseObservations } = req.body;
-      
+
       const updates = {
         purchaseDate: new Date(),
         purchaseObservations,
@@ -1188,13 +1187,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { receivedById } = req.body;
-      
+
       const updates = {
         receivedById,
         receivedDate: new Date(),
         currentPhase: "recebimento" as const,
       };
-      
+
       const request = await storage.updatePurchaseRequest(id, updates);
       res.json(request);
     } catch (error) {
@@ -1232,12 +1231,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Permission checks based on current phase and user permissions
       const currentPhase = request.currentPhase;
-      
+
       // Check if user has permission to move from current phase
       if (currentPhase === "aprovacao_a1" && !user.isApproverA1) {
         return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Aprovação A1" });
       }
-      
+
       if (currentPhase === "aprovacao_a2" && !user.isApproverA2) {
         return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Aprovação A2" });
       }
@@ -1273,7 +1272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updates.approverA1Id = userId;
         updates.approvalDateA1 = new Date();
         updates.approvedA1 = true;
-        
+
         // Create approval history entry
         await storage.createApprovalHistory({
           purchaseRequestId: id,
@@ -1289,7 +1288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updates.approverA2Id = userId;
         updates.approvalDateA2 = new Date();
         updates.approvedA2 = true;
-        
+
         // Create approval history entry
         await storage.createApprovalHistory({
           purchaseRequestId: id,
@@ -1301,7 +1300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedRequest = await storage.updatePurchaseRequest(id, updates);
-      
+
       // Send email notifications based on the new phase
       if (newPhase === "aprovacao_a1") {
         notifyApprovalA1(updatedRequest).catch(error => {
@@ -1312,7 +1311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("Erro ao enviar notificação para aprovadores A2:", error);
         });
       }
-      
+
       res.json(updatedRequest);
     } catch (error) {
       console.error("Error updating request phase:", error);
@@ -1372,35 +1371,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/attachments/:id/download", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       // Import database and schema
       const { db } = await import('./db');
       const { attachments } = await import('../shared/schema');
       const { eq } = await import('drizzle-orm');
-      
+
       // Get attachment from database
       const attachment = await db
         .select()
         .from(attachments)
         .where(eq(attachments.id, id))
         .limit(1);
-      
+
       if (!attachment[0]) {
         return res.status(404).json({ message: "Anexo não encontrado" });
       }
-      
+
       const filePath = attachment[0].filePath;
-      
+
       // Check if file exists
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ message: "Arquivo não encontrado no servidor" });
       }
-      
+
       // Set proper headers for file download
       const mimeType = mime.lookup(filePath) || 'application/octet-stream';
       res.setHeader('Content-Type', mimeType);
       res.setHeader('Content-Disposition', `attachment; filename="${attachment[0].fileName}"`);
-      
+
       // Stream file to response
       const fileStream = fs.createReadStream(filePath);
       fileStream.pipe(res);
@@ -1415,7 +1414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { supplierId, quotedValue, paymentConditions, deliveryDays, observations } = req.body;
-      
+
       // For now, return success response as quotation functionality is simplified
       res.status(201).json({ 
         id: Date.now(), 
@@ -1502,9 +1501,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         termsAndConditions: z.string().optional(),
         technicalSpecs: z.string().optional(),
       });
-      
+
       const quotationDataForApi = quotationApiSchema.parse(req.body);
-      
+
       // Use session user ID instead of frontend-provided createdBy for security
       const quotation = await storage.createQuotation({
         ...quotationDataForApi,
@@ -1522,7 +1521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const quotationId = parseInt(req.params.id);
       const { sendEmail = true } = req.body;
-      
+
       // Get quotation details
       const quotation = await storage.getQuotationById(quotationId);
       if (!quotation) {
@@ -1537,11 +1536,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get quotation items
       const quotationItems = await storage.getQuotationItems(quotationId);
-      
+
       // Get supplier quotations to know which suppliers to send to
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
       const supplierIds = supplierQuotations.map(sq => sq.supplierId);
-      
+
       // Get suppliers data
       const allSuppliers = await storage.getAllSuppliers();
       const selectedSuppliers = allSuppliers.filter(s => supplierIds.includes(s.id));
@@ -1549,11 +1548,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (sendEmail && selectedSuppliers.length > 0) {
         // Import email service
         const { sendRFQToSuppliers } = await import('./email-service');
-        
+
         // Get logged-in user's email
         const loggedUser = await storage.getUser(req.session.userId!);
         const senderEmail = loggedUser?.email;
-        
+
         // Prepare email data
         const rfqData = {
           quotationNumber: quotation.quotationNumber,
@@ -1572,7 +1571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Send emails with logged-in user's email as sender
         const emailResult = await sendRFQToSuppliers(selectedSuppliers, rfqData, senderEmail);
-        
+
         // Update quotation status to 'sent'
         await storage.updateQuotation(quotationId, { 
           status: 'sent'
@@ -1630,11 +1629,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotations/:quotationId/items", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      
+
       if (isNaN(quotationId)) {
         return res.status(400).json({ message: "Invalid quotation ID" });
       }
-      
+
       const items = await storage.getQuotationItems(quotationId);
       res.json(items);
     } catch (error) {
@@ -1685,11 +1684,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotations/:quotationId/supplier-quotations", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      
+
       if (isNaN(quotationId)) {
         return res.status(400).json({ message: "Invalid quotation ID" });
       }
-      
+
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
       res.json(supplierQuotations);
     } catch (error) {
@@ -1718,17 +1717,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const quotationId = parseInt(req.params.quotationId);
       const supplierId = parseInt(req.params.supplierId);
-      
+
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
       const supplierQuotation = supplierQuotations.find(sq => sq.supplierId === supplierId);
-      
+
       if (!supplierQuotation) {
         return res.json(null);
       }
 
       // Get items for this supplier quotation
       const items = await storage.getSupplierQuotationItems(supplierQuotation.id);
-      
+
       res.json({
         ...supplierQuotation,
         items
@@ -1844,7 +1843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const quotationId = parseInt(req.params.quotationId);
       const { supplierId, items, totalValue, paymentTerms, deliveryTerms, warrantyPeriod, observations } = req.body;
-      
+
       console.log("Update supplier quotation request:", {
         quotationId,
         supplierId,
@@ -1855,7 +1854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         warrantyPeriod,
         observations
       });
-      
+
       if (!supplierId) {
         return res.status(400).json({ message: "ID do fornecedor é obrigatório" });
       }
@@ -1869,7 +1868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Buscar cotação do fornecedor
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
       let supplierQuotation = supplierQuotations.find(sq => sq.supplierId === supplierId);
-      
+
       if (!supplierQuotation) {
         // Criar nova cotação do fornecedor se não existir
         supplierQuotation = await storage.createSupplierQuotation({
@@ -1893,23 +1892,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         receivedAt: new Date()
       };
       console.log("Updating supplier quotation with data:", updateData);
-      
+
       await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
 
       // Atualizar ou criar itens da cotação
       if (items && items.length > 0) {
         // Buscar itens existentes
         const existingItems = await storage.getSupplierQuotationItems(supplierQuotation.id);
-        
+
         for (const item of items) {
           const existingItem = existingItems.find(ei => ei.quotationItemId === item.quotationItemId);
-          
+
           if (existingItem) {
             // Buscar quantidade do item de cotação
             const quotationItems = await storage.getQuotationItems(quotationId);
             const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
             const quantity = parseFloat(quotationItem?.quantity || "1");
-            
+
             // Atualizar item existente
             await storage.updateSupplierQuotationItem(existingItem.id, {
               unitPrice: item.unitPrice.toString(),
@@ -1924,7 +1923,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const quotationItems = await storage.getQuotationItems(quotationId);
             const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
             const quantity = parseFloat(quotationItem?.quantity || "1");
-            
+
             // Criar novo item
             await storage.createSupplierQuotationItem({
               supplierQuotationId: supplierQuotation.id,
@@ -1952,7 +1951,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const quotationId = parseInt(req.params.quotationId);
       const { attachmentType, supplierId } = req.body;
-      
+
       console.log("Upload request received:", {
         quotationId,
         attachmentType,
@@ -1961,28 +1960,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileName: req.file?.originalname,
         fileSize: req.file?.size
       });
-      
+
       if (!req.file) {
         console.error("No file received in upload request");
         return res.status(400).json({ message: "Nenhum arquivo foi enviado" });
       }
-      
+
       if (!supplierId) {
         console.error("No supplierId provided in upload request");
         return res.status(400).json({ message: "ID do fornecedor é obrigatório" });
       }
-      
+
       // Find supplier quotation
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
       const supplierQuotation = supplierQuotations.find(sq => sq.supplierId === parseInt(supplierId));
-      
+
       if (!supplierQuotation) {
         console.error("Supplier quotation not found:", { quotationId, supplierId });
         return res.status(404).json({ message: "Cotação do fornecedor não encontrada" });
       }
 
       console.log("Creating attachment for supplier quotation:", supplierQuotation.id);
-      
+
       // Add attachment to database
       const attachment = await storage.createAttachment({
         supplierQuotationId: supplierQuotation.id,
@@ -2010,28 +2009,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/purchase-requests/:id/supplier-attachments", isAuthenticated, async (req, res) => {
     try {
       const purchaseRequestId = parseInt(req.params.id);
-      
+
       // Get quotation for this purchase request
       const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
       if (!quotation) {
         return res.json([]);
       }
-      
+
       // Get all supplier quotations
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
-      
+
       // Get all attachments for all supplier quotations
       const allAttachments = await Promise.all(
         supplierQuotations.map(async (sq: any) => {
           // Get supplier details
           const supplier = await storage.getSupplierById(sq.supplierId);
-          
+
           // Get attachments for this supplier quotation - using a simple query since we don't have a storage method
           const { db } = await import('./db');
           const { attachments } = await import('../shared/schema');
           const { eq } = await import('drizzle-orm');
           const sqAttachments = await db.select().from(attachments).where(eq(attachments.supplierQuotationId, sq.id));
-          
+
           return sqAttachments.map((attachment: any) => ({
             ...attachment,
             supplierName: supplier?.name || "Fornecedor desconhecido",
@@ -2040,10 +2039,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }));
         })
       );
-      
+
       // Flatten the array and filter out empty arrays
       const flatAttachments = allAttachments.flat().filter(Boolean);
-      
+
       res.json(flatAttachments);
     } catch (error) {
       console.error("Error fetching supplier attachments:", error);
@@ -2055,29 +2054,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotations/:quotationId/attachments", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      
+
       // Get all supplier quotations for this quotation
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
-      
+
       // Get all attachments for all supplier quotations
       const { db } = await import('./db');
       const { attachments } = await import('../shared/schema');
       const { eq, inArray } = await import('drizzle-orm');
-      
+
       if (supplierQuotations.length === 0) {
         return res.json([]);
       }
-      
+
       const supplierQuotationIds = supplierQuotations.map(sq => sq.id);
       const allAttachments = await db.select().from(attachments)
         .where(inArray(attachments.supplierQuotationId, supplierQuotationIds));
-      
+
       // Add supplier information to attachments
       const attachmentsWithSupplier = await Promise.all(
         allAttachments.map(async (attachment) => {
           const supplierQuotation = supplierQuotations.find(sq => sq.id === attachment.supplierQuotationId);
           const supplier = supplierQuotation ? await storage.getSupplierById(supplierQuotation.supplierId) : null;
-          
+
           return {
             ...attachment,
             supplierName: supplier?.name || "Fornecedor desconhecido",
@@ -2085,7 +2084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
-      
+
       res.json(attachmentsWithSupplier);
     } catch (error) {
       console.error("Error fetching quotation attachments:", error);
@@ -2098,21 +2097,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const quotationId = parseInt(req.params.quotationId);
       const supplierId = parseInt(req.params.supplierId);
-      
+
       // Find the supplier quotation
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
       const supplierQuotation = supplierQuotations.find(sq => sq.supplierId === supplierId);
-      
+
       if (!supplierQuotation) {
         return res.json([]);
       }
-      
+
       // Get attachments for this supplier quotation
       const { db } = await import('./db');
       const { attachments } = await import('../shared/schema');
       const { eq } = await import('drizzle-orm');
       const sqAttachments = await db.select().from(attachments).where(eq(attachments.supplierQuotationId, supplierQuotation.id));
-      
+
       res.json(sqAttachments);
     } catch (error) {
       console.error("Error fetching supplier quotation attachments:", error);
@@ -2125,23 +2124,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const quotationId = parseInt(req.params.quotationId);
       const { selectedSupplierId, totalValue, observations } = req.body;
-      
+
       // Buscar a cotação
       const quotation = await storage.getQuotationById(quotationId);
       if (!quotation) {
         return res.status(404).json({ message: "Cotação não encontrada" });
       }
-      
+
       // Buscar todas as cotações dos fornecedores
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
-      
+
       // Marcar todas as cotações como não escolhidas primeiro
       await Promise.all(
         supplierQuotations.map(sq => 
           storage.updateSupplierQuotation(sq.id, { isChosen: false })
         )
       );
-      
+
       // Marcar apenas a cotação do fornecedor selecionado como escolhida
       const selectedSupplierQuotation = supplierQuotations.find(sq => sq.supplierId === selectedSupplierId);
       if (selectedSupplierQuotation) {
@@ -2150,12 +2149,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           choiceReason: observations
         });
       }
-      
+
       // Atualizar a cotação (status e observações)
       await storage.updateQuotation(quotationId, {
         status: "approved",
       });
-      
+
       // Avançar a solicitação para aprovação A2
       await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
         currentPhase: "aprovacao_a2",
@@ -2163,7 +2162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chosenSupplierId: selectedSupplierId,
         choiceReason: observations
       });
-      
+
       res.json({ message: "Fornecedor selecionado com sucesso" });
     } catch (error) {
       console.error("Error selecting supplier:", error);
@@ -2175,15 +2174,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotations/:quotationId/supplier-comparison", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      
+
       // Buscar cotações dos fornecedores
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
-      
+
       // Para cada cotação de fornecedor, buscar os itens
       const detailedComparison = await Promise.all(
         supplierQuotations.map(async (sq: any) => {
           const items = await storage.getSupplierQuotationItems(sq.id);
-          
+
           return {
             ...sq,
             items,
@@ -2197,7 +2196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
-      
+
       res.json(detailedComparison);
     } catch (error) {
       console.error("Error fetching supplier comparison:", error);
@@ -2209,11 +2208,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/supplier-quotations/:id/mark-no-response", isAuthenticated, async (req, res) => {
     try {
       const supplierQuotationId = parseInt(req.params.id);
-      
+
       const updatedSupplierQuotation = await storage.updateSupplierQuotation(supplierQuotationId, {
         status: 'no_response'
       });
-      
+
       res.json(updatedSupplierQuotation);
     } catch (error) {
       console.error("Error marking supplier as no response:", error);
@@ -2225,17 +2224,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/purchase-requests/:id/pdf", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       // Import PDF service
       const { PDFService } = await import('./pdf-service');
-      
+
       // Generate PDF
       const pdfBuffer = await PDFService.generatePurchaseOrderPDF(id);
-      
+
       // Get purchase request to use in filename
       const purchaseRequest = await storage.getPurchaseRequestById(id);
       const filename = `Pedido_Compra_${purchaseRequest?.requestNumber || id}`;
-      
+
       // Check if the buffer is HTML (fallback mode)
       const bufferString = pdfBuffer.toString('utf8');
       if (bufferString.includes('<!DOCTYPE html>')) {
@@ -2263,7 +2262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/dashboard", isAuthenticated, async (req, res) => {
     try {
       const { period = "30", department = "all", status = "all" } = req.query;
-      
+
       // Check if user is manager or admin
       const user = await storage.getUser(req.session.userId!);
       if (!user?.isManager && !user?.isAdmin) {
@@ -2280,12 +2279,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filteredRequests = allRequests.filter(request => {
         const createdAt = new Date(request.createdAt);
         const isInPeriod = createdAt >= startDate;
-        
+
         const departmentMatch = department === "all" || 
           (request.costCenter?.departmentId === parseInt(department as string));
-        
+
         const statusMatch = status === "all" || request.currentPhase === status;
-        
+
         return isInPeriod && departmentMatch && statusMatch;
       });
 
@@ -2347,7 +2346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date.setMonth(date.getMonth() - i);
         const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
         const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-        
+
         const monthRequests = allRequests.filter(req => {
           const reqDate = new Date(req.createdAt);
           return reqDate >= monthStart && reqDate <= monthEnd;
@@ -2370,7 +2369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "recebimento": "Recebimento",
         "arquivado": "Arquivado"
       };
-      
+
       const phases = [
         "solicitacao", "aprovacao_a1", "cotacao", "aprovacao_a2", 
         "pedido_compra", "conclusao_compra", "recebimento", "arquivado"
@@ -2467,7 +2466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dashboard/export-pdf', isAuthenticated, async (req, res) => {
     try {
       const { period, department, status } = req.query;
-      
+
       // Get dashboard data (reuse the same logic)
       const dashboardResponse = await fetch(`${req.protocol}://${req.get('host')}/api/dashboard?period=${period}&department=${department}&status=${status}`, {
         headers: {
@@ -2475,10 +2474,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       const dashboardData = await dashboardResponse.json();
-      
+
       // Generate PDF using the PDF service
       const pdfBuffer = await PDFService.generateDashboardPDF(dashboardData);
-      
+
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="dashboard-executivo-${new Date().toISOString().split('T')[0]}.pdf"`);
       res.send(pdfBuffer);
@@ -2493,24 +2492,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const filename = req.params.filename;
       const filePath = path.join(process.cwd(), 'uploads', 'supplier_quotations', filename);
-      
+
       console.log("Serving file:", filePath);
-      
+
       // Check if file exists
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ message: "Arquivo não encontrado" });
       }
-      
+
       // Get file stats
       const stats = fs.statSync(filePath);
       const fileSize = stats.size;
-      
+
       // Set appropriate headers
       const mimeType = mime.lookup(filePath) || 'application/octet-stream';
       res.setHeader('Content-Type', mimeType);
       res.setHeader('Content-Length', fileSize);
       res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-      
+
       // Stream the file
       const fileStream = fs.createReadStream(filePath);
       fileStream.pipe(res);
@@ -2538,16 +2537,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/cleanup-purchase-data", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { confirmationText } = req.body;
-      
+
       // Require confirmation text to prevent accidental deletions
       if (confirmationText !== "CONFIRMAR LIMPEZA") {
         return res.status(400).json({ 
           message: "Texto de confirmação incorreto. Digite exatamente: CONFIRMAR LIMPEZA" 
         });
       }
-      
+
       await storage.cleanupPurchaseRequestsData();
-      
+
       res.json({ 
         message: "Limpeza realizada com sucesso! Todos os dados de solicitações foram removidos, mantendo cadastros básicos.",
         details: {
@@ -2585,13 +2584,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { conclusionObservations } = req.body;
-      
+
       const updates = {
         currentPhase: "arquivado" as const,
         conclusionObservations,
         archivedDate: new Date(),
       };
-      
+
       const request = await storage.updatePurchaseRequest(id, updates);
       res.json(request);
     } catch (error) {
@@ -2605,7 +2604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const request = await storage.getPurchaseRequestById(id);
-      
+
       if (!request) {
         return res.status(404).json({ message: "Purchase request not found" });
       }
@@ -2624,22 +2623,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const request = await storage.getPurchaseRequestById(id);
-      
+
       if (!request) {
         return res.status(404).json({ message: "Purchase request not found" });
       }
 
       // Import PDF service
       const { PDFService } = await import('./pdf-service');
-      
+
       // Generate completion summary PDF
       const pdfBuffer = await PDFService.generateCompletionSummaryPDF(id);
-      
+
       // Set headers for PDF download
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="Conclusao_${request.requestNumber}.pdf"`);
       res.setHeader('Content-Length', pdfBuffer.length);
-      
+
       // Send PDF
       res.send(pdfBuffer);
     } catch (error) {

@@ -99,21 +99,21 @@ export const purchaseRequests = pgTable("purchase_requests", {
   idealDeliveryDate: timestamp("ideal_delivery_date"),
   availableBudget: decimal("available_budget", { precision: 10, scale: 2 }),
   additionalInfo: text("additional_info"),
-  
+
   // Phase-specific fields
   currentPhase: text("current_phase").notNull().default("solicitacao"),
-  
+
   // Aprovação A1
   approverA1Id: integer("approver_a1_id").references(() => users.id),
   approvedA1: boolean("approved_a1"),
   rejectionReasonA1: text("rejection_reason_a1"),
   approvalDateA1: timestamp("approval_date_a1"),
-  
+
   // Cotação
   buyerId: integer("buyer_id").references(() => users.id),
   totalValue: decimal("total_value", { precision: 10, scale: 2 }),
   paymentMethodId: integer("payment_method_id").references(() => paymentMethods.id),
-  
+
   // Aprovação A2
   approverA2Id: integer("approver_a2_id").references(() => users.id),
   approvedA2: boolean("approved_a2"),
@@ -125,17 +125,17 @@ export const purchaseRequests = pgTable("purchase_requests", {
   negotiatedValue: decimal("negotiated_value", { precision: 10, scale: 2 }),
   discountsObtained: decimal("discounts_obtained", { precision: 10, scale: 2 }),
   deliveryDate: timestamp("delivery_date"),
-  
+
   // Pedido de Compra
   purchaseDate: timestamp("purchase_date"),
   purchaseObservations: text("purchase_observations"),
-  
+
   // Recebimento
   receivedById: integer("received_by_id").references(() => users.id),
   receivedDate: timestamp("received_date"),
   hasPendency: boolean("has_pendency").default(false),
   pendencyReason: text("pendency_reason"),
-  
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

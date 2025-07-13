@@ -4,9 +4,16 @@
   "entries": [
     {
       "idx": 0,
-      "version": "7",
-      "when": 1751650589536,
+      "version": "6",
+      "when": 1751742507850,
       "tag": "0000_omniscient_zuras",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1752335000000,
+      "tag": "0001_add_rejection_action_a2",
       "breakpoints": true
     }
   ]
