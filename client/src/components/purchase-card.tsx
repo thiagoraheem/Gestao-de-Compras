@@ -747,30 +747,16 @@ export default function PurchaseCard({
               </div>
             )}
             {/* Show red tag for items rejected from A2 and returned to quotation */}
-            {(() => {
-              // Debug logging
-              if (request.requestNumber === "SOL-2025-004") {
-                console.log("Debug SOL-2025-004:", {
-                  approvedA2: request.approvedA2,
-                  rejectionActionA2: request.rejectionActionA2,
-                  phase: phase,
-                  phaseCheck: phase === PURCHASE_PHASES.COTACAO
-                });
-              }
-              return request.approvedA2 === false && 
-                     request.rejectionActionA2 === "recotacao" && 
-                     phase === PURCHASE_PHASES.COTACAO;
-            })() && (
+            {request.approvedA2 === false && 
+             request.rejectionActionA2 === "recotacao" && 
+             phase === PURCHASE_PHASES.COTACAO && (
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant="destructive"
-                      className="text-xs bg-red-500 text-white border-red-600 cursor-help"
-                    >
+                  <TooltipTrigger>
+                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500 text-white border border-red-600 cursor-help">
                       <X className="mr-1 h-3 w-3" />
                       Nec.Cotação
-                    </Badge>
+                    </div>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>{request.rejectionReasonA2 || "Reprovada em Aprovação A2 - necessária nova cotação"}</p>

@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 13, 2025. Correção crítica do botão "Avançar para Recebimento" e finalização do sistema de badge A2 implementada com sucesso:
+  - ✓ Corrigido botão "Avançar para Recebimento" na fase Pedido de Compra que não respondia ao clique
+  - ✓ Problema estava no formato da chamada apiRequest - corrigido de apiRequest("POST", url) para apiRequest(url, {method: "POST"})
+  - ✓ Botão agora funciona corretamente com confirmação e avanço para fase de Recebimento
+  - ✓ Corrigido problema de renderização do badge "Nec.Cotação" causado por warning do React ref
+  - ✓ Substituído componente Badge por div customizado para evitar conflitos de referência
+  - ✓ Sistema de badge funcionando corretamente - aparece apenas quando request está em fase "cotacao" E foi reprovado em A2 com ação "recotacao"
+  - ✓ Removido debug logging após confirmação do funcionamento correto
+  - ✓ Aplicação totalmente funcional com todos os fluxos de aprovação e movimentação operacionais
 - July 13, 2025. Correção crítica do badge de reprovação A2 na fase de cotação implementada com sucesso:
   - ✓ Identificado problema onde badge "Nec.Cotação" não aparecia após reprovação A2 com opção "retornar para cotação"
   - ✓ Corrigido método getAllPurchaseRequests() no storage.ts para incluir campos approvedA2, rejectionReasonA2 e rejectionActionA2

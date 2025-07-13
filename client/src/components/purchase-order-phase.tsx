@@ -125,7 +125,9 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   // Mutation para avançar para recebimento
   const advanceToReceiptMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/advance-to-receipt`);
+      const response = await apiRequest(`/api/purchase-requests/${request.id}/advance-to-receipt`, {
+        method: "POST"
+      });
       return response;
     },
     onSuccess: () => {
