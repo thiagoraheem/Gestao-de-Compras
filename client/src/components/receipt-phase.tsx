@@ -78,8 +78,9 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   // Mutations for receipt actions
   const confirmReceiptMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request?.id}/confirm-receipt`, {
-        receivedById: user?.id,
+      const response = await apiRequest(`/api/purchase-requests/${request?.id}/confirm-receipt`, {
+        method: "POST",
+        body: { receivedById: user?.id },
       });
       return response;
     },
@@ -102,9 +103,9 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
 
   const reportIssueMutation = useMutation({
     mutationFn: async (pendencyReason: string) => {
-      const response = await apiRequest("POST", `/api/purchase-requests/${request.id}/report-issue`, {
-        reportedById: user?.id,
-        pendencyReason,
+      const response = await apiRequest(`/api/purchase-requests/${request.id}/report-issue`, {
+        method: "POST",
+        body: { reportedById: user?.id, pendencyReason },
       });
       return response;
     },

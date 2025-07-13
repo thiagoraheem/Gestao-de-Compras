@@ -412,16 +412,13 @@ export default function PurchaseCard({
 
   const advanceToReceiptMutation = useMutation({
     mutationFn: async () => {
-      console.log("Card mutation function called, making API request...");
       const response = await apiRequest(
         `/api/purchase-requests/${request.id}/advance-to-receipt`,
         { method: "POST" },
       );
-      console.log("Card API response received:", response);
       return response;
     },
     onSuccess: () => {
-      console.log("Card mutation successful!");
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       toast({
         title: "Sucesso",
@@ -429,7 +426,6 @@ export default function PurchaseCard({
       });
     },
     onError: (error: any) => {
-      console.error("Card mutation error:", error);
       toast({
         title: "Erro",
         description: error?.message || "Falha ao avançar para recebimento",
@@ -439,14 +435,12 @@ export default function PurchaseCard({
   });
 
   const handleAdvanceToReceipt = (requestId: number) => {
-    console.log("Card handleAdvanceToReceipt called for request:", requestId);
     // Show confirmation dialog
     if (
       window.confirm(
         "Confirma o avanço desta solicitação para a fase de Recebimento?",
       )
     ) {
-      console.log("Card user confirmed, calling mutation...");
       advanceToReceiptMutation.mutate();
     }
   };

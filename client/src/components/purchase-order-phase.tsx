@@ -128,15 +128,12 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   // Mutation para avançar para recebimento
   const advanceToReceiptMutation = useMutation({
     mutationFn: async () => {
-      console.log("Mutation function called, making API request...");
       const response = await apiRequest(`/api/purchase-requests/${request.id}/advance-to-receipt`, {
         method: "POST"
       });
-      console.log("API response received:", response);
       return response;
     },
     onSuccess: () => {
-      console.log("Mutation successful!");
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       toast({
         title: "Sucesso",
@@ -145,7 +142,6 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       onClose(); // Close the modal after successful advance
     },
     onError: (error: any) => {
-      console.error("Mutation error:", error);
       toast({
         title: "Erro",
         description: error?.message || "Falha ao avançar para recebimento",
@@ -155,9 +151,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   });
 
   const handleAdvanceToReceipt = () => {
-    console.log("handleAdvanceToReceipt called for request:", request.id);
     if (window.confirm("Confirma o avanço desta solicitação para a fase de Recebimento?")) {
-      console.log("User confirmed, calling mutation...");
       advanceToReceiptMutation.mutate();
     }
   };

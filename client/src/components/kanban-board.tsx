@@ -89,8 +89,9 @@ export default function KanbanBoard({
 
   const moveRequestMutation = useMutation({
     mutationFn: async ({ id, newPhase }: { id: number; newPhase: string }) => {
-      await apiRequest("PATCH", `/api/purchase-requests/${id}/update-phase`, {
-        newPhase,
+      await apiRequest(`/api/purchase-requests/${id}/update-phase`, {
+        method: "PATCH",
+        body: { newPhase },
       });
     },
     onMutate: async ({ id, newPhase }) => {
@@ -204,13 +205,11 @@ export default function KanbanBoard({
   const isQuotationReadyForA2 = async (requestId: number): Promise<boolean> => {
     try {
       const quotation = await apiRequest(
-        "GET",
         `/api/quotations/purchase-request/${requestId}`,
       );
       if (!quotation) return false;
 
       const supplierQuotations = await apiRequest(
-        "GET",
         `/api/quotations/${quotation.id}/supplier-quotations`,
       );
       if (!supplierQuotations || supplierQuotations.length === 0) return false;
