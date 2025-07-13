@@ -747,9 +747,20 @@ export default function PurchaseCard({
               </div>
             )}
             {/* Show red tag for items rejected from A2 and returned to quotation */}
-            {request.approvedA2 === false && 
-             request.rejectionActionA2 === "recotacao" && 
-             phase === PURCHASE_PHASES.COTACAO && (
+            {(() => {
+              // Debug logging
+              if (request.requestNumber === "SOL-2025-004") {
+                console.log("Debug SOL-2025-004:", {
+                  approvedA2: request.approvedA2,
+                  rejectionActionA2: request.rejectionActionA2,
+                  phase: phase,
+                  phaseCheck: phase === PURCHASE_PHASES.COTACAO
+                });
+              }
+              return request.approvedA2 === false && 
+                     request.rejectionActionA2 === "recotacao" && 
+                     phase === PURCHASE_PHASES.COTACAO;
+            })() && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
