@@ -536,14 +536,9 @@ export default function PurchaseCard({
           };
         }
       } catch (error) {
-        console.error(
-          "Error checking quotation status for request",
-          request.id,
-          ":",
-          error,
-        );
         // Return a safe default instead of throwing
-        return { isReady: false, reason: "Erro ao verificar status" };
+        // This is normal for requests that don't have quotations yet
+        return { isReady: false, reason: "Nenhuma cotação criada" };
       }
     },
   });

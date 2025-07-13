@@ -110,6 +110,14 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 13, 2025. Correção crítica do badge de reprovação A2 na fase de cotação implementada com sucesso:
+  - ✓ Identificado problema onde badge "Nec.Cotação" não aparecia após reprovação A2 com opção "retornar para cotação"
+  - ✓ Corrigido método getAllPurchaseRequests() no storage.ts para incluir campos approvedA2, rejectionReasonA2 e rejectionActionA2
+  - ✓ Campos estavam definidos no schema mas não sendo selecionados pela query da API
+  - ✓ Removidos logs de erro desnecessários do console na verificação de status de cotação
+  - ✓ Badge agora aparece corretamente quando request.approvedA2 === false e request.rejectionActionA2 === "recotacao"
+  - ✓ Migração do Replit Agent para Replit finalizada com sucesso
+  - ✓ Aplicação funcionando corretamente com todas as funcionalidades operacionais
 - July 12, 2025. Correção crítica do sistema de aprovação A2 - botão de rejeição aprimorado com modal de opções:
   - ✓ Corrigido botão "Rejeitar" da fase A2 para abrir modal de aprovação em vez de rejeitar diretamente
   - ✓ Implementado parâmetro initialAction para pré-selecionar opção de rejeição no modal
