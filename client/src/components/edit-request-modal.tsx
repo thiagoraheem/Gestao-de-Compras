@@ -27,7 +27,7 @@ interface EditRequestModalProps {
 
 // Define all possible fields in a single schema
 const editSchema = z.object({
-  companyId: z.number().min(1, "Empresa é obrigatória"),
+  companyId: z.number().optional(),
   justification: z.string().min(1, "Justificativa é obrigatória"),
   category: z.string().min(1, "Categoria é obrigatória"),
   urgency: z.string().min(1, "Urgência é obrigatória"),
