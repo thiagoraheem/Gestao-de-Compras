@@ -23,7 +23,7 @@ export const companies = pgTable("companies", {
   address: text("address"),
   phone: text("phone"),
   email: text("email"),
-  logoUrl: text("logo_url"),
+  logoBase64: text("logo_base64"), // Armazenará a string base64 completa
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

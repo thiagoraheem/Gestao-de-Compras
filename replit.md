@@ -110,6 +110,18 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 14, 2025. Sistema de armazenamento de logos em base64 no banco de dados implementado com sucesso:
+  - ✓ Migração completa de armazenamento de logos de arquivos para base64 no banco de dados
+  - ✓ Campo logoBase64 adicionado à tabela companies em substituição ao logoUrl
+  - ✓ Componente LogoUpload atualizado para converter arquivos para base64 e enviar via JSON
+  - ✓ API endpoint atualizado para receber e validar logos em base64 (5MB máximo)
+  - ✓ Validação de formato (PNG, JPG, JPEG) e tamanho mantidas no frontend e backend
+  - ✓ Serviço de PDF atualizado para usar logos base64 diretamente sem conversão
+  - ✓ Interface de empresas atualizada para exibir logos base64 corretamente
+  - ✓ Removida configuração multer para upload de arquivos de logo
+  - ✓ Removida rota de servir arquivos de logo (/uploads/company_logos)
+  - ✓ Sistema mais eficiente para PDFs com logos embutidos diretamente no HTML
+  - ✓ Migração de dados existente executada com sucesso
 - July 14, 2025. Sistema de empresa dinâmico no PDF do Pedido de Compra implementado com sucesso:
   - ✓ Dados da empresa agora carregados do banco de dados através do usuário solicitante
   - ✓ Campo companyId do usuário usado para buscar informações da empresa cadastrada

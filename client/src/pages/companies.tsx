@@ -294,9 +294,9 @@ export default function Companies() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  {company.logoUrl ? (
+                  {company.logoBase64 ? (
                     <img 
-                      src={company.logoUrl} 
+                      src={company.logoBase64} 
                       alt={`Logo ${company.name}`}
                       className="h-8 w-8 object-contain rounded"
                     />
@@ -430,8 +430,8 @@ export default function Companies() {
             {editingCompany && (
               <LogoUpload
                 companyId={editingCompany.id}
-                currentLogoUrl={editingCompany.logoUrl}
-                onUploadSuccess={(logoUrl) => {
+                currentLogoBase64={editingCompany.logoBase64}
+                onUploadSuccess={(logoBase64) => {
                   // Atualizar o estado local e invalidar o cache
                   queryClient.invalidateQueries({ queryKey: ['/api/companies'] });
                   toast({

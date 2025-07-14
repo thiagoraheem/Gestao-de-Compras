@@ -71,39 +71,7 @@ const quotationUpload = multer({
   }
 });
 
-// Configuração do multer para upload de logos de empresas
-const logoUpload = multer({
-  storage: multer.diskStorage({
-    destination: function (req, file, cb) {
-      const uploadDir = './uploads/company_logos';
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, 'logo-' + uniqueSuffix + path.extname(file.originalname));
-    }
-  }),
-  fileFilter: function (req, file, cb) {
-    // Aceitar apenas imagens PNG, JPG, JPEG
-    const allowedMimeTypes = [
-      'image/png',
-      'image/jpeg',
-      'image/jpg'
-    ];
-
-    if (allowedMimeTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Tipo de arquivo não suportado. Apenas PNG, JPG, JPEG são permitidos para logos.'));
-    }
-  },
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB para logos
-  }
-});
+// Note: Logo upload configuration moved to base64 processing in API endpoint
 
 // Session type declaration
 declare module "express-session" {
@@ -446,13 +414,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload logo for company
-  app.post("/api/companies/:id/upload-logo", isAuthenticated, isAdmin, logoUpload.single('logo'), async (req, res) => {
+  // Upload logo for company (base64 version)
+  app.post("/api/companies/:id/upload-logo", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const companyId = parseInt(req.params.id);
+      const { logoBase64 } = req.body;
       
-      if (!req.file) {
+      if (!logoBase64) {
         return res.status(400).json({ message: "Nenhum arquivo de logo foi enviado" });
+      }
+
+      // Validar formato base64
+      const base64Regex = /^data:image\/(jpeg|jpg|png);base64,/;
+      if (!base64Regex.test(logoBase64)) {
+        return res.status(400).json({ message: "Formato de logo inválido. Apenas PNG, JPG, JPEG são aceitos." });
+      }
+
+      // Verificar tamanho (limite de 5MB)
+      const sizeInBytes = (logoBase64.length * 0.75); // base64 é ~33% maior que arquivo original
+      if (sizeInBytes > 5 * 1024 * 1024) {
+        return res.status(400).json({ message: "Logo muito grande. Tamanho máximo: 5MB" });
       }
 
       // Verificar se a empresa existe
@@ -461,13 +442,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Empresa não encontrada" });
       }
 
-      // Atualizar a empresa com o caminho do logo
-      const logoUrl = `/uploads/company_logos/${req.file.filename}`;
-      const updatedCompany = await storage.updateCompany(companyId, { logoUrl });
+      // Atualizar a empresa com o logo base64
+      const updatedCompany = await storage.updateCompany(companyId, { logoBase64 });
 
       res.json({ 
         message: "Logo enviado com sucesso",
-        logoUrl: logoUrl,
+        logoBase64: logoBase64,
         company: updatedCompany
       });
     } catch (error) {
@@ -476,21 +456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve company logos
-  app.get("/uploads/company_logos/:filename", (req, res) => {
-    const filename = req.params.filename;
-    const filePath = path.join(__dirname, "../uploads/company_logos", filename);
-    
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: "Logo não encontrado" });
-    }
-    
-    const mimeType = mime.lookup(filePath);
-    res.setHeader('Content-Type', mimeType || 'application/octet-stream');
-    
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
-  });
+  // Note: Logo serving route removed - logos now stored as base64 in database
 
   // Users routes
   app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {

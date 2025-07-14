@@ -8,19 +8,19 @@ import { useToast } from '@/hooks/use-toast';
 
 interface LogoUploadProps {
   companyId: number;
-  currentLogoUrl?: string;
-  onUploadSuccess: (logoUrl: string) => void;
+  currentLogoBase64?: string;
+  onUploadSuccess: (logoBase64: string) => void;
   disabled?: boolean;
 }
 
 export function LogoUpload({ 
   companyId, 
-  currentLogoUrl, 
+  currentLogoBase64, 
   onUploadSuccess, 
   disabled = false 
 }: LogoUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(currentLogoUrl || null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(currentLogoBase64 || null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
 
@@ -65,12 +65,20 @@ export function LogoUpload({
     setIsUploading(true);
     
     try {
-      const formData = new FormData();
-      formData.append('logo', selectedFile);
+      // Converter arquivo para base64
+      const reader = new FileReader();
+      const logoBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(selectedFile);
+      });
 
       const response = await fetch(`/api/companies/${companyId}/upload-logo`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ logoBase64 }),
       });
 
       if (!response.ok) {
@@ -79,7 +87,7 @@ export function LogoUpload({
       }
 
       const data = await response.json();
-      onUploadSuccess(data.logoUrl);
+      onUploadSuccess(data.logoBase64);
       
       toast({
         title: "Sucesso",
@@ -99,7 +107,7 @@ export function LogoUpload({
 
   const handleRemovePreview = () => {
     setSelectedFile(null);
-    setPreviewUrl(currentLogoUrl || null);
+    setPreviewUrl(currentLogoBase64 || null);
   };
 
   return (
