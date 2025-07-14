@@ -52,6 +52,7 @@ export default function PipefyHeader() {
       { name: "Usuários", href: "/users", icon: Users },
       { name: "Departamentos", href: "/departments", icon: Building },
       { name: "Locais de Entrega", href: "/delivery-locations", icon: MapPin },
+      { name: "Empresas", href: "/companies", icon: Building },
       { name: "Limpeza de Dados", href: "/admin/cleanup", icon: Database },
     ];
 
