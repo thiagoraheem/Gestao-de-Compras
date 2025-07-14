@@ -405,12 +405,8 @@ export class DatabaseStorage implements IStorage {
     return department;
   }
 
-  async getAllCostCenters(companyId?: number): Promise<CostCenter[]> {
-    const query = db.select().from(costCenters);
-    if (companyId) {
-      query.where(eq(costCenters.companyId, companyId));
-    }
-    return await query;
+  async getAllCostCenters(): Promise<CostCenter[]> {
+    return await db.select().from(costCenters);
   }
 
   async getCostCentersByDepartment(

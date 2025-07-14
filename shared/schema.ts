@@ -66,7 +66,6 @@ export const costCenters = pgTable("cost_centers", {
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   departmentId: integer("department_id").references(() => departments.id),
-  companyId: integer("company_id").references(() => companies.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -385,10 +384,6 @@ export const departmentsRelations = relations(departments, ({ one, many }) => ({
 }));
 
 export const costCentersRelations = relations(costCenters, ({ one, many }) => ({
-  company: one(companies, {
-    fields: [costCenters.companyId],
-    references: [companies.id],
-  }),
   department: one(departments, {
     fields: [costCenters.departmentId],
     references: [departments.id],

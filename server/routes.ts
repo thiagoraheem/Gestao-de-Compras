@@ -664,8 +664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cost Centers routes
   app.get("/api/cost-centers", isAuthenticated, async (req, res) => {
     try {
-      const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
-      const costCenters = await storage.getAllCostCenters(companyId);
+      const costCenters = await storage.getAllCostCenters();
       res.json(costCenters);
     } catch (error) {
       console.error("Error fetching cost centers:", error);
