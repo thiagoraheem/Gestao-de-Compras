@@ -236,10 +236,24 @@ export async function notifyApprovalA1(
 ): Promise<void> {
   try {
     const approvers = await storage.getAllUsers();
-    const approverA1Users = approvers.filter((user) => user.isApproverA1);
+    let approverA1Users = approvers.filter((user) => user.isApproverA1);
+
+    // Filtrar aprovadores pelos centros de custo
+    if (purchaseRequest.costCenterId) {
+      const relevantApprovers = [];
+      
+      for (const approver of approverA1Users) {
+        const userCostCenters = await storage.getUserCostCenters(approver.id);
+        if (userCostCenters.includes(purchaseRequest.costCenterId)) {
+          relevantApprovers.push(approver);
+        }
+      }
+      
+      approverA1Users = relevantApprovers;
+    }
 
     if (approverA1Users.length === 0) {
-      console.log("Nenhum aprovador A1 encontrado para notificação");
+      console.log("Nenhum aprovador A1 encontrado para o centro de custo da solicitação");
       return;
     }
 

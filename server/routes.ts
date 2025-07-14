@@ -116,6 +116,39 @@ function isAuthenticated(req: Request, res: Response, next: Function) {
   }
 }
 
+// Middleware para validar se o aprovador pode aprovar a solicitação
+async function canApproveRequest(req: Request, res: Response, next: Function) {
+  try {
+    const requestId = parseInt(req.params.id);
+    const userId = req.session.userId;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Buscar a solicitação
+    const request = await storage.getPurchaseRequestById(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Purchase request not found" });
+    }
+
+    // Buscar centros de custo do usuário
+    const userCostCenters = await storage.getUserCostCenters(userId);
+    
+    // Verificar se o centro de custo da solicitação está na lista do usuário
+    if (!userCostCenters.includes(request.costCenterId)) {
+      return res.status(403).json({ 
+        message: "Você não possui permissão para aprovar solicitações deste centro de custo" 
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Error checking approval permissions:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
+
 // Admin authorization middleware
 async function isAdmin(req: Request, res: Response, next: Function) {
   try {
@@ -1088,7 +1121,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/purchase-requests/:id/approve-a1", isAuthenticated, async (req, res) => {
+  app.get("/api/purchase-requests/:id/can-approve-a1", isAuthenticated, async (req, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+      const userId = req.session.userId;
+
+      const request = await storage.getPurchaseRequestById(requestId);
+      if (!request) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      const userCostCenters = await storage.getUserCostCenters(userId);
+      const canApprove = userCostCenters.includes(request.costCenterId);
+
+      res.json({ 
+        canApprove,
+        requestCostCenter: request.costCenter,
+        userCostCenters: userCostCenters
+      });
+    } catch (error) {
+      console.error("Error checking approval permissions:", error);
+      res.status(500).json({ message: "Failed to check approval permissions" });
+    }
+  });
+
+  app.post("/api/purchase-requests/:id/approve-a1", isAuthenticated, canApproveRequest, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { approved, rejectionReason, approverId } = req.body;
@@ -1425,6 +1482,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user has permission to move from current phase
       if (currentPhase === "aprovacao_a1" && !user.isApproverA1) {
         return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Aprovação A1" });
+      }
+
+      // Additional check for A1 approvers - must have access to cost center
+      if (currentPhase === "aprovacao_a1" && user.isApproverA1) {
+        const userCostCenters = await storage.getUserCostCenters(userId);
+        if (!userCostCenters.includes(request.costCenterId)) {
+          return res.status(403).json({ 
+            message: "Você não possui permissão para aprovar solicitações deste centro de custo" 
+          });
+        }
       }
 
       if (currentPhase === "aprovacao_a2" && !user.isApproverA2) {
