@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Dialog,
   DialogContent,
@@ -36,8 +37,11 @@ import {
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { DateInput } from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/api";
+import { CATEGORY_OPTIONS, CATEGORY_LABELS, URGENCY_LEVELS, URGENCY_LABELS } from "@/lib/types";
 
 const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
@@ -62,10 +66,24 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
   const { user } = useAuth();
 
   // Get user's cost center IDs
-  const { data: userCostCenterIds } = useQuery<number[]>({
+  const { data: userCostCenterIds, isLoading: isLoadingUserCostCenters, error: userCostCentersError } = useQuery<number[]>({
     queryKey: ["/api/users", user?.id, "cost-centers"],
-    queryFn: () => fetch(`/api/users/${user?.id}/cost-centers`).then(res => res.json()),
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${user?.id}/cost-centers`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch user cost centers");
+      }
+      return response.json();
+    },
     enabled: !!user?.id,
+  });
+
+  // Debug user cost centers
+  console.log("User Cost Centers Query:", {
+    data: userCostCenterIds,
+    isLoading: isLoadingUserCostCenters,
+    error: userCostCentersError,
+    userId: user?.id
   });
 
   // Get all cost centers
@@ -77,6 +95,13 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
   const costCenters = allCostCenters?.filter(center => 
     userCostCenterIds?.includes(center.id)
   ) || [];
+
+  console.log("Debug - Cost Centers:", {
+    allCostCenters: allCostCenters?.length || 0,
+    userCostCenterIds: userCostCenterIds?.length || 0,
+    filteredCostCenters: costCenters.length,
+    userId: user?.id
+  });
 
   const form = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema),
@@ -100,7 +125,17 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
         availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : undefined,
         idealDeliveryDate: data.idealDeliveryDate || undefined,
       };
-      await apiRequest("POST", "/api/purchase-requests", requestData);
+      const response = await fetch("/api/purchase-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create request");
+      }
     },
     onSuccess: () => {
       // Comprehensive cache invalidation and immediate refetch
