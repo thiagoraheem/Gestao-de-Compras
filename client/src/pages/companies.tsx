@@ -40,9 +40,9 @@ export default function Companies() {
   });
 
   // Filter companies based on active status
-  const companies = allCompanies?.filter((company: Company) => 
-    showInactive ? true : company.active
-  );
+  const companies = showInactive 
+    ? allCompanies 
+    : allCompanies?.filter((company: Company) => company.active);
 
   const createMutation = useMutation({
     mutationFn: (data: InsertCompany) => apiRequest("/api/companies", { method: "POST", body: data }),
@@ -441,6 +441,17 @@ export default function Companies() {
                 }}
               />
             )}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-active"
+                checked={formData.active || false}
+                onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+              />
+              <Label htmlFor="edit-active" className="text-sm">
+                Empresa ativa
+              </Label>
+            </div>
             <div className="flex justify-end space-x-2">
               <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
                 Cancelar

@@ -35,9 +35,9 @@ export default function DeliveryLocationsPage() {
   });
 
   // Filter delivery locations based on active status
-  const deliveryLocations = allDeliveryLocations?.filter((location: DeliveryLocation) => 
-    showInactive ? true : location.active
-  );
+  const deliveryLocations = showInactive 
+    ? allDeliveryLocations 
+    : allDeliveryLocations?.filter((location: DeliveryLocation) => location.active);
 
   // Create delivery location mutation
   const createMutation = useMutation({
@@ -134,7 +134,10 @@ export default function DeliveryLocationsPage() {
     }
 
     if (editingLocation) {
-      updateMutation.mutate({ id: editingLocation.id, data: formData });
+      updateMutation.mutate({ 
+        id: editingLocation.id, 
+        data: { ...formData, active: editingLocation.active }
+      });
     }
   };
 
