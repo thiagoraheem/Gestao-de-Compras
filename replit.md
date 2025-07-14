@@ -110,6 +110,15 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 14, 2025. Sistema de empresa dinâmico no PDF do Pedido de Compra implementado com sucesso:
+  - ✓ Dados da empresa agora carregados do banco de dados através do usuário solicitante
+  - ✓ Campo companyId do usuário usado para buscar informações da empresa cadastrada
+  - ✓ Header do PDF reformulado com logo da empresa à esquerda e informações centralizadas
+  - ✓ Logo convertida para base64 para garantir exibição tanto na pré-visualização quanto no PDF final
+  - ✓ Informações dinâmicas: nome da empresa, endereço, CNPJ, telefone e email
+  - ✓ Removidas informações hardcoded da "BLOMAQ" substituídas por dados dinâmicos
+  - ✓ Layout responsivo com flexbox para logo e informações da empresa
+  - ✓ Sistema robusto de fallback quando empresa não tem logo cadastrada
 - July 14, 2025. PDF do Pedido de Compra reformulado com assinaturas eletrônicas implementado com sucesso:
   - ✓ Removido quadro "Histórico de Aprovações" do PDF do Pedido de Compra
   - ✓ Criado seção "ASSINADO ELETRONICAMENTE POR:" com layout profissional

@@ -558,6 +558,34 @@ export class PDFService {
         return 'Não informado';
       }
     };
+
+    // Função para converter imagem para base64
+    const getImageAsBase64 = async (imagePath: string): Promise<string | null> => {
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        
+        // Remover o prefixo "/uploads/" se existir e criar o caminho completo
+        const cleanPath = imagePath.startsWith('/uploads/') ? imagePath.substring('/uploads/'.length) : imagePath;
+        const fullPath = path.join(process.cwd(), 'uploads', cleanPath);
+        
+        if (fs.existsSync(fullPath)) {
+          const imageBuffer = fs.readFileSync(fullPath);
+          const ext = path.extname(fullPath).toLowerCase();
+          const mimeType = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+          return `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+        }
+      } catch (error) {
+        console.error('Error loading image:', error);
+      }
+      return null;
+    };
+
+    // Carregar logo da empresa como base64
+    let companyLogoBase64 = null;
+    if (company?.logoUrl) {
+      companyLogoBase64 = await getImageAsBase64(company.logoUrl);
+    }
     
     // Calcular totais
     const subtotal = items.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
@@ -708,9 +736,9 @@ export class PDFService {
 </head>
 <body>
   <div class="header">
-    ${company?.logoUrl ? `
+    ${companyLogoBase64 ? `
     <div class="header-logo">
-      <img src="${company.logoUrl}" alt="Logo da Empresa" />
+      <img src="${companyLogoBase64}" alt="Logo da Empresa" />
     </div>
     ` : ''}
     <div class="header-info">
