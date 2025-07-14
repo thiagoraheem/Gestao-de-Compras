@@ -25,6 +25,11 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import mime from "mime-types";
+import { fileURLToPath } from 'url';
+
+// ES modules compatibility
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Configuração do multer para upload de arquivos de cotação
 const quotationUpload = multer({
