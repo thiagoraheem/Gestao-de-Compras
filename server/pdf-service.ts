@@ -249,19 +249,57 @@ export class PDFService {
       }
 
       const items = await storage.getPurchaseRequestItems(purchaseRequestId);
-      const approvalHistory = await storage.getApprovalHistory(purchaseRequestId);
+      const completeTimeline = await storage.getCompleteTimeline(purchaseRequestId);
       
-      // Buscar fornecedor selecionado
+      // Buscar dados do solicitante
+      let requester = null;
+      if (purchaseRequest.requesterId) {
+        requester = await storage.getUser(purchaseRequest.requesterId);
+      }
+
+      // Buscar dados do centro de custo e departamento
+      let costCenter = null;
+      let department = null;
+      if (purchaseRequest.costCenterId) {
+        const allCostCenters = await storage.getAllCostCenters();
+        costCenter = allCostCenters.find((cc: any) => cc.id === purchaseRequest.costCenterId);
+        
+        if (costCenter && costCenter.departmentId) {
+          const allDepartments = await storage.getAllDepartments();
+          department = allDepartments.find((d: any) => d.id === costCenter.departmentId);
+        }
+      }
+      
+      // Buscar cotação e fornecedor selecionado
       let selectedSupplier = null;
-      if (purchaseRequest.selectedSupplierId) {
-        selectedSupplier = await storage.getSupplierById(purchaseRequest.selectedSupplierId);
+      let selectedSupplierQuotation = null;
+      let supplierQuotationItems = [];
+      
+      try {
+        const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
+        if (quotation) {
+          const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+          selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen);
+          
+          if (selectedSupplierQuotation) {
+            selectedSupplier = selectedSupplierQuotation.supplier;
+            supplierQuotationItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+          }
+        }
+      } catch (error) {
+        console.warn('Could not fetch quotation data for completion summary:', error);
       }
 
       const html = this.generateCompletionSummaryHTML({
         purchaseRequest,
         items,
-        approvalHistory,
-        selectedSupplier
+        completeTimeline,
+        requester,
+        department,
+        costCenter,
+        selectedSupplier,
+        selectedSupplierQuotation,
+        supplierQuotationItems
       });
 
       return await this.generatePDFWithFallback(html, 'completion-summary');
@@ -891,7 +929,17 @@ export class PDFService {
   }
 
   private static generateCompletionSummaryHTML(data: any): string {
-    const { purchaseRequest, items, approvalHistory, selectedSupplier } = data;
+    const { 
+      purchaseRequest, 
+      items, 
+      completeTimeline, 
+      requester, 
+      department, 
+      costCenter, 
+      selectedSupplier, 
+      selectedSupplierQuotation,
+      supplierQuotationItems 
+    } = data;
     
     const formatDate = (date: Date) => {
       return new Date(date).toLocaleDateString('pt-BR');
@@ -904,9 +952,22 @@ export class PDFService {
       }).format(value);
     };
 
-    const totalValue = items.reduce((sum: number, item: any) => {
-      return sum + (Number(item.requestedQuantity) * Number(item.unitPrice || 0));
-    }, 0);
+    // Calcular valor total usando os itens de cotação do fornecedor selecionado
+    let totalValue = 0;
+    let itemsWithPrices = items.map((item: any) => {
+      const quotationItem = supplierQuotationItems.find((qi: any) => 
+        qi.itemDescription === item.description
+      );
+      const unitPrice = quotationItem ? Number(quotationItem.unitPrice) : 0;
+      const totalPrice = Number(item.requestedQuantity) * unitPrice;
+      totalValue += totalPrice;
+      
+      return {
+        ...item,
+        unitPrice,
+        totalPrice
+      };
+    });
 
     return `
       <!DOCTYPE html>
@@ -1012,15 +1073,15 @@ export class PDFService {
             <div>
               <div class="info-item">
                 <span class="info-label">Solicitante:</span>
-                <span class="info-value">${purchaseRequest.requesterName || 'N/A'}</span>
+                <span class="info-value">${requester ? `${requester.firstName} ${requester.lastName}` : 'N/A'}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">Departamento:</span>
-                <span class="info-value">${purchaseRequest.department?.name || 'N/A'}</span>
+                <span class="info-value">${department?.name || 'N/A'}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">Centro de Custo:</span>
-                <span class="info-value">${purchaseRequest.costCenter?.name || 'N/A'}</span>
+                <span class="info-value">${costCenter?.name || 'N/A'}</span>
               </div>
             </div>
             <div>
@@ -1081,13 +1142,13 @@ export class PDFService {
               </tr>
             </thead>
             <tbody>
-              ${items.map((item: any) => `
+              ${itemsWithPrices.map((item: any) => `
                 <tr>
                   <td>${item.description}</td>
                   <td>${item.unit}</td>
                   <td>${item.requestedQuantity}</td>
-                  <td>${formatCurrency(Number(item.unitPrice || 0))}</td>
-                  <td>${formatCurrency(Number(item.requestedQuantity) * Number(item.unitPrice || 0))}</td>
+                  <td>${formatCurrency(item.unitPrice)}</td>
+                  <td>${formatCurrency(item.totalPrice)}</td>
                 </tr>
               `).join('')}
               <tr class="total-row">
@@ -1098,21 +1159,56 @@ export class PDFService {
           </table>
         </div>
 
-        ${approvalHistory.length > 0 ? `
+        ${completeTimeline && completeTimeline.length > 0 ? `
         <div class="section">
-          <div class="section-title">Histórico de Aprovações</div>
+          <div class="section-title">Histórico do Processo de Compra</div>
           <div class="timeline">
-            ${approvalHistory.map((approval: any) => `
+            ${completeTimeline.map((event: any) => `
               <div class="timeline-item">
-                <div class="timeline-date">${formatDate(approval.approvedAt)}</div>
+                <div class="timeline-date">${event.date ? formatDate(new Date(event.date)) : 'N/A'}</div>
                 <div class="timeline-action">
-                  <strong>${approval.approver?.firstName} ${approval.approver?.lastName}</strong> 
-                  ${approval.approved ? 'aprovou' : 'rejeitou'} na fase <strong>${approval.phase}</strong>
-                  ${approval.reason ? `<br>Motivo: ${approval.reason}` : ''}
+                  <strong>${event.phase_label || event.phase}</strong><br>
+                  ${event.user_name ? `Por: <strong>${event.user_name}</strong>` : ''}
+                  ${event.description ? `<br>${event.description}` : ''}
+                  ${event.reason ? `<br>Motivo: ${event.reason}` : ''}
                 </div>
               </div>
             `).join('')}
           </div>
+        </div>
+        ` : ''}
+
+        ${selectedSupplierQuotation ? `
+        <div class="section">
+          <div class="section-title">Dados da Cotação Vencedora</div>
+          <div class="info-grid">
+            <div>
+              <div class="info-item">
+                <span class="info-label">Valor Total da Cotação:</span>
+                <span class="info-value">${formatCurrency(Number(selectedSupplierQuotation.totalValue || 0))}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Prazo de Entrega:</span>
+                <span class="info-value">${selectedSupplierQuotation.deliveryTime || 'N/A'}</span>
+              </div>
+            </div>
+            <div>
+              <div class="info-item">
+                <span class="info-label">Condições de Pagamento:</span>
+                <span class="info-value">${selectedSupplierQuotation.paymentTerms || selectedSupplier?.paymentTerms || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Observações:</span>
+                <span class="info-value">${selectedSupplierQuotation.observations || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+          ${selectedSupplierQuotation.justification ? `
+          <div class="info-item" style="margin-top: 15px;">
+            <span class="info-label">Justificativa da Escolha:</span><br>
+            <span class="info-value">${selectedSupplierQuotation.justification}</span>
+          </div>
+          ` : ''}
         </div>
         ` : ''}
 
