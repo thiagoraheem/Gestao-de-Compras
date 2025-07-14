@@ -29,7 +29,10 @@ export default function Companies() {
 
   const { data: companies, isLoading, error } = useQuery({
     queryKey: ["/api/companies"],
-    queryFn: () => apiRequest("/api/companies"),
+    queryFn: async () => {
+      const response = await apiRequest("/api/companies");
+      return await response.json();
+    },
   });
 
   const createMutation = useMutation({
