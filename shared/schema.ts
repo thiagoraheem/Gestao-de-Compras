@@ -653,6 +653,11 @@ export const insertDepartmentSchema = createInsertSchema(departments).omit({
 export const insertCostCenterSchema = createInsertSchema(costCenters).omit({
   id: true,
   createdAt: true,
+}).refine((data) => {
+  return data.departmentId && data.departmentId > 0;
+}, {
+  message: "Departamento é obrigatório",
+  path: ["departmentId"],
 });
 
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({

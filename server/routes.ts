@@ -689,12 +689,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/cost-centers", isAuthenticated, isAdmin, async (req, res) => {
     try {
+      console.log("Cost center creation request:", req.body);
+      
       const costCenterData = insertCostCenterSchema.parse(req.body);
+      console.log("Parsed cost center data:", costCenterData);
+      
       const costCenter = await storage.createCostCenter(costCenterData);
       res.status(201).json(costCenter);
     } catch (error) {
       console.error("Error creating cost center:", error);
-      res.status(400).json({ message: "Invalid cost center data" });
+      
+      if (error && typeof error === 'object' && 'code' in error) {
+        if (error.code === '23505') {
+          return res.status(400).json({ message: "Código do centro de custo já existe" });
+        }
+        if (error.code === '23503') {
+          return res.status(400).json({ message: "Departamento inválido" });
+        }
+      }
+      
+      if (error instanceof Error && error.message.includes('parse')) {
+        return res.status(400).json({ message: "Dados inválidos. Verifique os campos obrigatórios." });
+      }
+      
+      res.status(400).json({ message: "Erro ao criar centro de custo" });
     }
   });
 

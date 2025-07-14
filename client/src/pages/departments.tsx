@@ -25,7 +25,10 @@ const departmentSchema = z.object({
 const costCenterSchema = z.object({
   code: z.string().min(1, "Código é obrigatório"),
   name: z.string().min(1, "Nome é obrigatório"),
-  departmentId: z.number().min(1, "Departamento é obrigatório"),
+  departmentId: z.number({
+    required_error: "Departamento é obrigatório",
+    invalid_type_error: "Selecione um departamento válido"
+  }).min(1, "Departamento é obrigatório"),
   description: z.string().optional(),
 });
 
@@ -61,7 +64,7 @@ export default function DepartmentsPage() {
     defaultValues: {
       code: "",
       name: "",
-      departmentId: 0,
+      departmentId: undefined as any,
       description: "",
     },
   });
@@ -165,9 +168,22 @@ export default function DepartmentsPage() {
         queryClient.setQueryData(["/api/cost-centers"], context.previousCostCenters);
       }
       
+      console.error("Cost center creation error:", err);
+      
+      let errorMessage = "Falha ao criar centro de custo";
+      if (err instanceof Error) {
+        if (err.message.includes('unique constraint') || err.message.includes('duplicate')) {
+          errorMessage = "Código do centro de custo já existe";
+        } else if (err.message.includes('validation')) {
+          errorMessage = "Dados inválidos. Verifique os campos obrigatórios";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
       toast({
         title: "Erro",
-        description: "Falha ao criar centro de custo",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -242,7 +258,13 @@ export default function DepartmentsPage() {
   const handleCloseCostCenterModal = () => {
     setIsCostCenterModalOpen(false);
     setEditingCostCenter(null);
-    costCenterForm.reset();
+    costCenterForm.reset({
+      code: "",
+      name: "",
+      departmentId: undefined as any,
+      description: "",
+    });
+    costCenterForm.clearErrors();
   };
 
   return (
