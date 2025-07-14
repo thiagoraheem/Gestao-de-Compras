@@ -27,7 +27,7 @@ export default function Companies() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: companies, isLoading } = useQuery({
+  const { data: companies, isLoading, error } = useQuery({
     queryKey: ["/api/companies"],
     queryFn: () => apiRequest("/api/companies"),
   });
@@ -142,6 +142,33 @@ export default function Companies() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Empresas</h1>
+            <p className="text-gray-600">Gerencie as empresas do sistema</p>
+          </div>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">
+                Erro ao carregar empresas
+              </h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>
+                  {error instanceof Error ? error.message : "Você não tem permissão para acessar esta funcionalidade. Apenas administradores podem gerenciar empresas."}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -218,7 +245,13 @@ export default function Companies() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {companies?.map((company: Company) => (
+        {companies && companies.length === 0 ? (
+          <div className="col-span-full text-center py-8">
+            <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">Nenhuma empresa cadastrada</p>
+          </div>
+        ) : (
+          companies?.map((company: Company) => (
           <Card key={company.id} className="relative">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -274,7 +307,8 @@ export default function Companies() {
               </div>
             </CardContent>
           </Card>
-        ))}
+          ))
+        )}
       </div>
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>

@@ -221,7 +221,7 @@ export interface IStorage {
   createApprovalHistory(
     approvalHistory: InsertApprovalHistory,
   ): Promise<ApprovalHistory>;
-  
+
   // Complete Timeline operations
   getCompleteTimeline(purchaseRequestId: number): Promise<any[]>;
 
@@ -910,12 +910,12 @@ export class DatabaseStorage implements IStorage {
     // If there's an existing quotation, deactivate it and create a new version
     let newVersion = 1;
     let parentQuotationId: number | undefined;
-    
+
     if (existingQuotations.length > 0) {
       const currentQuotation = existingQuotations[0];
       newVersion = (currentQuotation.rfqVersion || 1) + 1;
       parentQuotationId = currentQuotation.id;
-      
+
       // Deactivate the current quotation
       await db
         .update(quotations)
@@ -1440,6 +1440,19 @@ export class DatabaseStorage implements IStorage {
       return; // Admin user already exists
     }
 
+    // Create default company if none exist
+    const existingCompanies = await this.getAllCompanies();
+    if (existingCompanies.length === 0) {
+      await this.createCompany({
+        name: "Empresa Matriz",
+        cnpj: "00.000.000/0001-00",
+        address: "Endereço da empresa",
+        phone: "(11) 99999-9999",
+        email: "contato@empresa.com",
+        active: true
+      });
+    }
+
     // Create default payment methods
     const defaultPaymentMethods = [
       { name: "Boleto", active: true },
@@ -1487,7 +1500,6 @@ export class DatabaseStorage implements IStorage {
     await this.createUser({
       username: "admin",
       email: "admin@empresa.com",
-      password: hashedPassword,
       firstName: "Admin",
       lastName: "Sistema",
       isBuyer: true,
