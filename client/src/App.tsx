@@ -16,6 +16,7 @@ import DeliveryLocationsPage from "@/pages/delivery-locations";
 import ProfilePage from "@/pages/profile";
 import ChangePasswordPage from "@/pages/change-password";
 import RequestManagementPage from "@/pages/request-management";
+import CompaniesPage from "@/pages/companies";
 import PipefyHeader from "@/components/pipefy-header";
 import FloatingNewRequestButton from "@/components/floating-new-request-button";
 import AdminCleanupPage from "@/pages/admin-cleanup";
@@ -78,6 +79,7 @@ function Router() {
           </ManagerRoute>
         </Route>
         <Route path="/request-management" component={RequestManagementPage} />
+        <Route path="/companies" component={CompaniesPage} />
         <Route path="/suppliers" component={SuppliersPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/departments" component={DepartmentsPage} />

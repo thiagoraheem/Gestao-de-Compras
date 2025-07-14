@@ -14,6 +14,21 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Companies table
+export const companies = pgTable("companies", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  tradingName: text("trading_name"),
+  cnpj: text("cnpj").unique(),
+  address: text("address"),
+  phone: text("phone"),
+  email: text("email"),
+  logoUrl: text("logo_url"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Users table
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -22,6 +37,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
+  companyId: integer("company_id").references(() => companies.id),
   departmentId: integer("department_id").references(() => departments.id),
   isBuyer: boolean("is_buyer").default(false),
   isApproverA1: boolean("is_approver_a1").default(false),
@@ -40,6 +56,7 @@ export const departments = pgTable("departments", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+  companyId: integer("company_id").references(() => companies.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -49,6 +66,7 @@ export const costCenters = pgTable("cost_centers", {
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   departmentId: integer("department_id").references(() => departments.id),
+  companyId: integer("company_id").references(() => companies.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -77,6 +95,7 @@ export const suppliers = pgTable("suppliers", {
   address: text("address"),
   paymentTerms: text("payment_terms"),
   productsServices: text("products_services"),
+  companyId: integer("company_id").references(() => companies.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -92,6 +111,7 @@ export const purchaseRequests = pgTable("purchase_requests", {
   id: serial("id").primaryKey(),
   requestNumber: text("request_number").notNull().unique(),
   requesterId: integer("requester_id").references(() => users.id),
+  companyId: integer("company_id").references(() => companies.id),
   costCenterId: integer("cost_center_id").references(() => costCenters.id),
   category: text("category").notNull(), // Produto, Serviço, Outros
   urgency: text("urgency").notNull(), // Baixo, Médio, Alto
@@ -328,7 +348,19 @@ export const receiptItems = pgTable("receipt_items", {
 });
 
 // Relations
+export const companiesRelations = relations(companies, ({ many }) => ({
+  users: many(users),
+  departments: many(departments),
+  costCenters: many(costCenters),
+  suppliers: many(suppliers),
+  purchaseRequests: many(purchaseRequests),
+}));
+
 export const usersRelations = relations(users, ({ one, many }) => ({
+  company: one(companies, {
+    fields: [users.companyId],
+    references: [companies.id],
+  }),
   department: one(departments, {
     fields: [users.departmentId],
     references: [departments.id],
@@ -342,13 +374,21 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   receivedPurchases: many(purchaseRequests, { relationName: "receiver" }),
 }));
 
-export const departmentsRelations = relations(departments, ({ many }) => ({
+export const departmentsRelations = relations(departments, ({ one, many }) => ({
+  company: one(companies, {
+    fields: [departments.companyId],
+    references: [companies.id],
+  }),
   costCenters: many(costCenters),
   users: many(users),
   userDepartments: many(userDepartments),
 }));
 
 export const costCentersRelations = relations(costCenters, ({ one, many }) => ({
+  company: one(companies, {
+    fields: [costCenters.companyId],
+    references: [companies.id],
+  }),
   department: one(departments, {
     fields: [costCenters.departmentId],
     references: [departments.id],
@@ -379,12 +419,20 @@ export const userCostCentersRelations = relations(userCostCenters, ({ one }) => 
   }),
 }));
 
-export const suppliersRelations = relations(suppliers, ({ many }) => ({
+export const suppliersRelations = relations(suppliers, ({ one, many }) => ({
+  company: one(companies, {
+    fields: [suppliers.companyId],
+    references: [companies.id],
+  }),
   purchaseRequestSuppliers: many(purchaseRequestSuppliers),
   chosenPurchases: many(purchaseRequests, { relationName: "chosenSupplier" }),
 }));
 
 export const purchaseRequestsRelations = relations(purchaseRequests, ({ one, many }) => ({
+  company: one(companies, {
+    fields: [purchaseRequests.companyId],
+    references: [companies.id],
+  }),
   requester: one(users, {
     fields: [purchaseRequests.requesterId],
     references: [users.id],
@@ -590,6 +638,12 @@ export const receiptItemsRelations = relations(receiptItems, ({ one }) => ({
 }));
 
 // Insert schemas
+export const insertCompanySchema = createInsertSchema(companies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -733,6 +787,8 @@ export const insertReceiptItemSchema = createInsertSchema(receiptItems).omit({
 });
 
 // Types
+export type Company = typeof companies.$inferSelect;
+export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Department = typeof departments.$inferSelect;

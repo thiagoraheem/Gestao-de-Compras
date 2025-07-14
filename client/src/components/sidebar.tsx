@@ -26,6 +26,7 @@ const navigation = [
   { name: "Kanban Board", href: "/", icon: Columns },
   { name: "Dashboard", href: "/dashboard", icon: BarChart3, requiresManager: true },
   { name: "Gerenciar Solicitações", href: "/request-management", icon: FileText },
+  { name: "Empresas", href: "/companies", icon: Building },
   { name: "Fornecedores", href: "/suppliers", icon: Truck },
   { name: "Usuários", href: "/users", icon: Users },
   { name: "Departamentos", href: "/departments", icon: Building },

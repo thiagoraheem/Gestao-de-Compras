@@ -1,5 +1,6 @@
 import {
   users,
+  companies,
   departments,
   costCenters,
   userDepartments,
@@ -22,6 +23,8 @@ import {
   approvalHistory,
   type User,
   type InsertUser,
+  type Company,
+  type InsertCompany,
   type Department,
   type InsertDepartment,
   type CostCenter,
@@ -55,6 +58,13 @@ import { alias } from "drizzle-orm/pg-core";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
+  // Company operations
+  getAllCompanies(): Promise<Company[]>;
+  getCompanyById(id: number): Promise<Company | undefined>;
+  createCompany(company: InsertCompany): Promise<Company>;
+  updateCompany(id: number, company: Partial<InsertCompany>): Promise<Company>;
+  deleteCompany(id: number): Promise<void>;
+
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -235,6 +245,35 @@ const requesterUser = alias(users, "requester_user");
 const approverA1User = alias(users, "approver_a1_user");
 
 export class DatabaseStorage implements IStorage {
+  // Company operations
+  async getAllCompanies(): Promise<Company[]> {
+    return await db.select().from(companies).where(eq(companies.active, true));
+  }
+
+  async getCompanyById(id: number): Promise<Company | undefined> {
+    const [company] = await db.select().from(companies).where(eq(companies.id, id));
+    return company || undefined;
+  }
+
+  async createCompany(company: InsertCompany): Promise<Company> {
+    const [newCompany] = await db.insert(companies).values(company).returning();
+    return newCompany;
+  }
+
+  async updateCompany(id: number, company: Partial<InsertCompany>): Promise<Company> {
+    const [updatedCompany] = await db
+      .update(companies)
+      .set({ ...company, updatedAt: new Date() })
+      .where(eq(companies.id, id))
+      .returning();
+    return updatedCompany;
+  }
+
+  async deleteCompany(id: number): Promise<void> {
+    await db.update(companies).set({ active: false }).where(eq(companies.id, id));
+  }
+
+  // User operations
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;

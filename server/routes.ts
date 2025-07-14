@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { sendRFQToSuppliers, notifyNewRequest, notifyApprovalA1, notifyApprovalA2, notifyRejection, testEmailConfiguration } from "./email-service";
 import { 
   insertUserSchema, 
+  insertCompanySchema,
   insertDepartmentSchema, 
   insertCostCenterSchema, 
   insertSupplierSchema, 
@@ -276,6 +277,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Reset password error:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  // Companies routes
+  app.get("/api/companies", isAuthenticated, async (req, res) => {
+    try {
+      const companies = await storage.getAllCompanies();
+      res.json(companies);
+    } catch (error) {
+      console.error("Error fetching companies:", error);
+      res.status(500).json({ message: "Failed to fetch companies" });
+    }
+  });
+
+  app.get("/api/companies/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const company = await storage.getCompanyById(id);
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+      res.json(company);
+    } catch (error) {
+      console.error("Error fetching company:", error);
+      res.status(500).json({ message: "Failed to fetch company" });
+    }
+  });
+
+  app.post("/api/companies", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const companyData = insertCompanySchema.parse(req.body);
+      const company = await storage.createCompany(companyData);
+      res.status(201).json(company);
+    } catch (error) {
+      console.error("Error creating company:", error);
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        res.status(400).json({ message: "CNPJ já está sendo usado por outra empresa" });
+      } else {
+        res.status(400).json({ message: "Dados da empresa inválidos" });
+      }
+    }
+  });
+
+  app.put("/api/companies/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const companyData = insertCompanySchema.partial().parse(req.body);
+      const company = await storage.updateCompany(id, companyData);
+      res.json(company);
+    } catch (error) {
+      console.error("Error updating company:", error);
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        res.status(400).json({ message: "CNPJ já está sendo usado por outra empresa" });
+      } else {
+        res.status(400).json({ message: "Dados da empresa inválidos" });
+      }
+    }
+  });
+
+  app.delete("/api/companies/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCompany(id);
+      res.json({ message: "Company deactivated successfully" });
+    } catch (error) {
+      console.error("Error deleting company:", error);
+      res.status(500).json({ message: "Failed to delete company" });
     }
   });
 
