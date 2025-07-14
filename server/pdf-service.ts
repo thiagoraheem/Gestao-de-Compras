@@ -9,6 +9,7 @@ interface PurchaseOrderData {
   approvalHistory: any[];
   selectedSupplierQuotation?: any;
   deliveryLocation?: any;
+  company?: any;
 }
 
 export class PDFService {
@@ -545,7 +546,7 @@ export class PDFService {
   }
 
   private static async generatePurchaseOrderHTML(data: PurchaseOrderData): Promise<string> {
-    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation } = data;
+    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company } = data;
     
     // Função para formatar data brasileira
     const formatBrazilianDate = (dateString: string | null | undefined): string => {
@@ -581,15 +582,37 @@ export class PDFService {
       color: #000;
     }
     .header {
-      text-align: center;
-      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 15px;
     }
-    .header h1 {
+    .header-logo {
+      flex: 0 0 150px;
+      margin-right: 20px;
+    }
+    .header-logo img {
+      max-width: 150px;
+      max-height: 100px;
+      object-fit: contain;
+    }
+    .header-info {
+      flex: 1;
+      text-align: center;
+    }
+    .header-info h1 {
       font-size: 16px;
       font-weight: bold;
       margin: 5px 0;
     }
-    .header p {
+    .header-info h2 {
+      font-size: 14px;
+      font-weight: bold;
+      margin: 5px 0;
+      color: #333;
+    }
+    .header-info p {
       margin: 2px 0;
       font-size: 11px;
     }
@@ -685,11 +708,19 @@ export class PDFService {
 </head>
 <body>
   <div class="header">
-    <h1>PEDIDO DE COMPRAS - ${purchaseRequest.requestNumber}</h1>
-    <h2>BLOMAQ - LOCAÇÃO ANDAIMES E MÁQUINAS</h2>
-    <p>Endereço: Av. Nathan Lemos Xavier de Albuquerque, 1.328</p>
-    <p>Novo Aleixo, Manaus - AM, 69098-145</p>
-    <p>CNPJ: 13.844.973/0001-59 / IE: 04.235.197-9 / I.M: 20035101 / SUFRAMA: 210.135.271</p>
+    ${company?.logoUrl ? `
+    <div class="header-logo">
+      <img src="${company.logoUrl}" alt="Logo da Empresa" />
+    </div>
+    ` : ''}
+    <div class="header-info">
+      <h1>PEDIDO DE COMPRAS - ${purchaseRequest.requestNumber}</h1>
+      <h2>${company?.name || company?.tradingName || 'EMPRESA NÃO INFORMADA'}</h2>
+      ${company?.address ? `<p>Endereço: ${company.address}</p>` : ''}
+      ${company?.cnpj ? `<p>CNPJ: ${company.cnpj}</p>` : ''}
+      ${company?.phone ? `<p>Telefone: ${company.phone}</p>` : ''}
+      ${company?.email ? `<p>Email: ${company.email}</p>` : ''}
+    </div>
   </div>
 
   <div class="info-grid">
@@ -864,6 +895,15 @@ export class PDFService {
     // Buscar itens da solicitação
     const items = await storage.getPurchaseRequestItems(purchaseRequestId);
     
+    // Buscar dados da empresa através do usuário solicitante
+    let company = null;
+    if (purchaseRequest.requesterId) {
+      const requester = await storage.getUser(purchaseRequest.requesterId);
+      if (requester && requester.companyId) {
+        company = await storage.getCompanyById(requester.companyId);
+      }
+    }
+    
     // Buscar departamento através do cost center
     let department = null;
     if (purchaseRequest.costCenterId) {
@@ -946,7 +986,8 @@ export class PDFService {
       supplier,
       approvalHistory,
       selectedSupplierQuotation,
-      deliveryLocation
+      deliveryLocation,
+      company
     };
 
     // Gerar HTML
