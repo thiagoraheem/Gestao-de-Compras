@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { PURCHASE_PHASES, PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import RequestPhase from "@/components/request-phase";
@@ -392,6 +392,9 @@ export default function RequestManagementPage() {
             <DialogTitle>
               {selectedPhase && selectedPhase in PHASE_LABELS ? PHASE_LABELS[selectedPhase as keyof typeof PHASE_LABELS] : selectedPhase} - #{selectedRequest?.requestNumber}
             </DialogTitle>
+            <DialogDescription>
+              Gerencie a solicitação de compra na fase atual do processo.
+            </DialogDescription>
           </DialogHeader>
           {getPhaseComponent()}
         </DialogContent>

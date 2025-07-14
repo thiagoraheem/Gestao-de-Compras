@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -424,6 +424,9 @@ export default function UsersPage() {
             <DialogTitle>
               {editingUser ? "Editar Usuário" : "Novo Usuário"}
             </DialogTitle>
+            <DialogDescription>
+              {editingUser ? "Edite as informações do usuário selecionado." : "Preencha os dados para criar um novo usuário no sistema."}
+            </DialogDescription>
           </DialogHeader>
           
           <Form {...form}>
