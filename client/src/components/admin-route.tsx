@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "wouter";
+import { useLocation } from "wouter";
+import { useEffect } from "react";
 
 interface AdminRouteProps {
   children: React.ReactNode;
@@ -7,6 +8,13 @@ interface AdminRouteProps {
 
 export default function AdminRoute({ children }: AdminRouteProps) {
   const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && !user?.isAdmin) {
+      setLocation("/");
+    }
+  }, [user, isLoading, setLocation]);
 
   if (isLoading) {
     return (
@@ -17,7 +25,7 @@ export default function AdminRoute({ children }: AdminRouteProps) {
   }
 
   if (!user?.isAdmin) {
-    return <Navigate to="/" />;
+    return null;
   }
 
   return <>{children}</>;
