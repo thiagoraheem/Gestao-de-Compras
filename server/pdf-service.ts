@@ -563,9 +563,9 @@ export class PDFService {
     const desconto = 0; // Por enquanto zero, pode ser implementado depois
     const valorFinal = subtotal - desconto;
     
-    // Encontrar aprovações
-    const aprovacaoA1 = approvalHistory.find(h => h.phase === 'aprovacao-a1');
-    const aprovacaoA2 = approvalHistory.find(h => h.phase === 'aprovacao-a2');
+    // Encontrar aprovações - usando approverType em vez de phase
+    const aprovacaoA1 = approvalHistory.find(h => h.approverType === 'A1');
+    const aprovacaoA2 = approvalHistory.find(h => h.approverType === 'A2');
     
     return `
 <!DOCTYPE html>
@@ -644,6 +644,12 @@ export class PDFService {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 30px;
+      margin-top: 20px;
+    }
+    .electronic-signature-grid-three {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
       margin-top: 20px;
     }
     .signature-electronic {
@@ -816,7 +822,7 @@ export class PDFService {
 
   <div class="section">
     <div class="section-title">ASSINADO ELETRONICAMENTE POR:</div>
-    <div class="electronic-signature-grid">
+    <div class="electronic-signature-grid-three">
       <div class="signature-electronic">
         <div class="signature-header">ASSINADO ELETRONICAMENTE POR:</div>
         <div class="signature-name">${purchaseRequest.requesterName || (purchaseRequest.requester ? `${purchaseRequest.requester.firstName || ''} ${purchaseRequest.requester.lastName || ''}`.trim() : 'Não informado')}</div>
@@ -826,8 +832,15 @@ export class PDFService {
       
       <div class="signature-electronic">
         <div class="signature-header">ASSINADO ELETRONICAMENTE POR:</div>
-        <div class="signature-name">${aprovacaoA2?.userName || 'Não informado'}</div>
-        <div class="signature-role">Liberador</div>
+        <div class="signature-name">${aprovacaoA1?.approver?.firstName && aprovacaoA1?.approver?.lastName ? `${aprovacaoA1.approver.firstName} ${aprovacaoA1.approver.lastName}` : (aprovacaoA1?.approver?.username || 'Não informado')}</div>
+        <div class="signature-role">Aprovador A1</div>
+        <div class="signature-date">${aprovacaoA1 ? new Date(aprovacaoA1.createdAt).toLocaleDateString('pt-BR') + ' às ' + new Date(aprovacaoA1.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) : 'Não assinado'}</div>
+      </div>
+      
+      <div class="signature-electronic">
+        <div class="signature-header">ASSINADO ELETRONICAMENTE POR:</div>
+        <div class="signature-name">${aprovacaoA2?.approver?.firstName && aprovacaoA2?.approver?.lastName ? `${aprovacaoA2.approver.firstName} ${aprovacaoA2.approver.lastName}` : (aprovacaoA2?.approver?.username || 'Não informado')}</div>
+        <div class="signature-role">Aprovador A2 (Liberador)</div>
         <div class="signature-date">${aprovacaoA2 ? new Date(aprovacaoA2.createdAt).toLocaleDateString('pt-BR') + ' às ' + new Date(aprovacaoA2.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) : 'Não assinado'}</div>
       </div>
     </div>
