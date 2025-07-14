@@ -122,18 +122,17 @@ export default function EnhancedNewRequestModal({
     queryKey: ["/api/cost-centers"],
   });
 
-  // Filter cost centers based on user's assigned cost centers and selected company
+  // Filter cost centers based on user's assigned cost centers only (not filtering by company anymore)
   const costCenters = allCostCenters?.filter(center => {
     const matchesUser = userCostCenterIds?.includes(center.id);
-    const matchesCompany = selectedCompanyId ? center.companyId === selectedCompanyId : true;
-    return matchesUser && matchesCompany;
+    return matchesUser;
   }) || [];
 
   console.log("Debug - Cost Centers:", {
     allCostCenters: allCostCenters?.length || 0,
     userCostCenterIds: userCostCenterIds?.length || 0,
     filteredCostCenters: costCenters.length,
-    selectedCompanyId,
+    userCostCenterIdsArray: userCostCenterIds,
     userId: user?.id
   });
 
