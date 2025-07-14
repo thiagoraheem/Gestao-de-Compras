@@ -22,6 +22,7 @@ import FloatingNewRequestButton from "@/components/floating-new-request-button";
 import AdminCleanupPage from "@/pages/admin-cleanup";
 import DashboardPage from "@/pages/dashboard";
 import ManagerRoute from "@/components/manager-route";
+import AdminRoute from "@/components/admin-route";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -79,7 +80,11 @@ function Router() {
           </ManagerRoute>
         </Route>
         <Route path="/request-management" component={RequestManagementPage} />
-        <Route path="/companies" component={CompaniesPage} />
+        <Route path="/companies">
+          <AdminRoute>
+            <CompaniesPage />
+          </AdminRoute>
+        </Route>
         <Route path="/suppliers" component={SuppliersPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/departments" component={DepartmentsPage} />

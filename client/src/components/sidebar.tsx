@@ -26,7 +26,7 @@ const navigation = [
   { name: "Kanban Board", href: "/", icon: Columns },
   { name: "Dashboard", href: "/dashboard", icon: BarChart3, requiresManager: true },
   { name: "Gerenciar Solicitações", href: "/request-management", icon: FileText },
-  { name: "Empresas", href: "/companies", icon: Building },
+  { name: "Empresas", href: "/companies", icon: Building, requiresAdmin: true },
   { name: "Fornecedores", href: "/suppliers", icon: Truck },
   { name: "Usuários", href: "/users", icon: Users },
   { name: "Departamentos", href: "/departments", icon: Building },
@@ -96,6 +96,9 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               if (item.requiresManager && !user?.isManager && !user?.isAdmin) {
                 return null;
               }
+              if (item.requiresAdmin && !user?.isAdmin) {
+                return null;
+              }
               
               return (
                 <Link key={item.name} href={item.href}>
@@ -152,6 +155,9 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   
                   // Check if user has permission to access this item
                   if (item.requiresManager && !user?.isManager && !user?.isAdmin) {
+                    return null;
+                  }
+                  if (item.requiresAdmin && !user?.isAdmin) {
                     return null;
                   }
                   
