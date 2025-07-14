@@ -460,11 +460,13 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                             <SelectValue placeholder="Selecione o local de entrega" />
                           </SelectTrigger>
                           <SelectContent>
-                            {deliveryLocations.map((location) => (
-                              <SelectItem key={location.id} value={location.id.toString()}>
-                                {location.name}
-                              </SelectItem>
-                            ))}
+                            {deliveryLocations
+                              .sort((a, b) => a.id - b.id)
+                              .map((location) => (
+                                <SelectItem key={location.id} value={location.id.toString()}>
+                                  {location.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </FormControl>

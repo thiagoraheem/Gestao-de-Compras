@@ -110,6 +110,11 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 14, 2025. Organização dos locais de entrega por ID na criação de RFQ implementada com sucesso:
+  - ✓ Dropdown "Local de Entrega" na tela "Criar Solicitação de Cotação" agora ordenado por ID crescente
+  - ✓ Aplicado .sort((a, b) => a.id - b.id) antes do mapeamento dos locais de entrega
+  - ✓ Melhoria na experiência do usuário com ordem consistente e previsível
+  - ✓ Migração do Replit Agent para Replit finalizada com sucesso
 - July 14, 2025. Correção crítica do erro de JSON parsing na atualização de permissões de usuário implementada com sucesso:
   - ✓ Identificado erro "Unexpected token '<', '<!DOCTYPE'..." ao tentar atualizar permissões de usuário
   - ✓ Problema estava no formato incorreto da função apiRequest no frontend
