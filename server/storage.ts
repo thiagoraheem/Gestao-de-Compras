@@ -211,6 +211,9 @@ export interface IStorage {
   createApprovalHistory(
     approvalHistory: InsertApprovalHistory,
   ): Promise<ApprovalHistory>;
+  
+  // Complete Timeline operations
+  getCompleteTimeline(purchaseRequestId: number): Promise<any[]>;
 
   // Attachment operations
   createAttachment(attachment: InsertAttachment): Promise<Attachment>;
@@ -1097,6 +1100,142 @@ export class DatabaseStorage implements IStorage {
       .values(approvalHistoryData)
       .returning();
     return newApprovalHistory;
+  }
+
+  async getCompleteTimeline(purchaseRequestId: number): Promise<any[]> {
+    // Get the purchase request details
+    const request = await this.getPurchaseRequestById(purchaseRequestId);
+    if (!request) {
+      return [];
+    }
+
+    const timeline: any[] = [];
+
+    // 1. Request Creation
+    timeline.push({
+      id: 'request_created',
+      type: 'creation',
+      phase: 'solicitacao',
+      action: 'Solicitação criada',
+      userId: request.requesterId,
+      userName: request.requester?.firstName && request.requester?.lastName
+        ? `${request.requester.firstName} ${request.requester.lastName}`
+        : request.requester?.username || 'Sistema',
+      timestamp: request.createdAt,
+      status: 'completed',
+      icon: 'file-plus',
+      description: `Solicitação ${request.requestNumber} criada`
+    });
+
+    // 2. Get approval history and convert to timeline events
+    const approvals = await this.getApprovalHistory(purchaseRequestId);
+    for (const approval of approvals) {
+      const phaseMap: Record<string, string> = {
+        'A1': 'aprovacao_a1',
+        'A2': 'aprovacao_a2'
+      };
+
+      timeline.push({
+        id: `approval_${approval.id}`,
+        type: 'approval',
+        phase: phaseMap[approval.approverType] || approval.approverType,
+        action: approval.approved ? 'Aprovação' : 'Reprovação',
+        userId: approval.approver?.id,
+        userName: approval.approver?.firstName && approval.approver?.lastName
+          ? `${approval.approver.firstName} ${approval.approver.lastName}`
+          : approval.approver?.username || 'Sistema',
+        timestamp: approval.createdAt,
+        status: approval.approved ? 'approved' : 'rejected',
+        icon: approval.approved ? 'check-circle' : 'x-circle',
+        description: approval.approved 
+          ? `Aprovado por ${approval.approver?.firstName || approval.approver?.username || 'Sistema'}`
+          : `Reprovado por ${approval.approver?.firstName || approval.approver?.username || 'Sistema'}`,
+        reason: approval.rejectionReason
+      });
+    }
+
+    // 3. Phase transitions based on request data
+    if (request.quotationDate) {
+      timeline.push({
+        id: 'quotation_created',
+        type: 'quotation',
+        phase: 'cotacao',
+        action: 'RFQ criada',
+        userId: request.createdBy || request.requesterId,
+        userName: 'Sistema',
+        timestamp: request.quotationDate,
+        status: 'completed',
+        icon: 'file-text',
+        description: 'Solicitação de cotação enviada aos fornecedores'
+      });
+    }
+
+    if (request.approvedA2Date) {
+      timeline.push({
+        id: 'supplier_selected',
+        type: 'supplier_selection',
+        phase: 'cotacao',
+        action: 'Fornecedor selecionado',
+        userId: request.approverA2Id,
+        userName: 'Sistema',
+        timestamp: request.approvedA2Date,
+        status: 'completed',
+        icon: 'check-circle',
+        description: 'Fornecedor vencedor selecionado'
+      });
+    }
+
+    if (request.purchaseDate) {
+      timeline.push({
+        id: 'purchase_order_created',
+        type: 'purchase_order',
+        phase: 'pedido_compra',
+        action: 'Pedido de compra criado',
+        userId: request.createdBy || request.requesterId,
+        userName: 'Sistema',
+        timestamp: request.purchaseDate,
+        status: 'completed',
+        icon: 'shopping-cart',
+        description: 'Pedido de compra oficial gerado'
+      });
+    }
+
+    if (request.receivedDate) {
+      timeline.push({
+        id: 'material_received',
+        type: 'receipt',
+        phase: 'recebimento',
+        action: 'Material recebido',
+        userId: request.receivedById,
+        userName: 'Sistema',
+        timestamp: request.receivedDate,
+        status: 'completed',
+        icon: 'package-check',
+        description: 'Material recebido e conferido'
+      });
+    }
+
+    if (request.currentPhase === 'conclusao' || request.currentPhase === 'arquivado') {
+      timeline.push({
+        id: 'process_completed',
+        type: 'completion',
+        phase: request.currentPhase,
+        action: request.currentPhase === 'arquivado' ? 'Processo arquivado' : 'Processo concluído',
+        userId: request.updatedBy || request.requesterId,
+        userName: 'Sistema',
+        timestamp: request.updatedAt || new Date(),
+        status: 'completed',
+        icon: request.currentPhase === 'arquivado' ? 'archive' : 'check-circle-2',
+        description: request.currentPhase === 'arquivado' 
+          ? 'Processo arquivado com sucesso'
+          : 'Processo de compra concluído'
+      });
+    }
+
+    // Sort timeline by timestamp
+    timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    return timeline;
   }
 
   async createAttachment(

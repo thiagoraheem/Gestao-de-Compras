@@ -1164,6 +1164,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Complete timeline endpoint for all phase transitions
+  app.get("/api/purchase-requests/:id/complete-timeline", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const timeline = await storage.getCompleteTimeline(id);
+      res.json(timeline);
+    } catch (error) {
+      console.error("Error fetching complete timeline:", error);
+      res.status(500).json({ message: "Failed to fetch complete timeline" });
+    }
+  });
+
   app.post("/api/purchase-requests/:id/create-purchase-order", async (req, res) => {
     try {
       const id = parseInt(req.params.id);

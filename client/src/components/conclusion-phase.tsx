@@ -13,6 +13,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
+import ProcessTimeline from "@/components/process-timeline";
 import { 
   Download, 
   FileText, 
@@ -78,6 +79,11 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
   const { data: approvalHistory = [], isLoading: approvalHistoryLoading } = useQuery({
     queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
+  });
+
+  // Fetch complete timeline for better process visualization
+  const { data: completeTimeline = [], isLoading: timelineLoading } = useQuery({
+    queryKey: [`/api/purchase-requests/${request.id}/complete-timeline`],
   });
 
   const { data: attachments = [], isLoading: attachmentsLoading } = useQuery({
@@ -263,7 +269,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
     }
   };
 
-  const isLoading = itemsLoading || approvalHistoryLoading || attachmentsLoading || quotationLoading || supplierQuotationItemsLoading || requesterLoading || costCentersLoading || departmentsLoading || quotationAttachmentsLoading;
+  const isLoading = itemsLoading || approvalHistoryLoading || attachmentsLoading || quotationLoading || supplierQuotationItemsLoading || requesterLoading || costCentersLoading || departmentsLoading || quotationAttachmentsLoading || timelineLoading;
 
   if (isLoading) {
     return (
@@ -564,63 +570,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
           </CardContent>
         </Card>
 
-        {/* Timeline */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Linha do Tempo do Processo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {approvalHistory.length > 0 ? (
-                approvalHistory.map((approval: any, index: number) => {
-                  const phaseLabel = PHASE_LABELS[approval.phase] || approval.phase;
-                  const isApproved = approval.approved !== false;
-                  
-                  return (
-                    <div key={approval.id} className="flex items-start gap-4">
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                        isApproved ? 'bg-green-100' : 'bg-red-100'
-                      }`}>
-                        {isApproved ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-red-600" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{phaseLabel}</p>
-                          <span className="text-sm text-gray-500">
-                            {format(new Date(approval.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          {approval.approverName || approval.approver?.firstName + ' ' + approval.approver?.lastName || 'Sistema Automático'}
-                        </p>
-                        {approval.observations && (
-                          <p className="text-sm text-gray-600 mt-1">{approval.observations}</p>
-                        )}
-                        {approval.rejectionReason && (
-                          <p className="text-sm text-red-600 mt-1">
-                            <strong>Motivo:</strong> {approval.rejectionReason}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8">
-                  <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">Nenhum histórico de aprovação encontrado</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Complete Process Timeline */}
+        <ProcessTimeline timeline={completeTimeline} isLoading={timelineLoading} />
 
         {/* Items Received */}
         <Card>
