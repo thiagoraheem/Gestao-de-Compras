@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 14, 2025. Funcionalidade de impressão aprimorada na tela Conclusão de Compra implementada com sucesso:
+  - ✓ Substituído window.print() por abertura de nova janela para impressão
+  - ✓ Criado sistema generatePrintableHTML() com conteúdo completo e formatação profissional
+  - ✓ HTML otimizado para impressão com estilos CSS dedicados (@media print)
+  - ✓ Nova janela inclui todos os dados: métricas, resumo, fornecedor, itens e timeline
+  - ✓ Solução resolve problema de modal/frame bloqueando conteúdo na impressão
+  - ✓ Impressão agora captura todo o conteúdo da tela de conclusão
 - July 14, 2025. Organização dos locais de entrega por ID na criação de RFQ implementada com sucesso:
   - ✓ Dropdown "Local de Entrega" na tela "Criar Solicitação de Cotação" agora ordenado por ID crescente
   - ✓ Aplicado .sort((a, b) => a.id - b.id) antes do mapeamento dos locais de entrega
