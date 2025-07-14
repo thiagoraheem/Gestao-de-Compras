@@ -228,16 +228,16 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   const selectedSupplier = selectedSupplierQuotation;
   const totalProcessTime = request.createdAt ? differenceInDays(new Date(), new Date(request.createdAt)) : 0;
   
-  // Calculate total items value with improved logic
+  // Calculate total items value - prioritize request.totalValue for consistency
   const totalItemsValue = useMemo(() => {
-    // Priority 1: Use selected supplier quotation's total value if available
-    if (selectedSupplierQuotation?.totalValue && parseFloat(selectedSupplierQuotation.totalValue) > 0) {
-      return parseFloat(selectedSupplierQuotation.totalValue);
-    }
-    
-    // Priority 2: Use request's total value if available
+    // Priority 1: Use request's total value to maintain consistency with Kanban card
     if (request.totalValue && parseFloat(request.totalValue) > 0) {
       return parseFloat(request.totalValue);
+    }
+    
+    // Priority 2: Use selected supplier quotation's total value if available
+    if (selectedSupplierQuotation?.totalValue && parseFloat(selectedSupplierQuotation.totalValue) > 0) {
+      return parseFloat(selectedSupplierQuotation.totalValue);
     }
     
     // Priority 3: Calculate from supplier quotation items
@@ -267,7 +267,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
     
     // Default: 0
     return 0;
-  }, [selectedSupplierQuotation, request, supplierQuotationItems, items]);
+  }, [request, selectedSupplierQuotation, supplierQuotationItems, items]);
   
   const budgetSavings = request.availableBudget ? request.availableBudget - totalItemsValue : 0;
 
@@ -525,17 +525,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                 </div>
               </div>
               
-              {/* Debug information - remover em produção */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
-                  <p><strong>Debug Info:</strong></p>
-                  <p>Supplier Total Value: {selectedSupplier.totalValue}</p>
-                  <p>Request Total Value: {request.totalValue}</p>
-                  <p>Calculated Total: {totalItemsValue}</p>
-                  <p>Supplier Items Count: {supplierQuotationItems?.length || 0}</p>
-                  <p>Request Items Count: {items?.length || 0}</p>
-                </div>
-              )}
+              
             </CardContent>
           </Card>
         )}
