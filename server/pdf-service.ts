@@ -1163,17 +1163,35 @@ export class PDFService {
         <div class="section">
           <div class="section-title">Histórico do Processo de Compra</div>
           <div class="timeline">
-            ${completeTimeline.map((event: any) => `
+            ${completeTimeline.map((event: any) => {
+              // Mapeamento de fases para português
+              const phaseLabels: Record<string, string> = {
+                'solicitacao': 'Solicitação',
+                'aprovacao_a1': 'Aprovação A1',
+                'cotacao': 'Cotação (RFQ)',
+                'aprovacao_a2': 'Aprovação A2',
+                'pedido_compra': 'Pedido de Compra',
+                'recebimento': 'Recebimento',
+                'conclusao': 'Conclusão',
+                'arquivado': 'Arquivado'
+              };
+              
+              const phaseLabel = phaseLabels[event.phase] || event.phase;
+              const eventDate = event.timestamp ? formatDate(new Date(event.timestamp)) : 'N/A';
+              const userName = event.userName || 'Sistema';
+              
+              return `
               <div class="timeline-item">
-                <div class="timeline-date">${event.date ? formatDate(new Date(event.date)) : 'N/A'}</div>
+                <div class="timeline-date">${eventDate}</div>
                 <div class="timeline-action">
-                  <strong>${event.phase_label || event.phase}</strong><br>
-                  ${event.user_name ? `Por: <strong>${event.user_name}</strong>` : ''}
+                  <strong>${phaseLabel}</strong><br>
+                  Por: <strong>${userName}</strong>
                   ${event.description ? `<br>${event.description}` : ''}
                   ${event.reason ? `<br>Motivo: ${event.reason}` : ''}
                 </div>
               </div>
-            `).join('')}
+              `;
+            }).join('')}
           </div>
         </div>
         ` : ''}

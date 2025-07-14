@@ -110,6 +110,16 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 14, 2025. Correção crítica do PDF de Conclusão de Pedido com dados completos e histórico correto implementada com sucesso:
+  - ✓ Corrigidos dados incorretos no "Histórico de Aprovações" - agora usa timeline completo do processo
+  - ✓ Departamento e centro de custo agora buscados corretamente das entidades relacionadas
+  - ✓ Fornecedor vencedor incluído com todos os dados da cotação selecionada
+  - ✓ Valores dos itens baseados nos preços reais da cotação vencedora
+  - ✓ Timeline traduzida para português: "Solicitação", "Aprovação A1", "Cotação (RFQ)", etc.
+  - ✓ Datas corrigidas para usar campo timestamp em vez de date undefined
+  - ✓ Adicionada seção "Dados da Cotação Vencedora" com valor, prazo e condições
+  - ✓ Justificativa da escolha do fornecedor incluída quando disponível
+  - ✓ Sistema robusto de busca de dados com fallback para casos sem cotação
 - July 14, 2025. Funcionalidade de impressão aprimorada na tela Conclusão de Compra implementada com sucesso:
   - ✓ Substituído window.print() por abertura de nova janela para impressão
   - ✓ Criado sistema generatePrintableHTML() com conteúdo completo e formatação profissional
