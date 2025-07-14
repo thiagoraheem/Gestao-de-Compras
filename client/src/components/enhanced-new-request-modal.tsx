@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -97,11 +97,24 @@ export default function EnhancedNewRequestModal({
   });
 
   // Get user's cost center IDs
-  const { data: userCostCenterIds } = useQuery<number[]>({
+  const { data: userCostCenterIds, isLoading: isLoadingUserCostCenters, error: userCostCentersError } = useQuery<number[]>({
     queryKey: ["/api/users", user?.id, "cost-centers"],
-    queryFn: () =>
-      fetch(`/api/users/${user?.id}/cost-centers`).then((res) => res.json()),
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${user?.id}/cost-centers`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch user cost centers");
+      }
+      return response.json();
+    },
     enabled: !!user?.id,
+  });
+
+  // Debug user cost centers
+  console.log("User Cost Centers Query:", {
+    data: userCostCenterIds,
+    isLoading: isLoadingUserCostCenters,
+    error: userCostCentersError,
+    userId: user?.id
   });
 
   // Get all cost centers
@@ -110,12 +123,19 @@ export default function EnhancedNewRequestModal({
   });
 
   // Filter cost centers based on user's assigned cost centers and selected company
-  const costCenters =
-    allCostCenters?.filter((center) => {
-      const matchesUser = userCostCenterIds?.includes(center.id);
-      const matchesCompany = selectedCompanyId ? center.companyId === selectedCompanyId : true;
-      return matchesUser && matchesCompany;
-    }) || [];
+  const costCenters = allCostCenters?.filter(center => {
+    const matchesUser = userCostCenterIds?.includes(center.id);
+    const matchesCompany = selectedCompanyId ? center.companyId === selectedCompanyId : true;
+    return matchesUser && matchesCompany;
+  }) || [];
+
+  console.log("Debug - Cost Centers:", {
+    allCostCenters: allCostCenters?.length || 0,
+    userCostCenterIds: userCostCenterIds?.length || 0,
+    filteredCostCenters: costCenters.length,
+    selectedCompanyId,
+    userId: user?.id
+  });
 
   const form = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema),
@@ -130,6 +150,14 @@ export default function EnhancedNewRequestModal({
       additionalInfo: "",
     },
   });
+
+  // Set selectedCompanyId to user's company if not admin
+  React.useEffect(() => {
+    if (!user?.isAdmin && user?.companyId) {
+      setSelectedCompanyId(user.companyId);
+      form.setValue('companyId', user.companyId);
+    }
+  }, [user, form]);
 
   const createRequestMutation = useMutation({
     mutationFn: async (data: RequestFormData) => {
@@ -350,15 +378,24 @@ export default function EnhancedNewRequestModal({
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {costCenters &&
-                                (costCenters as any[]).map((center: any) => (
+                              {isLoadingUserCostCenters ? (
+                                <SelectItem value="loading" disabled>
+                                  Carregando centros de custo...
+                                </SelectItem>
+                              ) : costCenters && costCenters.length > 0 ? (
+                                costCenters.map((center: any) => (
                                   <SelectItem
                                     key={center.id}
                                     value={center.id.toString()}
                                   >
                                     {center.code} - {center.name}
                                   </SelectItem>
-                                ))}
+                                ))
+                              ) : (
+                                <SelectItem value="no-centers" disabled>
+                                  Nenhum centro de custo disponível
+                                </SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                         </FormControl>
