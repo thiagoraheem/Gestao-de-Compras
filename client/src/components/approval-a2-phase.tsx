@@ -69,6 +69,18 @@ interface ApprovalA2PhaseProps {
   initialAction?: 'approve' | 'reject' | null;
 }
 
+// Função para mapear tipos de aprovação para descrições de fase
+const getPhaseDescription = (approverType: string): string => {
+  switch (approverType) {
+    case 'A1':
+      return 'Aprovação A1';
+    case 'A2':
+      return 'Aprovação A2';
+    default:
+      return approverType;
+  }
+};
+
 export default function ApprovalA2Phase({ request, onClose, className, initialAction = null }: ApprovalA2PhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -333,7 +345,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="font-medium">{history.approverName}</p>
-                      <p className="text-sm text-gray-600">{history.approverType}</p>
+                      <p className="text-sm text-gray-600">{getPhaseDescription(history.approverType)}</p>
                     </div>
                     <div className="text-right">
                       <Badge variant={history.approved ? 'default' : 'destructive'}>
@@ -702,17 +714,22 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
             <CardContent>
               <div className="space-y-2">
                 {approvalHistory.map((item: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-2 border rounded">
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-2">
                       <Badge variant={item.approved ? 'default' : 'destructive'} className="text-xs">
                         {item.approved ? 'Aprovado' : 'Reprovado'}
                       </Badge>
-                      <span className="text-sm font-medium">
-                        {item.approver?.firstName && item.approver?.lastName 
-                          ? `${item.approver.firstName} ${item.approver.lastName}`
-                          : item.approver?.username || 'N/A'
-                        }
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">
+                          {item.approver?.firstName && item.approver?.lastName 
+                            ? `${item.approver.firstName} ${item.approver.lastName}`
+                            : item.approver?.username || 'N/A'
+                          }
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {getPhaseDescription(item.approverType)}
+                        </span>
+                      </div>
                       {item.rejectionReason && (
                         <span className="text-xs text-muted-foreground">
                           - {item.rejectionReason}
