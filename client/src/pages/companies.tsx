@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2, Building } from "lucide-react";
+import { Plus, Edit, Trash2, Building, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ export default function Companies() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
   const [formData, setFormData] = useState<InsertCompany>({
     name: "",
     tradingName: "",
@@ -30,13 +31,18 @@ export default function Companies() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: companies, isLoading, error } = useQuery({
+  const { data: allCompanies, isLoading, error } = useQuery({
     queryKey: ["/api/companies"],
     queryFn: async () => {
       const response = await apiRequest("/api/companies");
       return await response.json();
     },
   });
+
+  // Filter companies based on active status
+  const companies = allCompanies?.filter((company: Company) => 
+    showInactive ? true : company.active
+  );
 
   const createMutation = useMutation({
     mutationFn: (data: InsertCompany) => apiRequest("/api/companies", { method: "POST", body: data }),
@@ -142,6 +148,12 @@ export default function Companies() {
     }
   };
 
+  const handleActivate = (id: number) => {
+    if (confirm("Tem certeza de que deseja ativar esta empresa?")) {
+      updateMutation.mutate({ id, data: { active: true } });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -184,7 +196,20 @@ export default function Companies() {
           <h1 className="text-2xl font-bold text-gray-900">Empresas</h1>
           <p className="text-gray-600">Gerencie as empresas do sistema</p>
         </div>
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="showInactive"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            <Label htmlFor="showInactive" className="text-sm">
+              Mostrar empresas inativas
+            </Label>
+          </div>
+          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -254,6 +279,7 @@ export default function Companies() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -320,15 +346,27 @@ export default function Companies() {
                   <Edit className="h-4 w-4 mr-1" />
                   Editar
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(company.id)}
-                  disabled={deleteMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Desativar
-                </Button>
+                {company.active ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(company.id)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Desativar
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleActivate(company.id)}
+                    disabled={updateMutation.isPending}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Ativar
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

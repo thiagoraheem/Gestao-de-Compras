@@ -4,19 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, MapPin, Phone, Mail, User, FileText } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, Phone, Mail, User, FileText, CheckCircle } from "lucide-react";
 import type { DeliveryLocation, InsertDeliveryLocation } from "../../../shared/schema";
 
 export default function DeliveryLocationsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<DeliveryLocation | null>(null);
-  const [formData, setFormData] = useState<Omit<InsertDeliveryLocation, 'isActive'>>({
+  const [showInactive, setShowInactive] = useState(false);
+  const [formData, setFormData] = useState<Omit<InsertDeliveryLocation, 'active'>>({
     name: "",
     address: "",
     contactPerson: "",
@@ -28,14 +29,19 @@ export default function DeliveryLocationsPage() {
   const queryClient = useQueryClient();
 
   // Fetch delivery locations
-  const { data: deliveryLocations = [], isLoading } = useQuery({
+  const { data: allDeliveryLocations = [], isLoading, error } = useQuery({
     queryKey: ["/api/delivery-locations"],
     staleTime: 0
   });
 
+  // Filter delivery locations based on active status
+  const deliveryLocations = allDeliveryLocations?.filter((location: DeliveryLocation) => 
+    showInactive ? true : location.active
+  );
+
   // Create delivery location mutation
   const createMutation = useMutation({
-    mutationFn: (data: Omit<InsertDeliveryLocation, 'isActive'>) => 
+    mutationFn: (data: Omit<InsertDeliveryLocation, 'active'>) => 
       apiRequest("/api/delivery-locations", { method: "POST", body: data }),
     onSuccess: () => {
       toast({ title: "Sucesso", description: "Local de entrega criado com sucesso!" });
@@ -43,8 +49,12 @@ export default function DeliveryLocationsPage() {
       setIsCreateModalOpen(false);
       resetForm();
     },
-    onError: () => {
-      toast({ title: "Erro", description: "Erro ao criar local de entrega", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro", 
+        description: error.message || "Erro ao criar local de entrega", 
+        variant: "destructive" 
+      });
     }
   });
 
@@ -55,11 +65,16 @@ export default function DeliveryLocationsPage() {
     onSuccess: () => {
       toast({ title: "Sucesso", description: "Local de entrega atualizado com sucesso!" });
       queryClient.invalidateQueries({ queryKey: ["/api/delivery-locations"] });
+      setIsEditModalOpen(false);
       setEditingLocation(null);
       resetForm();
     },
-    onError: () => {
-      toast({ title: "Erro", description: "Erro ao atualizar local de entrega", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro", 
+        description: error.message || "Erro ao atualizar local de entrega", 
+        variant: "destructive" 
+      });
     }
   });
 
@@ -71,8 +86,12 @@ export default function DeliveryLocationsPage() {
       toast({ title: "Sucesso", description: "Local de entrega desativado com sucesso!" });
       queryClient.invalidateQueries({ queryKey: ["/api/delivery-locations"] });
     },
-    onError: () => {
-      toast({ title: "Erro", description: "Erro ao desativar local de entrega", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro", 
+        description: error.message || "Erro ao desativar local de entrega", 
+        variant: "destructive" 
+      });
     }
   });
 
@@ -87,7 +106,22 @@ export default function DeliveryLocationsPage() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.name.trim() || !formData.address.trim()) {
+      toast({ 
+        title: "Erro", 
+        description: "Nome e endereço são obrigatórios", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    createMutation.mutate(formData);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name.trim() || !formData.address.trim()) {
@@ -101,8 +135,6 @@ export default function DeliveryLocationsPage() {
 
     if (editingLocation) {
       updateMutation.mutate({ id: editingLocation.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
     }
   };
 
@@ -116,324 +148,329 @@ export default function DeliveryLocationsPage() {
       email: location.email || "",
       observations: location.observations || ""
     });
+    setIsEditModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setEditingLocation(null);
-    setIsCreateModalOpen(false);
-    resetForm();
+  const handleDelete = (id: number) => {
+    if (confirm("Tem certeza de que deseja desativar este local de entrega?")) {
+      deleteMutation.mutate(id);
+    }
   };
 
-  const handleDelete = (location: DeliveryLocation) => {
-    if (window.confirm(`Tem certeza que deseja desativar o local "${location.name}"?`)) {
-      deleteMutation.mutate(location.id);
+  const handleActivate = (id: number) => {
+    if (confirm("Tem certeza de que deseja ativar este local de entrega?")) {
+      updateMutation.mutate({ id, data: { active: true } });
     }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Carregando locais de entrega...</div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Locais de Entrega</h1>
+            <p className="text-gray-600">Gerencie os locais de entrega do sistema</p>
+          </div>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">
+                Erro ao carregar locais de entrega
+              </h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>
+                  {error instanceof Error ? error.message : "Você não tem permissão para acessar esta funcionalidade. Apenas administradores podem gerenciar locais de entrega."}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Locais de Entrega</h1>
-          <p className="text-muted-foreground">
-            Gerencie os locais de entrega para cotações e pedidos
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Locais de Entrega</h1>
+          <p className="text-gray-600">Gerencie os locais de entrega do sistema</p>
         </div>
-        
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setIsCreateModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Local
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Novo Local de Entrega</DialogTitle>
-              <DialogDescription>
-                Adicione um novo local de entrega para cotações e pedidos
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <Label htmlFor="name">Nome do Local *</Label>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="showInactive"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            <Label htmlFor="showInactive" className="text-sm">
+              Mostrar locais inativos
+            </Label>
+          </div>
+          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Local
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Novo Local de Entrega</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Nome</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Ex: Matriz, Filial São Paulo, etc."
                     required
                   />
                 </div>
-                
-                <div className="col-span-2">
-                  <Label htmlFor="address">Endereço Completo *</Label>
-                  <Textarea
+                <div>
+                  <Label htmlFor="address">Endereço</Label>
+                  <Input
                     id="address"
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    placeholder="Rua, número, complemento, bairro, cidade, CEP"
                     required
-                    rows={3}
                   />
                 </div>
-                
                 <div>
-                  <Label htmlFor="contactPerson">Responsável</Label>
+                  <Label htmlFor="contactPerson">Pessoa de Contato</Label>
                   <Input
                     id="contactPerson"
                     value={formData.contactPerson}
                     onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                    placeholder="Nome do responsável"
                   />
                 </div>
-                
                 <div>
                   <Label htmlFor="phone">Telefone</Label>
                   <Input
                     id="phone"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="(11) 99999-9999"
                   />
                 </div>
-                
-                <div className="col-span-2">
-                  <Label htmlFor="email">E-mail</Label>
+                <div>
+                  <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="contato@empresa.com"
                   />
                 </div>
-                
-                <div className="col-span-2">
+                <div>
                   <Label htmlFor="observations">Observações</Label>
                   <Textarea
                     id="observations"
                     value={formData.observations}
                     onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
-                    placeholder="Informações adicionais, horários de funcionamento, etc."
-                    rows={2}
                   />
                 </div>
-              </div>
-              
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={handleCloseModal}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Criando..." : "Criar Local"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createMutation.isPending}>
+                    {createMutation.isPending ? "Criando..." : "Criar"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      {/* Edit Modal */}
-      <Dialog open={!!editingLocation} onOpenChange={() => setEditingLocation(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {deliveryLocations && deliveryLocations.length === 0 ? (
+          <div className="col-span-full text-center py-8">
+            <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">Nenhum local de entrega cadastrado</p>
+          </div>
+        ) : (
+          deliveryLocations?.map((location: DeliveryLocation) => (
+            <Card key={location.id} className="relative">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <CardTitle className="text-lg">{location.name}</CardTitle>
+                    </div>
+                  </div>
+                  <Badge variant={location.active ? "default" : "secondary"}>
+                    {location.active ? "Ativo" : "Inativo"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="font-medium">Endereço:</span> {location.address}
+                  </div>
+                  {location.contactPerson && (
+                    <div className="flex items-center space-x-1">
+                      <User className="h-3 w-3" />
+                      <span className="font-medium">Contato:</span> {location.contactPerson}
+                    </div>
+                  )}
+                  {location.phone && (
+                    <div className="flex items-center space-x-1">
+                      <Phone className="h-3 w-3" />
+                      <span className="font-medium">Telefone:</span> {location.phone}
+                    </div>
+                  )}
+                  {location.email && (
+                    <div className="flex items-center space-x-1">
+                      <Mail className="h-3 w-3" />
+                      <span className="font-medium">Email:</span> {location.email}
+                    </div>
+                  )}
+                  {location.observations && (
+                    <div className="flex items-start space-x-1">
+                      <FileText className="h-3 w-3 mt-0.5" />
+                      <div>
+                        <span className="font-medium">Observações:</span>
+                        <p className="text-gray-600 mt-1">{location.observations}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex space-x-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(location)}
+                    disabled={updateMutation.isPending}
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    Editar
+                  </Button>
+                  {location.active ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(location.id)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Desativar
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleActivate(location.id)}
+                      disabled={updateMutation.isPending}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Ativar
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Editar Local de Entrega</DialogTitle>
-            <DialogDescription>
-              Altere as informações do local de entrega
-            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <Label htmlFor="edit-name">Nome do Local *</Label>
-                <Input
-                  id="edit-name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Matriz, Filial São Paulo, etc."
-                  required
-                />
-              </div>
-              
-              <div className="col-span-2">
-                <Label htmlFor="edit-address">Endereço Completo *</Label>
-                <Textarea
-                  id="edit-address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Rua, número, complemento, bairro, cidade, CEP"
-                  required
-                  rows={3}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="edit-contactPerson">Responsável</Label>
-                <Input
-                  id="edit-contactPerson"
-                  value={formData.contactPerson}
-                  onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                  placeholder="Nome do responsável"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="edit-phone">Telefone</Label>
-                <Input
-                  id="edit-phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="(11) 99999-9999"
-                />
-              </div>
-              
-              <div className="col-span-2">
-                <Label htmlFor="edit-email">E-mail</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="contato@empresa.com"
-                />
-              </div>
-              
-              <div className="col-span-2">
-                <Label htmlFor="edit-observations">Observações</Label>
-                <Textarea
-                  id="edit-observations"
-                  value={formData.observations}
-                  onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
-                  placeholder="Informações adicionais, horários de funcionamento, etc."
-                  rows={2}
-                />
-              </div>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Nome</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
             </div>
-            
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseModal}>
+            <div>
+              <Label htmlFor="edit-address">Endereço</Label>
+              <Input
+                id="edit-address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-contactPerson">Pessoa de Contato</Label>
+              <Input
+                id="edit-contactPerson"
+                value={formData.contactPerson}
+                onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-phone">Telefone</Label>
+              <Input
+                id="edit-phone"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-observations">Observações</Label>
+              <Textarea
+                id="edit-observations"
+                value={formData.observations}
+                onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-active"
+                checked={editingLocation?.active || false}
+                onChange={(e) => {
+                  if (editingLocation) {
+                    setEditingLocation({ ...editingLocation, active: e.target.checked });
+                  }
+                }}
+              />
+              <Label htmlFor="edit-active" className="text-sm">
+                Local ativo
+              </Label>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+                {updateMutation.isPending ? "Salvando..." : "Salvar"}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </DialogContent>
       </Dialog>
-
-      {/* Delivery Locations Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Locais Cadastrados</CardTitle>
-          <CardDescription>
-            {deliveryLocations.length} {deliveryLocations.length === 1 ? 'local cadastrado' : 'locais cadastrados'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {deliveryLocations.length === 0 ? (
-            <div className="text-center py-8">
-              <MapPin className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">Nenhum local cadastrado</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Comece criando um novo local de entrega.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Endereço</TableHead>
-                    <TableHead>Responsável</TableHead>
-                    <TableHead>Contato</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {deliveryLocations.map((location: DeliveryLocation) => (
-                    <TableRow key={location.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center">
-                          <MapPin className="mr-2 h-4 w-4 text-gray-400" />
-                          {location.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-xs truncate" title={location.address}>
-                          {location.address}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {location.contactPerson && (
-                          <div className="flex items-center">
-                            <User className="mr-2 h-4 w-4 text-gray-400" />
-                            {location.contactPerson}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {location.phone && (
-                            <div className="flex items-center text-sm">
-                              <Phone className="mr-2 h-3 w-3 text-gray-400" />
-                              {location.phone}
-                            </div>
-                          )}
-                          {location.email && (
-                            <div className="flex items-center text-sm">
-                              <Mail className="mr-2 h-3 w-3 text-gray-400" />
-                              {location.email}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={location.isActive ? "default" : "secondary"}>
-                          {location.isActive ? "Ativo" : "Inativo"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(location)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          {location.isActive && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(location)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

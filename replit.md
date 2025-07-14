@@ -110,6 +110,16 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 14, 2025. Sistema de gestão aprimorado com filtros e layout unificado implementado com sucesso:
+  - ✓ Adicionado filtro "Mostrar empresas inativas" na tela de Empresas para reativação
+  - ✓ Criado botão "Ativar" para empresas inativas com confirmação de segurança
+  - ✓ Migrado layout da tela Locais de Entrega de tabela para cards (igual às Empresas)
+  - ✓ Implementado filtro "Mostrar locais inativos" na tela de Locais de Entrega
+  - ✓ Adicionada funcionalidade ativar/desativar para locais de entrega
+  - ✓ Padronizado layout de cards entre Empresas e Locais de Entrega para consistência visual
+  - ✓ Melhorado tratamento de erros com mensagens específicas em português
+  - ✓ Sistema de permissões mantido (apenas administradores podem gerenciar)
+  - ✓ Interface responsiva com badges de status e ícones visuais consistentes
 - July 14, 2025. Sistema de restrição de aprovação A1 por centro de custo implementado com sucesso:
   - ✓ Criado middleware canApproveRequest para validar permissões de centro de custo no backend
   - ✓ Aplicado middleware na rota POST /api/purchase-requests/:id/approve-a1
