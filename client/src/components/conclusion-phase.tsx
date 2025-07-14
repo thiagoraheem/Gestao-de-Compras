@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -228,12 +228,46 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   const selectedSupplier = selectedSupplierQuotation;
   const totalProcessTime = request.createdAt ? differenceInDays(new Date(), new Date(request.createdAt)) : 0;
   
-  // Calculate total items value using supplier quotation items
-  const totalItemsValue = supplierQuotationItems.reduce((sum: number, item: any) => {
-    const unitPrice = parseFloat(item.unitPrice) || 0;
-    const quantity = parseFloat(item.quantity) || 0;
-    return sum + (quantity * unitPrice);
-  }, 0);
+  // Calculate total items value with improved logic
+  const totalItemsValue = useMemo(() => {
+    // Priority 1: Use selected supplier quotation's total value if available
+    if (selectedSupplierQuotation?.totalValue && parseFloat(selectedSupplierQuotation.totalValue) > 0) {
+      return parseFloat(selectedSupplierQuotation.totalValue);
+    }
+    
+    // Priority 2: Use request's total value if available
+    if (request.totalValue && parseFloat(request.totalValue) > 0) {
+      return parseFloat(request.totalValue);
+    }
+    
+    // Priority 3: Calculate from supplier quotation items
+    if (supplierQuotationItems && supplierQuotationItems.length > 0 && items && items.length > 0) {
+      return items.reduce((sum: number, item: any) => {
+        // Find matching supplier quotation item
+        const supplierItem = supplierQuotationItems.find((sqi: any) => 
+          sqi.description === item.description || 
+          sqi.itemCode === item.itemCode ||
+          sqi.quotationItemId === item.id
+        );
+        
+        if (supplierItem) {
+          const unitPrice = parseFloat(supplierItem.unitPrice) || 0;
+          const quantity = parseFloat(item.requestedQuantity) || 0;
+          return sum + (quantity * unitPrice);
+        }
+        
+        return sum;
+      }, 0);
+    }
+    
+    // Priority 4: Use available budget as fallback
+    if (request.availableBudget && parseFloat(request.availableBudget) > 0) {
+      return parseFloat(request.availableBudget);
+    }
+    
+    // Default: 0
+    return 0;
+  }, [selectedSupplierQuotation, request, supplierQuotationItems, items]);
   
   const budgetSavings = request.availableBudget ? request.availableBudget - totalItemsValue : 0;
 
@@ -450,7 +484,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                 <div className="space-y-4">
                   <div>
                     <span className="text-sm font-medium text-gray-500">Nome do Fornecedor</span>
-                    <p className="text-lg font-semibold">{selectedSupplier.supplier?.name}</p>
+                    <p className="text-lg font-semibold">{selectedSupplier.supplier?.name || 'Não informado'}</p>
                   </div>
                   <div>
                     <span className="text-sm font-medium text-gray-500">Contato</span>
@@ -469,12 +503,18 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   <div>
                     <span className="text-sm font-medium text-gray-500">Valor da Cotação</span>
                     <p className="text-lg font-semibold text-green-600">
-                      {selectedSupplier.totalValue?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {selectedSupplier.totalValue ? 
+                        parseFloat(selectedSupplier.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
+                        (request.totalValue ? 
+                          parseFloat(request.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
+                          'Não informado'
+                        )
+                      }
                     </p>
                   </div>
                   <div>
                     <span className="text-sm font-medium text-gray-500">Prazo de Entrega</span>
-                    <p>{selectedSupplier.deliveryTime || 'Não informado'}</p>
+                    <p>{selectedSupplier.deliveryTerms || selectedSupplier.deliveryTime || 'Não informado'}</p>
                   </div>
                   <div>
                     <span className="text-sm font-medium text-gray-500">Status</span>
@@ -484,6 +524,18 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   </div>
                 </div>
               </div>
+              
+              {/* Debug information - remover em produção */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
+                  <p><strong>Debug Info:</strong></p>
+                  <p>Supplier Total Value: {selectedSupplier.totalValue}</p>
+                  <p>Request Total Value: {request.totalValue}</p>
+                  <p>Calculated Total: {totalItemsValue}</p>
+                  <p>Supplier Items Count: {supplierQuotationItems?.length || 0}</p>
+                  <p>Request Items Count: {items?.length || 0}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -599,13 +651,24 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   {items.map((item: any) => {
                     const status = getItemStatus(item);
                     
-                    // Find matching supplier quotation item by description
+                    // Find matching supplier quotation item with multiple criteria
                     const supplierItem = supplierQuotationItems.find((sqi: any) => 
                       sqi.description === item.description || 
-                      sqi.itemCode === item.itemCode
+                      sqi.itemCode === item.itemCode ||
+                      sqi.quotationItemId === item.id ||
+                      (sqi.description && item.description && 
+                       sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim())
                     );
                     
-                    const unitPrice = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
+                    // Get unit price with better fallback logic
+                    let unitPrice = 0;
+                    if (supplierItem) {
+                      unitPrice = parseFloat(supplierItem.unitPrice) || 0;
+                    } else if (selectedSupplierQuotation?.totalValue && items.length === 1) {
+                      // If only one item and we have total value, use it as unit price
+                      unitPrice = parseFloat(selectedSupplierQuotation.totalValue) || 0;
+                    }
+                    
                     const quantity = parseFloat(item.requestedQuantity) || 0;
                     const total = quantity * unitPrice;
                     
