@@ -24,13 +24,24 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Sobrecarga para chamadas apenas com URL
+export async function apiRequest(url: string): Promise<any>;
+// Sobrecarga para chamadas com options
 export async function apiRequest(
   url: string,
   options: {
     method: string;
     body?: unknown;
-  },
-): Promise<Response> {
+  }
+): Promise<any>;
+// Implementação
+export async function apiRequest(
+  url: string,
+  options: {
+    method: string;
+    body?: unknown;
+  } = { method: "GET" },
+): Promise<any> {
   const { method, body } = options;
   const isFormData = body instanceof FormData;
   
@@ -51,16 +62,15 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
-      credentials: "include",
-    });
-
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    try {
+      const response = await apiRequest(queryKey[0] as string);
+      return await response.json();
+    } catch (error: any) {
+      if (unauthorizedBehavior === "returnNull" && error.status === 401) {
+        return null;
+      }
+      throw error;
     }
-
-    await throwIfResNotOk(res);
-    return await res.json();
   };
 
 export const queryClient = new QueryClient({
