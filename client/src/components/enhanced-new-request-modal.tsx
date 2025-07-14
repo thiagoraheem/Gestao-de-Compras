@@ -50,6 +50,7 @@ import { Plus, X, Edit3 } from "lucide-react";
 import FileUpload from "./file-upload";
 
 const requestSchema = z.object({
+  companyId: z.coerce.number().min(1, "Empresa é obrigatória"),
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
   category: z.string().min(1, "Categoria é obrigatória"),
   urgency: z.string().min(1, "Urgência é obrigatória"),
@@ -87,6 +88,13 @@ export default function EnhancedNewRequestModal({
   const [itemsMethod, setItemsMethod] = useState<"manual" | "upload">("manual");
   const [manualItems, setManualItems] = useState<Item[]>([]);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user?.companyId || null);
+
+  // Get available companies
+  const { data: companies } = useQuery<any[]>({
+    queryKey: ["/api/companies"],
+    enabled: !!user?.isAdmin, // Only load companies if user is admin
+  });
 
   // Get user's cost center IDs
   const { data: userCostCenterIds } = useQuery<number[]>({
@@ -101,15 +109,18 @@ export default function EnhancedNewRequestModal({
     queryKey: ["/api/cost-centers"],
   });
 
-  // Filter cost centers based on user's assigned cost centers
+  // Filter cost centers based on user's assigned cost centers and selected company
   const costCenters =
-    allCostCenters?.filter((center) =>
-      userCostCenterIds?.includes(center.id),
-    ) || [];
+    allCostCenters?.filter((center) => {
+      const matchesUser = userCostCenterIds?.includes(center.id);
+      const matchesCompany = selectedCompanyId ? center.companyId === selectedCompanyId : true;
+      return matchesUser && matchesCompany;
+    }) || [];
 
   const form = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema),
     defaultValues: {
+      companyId: user?.companyId || 0,
       costCenterId: 0,
       category: "",
       urgency: "",
@@ -125,6 +136,7 @@ export default function EnhancedNewRequestModal({
       const requestData = {
         ...data,
         requesterId: user?.id || 1,
+        companyId: Number(data.companyId),
         costCenterId: Number(data.costCenterId),
         availableBudget: data.availableBudget
           ? parseFloat(data.availableBudget)
@@ -285,6 +297,43 @@ export default function EnhancedNewRequestModal({
                 <CardTitle className="text-lg">Informações Básicas</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Company Selection - only show if user is admin */}
+                {user?.isAdmin && companies && companies.length > 0 && (
+                  <FormField
+                    control={form.control}
+                    name="companyId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Empresa *</FormLabel>
+                        <FormControl>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              setSelectedCompanyId(Number(value));
+                            }}
+                            value={field.value?.toString()}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione uma empresa..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {companies.map((company: any) => (
+                                <SelectItem
+                                  key={company.id}
+                                  value={company.id.toString()}
+                                >
+                                  {company.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}

@@ -369,8 +369,12 @@ export class DatabaseStorage implements IStorage {
     return { canDelete: true };
   }
 
-  async getAllDepartments(): Promise<Department[]> {
-    return await db.select().from(departments);
+  async getAllDepartments(companyId?: number): Promise<Department[]> {
+    const query = db.select().from(departments);
+    if (companyId) {
+      query.where(eq(departments.companyId, companyId));
+    }
+    return await query;
   }
 
   async createDepartment(department: InsertDepartment): Promise<Department> {
@@ -401,8 +405,12 @@ export class DatabaseStorage implements IStorage {
     return department;
   }
 
-  async getAllCostCenters(): Promise<CostCenter[]> {
-    return await db.select().from(costCenters);
+  async getAllCostCenters(companyId?: number): Promise<CostCenter[]> {
+    const query = db.select().from(costCenters);
+    if (companyId) {
+      query.where(eq(costCenters.companyId, companyId));
+    }
+    return await query;
   }
 
   async getCostCentersByDepartment(
@@ -517,8 +525,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAllSuppliers(): Promise<Supplier[]> {
-    return await db.select().from(suppliers);
+  async getAllSuppliers(companyId?: number): Promise<Supplier[]> {
+    const query = db.select().from(suppliers);
+    if (companyId) {
+      query.where(eq(suppliers.companyId, companyId));
+    }
+    return await query;
   }
 
   async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
@@ -609,7 +621,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(deliveryLocations.id, id));
   }
 
-  async getAllPurchaseRequests(): Promise<PurchaseRequest[]> {
+  async getAllPurchaseRequests(companyId?: number): Promise<PurchaseRequest[]> {
     const requests = await db
       .select({
         id: purchaseRequests.id,
@@ -690,6 +702,7 @@ export class DatabaseStorage implements IStorage {
       )
       .leftJoin(costCenters, eq(purchaseRequests.costCenterId, costCenters.id))
       .leftJoin(departments, eq(costCenters.departmentId, departments.id))
+      .where(companyId ? eq(purchaseRequests.companyId, companyId) : undefined)
       .orderBy(desc(purchaseRequests.createdAt));
 
     return requests as any[];

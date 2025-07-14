@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Company, InsertCompany } from "@shared/schema";
+import { CNPJInput } from "@/components/cnpj-input";
+import { LogoUpload } from "@/components/logo-upload";
 
 export default function Companies() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -17,6 +19,7 @@ export default function Companies() {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState<InsertCompany>({
     name: "",
+    tradingName: "",
     cnpj: "",
     address: "",
     phone: "",
@@ -98,6 +101,7 @@ export default function Companies() {
   const resetForm = () => {
     setFormData({
       name: "",
+      tradingName: "",
       cnpj: "",
       address: "",
       phone: "",
@@ -122,6 +126,7 @@ export default function Companies() {
     setEditingCompany(company);
     setFormData({
       name: company.name,
+      tradingName: company.tradingName || "",
       cnpj: company.cnpj,
       address: company.address || "",
       phone: company.phone || "",
@@ -192,7 +197,7 @@ export default function Companies() {
             </DialogHeader>
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="name">Nome da Empresa</Label>
+                <Label htmlFor="name">Razão Social</Label>
                 <Input
                   id="name"
                   value={formData.name}
@@ -201,14 +206,18 @@ export default function Companies() {
                 />
               </div>
               <div>
-                <Label htmlFor="cnpj">CNPJ</Label>
+                <Label htmlFor="tradingName">Nome Fantasia</Label>
                 <Input
-                  id="cnpj"
-                  value={formData.cnpj}
-                  onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
-                  required
+                  id="tradingName"
+                  value={formData.tradingName}
+                  onChange={(e) => setFormData({ ...formData, tradingName: e.target.value })}
                 />
               </div>
+              <CNPJInput
+                value={formData.cnpj}
+                onChange={(value) => setFormData({ ...formData, cnpj: value })}
+                required
+              />
               <div>
                 <Label htmlFor="address">Endereço</Label>
                 <Input
@@ -259,8 +268,21 @@ export default function Companies() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Building className="h-5 w-5 text-blue-600" />
-                  <CardTitle className="text-lg">{company.name}</CardTitle>
+                  {company.logoUrl ? (
+                    <img 
+                      src={company.logoUrl} 
+                      alt={`Logo ${company.name}`}
+                      className="h-8 w-8 object-contain rounded"
+                    />
+                  ) : (
+                    <Building className="h-5 w-5 text-blue-600" />
+                  )}
+                  <div>
+                    <CardTitle className="text-lg">{company.name}</CardTitle>
+                    {company.tradingName && (
+                      <p className="text-sm text-gray-500">{company.tradingName}</p>
+                    )}
+                  </div>
                 </div>
                 <Badge variant={company.active ? "default" : "secondary"}>
                   {company.active ? "Ativa" : "Inativa"}
@@ -321,7 +343,7 @@ export default function Companies() {
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="edit-name">Nome da Empresa</Label>
+              <Label htmlFor="edit-name">Razão Social</Label>
               <Input
                 id="edit-name"
                 value={formData.name}
@@ -330,14 +352,18 @@ export default function Companies() {
               />
             </div>
             <div>
-              <Label htmlFor="edit-cnpj">CNPJ</Label>
+              <Label htmlFor="edit-tradingName">Nome Fantasia</Label>
               <Input
-                id="edit-cnpj"
-                value={formData.cnpj}
-                onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
-                required
+                id="edit-tradingName"
+                value={formData.tradingName}
+                onChange={(e) => setFormData({ ...formData, tradingName: e.target.value })}
               />
             </div>
+            <CNPJInput
+              value={formData.cnpj}
+              onChange={(value) => setFormData({ ...formData, cnpj: value })}
+              required
+            />
             <div>
               <Label htmlFor="edit-address">Endereço</Label>
               <Input
@@ -363,6 +389,20 @@ export default function Companies() {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
+            {editingCompany && (
+              <LogoUpload
+                companyId={editingCompany.id}
+                currentLogoUrl={editingCompany.logoUrl}
+                onUploadSuccess={(logoUrl) => {
+                  // Atualizar o estado local e invalidar o cache
+                  queryClient.invalidateQueries({ queryKey: ['/api/companies'] });
+                  toast({
+                    title: "Sucesso",
+                    description: "Logo atualizado com sucesso!",
+                  });
+                }}
+              />
+            )}
             <div className="flex justify-end space-x-2">
               <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
                 Cancelar

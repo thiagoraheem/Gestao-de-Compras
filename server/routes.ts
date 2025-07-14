@@ -66,6 +66,40 @@ const quotationUpload = multer({
   }
 });
 
+// Configuração do multer para upload de logos de empresas
+const logoUpload = multer({
+  storage: multer.diskStorage({
+    destination: function (req, file, cb) {
+      const uploadDir = './uploads/company_logos';
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, 'logo-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  }),
+  fileFilter: function (req, file, cb) {
+    // Aceitar apenas imagens PNG, JPG, JPEG
+    const allowedMimeTypes = [
+      'image/png',
+      'image/jpeg',
+      'image/jpg'
+    ];
+
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de arquivo não suportado. Apenas PNG, JPG, JPEG são permitidos para logos.'));
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB para logos
+  }
+});
+
 // Session type declaration
 declare module "express-session" {
   interface SessionData {
@@ -151,6 +185,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       req.session.userId = user.id;
+      
+      // Get company data
+      const company = user.companyId ? await storage.getCompanyById(user.companyId) : null;
+      
       res.json({ 
         id: user.id,
         username: user.username,
@@ -158,6 +196,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: user.firstName,
         lastName: user.lastName,
         departmentId: user.departmentId,
+        companyId: user.companyId,
+        company,
         isBuyer: user.isBuyer,
         isApproverA1: user.isApproverA1,
         isApproverA2: user.isApproverA2,
@@ -184,6 +224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(req.session.userId);
       if (user) {
         const department = user.departmentId ? await storage.getDepartmentById(user.departmentId) : null;
+        const company = user.companyId ? await storage.getCompanyById(user.companyId) : null;
         res.json({ 
           id: user.id,
           username: user.username,
@@ -191,7 +232,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: user.firstName,
           lastName: user.lastName,
           departmentId: user.departmentId,
+          companyId: user.companyId,
           department,
+          company,
           isBuyer: user.isBuyer,
           isApproverA1: user.isApproverA1,
           isApproverA2: user.isApproverA2,
@@ -308,6 +351,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/companies", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const companyData = insertCompanySchema.parse(req.body);
+      
+      // Validar CNPJ se fornecido
+      if (companyData.cnpj) {
+        const { validateCNPJ } = await import('./cnpj-validator');
+        if (!validateCNPJ(companyData.cnpj)) {
+          return res.status(400).json({ message: "CNPJ inválido" });
+        }
+      }
+      
       const company = await storage.createCompany(companyData);
       res.status(201).json(company);
     } catch (error) {
@@ -324,6 +376,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const companyData = insertCompanySchema.partial().parse(req.body);
+      
+      // Validar CNPJ se fornecido
+      if (companyData.cnpj) {
+        const { validateCNPJ } = await import('./cnpj-validator');
+        if (!validateCNPJ(companyData.cnpj)) {
+          return res.status(400).json({ message: "CNPJ inválido" });
+        }
+      }
+      
       const company = await storage.updateCompany(id, companyData);
       res.json(company);
     } catch (error) {
@@ -345,6 +406,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error deleting company:", error);
       res.status(500).json({ message: "Failed to delete company" });
     }
+  });
+
+  // Upload logo for company
+  app.post("/api/companies/:id/upload-logo", isAuthenticated, isAdmin, logoUpload.single('logo'), async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo de logo foi enviado" });
+      }
+
+      // Verificar se a empresa existe
+      const company = await storage.getCompanyById(companyId);
+      if (!company) {
+        return res.status(404).json({ message: "Empresa não encontrada" });
+      }
+
+      // Atualizar a empresa com o caminho do logo
+      const logoUrl = `/uploads/company_logos/${req.file.filename}`;
+      const updatedCompany = await storage.updateCompany(companyId, { logoUrl });
+
+      res.json({ 
+        message: "Logo enviado com sucesso",
+        logoUrl: logoUrl,
+        company: updatedCompany
+      });
+    } catch (error) {
+      console.error("Error uploading company logo:", error);
+      res.status(500).json({ message: "Erro ao enviar logo da empresa" });
+    }
+  });
+
+  // Serve company logos
+  app.get("/uploads/company_logos/:filename", (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, "../uploads/company_logos", filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "Logo não encontrado" });
+    }
+    
+    const mimeType = mime.lookup(filePath);
+    res.setHeader('Content-Type', mimeType || 'application/octet-stream');
+    
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
   });
 
   // Users routes
@@ -522,7 +629,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Departments routes
   app.get("/api/departments", isAuthenticated, async (req, res) => {
     try {
-      const departments = await storage.getAllDepartments();
+      const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
+      const departments = await storage.getAllDepartments(companyId);
       res.json(departments);
     } catch (error) {
       console.error("Error fetching departments:", error);
@@ -556,7 +664,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cost Centers routes
   app.get("/api/cost-centers", isAuthenticated, async (req, res) => {
     try {
-      const costCenters = await storage.getAllCostCenters();
+      const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
+      const costCenters = await storage.getAllCostCenters(companyId);
       res.json(costCenters);
     } catch (error) {
       console.error("Error fetching cost centers:", error);
@@ -601,7 +710,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Suppliers routes
   app.get("/api/suppliers", isAuthenticated, async (req, res) => {
     try {
-      const suppliers = await storage.getAllSuppliers();
+      const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
+      const suppliers = await storage.getAllSuppliers(companyId);
       res.json(suppliers);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
@@ -727,7 +837,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Purchase Requests routes
   app.get("/api/purchase-requests", isAuthenticated, async (req, res) => {
     try {
-      const requests = await storage.getAllPurchaseRequests();
+      const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
+      const requests = await storage.getAllPurchaseRequests(companyId);
       res.json(requests);
     } catch (error) {
       console.error("Error fetching purchase requests:", error);

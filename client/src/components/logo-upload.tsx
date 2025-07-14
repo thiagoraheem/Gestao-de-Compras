@@ -1,0 +1,178 @@
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+interface LogoUploadProps {
+  companyId: number;
+  currentLogoUrl?: string;
+  onUploadSuccess: (logoUrl: string) => void;
+  disabled?: boolean;
+}
+
+export function LogoUpload({ 
+  companyId, 
+  currentLogoUrl, 
+  onUploadSuccess, 
+  disabled = false 
+}: LogoUploadProps) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(currentLogoUrl || null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { toast } = useToast();
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Erro",
+        description: "Apenas arquivos PNG, JPG e JPEG são permitidos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar tamanho (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Erro",
+        description: "O arquivo deve ter no máximo 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSelectedFile(file);
+    
+    // Criar preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPreviewUrl(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+
+    setIsUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('logo', selectedFile);
+
+      const response = await fetch(`/api/companies/${companyId}/upload-logo`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao fazer upload do logo');
+      }
+
+      const data = await response.json();
+      onUploadSuccess(data.logoUrl);
+      
+      toast({
+        title: "Sucesso",
+        description: "Logo enviado com sucesso!",
+      });
+    } catch (error: any) {
+      console.error('Error uploading logo:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao enviar logo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemovePreview = () => {
+    setSelectedFile(null);
+    setPreviewUrl(currentLogoUrl || null);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Label>Logo da Empresa</Label>
+      
+      {/* Preview atual */}
+      {previewUrl && (
+        <Card className="w-fit">
+          <CardContent className="p-4">
+            <div className="relative">
+              <img 
+                src={previewUrl} 
+                alt="Logo da empresa" 
+                className="h-20 w-20 object-contain rounded border"
+              />
+              {selectedFile && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                  onClick={handleRemovePreview}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Área de upload */}
+      <div className="space-y-2">
+        <div className="flex items-center space-x-2">
+          <Input
+            type="file"
+            accept="image/png,image/jpeg,image/jpg"
+            onChange={handleFileSelect}
+            disabled={disabled || isUploading}
+            className="flex-1"
+          />
+          {selectedFile && (
+            <Button
+              type="button"
+              onClick={handleUpload}
+              disabled={isUploading}
+              className="shrink-0"
+            >
+              {isUploading ? (
+                <>
+                  <Upload className="h-4 w-4 mr-2 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Enviar
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+        
+        {!previewUrl && (
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+            <p className="text-sm text-gray-500">
+              Selecione um arquivo PNG, JPG ou JPEG (máx. 5MB)
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

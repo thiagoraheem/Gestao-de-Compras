@@ -9,10 +9,18 @@ interface User {
   firstName: string | null;
   lastName: string | null;
   departmentId: number | null;
+  companyId: number | null;
   department?: {
     id: number;
     name: string;
     description: string | null;
+  } | null;
+  company?: {
+    id: number;
+    name: string;
+    tradingName: string | null;
+    cnpj: string | null;
+    logoUrl: string | null;
   } | null;
   isBuyer: boolean;
   isApproverA1: boolean;
