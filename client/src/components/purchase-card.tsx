@@ -141,10 +141,11 @@ export default function PurchaseCard({
           : "Solicitação reprovada e movida para Arquivado",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Falha ao processar aprovação";
       toast({
         title: "Erro",
-        description: "Falha ao processar aprovação",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -595,6 +596,13 @@ export default function PurchaseCard({
   const canApproveA1 = user?.isApproverA1 || false;
   const canApproveA2 = user?.isApproverA2 || false;
 
+  // Check if user can approve this specific request based on cost center
+  const { data: canApproveThisRequest } = useQuery({
+    queryKey: [`/api/purchase-requests/${request.id}/can-approve-a1`],
+    enabled: !!(user?.isApproverA1 && phase === PURCHASE_PHASES.APROVACAO_A1 && request?.id),
+    staleTime: 30000, // Cache for 30 seconds to avoid excessive requests
+  });
+
   // Check if user can drag this card
   const canDragCard = useMemo(() => {
     return (canDrag && phase === PURCHASE_PHASES.SOLICITACAO) || // Always allow dragging from request phase
@@ -924,36 +932,45 @@ export default function PurchaseCard({
 
           {phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1 && (
             <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="flex space-x-2">
-                <Button
-                  size="sm"
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    approveA1Mutation.mutate({ approved: true });
-                  }}
-                  disabled={approveA1Mutation.isPending}
-                >
-                  <Check className="mr-1 h-3 w-3" />
-                  Aprovar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    approveA1Mutation.mutate({
-                      approved: false,
-                      rejectionReason: "Reprovado via ação rápida",
-                    });
-                  }}
-                  disabled={approveA1Mutation.isPending}
-                >
-                  <X className="mr-1 h-3 w-3" />
-                  Rejeitar
-                </Button>
-              </div>
+              {canApproveThisRequest?.canApprove ? (
+                <div className="flex space-x-2">
+                  <Button
+                    size="sm"
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      approveA1Mutation.mutate({ approved: true });
+                    }}
+                    disabled={approveA1Mutation.isPending}
+                  >
+                    <Check className="mr-1 h-3 w-3" />
+                    Aprovar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      approveA1Mutation.mutate({
+                        approved: false,
+                        rejectionReason: "Reprovado via ação rápida",
+                      });
+                    }}
+                    disabled={approveA1Mutation.isPending}
+                  >
+                    <X className="mr-1 h-3 w-3" />
+                    Rejeitar
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-md">
+                  <TriangleAlert className="h-4 w-4" />
+                  <span className="text-sm">
+                    Você não tem permissão para aprovar este centro de custo
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
