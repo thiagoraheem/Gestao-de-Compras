@@ -281,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Companies routes
-  app.get("/api/companies", isAuthenticated, async (req, res) => {
+  app.get("/api/companies", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const companies = await storage.getAllCompanies();
       res.json(companies);
@@ -291,7 +291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/companies/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/companies/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const company = await storage.getCompanyById(id);
