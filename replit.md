@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 14, 2025. PDF do Pedido de Compra reformulado com assinaturas eletrônicas implementado com sucesso:
+  - ✓ Removido quadro "Histórico de Aprovações" do PDF do Pedido de Compra
+  - ✓ Criado seção "ASSINADO ELETRONICAMENTE POR:" com layout profissional
+  - ✓ Implementado grid de assinaturas eletrônicas com dois quadros lado a lado
+  - ✓ Adicionadas informações de Solicitante (Comprador) e Liberador com datas e horários
+  - ✓ Layout seguindo template fornecido pelo usuário com bordas e formatação adequada
+  - ✓ Sistema de datas automáticas baseado nos timestamps reais de criação e aprovação
 - July 14, 2025. Sistema de gestão aprimorado com filtros e layout unificado implementado com sucesso:
   - ✓ Adicionado filtro "Mostrar empresas inativas" na tela de Empresas para reativação
   - ✓ Criado botão "Ativar" para empresas inativas com confirmação de segurança

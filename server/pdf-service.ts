@@ -640,17 +640,40 @@ export class PDFService {
       margin-top: 15px;
       font-size: 10px;
     }
-    .signature-section {
-      margin-top: 20px;
+    .electronic-signature-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 20px;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-top: 20px;
     }
-    .signature-box {
+    .signature-electronic {
+      border: 1px solid #000;
+      padding: 15px;
       text-align: center;
-      border-top: 1px solid #000;
-      padding-top: 5px;
-      margin-top: 40px;
+      background-color: #f9f9f9;
+    }
+    .signature-header {
+      font-weight: bold;
+      font-size: 10px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+    }
+    .signature-name {
+      font-weight: bold;
+      font-size: 12px;
+      margin: 8px 0;
+      text-decoration: underline;
+    }
+    .signature-role {
+      font-size: 11px;
+      margin: 5px 0;
+      font-style: italic;
+    }
+    .signature-date {
+      font-size: 10px;
+      margin-top: 8px;
+      color: #666;
     }
   </style>
 </head>
@@ -792,29 +815,21 @@ export class PDFService {
   </div>
 
   <div class="section">
-    <div class="section-title">HISTÓRICO DE APROVAÇÕES</div>
-    ${approvalHistory.map(approval => `
-      <div class="info-item">
-        <strong>${approval.phase === 'aprovacao-a1' ? 'Aprovação A1' : 'Aprovação A2'}:</strong> 
-        ${approval.decision || 'Aprovado'} em ${new Date(approval.createdAt).toLocaleDateString('pt-BR')} 
-        por ${approval.userName || 'Sistema'}
-        ${approval.comments ? ` - ${approval.comments}` : ''}
+    <div class="section-title">ASSINADO ELETRONICAMENTE POR:</div>
+    <div class="electronic-signature-grid">
+      <div class="signature-electronic">
+        <div class="signature-header">ASSINADO ELETRONICAMENTE POR:</div>
+        <div class="signature-name">${purchaseRequest.requesterName || (purchaseRequest.requester ? `${purchaseRequest.requester.firstName || ''} ${purchaseRequest.requester.lastName || ''}`.trim() : 'Não informado')}</div>
+        <div class="signature-role">Solicitante (Comprador)</div>
+        <div class="signature-date">${new Date(purchaseRequest.createdAt || new Date()).toLocaleDateString('pt-BR')} às ${new Date(purchaseRequest.createdAt || new Date()).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</div>
       </div>
-    `).join('')}
-  </div>
-
-  <div class="signature-section">
-    <div class="signature-box">
-      <div>Solicitante</div>
-      <div style="font-size: 10px; margin-top: 5px;">${purchaseRequest.requesterName || (purchaseRequest.requester ? `${purchaseRequest.requester.firstName || ''} ${purchaseRequest.requester.lastName || ''}`.trim() : '')}</div>
-    </div>
-    <div class="signature-box">
-      <div>Aprovação A1</div>
-      <div style="font-size: 10px; margin-top: 5px;">${aprovacaoA1?.userName || ''}</div>
-    </div>
-    <div class="signature-box">
-      <div>Aprovação A2</div>
-      <div style="font-size: 10px; margin-top: 5px;">${aprovacaoA2?.userName || ''}</div>
+      
+      <div class="signature-electronic">
+        <div class="signature-header">ASSINADO ELETRONICAMENTE POR:</div>
+        <div class="signature-name">${aprovacaoA2?.userName || 'Não informado'}</div>
+        <div class="signature-role">Liberador</div>
+        <div class="signature-date">${aprovacaoA2 ? new Date(aprovacaoA2.createdAt).toLocaleDateString('pt-BR') + ' às ' + new Date(aprovacaoA2.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) : 'Não assinado'}</div>
+      </div>
     </div>
   </div>
 
