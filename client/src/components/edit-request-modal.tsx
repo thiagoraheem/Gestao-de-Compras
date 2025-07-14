@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { DateInput } from "@/components/ui/date-input";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { URGENCY_LEVELS, CATEGORY_OPTIONS, URGENCY_LABELS, CATEGORY_LABELS, PURCHASE_PHASES, PHASE_LABELS, PurchasePhase } from "@/lib/types";
 import { CloudUpload, Save } from "lucide-react";
 
@@ -26,6 +27,7 @@ interface EditRequestModalProps {
 
 // Define all possible fields in a single schema
 const editSchema = z.object({
+  companyId: z.number().min(1, "Empresa é obrigatória"),
   justification: z.string().min(1, "Justificativa é obrigatória"),
   category: z.string().min(1, "Categoria é obrigatória"),
   urgency: z.string().min(1, "Urgência é obrigatória"),
@@ -49,6 +51,13 @@ const editSchema = z.object({
 export default function EditRequestModal({ open, onOpenChange, request, phase }: EditRequestModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(request?.companyId || user?.companyId || null);
+
+  const { data: companies } = useQuery<any[]>({
+    queryKey: ["/api/companies"],
+    enabled: !!user?.isAdmin, // Only load companies if user is admin
+  });
 
   const { data: costCenters } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
@@ -71,6 +80,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
   const form = useForm<EditFormData>({
     resolver: zodResolver(editSchema),
     defaultValues: {
+      companyId: request?.companyId || user?.companyId || 0,
       justification: request?.justification || "",
       category: request?.category || "",
       urgency: request?.urgency || "",
@@ -96,6 +106,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
     mutationFn: async (data: EditFormData) => {
       const updateData = {
         ...data,
+        companyId: Number(data.companyId),
         // Manter como strings para o schema
         availableBudget: data.availableBudget || undefined,
         totalValue: data.totalValue || undefined,
@@ -436,6 +447,43 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Informações Básicas</h3>
               
+              {/* Company Selection - only show if user is admin */}
+              {user?.isAdmin && companies && companies.length > 0 && (
+                <FormField
+                  control={form.control}
+                  name="companyId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Empresa *</FormLabel>
+                      <FormControl>
+                        <Select
+                          onValueChange={(value) => {
+                            field.onChange(Number(value));
+                            setSelectedCompanyId(Number(value));
+                          }}
+                          value={field.value?.toString()}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma empresa..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {companies.map((company: any) => (
+                              <SelectItem
+                                key={company.id}
+                                value={company.id.toString()}
+                              >
+                                {company.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
