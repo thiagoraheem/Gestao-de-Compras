@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 14, 2025. Correção crítica dos botões de aprovação A1 implementada com sucesso:
+  - ✓ Identificado problema onde botões "Aprovar" e "Reprovar" na fase A1 não funcionavam
+  - ✓ Corrigido formato de chamada da API de apiRequest("POST", url, data) para apiRequest(url, { method: "POST", body: data })
+  - ✓ Adicionado parsing correto da resposta JSON com response.json()
+  - ✓ Botões de aprovação A1 agora movem corretamente o card para próxima fase
+  - ✓ Corrigido também componente supplier-creation-modal com mesmo problema de API
+  - ✓ Sistema de aprovação A1 totalmente funcional
 - July 14, 2025. Correção crítica do PDF de Conclusão de Pedido com dados completos e histórico correto implementada com sucesso:
   - ✓ Corrigidos dados incorretos no "Histórico de Aprovações" - agora usa timeline completo do processo
   - ✓ Departamento e centro de custo agora buscados corretamente das entidades relacionadas

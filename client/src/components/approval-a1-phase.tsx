@@ -115,15 +115,17 @@ export default function ApprovalA1Phase({
   const approvalMutation = useMutation({
     mutationFn: async (data: ApprovalFormData) => {
       const response = await apiRequest(
-        "POST",
         `/api/purchase-requests/${request.id}/approve-a1`,
         {
-          approved: data.approved,
-          rejectionReason: data.rejectionReason || null,
-          approverId: user?.id || 1,
+          method: "POST",
+          body: {
+            approved: data.approved,
+            rejectionReason: data.rejectionReason || null,
+            approverId: user?.id || 1,
+          },
         },
       );
-      return response;
+      return response.json();
     },
     onSuccess: (response, variables) => {
       // Atualiza os dados em cache

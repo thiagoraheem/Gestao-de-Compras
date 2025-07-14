@@ -49,7 +49,10 @@ export default function SupplierCreationModal({ isOpen, onClose, onSuccess }: Su
 
   const createSupplierMutation = useMutation({
     mutationFn: async (data: SupplierFormData) => {
-      const response = await apiRequest("POST", "/api/suppliers", data);
+      const response = await apiRequest("/api/suppliers", {
+        method: "POST",
+        body: data,
+      });
       return response.json();
     },
     onMutate: async (data) => {
