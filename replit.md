@@ -110,6 +110,22 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 14, 2025. Correção crítica do erro de JSON parsing na atualização de permissões de usuário implementada com sucesso:
+  - ✓ Identificado erro "Unexpected token '<', '<!DOCTYPE'..." ao tentar atualizar permissões de usuário
+  - ✓ Problema estava no formato incorreto da função apiRequest no frontend
+  - ✓ Corrigido de apiRequest(method, endpoint, data) para apiRequest(endpoint, {method, body})
+  - ✓ Atualizado createUserMutation, checkDeleteUserMutation e deleteUserMutation
+  - ✓ Sistema de edição de usuários agora funciona sem erros de parsing JSON
+  - ✓ Modal "Editar Usuário" permite atualizar permissões corretamente
+  - ✓ Todas as operações CRUD de usuários funcionando adequadamente
+- July 14, 2025. Sistema completo de timeline na fase de Conclusão implementado com sucesso:
+  - ✓ Criado componente ProcessTimeline para visualização completa do histórico
+  - ✓ Implementado endpoint /api/purchase-requests/:id/complete-timeline no backend
+  - ✓ Método getCompleteTimeline adicionado ao storage para buscar dados completos
+  - ✓ Timeline mostra todas as 8 fases do workflow com ícones visuais e status
+  - ✓ Informações incluem usuários, timestamps, descrições e motivos de rejeição
+  - ✓ Componente reutilizável integrado à tela de Conclusão de Compra
+  - ✓ Melhor visualização do processo completo para auditoria e acompanhamento
 - July 13, 2025. Correção crítica do botão "Avançar para Recebimento" e finalização do sistema de badge A2 implementada com sucesso:
   - ✓ Corrigido botão "Avançar para Recebimento" na fase Pedido de Compra que não respondia ao clique
   - ✓ Problema estava no formato da chamada apiRequest - corrigido de apiRequest("POST", url) para apiRequest(url, {method: "POST"})

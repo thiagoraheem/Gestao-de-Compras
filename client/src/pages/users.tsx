@@ -92,9 +92,12 @@ export default function UsersPage() {
         ? `/api/users/${editingUser.id}`
         : "/api/users";
       const method = editingUser ? "PUT" : "POST";
-      const response = await apiRequest(method, endpoint, {
-        ...data,
-        costCenterIds: selectedCostCenters
+      const response = await apiRequest(endpoint, {
+        method,
+        body: {
+          ...data,
+          costCenterIds: selectedCostCenters
+        }
       });
       return response.json();
     },
@@ -186,7 +189,7 @@ export default function UsersPage() {
 
   const checkDeleteUserMutation = useMutation({
     mutationFn: async (userId: number) => {
-      const response = await apiRequest("GET", `/api/users/${userId}/can-delete`);
+      const response = await apiRequest(`/api/users/${userId}/can-delete`, { method: "GET" });
       return response.json();
     },
     onSuccess: (data, userId) => {
@@ -212,7 +215,7 @@ export default function UsersPage() {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: number) => {
-      const response = await apiRequest("DELETE", `/api/users/${userId}`);
+      const response = await apiRequest(`/api/users/${userId}`, { method: "DELETE" });
       return response.json();
     },
     onMutate: async (userId) => {
