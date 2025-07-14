@@ -83,8 +83,14 @@ export default function ApprovalA1Phase({
     "approve" | "reject" | null
   >(null);
 
+  // Adicionar query para verificar permissão
+  const { data: approvalPermission } = useQuery<{canApprove: boolean, requestCostCenter: any, userCostCenters: number[]}>({
+    queryKey: [`/api/purchase-requests/${request.id}/can-approve-a1`],
+    enabled: !!user?.isApproverA1,
+  });
+
   // Check if user has A1 approval permissions
-  const canApprove = user?.isApproverA1 || false;
+  const canApprove = user?.isApproverA1 && approvalPermission?.canApprove;
 
   // Removed attachments query - no longer showing purchase request attachments
 
@@ -195,9 +201,18 @@ export default function ApprovalA1Phase({
           <Alert className="border-amber-200 bg-amber-50">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-700">
-              <strong>Visualização Somente Leitura:</strong> Você não possui
-              permissão de aprovação nível A1. Entre em contato com o
-              administrador do sistema para obter acesso.
+              {!user?.isApproverA1 ? (
+                <>
+                  <strong>Visualização Somente Leitura:</strong> Você não possui
+                  permissão de aprovação nível A1. Entre em contato com o
+                  administrador do sistema para obter acesso.
+                </>
+              ) : (
+                <>
+                  <strong>Acesso Restrito:</strong> Você não possui permissão para aprovar solicitações do centro de custo "{request.costCenter?.name}". 
+                  Sua aprovação está limitada aos centros de custo aos quais você está associado.
+                </>
+              )}
             </AlertDescription>
           </Alert>
 

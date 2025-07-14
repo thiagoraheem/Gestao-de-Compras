@@ -110,6 +110,18 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 14, 2025. Sistema de restrição de aprovação A1 por centro de custo implementado com sucesso:
+  - ✓ Criado middleware canApproveRequest para validar permissões de centro de custo no backend
+  - ✓ Aplicado middleware na rota POST /api/purchase-requests/:id/approve-a1
+  - ✓ Criado endpoint GET /api/purchase-requests/:id/can-approve-a1 para verificação de permissões
+  - ✓ Adicionada validação de centro de custo na movimentação via drag-and-drop no Kanban
+  - ✓ Modificado sistema de notificações por e-mail para enviar apenas para aprovadores dos centros corretos
+  - ✓ Atualizado componente ApprovalA1Phase com query para verificar permissões específicas
+  - ✓ Implementado alerta visual diferenciado para usuários sem permissão de aprovação A1
+  - ✓ Adicionada filtragem automática no KanbanBoard para mostrar apenas solicitações dos centros associados
+  - ✓ Query para centros de custo do usuário habilitada apenas para aprovadores A1
+  - ✓ Sistema agora garante que aprovadores só vejam e possam aprovar solicitações dos seus centros
+  - ✓ Segurança aprimorada com validações tanto no frontend (UX) quanto no backend (segurança)
 - July 14, 2025. Correção crítica dos botões de aprovação A1 implementada com sucesso:
   - ✓ Identificado problema onde botões "Aprovar" e "Reprovar" na fase A1 não funcionavam
   - ✓ Corrigido formato de chamada da API de apiRequest("POST", url, data) para apiRequest(url, { method: "POST", body: data })

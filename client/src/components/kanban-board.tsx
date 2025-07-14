@@ -56,6 +56,12 @@ export default function KanbanBoard({
     staleTime: 1000, // Very short stale time - 1 second for real-time feel
   });
 
+  // Adicionar query para centros de custo do usuário
+  const { data: userCostCenters } = useQuery<number[]>({
+    queryKey: [`/api/users/${user?.id}/cost-centers`],
+    enabled: !!user?.id && user?.isApproverA1,
+  });
+
   // Listen for URL-based request opening
   useEffect(() => {
     const handleOpenRequestFromUrl = (event: any) => {
@@ -469,6 +475,13 @@ export default function KanbanBoard({
     acc[phase].push(request);
     return acc;
   }, {});
+
+  // Se usuário é aprovador A1, filtrar apenas solicitações dos seus centros de custo
+  if (user?.isApproverA1 && userCostCenters && requestsByPhase.aprovacao_a1) {
+    requestsByPhase.aprovacao_a1 = requestsByPhase.aprovacao_a1.filter((request: any) => 
+      userCostCenters.includes(request.costCenterId)
+    );
+  }
 
   // Apply sorting to each phase
   Object.keys(requestsByPhase).forEach((phase) => {
