@@ -691,6 +691,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Cost center creation request:", req.body);
       
+      // Validate required fields before parsing
+      if (!req.body.code || !req.body.name || !req.body.departmentId) {
+        return res.status(400).json({ 
+          message: "Campos obrigatórios: código, nome e departamento" 
+        });
+      }
+      
       const costCenterData = insertCostCenterSchema.parse(req.body);
       console.log("Parsed cost center data:", costCenterData);
       
@@ -699,6 +706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating cost center:", error);
       
+      // Handle database constraint errors
       if (error && typeof error === 'object' && 'code' in error) {
         if (error.code === '23505') {
           return res.status(400).json({ message: "Código do centro de custo já existe" });
@@ -708,11 +716,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      if (error instanceof Error && error.message.includes('parse')) {
-        return res.status(400).json({ message: "Dados inválidos. Verifique os campos obrigatórios." });
+      // Handle Zod validation errors
+      if (error && typeof error === 'object' && 'issues' in error) {
+        const zodError = error as any;
+        const firstIssue = zodError.issues?.[0];
+        if (firstIssue) {
+          return res.status(400).json({ 
+            message: `Erro de validação: ${firstIssue.message}` 
+          });
+        }
       }
       
-      res.status(400).json({ message: "Erro ao criar centro de custo" });
+      // Handle generic parsing errors
+      if (error instanceof Error && error.message.includes('parse')) {
+        return res.status(400).json({ 
+          message: "Dados inválidos. Verifique os campos obrigatórios." 
+        });
+      }
+      
+      // Generic error fallback
+      res.status(400).json({ 
+        message: error instanceof Error ? error.message : "Erro ao criar centro de custo" 
+      });
     }
   });
 

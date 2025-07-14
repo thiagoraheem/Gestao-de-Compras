@@ -3,7 +3,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     let errorMessage = res.statusText;
-    
+
     try {
       const contentType = res.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
@@ -16,7 +16,7 @@ async function throwIfResNotOk(res: Response) {
     } catch {
       // If parsing fails, use statusText
     }
-    
+
     const error = new Error(errorMessage);
     (error as any).status = res.status;
     (error as any).response = { data: { message: errorMessage } };
@@ -44,7 +44,7 @@ export async function apiRequest(
 ): Promise<any> {
   const { method, body } = options;
   const isFormData = body instanceof FormData;
-  
+
   const res = await fetch(url, {
     method,
     headers: isFormData ? {} : body ? { "Content-Type": "application/json" } : {},

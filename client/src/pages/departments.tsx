@@ -169,13 +169,25 @@ export default function DepartmentsPage() {
       }
       
       console.error("Cost center creation error:", err);
+      console.error("Error details:", {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        variables,
+        errorType: typeof err,
+        errorKeys: err && typeof err === 'object' ? Object.keys(err) : []
+      });
       
       let errorMessage = "Falha ao criar centro de custo";
+      
+      // Handle fetch errors (non-JSON responses)
       if (err instanceof Error) {
-        if (err.message.includes('unique constraint') || err.message.includes('duplicate')) {
+        if (err.message.includes('Unexpected token') && err.message.includes('DOCTYPE')) {
+          errorMessage = "Erro de servidor. Tente novamente em alguns instantes.";
+        } else if (err.message.includes('unique constraint') || err.message.includes('duplicate')) {
           errorMessage = "Código do centro de custo já existe";
         } else if (err.message.includes('validation')) {
           errorMessage = "Dados inválidos. Verifique os campos obrigatórios";
+        } else if (err.message.includes('Failed to fetch')) {
+          errorMessage = "Erro de conexão. Verifique sua internet.";
         } else {
           errorMessage = err.message;
         }
@@ -221,6 +233,18 @@ export default function DepartmentsPage() {
   };
 
   const onSubmitCostCenter = (data: CostCenterFormData) => {
+    console.log("Submitting cost center data:", data);
+    
+    // Ensure departmentId is a valid number
+    if (!data.departmentId || data.departmentId <= 0) {
+      toast({
+        title: "Erro",
+        description: "Selecione um departamento válido",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     createCostCenterMutation.mutate(data);
   };
 
