@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,7 +22,8 @@ import {
   CheckCircle, 
   Package,
   Truck,
-  X
+  X,
+  Eye
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -42,6 +44,9 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   const form = useForm<PurchaseOrderFormData>({
     resolver: zodResolver(purchaseOrderSchema),
@@ -156,6 +161,41 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     }
   };
 
+  // Função para gerar pré-visualização do PDF
+  const handlePreviewPDF = async () => {
+    setIsLoadingPreview(true);
+    try {
+      const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao gerar PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      setPdfPreviewUrl(url);
+      setShowPreviewModal(true);
+
+      toast({
+        title: "Sucesso",
+        description: "Pré-visualização do PDF carregada com sucesso!",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar pré-visualização do PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
   // Função para download do PDF
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
@@ -195,6 +235,33 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       });
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  // Função para baixar PDF da pré-visualização
+  const handleDownloadFromPreview = () => {
+    if (pdfPreviewUrl) {
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = pdfPreviewUrl;
+      a.download = `Pedido_Compra_${request.requestNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Sucesso",
+        description: "PDF do pedido de compra baixado com sucesso!",
+      });
+    }
+  };
+
+  // Limpar URL do blob quando o modal for fechado
+  const handleClosePreview = () => {
+    setShowPreviewModal(false);
+    if (pdfPreviewUrl) {
+      window.URL.revokeObjectURL(pdfPreviewUrl);
+      setPdfPreviewUrl(null);
     }
   };
 
@@ -282,6 +349,15 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
           >
             <Truck className="w-4 h-4 mr-2" />
             {advanceToReceiptMutation.isPending ? "Avançando..." : "Avançar para Recebimento"}
+          </Button>
+          <Button
+            onClick={handlePreviewPDF}
+            disabled={isLoadingPreview}
+            variant="outline"
+            className="border-green-600 text-green-600 hover:bg-green-50"
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
           </Button>
           <Button
             onClick={handleDownloadPDF}
@@ -592,6 +668,52 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
           </CardContent>
         </Card>
       )}
+
+      {/* Modal de Pré-visualização do PDF */}
+      <Dialog open={showPreviewModal} onOpenChange={handleClosePreview}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Pré-visualização - Pedido de Compra {request.requestNumber}</span>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleDownloadFromPreview}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Baixar PDF
+                </Button>
+                <Button
+                  onClick={handleClosePreview}
+                  size="sm"
+                  variant="outline"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Fechar
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden">
+            {pdfPreviewUrl ? (
+              <iframe
+                src={pdfPreviewUrl}
+                className="w-full h-[75vh] border rounded-lg"
+                title="Pré-visualização do PDF"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">Carregando pré-visualização...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
