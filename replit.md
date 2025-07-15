@@ -110,6 +110,12 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 15, 2025. Correção crítica do menu de navegação - opção "Fornecedores" liberada para usuários compradores:
+  - ✓ Identificado problema onde "Fornecedores" estava restrito apenas a administradores na navegação
+  - ✓ Movido "Fornecedores" de adminNavigation para baseNavigation no PipefyHeader
+  - ✓ Agora todos os usuários (incluindo compradores) podem acessar a tela de fornecedores
+  - ✓ Correção alinhada com a proteção AdminOrBuyerRoute da página de fornecedores
+  - ✓ Sistema de navegação agora consistente com permissões funcionais
 - July 15, 2025. Campo de Empresa liberado para todos os usuários nas solicitações implementado com sucesso:
   - ✓ Campo "Empresa" na criação de nova solicitação agora disponível para todos os usuários, não apenas administradores
   - ✓ Removida restrição `!!user?.isAdmin` das queries de empresas em new-request-modal.tsx e enhanced-new-request-modal.tsx

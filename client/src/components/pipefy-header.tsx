@@ -39,6 +39,7 @@ export default function PipefyHeader() {
         href: "/request-management",
         icon: FileText,
       },
+      { name: "Fornecedores", href: "/suppliers", icon: Building },
     ];
 
     // Manager/Admin-only dashboard
@@ -48,7 +49,6 @@ export default function PipefyHeader() {
 
     // Admin-only navigation items
     const adminNavigation = [
-      { name: "Fornecedores", href: "/suppliers", icon: Building },
       { name: "Usuários", href: "/users", icon: Users },
       { name: "Departamentos", href: "/departments", icon: Building },
       { name: "Locais de Entrega", href: "/delivery-locations", icon: MapPin },
