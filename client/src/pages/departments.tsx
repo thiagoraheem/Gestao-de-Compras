@@ -76,7 +76,7 @@ export default function DepartmentsPage() {
         ? `/api/departments/${editingDepartment.id}`
         : "/api/departments";
       const method = editingDepartment ? "PUT" : "POST";
-      const response = await apiRequest(method, endpoint, data);
+      const response = await apiRequest(endpoint, { method, body: data });
       return response.json();
     },
     onMutate: async (data) => {
@@ -139,7 +139,7 @@ export default function DepartmentsPage() {
         ? `/api/cost-centers/${editingCostCenter.id}`
         : "/api/cost-centers";
       const method = editingCostCenter ? "PUT" : "POST";
-      const response = await apiRequest(method, endpoint, data);
+      const response = await apiRequest(endpoint, { method, body: data });
       return response.json();
     },
     onMutate: async (data) => {
