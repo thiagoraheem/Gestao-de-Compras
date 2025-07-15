@@ -328,27 +328,27 @@ export class DatabaseStorage implements IStorage {
   }> {
     // Check if user has any purchase requests as requester
     const requestsAsRequester = await db
-      .select({ count: sql<number>`COUNT(*)`.as("count") })
+      .select({ count: sql<number>`COUNT(*)` })
       .from(purchaseRequests)
       .where(eq(purchaseRequests.requesterId, id));
 
     // Check if user has any purchase requests as approver A1
     const requestsAsApproverA1 = await db
-      .select({ count: sql<number>`COUNT(*)`.as("count") })
+      .select({ count: sql<number>`COUNT(*)` })
       .from(purchaseRequests)
       .where(eq(purchaseRequests.approverA1Id, id));
 
     // Check if user has any purchase requests as approver A2
     const requestsAsApproverA2 = await db
-      .select({ count: sql<number>`COUNT(*)`.as("count") })
+      .select({ count: sql<number>`COUNT(*)` })
       .from(purchaseRequests)
       .where(eq(purchaseRequests.approverA2Id, id));
 
     // Check approval history
     const approvalHistoryCount = await db
-      .select({ count: sql<number>`COUNT(*)`.as("count") })
+      .select({ count: sql<number>`COUNT(*)` })
       .from(approvalHistory)
-      .where(eq(approvalHistory.userId, id));
+      .where(eq(approvalHistory.approverId, id));
 
     const totalRequests =
       Number(requestsAsRequester[0].count) +
