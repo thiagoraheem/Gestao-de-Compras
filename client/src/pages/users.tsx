@@ -316,6 +316,7 @@ export default function UsersPage() {
     if (user.isBuyer) roles.push("Comprador");
     if (user.isApproverA1) roles.push("Aprovador A1");
     if (user.isApproverA2) roles.push("Aprovador A2");
+    if (user.isReceiver) roles.push("Recebedor");
     return roles;
   };
 
