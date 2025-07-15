@@ -1,6 +1,6 @@
 
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { useLocation } from "wouter";
 
 interface AdminOrBuyerRouteProps {
   children: React.ReactNode;
@@ -8,17 +8,20 @@ interface AdminOrBuyerRouteProps {
 
 export default function AdminOrBuyerRoute({ children }: AdminOrBuyerRouteProps) {
   const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
 
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    setLocation("/login");
+    return null;
   }
 
   if (!user.isAdmin && !user.isBuyer) {
-    return <Navigate to="/not-found" replace />;
+    setLocation("/not-found");
+    return null;
   }
 
   return <>{children}</>;
