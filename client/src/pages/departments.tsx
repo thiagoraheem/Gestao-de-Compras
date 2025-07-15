@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Building, Edit, Check, X } from "lucide-react";
+import { Plus, Building, Edit, Check, X, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminRoute from "@/components/AdminRoute";
@@ -228,6 +229,104 @@ export default function DepartmentsPage() {
     },
   });
 
+  const deleteDepartmentMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest(`/api/departments/${id}`, { method: "DELETE" });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "Sucesso",
+        description: "Departamento excluído com sucesso",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Error deleting department:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao excluir departamento",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCostCenterMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest(`/api/cost-centers/${id}`, { method: "DELETE" });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0]?.toString().includes(`/api/users/`) &&
+          query.queryKey[0]?.toString().includes(`/cost-centers`)
+      });
+      toast({
+        title: "Sucesso",
+        description: "Centro de custo excluído com sucesso",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Error deleting cost center:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao excluir centro de custo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const checkDepartmentCanBeDeleted = async (id: number) => {
+    try {
+      const response = await apiRequest(`/api/departments/${id}/can-delete`, { method: "GET" });
+      return response.json();
+    } catch (error) {
+      console.error("Error checking department can be deleted:", error);
+      return { canDelete: false, reason: "Erro ao verificar se departamento pode ser excluído" };
+    }
+  };
+
+  const checkCostCenterCanBeDeleted = async (id: number) => {
+    try {
+      const response = await apiRequest(`/api/cost-centers/${id}/can-delete`, { method: "GET" });
+      return response.json();
+    } catch (error) {
+      console.error("Error checking cost center can be deleted:", error);
+      return { canDelete: false, reason: "Erro ao verificar se centro de custo pode ser excluído" };
+    }
+  };
+
+  const handleDeleteDepartment = async (department: any) => {
+    const result = await checkDepartmentCanBeDeleted(department.id);
+    if (!result.canDelete) {
+      toast({
+        title: "Não é possível excluir",
+        description: result.reason,
+        variant: "destructive",
+      });
+      return;
+    }
+    deleteDepartmentMutation.mutate(department.id);
+  };
+
+  const handleDeleteCostCenter = async (costCenter: any) => {
+    const result = await checkCostCenterCanBeDeleted(costCenter.id);
+    if (!result.canDelete) {
+      toast({
+        title: "Não é possível excluir",
+        description: result.reason,
+        variant: "destructive",
+      });
+      return;
+    }
+    deleteCostCenterMutation.mutate(costCenter.id);
+  };
+
   const onSubmitDepartment = (data: DepartmentFormData) => {
     createDepartmentMutation.mutate(data);
   };
@@ -336,13 +435,43 @@ export default function DepartmentsPage() {
                       <TableCell className="font-medium">{dept.name}</TableCell>
                       <TableCell>{dept.description || "-"}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditDepartment(dept)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditDepartment(dept)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir o departamento "{dept.name}"? Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteDepartment(dept)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -396,13 +525,43 @@ export default function DepartmentsPage() {
                       <TableCell>{getDepartmentName(cc.departmentId)}</TableCell>
                       <TableCell>{cc.description || "-"}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditCostCenter(cc)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditCostCenter(cc)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir o centro de custo "{cc.name}"? Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteCostCenter(cc)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

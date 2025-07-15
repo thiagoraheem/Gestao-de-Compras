@@ -724,6 +724,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/departments/:id/can-delete", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = await storage.checkDepartmentCanBeDeleted(id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking department can be deleted:", error);
+      res.status(500).json({ message: "Erro ao verificar se departamento pode ser excluído" });
+    }
+  });
+
+  app.delete("/api/departments/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // First check if it can be deleted
+      const canDeleteResult = await storage.checkDepartmentCanBeDeleted(id);
+      if (!canDeleteResult.canDelete) {
+        return res.status(400).json({ message: canDeleteResult.reason });
+      }
+      
+      await storage.deleteDepartment(id);
+      res.json({ message: "Departamento excluído com sucesso" });
+    } catch (error) {
+      console.error("Error deleting department:", error);
+      res.status(500).json({ message: "Erro ao excluir departamento" });
+    }
+  });
+
   // Cost Centers routes
   app.get("/api/cost-centers", isAuthenticated, async (req, res) => {
     try {
@@ -809,6 +838,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating cost center:", error);
       res.status(400).json({ message: "Failed to update cost center" });
+    }
+  });
+
+  app.get("/api/cost-centers/:id/can-delete", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = await storage.checkCostCenterCanBeDeleted(id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking cost center can be deleted:", error);
+      res.status(500).json({ message: "Erro ao verificar se centro de custo pode ser excluído" });
+    }
+  });
+
+  app.delete("/api/cost-centers/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // First check if it can be deleted
+      const canDeleteResult = await storage.checkCostCenterCanBeDeleted(id);
+      if (!canDeleteResult.canDelete) {
+        return res.status(400).json({ message: canDeleteResult.reason });
+      }
+      
+      await storage.deleteCostCenter(id);
+      res.json({ message: "Centro de custo excluído com sucesso" });
+    } catch (error) {
+      console.error("Error deleting cost center:", error);
+      res.status(500).json({ message: "Erro ao excluir centro de custo" });
     }
   });
 

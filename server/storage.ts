@@ -53,7 +53,7 @@ import {
   type InsertAttachment,
 } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, and, desc, like, sql, gt } from "drizzle-orm";
+import { eq, and, desc, like, sql, gt, count } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import bcrypt from "bcryptjs";
 
@@ -81,6 +81,15 @@ export interface IStorage {
     id: number,
     department: Partial<InsertDepartment>,
   ): Promise<Department>;
+  checkDepartmentCanBeDeleted(
+    id: number,
+  ): Promise<{
+    canDelete: boolean;
+    reason?: string;
+    associatedCostCenters?: number;
+    associatedUsers?: number;
+  }>;
+  deleteDepartment(id: number): Promise<void>;
 
   // Cost Center operations
   getAllCostCenters(): Promise<CostCenter[]>;
@@ -90,6 +99,15 @@ export interface IStorage {
     id: number,
     costCenter: Partial<InsertCostCenter>,
   ): Promise<CostCenter>;
+  checkCostCenterCanBeDeleted(
+    id: number,
+  ): Promise<{
+    canDelete: boolean;
+    reason?: string;
+    associatedUsers?: number;
+    associatedRequests?: number;
+  }>;
+  deleteCostCenter(id: number): Promise<void>;
 
   // User delete operations
   deleteUser(id: number): Promise<void>;
@@ -405,6 +423,55 @@ export class DatabaseStorage implements IStorage {
     return department;
   }
 
+  async checkDepartmentCanBeDeleted(
+    id: number,
+  ): Promise<{
+    canDelete: boolean;
+    reason?: string;
+    associatedCostCenters?: number;
+    associatedUsers?: number;
+  }> {
+    // Check if department has cost centers
+    const costCentersCount = await db
+      .select({ count: count() })
+      .from(costCenters)
+      .where(eq(costCenters.departmentId, id));
+
+    const totalCostCenters = Number(costCentersCount[0].count);
+
+    // Check if department has users
+    const usersCount = await db
+      .select({ count: count() })
+      .from(userDepartments)
+      .where(eq(userDepartments.departmentId, id));
+
+    const totalUsers = Number(usersCount[0].count);
+
+    if (totalCostCenters > 0) {
+      return {
+        canDelete: false,
+        reason: "Departamento possui centros de custo associados",
+        associatedCostCenters: totalCostCenters,
+        associatedUsers: totalUsers,
+      };
+    }
+
+    if (totalUsers > 0) {
+      return {
+        canDelete: false,
+        reason: "Departamento possui usuários associados",
+        associatedCostCenters: totalCostCenters,
+        associatedUsers: totalUsers,
+      };
+    }
+
+    return { canDelete: true };
+  }
+
+  async deleteDepartment(id: number): Promise<void> {
+    await db.delete(departments).where(eq(departments.id, id));
+  }
+
   async getAllCostCenters(): Promise<CostCenter[]> {
     return await db.select().from(costCenters);
   }
@@ -436,6 +503,55 @@ export class DatabaseStorage implements IStorage {
       .where(eq(costCenters.id, id))
       .returning();
     return costCenter;
+  }
+
+  async checkCostCenterCanBeDeleted(
+    id: number,
+  ): Promise<{
+    canDelete: boolean;
+    reason?: string;
+    associatedUsers?: number;
+    associatedRequests?: number;
+  }> {
+    // Check if cost center has users
+    const usersCount = await db
+      .select({ count: count() })
+      .from(userCostCenters)
+      .where(eq(userCostCenters.costCenterId, id));
+
+    const totalUsers = Number(usersCount[0].count);
+
+    // Check if cost center has purchase requests
+    const requestsCount = await db
+      .select({ count: count() })
+      .from(purchaseRequests)
+      .where(eq(purchaseRequests.costCenterId, id));
+
+    const totalRequests = Number(requestsCount[0].count);
+
+    if (totalUsers > 0) {
+      return {
+        canDelete: false,
+        reason: "Centro de custo possui usuários associados",
+        associatedUsers: totalUsers,
+        associatedRequests: totalRequests,
+      };
+    }
+
+    if (totalRequests > 0) {
+      return {
+        canDelete: false,
+        reason: "Centro de custo possui solicitações de compra associadas",
+        associatedUsers: totalUsers,
+        associatedRequests: totalRequests,
+      };
+    }
+
+    return { canDelete: true };
+  }
+
+  async deleteCostCenter(id: number): Promise<void> {
+    await db.delete(costCenters).where(eq(costCenters.id, id));
   }
 
   async getUserDepartments(userId: number): Promise<number[]> {
