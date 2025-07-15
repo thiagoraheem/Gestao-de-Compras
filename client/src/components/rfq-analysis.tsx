@@ -29,6 +29,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import debug from "@/lib/debug";
 
 const approvalSchema = z.object({
   chosenSupplierId: z.string().min(1, "Selecione um fornecedor"),
@@ -118,7 +119,7 @@ export default function RFQAnalysis({
         description: "Ocorreu um erro ao aprovar a cotação.",
         variant: "destructive",
       });
-      console.error("Error approving quotation:", error);
+      debug.error("Error approving quotation:", error);
     },
   });
 

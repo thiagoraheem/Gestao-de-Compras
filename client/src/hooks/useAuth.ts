@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { setAdminStatus } from "@/lib/debug";
+import { useEffect } from "react";
 
 interface User {
   id: number;
@@ -47,6 +49,11 @@ export function useAuth() {
     },
     retry: false,
   });
+
+  // Update debug system when user changes
+  useEffect(() => {
+    setAdminStatus(user?.isAdmin || false);
+  }, [user?.isAdmin]);
 
   const loginMutation = useMutation({
     mutationFn: async ({ username, password }: { username: string; password: string }) => {

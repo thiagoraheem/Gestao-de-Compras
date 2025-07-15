@@ -14,6 +14,7 @@ import {
   AlertCircle,
   CheckCircle
 } from "lucide-react";
+import debug from "@/lib/debug";
 
 interface FileUploadProps {
   requestId: number;
@@ -190,7 +191,7 @@ export default function FileUpload({
       setUploadProgress(100);
       
     } catch (error) {
-      console.error('Upload error:', error);
+      debug.error('Upload error:', error);
       toast({
         title: "Erro",
         description: error instanceof Error ? error.message : "Erro ao enviar arquivos",

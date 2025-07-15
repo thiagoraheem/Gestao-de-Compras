@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import * as XLSX from 'xlsx';
+import debug from '@/lib/debug';
 
 export interface ExcelItem {
   item: string;
@@ -129,7 +130,7 @@ export default function ExcelImporter({ onImport, className }: ExcelImporterProp
       }, 2000);
 
     } catch (error) {
-      console.error('Error processing file:', error);
+      debug.error('Error processing file:', error);
       setError(error instanceof Error ? error.message : 'Erro ao processar arquivo');
     } finally {
       setIsProcessing(false);

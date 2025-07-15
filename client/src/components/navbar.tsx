@@ -1,4 +1,16 @@
-import { ShoppingCart, LogOut, User, Key, Menu, X, Kanban, BarChart3, Building, Users, MapPin } from "lucide-react";
+import {
+  ShoppingCart,
+  LogOut,
+  User,
+  Key,
+  Menu,
+  X,
+  Kanban,
+  BarChart3,
+  Building,
+  Users,
+  MapPin,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,6 +62,7 @@ export default function Navbar() {
     const baseNavigation = [
       { name: "Kanban", href: "/kanban", icon: Kanban },
       { name: "Gerenciar", href: "/request-management", icon: ShoppingCart },
+      { name: "Fornecedores", href: "/suppliers", icon: Building },
     ];
 
     const managerNavigation = [
@@ -57,7 +70,6 @@ export default function Navbar() {
     ];
 
     const adminNavigation = [
-      { name: "Fornecedores", href: "/suppliers", icon: Building },
       { name: "Usuários", href: "/users", icon: Users },
       { name: "Departamentos", href: "/departments", icon: Building },
       { name: "Locais de Entrega", href: "/delivery-locations", icon: MapPin },
@@ -86,8 +98,12 @@ export default function Navbar() {
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
               <ShoppingCart className="text-primary text-2xl mr-3" />
-              <h1 className="text-xl font-semibold text-foreground hidden sm:block">Sistema de Compras</h1>
-              <h1 className="text-lg font-semibold text-foreground sm:hidden">Compras</h1>
+              <h1 className="text-xl font-semibold text-foreground hidden sm:block">
+                Sistema de Compras
+              </h1>
+              <h1 className="text-lg font-semibold text-foreground sm:hidden">
+                Compras
+              </h1>
             </div>
           </div>
 
@@ -131,14 +147,20 @@ export default function Navbar() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center space-x-2 px-2">
+                <Button
+                  variant="ghost"
+                  className="flex items-center space-x-2 px-2"
+                >
                   <Avatar className="h-8 w-8">
                     <AvatarFallback>{getInitials()}</AvatarFallback>
                   </Avatar>
                   <div className="text-sm text-left hidden sm:block">
-                    <p className="font-medium text-foreground">{getDisplayName()}</p>
+                    <p className="font-medium text-foreground">
+                      {getDisplayName()}
+                    </p>
                     <p className="text-muted-foreground text-xs">
-                      {user?.department?.name || "Sem departamento"} • {getRoles()}
+                      {user?.department?.name || "Sem departamento"} •{" "}
+                      {getRoles()}
                     </p>
                   </div>
                 </Button>
@@ -159,7 +181,10 @@ export default function Navbar() {
                   </DropdownMenuItem>
                 </Link>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer" onClick={handleLogout}>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={handleLogout}
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Sair
                 </DropdownMenuItem>

@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import SupplierCreationModal from "./supplier-creation-modal";
+import debug from "@/lib/debug";
 
 const quotationItemSchema = z.object({
   itemCode: z.string().optional(),
@@ -283,11 +284,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         });
 
         if (!sendRFQResponse.ok) {
-          console.warn('Erro ao enviar e-mails, mas cotação foi criada com sucesso');
+          debug.warn('Erro ao enviar e-mails, mas cotação foi criada com sucesso');
         } else {
           const emailResult = await sendRFQResponse.json();
           if (emailResult.emailResult?.errors?.length > 0) {
-            console.warn('Alguns e-mails não foram enviados:', emailResult.emailResult.errors);
+            debug.warn('Alguns e-mails não foram enviados:', emailResult.emailResult.errors);
           }
         }
       }
@@ -320,7 +321,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         description: error instanceof Error ? error.message : "Ocorreu um erro ao criar a solicitação de cotação.",
         variant: "destructive",
       });
-      console.error("Error creating RFQ:", error);
+      debug.error("Error creating RFQ:", error);
     },
   });
 

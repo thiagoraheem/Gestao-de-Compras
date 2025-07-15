@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
 import { CATEGORY_OPTIONS, CATEGORY_LABELS, URGENCY_LEVELS, URGENCY_LABELS } from "@/lib/types";
+import debug from "@/lib/debug";
 
 const requestSchema = z.object({
   companyId: z.coerce.number().min(1, "Empresa é obrigatória"),
@@ -86,7 +87,7 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
   });
 
   // Debug user cost centers
-  console.log("User Cost Centers Query:", {
+  debug.log("User Cost Centers Query:", {
     data: userCostCenterIds,
     isLoading: isLoadingUserCostCenters,
     error: userCostCentersError,
@@ -103,7 +104,7 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
     userCostCenterIds?.includes(center.id)
   ) || [];
 
-  console.log("Debug - Cost Centers:", {
+  debug.log("Debug - Cost Centers:", {
     allCostCenters: allCostCenters?.length || 0,
     userCostCenterIds: userCostCenterIds?.length || 0,
     filteredCostCenters: costCenters.length,

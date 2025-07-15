@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import debug from '@/lib/debug';
 
 interface LogoUploadProps {
   companyId: number;
@@ -94,7 +95,7 @@ export function LogoUpload({
         description: "Logo enviado com sucesso!",
       });
     } catch (error: any) {
-      console.error('Error uploading logo:', error);
+      debug.error('Error uploading logo:', error);
       toast({
         title: "Erro",
         description: error.message || "Erro ao enviar logo",

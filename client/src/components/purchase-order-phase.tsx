@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import debug from "@/lib/debug";
 
 const purchaseOrderSchema = z.object({
   purchaseObservations: z.string().optional(),

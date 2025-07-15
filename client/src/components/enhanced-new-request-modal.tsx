@@ -48,6 +48,7 @@ import {
 } from "@/lib/types";
 import { Plus, X, Edit3 } from "lucide-react";
 import FileUpload from "./file-upload";
+import debug from "@/lib/debug";
 
 const requestSchema = z.object({
   companyId: z.coerce.number().min(1, "Empresa é obrigatória"),
@@ -110,7 +111,7 @@ export default function EnhancedNewRequestModal({
   });
 
   // Debug user cost centers
-  console.log("User Cost Centers Query:", {
+  debug.log("User Cost Centers Query:", {
     data: userCostCenterIds,
     isLoading: isLoadingUserCostCenters,
     error: userCostCentersError,
@@ -128,7 +129,7 @@ export default function EnhancedNewRequestModal({
     return matchesUser;
   }) || [];
 
-  console.log("Debug - Cost Centers:", {
+  debug.log("Debug - Cost Centers:", {
     allCostCenters: allCostCenters?.length || 0,
     userCostCenterIds: userCostCenterIds?.length || 0,
     filteredCostCenters: costCenters.length,

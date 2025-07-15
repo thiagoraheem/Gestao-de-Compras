@@ -24,8 +24,17 @@ import { useAuth } from "@/hooks/useAuth";
 
 const navigation = [
   { name: "Kanban Board", href: "/", icon: Columns },
-  { name: "Dashboard", href: "/dashboard", icon: BarChart3, requiresManager: true },
-  { name: "Gerenciar Solicitações", href: "/request-management", icon: FileText },
+  {
+    name: "Dashboard",
+    href: "/dashboard",
+    icon: BarChart3,
+    requiresManager: true,
+  },
+  {
+    name: "Gerenciar Solicitações",
+    href: "/request-management",
+    icon: FileText,
+  },
   { name: "Empresas", href: "/companies", icon: Building, requiresAdmin: true },
   { name: "Fornecedores", href: "/suppliers", icon: Truck },
   { name: "Usuários", href: "/users", icon: Users },
@@ -51,7 +60,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     <>
       {/* Mobile overlay */}
       {isMobileOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
           onClick={() => setIsMobileOpen(false)}
         />
@@ -68,11 +77,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       </Button>
 
       {/* Mobile Sidebar */}
-      <div 
+      <div
         className={cn(
           "fixed inset-y-0 left-0 bg-white shadow-lg transform transition-all duration-200 ease-in-out mt-16 z-50 w-64",
           "lg:hidden", // Only show on mobile
-          isMobileOpen ? "translate-x-0" : "-translate-x-full"
+          isMobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex flex-col h-full">
@@ -101,7 +110,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               }
 
               // Show suppliers for admins and buyers
-              if (item.name === "Fornecedores" && !user?.isAdmin && !user?.isBuyer) {
+              if (
+                item.name === "Fornecedores" &&
+                !user?.isAdmin &&
+                !user?.isBuyer
+              ) {
                 return null;
               }
 
@@ -112,14 +125,14 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                       "group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer transition-colors",
                       isActive
                         ? "bg-primary-50 text-primary-700"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
                     )}
                     onClick={() => setIsMobileOpen(false)}
                   >
                     <Icon
                       className={cn(
                         "mr-3 flex-shrink-0 h-5 w-5",
-                        isActive ? "text-primary-500" : "text-gray-400"
+                        isActive ? "text-primary-500" : "text-gray-400",
                       )}
                     />
                     <span>{item.name}</span>
@@ -132,11 +145,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       </div>
 
       {/* Desktop Sidebar */}
-      <div 
+      <div
         className={cn(
           "fixed inset-y-0 left-0 bg-white shadow-lg transform transition-all duration-200 ease-in-out mt-16 z-30",
           "hidden lg:block", // Only show on desktop
-          isCollapsed ? "w-16" : "w-64"
+          isCollapsed ? "w-16" : "w-64",
         )}
       >
         <div className="flex flex-col h-full">
@@ -147,7 +160,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               onClick={() => setIsCollapsed(!isCollapsed)}
               className="ml-auto"
             >
-              {isCollapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
+              {isCollapsed ? (
+                <Menu className="h-5 w-5" />
+              ) : (
+                <X className="h-5 w-5" />
+              )}
             </Button>
           </div>
 
@@ -159,7 +176,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   const isActive = location === item.href;
 
                   // Check if user has permission to access this item
-                  if (item.requiresManager && !user?.isManager && !user?.isAdmin) {
+                  if (
+                    item.requiresManager &&
+                    !user?.isManager &&
+                    !user?.isAdmin
+                  ) {
                     return null;
                   }
                   if (item.requiresAdmin && !user?.isAdmin) {
@@ -167,7 +188,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   }
 
                   // Show suppliers for admins and buyers
-                  if (item.name === "Fornecedores" && !user?.isAdmin && !user?.isBuyer) {
+                  if (
+                    item.name === "Fornecedores" &&
+                    !user?.isAdmin &&
+                    !user?.isBuyer
+                  ) {
                     return null;
                   }
 
@@ -181,14 +206,14 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                               isActive
                                 ? "bg-primary-50 text-primary-700"
                                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
-                              isCollapsed && "justify-center"
+                              isCollapsed && "justify-center",
                             )}
                           >
                             <Icon
                               className={cn(
                                 "flex-shrink-0 h-5 w-5",
                                 isActive ? "text-primary-500" : "text-gray-400",
-                                !isCollapsed && "mr-3"
+                                !isCollapsed && "mr-3",
                               )}
                             />
                             {!isCollapsed && (
@@ -223,14 +248,14 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                               onClick={() => setIsNewRequestModalOpen(true)}
                               className={cn(
                                 "w-full justify-start px-2 py-2 text-sm font-medium rounded-md transition-colors",
-                                "text-gray-600 hover:bg-primary-50 hover:text-primary-700"
+                                "text-gray-600 hover:bg-primary-50 hover:text-primary-700",
                               )}
                             >
                               <Icon
                                 className={cn(
                                   "flex-shrink-0 h-5 w-5",
                                   isCollapsed ? "mx-auto" : "mr-3",
-                                  "text-gray-400"
+                                  "text-gray-400",
                                 )}
                               />
                               {!isCollapsed && <span>{item.name}</span>}
@@ -253,7 +278,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       </div>
 
       {/* New Request Modal */}
-      <NewRequestModal 
+      <NewRequestModal
         open={isNewRequestModalOpen}
         onOpenChange={setIsNewRequestModalOpen}
       />

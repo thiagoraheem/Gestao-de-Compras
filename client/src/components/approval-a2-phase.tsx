@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import ApprovalItemsViewer from "./approval-items-viewer";
 import AttachmentsViewer from "./attachments-viewer";
 import SupplierComparisonReadonly from "./supplier-comparison-readonly";
+import debug from "@/lib/debug";
 
 const approvalSchema = z.object({
   approved: z.boolean(),
@@ -169,7 +170,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
 
   const approvalMutation = useMutation({
     mutationFn: async (data: ApprovalFormData) => {
-      console.log("Sending A2 approval data:", data);
+      debug.log("Sending A2 approval data:", data);
       const response = await apiRequest(`/api/purchase-requests/${request.id}/approve-a2`, {
         method: "POST",
         body: {
@@ -198,7 +199,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
       onClose?.();
     },
     onError: (error: any) => {
-      console.error("Erro na aprovação A2:", error);
+      debug.error("Erro na aprovação A2:", error);
       toast({
         title: "Erro",
         description: "Falha ao processar aprovação A2",

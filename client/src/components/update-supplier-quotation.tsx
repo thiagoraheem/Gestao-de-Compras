@@ -49,6 +49,7 @@ import {
   Eye,
   History,
 } from "lucide-react";
+import debug from "@/lib/debug";
 
 const updateSupplierQuotationSchema = z.object({
   items: z.array(
@@ -340,7 +341,7 @@ export default function UpdateSupplierQuotation({
           throw new Error(`Arquivo ${file.name} não é válido`);
         }
 
-        console.log("Uploading file:", {
+        debug.log("Uploading file:", {
           fileName: file.name,
           fileSize: file.size,
           fileType: file.type,
@@ -361,7 +362,7 @@ export default function UpdateSupplierQuotation({
           },
         );
 
-        console.log("Upload response:", response);
+        debug.log("Upload response:", response);
         setUploadProgress(((i + 1) / selectedFiles.length) * 100);
       }
 
@@ -370,7 +371,7 @@ export default function UpdateSupplierQuotation({
         description: `${selectedFiles.length} arquivo(s) enviado(s) com sucesso!`,
       });
     } catch (error: any) {
-      console.error("Upload error:", error);
+      debug.error("Upload error:", error);
       toast({
         title: "Erro no upload",
         description: error?.message || "Alguns arquivos não puderam ser enviados.",
