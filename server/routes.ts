@@ -330,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Companies routes
-  app.get("/api/companies", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/companies", isAuthenticated, async (req, res) => {
     try {
       const companies = await storage.getAllCompanies();
       res.json(companies);
