@@ -100,6 +100,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 return null;
               }
 
+              // Show suppliers for admins and buyers
+              if (item.name === "Fornecedores" && !user?.isAdmin && !user?.isBuyer) {
+                return null;
+              }
+
               return (
                 <Link key={item.name} href={item.href}>
                   <div
@@ -161,10 +166,9 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                     return null;
                   }
 
-                  const showSupplier = item.name === "Fornecedores" && (user?.isAdmin || user?.isBuyer);
-
-                  if (item.name === "Fornecedores" && !showSupplier) {
-                      return null;
+                  // Show suppliers for admins and buyers
+                  if (item.name === "Fornecedores" && !user?.isAdmin && !user?.isBuyer) {
+                    return null;
                   }
 
                   return (
