@@ -36,6 +36,9 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   const queryClient = useQueryClient();
   const [isPendencyModalOpen, setIsPendencyModalOpen] = useState(false);
 
+  // Check if user has permission to perform receipt actions
+  const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
+
   
 
   // Fetch request items
@@ -469,22 +472,31 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         <Button variant="outline" onClick={onClose}>
           Fechar
         </Button>
-        <Button
-          variant="destructive"
-          onClick={() => setIsPendencyModalOpen(true)}
-          disabled={reportIssueMutation.isPending}
-        >
-          <X className="mr-2 h-4 w-4" />
-          Reportar Pendência
-        </Button>
-        <Button
-          onClick={() => confirmReceiptMutation.mutate()}
-          disabled={confirmReceiptMutation.isPending}
-          className="bg-green-600 hover:bg-green-700"
-        >
-          <Check className="mr-2 h-4 w-4" />
-          Confirmar Recebimento
-        </Button>
+        {canPerformReceiptActions ? (
+          <>
+            <Button
+              variant="destructive"
+              onClick={() => setIsPendencyModalOpen(true)}
+              disabled={reportIssueMutation.isPending}
+            >
+              <X className="mr-2 h-4 w-4" />
+              Reportar Pendência
+            </Button>
+            <Button
+              onClick={() => confirmReceiptMutation.mutate()}
+              disabled={confirmReceiptMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Check className="mr-2 h-4 w-4" />
+              Confirmar Recebimento
+            </Button>
+          </>
+        ) : (
+          <div className="text-sm text-gray-500 flex items-center">
+            <User className="mr-2 h-4 w-4" />
+            Apenas usuários com perfil "Recebedor" podem confirmar recebimentos
+          </div>
+        )}
       </div>
 
       {/* Pendency Modal */}

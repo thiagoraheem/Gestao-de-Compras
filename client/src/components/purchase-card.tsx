@@ -78,6 +78,9 @@ export default function PurchaseCard({
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [initialA2Action, setInitialA2Action] = useState<'approve' | 'reject' | null>(null);
 
+  // Check if user has permission to perform receipt actions
+  const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
+
   // Buscar anexos da solicitação
   const { data: attachments = [] } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/attachments`],
@@ -1010,33 +1013,39 @@ export default function PurchaseCard({
 
           {phase === PURCHASE_PHASES.RECEBIMENTO && (
             <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-                <Button
-                  size="sm"
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    confirmReceiptMutation.mutate();
-                  }}
-                  disabled={confirmReceiptMutation.isPending}
-                >
-                  <Check className="mr-1 h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">Confirmar</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="flex-1 text-xs sm:text-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    reportIssueMutation.mutate();
-                  }}
-                  disabled={reportIssueMutation.isPending}
-                >
-                  <X className="mr-1 h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">Pendência</span>
-                </Button>
-              </div>
+              {canPerformReceiptActions ? (
+                <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+                  <Button
+                    size="sm"
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      confirmReceiptMutation.mutate();
+                    }}
+                    disabled={confirmReceiptMutation.isPending}
+                  >
+                    <Check className="mr-1 h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">Confirmar</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="flex-1 text-xs sm:text-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      reportIssueMutation.mutate();
+                    }}
+                    disabled={reportIssueMutation.isPending}
+                  >
+                    <X className="mr-1 h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">Pendência</span>
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 text-center py-2">
+                  Apenas usuários com perfil "Recebedor" podem confirmar recebimentos
+                </div>
+              )}
             </div>
           )}
         </CardContent>

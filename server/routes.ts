@@ -1571,6 +1571,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Aprovação A2" });
       }
 
+      if (currentPhase === "recebimento" && !user.isReceiver && !user.isAdmin) {
+        return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Recebimento" });
+      }
+
       // Validate progression from "Cotação" to "Aprovação A2"
       if (currentPhase === "cotacao" && newPhase === "aprovacao_a2") {
         // Check if quotation exists

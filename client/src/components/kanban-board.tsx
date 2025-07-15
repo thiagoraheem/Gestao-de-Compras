@@ -198,6 +198,11 @@ export default function KanbanBoard({
       return false;
     }
     
+    // Permission check for moving OUT of Recebimento phase
+    if (phase === "recebimento" && targetPhase !== "solicitacao" && !user?.isReceiver) {
+      return false;
+    }
+    
     return true;
   };
 
