@@ -549,6 +549,8 @@ export default function PurchaseCard({
 
   const getUrgencyIcon = (urgency: string) => {
     switch (urgency) {
+      case "alta_urgencia":
+        return <TriangleAlert className="mr-1 h-3 w-3" />;
       case "alto":
         return <TriangleAlert className="mr-1 h-3 w-3" />;
       case "medio":
@@ -726,7 +728,7 @@ export default function PurchaseCard({
             {request.urgency && (
               <Badge
                 variant={
-                  request.urgency === "alto" ? "destructive" : "secondary"
+                  request.urgency === "alta_urgencia" || request.urgency === "alto" ? "destructive" : "secondary"
                 }
                 className="text-xs"
               >

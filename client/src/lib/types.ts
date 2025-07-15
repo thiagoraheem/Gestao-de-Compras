@@ -35,12 +35,14 @@ export const URGENCY_LEVELS = {
   BAIXO: 'baixo',
   MEDIO: 'medio',
   ALTO: 'alto',
+  ALTA_URGENCIA: 'alta_urgencia',
 } as const;
 
 export const URGENCY_LABELS = {
   [URGENCY_LEVELS.BAIXO]: 'Baixo',
   [URGENCY_LEVELS.MEDIO]: 'Médio',
   [URGENCY_LEVELS.ALTO]: 'Alto',
+  [URGENCY_LEVELS.ALTA_URGENCIA]: 'Alta Urgência',
 } as const;
 
 export const CATEGORY_OPTIONS = {

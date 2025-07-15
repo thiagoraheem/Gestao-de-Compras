@@ -47,6 +47,8 @@ export default function Notifications({ className }: NotificationsProps) {
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
+      case URGENCY_LEVELS.ALTA_URGENCIA:
+        return "border-l-red-600 bg-red-100";
       case URGENCY_LEVELS.ALTO:
         return "border-l-red-500 bg-red-50";
       case URGENCY_LEVELS.MEDIO:

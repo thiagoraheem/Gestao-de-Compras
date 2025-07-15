@@ -450,7 +450,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Urgência:</span>
-                  <Badge variant={request.urgency === "alto" ? "destructive" : "secondary"}>
+                  <Badge variant={request.urgency === "alta_urgencia" || request.urgency === "alto" ? "destructive" : "secondary"}>
                     {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
                   </Badge>
                 </div>

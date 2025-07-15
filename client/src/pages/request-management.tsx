@@ -351,7 +351,7 @@ export default function RequestManagementPage() {
                           }
                         </Badge>
                         <Badge 
-                          variant={request.urgency === 'alto' ? 'destructive' : 'secondary'}
+                          variant={request.urgency === 'alta_urgencia' || request.urgency === 'alto' ? 'destructive' : 'secondary'}
                           className="text-xs"
                         >
                           {request.urgency in URGENCY_LABELS 
