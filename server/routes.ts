@@ -141,6 +141,25 @@ async function isAdmin(req: Request, res: Response, next: Function) {
   }
 }
 
+// Admin or Buyer authorization middleware
+async function isAdminOrBuyer(req: Request, res: Response, next: Function) {
+  try {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await storage.getUser(req.session.userId);
+    if (!user || (!user.isAdmin && !user.isBuyer)) {
+      return res.status(403).json({ message: "Admin or buyer access required" });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Error checking admin or buyer permissions:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configure PostgreSQL session store
   const PgSession = connectPgSimple(session);
@@ -805,7 +824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/suppliers", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/suppliers", isAuthenticated, isAdminOrBuyer, async (req, res) => {
     try {
       const supplierData = insertSupplierSchema.parse(req.body);
       const supplier = await storage.createSupplier(supplierData);
@@ -816,7 +835,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/suppliers/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.put("/api/suppliers/:id", isAuthenticated, isAdminOrBuyer, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const supplierData = insertSupplierSchema.partial().parse(req.body);

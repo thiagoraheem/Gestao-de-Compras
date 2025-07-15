@@ -56,7 +56,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           onClick={() => setIsMobileOpen(false)}
         />
       )}
-      
+
       {/* Mobile menu button */}
       <Button
         variant="ghost"
@@ -86,12 +86,12 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               <X className="h-5 w-5" />
             </Button>
           </div>
-          
+
           <nav className="flex-1 px-2 space-y-1 mt-4">
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
-              
+
               // Check if user has permission to access this item
               if (item.requiresManager && !user?.isManager && !user?.isAdmin) {
                 return null;
@@ -99,7 +99,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               if (item.requiresAdmin && !user?.isAdmin) {
                 return null;
               }
-              
+
               return (
                 <Link key={item.name} href={item.href}>
                   <div
@@ -145,14 +145,14 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               {isCollapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
             </Button>
           </div>
-          
+
           <div className="flex-1 flex flex-col pt-2 pb-4 overflow-y-auto">
             <TooltipProvider>
               <nav className="flex-1 px-2 space-y-1">
                 {navigation.map((item) => {
                   const Icon = item.icon;
                   const isActive = location === item.href;
-                  
+
                   // Check if user has permission to access this item
                   if (item.requiresManager && !user?.isManager && !user?.isAdmin) {
                     return null;
@@ -160,7 +160,13 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   if (item.requiresAdmin && !user?.isAdmin) {
                     return null;
                   }
-                  
+
+                  const showSupplier = item.name === "Fornecedores" && (user?.isAdmin || user?.isBuyer);
+
+                  if (item.name === "Fornecedores" && !showSupplier) {
+                      return null;
+                  }
+
                   return (
                     <Tooltip key={item.name} delayDuration={0}>
                       <TooltipTrigger asChild>
@@ -195,7 +201,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                     </Tooltip>
                   );
                 })}
-                
+
                 {/* Action Items Section */}
                 <div className="mt-6 pt-4 border-t border-gray-200">
                   <div className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -204,7 +210,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   <div className="mt-2 space-y-1">
                     {actionItems.map((item) => {
                       const Icon = item.icon;
-                      
+
                       return (
                         <Tooltip key={item.name} delayDuration={0}>
                           <TooltipTrigger asChild>
@@ -241,7 +247,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           </div>
         </div>
       </div>
-      
+
       {/* New Request Modal */}
       <NewRequestModal 
         open={isNewRequestModalOpen}
