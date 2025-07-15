@@ -90,10 +90,10 @@ export default function EnhancedNewRequestModal({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user?.companyId || null);
 
-  // Get available companies
+  // Get available companies (now available for all users)
   const { data: companies } = useQuery<any[]>({
     queryKey: ["/api/companies"],
-    enabled: !!user?.isAdmin, // Only load companies if user is admin
+    enabled: !!user, // Load companies for all authenticated users
   });
 
   // Get user's cost center IDs
@@ -150,9 +150,9 @@ export default function EnhancedNewRequestModal({
     },
   });
 
-  // Set selectedCompanyId to user's company if not admin
+  // Set default company to user's company but allow selection for all users
   React.useEffect(() => {
-    if (!user?.isAdmin && user?.companyId) {
+    if (user?.companyId) {
       setSelectedCompanyId(user.companyId);
       form.setValue('companyId', user.companyId);
     }
@@ -324,8 +324,8 @@ export default function EnhancedNewRequestModal({
                 <CardTitle className="text-lg">Informações Básicas</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Company Selection - only show if user is admin */}
-                {user?.isAdmin && companies && companies.length > 0 && (
+                {/* Company Selection - now available for all users */}
+                {companies && companies.length > 0 && (
                   <FormField
                     control={form.control}
                     name="companyId"

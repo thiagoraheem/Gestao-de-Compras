@@ -56,7 +56,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
 
   const { data: companies } = useQuery<any[]>({
     queryKey: ["/api/companies"],
-    enabled: !!user?.isAdmin, // Only load companies if user is admin
+    enabled: !!user, // Load companies for all authenticated users
   });
 
   const { data: costCenters } = useQuery<any[]>({
@@ -447,8 +447,8 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Informações Básicas</h3>
               
-              {/* Company Selection - only show if user is admin */}
-              {user?.isAdmin && companies && companies.length > 0 && (
+              {/* Company Selection - now available for all users */}
+              {companies && companies.length > 0 && (
                 <FormField
                   control={form.control}
                   name="companyId"

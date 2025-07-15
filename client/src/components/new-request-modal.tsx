@@ -44,6 +44,7 @@ import { apiRequest } from "@/lib/api";
 import { CATEGORY_OPTIONS, CATEGORY_LABELS, URGENCY_LEVELS, URGENCY_LABELS } from "@/lib/types";
 
 const requestSchema = z.object({
+  companyId: z.coerce.number().min(1, "Empresa é obrigatória"),
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
   category: z.string().min(1, "Categoria é obrigatória"),
   urgency: z.string().min(1, "Urgência é obrigatória"),
@@ -64,6 +65,12 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Get available companies (now available for all users)
+  const { data: companies } = useQuery<any[]>({
+    queryKey: ["/api/companies"],
+    enabled: !!user, // Load companies for all authenticated users
+  });
 
   // Get user's cost center IDs
   const { data: userCostCenterIds, isLoading: isLoadingUserCostCenters, error: userCostCentersError } = useQuery<number[]>({
@@ -106,6 +113,7 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
   const form = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema),
     defaultValues: {
+      companyId: user?.companyId || 0,
       costCenterId: 0,
       category: "",
       urgency: "",
@@ -121,6 +129,7 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
       const requestData = {
         ...data,
         requesterId: user?.id || 1,
+        companyId: Number(data.companyId),
         costCenterId: Number(data.costCenterId),
         availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : undefined,
         idealDeliveryDate: data.idealDeliveryDate || undefined,
@@ -179,6 +188,40 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Company Selection - now available for all users */}
+            {companies && companies.length > 0 && (
+              <FormField
+                control={form.control}
+                name="companyId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Empresa *</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value?.toString()}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma empresa..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {companies.map((company: any) => (
+                            <SelectItem
+                              key={company.id}
+                              value={company.id.toString()}
+                            >
+                              {company.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}

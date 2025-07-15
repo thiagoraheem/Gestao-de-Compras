@@ -110,6 +110,13 @@ Key entities include:
 - Production deployment uses Node.js server with built assets
 
 ## Changelog
+- July 15, 2025. Campo de Empresa liberado para todos os usuários nas solicitações implementado com sucesso:
+  - ✓ Campo "Empresa" na criação de nova solicitação agora disponível para todos os usuários, não apenas administradores
+  - ✓ Removida restrição `!!user?.isAdmin` das queries de empresas em new-request-modal.tsx e enhanced-new-request-modal.tsx
+  - ✓ Atualizado schema do new-request-modal para incluir validação obrigatória do campo companyId
+  - ✓ Campo empresa incluído na tela de edição de solicitações para todos os usuários (edit-request-modal.tsx)
+  - ✓ Todos os usuários podem agora selecionar qualquer empresa cadastrada ao criar ou editar solicitações
+  - ✓ Mantida funcionalidade de pré-seleção da empresa do usuário como padrão quando disponível
 - July 14, 2025. Sistema de armazenamento de logos em base64 no banco de dados implementado com sucesso:
   - ✓ Migração completa de armazenamento de logos de arquivos para base64 no banco de dados
   - ✓ Campo logoBase64 adicionado à tabela companies em substituição ao logoUrl
