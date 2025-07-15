@@ -473,6 +473,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userData = insertUserSchema.parse(req.body);
       const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+      // Get current user to check if they can set admin permissions
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Apenas administradores podem criar usuários" });
+      }
+
+      // Only admins can set admin permissions
+      if (userData.isAdmin && !currentUser.isAdmin) {
+        return res.status(403).json({ message: "Apenas administradores podem conceder permissões de administrador" });
+      }
+
       const user = await storage.createUser({ ...userData, password: hashedPassword });
 
       // Set user cost centers if provided
@@ -497,6 +509,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const userData = insertUserSchema.partial().parse(req.body);
+
+      // Get current user to check if they can set admin permissions
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Apenas administradores podem editar usuários" });
+      }
+
+      // Get the user being updated
+      const userBeingUpdated = await storage.getUser(id);
+      if (!userBeingUpdated) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+
+      // Only admins can change admin permissions
+      if ('isAdmin' in userData && userData.isAdmin !== userBeingUpdated.isAdmin) {
+        if (!currentUser.isAdmin) {
+          return res.status(403).json({ message: "Apenas administradores podem alterar permissões de administrador" });
+        }
+      }
+
+      // Prevent user from removing their own admin privileges if they are the only admin
+      if (id === currentUser.id && userData.isAdmin === false) {
+        const allUsers = await storage.getAllUsers();
+        const adminCount = allUsers.filter(u => u.isAdmin && u.id !== id).length;
+        if (adminCount === 0) {
+          return res.status(400).json({ message: "Não é possível remover sua própria permissão de administrador. Deve existir pelo menos um administrador no sistema." });
+        }
+      }
 
       // If password is provided, hash it
       if (userData.password) {

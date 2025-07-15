@@ -702,6 +702,30 @@ export default function UsersPage() {
                           </FormItem>
                         )}
                       />
+
+                      <FormField
+                        control={form.control}
+                        name="isAdmin"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg bg-red-50 border-red-200">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="flex-1 space-y-1">
+                              <FormLabel className="text-sm font-medium text-red-700">
+                                <Shield className="inline h-4 w-4 mr-1" />
+                                É Administrador
+                              </FormLabel>
+                              <p className="text-xs text-red-600">
+                                Acesso total ao sistema - Gerenciar usuários, empresas, departamentos e configurações
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
                     </div>
                   </TabsContent>
                 </div>
