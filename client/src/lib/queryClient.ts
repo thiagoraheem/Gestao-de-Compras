@@ -52,8 +52,19 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
-  return res;
+  if (!res.ok) {
+    let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.message) {
+        errorMessage = errorData.message;
+      }
+    } catch (parseError) {
+      // If we can't parse JSON, use the default message
+    }
+    throw new Error(errorMessage);
+  }
+  return await res.json();
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -64,7 +75,7 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     try {
       const response = await apiRequest(queryKey[0] as string);
-      return await response.json();
+      return response;
     } catch (error: any) {
       if (unauthorizedBehavior === "returnNull" && error.status === 401) {
         return null;

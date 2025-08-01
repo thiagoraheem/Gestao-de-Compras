@@ -84,15 +84,23 @@ export default function SupplierCreationModal({ isOpen, onClose, onSuccess }: Su
       
       return { previousSuppliers };
     },
-    onError: (err, variables, context) => {
+    onError: (err: any, variables, context) => {
       // Roll back on error
       if (context?.previousSuppliers) {
         queryClient.setQueryData(["/api/suppliers"], context.previousSuppliers);
       }
       
+      // Extract error message from API response
+      let errorMessage = "Falha ao criar fornecedor";
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
       toast({
         title: "Erro",
-        description: "Falha ao criar fornecedor",
+        description: errorMessage,
         variant: "destructive",
       });
     },
