@@ -54,17 +54,15 @@ export default function SuppliersPage() {
   const createSupplierMutation = useMutation({
     mutationFn: async (data: SupplierFormData) => {
       if (editingSupplier) {
-        const response = await apiRequest(`/api/suppliers/${editingSupplier.id}`, {
+        return await apiRequest(`/api/suppliers/${editingSupplier.id}`, {
           method: "PUT",
           body: data,
         });
-        return response.json();
       } else {
-        const response = await apiRequest("/api/suppliers", {
+        return await apiRequest("/api/suppliers", {
           method: "POST",
           body: data,
         });
-        return response.json();
       }
     },
     onMutate: async (data) => {
