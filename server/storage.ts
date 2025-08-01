@@ -667,9 +667,18 @@ export class DatabaseStorage implements IStorage {
   ): Promise<Supplier> {
     const [updatedSupplier] = await db
       .update(suppliers)
-      .set(supplier)
+      .set({
+        ...supplier,
+        // Ensure we don't accidentally clear the companyId
+        companyId: supplier.companyId || undefined,
+      })
       .where(eq(suppliers.id, id))
       .returning();
+    
+    if (!updatedSupplier) {
+      throw new Error("Supplier not found");
+    }
+    
     return updatedSupplier;
   }
 

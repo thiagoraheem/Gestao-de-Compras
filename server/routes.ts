@@ -897,11 +897,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const supplierData = insertSupplierSchema.partial().parse(req.body);
+      
+      // Validar CNPJ se fornecido
+      if (supplierData.cnpj) {
+        const { validateCNPJ } = await import('./cnpj-validator');
+        if (!validateCNPJ(supplierData.cnpj)) {
+          return res.status(400).json({ message: "CNPJ inválido" });
+        }
+      }
+      
       const supplier = await storage.updateSupplier(id, supplierData);
       res.json(supplier);
     } catch (error) {
       console.error("Error updating supplier:", error);
-      res.status(400).json({ message: "Invalid supplier data" });
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        res.status(400).json({ message: "CNPJ já está sendo usado por outro fornecedor" });
+      } else {
+        res.status(400).json({ message: "Erro ao atualizar fornecedor" });
+      }
     }
   });
 
