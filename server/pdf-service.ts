@@ -10,6 +10,7 @@ interface PurchaseOrderData {
   selectedSupplierQuotation?: any;
   deliveryLocation?: any;
   company?: any;
+  buyer?: any;
 }
 
 export class PDFService {
@@ -546,7 +547,7 @@ export class PDFService {
   }
 
   private static async generatePurchaseOrderHTML(data: PurchaseOrderData): Promise<string> {
-    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company } = data;
+    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company, buyer } = data;
     
     // Função para formatar data brasileira
     const formatBrazilianDate = (dateString: string | null | undefined): string => {
@@ -864,8 +865,8 @@ export class PDFService {
     <div class="electronic-signature-grid-three">
       <div class="signature-electronic">
         <div class="signature-header">ASSINADO ELETRONICAMENTE POR:</div>
-        <div class="signature-name">${purchaseRequest.requesterName || (purchaseRequest.requester ? `${purchaseRequest.requester.firstName || ''} ${purchaseRequest.requester.lastName || ''}`.trim() : 'Não informado')}</div>
-        <div class="signature-role">Solicitante (Comprador)</div>
+        <div class="signature-name">${buyer ? `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || buyer.username || 'Não informado' : 'Comprador não definido'}</div>
+        <div class="signature-role">Comprador</div>
         <div class="signature-date">${new Date(purchaseRequest.createdAt || new Date()).toLocaleDateString('pt-BR')} às ${new Date(purchaseRequest.createdAt || new Date()).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</div>
       </div>
       
@@ -985,6 +986,12 @@ export class PDFService {
     // Buscar histórico de aprovações
     const approvalHistory = await storage.getApprovalHistory(purchaseRequestId);
 
+    // Buscar dados do comprador (buyer)
+    let buyer = null;
+    if (purchaseRequest.buyerId) {
+      buyer = await storage.getUser(purchaseRequest.buyerId);
+    }
+
     const data: PurchaseOrderData = {
       purchaseRequest: {
         ...purchaseRequest,
@@ -995,7 +1002,8 @@ export class PDFService {
       approvalHistory,
       selectedSupplierQuotation,
       deliveryLocation,
-      company
+      company,
+      buyer
     };
 
     // Gerar HTML

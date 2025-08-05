@@ -1909,6 +1909,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const quotationDataForApi = quotationApiSchema.parse(req.body);
 
+      // Get the current user to check if they are a buyer
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get the purchase request to check if buyer_id is null
+      const purchaseRequest = await storage.getPurchaseRequestById(quotationDataForApi.purchaseRequestId);
+      if (!purchaseRequest) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // If the current user is a buyer and the purchase request doesn't have a buyer_id yet,
+      // associate this buyer with the purchase request
+      if (currentUser.isBuyer && !purchaseRequest.buyerId) {
+        await storage.updatePurchaseRequest(purchaseRequest.id, {
+          buyerId: currentUser.id
+        });
+      }
+
       // Use session user ID instead of frontend-provided createdBy for security
       const quotation = await storage.createQuotation({
         ...quotationDataForApi,
@@ -1937,6 +1957,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const purchaseRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
       if (!purchaseRequest) {
         return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // Get the current user to check if they are a buyer
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // If the current user is a buyer and the purchase request doesn't have a buyer_id yet,
+      // associate this buyer with the purchase request
+      if (currentUser.isBuyer && !purchaseRequest.buyerId) {
+        await storage.updatePurchaseRequest(purchaseRequest.id, {
+          buyerId: currentUser.id
+        });
       }
 
       // Get quotation items
@@ -2022,6 +2056,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const quotationData = insertQuotationSchema.partial().parse(req.body);
+
+      // Get the current user to check if they are a buyer
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get the quotation to find the purchase request
+      const existingQuotation = await storage.getQuotationById(id);
+      if (!existingQuotation) {
+        return res.status(404).json({ message: "Quotation not found" });
+      }
+
+      // Get the purchase request to check if buyer_id is null
+      const purchaseRequest = await storage.getPurchaseRequestById(existingQuotation.purchaseRequestId);
+      if (!purchaseRequest) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // If the current user is a buyer and the purchase request doesn't have a buyer_id yet,
+      // associate this buyer with the purchase request
+      if (currentUser.isBuyer && !purchaseRequest.buyerId) {
+        await storage.updatePurchaseRequest(purchaseRequest.id, {
+          buyerId: currentUser.id
+        });
+      }
+
       const quotation = await storage.updateQuotation(id, quotationData);
       res.json(quotation);
     } catch (error) {
@@ -2054,6 +2115,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         quotationId
       });
+
+      // Get the current user to check if they are a buyer
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get the quotation to find the purchase request
+      const quotation = await storage.getQuotationById(quotationId);
+      if (!quotation) {
+        return res.status(404).json({ message: "Quotation not found" });
+      }
+
+      // Get the purchase request to check if buyer_id is null
+      const purchaseRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+      if (!purchaseRequest) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // If the current user is a buyer and the purchase request doesn't have a buyer_id yet,
+      // associate this buyer with the purchase request
+      if (currentUser.isBuyer && !purchaseRequest.buyerId) {
+        await storage.updatePurchaseRequest(purchaseRequest.id, {
+          buyerId: currentUser.id
+        });
+      }
+
       const item = await storage.createQuotationItem(itemData);
       res.status(201).json(item);
     } catch (error) {
@@ -2066,6 +2154,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const itemData = insertQuotationItemSchema.partial().parse(req.body);
+
+      // Get the current user to check if they are a buyer
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Since we don't have a direct way to get quotation from quotation item,
+      // we'll check if the user is a buyer and handle the buyer_id association
+      // in the main quotation operations. This is a less critical operation.
+
       const item = await storage.updateQuotationItem(id, itemData);
       res.json(item);
     } catch (error) {
@@ -2077,6 +2176,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/quotation-items/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+
+      // Get the current user to check if they are a buyer
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Since we don't have a direct way to get quotation from quotation item,
+      // we'll check if the user is a buyer and handle the buyer_id association
+      // in the main quotation operations. This is a less critical operation.
+
       await storage.deleteQuotationItem(id);
       res.status(204).send();
     } catch (error) {
@@ -2147,6 +2257,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const supplierQuotationData = insertSupplierQuotationSchema.partial().parse(req.body);
+
+      // Get the current user to check if they are a buyer
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get the supplier quotation to find the quotation and purchase request
+      const existingSupplierQuotation = await storage.getSupplierQuotationById(id);
+      if (!existingSupplierQuotation) {
+        return res.status(404).json({ message: "Supplier quotation not found" });
+      }
+
+      // Get the quotation to find the purchase request
+      const quotation = await storage.getQuotationById(existingSupplierQuotation.quotationId);
+      if (!quotation) {
+        return res.status(404).json({ message: "Quotation not found" });
+      }
+
+      // Get the purchase request to check if buyer_id is null
+      const purchaseRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+      if (!purchaseRequest) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // If the current user is a buyer and the purchase request doesn't have a buyer_id yet,
+      // associate this buyer with the purchase request
+      if (currentUser.isBuyer && !purchaseRequest.buyerId) {
+        await storage.updatePurchaseRequest(purchaseRequest.id, {
+          buyerId: currentUser.id
+        });
+      }
+
       const supplierQuotation = await storage.updateSupplierQuotation(id, supplierQuotationData);
       res.json(supplierQuotation);
     } catch (error) {
@@ -2174,6 +2317,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         supplierQuotationId
       });
+
+      // Get the current user to check if they are a buyer
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get the supplier quotation to find the quotation and purchase request
+      const supplierQuotation = await storage.getSupplierQuotationById(supplierQuotationId);
+      if (!supplierQuotation) {
+        return res.status(404).json({ message: "Supplier quotation not found" });
+      }
+
+      // Get the quotation to find the purchase request
+      const quotation = await storage.getQuotationById(supplierQuotation.quotationId);
+      if (!quotation) {
+        return res.status(404).json({ message: "Quotation not found" });
+      }
+
+      // Get the purchase request to check if buyer_id is null
+      const purchaseRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+      if (!purchaseRequest) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // If the current user is a buyer and the purchase request doesn't have a buyer_id yet,
+      // associate this buyer with the purchase request
+      if (currentUser.isBuyer && !purchaseRequest.buyerId) {
+        await storage.updatePurchaseRequest(purchaseRequest.id, {
+          buyerId: currentUser.id
+        });
+      }
+
       const item = await storage.createSupplierQuotationItem(itemData);
       res.status(201).json(item);
     } catch (error) {
@@ -2186,6 +2362,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const itemData = insertSupplierQuotationItemSchema.partial().parse(req.body);
+
+      // Get the current user to check if they are a buyer
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Since we don't have getSupplierQuotationItemById, we'll check if the user is a buyer
+      // and if they are, we'll try to find the purchase request through the supplierQuotationId
+      // that might be provided in the request body or we'll skip this check for now
+      // The buyer_id association will happen in other operations like creating/updating quotations
+
       const item = await storage.updateSupplierQuotationItem(id, itemData);
       res.json(item);
     } catch (error) {
@@ -2268,6 +2456,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotation = await storage.getQuotationById(quotationId);
       if (!quotation) {
         return res.status(404).json({ message: "Cotação não encontrada" });
+      }
+
+      // Get the current user to check if they are a buyer
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get the purchase request to check if buyer_id is null
+      const purchaseRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+      if (!purchaseRequest) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // If the current user is a buyer and the purchase request doesn't have a buyer_id yet,
+      // associate this buyer with the purchase request
+      if (currentUser.isBuyer && !purchaseRequest.buyerId) {
+        await storage.updatePurchaseRequest(purchaseRequest.id, {
+          buyerId: currentUser.id
+        });
       }
 
       // Buscar cotação do fornecedor
