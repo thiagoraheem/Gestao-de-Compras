@@ -264,7 +264,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isApproverA1: user.isApproverA1,
           isApproverA2: user.isApproverA2,
           isAdmin: user.isAdmin,
-          isManager: user.isManager
+          isManager: user.isManager,
+          isReceiver: user.isReceiver
         });
       } else {
         res.status(401).json({ message: "Unauthorized" });
@@ -1615,7 +1616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verificar se a fase é válida
-      const validPhases = ["solicitacao", "aprovacao_a1", "cotacao", "aprovacao_a2", "pedido_compra", "recebimento", "arquivado"] as const;
+      const validPhases = ["solicitacao", "aprovacao_a1", "cotacao", "aprovacao_a2", "pedido_compra", "recebimento", "conclusao_compra", "arquivado"] as const;
       if (!validPhases.includes(newPhase)) {
         return res.status(400).json({ message: "Invalid phase" });
       }

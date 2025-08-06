@@ -1388,7 +1388,7 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    if (request.currentPhase === 'conclusao' || request.currentPhase === 'arquivado') {
+    if (request.currentPhase === 'conclusao_compra' || request.currentPhase === 'arquivado') {
       timeline.push({
         id: 'process_completed',
         type: 'completion',

@@ -72,7 +72,7 @@ const getPhaseLabel = (phase: string) => {
     'aprovacao_a2': 'Aprovação A2',
     'pedido_compra': 'Pedido de Compra',
     'recebimento': 'Recebimento',
-    'conclusao': 'Conclusão',
+    'conclusao_compra': 'Conclusão',
     'arquivado': 'Arquivado'
   };
   

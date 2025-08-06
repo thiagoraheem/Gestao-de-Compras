@@ -28,6 +28,8 @@ interface User {
   isApproverA1: boolean;
   isApproverA2: boolean;
   isAdmin: boolean;
+  isManager: boolean;
+  isReceiver: boolean;
 }
 
 export function useAuth() {
