@@ -133,8 +133,12 @@ export class PDFService {
 
   // Método de fallback que retorna o HTML quando PDF falha
   private static async generatePDFWithFallback(html: string, pdfType: string): Promise<Buffer> {
+    console.log(`🔄 Tentando gerar PDF para ${pdfType}...`);
+    
     try {
-      return await this.generatePDFWithPuppeteer(html);
+      const pdfBuffer = await this.generatePDFWithPuppeteer(html);
+      console.log(`✅ PDF gerado com sucesso usando Puppeteer para ${pdfType}`);
+      return pdfBuffer;
     } catch (puppeteerError) {
       console.error(`❌ Puppeteer falhou para ${pdfType}:`, puppeteerError.message);
       
@@ -153,12 +157,14 @@ export class PDFService {
 
         const file = { content: html };
         const pdfBuffer = await htmlPdf.generatePdf(file, options);
+        console.log(`✅ PDF gerado com sucesso usando html-pdf-node para ${pdfType}`);
         return pdfBuffer;
       } catch (fallbackError) {
         console.error(`❌ html-pdf-node também falhou para ${pdfType}:`, fallbackError.message);
+        console.log(`⚠️ Retornando HTML como fallback para ${pdfType}`);
         
         // Como último recurso, retorna o HTML como um "PDF" (o browser pode imprimir/salvar como PDF)
-        const htmlDocument = `
+        const htmlDocument = `<!-- HTML_FALLBACK_MARKER -->
 <!DOCTYPE html>
 <html>
 <head>

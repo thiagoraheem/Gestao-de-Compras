@@ -2798,14 +2798,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filename = `Pedido_Compra_${purchaseRequest?.requestNumber || id}`;
 
       // Check if the buffer is HTML (fallback mode)
-      const bufferString = pdfBuffer.toString('utf8');
-      if (bufferString.includes('<!DOCTYPE html>')) {
+      // Verificar os primeiros 1000 caracteres para detectar HTML
+      const bufferStart = pdfBuffer.toString('utf8', 0, Math.min(1000, pdfBuffer.length));
+      const isHtmlContent = bufferStart.includes('HTML_FALLBACK_MARKER') ||
+                           bufferStart.includes('<!DOCTYPE html>') || 
+                           bufferStart.includes('<html>') || 
+                           bufferStart.includes('<HTML>') ||
+                           bufferStart.trim().startsWith('<');
+
+      console.log(`📄 PDF Generation for request ${id}:`);
+      console.log(`   Buffer size: ${pdfBuffer.length} bytes`);
+      console.log(`   Content type detected: ${isHtmlContent ? 'HTML' : 'PDF'}`);
+      console.log(`   Buffer start: ${bufferStart.substring(0, 100)}...`);
+
+      if (isHtmlContent) {
         // Return HTML file for browser to print/save as PDF
+        console.log(`   ✅ Returning as HTML file: ${filename}.html`);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}.html"`);
         res.send(pdfBuffer);
       } else {
         // Return actual PDF
+        console.log(`   ✅ Returning as PDF file: ${filename}.pdf`);
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
         res.setHeader('Content-Length', pdfBuffer.length);
@@ -3040,9 +3054,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate PDF using the PDF service
       const pdfBuffer = await PDFService.generateDashboardPDF(dashboardData);
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="dashboard-executivo-${new Date().toISOString().split('T')[0]}.pdf"`);
-      res.send(pdfBuffer);
+      // Check if the buffer is HTML (fallback mode)
+      const bufferStart = pdfBuffer.toString('utf8', 0, Math.min(1000, pdfBuffer.length));
+      const isHtmlContent = bufferStart.includes('HTML_FALLBACK_MARKER') ||
+                           bufferStart.includes('<!DOCTYPE html>') || 
+                           bufferStart.includes('<html>') || 
+                           bufferStart.includes('<HTML>') ||
+                           bufferStart.trim().startsWith('<');
+
+      const filename = `dashboard-executivo-${new Date().toISOString().split('T')[0]}`;
+
+      if (isHtmlContent) {
+        // Return HTML file for browser to print/save as PDF
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.html"`);
+        res.send(pdfBuffer);
+      } else {
+        // Return actual PDF
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
+      }
     } catch (error) {
       console.error('Error generating dashboard PDF:', error);
       res.status(500).json({ error: 'Error generating PDF' });
@@ -3194,13 +3227,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate completion summary PDF
       const pdfBuffer = await PDFService.generateCompletionSummaryPDF(id);
 
-      // Set headers for PDF download
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="Conclusao_${request.requestNumber}.pdf"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
+      // Check if the buffer is HTML (fallback mode)
+      const bufferStart = pdfBuffer.toString('utf8', 0, Math.min(1000, pdfBuffer.length));
+      const isHtmlContent = bufferStart.includes('HTML_FALLBACK_MARKER') ||
+                           bufferStart.includes('<!DOCTYPE html>') || 
+                           bufferStart.includes('<html>') || 
+                           bufferStart.includes('<HTML>') ||
+                           bufferStart.trim().startsWith('<');
 
-      // Send PDF
-      res.send(pdfBuffer);
+      const filename = `Conclusao_${request.requestNumber}`;
+
+      if (isHtmlContent) {
+        // Return HTML file for browser to print/save as PDF
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.html"`);
+        res.send(pdfBuffer);
+      } else {
+        // Return actual PDF
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
+      }
     } catch (error) {
       console.error("Error generating completion PDF:", error);
       res.status(500).json({ message: "Failed to generate completion PDF" });
