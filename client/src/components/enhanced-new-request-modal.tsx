@@ -121,20 +121,18 @@ export default function EnhancedNewRequestModal({
     queryFn: () => apiRequest(`/api/users/${user?.id}/cost-centers`),
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Get all cost centers
   const { data: allCostCenters } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Filter cost centers based on user's assigned cost centers only (not filtering by company anymore)
   const costCenters = React.useMemo(() => {
-    if (!allCostCenters || !userCostCenterIds) return [];
-    return allCostCenters.filter(center => userCostCenterIds.includes(center.id));
+    if (!allCostCenters || !userCostCenterIds || !Array.isArray(allCostCenters) || !Array.isArray(userCostCenterIds)) return [];
+    return allCostCenters.filter((center: any) => userCostCenterIds.includes(center.id));
   }, [allCostCenters, userCostCenterIds]);
 
   const form = useForm<RequestFormData>({
