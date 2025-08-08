@@ -35,7 +35,7 @@ export default function Companies() {
     queryKey: ["/api/companies"],
     queryFn: async () => {
       const response = await apiRequest("/api/companies");
-      return await response.json();
+      return response;
     },
   });
 

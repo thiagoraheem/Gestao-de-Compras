@@ -184,8 +184,8 @@ export default function PurchaseCard({
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({
         predicate: (query) =>
-          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
+          !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
       });
 
       toast({
@@ -216,8 +216,8 @@ export default function PurchaseCard({
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({
         predicate: (query) =>
-          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
+          !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
       });
       toast({
         title: "Sucesso",
@@ -247,8 +247,8 @@ export default function PurchaseCard({
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({
         predicate: (query) =>
-          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
+          !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
       });
       toast({
         title: "Sucesso",
@@ -326,7 +326,7 @@ export default function PurchaseCard({
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       queryClient.invalidateQueries({
         predicate: (query) =>
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
+          !!(query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
       });
 
       // Force refetch to ensure we have the latest data

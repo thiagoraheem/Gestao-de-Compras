@@ -153,8 +153,8 @@ export default function KanbanBoard({
       // Invalidate all quotation status and related queries
       queryClient.invalidateQueries({
         predicate: (query) =>
-          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
+          !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
       });
 
       // Force immediate refetch for absolute certainty
@@ -249,11 +249,7 @@ export default function KanbanBoard({
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     
-    console.log("🎯 handleDragEnd triggered", { 
-      activeId: active.id, 
-      overId: over?.id,
-      hasOver: !!over 
-    });
+    // Drag end processing
 
     if (over && active.id !== over.id) {
       const requestId = active.id.toString().includes("-")
@@ -296,21 +292,8 @@ export default function KanbanBoard({
 
       const newPhase = over.id.toString();
 
-      console.log("🔐 Checking permissions", {
-        currentPhase: request.currentPhase,
-        newPhase,
-        userId: user?.id,
-        isApproverA1: user?.isApproverA1,
-        isApproverA2: user?.isApproverA2
-      });
-
       // Check permissions before allowing the move
       if (!canUserDragCard(request.currentPhase, newPhase)) {
-        console.log("❌ Permission denied for drag movement", {
-          from: request.currentPhase,
-          to: newPhase,
-          user: user?.username
-        });
         toast({
           title: "Acesso Negado",
           description: `Você não possui permissão para mover cards da fase ${PHASE_LABELS[request.currentPhase]} para ${PHASE_LABELS[newPhase]}`,
@@ -370,13 +353,9 @@ export default function KanbanBoard({
         return;
       }
 
-      console.log("✅ Executing phase update", { requestId, newPhase });
       moveRequestMutation.mutate({ id: requestId, newPhase });
     } else {
-      console.log("⚠️ Drag cancelled - no valid target or same position", {
-        hasOver: !!over,
-        samePosition: active.id === over?.id
-      });
+      // Drag cancelled - no valid target or same position
     }
 
     setActiveId(null);
@@ -538,10 +517,10 @@ export default function KanbanBoard({
             queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
             queryClient.invalidateQueries({
               predicate: (query) =>
-                query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+                !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
                 query.queryKey[0]
                   ?.toString()
-                  .includes(`/api/purchase-requests`),
+                  .includes(`/api/purchase-requests`)),
             });
           }}
         />

@@ -120,7 +120,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       });
       // Invalidate queries to refetch updated data
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === "/api/purchase-requests" });
+      queryClient.invalidateQueries({ predicate: (query) => !!(query.queryKey[0] === "/api/purchase-requests") });
     },
     onError: () => {
       toast({

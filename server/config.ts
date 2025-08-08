@@ -19,6 +19,14 @@ export const config = {
   app: {
     name: "Sistema de Compras Blomaq",
     description: "Sistema de gestão de solicitações de compra",
+  },
+
+  // ERP Integration settings
+  erp: {
+    baseUrl: process.env.BASE_API_URL || "http://54.232.194.197:5001/api",
+    productsEndpoint: "/Produtos",
+    timeout: 10000, // 10 seconds timeout
+    enabled: process.env.ERP_INTEGRATION_ENABLED === "true" || false,
   }
 };
 

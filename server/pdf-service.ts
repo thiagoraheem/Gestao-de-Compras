@@ -44,12 +44,10 @@ export class PDFService {
 
     for (const browserPath of possiblePaths) {
       if (browserPath && fs.existsSync(browserPath)) {
-        console.log(`Browser encontrado em: ${browserPath}`);
         return browserPath;
       }
     }
 
-    console.log('Nenhum browser encontrado nos caminhos padrão, tentando usar browser padrão do sistema');
     return undefined;
   }
 
@@ -114,21 +112,15 @@ export class PDFService {
 
     let lastError;
     for (let i = 0; i < configurations.length; i++) {
-      console.log(`Tentando configuração ${i + 1}/${configurations.length}:`, 
-                  configurations[i].executablePath || 'browser padrão do sistema');
-      
       for (let retry = 0; retry < retries; retry++) {
         try {
-          console.log(`  - Tentativa ${retry + 1}/${retries}`);
           const browser = await puppeteer.launch(configurations[i]);
-          console.log(`✓ Browser lançado com sucesso!`);
           return browser;
         } catch (error) {
           lastError = error;
           console.error(`  ✗ Erro na tentativa ${retry + 1}:`, error.message);
           if (retry < retries - 1) {
             const delay = 1000 * (retry + 1);
-            console.log(`  ⏳ Aguardando ${delay}ms antes da próxima tentativa...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
@@ -142,11 +134,9 @@ export class PDFService {
   // Método de fallback que retorna o HTML quando PDF falha
   private static async generatePDFWithFallback(html: string, pdfType: string): Promise<Buffer> {
     try {
-      console.log(`🔄 Tentando gerar PDF com Puppeteer para ${pdfType}...`);
       return await this.generatePDFWithPuppeteer(html);
     } catch (puppeteerError) {
       console.error(`❌ Puppeteer falhou para ${pdfType}:`, puppeteerError.message);
-      console.log(`🔄 Tentando fallback com html-pdf-node para ${pdfType}...`);
       
       try {
         const options = {
@@ -163,11 +153,9 @@ export class PDFService {
 
         const file = { content: html };
         const pdfBuffer = await htmlPdf.generatePdf(file, options);
-        console.log(`✅ PDF gerado com sucesso usando html-pdf-node para ${pdfType}`);
         return pdfBuffer;
       } catch (fallbackError) {
         console.error(`❌ html-pdf-node também falhou para ${pdfType}:`, fallbackError.message);
-        console.log(`🔄 Criando fallback como documento HTML para ${pdfType}...`);
         
         // Como último recurso, retorna o HTML como um "PDF" (o browser pode imprimir/salvar como PDF)
         const htmlDocument = `

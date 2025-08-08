@@ -55,9 +55,6 @@ export async function sendRFQToSuppliers(
 
       await transporter.sendMail(mailOptions);
       successCount++;
-      console.log(
-        `RFQ enviado com sucesso para ${supplier.name} (${supplier.email})`,
-      );
     } catch (error) {
       console.error(`Erro ao enviar RFQ para ${supplier.name}:`, error);
       errors.push(
@@ -187,7 +184,6 @@ export async function notifyNewRequest(
     const buyerUsers = buyers.filter((user) => user.isBuyer);
 
     if (buyerUsers.length === 0) {
-      console.log("Nenhum comprador encontrado para notificação");
       return;
     }
 
@@ -219,7 +215,6 @@ export async function notifyNewRequest(
 
       try {
         await transporter.sendMail(mailOptions);
-        console.log(`Notificação enviada para comprador: ${buyer.email}`);
       } catch (error) {
         console.error(`Erro ao enviar notificação para ${buyer.email}:`, error);
       }
@@ -253,7 +248,6 @@ export async function notifyApprovalA1(
     }
 
     if (approverA1Users.length === 0) {
-      console.log("Nenhum aprovador A1 encontrado para o centro de custo da solicitação");
       return;
     }
 
@@ -285,7 +279,6 @@ export async function notifyApprovalA1(
 
       try {
         await transporter.sendMail(mailOptions);
-        console.log(`Notificação A1 enviada para aprovador: ${approver.email}`);
       } catch (error) {
         console.error(
           `Erro ao enviar notificação A1 para ${approver.email}:`,
@@ -308,7 +301,6 @@ export async function notifyApprovalA2(
     const approverA2Users = approvers.filter((user) => user.isApproverA2);
 
     if (approverA2Users.length === 0) {
-      console.log("Nenhum aprovador A2 encontrado para notificação");
       return;
     }
 
@@ -352,7 +344,6 @@ export async function notifyApprovalA2(
 
       try {
         await transporter.sendMail(mailOptions);
-        console.log(`Notificação A2 enviada para aprovador: ${approver.email}`);
       } catch (error) {
         console.error(
           `Erro ao enviar notificação A2 para ${approver.email}:`,
@@ -566,7 +557,6 @@ export async function notifyRejection(
     }
 
     if (!requester || !requester.email) {
-      console.log("Requester not found or no email address");
       return;
     }
 
@@ -585,7 +575,6 @@ export async function notifyRejection(
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Notificação de reprovação enviada para: ${requester.email}`);
   } catch (error) {
     console.error("Erro ao notificar reprovação:", error);
   }
@@ -680,7 +669,6 @@ export async function sendPasswordResetEmail(
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`E-mail de recuperação enviado para ${user.email}`);
   } catch (error) {
     console.error(
       `Erro ao enviar e-mail de recuperação para ${user.email}:`,

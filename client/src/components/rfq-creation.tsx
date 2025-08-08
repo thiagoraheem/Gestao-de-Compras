@@ -309,9 +309,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       // Invalidate all queries starting with the purchase request API pattern
       queryClient.invalidateQueries({ 
         predicate: (query) => 
-          query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
+          !!(query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
           query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
       });
       onComplete();
     },

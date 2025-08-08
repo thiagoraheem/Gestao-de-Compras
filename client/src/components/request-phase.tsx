@@ -50,6 +50,7 @@ import {
 import { Plus, X, Edit3, FileText, Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ProductSearch from "./product-search";
+import HybridProductInput from "./hybrid-product-input";
 
 const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
@@ -89,8 +90,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   // Get user's cost center IDs
   const { data: userCostCenterIds } = useQuery<number[]>({
     queryKey: ["/api/users", user?.id, "cost-centers"],
-    queryFn: () =>
-      fetch(`/api/users/${user?.id}/cost-centers`).then((res) => res.json()),
+    queryFn: () => apiRequest(`/api/users/${user?.id}/cost-centers`),
     enabled: !!user?.id,
   });
 
@@ -175,7 +175,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
         method,
         body: requestData,
       });
-      return response.json();
+      return response;
     },
     onMutate: async (data) => {
       if (!request) {
@@ -291,7 +291,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       queryClient.invalidateQueries({
         predicate: (query) =>
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
+          !!query.queryKey[0]?.toString().includes(`/api/purchase-requests`),
       });
       
       // Force refetch to ensure we have the latest data
@@ -558,153 +558,143 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Itens da Solicitação</CardTitle>
-              <CardDescription></CardDescription>
+              <CardDescription>
+                Adicione os itens necessários. Você pode buscar produtos do ERP ou cadastrar itens avulsos.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Tabs value="manual" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-1">
-                  <TabsTrigger
-                    value="manual"
-                    className="flex items-center gap-2"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    Cadastro Manual
-                  </TabsTrigger>
-                </TabsList>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Itens Cadastrados</h4>
+                <Button
+                  type="button"
+                  onClick={addManualItem}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar Item
+                </Button>
+              </div>
 
-                <TabsContent value="manual" className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Itens Cadastrados</h4>
-                    <Button
-                      type="button"
-                      onClick={addManualItem}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Adicionar Item
-                    </Button>
-                  </div>
+              {manualItems.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Edit3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>Nenhum item cadastrado ainda.</p>
+                  <p className="text-sm">
+                    Clique em "Adicionar Item" para começar.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {manualItems.map((item, index) => (
+                    <Card key={item.id} className="p-6 border-l-4 border-l-blue-500">
+                      <div className="flex items-center justify-between mb-4">
+                        <h5 className="font-medium text-lg flex items-center gap-2">
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-semibold">
+                            Item {index + 1}
+                          </span>
+                        </h5>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeManualItem(item.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Remover
+                        </Button>
+                      </div>
 
-                  {manualItems.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <Edit3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                      <p>Nenhum item cadastrado ainda.</p>
-                      <p className="text-sm">
-                        Clique em "Adicionar Item" para começar.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {manualItems.map((item) => (
-                        <Card key={item.id} className="p-4">
-                          <div className="mb-3">
-                            <label className="text-sm font-medium">
-                              Buscar Produto no ERP
+                      {/* Campos principais em grid responsivo */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                        <div className="lg:col-span-2">
+                          <label className="text-sm font-medium text-gray-700 mb-1 block">
+                            Descrição do Item *
+                          </label>
+                          <HybridProductInput
+                            value={item.description}
+                            onChange={(value) =>
+                              updateManualItem(item.id, "description", value)
+                            }
+                            onProductSelect={(product) =>
+                              handleProductSelect(item.id, product)
+                            }
+                            placeholder="Digite a descrição ou busque no ERP..."
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-1 block">
+                              Unidade *
                             </label>
-                            <ProductSearch
-                              onProductSelect={(product) =>
-                                handleProductSelect(item.id, product)
+                            <Select
+                              value={item.unit}
+                              onValueChange={(value) =>
+                                updateManualItem(item.id, "unit", value)
                               }
-                              placeholder="Digite para buscar produtos..."
-                            />
-                            {item.productCode && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Código do produto: {item.productCode}
-                              </p>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
-                            <div>
-                              <label className="text-sm font-medium">
-                                Descrição
-                              </label>
-                              <Input
-                                value={item.description}
-                                onChange={(e) =>
-                                  updateManualItem(
-                                    item.id,
-                                    "description",
-                                    e.target.value,
-                                  )
-                                }
-                                placeholder="Descrição do item"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium">
-                                Unidade
-                              </label>
-                              <Select
-                                value={item.unit}
-                                onValueChange={(value) =>
-                                  updateManualItem(item.id, "unit", value)
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="UN">UN</SelectItem>
-                                  <SelectItem value="PC">PC</SelectItem>
-                                  <SelectItem value="MT">MT</SelectItem>
-                                  <SelectItem value="KG">KG</SelectItem>
-                                  <SelectItem value="LT">LT</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium">
-                                Quantidade
-                              </label>
-                              <Input
-                                type="number"
-                                value={item.requestedQuantity}
-                                onChange={(e) =>
-                                  updateManualItem(
-                                    item.id,
-                                    "requestedQuantity",
-                                    parseInt(e.target.value) || 0,
-                                  )
-                                }
-                                min="1"
-                              />
-                            </div>
-                            <div className="flex items-end">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => removeManualItem(item.id)}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
+                            >
+                              <SelectTrigger className="h-10">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="UN">UN - Unidade</SelectItem>
+                                <SelectItem value="PC">PC - Peça</SelectItem>
+                                <SelectItem value="MT">MT - Metro</SelectItem>
+                                <SelectItem value="KG">KG - Quilograma</SelectItem>
+                                <SelectItem value="LT">LT - Litro</SelectItem>
+                                <SelectItem value="M2">M² - Metro Quadrado</SelectItem>
+                                <SelectItem value="M3">M³ - Metro Cúbico</SelectItem>
+                                <SelectItem value="CX">CX - Caixa</SelectItem>
+                                <SelectItem value="PCT">PCT - Pacote</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div>
-                            <label className="text-sm font-medium">
-                              Especificação Técnica
+                            <label className="text-sm font-medium text-gray-700 mb-1 block">
+                              Quantidade *
                             </label>
-                            <Textarea
-                              value={item.technicalSpecification || ""}
+                            <Input
+                              type="number"
+                              value={item.requestedQuantity}
                               onChange={(e) =>
                                 updateManualItem(
                                   item.id,
-                                  "technicalSpecification",
-                                  e.target.value,
+                                  "requestedQuantity",
+                                  parseInt(e.target.value) || 0,
                                 )
                               }
-                              placeholder="Especificações técnicas detalhadas (marca, modelo, características, etc.)"
-                              rows={2}
-                              className="mt-1"
+                              min="1"
+                              className="h-10"
+                              placeholder="Qtd"
                             />
                           </div>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
+                        </div>
+                      </div>
+
+                      {/* Especificação Técnica */}
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 mb-1 block">
+                          Especificação Técnica
+                        </label>
+                        <Textarea
+                          value={item.technicalSpecification || ""}
+                          onChange={(e) =>
+                            updateManualItem(
+                              item.id,
+                              "technicalSpecification",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Especificações técnicas detalhadas (marca, modelo, características, normas técnicas, etc.)"
+                          rows={3}
+                          className="resize-none"
+                        />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 

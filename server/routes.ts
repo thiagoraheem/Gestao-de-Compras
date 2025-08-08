@@ -778,8 +778,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/cost-centers", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      console.log("Cost center creation request:", req.body);
-      
       // Validate required fields before parsing
       if (!req.body.code || !req.body.name || !req.body.departmentId) {
         return res.status(400).json({ 
@@ -788,7 +786,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const costCenterData = insertCostCenterSchema.parse(req.body);
-      console.log("Parsed cost center data:", costCenterData);
       
       const costCenter = await storage.createCostCenter(costCenterData);
       res.status(201).json(costCenter);
@@ -1023,33 +1020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/purchase-requests", isAuthenticated, async (req, res) => {
-    try {
-      const requestData = insertPurchaseRequestSchema.parse(req.body);
-      const purchaseRequest = await storage.createPurchaseRequest(requestData);
 
-      // Adicionar itens da solicitação
-      if (req.body.items && Array.isArray(req.body.items)) {
-        for (const item of req.body.items) {
-          const itemData = insertPurchaseRequestItemSchema.parse({
-            ...item,
-            purchaseRequestId: purchaseRequest.id
-          });
-          await storage.createPurchaseRequestItem(itemData);
-        }
-      }
-
-      // Send notification to buyers about the new request
-      notifyNewRequest(purchaseRequest).catch(error => {
-        console.error("Erro ao enviar notificação de nova solicitação:", error);
-      });
-
-      res.status(201).json(purchaseRequest);
-    } catch (error) {
-      console.error("Error creating purchase request:", error);
-      res.status(400).json({ message: "Invalid purchase request data" });
-    }
-  });
 
   app.get("/api/purchase-requests/phase/:phase", isAuthenticated, async (req, res) => {
     try {
@@ -1087,16 +1058,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate items if provided
       let validatedItems: typeof insertPurchaseRequestItemSchema._type[] = [];
       if (items && Array.isArray(items)) {
-        validatedItems = items.map((item: any) => insertPurchaseRequestItemSchema.parse({
-          ...item,
-          purchaseRequestId: 0,
-
-          description: item.description || '',
-          unit: item.unit || '',
-          requestedQuantity: item.requestedQuantity || 0,
-          technicalSpecification: item.technicalSpecification || null,
-          approvedQuantity: undefined
-        }));
+        validatedItems = items.map((item: any) => {
+          const processedItem = insertPurchaseRequestItemSchema.parse({
+            ...item,
+            purchaseRequestId: 0,
+            productCode: item.productCode || null, // Explicitly include productCode
+            description: item.description || '',
+            unit: item.unit || '',
+            requestedQuantity: item.requestedQuantity || 0,
+            technicalSpecification: item.technicalSpecification || null,
+            approvedQuantity: undefined
+          });
+          return processedItem;
+        });
       }
 
       // Create the request
@@ -1114,6 +1088,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createPurchaseRequestItem(item);
         }
       }
+
+      // Send notification to buyers about the new request
+      notifyNewRequest(request).catch(error => {
+        console.error("Erro ao enviar notificação de nova solicitação:", error);
+      });
 
       res.status(201).json(request);
     } catch (error) {
@@ -1188,7 +1167,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         technicalSpecification: item.technicalSpecification || ""
       }));
 
-      console.log(`[DEBUG] Fetched ${items.length} items for purchase request ${purchaseRequestId}:`, mappedItems);
       res.json(mappedItems);
     } catch (error) {
       console.error("Error fetching purchase request items:", error);
@@ -1296,7 +1274,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { approved, rejectionReason, approverId } = req.body;
 
       const request = await storage.getPurchaseRequestById(id);
-      console.log('Solicitação atual:', request);
 
       if (!request || request.currentPhase !== "aprovacao_a1") {
         return res.status(400).json({ message: "Request must be in the A1 approval phase" });
@@ -1364,8 +1341,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const { approved, rejectionReason, rejectionAction, approverId } = req.body;
 
-      console.log("A2 approval received:", { approved, rejectionReason, rejectionAction, approverId });
-
       const request = await storage.getPurchaseRequestById(id);
       if (!request || request.currentPhase !== "aprovacao_a2") {
         return res.status(400).json({ message: "Request must be in the A2 approval phase" });
@@ -1375,14 +1350,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!approved) {
         if (rejectionAction === "recotacao") {
           newPhase = "cotacao"; // Return to quotation phase
-          console.log("Setting newPhase to 'cotacao' for new quotation");
         } else {
           newPhase = "arquivado"; // Archive
-          console.log("Setting newPhase to 'arquivado' for archive");
         }
       }
-
-      console.log("Final newPhase:", newPhase);
 
       const updateData = {
         approverA2Id: approverId,
@@ -2438,16 +2409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotationId = parseInt(req.params.quotationId);
       const { supplierId, items, totalValue, paymentTerms, deliveryTerms, warrantyPeriod, observations } = req.body;
 
-      console.log("Update supplier quotation request:", {
-        quotationId,
-        supplierId,
-        items: items?.length || 0,
-        totalValue,
-        paymentTerms,
-        deliveryTerms,
-        warrantyPeriod,
-        observations
-      });
+      // Update supplier quotation request processing
 
       if (!supplierId) {
         return res.status(400).json({ message: "ID do fornecedor é obrigatório" });
@@ -2505,7 +2467,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         observations: observations || null,
         receivedAt: new Date()
       };
-      console.log("Updating supplier quotation with data:", updateData);
 
       await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
 
@@ -2566,15 +2527,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotationId = parseInt(req.params.quotationId);
       const { attachmentType, supplierId } = req.body;
 
-      console.log("Upload request received:", {
-        quotationId,
-        attachmentType,
-        supplierId,
-        hasFile: !!req.file,
-        fileName: req.file?.originalname,
-        fileSize: req.file?.size
-      });
-
       if (!req.file) {
         console.error("No file received in upload request");
         return res.status(400).json({ message: "Nenhum arquivo foi enviado" });
@@ -2594,8 +2546,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cotação do fornecedor não encontrada" });
       }
 
-      console.log("Creating attachment for supplier quotation:", supplierQuotation.id);
-
       // Add attachment to database
       const attachment = await storage.createAttachment({
         supplierQuotationId: supplierQuotation.id,
@@ -2605,8 +2555,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileSize: req.file.size,
         attachmentType: attachmentType || "supplier_proposal"
       });
-
-      console.log("Attachment created successfully:", attachment.id);
 
       res.json({ 
         message: "Arquivo enviado com sucesso",
@@ -3107,8 +3055,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filename = req.params.filename;
       const filePath = path.join(process.cwd(), 'uploads', 'supplier_quotations', filename);
 
-      console.log("Serving file:", filePath);
-
       // Check if file exists
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ message: "Arquivo não encontrado" });
@@ -3258,6 +3204,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating completion PDF:", error);
       res.status(500).json({ message: "Failed to generate completion PDF" });
+    }
+  });
+
+  // Test ERP connection endpoint
+  app.get("/api/erp/test-connection", isAuthenticated, async (req, res) => {
+    try {
+      const { erpService } = await import('./erp-service');
+      const result = await erpService.testConnection();
+      res.json(result);
+    } catch (error) {
+      console.error("Error testing ERP connection:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to test ERP connection" 
+      });
+    }
+  });
+
+  // Product search endpoint for ERP integration
+  app.get("/api/products/search", isAuthenticated, async (req, res) => {
+    try {
+      const { q } = req.query;
+      
+      if (!q || typeof q !== 'string' || q.length < 2) {
+        return res.json([]);
+      }
+
+      // Import ERP service
+      const { erpService } = await import('./erp-service');
+
+      // Search products using ERP service
+      const products = await erpService.searchProducts({
+        q: q,
+        limit: 10
+      });
+
+      // Return only the fields expected by the frontend
+      const formattedProducts = products.map(product => ({
+        codigo: product.codigo,
+        descricao: product.descricao,
+        unidade: product.unidade
+      }));
+
+      res.json(formattedProducts);
+    } catch (error) {
+      console.error("Error searching products:", error);
+      res.status(500).json({ message: "Failed to search products" });
     }
   });
 

@@ -33,7 +33,7 @@ export default function AdminCleanupPage() {
         throw new Error(error.message || "Erro ao realizar limpeza");
       }
 
-      return response.json();
+      return await response.json();
     },
     onSuccess: (data) => {
       toast({

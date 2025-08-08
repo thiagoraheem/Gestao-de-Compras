@@ -76,8 +76,8 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
       queryClient.invalidateQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-comparison`] });
       queryClient.invalidateQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-quotations`] });
       queryClient.invalidateQueries({ predicate: (query) => 
-        query.queryKey[0] && typeof query.queryKey[0] === 'string' &&
-        (query.queryKey[0].includes('quotations') || query.queryKey[0].includes('purchase-requests'))
+        !!(query.queryKey[0] && typeof query.queryKey[0] === 'string' &&
+        (query.queryKey[0].includes('quotations') || query.queryKey[0].includes('purchase-requests')))
       });
       onComplete();
     },

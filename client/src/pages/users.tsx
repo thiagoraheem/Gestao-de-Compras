@@ -99,7 +99,7 @@ export default function UsersPage() {
           costCenterIds: selectedCostCenters
         }
       });
-      return response.json();
+      return response;
     },
     onMutate: async (data) => {
       // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
@@ -168,8 +168,8 @@ export default function UsersPage() {
       // Invalidate user-specific cost center queries
       queryClient.invalidateQueries({ 
         predicate: (query) => 
-          query.queryKey[0]?.toString().includes(`/api/users/`) &&
-          query.queryKey[0]?.toString().includes(`/cost-centers`)
+          !!(query.queryKey[0]?.toString().includes(`/api/users/`) &&
+          query.queryKey[0]?.toString().includes(`/cost-centers`))
       });
       
       // Force immediate refetch for real data
@@ -190,7 +190,7 @@ export default function UsersPage() {
   const checkDeleteUserMutation = useMutation({
     mutationFn: async (userId: number) => {
       const response = await apiRequest(`/api/users/${userId}/can-delete`, { method: "GET" });
-      return response.json();
+      return response;
     },
     onSuccess: (data, userId) => {
       setDeleteCheckResult(data);
@@ -216,7 +216,7 @@ export default function UsersPage() {
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: number) => {
       const response = await apiRequest(`/api/users/${userId}`, { method: "DELETE" });
-      return response.json();
+      return response;
     },
     onMutate: async (userId) => {
       // Cancel any outgoing refetches

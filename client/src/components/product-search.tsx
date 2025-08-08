@@ -1,16 +1,25 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { Search, Package, AlertCircle } from "lucide-react";
+import {
+  ChevronsUpDown,
+  Check,
+  Package,
+  AlertCircle,
+  Loader2,
+  Search,
+  X,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Product {
@@ -29,119 +38,77 @@ interface ProductSearchProps {
   placeholder?: string;
 }
 
-export default function ProductSearch({ 
-  onProductSelect, 
+// ÚNICO CAMPO: Combobox pesquisável com Command + Popover
+export default function ProductSearch({
+  onProductSelect,
   selectedProduct: externalSelectedProduct = null,
   disabled = false,
-  placeholder = "Buscar produto..."
+  placeholder = "Buscar produto...",
 }: ProductSearchProps) {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [open, setOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(externalSelectedProduct);
   const { toast } = useToast();
 
-  // Sincronizar com produto selecionado externamente
   useEffect(() => {
     setSelectedProduct(externalSelectedProduct);
   }, [externalSelectedProduct]);
 
-  const getBaseUrl = () => {
-    return import.meta.env.VITE_BASE_API_URL || "http://54.232.194.197:5001/api/Produtos";
-  };
+  const BASE_URL = "http://54.232.194.197:5001/api/Produtos"; // único endpoint base
 
-  // Buscar todos os produtos da API externa
-  const { 
-    data: products = [], 
-    isLoading, 
+  const {
+    data: products = [],
+    isLoading,
+    isFetching,
     error,
-    refetch 
+    refetch,
   } = useQuery<Product[]>({
     queryKey: ["external-products"],
     queryFn: async () => {
-      const baseUrl = getBaseUrl();
-      const response = await fetch(`${baseUrl}/GetAll`);
-      
-      if (!response.ok) {
-        throw new Error(`Erro ao buscar produtos: ${response.status}`);
-      }
-      
+      const response = await fetch(`${BASE_URL}/GetAll`);
+      if (!response.ok) throw new Error(`Erro ao buscar produtos: ${response.status}`);
       const data = await response.json();
-      
-      // Mapear os dados da API para a estrutura esperada
-      const mappedProducts = Array.isArray(data) ? data.map((item: any) => ({
-        id: item.id,
-        codigo: item.sku?.trim() || '',
-        descricao: item.description || item.name || '',
-        unidade: item.unit || '',
-        preco: item.price || 0,
-        categoria: item.category || ''
-      })) : [];
-      
-      return mappedProducts;
+      const mapped = Array.isArray(data)
+        ? data.map((item: any) => ({
+            id: item.id,
+            codigo: item.sku?.trim() || "",
+            descricao: item.description || item.name || "",
+            unidade: item.unit || "",
+            preco: item.price || 0,
+            categoria: item.category || "",
+          }))
+        : [];
+      return mapped;
     },
     retry: 2,
     retryDelay: 1000,
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Buscar contagem de produtos (opcional, para validação)
-  const { data: productCount } = useQuery<number>({
-    queryKey: ["external-products-count"],
-    queryFn: async () => {
-      const response = await fetch(`${getBaseUrl()}/GetCount`);
-      
-      if (!response.ok) {
-        throw new Error(`Erro ao buscar contagem: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return typeof data === 'number' ? data : 0;
-    },
-    retry: 1,
-  });
+  const productCount = products.length;
 
-  // Filtrar produtos baseado no termo de busca
-  const filteredProducts = products.filter((product) => {
-    if (!searchTerm) return true;
-    
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      product.descricao?.toLowerCase().includes(searchLower) ||
-      product.codigo?.toLowerCase().includes(searchLower) ||
-      product.categoria?.toLowerCase().includes(searchLower)
-    );
-  });
+  const itemsForList = useMemo(() => products.slice(0, 500), [products]);
 
-  const handleProductSelect = (productId: string) => {
-    const product = products.find(p => p.id.toString() === productId);
-    if (product) {
-      setSelectedProduct(product);
-      onProductSelect(product);
-      
-      toast({
-        title: "Produto selecionado",
-        description: `${product.codigo} - ${product.descricao}`,
-      });
-    }
+  const handleSelect = (productId: number) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    setSelectedProduct(product);
+    onProductSelect(product);
+    setOpen(false);
   };
 
   const clearSelection = () => {
     setSelectedProduct(null);
-    setSearchTerm("");
+    // Não chamamos onProductSelect(null) para manter tipagem; o pai decide limpar se quiser
   };
 
   if (error) {
     return (
       <div className="space-y-3">
-        <div className="flex items-center gap-2 text-red-600">
+        <div className="flex items-center gap-2 text-destructive">
           <AlertCircle className="h-4 w-4" />
           <span className="text-sm">Erro ao carregar produtos da API</span>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => refetch()}
-          disabled={isLoading}
-        >
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
           Tentar novamente
         </Button>
       </div>
@@ -149,108 +116,92 @@ export default function ProductSearch({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <Package className="h-4 w-4 text-gray-500" />
+        <Package className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-medium">Buscar Produto no ERP</span>
-        {productCount !== undefined && (
+        {productCount > 0 && (
           <Badge variant="secondary" className="text-xs">
-            {productCount} produtos disponíveis
+            {productCount} disponíveis
           </Badge>
         )}
       </div>
 
-      {selectedProduct ? (
-        <div className="p-3 border rounded-lg bg-green-50 border-green-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium text-green-800">
-                {selectedProduct.codigo} - {selectedProduct.descricao}
-              </div>
-              <div className="text-sm text-green-600">
-                {selectedProduct.categoria && (
-                  <span>Categoria: {selectedProduct.categoria}</span>
-                )}
-                {selectedProduct.unidade && (
-                  <span className="ml-2">Unidade: {selectedProduct.unidade}</span>
-                )}
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearSelection}
-              disabled={disabled}
-            >
-              Alterar
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Digite para filtrar produtos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              disabled={disabled || isLoading}
-            />
-          </div>
-
-          <Select
-            onValueChange={handleProductSelect}
+      {/* Campo ÚNICO */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between"
             disabled={disabled || isLoading}
           >
-            <SelectTrigger>
-              <SelectValue 
-                placeholder={
-                  isLoading 
-                    ? "Carregando produtos..." 
-                    : filteredProducts.length === 0 
-                      ? "Nenhum produto encontrado"
-                      : placeholder
-                } 
-              />
-            </SelectTrigger>
-            <SelectContent className="max-h-60">
-              {filteredProducts.length === 0 ? (
-                <div className="p-2 text-center text-gray-500 text-sm">
-                  {isLoading ? "Carregando..." : "Nenhum produto encontrado"}
-                </div>
-              ) : (
-                filteredProducts.slice(0, 50).map((product) => (
-                  <SelectItem 
-                    key={product.id} 
-                    value={product.id.toString()}
+            {selectedProduct ? (
+              <div className="flex min-w-0 items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="truncate text-left">
+                  {selectedProduct.codigo} - {selectedProduct.descricao}
+                </span>
+              </div>
+            ) : (
+              <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                <Search className="h-4 w-4 shrink-0" />
+                <span className="truncate">{isLoading ? "Carregando produtos..." : placeholder}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1">
+              {selectedProduct && !disabled && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clearSelection();
+                  }}
+                  aria-label="Limpar seleção"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronsUpDown className="h-4 w-4 opacity-50" />}
+            </div>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+          <Command shouldFilter>
+            <CommandInput placeholder="Digite para buscar..." />
+            <CommandList>
+              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+              <CommandGroup heading="Produtos">
+                {itemsForList.map((product) => (
+                  <CommandItem
+                    key={product.id}
+                    value={`${product.codigo} ${product.descricao} ${product.categoria ?? ""}`}
+                    onSelect={() => handleSelect(product.id)}
                     className="cursor-pointer"
                   >
-                    <div className="flex flex-col items-start">
-                      <div className="font-medium">
-                        {product.codigo} - {product.descricao}
-                      </div>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="font-medium truncate">{product.codigo} - {product.descricao}</span>
                       {(product.categoria || product.unidade) && (
-                        <div className="text-xs text-gray-500">
-                          {product.categoria && `${product.categoria}`}
-                          {product.categoria && product.unidade && " • "}
-                          {product.unidade && `Unidade: ${product.unidade}`}
-                        </div>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {product.categoria ?? ""}{product.categoria && product.unidade ? " • " : ""}{product.unidade ? `Unidade: ${product.unidade}` : ""}
+                        </span>
                       )}
                     </div>
-                  </SelectItem>
-                ))
-              )}
-              {filteredProducts.length > 50 && (
-                <div className="p-2 text-center text-gray-500 text-xs border-t">
-                  Mostrando 50 de {filteredProducts.length} produtos. 
-                  Use o filtro para refinar a busca.
-                </div>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+                    <Check
+                      className={`ml-auto h-4 w-4 ${selectedProduct?.id === product.id ? "opacity-100" : "opacity-0"}`}
+                    />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

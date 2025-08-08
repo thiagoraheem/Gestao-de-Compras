@@ -1422,67 +1422,47 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cleanupPurchaseRequestsData(): Promise<void> {
-    console.log("🧹 Iniciando limpeza dos dados de solicitações...");
-
     try {
       // Delete in the correct order to respect foreign key constraints
 
       // 1. Delete receipt items first
       await db.delete(receiptItems);
-      console.log("✅ Receipt items deletados");
 
       // 2. Delete receipts
       await db.delete(receipts);
-      console.log("✅ Receipts deletados");
 
       // 3. Delete purchase order items
       await db.delete(purchaseOrderItems);
-      console.log("✅ Purchase order items deletados");
 
       // 4. Delete purchase orders
       await db.delete(purchaseOrders);
-      console.log("✅ Purchase orders deletados");
 
       // 5. Delete supplier quotation items
       await db.delete(supplierQuotationItems);
-      console.log("✅ Supplier quotation items deletados");
 
       // 6. Delete attachments (all types)
       await db.delete(attachments);
-      console.log("✅ Attachments deletados");
 
       // 7. Delete supplier quotations
       await db.delete(supplierQuotations);
-      console.log("✅ Supplier quotations deletados");
 
       // 8. Delete quotation items
       await db.delete(quotationItems);
-      console.log("✅ Quotation items deletados");
 
       // 9. Delete quotations
       await db.delete(quotations);
-      console.log("✅ Quotations deletados");
 
       // 10. Delete approval history
       await db.delete(approvalHistory);
-      console.log("✅ Approval history deletado");
 
       // 11. Delete purchase request suppliers
       await db.delete(purchaseRequestSuppliers);
-      console.log("✅ Purchase request suppliers deletados");
 
       // 12. Delete purchase request items
       await db.delete(purchaseRequestItems);
-      console.log("✅ Purchase request items deletados");
 
       // 13. Finally, delete purchase requests
       await db.delete(purchaseRequests);
-      console.log("✅ Purchase requests deletados");
-
-      console.log("🎉 Limpeza concluída com sucesso!");
-      console.log(
-        "📋 Dados mantidos: usuários, departamentos, centros de custo, fornecedores, métodos de pagamento e locais de entrega",
-      );
     } catch (error) {
       console.error("❌ Erro durante a limpeza:", error);
       throw error;
@@ -1570,7 +1550,6 @@ export class DatabaseStorage implements IStorage {
     // Check if admin user already exists
     const adminUser = await this.getUserByUsername("admin");
     if (adminUser) {
-      console.log("Admin user already exists, skipping initialization");
       return; // Admin user already exists
     }
 

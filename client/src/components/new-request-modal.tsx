@@ -76,22 +76,8 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
   // Get user's cost center IDs
   const { data: userCostCenterIds, isLoading: isLoadingUserCostCenters, error: userCostCentersError } = useQuery<number[]>({
     queryKey: ["/api/users", user?.id, "cost-centers"],
-    queryFn: async () => {
-      const response = await fetch(`/api/users/${user?.id}/cost-centers`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch user cost centers");
-      }
-      return response.json();
-    },
+    queryFn: () => apiRequest(`/api/users/${user?.id}/cost-centers`),
     enabled: !!user?.id,
-  });
-
-  // Debug user cost centers
-  debug.log("User Cost Centers Query:", {
-    data: userCostCenterIds,
-    isLoading: isLoadingUserCostCenters,
-    error: userCostCentersError,
-    userId: user?.id
   });
 
   // Get all cost centers
@@ -103,13 +89,6 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
   const costCenters = allCostCenters?.filter(center => 
     userCostCenterIds?.includes(center.id)
   ) || [];
-
-  debug.log("Debug - Cost Centers:", {
-    allCostCenters: allCostCenters?.length || 0,
-    userCostCenterIds: userCostCenterIds?.length || 0,
-    filteredCostCenters: costCenters.length,
-    userId: user?.id
-  });
 
   const form = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema),
@@ -135,17 +114,10 @@ export default function NewRequestModal({ open, onOpenChange }: NewRequestModalP
         availableBudget: data.availableBudget ? parseFloat(data.availableBudget) : undefined,
         idealDeliveryDate: data.idealDeliveryDate || undefined,
       };
-      const response = await fetch("/api/purchase-requests", {
+      const response = await apiRequest("/api/purchase-requests", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestData),
+        body: requestData,
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to create request");
-      }
     },
     onSuccess: () => {
       // Comprehensive cache invalidation and immediate refetch

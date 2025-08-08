@@ -77,7 +77,7 @@ export default function DepartmentsPage() {
         : "/api/departments";
       const method = editingDepartment ? "PUT" : "POST";
       const response = await apiRequest(endpoint, { method, body: data });
-      return response.json();
+      return response;
     },
     onMutate: async (data) => {
       // Cancel any outgoing refetches
@@ -140,7 +140,7 @@ export default function DepartmentsPage() {
         : "/api/cost-centers";
       const method = editingCostCenter ? "PUT" : "POST";
       const response = await apiRequest(endpoint, { method, body: data });
-      return response.json();
+      return response;
     },
     onMutate: async (data) => {
       // Cancel any outgoing refetches
@@ -209,8 +209,8 @@ export default function DepartmentsPage() {
       // Invalidate user-specific cost center queries
       queryClient.invalidateQueries({ 
         predicate: (query) => 
-          query.queryKey[0]?.toString().includes(`/api/users/`) &&
-          query.queryKey[0]?.toString().includes(`/cost-centers`)
+          !!(query.queryKey[0]?.toString().includes(`/api/users/`) &&
+          query.queryKey[0]?.toString().includes(`/cost-centers`))
       });
       
       // Force immediate refetch for real data
@@ -232,7 +232,7 @@ export default function DepartmentsPage() {
   const deleteDepartmentMutation = useMutation({
     mutationFn: async (id: number) => {
       const response = await apiRequest(`/api/departments/${id}`, { method: "DELETE" });
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
@@ -256,15 +256,15 @@ export default function DepartmentsPage() {
   const deleteCostCenterMutation = useMutation({
     mutationFn: async (id: number) => {
       const response = await apiRequest(`/api/cost-centers/${id}`, { method: "DELETE" });
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ 
         predicate: (query) => 
-          query.queryKey[0]?.toString().includes(`/api/users/`) &&
-          query.queryKey[0]?.toString().includes(`/cost-centers`)
+          !!(query.queryKey[0]?.toString().includes(`/api/users/`) &&
+          query.queryKey[0]?.toString().includes(`/cost-centers`))
       });
       toast({
         title: "Sucesso",
@@ -284,7 +284,7 @@ export default function DepartmentsPage() {
   const checkDepartmentCanBeDeleted = async (id: number) => {
     try {
       const response = await apiRequest(`/api/departments/${id}/can-delete`, { method: "GET" });
-      return response.json();
+      return response;
     } catch (error) {
       console.error("Error checking department can be deleted:", error);
       return { canDelete: false, reason: "Erro ao verificar se departamento pode ser excluído" };
@@ -294,7 +294,7 @@ export default function DepartmentsPage() {
   const checkCostCenterCanBeDeleted = async (id: number) => {
     try {
       const response = await apiRequest(`/api/cost-centers/${id}/can-delete`, { method: "GET" });
-      return response.json();
+      return response;
     } catch (error) {
       console.error("Error checking cost center can be deleted:", error);
       return { canDelete: false, reason: "Erro ao verificar se centro de custo pode ser excluído" };
@@ -332,8 +332,6 @@ export default function DepartmentsPage() {
   };
 
   const onSubmitCostCenter = (data: CostCenterFormData) => {
-    console.log("Submitting cost center data:", data);
-    
     // Ensure departmentId is a valid number
     if (!data.departmentId || data.departmentId <= 0) {
       toast({
