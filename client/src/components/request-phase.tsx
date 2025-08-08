@@ -51,6 +51,8 @@ import { Plus, X, Edit3, FileText, Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ProductSearch from "./product-search";
 import HybridProductInput from "./hybrid-product-input";
+import { UnitSelect } from "./unit-select";
+import { useUnits } from "@/hooks/useUnits";
 
 const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
@@ -85,6 +87,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { processERPUnit } = useUnits();
   const [manualItems, setManualItems] = useState<Item[]>([]);
 
   // Get user's cost center IDs
@@ -343,6 +346,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   };
 
   const handleProductSelect = (itemId: string, product: any) => {
+    const processedUnit = processERPUnit(product.unidade);
     setManualItems(
       manualItems.map((item) =>
         item.id === itemId
@@ -350,7 +354,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
               ...item,
               productCode: product.codigo,
               description: product.descricao,
-              unit: product.unidade || item.unit,
+              unit: processedUnit || item.unit,
             }
           : item,
       ),
@@ -628,27 +632,13 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                             <label className="text-sm font-medium text-gray-700 mb-1 block">
                               Unidade *
                             </label>
-                            <Select
+                            <UnitSelect
                               value={item.unit}
                               onValueChange={(value) =>
                                 updateManualItem(item.id, "unit", value)
                               }
-                            >
-                              <SelectTrigger className="h-10">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="UN">UN - Unidade</SelectItem>
-                                <SelectItem value="PC">PC - Peça</SelectItem>
-                                <SelectItem value="MT">MT - Metro</SelectItem>
-                                <SelectItem value="KG">KG - Quilograma</SelectItem>
-                                <SelectItem value="LT">LT - Litro</SelectItem>
-                                <SelectItem value="M2">M² - Metro Quadrado</SelectItem>
-                                <SelectItem value="M3">M³ - Metro Cúbico</SelectItem>
-                                <SelectItem value="CX">CX - Caixa</SelectItem>
-                                <SelectItem value="PCT">PCT - Pacote</SelectItem>
-                              </SelectContent>
-                            </Select>
+                              className="h-10"
+                            />
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-700 mb-1 block">

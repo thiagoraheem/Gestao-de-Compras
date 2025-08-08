@@ -50,6 +50,8 @@ import { Plus, X, Edit3 } from "lucide-react";
 import FileUpload from "./file-upload";
 import ProductSearch from "./product-search";
 import HybridProductInput from "./hybrid-product-input";
+import { UnitSelect } from "./unit-select";
+import { useUnits } from "@/hooks/useUnits";
 import debug from "@/lib/debug";
 
 const requestSchema = z.object({
@@ -89,6 +91,7 @@ export default function EnhancedNewRequestModal({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { processERPUnit } = useUnits();
   const [itemsMethod, setItemsMethod] = useState<"manual" | "upload">("manual");
   const [manualItems, setManualItems] = useState<Item[]>([]);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -296,11 +299,14 @@ export default function EnhancedNewRequestModal({
     setManualItems((prevItems) => {
       const updatedItems = prevItems.map((item) => {
         if (item.id === itemId) {
+          // Processa a unidade do ERP para garantir que ela existe no sistema
+          const processedUnit = product.unidade ? processERPUnit(product.unidade) : item.unit;
+          
           const updatedItem = {
             ...item,
             productCode: product.codigo,
             description: product.descricao,
-            unit: product.unidade || item.unit,
+            unit: processedUnit,
           };
           return updatedItem;
         }
@@ -627,27 +633,13 @@ export default function EnhancedNewRequestModal({
                               <label className="text-sm font-medium text-gray-700 mb-1 block">
                                 Unidade *
                               </label>
-                              <Select
+                              <UnitSelect
                                 value={item.unit}
                                 onValueChange={(value) =>
                                   updateManualItem(item.id, "unit", value)
                                 }
-                              >
-                                <SelectTrigger className="h-10">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="UN">UN - Unidade</SelectItem>
-                                  <SelectItem value="PC">PC - Peça</SelectItem>
-                                  <SelectItem value="MT">MT - Metro</SelectItem>
-                                  <SelectItem value="KG">KG - Quilograma</SelectItem>
-                                  <SelectItem value="LT">LT - Litro</SelectItem>
-                                  <SelectItem value="M2">M² - Metro Quadrado</SelectItem>
-                                  <SelectItem value="M3">M³ - Metro Cúbico</SelectItem>
-                                  <SelectItem value="CX">CX - Caixa</SelectItem>
-                                  <SelectItem value="PCT">PCT - Pacote</SelectItem>
-                                </SelectContent>
-                              </Select>
+                                className="h-10"
+                              />
                             </div>
                             <div>
                               <label className="text-sm font-medium text-gray-700 mb-1 block">

@@ -35,6 +35,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import SupplierCreationModal from "./supplier-creation-modal";
+import { UnitSelect } from "./unit-select";
+import { useUnits } from "@/hooks/useUnits";
 import debug from "@/lib/debug";
 
 const quotationItemSchema = z.object({
@@ -69,6 +71,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { processERPUnit } = useUnits();
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [showSupplierCreationModal, setShowSupplierCreationModal] = useState(false);
 
@@ -597,21 +600,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                             <FormItem>
                               <FormLabel className="text-gray-700 font-medium">Unidade</FormLabel>
                               <FormControl>
-                                <Select value={field.value} onValueChange={field.onChange}>
-                                  <SelectTrigger className="bg-white border-blue-300 focus:border-blue-500">
-                                    <SelectValue placeholder="Unidade" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="UN">Unidade</SelectItem>
-                                    <SelectItem value="KG">Kg</SelectItem>
-                                    <SelectItem value="M">Metro</SelectItem>
-                                    <SelectItem value="M2">Metro²</SelectItem>
-                                    <SelectItem value="M3">Metro³</SelectItem>
-                                    <SelectItem value="L">Litro</SelectItem>
-                                    <SelectItem value="CJ">Conjunto</SelectItem>
-                                    <SelectItem value="PC">Peça</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                <UnitSelect
+                                  value={field.value}
+                                  onValueChange={field.onChange}
+                                  className="bg-white border-blue-300 focus:border-blue-500"
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
