@@ -168,8 +168,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(session({
     store: new PgSession({
       pool: pool,
-      tableName: 'session',
-      createTableIfMissing: true
+      tableName: 'sessions',
+      createTableIfMissing: false
     }),
     secret: process.env.SESSION_SECRET || 'your-secret-key-here-change-in-production',
     resave: false,

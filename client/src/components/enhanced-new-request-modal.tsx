@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -48,6 +48,7 @@ import {
 } from "@/lib/types";
 import { Plus, X, Edit3 } from "lucide-react";
 import FileUpload from "./file-upload";
+import ProductSearch from "./product-search";
 import debug from "@/lib/debug";
 
 const requestSchema = z.object({
@@ -67,6 +68,7 @@ type RequestFormData = z.infer<typeof requestSchema>;
 
 interface Item {
   id: string;
+  productCode?: string; // Código do produto no ERP
   description: string;
   unit: string;
   requestedQuantity: number;
@@ -90,6 +92,21 @@ export default function EnhancedNewRequestModal({
   const [manualItems, setManualItems] = useState<Item[]>([]);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user?.companyId || null);
+
+  // Adiciona um item padrão quando não há itens e o método é manual
+  useEffect(() => {
+    if (itemsMethod === "manual" && manualItems.length === 0) {
+      const defaultItem: Item = {
+        id: Date.now().toString(),
+        description: "",
+        unit: "UN",
+        requestedQuantity: 1,
+        estimatedPrice: 0,
+        technicalSpecification: "",
+      };
+      setManualItems([defaultItem]);
+    }
+  }, [itemsMethod, manualItems.length]);
 
   // Get available companies (now available for all users)
   const { data: companies } = useQuery<any[]>({
@@ -277,6 +294,21 @@ export default function EnhancedNewRequestModal({
     setManualItems(
       manualItems.map((item) =>
         item.id === id ? { ...item, [field]: value } : item,
+      ),
+    );
+  };
+
+  const handleProductSelect = (itemId: string, product: any) => {
+    setManualItems(
+      manualItems.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              productCode: product.codigo,
+              description: product.descricao,
+              unit: product.unidade || item.unit,
+            }
+          : item,
       ),
     );
   };
@@ -571,6 +603,23 @@ export default function EnhancedNewRequestModal({
                       <div className="space-y-3">
                         {manualItems.map((item) => (
                           <Card key={item.id} className="p-4">
+                            {/* Campo de busca de produtos do ERP */}
+                            <div className="mb-4">
+                              <ProductSearch
+                                onProductSelect={(product) =>
+                                  handleProductSelect(item.id, product)
+                                }
+                                selectedProduct={
+                                  item.productCode
+                                    ? {
+                                        codigo: item.productCode,
+                                        descricao: item.description,
+                                        unidade: item.unit,
+                                      }
+                                    : null
+                                }
+                              />
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                               <div>
                                 <label className="text-sm font-medium">

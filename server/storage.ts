@@ -1587,7 +1587,7 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    // Create default payment methods
+    // Create default payment methods (check if they exist first)
     const defaultPaymentMethods = [
       { name: "Boleto", active: true },
       { name: "Cheque", active: true },
@@ -1597,11 +1597,16 @@ export class DatabaseStorage implements IStorage {
       { name: "Pix", active: true },
     ];
 
+    const existingPaymentMethods = await this.getAllPaymentMethods();
+    const existingMethodNames = existingPaymentMethods.map(pm => pm.name);
+
     for (const method of defaultPaymentMethods) {
-      await this.createPaymentMethod(method);
+      if (!existingMethodNames.includes(method.name)) {
+        await this.createPaymentMethod(method);
+      }
     }
 
-    // Create default departments and cost centers
+    // Create default departments and cost centers (check if they exist first)
     const defaultDepartments = [
       { name: "TI", description: "Tecnologia da Informação" },
       { name: "Financeiro", description: "Departamento Financeiro" },
@@ -1610,22 +1615,42 @@ export class DatabaseStorage implements IStorage {
       { name: "Administrativo", description: "Departamento Administrativo" },
     ];
 
+    const existingDepartments = await this.getAllDepartments();
+    const existingDeptNames = existingDepartments.map(d => d.name);
+    const existingCostCenters = await this.getAllCostCenters();
+    const existingCostCenterCodes = existingCostCenters.map(cc => cc.code);
+
     for (const dept of defaultDepartments) {
-      const department = await this.createDepartment(dept);
+      let department;
+      
+      // Check if department already exists
+      if (existingDeptNames.includes(dept.name)) {
+        department = existingDepartments.find(d => d.name === dept.name);
+      } else {
+        department = await this.createDepartment(dept);
+      }
 
-      // Create cost centers for each department
-      await this.createCostCenter({
-        code: `${dept.name.toUpperCase()}-GER-001`,
-        name: `${dept.name} - Geral`,
-        departmentId: department.id,
-      });
+      if (department) {
+        // Create cost centers for each department (check if they exist first)
+        const generalCostCenterCode = `${dept.name.toUpperCase()}-GER-001`;
+        if (!existingCostCenterCodes.includes(generalCostCenterCode)) {
+          await this.createCostCenter({
+            code: generalCostCenterCode,
+            name: `${dept.name} - Geral`,
+            departmentId: department.id,
+          });
+        }
 
-      if (dept.name === "TI") {
-        await this.createCostCenter({
-          code: "TI-DEV-001",
-          name: "TI - Desenvolvimento",
-          departmentId: department.id,
-        });
+        if (dept.name === "TI") {
+          const devCostCenterCode = "TI-DEV-001";
+          if (!existingCostCenterCodes.includes(devCostCenterCode)) {
+            await this.createCostCenter({
+              code: devCostCenterCode,
+              name: "TI - Desenvolvimento",
+              departmentId: department.id,
+            });
+          }
+        }
       }
     }
 
@@ -1633,6 +1658,7 @@ export class DatabaseStorage implements IStorage {
     const hashedPassword = await bcrypt.hash("admin123", 10);
     await this.createUser({
       username: "admin",
+      password: hashedPassword,
       email: "admin@empresa.com",
       firstName: "Admin",
       lastName: "Sistema",

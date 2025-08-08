@@ -163,6 +163,7 @@ export const purchaseRequests = pgTable("purchase_requests", {
 export const purchaseRequestItems = pgTable("purchase_request_items", {
   id: serial("id").primaryKey(),
   purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
+  productCode: text("product_code"), // Código do produto no ERP
   description: text("description").notNull(),
   unit: text("unit").notNull(),
   stockQuantity: decimal("stock_quantity", { precision: 10, scale: 2 }),

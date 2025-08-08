@@ -49,6 +49,7 @@ import {
 } from "@/lib/types";
 import { Plus, X, Edit3, FileText, Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ProductSearch from "./product-search";
 
 const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
@@ -65,6 +66,7 @@ type RequestFormData = z.infer<typeof requestSchema>;
 
 interface Item {
   id: string;
+  productCode?: string; // Código do produto no ERP
   description: string;
   unit: string;
   requestedQuantity: number;
@@ -128,6 +130,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
     if (existingItems.length > 0) {
       const convertedItems: Item[] = existingItems.map((item) => ({
         id: item.id?.toString() || Date.now().toString(),
+        productCode: item.productCode || "",
         description: item.description || "",
         unit: item.unit || "UN",
         requestedQuantity: item.requestedQuantity || 1,
@@ -137,6 +140,8 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
       setManualItems(convertedItems);
     }
   }, [existingItems]);
+
+
 
   // Atualizar formulário quando os dados da solicitação mudarem
   useEffect(() => {
@@ -315,6 +320,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   const addManualItem = () => {
     const newItem: Item = {
       id: Date.now().toString(),
+      productCode: "",
       description: "",
       unit: "UN",
       requestedQuantity: 1,
@@ -332,6 +338,21 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
     setManualItems(
       manualItems.map((item) =>
         item.id === id ? { ...item, [field]: value } : item,
+      ),
+    );
+  };
+
+  const handleProductSelect = (itemId: string, product: any) => {
+    setManualItems(
+      manualItems.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              productCode: product.codigo,
+              description: product.descricao,
+              unit: product.unidade || item.unit,
+            }
+          : item,
       ),
     );
   };
@@ -577,6 +598,22 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                     <div className="space-y-3">
                       {manualItems.map((item) => (
                         <Card key={item.id} className="p-4">
+                          <div className="mb-3">
+                            <label className="text-sm font-medium">
+                              Buscar Produto no ERP
+                            </label>
+                            <ProductSearch
+                              onProductSelect={(product) =>
+                                handleProductSelect(item.id, product)
+                              }
+                              placeholder="Digite para buscar produtos..."
+                            />
+                            {item.productCode && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Código do produto: {item.productCode}
+                              </p>
+                            )}
+                          </div>
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                             <div>
                               <label className="text-sm font-medium">

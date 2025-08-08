@@ -13,9 +13,9 @@ export const pool = new Pool({
   connectionString:
     process.env.DATABASE_URL ??
     "postgresql://neondb_owner:npg_qtBpF7Lxkfl3@ep-lingering-wildflower-acwq645y-pooler.sa-east-1.aws.neon.tech/compras",
-  ssl: {
+  /*ssl: {
     rejectUnauthorized: false,
-  },
+  },*/
 });
 
 export const db = drizzle(pool, { schema });

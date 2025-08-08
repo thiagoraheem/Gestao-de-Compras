@@ -16,6 +16,9 @@ export default defineConfig({
         ]
       : []),
   ],
+  define: {
+    'import.meta.env.VITE_BASE_API_URL': JSON.stringify(process.env.BASE_API_URL),
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
