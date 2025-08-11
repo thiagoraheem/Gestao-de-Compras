@@ -226,8 +226,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
     }
   }, [deliveryLocations, form]);
 
-  const createRFQMutation = useMutation({
-    mutationFn: async (data: RFQCreationData & { sendEmail?: boolean }) => {
+  // Mutation para criar RFQ e enviar por e-mail
+  const createRFQWithEmailMutation = useMutation({
+    mutationFn: async (data: RFQCreationData) => {
       // Create quotation
       const quotationResponse = await fetch("/api/quotations", {
         method: "POST",
@@ -276,40 +277,37 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         }
       }
 
-      // Send RFQ to suppliers if requested
-      if (data.sendEmail !== false) {
-        const sendRFQResponse = await fetch(`/api/quotations/${quotation.id}/send-rfq`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sendEmail: true
-          }),
-        });
+      // Send RFQ to suppliers via email
+      const sendRFQResponse = await fetch(`/api/quotations/${quotation.id}/send-rfq`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sendEmail: true,
+          releaseWithoutEmail: false
+        }),
+      });
 
-        if (!sendRFQResponse.ok) {
-          debug.warn('Erro ao enviar e-mails, mas cotação foi criada com sucesso');
-        } else {
-          const emailResult = await sendRFQResponse.json();
-          if (emailResult.emailResult?.errors?.length > 0) {
-            debug.warn('Alguns e-mails não foram enviados:', emailResult.emailResult.errors);
-          }
-        }
+      if (!sendRFQResponse.ok) {
+        throw new Error('Erro ao enviar e-mails para fornecedores');
       }
 
-      return quotation;
+      const emailResult = await sendRFQResponse.json();
+      if (emailResult.emailResult?.errors?.length > 0) {
+        debug.warn('Alguns e-mails não foram enviados:', emailResult.emailResult.errors);
+      }
+
+      return { quotation, emailResult };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast({
-        title: "RFQ criada com sucesso",
+        title: "RFQ criada e enviada com sucesso",
         description: "A solicitação de cotação foi criada e os e-mails foram enviados aos fornecedores selecionados.",
       });
       // Invalidate all quotation-related queries
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      // Invalidate specific queries for this purchase request
       queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}/status`] });
-      // Invalidate all queries starting with the purchase request API pattern
       queryClient.invalidateQueries({ 
         predicate: (query) => 
           !!(query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
@@ -324,7 +322,103 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         description: error instanceof Error ? error.message : "Ocorreu um erro ao criar a solicitação de cotação.",
         variant: "destructive",
       });
-      debug.error("Error creating RFQ:", error);
+      debug.error("Error creating RFQ with email:", error);
+    },
+  });
+
+  // Mutation para criar RFQ e liberar sem e-mail
+  const createRFQWithoutEmailMutation = useMutation({
+    mutationFn: async (data: RFQCreationData) => {
+      // Create quotation
+      const quotationResponse = await fetch("/api/quotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          purchaseRequestId: data.purchaseRequestId,
+          quotationDeadline: data.quotationDeadline,
+          deliveryLocationId: data.deliveryLocationId,
+          termsAndConditions: data.termsAndConditions,
+          technicalSpecs: data.technicalSpecs,
+        }),
+      });
+
+      if (!quotationResponse.ok) {
+        throw new Error('Erro ao criar cotação');
+      }
+
+      const quotation = await quotationResponse.json();
+
+      // Create quotation items
+      for (const item of data.items) {
+        const itemResponse = await fetch(`/api/quotations/${quotation.id}/items`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item),
+        });
+        
+        if (!itemResponse.ok) {
+          throw new Error('Erro ao criar item da cotação');
+        }
+      }
+
+      // Create supplier quotations
+      for (const supplierId of data.selectedSuppliers) {
+        const supplierResponse = await fetch(`/api/quotations/${quotation.id}/supplier-quotations`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            supplierId,
+            status: "pending",
+          }),
+        });
+        
+        if (!supplierResponse.ok) {
+          throw new Error('Erro ao associar fornecedor à cotação');
+        }
+      }
+
+      // Release RFQ without sending emails
+      const releaseRFQResponse = await fetch(`/api/quotations/${quotation.id}/send-rfq`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sendEmail: false,
+          releaseWithoutEmail: true
+        }),
+      });
+
+      if (!releaseRFQResponse.ok) {
+        throw new Error('Erro ao liberar cotação');
+      }
+
+      const releaseResult = await releaseRFQResponse.json();
+      return { quotation, releaseResult };
+    },
+    onSuccess: (result) => {
+      toast({
+        title: "RFQ criada e liberada com sucesso",
+        description: "A solicitação de cotação foi criada e liberada para a próxima etapa sem envio de e-mail.",
+      });
+      // Invalidate all quotation-related queries
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}/status`] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          !!(query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
+          query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+          query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
+      });
+      onComplete();
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao liberar RFQ",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao liberar a solicitação de cotação.",
+        variant: "destructive",
+      });
+      debug.error("Error creating RFQ without email:", error);
     },
   });
 
@@ -347,8 +441,12 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
 
 
 
-  const onSubmit = (data: RFQCreationData) => {
-    createRFQMutation.mutate(data);
+  const onSubmitWithEmail = (data: RFQCreationData) => {
+    createRFQWithEmailMutation.mutate(data);
+  };
+
+  const onSubmitWithoutEmail = (data: RFQCreationData) => {
+    createRFQWithoutEmailMutation.mutate(data);
   };
 
   const saveDraft = () => {
@@ -389,7 +487,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
           </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-6">
+          <div className="p-6 space-y-6">
             {/* Header Information */}
             <Card>
               <CardHeader>
@@ -749,11 +847,31 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                 Salvar Rascunho
               </Button>
               <Button 
-                type="submit" 
-                disabled={createRFQMutation.isPending}
+                type="button"
+                onClick={form.handleSubmit(onSubmitWithoutEmail)}
+                disabled={createRFQWithoutEmailMutation.isPending || createRFQWithEmailMutation.isPending}
+                variant="outline"
+                className="border-orange-300 text-orange-600 hover:bg-orange-50"
+              >
+                {createRFQWithoutEmailMutation.isPending ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    Liberando...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Liberar sem E-mail
+                  </>
+                )}
+              </Button>
+              <Button 
+                type="button"
+                onClick={form.handleSubmit(onSubmitWithEmail)}
+                disabled={createRFQWithEmailMutation.isPending || createRFQWithoutEmailMutation.isPending}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                {createRFQMutation.isPending ? (
+                {createRFQWithEmailMutation.isPending ? (
                   <>
                     <Clock className="h-4 w-4 mr-2 animate-spin" />
                     Enviando...
@@ -761,12 +879,12 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-2" />
-                    Enviar para Cotação
+                    Cotação em E-mail
                   </>
                 )}
               </Button>
             </div>
-          </form>
+          </div>
         </Form>
       </div>
     </div>

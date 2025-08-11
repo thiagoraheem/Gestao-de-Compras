@@ -1917,7 +1917,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations/:id/send-rfq", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.id);
-      const { sendEmail = true } = req.body;
+      const { sendEmail = false, releaseWithoutEmail = false } = req.body;
+
+      // Validar que pelo menos uma opção foi selecionada
+      if (!sendEmail && !releaseWithoutEmail) {
+        return res.status(400).json({ 
+          message: "Você deve selecionar pelo menos uma opção: enviar por e-mail ou liberar sem e-mail" 
+        });
+      }
 
       // Get quotation details
       const quotation = await storage.getQuotationById(quotationId);
@@ -1998,27 +2005,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         return res.json({
           success: true,
-          message: `RFQ enviada para ${selectedSuppliers.length} fornecedor(es)`,
+          message: `RFQ enviada por e-mail para ${selectedSuppliers.length} fornecedor(es)`,
           emailResult: {
             sent: emailResult.success,
             errors: emailResult.errors
-          }
+          },
+          action: 'email_sent'
+        });
+      } else if (releaseWithoutEmail) {
+        // Release RFQ without sending emails - just update status
+        await storage.updateQuotation(quotationId, { 
+          status: 'sent'
+        });
+
+        // Update supplier quotations status
+        for (const sq of supplierQuotations) {
+          await storage.updateSupplierQuotation(sq.id, { 
+            status: 'sent',
+            sentAt: new Date()
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: "RFQ liberada para a próxima etapa sem envio de e-mail",
+          action: 'released_without_email'
         });
       } else {
-        // Just update status without sending emails
+        // Fallback - just update status without sending emails
         await storage.updateQuotation(quotationId, { 
           status: 'sent'
         });
 
         return res.json({
           success: true,
-          message: "Status da cotação atualizado (sem envio de e-mail)",
+          message: "Status da cotação atualizado",
+          action: 'status_updated'
         });
       }
     } catch (error) {
       console.error("Error sending RFQ:", error);
       res.status(500).json({ 
-        message: "Erro ao enviar RFQ",
+        message: "Erro ao processar RFQ",
         error: error instanceof Error ? error.message : "Erro desconhecido"
       });
     }
