@@ -42,7 +42,7 @@ export const URGENCY_LABELS = {
   [URGENCY_LEVELS.BAIXO]: 'Baixo',
   [URGENCY_LEVELS.MEDIO]: 'Médio',
   [URGENCY_LEVELS.ALTO]: 'Alto',
-  [URGENCY_LEVELS.ALTA_URGENCIA]: 'Alta Urgência',
+  [URGENCY_LEVELS.ALTA_URGENCIA]: 'Crítico',
 } as const;
 
 export const CATEGORY_OPTIONS = {

@@ -131,7 +131,7 @@ export default function ApprovalA1Phase({
           },
         },
       );
-      return response.json();
+      return response;
     },
     onSuccess: (response, variables) => {
       // Atualiza os dados em cache
