@@ -77,6 +77,20 @@ Automatizar e controlar o processo completo de compras empresariais, desde a sol
 - **Prioridade**: Alta
 - **Status**: ✅ Implementado
 
+#### RF001.4 - Permissões Especiais para Gerentes
+- **Descrição**: Gerentes devem ter acesso ampliado para criação de solicitações
+- **Critérios de Aceitação**:
+  - Gerentes podem criar solicitações para qualquer centro de custo
+  - Outros usuários permanecem restritos aos centros de custo associados
+  - Validação de permissões no frontend e backend
+  - Interface adaptativa baseada no perfil do usuário
+- **Regras de Negócio**:
+  - Usuários com `isManager = true` veem todos os centros de custo
+  - Usuários sem permissão de gerente veem apenas centros de custo associados
+  - Aplicado nos componentes de criação e edição de solicitações
+- **Prioridade**: Alta
+- **Status**: ✅ Implementado
+
 ### RF002 - Gestão de Estrutura Organizacional
 
 #### RF002.1 - Gestão de Empresas
@@ -143,18 +157,25 @@ Automatizar e controlar o processo completo de compras empresariais, desde a sol
 - **Status**: ✅ Implementado
 
 #### RF003.2 - Fase 2: Aprovação A1
-- **Descrição**: Primeira aprovação hierárquica
+- **Descrição**: Primeira aprovação hierárquica com restrição por centro de custo
 - **Critérios de Aceitação**:
   - Apenas aprovadores A1 podem aprovar
-  - Restrição por centro de custo associado
+  - Restrição rigorosa por centro de custo associado
   - Opções: Aprovar ou Reprovar
   - Motivo obrigatório para reprovação
   - Notificação automática por e-mail
   - Movimentação automática para próxima fase
 - **Regras de Negócio**:
-  - Aprovador só vê solicitações dos seus centros de custo
+  - Aprovador só vê solicitações dos seus centros de custo associados
+  - Validação no backend via middleware `canApproveRequest`
+  - Verificação no frontend via endpoint `/api/purchase-requests/:id/can-approve-a1`
+  - Mensagem específica para falta de permissão por centro de custo
   - Aprovação move para "Cotação"
   - Reprovação volta para "Solicitação"
+- **Implementação Técnica**:
+  - Middleware de validação em `server/routes.ts`
+  - Componente `approval-a1-phase.tsx` com verificação de permissões
+  - Componente `purchase-card.tsx` com interface adaptativa
 - **Prioridade**: Alta
 - **Status**: ✅ Implementado
 
@@ -466,29 +487,36 @@ Automatizar e controlar o processo completo de compras empresariais, desde a sol
 3. **RN001.3**: Reprovação em A1 retorna para "Solicitação"
 4. **RN001.4**: Reprovação em A2 pode arquivar ou retornar para "Cotação"
 
-### RN002 - Processo de Cotação
-1. **RN002.1**: Apenas compradores podem gerenciar cotações
-2. **RN002.2**: RFQ deve ter pelo menos 1 fornecedor selecionado
-3. **RN002.3**: Fornecedor vencedor deve ser selecionado antes de A2
-4. **RN002.4**: Múltiplas versões de RFQ são permitidas
+### RN002 - Criação de Solicitações por Perfil
+1. **RN002.1**: Gerentes podem criar solicitações para qualquer centro de custo disponível
+2. **RN002.2**: Usuários não-gerentes só podem criar solicitações para centros de custo associados
+3. **RN002.3**: A restrição por centro de custo é aplicada tanto na criação quanto na edição de solicitações
+4. **RN002.4**: O sistema valida as permissões no frontend e backend
 
-### RN003 - Controle de Acesso
-1. **RN003.1**: Usuários só veem dados da sua empresa
-2. **RN003.2**: Aprovadores A1 só veem solicitações dos seus centros de custo
-3. **RN003.3**: Administradores têm acesso total
-4. **RN003.4**: Fornecedores são visíveis para compradores e administradores
+### RN003 - Processo de Cotação
+1. **RN003.1**: Apenas compradores podem gerenciar cotações
+2. **RN003.2**: RFQ deve ter pelo menos 1 fornecedor selecionado
+3. **RN003.3**: Fornecedor vencedor deve ser selecionado antes de A2
+4. **RN003.4**: Múltiplas versões de RFQ são permitidas
 
-### RN004 - Numeração e Identificação
-1. **RN004.1**: Números de solicitação são sequenciais e únicos
-2. **RN004.2**: Números de RFQ são gerados automaticamente
-3. **RN004.3**: Números de pedido seguem padrão específico
-4. **RN004.4**: Todas as entidades têm timestamps de criação/atualização
+### RN004 - Controle de Acesso
+1. **RN004.1**: Usuários só veem dados da sua empresa
+2. **RN004.2**: Aprovadores A1 só veem solicitações dos seus centros de custo
+3. **RN004.3**: Administradores têm acesso total
+4. **RN004.4**: Fornecedores são visíveis para compradores e administradores
+5. **RN004.5**: Gerentes têm acesso ampliado para criação de solicitações em qualquer centro de custo
 
-### RN005 - Notificações
-1. **RN005.1**: Notificações são enviadas apenas para usuários com permissão relevante
-2. **RN005.2**: E-mails de RFQ são enviados do e-mail do comprador
-3. **RN005.3**: Notificações são assíncronas para não bloquear o workflow
-4. **RN005.4**: Falhas de e-mail não impedem o progresso do processo
+### RN005 - Numeração e Identificação
+1. **RN005.1**: Números de solicitação são sequenciais e únicos
+2. **RN005.2**: Números de RFQ são gerados automaticamente
+3. **RN005.3**: Números de pedido seguem padrão específico
+4. **RN005.4**: Todas as entidades têm timestamps de criação/atualização
+
+### RN006 - Notificações
+1. **RN006.1**: Notificações são enviadas apenas para usuários com permissão relevante
+2. **RN006.2**: E-mails de RFQ são enviados do e-mail do comprador
+3. **RN006.3**: Notificações são assíncronas para não bloquear o workflow
+4. **RN006.4**: Falhas de e-mail não impedem o progresso do processo
 
 ---
 

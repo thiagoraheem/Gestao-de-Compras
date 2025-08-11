@@ -86,6 +86,8 @@ O sistema utiliza um workflow Kanban com 8 fases fixas. Cada fase tem responsáv
 **📋 Dados Obrigatórios:**
 - **Empresa**: Selecione a empresa (geralmente pré-selecionada)
 - **Centro de Custo**: Escolha o centro de custo apropriado
+  - **Gerentes**: Podem selecionar qualquer centro de custo da empresa
+  - **Outros usuários**: Limitados aos centros de custo associados
 - **Categoria**: 
   - 🔧 **Produto**: Materiais físicos, equipamentos
   - 🛠️ **Serviço**: Manutenção, consultoria, treinamento
@@ -127,6 +129,10 @@ Para cada item, informe:
 #### Restrições importantes:
 - Aprovadores A1 só veem solicitações dos **centros de custo associados** ao seu perfil
 - Não é possível aprovar solicitações de outros centros de custo
+- O sistema **valida automaticamente** se você tem permissão para aprovar cada solicitação
+- Se não tiver permissão, será exibida a mensagem: *"Você não tem permissão para aprovar este centro de custo"*
+- Os botões de aprovação só aparecem para solicitações que você pode aprovar
+- A validação ocorre tanto no **frontend** quanto no **backend** para máxima segurança
 
 #### Como aprovar/reprovar:
 
@@ -488,10 +494,10 @@ Fase final com resumo completo do processo.
 
 4. **Permissões** (marque as aplicáveis):
    - ☑️ **Comprador**: Pode gerenciar cotações e pedidos
-   - ☑️ **Aprovador A1**: Primeira aprovação
+   - ☑️ **Aprovador A1**: Primeira aprovação (restrito aos centros de custo associados)
    - ☑️ **Aprovador A2**: Segunda aprovação
    - ☑️ **Administrador**: Acesso total ao sistema
-   - ☑️ **Gerente**: Acesso a dashboards
+   - ☑️ **Gerente**: Acesso a dashboards e criação de solicitações para qualquer centro de custo
    - ☑️ **Recebedor**: Pode receber materiais
 
 ### Editando Usuários

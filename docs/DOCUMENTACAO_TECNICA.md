@@ -157,6 +157,7 @@ Automatizar e controlar o processo de compras empresariais desde a solicitação
 - Acesso ao dashboard executivo
 - Relatórios e métricas
 - Visão geral dos processos
+- Criação de solicitações para qualquer centro de custo
 
 #### **Recebedor** (`isReceiver`)
 - Recebimento de materiais
@@ -364,6 +365,65 @@ FROM_EMAIL=sistema@empresa.com
 - **Route Protection**: Middleware de verificação
 - **Data Isolation**: Filtros por empresa/departamento
 
+### Controle de Acesso
+
+O controle de acesso é implementado em múltiplas camadas:
+
+1. **Autenticação**: Verificação de credenciais
+2. **Autorização**: Verificação de permissões por endpoint
+3. **Filtros de Dados**: Usuários só veem dados relevantes
+4. **Validação de Ações**: Verificação antes de executar operações
+
+### Implementações Específicas de Permissões
+
+#### Permissões de Gerente para Criação de Solicitações
+
+**Arquivos Modificados:**
+- `client/src/components/request-phase.tsx`
+- `client/src/components/enhanced-new-request-modal.tsx`
+
+**Lógica Implementada:**
+```typescript
+// Filtro de centros de custo baseado no perfil do usuário
+const availableCostCenters = user?.isManager 
+  ? costCenters // Gerentes veem todos os centros de custo
+  : costCenters.filter(cc => 
+      user?.costCenterIds?.includes(cc.id)
+    ); // Outros usuários veem apenas centros associados
+```
+
+**Validação:**
+- Frontend: Interface adaptativa baseada em `user.isManager`
+- Backend: Validação mantida para segurança
+
+#### Restrições de Aprovação A1 por Centro de Custo
+
+**Arquivos Envolvidos:**
+- `server/routes.ts` (middleware `canApproveRequest`)
+- `client/src/components/approval-a1-phase.tsx`
+- `client/src/components/purchase-card.tsx`
+
+**Middleware de Validação (Backend):**
+```typescript
+// Verificação se o centro de custo da solicitação está 
+// associado ao aprovador A1
+const canApprove = user.costCenterIds?.includes(request.costCenterId);
+```
+
+**Verificação no Frontend:**
+```typescript
+// Consulta ao endpoint de verificação de permissões
+const { data: canApproveThisRequest } = useQuery({
+  queryKey: ['can-approve-a1', request.id],
+  queryFn: () => fetch(`/api/purchase-requests/${request.id}/can-approve-a1`)
+});
+```
+
+**Interface Adaptativa:**
+- Botões de aprovação só aparecem com permissão válida
+- Mensagem específica: "Você não tem permissão para aprovar este centro de custo"
+- Validação em tempo real por solicitação
+
 ### Validação
 - **Frontend**: Zod schemas
 - **Backend**: Drizzle schema validation
@@ -418,6 +478,47 @@ dist/
 - Taxa de aprovação por fase
 - Performance de fornecedores
 - Volume de solicitações por período
+
+---
+
+## 📝 Changelog e Atualizações Recentes
+
+### Versão Atual - Implementações de Permissões Avançadas
+
+#### Permissões Especiais para Gerentes (✅ Implementado)
+**Data**: Dezembro 2024
+**Descrição**: Implementação de permissões ampliadas para usuários com perfil de Gerente
+
+**Mudanças Realizadas:**
+- **Frontend**: Modificação dos componentes `request-phase.tsx` e `enhanced-new-request-modal.tsx`
+- **Lógica**: Gerentes podem criar solicitações para qualquer centro de custo
+- **Interface**: Adaptação automática baseada na propriedade `user.isManager`
+- **Validação**: Mantida segurança no backend
+
+**Impacto**: Facilita a gestão centralizada de compras por gerentes
+
+#### Reforço das Restrições de Aprovação A1 (✅ Validado)
+**Data**: Dezembro 2024
+**Descrição**: Validação e documentação das restrições rigorosas por centro de custo
+
+**Componentes Validados:**
+- **Backend**: Middleware `canApproveRequest` em `server/routes.ts`
+- **Frontend**: Componentes `approval-a1-phase.tsx` e `purchase-card.tsx`
+- **API**: Endpoint `/api/purchase-requests/:id/can-approve-a1`
+
+**Funcionalidades Confirmadas:**
+- Validação automática de permissões por solicitação
+- Interface adaptativa com mensagens específicas
+- Dupla validação (frontend + backend)
+
+#### Documentação Atualizada
+**Data**: Dezembro 2024
+**Descrição**: Atualização completa da documentação do sistema
+
+**Arquivos Atualizados:**
+- `DOCUMENTACAO_REQUISITOS.md`: Novos requisitos funcionais e regras de negócio
+- `MANUAL_USUARIO.md`: Instruções para as novas funcionalidades
+- `DOCUMENTACAO_TECNICA.md`: Detalhes técnicos das implementações
 
 ---
 

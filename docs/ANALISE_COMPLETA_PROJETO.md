@@ -5,7 +5,12 @@
 
 Este documento apresenta uma análise abrangente do Sistema de Gestão de Compras desenvolvido, incluindo funcionalidades implementadas, pendências identificadas e recomendações para evolução do projeto.
 
-**Status Geral do Projeto: 70% Completo**
+**Status Geral do Projeto: 75% Completo**
+
+### 🆕 Últimas Implementações (Dezembro 2024)
+- ✅ **Permissões Especiais para Gerentes**: Criação de solicitações para qualquer centro de custo
+- ✅ **Validação Rigorosa A1**: Restrições por centro de custo com dupla validação
+- ✅ **Documentação Atualizada**: Manuais e especificações técnicas completas
 
 ---
 
@@ -40,6 +45,8 @@ Este documento apresenta uma análise abrangente do Sistema de Gestão de Compra
 #### Gestão de Solicitações
 - ✅ **Criação de solicitações**
   - Formulário completo com validações
+  - **Permissões especiais para gerentes** (qualquer centro de custo)
+  - Restrições por centro de custo para usuários padrão
   - Upload de planilha Excel
   - Campos obrigatórios e opcionais
   - Anexos de documentos
@@ -51,7 +58,9 @@ Este documento apresenta uma análise abrangente do Sistema de Gestão de Compra
 
 #### Sistema de Aprovações
 - ✅ **Aprovação A1 (Solicitação)**
-  - Controle por permissões
+  - Controle rigoroso por permissões e centro de custo
+  - Validação dupla (frontend + backend)
+  - Interface adaptativa com mensagens específicas
   - Justificativa obrigatória para reprovação
   - Histórico de aprovações
   - Notificações por e-mail
