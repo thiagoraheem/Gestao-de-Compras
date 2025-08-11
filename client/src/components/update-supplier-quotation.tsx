@@ -668,339 +668,296 @@ export default function UpdateSupplierQuotation({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Qtd</TableHead>
-                        <TableHead>Unidade</TableHead>
-                        <TableHead>Preço Unitário</TableHead>
-                        <TableHead>Total Original</TableHead>
-                        <TableHead>Desc. %</TableHead>
-                        <TableHead>Desc. Valor</TableHead>
-                        <TableHead>Total Final</TableHead>
-                        <TableHead>Prazo (dias)</TableHead>
-                        <TableHead>Marca</TableHead>
-                        <TableHead>Modelo</TableHead>
-                        <TableHead>Observações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {quotationItems.map((item, index) => (
-                        <React.Fragment key={item.id}>
-                          <TableRow>
-                            <TableCell>
-                              <div className="max-w-48">
-                                <p className="text-sm font-medium">
-                                  {item.description}
-                                </p>
+                <div className="space-y-4">
+                  {quotationItems.map((item, index) => (
+                    <Card key={item.id} className="p-4">
+                      <div className="flex flex-col xl:grid xl:grid-cols-2 gap-4">
+                        {/* Coluna Esquerda - Informações do Item */}
+                        <div className="space-y-4 min-w-0">
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Descrição</label>
+                            <div className="mt-1 p-2 bg-gray-50 rounded text-sm break-words">
+                              {item.description}
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-sm font-medium text-gray-600">Quantidade</label>
+                              <div className="mt-1">
+                                <Badge variant="secondary">
+                                  {parseFloat(item.quantity).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
+                                </Badge>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">
-                                {parseFloat(item.quantity).toLocaleString(
-                                  "pt-BR",
-                                  { maximumFractionDigits: 0 },
-                                )}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{item.unit}</TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.unitPrice`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="1.000,00"
-                                        className="w-24"
-                                        readOnly={viewMode === 'view'}
-                                        onChange={(e) => {
-                                          if (viewMode === 'view') return;
-                                          // Allow natural number input - user types 1000 and it becomes 1000.00
-                                          let inputValue = e.target.value;
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium text-gray-600">Unidade</label>
+                              <div className="mt-1 text-sm">{item.unit}</div>
+                            </div>
+                          </div>
 
-                                          // If user is typing a number without formatting, keep it as is for now
-                                          if (/^\d+$/.test(inputValue)) {
-                                            field.onChange(inputValue);
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.brand`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Marca</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      placeholder="Marca"
+                                      readOnly={viewMode === 'view'}
+                                      className="w-full"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.model`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Modelo</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      placeholder="Modelo"
+                                      readOnly={viewMode === 'view'}
+                                      className="w-full"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.observations`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Observações</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    placeholder="Observações"
+                                    readOnly={viewMode === 'view'}
+                                    className="w-full"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        {/* Coluna Direita - Preços e Valores */}
+                        <div className="space-y-4 min-w-0">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.unitPrice`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Preço Unitário</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      placeholder="1.000,00"
+                                      readOnly={viewMode === 'view'}
+                                      className="w-full"
+                                      onChange={(e) => {
+                                        if (viewMode === 'view') return;
+                                        let inputValue = e.target.value;
+                                        if (/^\d+$/.test(inputValue)) {
+                                          field.onChange(inputValue);
+                                        } else {
+                                          const cleanValue = inputValue.replace(/[^\d.,]/g, "");
+                                          field.onChange(cleanValue);
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        if (viewMode === 'view') return;
+                                        const value = e.target.value;
+                                        if (value) {
+                                          let number;
+                                          if (/^\d+$/.test(value)) {
+                                            number = parseFloat(value);
+                                          } else if (/^\d+[.,]\d+$/.test(value)) {
+                                            number = parseFloat(value.replace(",", "."));
                                           } else {
-                                            // If already formatted or contains special chars, clean it
-                                            const cleanValue =
-                                              inputValue.replace(
-                                                /[^\d.,]/g,
-                                                "",
-                                              );
-                                            field.onChange(cleanValue);
+                                            const cleanValue = value.replace(/[^\d.,]/g, "");
+                                            number = parseFloat(cleanValue.replace(",", "."));
                                           }
-                                        }}
-                                        onBlur={(e) => {
-                                          if (viewMode === 'view') return;
-                                          // Format on blur for better display
-                                          const value = e.target.value;
-                                          if (value) {
-                                            let number;
-                                            // If it's a simple number (like 1000), treat it as currency value
-                                            if (/^\d+$/.test(value)) {
-                                              number = parseFloat(value);
-                                            } else if (
-                                              /^\d+[.,]\d+$/.test(value)
-                                            ) {
-                                              // If it already has decimal places
-                                              number = parseFloat(
-                                                value.replace(",", "."),
-                                              );
-                                            } else {
-                                              // Try to parse any formatted value
-                                              const cleanValue = value.replace(
-                                                /[^\d.,]/g,
-                                                "",
-                                              );
-                                              number = parseFloat(
-                                                cleanValue.replace(",", "."),
-                                              );
-                                            }
-
-                                            if (!isNaN(number)) {
-                                              const formatted =
-                                                number.toLocaleString("pt-BR", {
-                                                  minimumFractionDigits: 2,
-                                                  maximumFractionDigits: 2,
-                                                });
-                                              field.onChange(formatted);
-                                            }
+                                          if (!isNaN(number)) {
+                                            const formatted = number.toLocaleString("pt-BR", {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            });
+                                            field.onChange(formatted);
                                           }
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium text-gray-600">
-                                R${" "}
-                                {(() => {
-                                  const unitPrice = form.watch(
-                                    `items.${index}.unitPrice`,
-                                  );
-                                  if (!unitPrice) return "0,00";
+                                        }
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.deliveryDays`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Prazo (dias)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      placeholder="30"
+                                      type="number"
+                                      readOnly={viewMode === 'view'}
+                                      className="w-full"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
 
-                                  const quantity = parseFloat(item.quantity);
-                                  const price =
-                                    parseNumberFromCurrency(unitPrice);
-                                  const total = quantity * price;
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Total Original</label>
+                            <div className="mt-1 p-2 bg-gray-50 rounded text-sm font-medium text-gray-600">
+                              R$ {(() => {
+                                const unitPrice = form.watch(`items.${index}.unitPrice`);
+                                if (!unitPrice) return "0,00";
+                                const quantity = parseFloat(item.quantity);
+                                const price = parseNumberFromCurrency(unitPrice);
+                                const total = quantity * price;
+                                return isNaN(total) ? "0,00" : total.toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                });
+                              })()}
+                            </div>
+                          </div>
 
-                                  return isNaN(total)
-                                    ? "0,00"
-                                    : total.toLocaleString("pt-BR", {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      });
-                                })()}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.discountPercentage`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="0"
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        step="0.01"
-                                        className="w-20"
-                                        readOnly={viewMode === 'view'}
-                                        onChange={(e) => {
-                                          if (viewMode === 'view') return;
-                                          field.onChange(e.target.value);
-                                          // Clear discount value when percentage is set
-                                          if (e.target.value) {
-                                            form.setValue(`items.${index}.discountValue`, "");
-                                          }
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.discountValue`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="0,00"
-                                        className="w-24"
-                                        readOnly={viewMode === 'view'}
-                                        onChange={(e) => {
-                                          if (viewMode === 'view') return;
-                                          let inputValue = e.target.value;
-                                          if (/^\d+$/.test(inputValue)) {
-                                            field.onChange(inputValue);
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.discountPercentage`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Desc. %</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      placeholder="0"
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="0.01"
+                                      readOnly={viewMode === 'view'}
+                                      className="w-full"
+                                      onChange={(e) => {
+                                        if (viewMode === 'view') return;
+                                        field.onChange(e.target.value);
+                                        if (e.target.value) {
+                                          form.setValue(`items.${index}.discountValue`, "");
+                                        }
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.discountValue`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Desc. Valor</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      placeholder="0,00"
+                                      readOnly={viewMode === 'view'}
+                                      className="w-full"
+                                      onChange={(e) => {
+                                        if (viewMode === 'view') return;
+                                        let inputValue = e.target.value;
+                                        if (/^\d+$/.test(inputValue)) {
+                                          field.onChange(inputValue);
+                                        } else {
+                                          const cleanValue = inputValue.replace(/[^\d.,]/g, "");
+                                          field.onChange(cleanValue);
+                                        }
+                                        if (e.target.value) {
+                                          form.setValue(`items.${index}.discountPercentage`, "");
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        if (viewMode === 'view') return;
+                                        const value = e.target.value;
+                                        if (value) {
+                                          let number;
+                                          if (/^\d+$/.test(value)) {
+                                            number = parseFloat(value);
+                                          } else if (/^\d+[.,]\d+$/.test(value)) {
+                                            number = parseFloat(value.replace(",", "."));
                                           } else {
-                                            const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                            field.onChange(cleanValue);
+                                            const cleanValue = value.replace(/[^\d.,]/g, "");
+                                            number = parseFloat(cleanValue.replace(",", "."));
                                           }
-                                          // Clear discount percentage when value is set
-                                          if (e.target.value) {
-                                            form.setValue(`items.${index}.discountPercentage`, "");
+                                          if (!isNaN(number)) {
+                                            const formatted = number.toLocaleString("pt-BR", {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            });
+                                            field.onChange(formatted);
                                           }
-                                        }}
-                                        onBlur={(e) => {
-                                          if (viewMode === 'view') return;
-                                          const value = e.target.value;
-                                          if (value) {
-                                            let number;
-                                            if (/^\d+$/.test(value)) {
-                                              number = parseFloat(value);
-                                            } else if (/^\d+[.,]\d+$/.test(value)) {
-                                              number = parseFloat(value.replace(",", "."));
-                                            } else {
-                                              const cleanValue = value.replace(/[^\d.,]/g, "");
-                                              number = parseFloat(cleanValue.replace(",", "."));
-                                            }
-                                            if (!isNaN(number)) {
-                                              const formatted = number.toLocaleString("pt-BR", {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                              });
-                                              field.onChange(formatted);
-                                            }
-                                          }
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium text-green-600">
-                                R${" "}
-                                {(() => {
-                                  const watchedItem = form.watch(`items.${index}`);
-                                  const finalTotal = calculateItemTotal(watchedItem, index);
-                                  return isNaN(finalTotal)
-                                    ? "0,00"
-                                    : finalTotal.toLocaleString("pt-BR", {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      });
-                                })()}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.deliveryDays`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="30"
-                                        type="number"
-                                        className="w-20"
-                                        readOnly={viewMode === 'view'}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.brand`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="Marca"
-                                        className="w-24"
-                                        readOnly={viewMode === 'view'}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.model`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="Modelo"
-                                        className="w-24"
-                                        readOnly={viewMode === 'view'}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.observations`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="Observações"
-                                        className="w-32"
-                                        readOnly={viewMode === 'view'}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                          </TableRow>
-                          {item.specifications && (
-                            <TableRow key={`${item.id}-spec`}>
-                              <TableCell
-                                colSpan={12}
-                                className="bg-gray-50 border-t-0 pt-0"
-                              >
-                                <div className="text-xs text-gray-600 italic">
-                                  <span className="font-medium">
-                                    Especificações:
-                                  </span>{" "}
-                                  {item.specifications}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </TableBody>
-                  </Table>
+                                        }
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Total Final</label>
+                            <div className="mt-1 p-2 bg-green-50 rounded text-lg font-bold text-green-600">
+                              R$ {(() => {
+                                const watchedItem = form.watch(`items.${index}`);
+                                const finalTotal = calculateItemTotal(watchedItem, index);
+                                return isNaN(finalTotal) ? "0,00" : finalTotal.toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                });
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Especificações */}
+                      {item.specifications && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <label className="text-sm font-medium text-gray-600">Especificações</label>
+                          <div className="mt-1 text-sm text-gray-600 italic bg-gray-50 p-2 rounded">
+                            {item.specifications}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  ))}
                 </div>
 
                 <Separator className="my-4" />
@@ -1011,7 +968,7 @@ export default function UpdateSupplierQuotation({
                     <CardTitle className="text-lg">Desconto da Proposta</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                       <FormField
                         control={form.control}
                         name="discountType"
@@ -1024,7 +981,7 @@ export default function UpdateSupplierQuotation({
                               disabled={viewMode === 'view'}
                             >
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Selecione o tipo" />
                                 </SelectTrigger>
                               </FormControl>
@@ -1058,6 +1015,7 @@ export default function UpdateSupplierQuotation({
                                 max={form.watch("discountType") === "percentage" ? "100" : undefined}
                                 step={form.watch("discountType") === "percentage" ? "0.01" : undefined}
                                 readOnly={viewMode === 'view' || form.watch("discountType") === "none"}
+                                className="w-full"
                                 onChange={(e) => {
                                   if (viewMode === 'view' || form.watch("discountType") === "none") return;
                                   
@@ -1174,7 +1132,7 @@ export default function UpdateSupplierQuotation({
                 <CardTitle>Condições Comerciais</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="paymentTerms"
@@ -1185,7 +1143,7 @@ export default function UpdateSupplierQuotation({
                           <Textarea
                             {...field}
                             placeholder="Ex: 30 dias, boleto bancário..."
-                            className="resize-none"
+                            className="resize-none w-full"
                             readOnly={viewMode === 'view'}
                           />
                         </FormControl>
@@ -1204,7 +1162,7 @@ export default function UpdateSupplierQuotation({
                           <Textarea
                             {...field}
                             placeholder="Ex: FOB, CIF, entrega no local..."
-                            className="resize-none"
+                            className="resize-none w-full"
                             readOnly={viewMode === 'view'}
                           />
                         </FormControl>
@@ -1224,6 +1182,7 @@ export default function UpdateSupplierQuotation({
                             {...field}
                             placeholder="Ex: 12 meses, 2 anos..."
                             readOnly={viewMode === 'view'}
+                            className="w-full"
                           />
                         </FormControl>
                         <FormMessage />
@@ -1242,7 +1201,7 @@ export default function UpdateSupplierQuotation({
                         <Textarea
                           {...field}
                           placeholder="Observações adicionais sobre a proposta..."
-                          className="resize-none"
+                          className="resize-none w-full"
                           readOnly={viewMode === 'view'}
                         />
                       </FormControl>

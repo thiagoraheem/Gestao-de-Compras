@@ -744,6 +744,13 @@ export class PDFService {
       <div class="info-item">
         <span class="info-label">TELEFONE:</span> ${supplier?.phone || 'Não informado'}
       </div>
+      ${(selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) ? `
+      <div class="info-item">
+        <span class="info-label">DESCONTO:</span> ${selectedSupplierQuotation.discountType === 'percentage' 
+          ? `${selectedSupplierQuotation.discountValue}%` 
+          : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(2).replace('.', ',')}`}
+      </div>
+      ` : ''}
     </div>
 
     <div class="section">
@@ -1300,6 +1307,14 @@ export class PDFService {
               </div>
             </div>
           </div>
+          ${(selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) ? `
+          <div class="info-item" style="margin-top: 15px;">
+            <span class="info-label">Desconto da Proposta:</span>
+            <span class="info-value">${selectedSupplierQuotation.discountType === 'percentage' 
+              ? `${selectedSupplierQuotation.discountValue}%` 
+              : formatCurrency(Number(selectedSupplierQuotation.discountValue))}</span>
+          </div>
+          ` : ''}
           ${selectedSupplierQuotation.justification ? `
           <div class="info-item" style="margin-top: 15px;">
             <span class="info-label">Justificativa da Escolha:</span><br>

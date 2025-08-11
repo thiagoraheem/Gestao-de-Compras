@@ -910,6 +910,19 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                       Selecionado
                     </Badge>
                   </div>
+                  
+                  {/* Desconto da Proposta */}
+                  {(selectedSupplier.discountType && selectedSupplier.discountType !== 'none' && selectedSupplier.discountValue) && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Desconto da Proposta</span>
+                      <p className="text-lg font-semibold text-green-600">
+                        {selectedSupplier.discountType === 'percentage' 
+                          ? `${selectedSupplier.discountValue}%`
+                          : `R$ ${Number(selectedSupplier.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                        }
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               

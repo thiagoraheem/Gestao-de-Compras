@@ -332,6 +332,19 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                 <p className="text-sm font-medium text-gray-500">Condições de Pagamento</p>
                 <p className="text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
               </div>
+              
+              {/* Desconto da Proposta */}
+              {(selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Desconto da Proposta</p>
+                  <p className="text-lg font-bold text-green-600 mt-1">
+                    {selectedSupplierQuotation.discountType === 'percentage' 
+                      ? `${selectedSupplierQuotation.discountValue}%`
+                      : formatCurrency(selectedSupplierQuotation.discountValue)
+                    }
+                  </p>
+                </div>
+              )}
             </div>
             
             {selectedSupplierQuotation.choiceReason && (

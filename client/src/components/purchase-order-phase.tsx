@@ -562,6 +562,19 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                     <p>{selectedSupplierQuotation.observations}</p>
                   </div>
                 )}
+                
+                {/* Desconto da Proposta */}
+                {(selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) && (
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-600">Desconto da Proposta:</span>
+                    <p className="text-lg font-semibold text-green-600">
+                      {selectedSupplierQuotation.discountType === 'percentage' 
+                        ? `${selectedSupplierQuotation.discountValue}%`
+                        : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(2).replace('.', ',')}`
+                      }
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

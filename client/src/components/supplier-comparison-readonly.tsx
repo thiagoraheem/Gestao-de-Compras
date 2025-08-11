@@ -162,6 +162,19 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                           <p className="text-sm mt-1">{supplierData.warrantyPeriod || supplierData.warranty || "Não informado"}</p>
                         </div>
 
+                        {/* Desconto da Proposta */}
+                        {(supplierData.discountType && supplierData.discountType !== 'none' && supplierData.discountValue) && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-600">Desconto da Proposta:</span>
+                            <p className="text-sm mt-1 text-green-600 font-medium">
+                              {supplierData.discountType === 'percentage' 
+                                ? `${supplierData.discountValue}%`
+                                : `R$ ${Number(supplierData.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                              }
+                            </p>
+                          </div>
+                        )}
+
                         {/* Itens */}
                         <div>
                           <span className="text-sm font-medium text-gray-600">Itens:</span>
@@ -275,6 +288,15 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                                           minimumFractionDigits: 2 
                                         })}
                                       </div>
+                                      {/* Desconto do Item */}
+                                      {(item.discountPercentage || item.discountValue) && (
+                                        <div className="text-xs text-orange-600">
+                                          Desconto: {item.discountPercentage 
+                                            ? `${item.discountPercentage}%`
+                                            : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                          }
+                                        </div>
+                                      )}
                                       {item.deliveryDays && (
                                         <div className="text-xs text-blue-600">
                                           {item.deliveryDays} dias
