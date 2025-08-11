@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -14,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { X, Check, Package, User, Building, Calendar, DollarSign, FileText } from "lucide-react";
+import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
@@ -35,6 +36,10 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isPendencyModalOpen, setIsPendencyModalOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
@@ -131,6 +136,110 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
     },
   });
 
+  // Função para gerar pré-visualização do PDF
+  const handlePreviewPDF = async () => {
+    setIsLoadingPreview(true);
+    try {
+      const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao gerar PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      setPdfPreviewUrl(url);
+      setShowPreviewModal(true);
+
+      toast({
+        title: "Sucesso",
+        description: "Pré-visualização do PDF carregada com sucesso!",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar pré-visualização do PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  // Função para download do PDF
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao gerar PDF');
+      }
+
+      // Criar blob e fazer download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `Pedido_Compra_${request.requestNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Sucesso",
+        description: "PDF do pedido de compra baixado com sucesso!",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao baixar PDF do pedido de compra",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Função para baixar PDF da pré-visualização
+  const handleDownloadFromPreview = () => {
+    if (pdfPreviewUrl) {
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = pdfPreviewUrl;
+      a.download = `Pedido_Compra_${request.requestNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Sucesso",
+        description: "PDF do pedido de compra baixado com sucesso!",
+      });
+    }
+  };
+
+  // Limpar URL do blob quando o modal for fechado
+  const handleClosePreview = () => {
+    setShowPreviewModal(false);
+    if (pdfPreviewUrl) {
+      window.URL.revokeObjectURL(pdfPreviewUrl);
+      setPdfPreviewUrl(null);
+    }
+  };
+
   const formatCurrency = (value: any) => {
     if (!value) return "N/A";
     return new Intl.NumberFormat('pt-BR', {
@@ -188,9 +297,28 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
             Confirme o recebimento ou reporte pendências
           </p>
         </div>
-        <Button variant="ghost" onClick={onClose}>
-          <X className="h-5 w-5" />
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handlePreviewPDF}
+            disabled={isLoadingPreview}
+            variant="outline"
+            className="border-green-600 text-green-600 hover:bg-green-50"
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
+          </Button>
+          <Button
+            onClick={handleDownloadPDF}
+            disabled={isDownloading}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {isDownloading ? "Gerando PDF..." : "Baixar PDF"}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -519,6 +647,52 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         onConfirm={(reason) => reportIssueMutation.mutate(reason)}
         isLoading={reportIssueMutation.isPending}
       />
+
+      {/* Modal de Pré-visualização do PDF */}
+      <Dialog open={showPreviewModal} onOpenChange={handleClosePreview}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Pré-visualização - Pedido de Compra {request.requestNumber}</span>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleDownloadFromPreview}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Baixar PDF
+                </Button>
+                <Button
+                  onClick={handleClosePreview}
+                  size="sm"
+                  variant="outline"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Fechar
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden">
+            {pdfPreviewUrl ? (
+              <iframe
+                src={pdfPreviewUrl}
+                className="w-full h-[75vh] border rounded-lg"
+                title="Pré-visualização do PDF"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">Carregando pré-visualização...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
