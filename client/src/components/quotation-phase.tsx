@@ -17,7 +17,7 @@ import RFQCreation from "./rfq-creation";
 import RFQAnalysis from "./rfq-analysis";
 import SupplierComparison from "./supplier-comparison";
 import UpdateSupplierQuotation from "./update-supplier-quotation";
-import RequestItemsList from "./request-items-list";
+
 
 interface Quotation {
   id: number;
@@ -168,12 +168,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
               <p className="mt-1">{request.justification}</p>
             </div>
 
-            <Separator className="my-4" />
-            
-            <div>
-              <span className="text-sm font-medium text-gray-500 mb-3 block">Itens da Solicitação</span>
-              <RequestItemsList requestId={request.id} />
-            </div>
+
           </CardContent>
         </Card>
 
@@ -288,26 +283,48 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {quotationItems.map((item, index) => (
-                    <div key={item.id} className="border rounded-lg p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Descrição</span>
-                          <p>{item.description}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Quantidade</span>
-                          <p>{Math.round(Number(item.quantity))} {item.unit}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Prazo de Entrega</span>
-                          <p>{item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "dd/MM/yyyy", { locale: ptBR }) : 'Não informado'}</p>
-                        </div>
-                      </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 text-sm font-medium text-gray-700">Descrição</th>
+                        <th className="text-center p-3 text-sm font-medium text-gray-700 w-32">Quantidade</th>
+                        <th className="text-center p-3 text-sm font-medium text-gray-700 w-40">Prazo de Entrega</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quotationItems.map((item, index) => (
+                        <tr key={item.id} className="border-b hover:bg-gray-50">
+                          <td className="p-3">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{item.description}</p>
+                              {item.itemCode && (
+                                <p className="text-xs text-gray-500 mt-1">Código: {item.itemCode}</p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className="text-sm font-semibold text-gray-900">
+                              {Math.round(Number(item.quantity))} {item.unit}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className="text-sm text-gray-700">
+                              {item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "dd/MM/yyyy", { locale: ptBR }) : 'Não informado'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  
+                  {/* Summary */}
+                  <div className="mt-4 pt-3 border-t bg-gray-50 rounded-b-lg px-3 py-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium text-gray-600">Total de itens:</span>
+                      <span className="font-semibold text-gray-900">{quotationItems.length} item(s)</span>
                     </div>
-                  ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
