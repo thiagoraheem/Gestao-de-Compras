@@ -28,6 +28,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -60,12 +67,16 @@ const updateSupplierQuotationSchema = z.object({
       brand: z.string().optional(),
       model: z.string().optional(),
       observations: z.string().optional(),
+      discountPercentage: z.string().optional(),
+      discountValue: z.string().optional(),
     }),
   ),
   paymentTerms: z.string().optional(),
   deliveryTerms: z.string().optional(),
   warrantyPeriod: z.string().optional(),
   observations: z.string().optional(),
+  discountType: z.enum(["none", "percentage", "fixed"]).default("none"),
+  discountValue: z.string().optional(),
 });
 
 type UpdateSupplierQuotationData = z.infer<
@@ -90,6 +101,10 @@ interface SupplierQuotationItem {
   brand?: string;
   model?: string;
   observations?: string;
+  discountPercentage?: string;
+  discountValue?: string;
+  originalTotalPrice?: string;
+  discountedTotalPrice?: string;
 }
 
 interface ExistingSupplierQuotation {
@@ -102,6 +117,10 @@ interface ExistingSupplierQuotation {
   status?: string;
   receivedAt?: string;
   totalValue?: string;
+  discountType?: string;
+  discountValue?: string;
+  subtotalValue?: string;
+  finalValue?: string;
 }
 
 interface SupplierAttachment {
@@ -169,6 +188,8 @@ export default function UpdateSupplierQuotation({
       deliveryTerms: "",
       warrantyPeriod: "",
       observations: "",
+      discountType: "none",
+      discountValue: "",
     },
   });
 
@@ -182,6 +203,8 @@ export default function UpdateSupplierQuotation({
         brand: "",
         model: "",
         observations: "",
+        discountPercentage: "",
+        discountValue: "",
       }));
 
       form.setValue("items", formItems);
@@ -210,6 +233,8 @@ export default function UpdateSupplierQuotation({
           brand: existingItem?.brand || "",
           model: existingItem?.model || "",
           observations: existingItem?.observations || "",
+          discountPercentage: existingItem?.discountPercentage || "",
+          discountValue: existingItem?.discountValue || "",
         };
       });
 
@@ -229,6 +254,14 @@ export default function UpdateSupplierQuotation({
       form.setValue(
         "observations",
         existingSupplierQuotation.observations || "",
+      );
+      form.setValue(
+        "discountType",
+        (existingSupplierQuotation.discountType as "none" | "percentage" | "fixed") || "none",
+      );
+      form.setValue(
+        "discountValue",
+        existingSupplierQuotation.discountValue || "",
       );
     }
   }, [existingSupplierQuotation, quotationItems, form]);
@@ -250,14 +283,44 @@ export default function UpdateSupplierQuotation({
         return sum + quantity * unitPrice;
       }, 0);
 
-      const processedItems = data.items.map((item) => ({
-        quotationItemId: item.quotationItemId,
-        unitPrice: parseNumberFromCurrency(item.unitPrice),
-        deliveryDays: item.deliveryDays ? parseInt(item.deliveryDays) : null,
-        brand: item.brand || null,
-        model: item.model || null,
-        observations: item.observations || null,
-      }));
+      const processedItems = data.items.map((item) => {
+        const correspondingQuotationItem = quotationItems.find(
+          (qi) => qi.id === item.quotationItemId,
+        );
+        const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+        const unitPrice = parseNumberFromCurrency(item.unitPrice);
+        const originalTotalPrice = quantity * unitPrice;
+
+        // Calculate discounted total price
+        let discountedTotalPrice = originalTotalPrice;
+        let discountPercentage = null;
+        let discountValue = null;
+
+        if (item.discountPercentage) {
+          discountPercentage = parseFloat(item.discountPercentage);
+          discountedTotalPrice = originalTotalPrice * (1 - discountPercentage / 100);
+        } else if (item.discountValue) {
+          discountValue = parseNumberFromCurrency(item.discountValue);
+          discountedTotalPrice = Math.max(0, originalTotalPrice - discountValue);
+        }
+
+        return {
+          quotationItemId: item.quotationItemId,
+          unitPrice,
+          deliveryDays: item.deliveryDays ? parseInt(item.deliveryDays) : null,
+          brand: item.brand || null,
+          model: item.model || null,
+          observations: item.observations || null,
+          discountPercentage,
+          discountValue,
+          originalTotalPrice,
+          discountedTotalPrice,
+        };
+      });
+
+      // Calculate final values
+      const subtotalValue = calculateSubtotal();
+      const finalValue = calculateFinalTotal();
 
       return apiRequest(
         `/api/quotations/${quotationId}/update-supplier-quotation`,
@@ -266,7 +329,15 @@ export default function UpdateSupplierQuotation({
           body: {
             supplierId,
             items: processedItems,
-            totalValue,
+            totalValue: finalValue,
+            subtotalValue,
+            finalValue,
+            discountType: data.discountType,
+            discountValue: data.discountValue ? (
+              data.discountType === "percentage" 
+                ? parseFloat(data.discountValue)
+                : parseNumberFromCurrency(data.discountValue)
+            ) : null,
             paymentTerms: data.paymentTerms || null,
             deliveryTerms: data.deliveryTerms || null,
             warrantyPeriod: data.warrantyPeriod || null,
@@ -477,19 +548,59 @@ export default function UpdateSupplierQuotation({
     return parseFloat(cleanValue) || 0;
   };
 
-  const calculateTotalValue = () => {
-    const watchedItems = form.watch("items");
-    return watchedItems.reduce((sum, item) => {
-      if (!item.unitPrice) return sum;
+  const calculateItemTotal = (item: any, index: number) => {
+    if (!item || !item.unitPrice) return 0;
 
-      const correspondingQuotationItem = quotationItems.find(
-        (qi) => qi.id === item.quotationItemId,
-      );
-      const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
-      const unitPrice = parseNumberFromCurrency(item.unitPrice);
+    const correspondingQuotationItem = quotationItems.find(
+      (qi) => qi.id === item.quotationItemId,
+    );
+    const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+    const unitPrice = parseNumberFromCurrency(item.unitPrice);
+    const originalTotal = quantity * unitPrice;
 
-      return sum + quantity * unitPrice;
+    // Apply item-level discount
+    let discountedTotal = originalTotal;
+    if (item.discountPercentage) {
+      const discountPercent = parseFloat(item.discountPercentage) || 0;
+      discountedTotal = originalTotal * (1 - discountPercent / 100);
+    } else if (item.discountValue) {
+      const discountValue = parseNumberFromCurrency(item.discountValue);
+      discountedTotal = Math.max(0, originalTotal - discountValue);
+    }
+
+    return discountedTotal;
+  };
+
+  const calculateSubtotal = () => {
+    const watchedItems = form.watch("items") || [];
+    return watchedItems.reduce((sum, item, index) => {
+      if (!item) return sum;
+      return sum + calculateItemTotal(item, index);
     }, 0);
+  };
+
+  const calculateFinalTotal = () => {
+    const subtotal = calculateSubtotal();
+    const discountType = form.watch("discountType");
+    const discountValue = form.watch("discountValue");
+
+    if (discountType === "none" || !discountValue) {
+      return subtotal;
+    }
+
+    if (discountType === "percentage") {
+      const discountPercent = parseFloat(discountValue) || 0;
+      return subtotal * (1 - discountPercent / 100);
+    } else if (discountType === "fixed") {
+      const discountAmount = parseNumberFromCurrency(discountValue);
+      return Math.max(0, subtotal - discountAmount);
+    }
+
+    return subtotal;
+  };
+
+  const calculateTotalValue = () => {
+    return calculateFinalTotal();
   };
 
   if (isLoadingItems) {
@@ -565,7 +676,10 @@ export default function UpdateSupplierQuotation({
                         <TableHead>Qtd</TableHead>
                         <TableHead>Unidade</TableHead>
                         <TableHead>Preço Unitário</TableHead>
-                        <TableHead>Total</TableHead>
+                        <TableHead>Total Original</TableHead>
+                        <TableHead>Desc. %</TableHead>
+                        <TableHead>Desc. Valor</TableHead>
+                        <TableHead>Total Final</TableHead>
                         <TableHead>Prazo (dias)</TableHead>
                         <TableHead>Marca</TableHead>
                         <TableHead>Modelo</TableHead>
@@ -667,7 +781,7 @@ export default function UpdateSupplierQuotation({
                               />
                             </TableCell>
                             <TableCell>
-                              <div className="font-medium text-green-600">
+                              <div className="font-medium text-gray-600">
                                 R${" "}
                                 {(() => {
                                   const unitPrice = form.watch(
@@ -683,6 +797,107 @@ export default function UpdateSupplierQuotation({
                                   return isNaN(total)
                                     ? "0,00"
                                     : total.toLocaleString("pt-BR", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      });
+                                })()}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.discountPercentage`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="0"
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        className="w-20"
+                                        readOnly={viewMode === 'view'}
+                                        onChange={(e) => {
+                                          if (viewMode === 'view') return;
+                                          field.onChange(e.target.value);
+                                          // Clear discount value when percentage is set
+                                          if (e.target.value) {
+                                            form.setValue(`items.${index}.discountValue`, "");
+                                          }
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.discountValue`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="0,00"
+                                        className="w-24"
+                                        readOnly={viewMode === 'view'}
+                                        onChange={(e) => {
+                                          if (viewMode === 'view') return;
+                                          let inputValue = e.target.value;
+                                          if (/^\d+$/.test(inputValue)) {
+                                            field.onChange(inputValue);
+                                          } else {
+                                            const cleanValue = inputValue.replace(/[^\d.,]/g, "");
+                                            field.onChange(cleanValue);
+                                          }
+                                          // Clear discount percentage when value is set
+                                          if (e.target.value) {
+                                            form.setValue(`items.${index}.discountPercentage`, "");
+                                          }
+                                        }}
+                                        onBlur={(e) => {
+                                          if (viewMode === 'view') return;
+                                          const value = e.target.value;
+                                          if (value) {
+                                            let number;
+                                            if (/^\d+$/.test(value)) {
+                                              number = parseFloat(value);
+                                            } else if (/^\d+[.,]\d+$/.test(value)) {
+                                              number = parseFloat(value.replace(",", "."));
+                                            } else {
+                                              const cleanValue = value.replace(/[^\d.,]/g, "");
+                                              number = parseFloat(cleanValue.replace(",", "."));
+                                            }
+                                            if (!isNaN(number)) {
+                                              const formatted = number.toLocaleString("pt-BR", {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                              });
+                                              field.onChange(formatted);
+                                            }
+                                          }
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium text-green-600">
+                                R${" "}
+                                {(() => {
+                                  const watchedItem = form.watch(`items.${index}`);
+                                  const finalTotal = calculateItemTotal(watchedItem, index);
+                                  return isNaN(finalTotal)
+                                    ? "0,00"
+                                    : finalTotal.toLocaleString("pt-BR", {
                                         minimumFractionDigits: 2,
                                         maximumFractionDigits: 2,
                                       });
@@ -770,7 +985,7 @@ export default function UpdateSupplierQuotation({
                           {item.specifications && (
                             <TableRow key={`${item.id}-spec`}>
                               <TableCell
-                                colSpan={9}
+                                colSpan={12}
                                 className="bg-gray-50 border-t-0 pt-0"
                               >
                                 <div className="text-xs text-gray-600 italic">
@@ -789,6 +1004,151 @@ export default function UpdateSupplierQuotation({
                 </div>
 
                 <Separator className="my-4" />
+
+                {/* Discount Section */}
+                <Card className="mb-4">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Desconto da Proposta</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="discountType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tipo de Desconto</FormLabel>
+                            <Select 
+                              onValueChange={field.onChange} 
+                              defaultValue={field.value}
+                              disabled={viewMode === 'view'}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o tipo" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="none">Sem desconto</SelectItem>
+                                <SelectItem value="percentage">Percentual (%)</SelectItem>
+                                <SelectItem value="fixed">Valor fixo (R$)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="discountValue"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {form.watch("discountType") === "percentage" 
+                                ? "Percentual de Desconto (%)" 
+                                : "Valor do Desconto (R$)"}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder={form.watch("discountType") === "percentage" ? "0" : "0,00"}
+                                type={form.watch("discountType") === "percentage" ? "number" : "text"}
+                                min="0"
+                                max={form.watch("discountType") === "percentage" ? "100" : undefined}
+                                step={form.watch("discountType") === "percentage" ? "0.01" : undefined}
+                                readOnly={viewMode === 'view' || form.watch("discountType") === "none"}
+                                onChange={(e) => {
+                                  if (viewMode === 'view' || form.watch("discountType") === "none") return;
+                                  
+                                  if (form.watch("discountType") === "percentage") {
+                                    field.onChange(e.target.value);
+                                  } else {
+                                    // Handle currency input for fixed discount
+                                    let inputValue = e.target.value;
+                                    if (/^\d+$/.test(inputValue)) {
+                                      field.onChange(inputValue);
+                                    } else {
+                                      const cleanValue = inputValue.replace(/[^\d.,]/g, "");
+                                      field.onChange(cleanValue);
+                                    }
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  if (viewMode === 'view' || form.watch("discountType") !== "fixed") return;
+                                  
+                                  const value = e.target.value;
+                                  if (value) {
+                                    let number;
+                                    if (/^\d+$/.test(value)) {
+                                      number = parseFloat(value);
+                                    } else if (/^\d+[.,]\d+$/.test(value)) {
+                                      number = parseFloat(value.replace(",", "."));
+                                    } else {
+                                      const cleanValue = value.replace(/[^\d.,]/g, "");
+                                      number = parseFloat(cleanValue.replace(",", "."));
+                                    }
+                                    if (!isNaN(number)) {
+                                      const formatted = number.toLocaleString("pt-BR", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      });
+                                      field.onChange(formatted);
+                                    }
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="flex flex-col justify-end">
+                        <div className="text-right space-y-2">
+                          <div>
+                            <p className="text-sm text-gray-600">Subtotal</p>
+                            <p className="text-lg font-semibold">
+                              R$ {calculateSubtotal().toLocaleString("pt-BR", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </p>
+                          </div>
+                          {form.watch("discountType") !== "none" && form.watch("discountValue") && (
+                            <div>
+                              <p className="text-sm text-red-600">
+                                Desconto ({form.watch("discountType") === "percentage" ? `${form.watch("discountValue")}%` : `R$ ${form.watch("discountValue")}`})
+                              </p>
+                              <p className="text-lg font-semibold text-red-600">
+                                - R$ {(() => {
+                                  const subtotal = calculateSubtotal();
+                                  const discountType = form.watch("discountType");
+                                  const discountValue = form.watch("discountValue");
+                                  
+                                  if (!discountValue) return "0,00";
+                                  
+                                  let discountAmount = 0;
+                                  if (discountType === "percentage") {
+                                    const discountPercent = parseFloat(discountValue) || 0;
+                                    discountAmount = subtotal * (discountPercent / 100);
+                                  } else if (discountType === "fixed") {
+                                    discountAmount = parseNumberFromCurrency(discountValue);
+                                  }
+                                  
+                                  return discountAmount.toLocaleString("pt-BR", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  });
+                                })()}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 <div className="flex justify-end">
                   <div className="text-right">

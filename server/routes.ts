@@ -2407,7 +2407,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations/:quotationId/update-supplier-quotation", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      const { supplierId, items, totalValue, paymentTerms, deliveryTerms, warrantyPeriod, observations } = req.body;
+      const { 
+        supplierId, 
+        items, 
+        totalValue, 
+        paymentTerms, 
+        deliveryTerms, 
+        warrantyPeriod, 
+        observations,
+        subtotalValue,
+        finalValue,
+        discountType,
+        discountValue
+      } = req.body;
 
       // Update supplier quotation request processing
 
@@ -2461,6 +2473,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData = {
         status: "received",
         totalValue: totalValue || null,
+        subtotalValue: subtotalValue || null,
+        finalValue: finalValue || null,
+        discountType: discountType || null,
+        discountValue: discountValue || null,
         paymentTerms: paymentTerms || null,
         deliveryTerms: deliveryTerms || null,
         warrantyPeriod: warrantyPeriod || null,
@@ -2488,6 +2504,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateSupplierQuotationItem(existingItem.id, {
               unitPrice: item.unitPrice.toString(),
               totalPrice: (item.unitPrice * quantity).toString(),
+              originalTotalPrice: item.originalTotalPrice?.toString() || null,
+              discountPercentage: item.discountPercentage?.toString() || null,
+              discountValue: item.discountValue?.toString() || null,
+              discountedTotalPrice: item.discountedTotalPrice?.toString() || null,
               deliveryDays: item.deliveryDays,
               brand: item.brand,
               model: item.model,
@@ -2505,6 +2525,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               quotationItemId: item.quotationItemId,
               unitPrice: item.unitPrice.toString(),
               totalPrice: (item.unitPrice * quantity).toString(),
+              originalTotalPrice: item.originalTotalPrice?.toString() || null,
+              discountPercentage: item.discountPercentage?.toString() || null,
+              discountValue: item.discountValue?.toString() || null,
+              discountedTotalPrice: item.discountedTotalPrice?.toString() || null,
               deliveryDays: item.deliveryDays,
               brand: item.brand,
               model: item.model,

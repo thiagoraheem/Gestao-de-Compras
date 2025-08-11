@@ -268,6 +268,11 @@ export const supplierQuotations = pgTable("supplier_quotations", {
   observations: text("observations"),
   isChosen: boolean("is_chosen").default(false),
   choiceReason: text("choice_reason"),
+  // Discount fields
+  discountType: text("discount_type").default("none"), // percentage, fixed, none
+  discountValue: decimal("discount_value", { precision: 15, scale: 4 }).default("0"),
+  subtotalValue: decimal("subtotal_value", { precision: 15, scale: 2 }),
+  finalValue: decimal("final_value", { precision: 15, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -281,6 +286,11 @@ export const supplierQuotationItems = pgTable("supplier_quotation_items", {
   brand: text("brand"),
   model: text("model"),
   observations: text("observations"),
+  // Discount fields for items
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default("0"),
+  discountValue: decimal("discount_value", { precision: 15, scale: 4 }).default("0"),
+  originalTotalPrice: decimal("original_total_price", { precision: 15, scale: 2 }),
+  discountedTotalPrice: decimal("discounted_total_price", { precision: 15, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
