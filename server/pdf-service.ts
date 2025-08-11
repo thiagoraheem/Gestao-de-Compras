@@ -905,13 +905,12 @@ export class PDFService {
     // Buscar itens da solicitação
     const items = await storage.getPurchaseRequestItems(purchaseRequestId);
     
-    // Buscar dados da empresa através do usuário solicitante
+    // Buscar dados da empresa através da solicitação
     let company = null;
-    if (purchaseRequest.requesterId) {
-      const requester = await storage.getUser(purchaseRequest.requesterId);
-      if (requester && requester.companyId) {
-        company = await storage.getCompanyById(requester.companyId);
-      }
+    const requester = await storage.getUser(purchaseRequest.requesterId);
+    
+    if (purchaseRequest.companyId) {
+      company = await storage.getCompanyById(purchaseRequest.companyId);
     }
     
     // Buscar departamento através do cost center
