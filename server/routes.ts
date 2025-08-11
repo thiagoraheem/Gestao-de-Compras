@@ -2382,7 +2382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rota para arquivar diretamente uma requisição
-  app.post("/api/purchase-requests/:id/archive-direct", isAuthenticated, async (req, res) => {
+  app.post("/api/purchase-requests/:id/archive-direct", isAuthenticated, isAdminOrBuyer, async (req, res) => {
     try {
       const requestId = Number(req.params.id);
       const request = await storage.getPurchaseRequestById(requestId);
@@ -3197,7 +3197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Archive purchase request endpoint for ConclusionPhase
-  app.patch("/api/purchase-requests/:id/archive", isAuthenticated, async (req, res) => {
+  app.patch("/api/purchase-requests/:id/archive", isAuthenticated, isAdminOrBuyer, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { conclusionObservations } = req.body;

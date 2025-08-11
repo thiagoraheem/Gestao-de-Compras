@@ -683,7 +683,7 @@ export default function PurchaseCard({
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
-              {!isArchived && phase !== PURCHASE_PHASES.CONCLUSAO_COMPRA && (
+              {!isArchived && phase !== PURCHASE_PHASES.CONCLUSAO_COMPRA && (user?.isAdmin || user?.isBuyer) && (
                 <Button
                   variant="ghost"
                   size="icon"

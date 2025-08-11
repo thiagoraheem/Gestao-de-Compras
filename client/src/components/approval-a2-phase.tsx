@@ -812,10 +812,12 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                               defaultValue={field.value}
                               className="flex flex-col space-y-2"
                             >
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="archive" id="archive" />
-                                <Label htmlFor="archive">Arquivar definitivamente</Label>
-                              </div>
+                              {(user?.isAdmin || user?.isBuyer) && (
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="archive" id="archive" />
+                                  <Label htmlFor="archive">Arquivar definitivamente</Label>
+                                </div>
+                              )}
                               <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="recotacao" id="recotacao" />
                                 <Label htmlFor="recotacao">Retornar para nova cotação</Label>
