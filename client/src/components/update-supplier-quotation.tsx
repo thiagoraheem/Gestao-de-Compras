@@ -668,191 +668,166 @@ export default function UpdateSupplierQuotation({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {quotationItems.map((item, index) => (
-                    <Card key={item.id} className="p-4">
-                      <div className="flex flex-col xl:grid xl:grid-cols-2 gap-4">
-                        {/* Coluna Esquerda - Informações do Item */}
-                        <div className="space-y-4 min-w-0">
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Descrição</label>
-                            <div className="mt-1 p-2 bg-gray-50 rounded text-sm break-words">
-                              {item.description}
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm font-medium text-gray-600">Quantidade</label>
-                              <div className="mt-1">
-                                <Badge variant="secondary">
-                                  {parseFloat(item.quantity).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[200px]">Item</th>
+                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[150px]">Marca / Modelo</th>
+                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[120px]">Preço + Original</th>
+                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[80px]">Desc. %</th>
+                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[100px]">Desc. Valor</th>
+                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[80px]">Prazo (dias)</th>
+                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[120px]">Total Final</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quotationItems.map((item, index) => (
+                        <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="p-3 align-top">
+                            <div className="space-y-2">
+                              <div className="font-medium text-sm break-words">{item.description}</div>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <Badge variant="secondary" className="text-xs">
+                                  {parseFloat(item.quantity).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} {item.unit}
                                 </Badge>
                               </div>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-gray-600">Unidade</label>
-                              <div className="mt-1 text-sm">{item.unit}</div>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.brand`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Marca</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="Marca"
-                                      readOnly={viewMode === 'view'}
-                                      className="w-full"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
+                              {item.specifications && (
+                                <div className="text-xs text-gray-500 italic bg-gray-50 p-1 rounded">
+                                  {item.specifications}
+                                </div>
                               )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.model`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Modelo</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="Modelo"
-                                      readOnly={viewMode === 'view'}
-                                      className="w-full"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.observations`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Observações</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    {...field}
-                                    placeholder="Observações"
-                                    readOnly={viewMode === 'view'}
-                                    className="w-full"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        {/* Coluna Direita - Preços e Valores */}
-                        <div className="space-y-4 min-w-0">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.unitPrice`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Preço Unitário</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="1.000,00"
-                                      readOnly={viewMode === 'view'}
-                                      className="w-full"
-                                      onChange={(e) => {
-                                        if (viewMode === 'view') return;
-                                        let inputValue = e.target.value;
-                                        if (/^\d+$/.test(inputValue)) {
-                                          field.onChange(inputValue);
-                                        } else {
-                                          const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                          field.onChange(cleanValue);
-                                        }
-                                      }}
-                                      onBlur={(e) => {
-                                        if (viewMode === 'view') return;
-                                        const value = e.target.value;
-                                        if (value) {
-                                          let number;
-                                          if (/^\d+$/.test(value)) {
-                                            number = parseFloat(value);
-                                          } else if (/^\d+[.,]\d+$/.test(value)) {
-                                            number = parseFloat(value.replace(",", "."));
+                              <div className="space-y-1">
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.observations`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <Input
+                                          {...field}
+                                          placeholder="Observações"
+                                          readOnly={viewMode === 'view'}
+                                          className="text-xs h-7"
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 align-top">
+                            <div className="space-y-2">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.brand`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="Marca"
+                                        readOnly={viewMode === 'view'}
+                                        className="text-xs h-7"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.model`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="Modelo"
+                                        readOnly={viewMode === 'view'}
+                                        className="text-xs h-7"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </td>
+                          <td className="p-3 align-top">
+                            <div className="space-y-2">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.unitPrice`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="1.000,00"
+                                        readOnly={viewMode === 'view'}
+                                        className="text-xs h-7"
+                                        onChange={(e) => {
+                                          if (viewMode === 'view') return;
+                                          let inputValue = e.target.value;
+                                          if (/^\d+$/.test(inputValue)) {
+                                            field.onChange(inputValue);
                                           } else {
-                                            const cleanValue = value.replace(/[^\d.,]/g, "");
-                                            number = parseFloat(cleanValue.replace(",", "."));
+                                            const cleanValue = inputValue.replace(/[^\d.,]/g, "");
+                                            field.onChange(cleanValue);
                                           }
-                                          if (!isNaN(number)) {
-                                            const formatted = number.toLocaleString("pt-BR", {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            });
-                                            field.onChange(formatted);
+                                        }}
+                                        onBlur={(e) => {
+                                          if (viewMode === 'view') return;
+                                          const value = e.target.value;
+                                          if (value) {
+                                            let number;
+                                            if (/^\d+$/.test(value)) {
+                                              number = parseFloat(value);
+                                            } else if (/^\d+[.,]\d+$/.test(value)) {
+                                              number = parseFloat(value.replace(",", "."));
+                                            } else {
+                                              const cleanValue = value.replace(/[^\d.,]/g, "");
+                                              number = parseFloat(cleanValue.replace(",", "."));
+                                            }
+                                            if (!isNaN(number)) {
+                                              const formatted = number.toLocaleString("pt-BR", {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                              });
+                                              field.onChange(formatted);
+                                            }
                                           }
-                                        }
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.deliveryDays`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Prazo (dias)</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="30"
-                                      type="number"
-                                      readOnly={viewMode === 'view'}
-                                      className="w-full"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Total Original</label>
-                            <div className="mt-1 p-2 bg-gray-50 rounded text-sm font-medium text-gray-600">
-                              R$ {(() => {
-                                const unitPrice = form.watch(`items.${index}.unitPrice`);
-                                if (!unitPrice) return "0,00";
-                                const quantity = parseFloat(item.quantity);
-                                const price = parseNumberFromCurrency(unitPrice);
-                                const total = quantity * price;
-                                return isNaN(total) ? "0,00" : total.toLocaleString("pt-BR", {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                });
-                              })()}
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <div className="text-xs text-gray-500">
+                                Original: R$ {(() => {
+                                  const unitPrice = form.watch(`items.${index}.unitPrice`);
+                                  if (!unitPrice) return "0,00";
+                                  const quantity = parseFloat(item.quantity);
+                                  const price = parseNumberFromCurrency(unitPrice);
+                                  const total = quantity * price;
+                                  return isNaN(total) ? "0,00" : total.toLocaleString("pt-BR", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  });
+                                })()}
+                              </div>
                             </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          </td>
+                          <td className="p-3 align-top">
                             <FormField
                               control={form.control}
                               name={`items.${index}.discountPercentage`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Desc. %</FormLabel>
                                   <FormControl>
                                     <Input
                                       {...field}
@@ -862,7 +837,7 @@ export default function UpdateSupplierQuotation({
                                       max="100"
                                       step="0.01"
                                       readOnly={viewMode === 'view'}
-                                      className="w-full"
+                                      className="text-xs h-7"
                                       onChange={(e) => {
                                         if (viewMode === 'view') return;
                                         field.onChange(e.target.value);
@@ -876,18 +851,19 @@ export default function UpdateSupplierQuotation({
                                 </FormItem>
                               )}
                             />
+                          </td>
+                          <td className="p-3 align-top">
                             <FormField
                               control={form.control}
                               name={`items.${index}.discountValue`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Desc. Valor</FormLabel>
                                   <FormControl>
                                     <Input
                                       {...field}
                                       placeholder="0,00"
                                       readOnly={viewMode === 'view'}
-                                      className="w-full"
+                                      className="text-xs h-7"
                                       onChange={(e) => {
                                         if (viewMode === 'view') return;
                                         let inputValue = e.target.value;
@@ -929,11 +905,29 @@ export default function UpdateSupplierQuotation({
                                 </FormItem>
                               )}
                             />
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Total Final</label>
-                            <div className="mt-1 p-2 bg-green-50 rounded text-lg font-bold text-green-600">
+                          </td>
+                          <td className="p-3 align-top">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.deliveryDays`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      placeholder="30"
+                                      type="number"
+                                      readOnly={viewMode === 'view'}
+                                      className="text-xs h-7"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </td>
+                          <td className="p-3 align-top">
+                            <div className="font-bold text-green-600">
                               R$ {(() => {
                                 const watchedItem = form.watch(`items.${index}`);
                                 const finalTotal = calculateItemTotal(watchedItem, index);
@@ -943,22 +937,33 @@ export default function UpdateSupplierQuotation({
                                 });
                               })()}
                             </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Especificações */}
-                      {item.specifications && (
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                          <label className="text-sm font-medium text-gray-600">Especificações</label>
-                          <div className="mt-1 text-sm text-gray-600 italic bg-gray-50 p-2 rounded">
-                            {item.specifications}
-                          </div>
-                        </div>
-                      )}
-                    </Card>
-                  ))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+
+                {/* Subtotal */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex justify-end">
+                    <div className="text-lg font-bold text-blue-600">
+                      Subtotal: R$ {(() => {
+                        const total = quotationItems.reduce((sum, item, index) => {
+                          const watchedItem = form.watch(`items.${index}`);
+                          const itemTotal = calculateItemTotal(watchedItem, index);
+                          return sum + (isNaN(itemTotal) ? 0 : itemTotal);
+                        }, 0);
+                        return total.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
                 <Separator className="my-4" />
 
@@ -1105,26 +1110,23 @@ export default function UpdateSupplierQuotation({
                         </div>
                       </div>
                     </div>
+                    <div className="flex justify-end">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">
+                          Valor Total da Proposta
+                        </p>
+                        <p className="text-2xl font-bold text-green-600 flex items-center gap-2">
+                          <Calculator className="h-5 w-5" />
+                          R${" "}
+                          {calculateTotalValue().toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
-
-                <div className="flex justify-end">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">
-                      Valor Total da Proposta
-                    </p>
-                    <p className="text-2xl font-bold text-green-600 flex items-center gap-2">
-                      <Calculator className="h-5 w-5" />
-                      R${" "}
-                      {calculateTotalValue().toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Terms and Conditions */}
             <Card>
@@ -1294,70 +1296,70 @@ export default function UpdateSupplierQuotation({
                     Anexar Proposta do Fornecedor
                   </CardTitle>
                 </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
-                      <div className="text-center">
-                        <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                        <p className="text-sm text-gray-600">
-                          Clique para selecionar arquivos ou arraste aqui
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          PDF, DOC, XLS, imagens até 10MB
-                        </p>
-                      </div>
-                      <input
-                        type="file"
-                        multiple
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-
-                  {selectedFiles.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">
-                        Arquivos selecionados:
-                      </p>
-                      {selectedFiles.map((file, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                        >
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-blue-500" />
-                            <span className="text-sm">{file.name}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {(file.size / 1024).toFixed(1)} KB
-                            </Badge>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeFile(index)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
+                        <div className="text-center">
+                          <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                          <p className="text-sm text-gray-600">
+                            Clique para selecionar arquivos ou arraste aqui
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            PDF, DOC, XLS, imagens até 10MB
+                          </p>
                         </div>
-                      ))}
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                      </label>
                     </div>
-                  )}
 
-                  {isUploading && (
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    {selectedFiles.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">
+                          Arquivos selecionados:
+                        </p>
+                        {selectedFiles.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                          >
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-blue-500" />
+                              <span className="text-sm">{file.name}</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {(file.size / 1024).toFixed(1)} KB
+                              </Badge>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile(index)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {isUploading && (
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             <div className="flex justify-end gap-2">
