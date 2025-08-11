@@ -103,10 +103,12 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   });
 
   // Filter cost centers based on user's assigned cost centers
-  const costCenters =
-    allCostCenters?.filter((center) =>
-      userCostCenterIds?.includes(center.id),
-    ) || [];
+  // Managers can see all cost centers, others only their assigned ones
+  const costCenters = user?.isManager 
+    ? (allCostCenters || [])
+    : (allCostCenters?.filter((center) =>
+        userCostCenterIds?.includes(center.id),
+      ) || []);
 
   // Buscar itens existentes da solicitação se estiver editando
   const { data: existingItems = [] } = useQuery<any[]>({

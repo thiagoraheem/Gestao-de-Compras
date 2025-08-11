@@ -133,10 +133,19 @@ export default function EnhancedNewRequestModal({
   });
 
   // Filter cost centers based on user's assigned cost centers only (not filtering by company anymore)
+  // Managers can see all cost centers, others only their assigned ones
   const costCenters = React.useMemo(() => {
-    if (!allCostCenters || !userCostCenterIds || !Array.isArray(allCostCenters) || !Array.isArray(userCostCenterIds)) return [];
+    if (!allCostCenters || !Array.isArray(allCostCenters)) return [];
+    
+    // If user is a manager, return all cost centers
+    if (user?.isManager) {
+      return allCostCenters;
+    }
+    
+    // For non-managers, filter by assigned cost centers
+    if (!userCostCenterIds || !Array.isArray(userCostCenterIds)) return [];
     return allCostCenters.filter((center: any) => userCostCenterIds.includes(center.id));
-  }, [allCostCenters, userCostCenterIds]);
+  }, [allCostCenters, userCostCenterIds, user?.isManager]);
 
   const form = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema),
