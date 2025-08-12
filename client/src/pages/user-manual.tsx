@@ -1576,7 +1576,7 @@ const manualSections: ManualSection[] = [
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <h4 className="font-semibold text-yellow-900 mb-2">📧 Configuração de E-mail</h4>
               <p className="text-sm text-yellow-800">
-                Verifique se o e-mail cadastrado está correto e adicione <strong>noreply@sistema-compras.com</strong> 
+                Verifique se o e-mail cadastrado está correto e adicione <strong>sistema@blomaq.com.br</strong> 
                 à sua lista de contatos confiáveis para evitar que as notificações caiam no spam.
               </p>
             </div>

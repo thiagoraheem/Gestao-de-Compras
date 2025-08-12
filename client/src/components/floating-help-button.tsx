@@ -137,11 +137,21 @@ export default function FloatingHelpButton() {
                 Ainda precisa de ajuda?
               </div>
               <div className="flex justify-center space-x-2">
-                <Button variant="outline" size="sm" className="flex-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => window.open('mailto:sistema@blomaq.com.br', '_blank')}
+                >
                   <Mail className="h-3 w-3 mr-1" />
                   E-mail
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => window.open('https://app.pipefy.com/public/form/hLJZml3x', '_blank')}
+                >
                   <Phone className="h-3 w-3 mr-1" />
                   Suporte
                 </Button>
