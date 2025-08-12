@@ -567,7 +567,7 @@ export class PDFService {
     
     // Calcular desconto total dos itens
     const itemDiscountTotal = items.reduce((sum, item) => 
-      sum + ((Number(item.itemDiscount) || 0) * (Number(item.requestedQuantity) || 1)), 0
+      sum + (Number(item.itemDiscount) || 0), 0
     );
     
     // Calcular desconto da proposta
