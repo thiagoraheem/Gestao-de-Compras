@@ -527,11 +527,16 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             </thead>
             <tbody>
               ${items.map((item: any) => {
-                const supplierItem = supplierQuotationItems.find((sqi: any) => 
-                  sqi.description === item.description || 
-                  sqi.itemCode === item.itemCode ||
-                  sqi.quotationItemId === item.id
-                );
+                const supplierItem = supplierQuotationItems.find((sqi: any) => {
+                  // First try by purchaseRequestItemId (most reliable)
+                  if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+                    return true;
+                  }
+                  // Fallback: try by description, item code, or quotationItemId
+                  return sqi.description === item.description || 
+                         sqi.itemCode === item.itemCode ||
+                         sqi.quotationItemId === item.id;
+                });
                 
                 const unitPrice = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
                 const quantity = parseFloat(item.requestedQuantity) || 0;
@@ -632,11 +637,16 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
     if (supplierQuotationItems && supplierQuotationItems.length > 0 && items && items.length > 0) {
       return items.reduce((sum: number, item: any) => {
         // Find matching supplier quotation item
-        const supplierItem = supplierQuotationItems.find((sqi: any) => 
-          sqi.description === item.description || 
-          sqi.itemCode === item.itemCode ||
-          sqi.quotationItemId === item.id
-        );
+        const supplierItem = supplierQuotationItems.find((sqi: any) => {
+          // First try by purchaseRequestItemId (most reliable)
+          if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+            return true;
+          }
+          // Fallback: try by description, item code, or quotationItemId
+          return sqi.description === item.description || 
+                 sqi.itemCode === item.itemCode ||
+                 sqi.quotationItemId === item.id;
+        });
         
         if (supplierItem) {
           const unitPrice = parseFloat(supplierItem.unitPrice) || 0;
@@ -1043,13 +1053,18 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                     const status = getItemStatus(item);
                     
                     // Find matching supplier quotation item with multiple criteria
-                    const supplierItem = supplierQuotationItems.find((sqi: any) => 
-                      sqi.description === item.description || 
-                      sqi.itemCode === item.itemCode ||
-                      sqi.quotationItemId === item.id ||
-                      (sqi.description && item.description && 
-                       sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim())
-                    );
+                    const supplierItem = supplierQuotationItems.find((sqi: any) => {
+                      // First try by purchaseRequestItemId (most reliable)
+                      if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+                        return true;
+                      }
+                      // Fallback: try by description, item code, quotationItemId, or normalized description
+                      return sqi.description === item.description || 
+                             sqi.itemCode === item.itemCode ||
+                             sqi.quotationItemId === item.id ||
+                             (sqi.description && item.description && 
+                              sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
+                    });
                     
                     // Get unit price with better fallback logic
                     let unitPrice = 0;

@@ -136,8 +136,15 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
 
   // Transform items to match ApprovalItemData interface with prices
   const transformedItems = requestItems.map(item => {
-    // Encontrar o item correspondente na cotação pela descrição
-    const quotationItem = quotationItems.find((qi: any) => qi.description === item.description);
+    // Encontrar o item correspondente na cotação usando purchaseRequestItemId
+    const quotationItem = quotationItems.find((qi: any) => {
+      // Primeiro tenta por purchaseRequestItemId (método mais confiável)
+      if (qi.purchaseRequestItemId && item.id && qi.purchaseRequestItemId === item.id) {
+        return true;
+      }
+      // Fallback: tenta por descrição
+      return qi.description === item.description;
+    });
     let unitPrice = 0;
     let totalPrice = 0;
     

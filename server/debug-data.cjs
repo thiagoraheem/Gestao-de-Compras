@@ -61,13 +61,18 @@ const { storage } = require('./storage.ts');
       console.log(`\nTesting PR Item: "${requestItem.description}" (Code: "${requestItem.itemCode || 'N/A'}")`);
       
       const quotationItem = quotationItems.find(qi => {
-        // Primeiro tenta por descrição exata
+        // Primeiro tenta por purchaseRequestItemId (método mais confiável)
+        if (qi.purchaseRequestItemId && requestItem.id && qi.purchaseRequestItemId === requestItem.id) {
+          console.log(`  ✓ Matched by purchaseRequestItemId: ${qi.purchaseRequestItemId}`);
+          return true;
+        }
+        // Fallback: tenta por descrição exata
         if (qi.description && requestItem.description && 
             qi.description.trim().toLowerCase() === requestItem.description.trim().toLowerCase()) {
           console.log(`  ✓ Matched by exact description: "${qi.description}"`);
           return true;
         }
-        // Depois tenta por código do item
+        // Fallback: tenta por código do item
         if (qi.itemCode && requestItem.itemCode && qi.itemCode === requestItem.itemCode) {
           console.log(`  ✓ Matched by item code: "${qi.itemCode}"`);
           return true;

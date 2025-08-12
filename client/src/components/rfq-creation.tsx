@@ -46,6 +46,7 @@ const quotationItemSchema = z.object({
   unit: z.string().min(1, "Unidade é obrigatória"),
   specifications: z.string().optional(),
   deliveryDeadline: z.string().optional(),
+  purchaseRequestItemId: z.number().optional(),
 });
 
 const rfqCreationSchema = z.object({
@@ -147,6 +148,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         unit: item.unit || "UN",
         specifications: item.specifications || "",
         deliveryDeadline: item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 15), "yyyy-MM-dd"),
+        purchaseRequestItemId: item.purchaseRequestItemId,
       }));
       
       // Clear existing fields and append new items
@@ -162,6 +164,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
         unit: item.unit || "UN",
         specifications: item.technicalSpecification || "", // Load technical specifications from original request
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
+        purchaseRequestItemId: item.id,
       }));
       
       // Replace all fields at once

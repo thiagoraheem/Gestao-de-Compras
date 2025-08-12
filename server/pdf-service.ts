@@ -997,18 +997,22 @@ export class PDFService {
         
         // Combinar os itens da solicitação com os preços do fornecedor
         itemsWithPrices = items.map(item => {
-          // Encontrar o item correspondente na cotação usando múltiplos critérios
+          // Encontrar o item correspondente na cotação usando purchaseRequestItemId
           const quotationItem = quotationItems.find(qi => {
-            // Primeiro tenta por descrição exata
+            // Primeiro tenta por purchaseRequestItemId (método mais confiável)
+            if (qi.purchaseRequestItemId && item.id && qi.purchaseRequestItemId === item.id) {
+              return true;
+            }
+            // Fallback: tenta por descrição exata
             if (qi.description && item.description && 
                 qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()) {
               return true;
             }
-            // Depois tenta por código do item
+            // Fallback: tenta por código do item
             if (qi.itemCode && item.itemCode && qi.itemCode === item.itemCode) {
               return true;
             }
-            // Por último, tenta por descrição parcial
+            // Fallback: tenta por descrição parcial
             if (qi.description && item.description) {
               const qiDesc = qi.description.trim().toLowerCase();
               const itemDesc = item.description.trim().toLowerCase();

@@ -266,11 +266,15 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
     }
 
     return (items as any[]).map((item: any) => {
-      // Find matching supplier quotation item by description (same as conclusion phase)
-      const supplierItem = (supplierQuotationItems as any[]).find((sqi: any) => 
-        sqi.description === item.description || 
-        sqi.itemCode === item.itemCode
-      );
+      // Find matching supplier quotation item using purchaseRequestItemId
+      const supplierItem = (supplierQuotationItems as any[]).find((sqi: any) => {
+        // First try by purchaseRequestItemId (most reliable)
+        if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+          return true;
+        }
+        // Fallback: try by description or item code
+        return sqi.description === item.description || sqi.itemCode === item.itemCode;
+      });
       
       const unitPrice = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
       const quantity = parseFloat(item.requestedQuantity) || 0;

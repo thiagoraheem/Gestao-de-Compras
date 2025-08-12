@@ -245,6 +245,7 @@ export const quotations = pgTable("quotations", {
 export const quotationItems = pgTable("quotation_items", {
   id: serial("id").primaryKey(),
   quotationId: integer("quotation_id").references(() => quotations.id).notNull(),
+  purchaseRequestItemId: integer("purchase_request_item_id").references(() => purchaseRequestItems.id),
   itemCode: text("item_code").notNull(),
   description: text("description").notNull(),
   quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
@@ -505,11 +506,12 @@ export const purchaseRequestSuppliersRelations = relations(purchaseRequestSuppli
   }),
 }));
 
-export const purchaseRequestItemsRelations = relations(purchaseRequestItems, ({ one }) => ({
+export const purchaseRequestItemsRelations = relations(purchaseRequestItems, ({ one, many }) => ({
   purchaseRequest: one(purchaseRequests, {
     fields: [purchaseRequestItems.purchaseRequestId],
     references: [purchaseRequests.id],
   }),
+  quotationItems: many(quotationItems),
 }));
 
 export const attachmentsRelations = relations(attachments, ({ one }) => ({
@@ -552,6 +554,10 @@ export const quotationItemsRelations = relations(quotationItems, ({ one, many })
   quotation: one(quotations, {
     fields: [quotationItems.quotationId],
     references: [quotations.id],
+  }),
+  purchaseRequestItem: one(purchaseRequestItems, {
+    fields: [quotationItems.purchaseRequestItemId],
+    references: [purchaseRequestItems.id],
   }),
   supplierQuotationItems: many(supplierQuotationItems),
 }));
