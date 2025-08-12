@@ -19,8 +19,10 @@ import RequestManagementPage from "@/pages/request-management";
 import CompaniesPage from "@/pages/companies";
 import PipefyHeader from "@/components/pipefy-header";
 import FloatingNewRequestButton from "@/components/floating-new-request-button";
+import FloatingHelpButton from "@/components/floating-help-button";
 import AdminCleanupPage from "@/pages/admin-cleanup";
 import DashboardPage from "@/pages/dashboard";
+import UserManualPage from "@/pages/user-manual";
 import ManagerRoute from "@/components/manager-route";
 import AdminRoute from "@/components/admin-route";
 
@@ -32,6 +34,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <FloatingNewRequestButton />
+      <FloatingHelpButton />
     </div>
   );
 }
@@ -92,6 +95,7 @@ function Router() {
         <Route path="/admin/cleanup" component={AdminCleanupPage} />
         <Route path="/profile" component={ProfilePage} />
         <Route path="/change-password" component={ChangePasswordPage} />
+        <Route path="/manual" component={UserManualPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

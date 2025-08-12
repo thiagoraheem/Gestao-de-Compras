@@ -23,6 +23,8 @@ import {
   Database,
   BarChart3,
   MapPin,
+  BookOpen,
+  HelpCircle,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -160,6 +162,12 @@ export default function PipefyHeader() {
                     <span>Alterar Senha</span>
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/manual">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    <span>Manual do Usuário</span>
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
@@ -239,6 +247,13 @@ export default function PipefyHeader() {
                 <div className="flex items-center space-x-3 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg">
                   <Settings className="w-5 h-5" />
                   <span>Alterar Senha</span>
+                </div>
+              </Link>
+
+              <Link href="/manual">
+                <div className="flex items-center space-x-3 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg">
+                  <BookOpen className="w-5 h-5" />
+                  <span>Manual do Usuário</span>
                 </div>
               </Link>
 
