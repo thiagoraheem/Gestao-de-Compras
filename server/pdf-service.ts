@@ -1030,26 +1030,28 @@ export class PDFService {
               const quantity = Number(item.requestedQuantity) || 1;
               
               // Calcular preço com desconto se houver
-              let finalUnitPrice = unitPrice;
+              const originalTotal = unitPrice * quantity;
+              let discountedTotal = originalTotal;
               let itemDiscount = 0;
               
               if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
-                itemDiscount = (unitPrice * Number(supplierItem.discountPercentage)) / 100;
-                finalUnitPrice = unitPrice - itemDiscount;
+                const discountPercent = Number(supplierItem.discountPercentage);
+                itemDiscount = (originalTotal * discountPercent) / 100;
+                discountedTotal = originalTotal - itemDiscount;
               } else if (supplierItem.discountValue && Number(supplierItem.discountValue) > 0) {
                 itemDiscount = Number(supplierItem.discountValue);
-                finalUnitPrice = Math.max(0, unitPrice - itemDiscount);
+                discountedTotal = Math.max(0, originalTotal - itemDiscount);
               }
               
               return {
                 ...item,
-                unitPrice: finalUnitPrice,
+                unitPrice: unitPrice, // Manter o preço unitário original
                 originalUnitPrice: unitPrice,
                 itemDiscount: itemDiscount,
                 brand: supplierItem.brand || '',
                 deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
-                totalPrice: finalUnitPrice * quantity,
-                originalTotalPrice: unitPrice * quantity
+                totalPrice: discountedTotal, // Usar o total com desconto
+                originalTotalPrice: originalTotal
               };
             }
           }
