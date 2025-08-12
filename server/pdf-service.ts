@@ -564,7 +564,25 @@ export class PDFService {
     
     // Calcular totais
     const subtotal = items.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
-    const desconto = 0; // Por enquanto zero, pode ser implementado depois
+    
+    // Calcular desconto total dos itens
+    const itemDiscountTotal = items.reduce((sum, item) => 
+      sum + ((Number(item.itemDiscount) || 0) * (Number(item.requestedQuantity) || 1)), 0
+    );
+    
+    // Calcular desconto da proposta
+    let proposalDiscount = 0;
+    if (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) {
+      const discountValue = Number(selectedSupplierQuotation.discountValue) || 0;
+      
+      if (selectedSupplierQuotation.discountType === 'percentage') {
+        proposalDiscount = (subtotal * discountValue) / 100;
+      } else if (selectedSupplierQuotation.discountType === 'fixed') {
+        proposalDiscount = discountValue;
+      }
+    }
+    
+    const desconto = itemDiscountTotal + proposalDiscount;
     const valorFinal = subtotal - desconto;
     
     // Encontrar aprovações - usando approverType em vez de phase
@@ -661,6 +679,15 @@ export class PDFService {
     .total-row {
       font-weight: bold;
       background-color: #f9f9f9;
+    }
+    .discount-row {
+      font-weight: bold;
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    .subtotal-row {
+      font-weight: bold;
+      background-color: #f8f9fa;
     }
     .footer {
       margin-top: 15px;
@@ -845,11 +872,29 @@ export class PDFService {
           </tr>
         `).join('')}
         
+        ${desconto > 0 ? `
+         <tr class="subtotal-row">
+           <td colspan="5" class="text-right"><strong>SUBTOTAL:</strong></td>
+           <td class="text-right"><strong>R$ ${subtotal.toFixed(2).replace('.', ',')}</strong></td>
+           <td>&nbsp;</td>
+         </tr>
+         <tr class="discount-row">
+           <td colspan="5" class="text-right"><strong>DESCONTO ${selectedSupplierQuotation.discountType === 'percentage' ? `(${selectedSupplierQuotation.discountValue}%)` : ''}:</strong></td>
+           <td class="text-right"><strong>- R$ ${desconto.toFixed(2).replace('.', ',')}</strong></td>
+           <td>&nbsp;</td>
+         </tr>
+         <tr class="total-row">
+           <td colspan="5" class="text-right"><strong>TOTAL FINAL:</strong></td>
+           <td class="text-right"><strong>R$ ${valorFinal.toFixed(2).replace('.', ',')}</strong></td>
+           <td>&nbsp;</td>
+         </tr>
+         ` : `
         <tr class="total-row">
           <td colspan="5" class="text-right"><strong>TOTAL GERAL:</strong></td>
           <td class="text-right"><strong>R$ ${subtotal.toFixed(2).replace('.', ',')}</strong></td>
           <td>&nbsp;</td>
         </tr>
+        `}
       </tbody>
     </table>
   </div>
@@ -952,8 +997,25 @@ export class PDFService {
         
         // Combinar os itens da solicitação com os preços do fornecedor
         itemsWithPrices = items.map(item => {
-          // Encontrar o item correspondente na cotação usando descrição exata
-          const quotationItem = quotationItems.find(qi => qi.description?.trim() === item.description?.trim());
+          // Encontrar o item correspondente na cotação usando múltiplos critérios
+          const quotationItem = quotationItems.find(qi => {
+            // Primeiro tenta por descrição exata
+            if (qi.description && item.description && 
+                qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()) {
+              return true;
+            }
+            // Depois tenta por código do item
+            if (qi.itemCode && item.itemCode && qi.itemCode === item.itemCode) {
+              return true;
+            }
+            // Por último, tenta por descrição parcial
+            if (qi.description && item.description) {
+              const qiDesc = qi.description.trim().toLowerCase();
+              const itemDesc = item.description.trim().toLowerCase();
+              return qiDesc.includes(itemDesc) || itemDesc.includes(qiDesc);
+            }
+            return false;
+          });
           
           if (quotationItem) {
             // Encontrar o preço do fornecedor para este item da cotação
@@ -962,12 +1024,28 @@ export class PDFService {
             if (supplierItem) {
               const unitPrice = Number(supplierItem.unitPrice) || 0;
               const quantity = Number(item.requestedQuantity) || 1;
+              
+              // Calcular preço com desconto se houver
+              let finalUnitPrice = unitPrice;
+              let itemDiscount = 0;
+              
+              if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
+                itemDiscount = (unitPrice * Number(supplierItem.discountPercentage)) / 100;
+                finalUnitPrice = unitPrice - itemDiscount;
+              } else if (supplierItem.discountValue && Number(supplierItem.discountValue) > 0) {
+                itemDiscount = Number(supplierItem.discountValue);
+                finalUnitPrice = Math.max(0, unitPrice - itemDiscount);
+              }
+              
               return {
                 ...item,
-                unitPrice: unitPrice,
+                unitPrice: finalUnitPrice,
+                originalUnitPrice: unitPrice,
+                itemDiscount: itemDiscount,
                 brand: supplierItem.brand || '',
                 deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
-                totalPrice: unitPrice * quantity
+                totalPrice: finalUnitPrice * quantity,
+                originalTotalPrice: unitPrice * quantity
               };
             }
           }
@@ -975,9 +1053,12 @@ export class PDFService {
           return {
             ...item,
             unitPrice: 0,
+            originalUnitPrice: 0,
+            itemDiscount: 0,
             brand: '',
             deliveryTime: '',
-            totalPrice: 0
+            totalPrice: 0,
+            originalTotalPrice: 0
           };
         });
       }

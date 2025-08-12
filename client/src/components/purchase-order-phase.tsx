@@ -278,27 +278,64 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
 
   // Combinar itens com preços do fornecedor selecionado
   const itemsWithPrices = Array.isArray(items) ? items.map(item => {
-    // Encontrar o item correspondente na cotação pela descrição
-    const quotationItem = quotationItems.find((qi: any) => qi.description === item.description);
+    // Encontrar o item correspondente na cotação usando múltiplos critérios
+    const quotationItem = quotationItems.find((qi: any) => {
+      // Primeiro tenta por descrição exata
+      if (qi.description && item.description && 
+          qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()) {
+        return true;
+      }
+      // Depois tenta por código do item
+      if (qi.itemCode && item.itemCode && qi.itemCode === item.itemCode) {
+        return true;
+      }
+      // Por último, tenta por descrição parcial
+      if (qi.description && item.description) {
+        const qiDesc = qi.description.trim().toLowerCase();
+        const itemDesc = item.description.trim().toLowerCase();
+        return qiDesc.includes(itemDesc) || itemDesc.includes(qiDesc);
+      }
+      return false;
+    });
+    
     if (quotationItem) {
       // Encontrar o preço do fornecedor para este item da cotação
       const supplierItem = supplierQuotationItems.find((si: any) => si.quotationItemId === quotationItem.id);
       if (supplierItem) {
         const unitPrice = Number(supplierItem.unitPrice) || 0;
         const quantity = Number(item.requestedQuantity) || 1;
+        
+        // Calcular preço com desconto se houver
+        let finalUnitPrice = unitPrice;
+        let itemDiscount = 0;
+        
+        if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
+          itemDiscount = (unitPrice * Number(supplierItem.discountPercentage)) / 100;
+          finalUnitPrice = unitPrice - itemDiscount;
+        } else if (supplierItem.discountValue && Number(supplierItem.discountValue) > 0) {
+          itemDiscount = Number(supplierItem.discountValue);
+          finalUnitPrice = Math.max(0, unitPrice - itemDiscount);
+        }
+        
         return {
           ...item,
-          unitPrice: unitPrice,
-          totalPrice: unitPrice * quantity,
+          unitPrice: finalUnitPrice,
+          originalUnitPrice: unitPrice,
+          itemDiscount: itemDiscount,
+          totalPrice: finalUnitPrice * quantity,
+          originalTotalPrice: unitPrice * quantity,
           brand: supplierItem.brand || '',
-          deliveryTime: supplierItem.deliveryTime || ''
+          deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : ''
         };
       }
     }
     return {
       ...item,
       unitPrice: 0,
+      originalUnitPrice: 0,
+      itemDiscount: 0,
       totalPrice: 0,
+      originalTotalPrice: 0,
       brand: '',
       deliveryTime: ''
     };
@@ -308,6 +345,25 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   const subtotal = itemsWithPrices.reduce((sum: number, item: any) => 
     sum + (Number(item.totalPrice) || 0), 0
   );
+  
+  // Calcular desconto total dos itens
+  const itemDiscountTotal = itemsWithPrices.reduce((sum: number, item: any) => 
+    sum + ((Number(item.itemDiscount) || 0) * (Number(item.requestedQuantity) || 1)), 0
+  );
+  
+  // Calcular desconto da proposta
+  let proposalDiscount = 0;
+  if (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) {
+    const discountValue = Number(selectedSupplierQuotation.discountValue) || 0;
+    if (selectedSupplierQuotation.discountType === 'percentage') {
+      proposalDiscount = (subtotal * discountValue) / 100;
+    } else if (selectedSupplierQuotation.discountType === 'fixed') {
+      proposalDiscount = discountValue;
+    }
+  }
+  
+  const totalDiscount = itemDiscountTotal + proposalDiscount;
+  const finalTotal = subtotal - totalDiscount;
 
 
 
@@ -498,10 +554,30 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                 <tfoot>
                   <tr className="bg-gray-50 font-bold">
                     <td className="border border-gray-200 px-4 py-2" colSpan={4}>
-                      Total Geral:
+                      Subtotal:
                     </td>
                     <td className="border border-gray-200 px-4 py-2 text-center">
                       R$ {subtotal.toFixed(2).replace('.', ',')}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
+                  </tr>
+                  {totalDiscount > 0 && (
+                    <tr>
+                      <td className="border border-gray-200 px-4 py-2" colSpan={4}>
+                        Desconto Total:
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2 text-center text-red-600">
+                        - R$ {totalDiscount.toFixed(2).replace('.', ',')}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
+                    </tr>
+                  )}
+                  <tr className="bg-gray-100 font-bold">
+                    <td className="border border-gray-200 px-4 py-2" colSpan={4}>
+                      Total Geral:
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center">
+                      R$ {finalTotal.toFixed(2).replace('.', ',')}
                     </td>
                     <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
                   </tr>
@@ -545,9 +621,17 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                 <div className="text-sm">
                   <span className="font-medium text-gray-600">Valor Total da Proposta:</span>
                   <p className="text-lg font-semibold text-green-600">
-                    R$ {selectedSupplierQuotation.totalValue ? selectedSupplierQuotation.totalValue.replace('.', ',') : '0,00'}
+                    R$ {finalTotal.toFixed(2).replace('.', ',')}
                   </p>
                 </div>
+                {totalDiscount > 0 && (
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-600">Desconto Total Aplicado:</span>
+                    <p className="text-lg font-semibold text-red-600">
+                      - R$ {totalDiscount.toFixed(2).replace('.', ',')}
+                    </p>
+                  </div>
+                )}
                 <div className="text-sm">
                   <span className="font-medium text-gray-600">Prazo de Entrega:</span>
                   <p>{selectedSupplierQuotation.deliveryTerms || 'Não informado'}</p>
