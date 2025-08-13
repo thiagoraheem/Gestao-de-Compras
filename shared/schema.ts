@@ -752,7 +752,6 @@ export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuot
 
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
   id: true,
-  orderNumber: true,
   createdAt: true,
   updatedAt: true,
 }).extend({

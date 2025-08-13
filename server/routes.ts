@@ -14,7 +14,9 @@ import {
   insertQuotationSchema,
   insertQuotationItemSchema,
   insertSupplierQuotationSchema,
-  insertSupplierQuotationItemSchema
+  insertSupplierQuotationItemSchema,
+  insertPurchaseOrderSchema,
+  insertPurchaseOrderItemSchema
 } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -1740,6 +1742,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Purchase Orders endpoints
+  app.post("/api/purchase-orders", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertPurchaseOrderSchema.parse(req.body);
+      const purchaseOrder = await storage.createPurchaseOrder(validatedData);
+      res.status(201).json(purchaseOrder);
+    } catch (error) {
+      console.error("Error creating purchase order:", error);
+      res.status(500).json({ message: "Failed to create purchase order", error: error.message });
+    }
+  });
+
   app.get("/api/purchase-orders/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -3585,6 +3598,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching purchase order by request ID:", error);
       res.status(500).json({ message: "Failed to fetch purchase order" });
+    }
+  });
+
+  // Purchase order items endpoints
+  app.post("/api/purchase-order-items", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertPurchaseOrderItemSchema.parse(req.body);
+      const item = await storage.createPurchaseOrderItem(validatedData);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating purchase order item:", error);
+      res.status(500).json({ message: "Failed to create purchase order item", error: error.message });
     }
   });
 
