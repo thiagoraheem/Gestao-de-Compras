@@ -1388,6 +1388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (chosenSupplierQuotation) {
               // Verificar se já existe um purchase order
               const existingPurchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+              console.log('📦 Purchase order existente:', existingPurchaseOrder?.id);
               if (!existingPurchaseOrder) {
                 // Buscar itens do purchase request
                 const purchaseRequestItems = await storage.getPurchaseRequestItems(id);
@@ -1415,6 +1416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     createdBy: approverId,
                   };
                   
+                  console.log('💾 Criando purchase order com dados:', purchaseOrderData);
                   const purchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
                   
                   // Buscar itens da cotação do fornecedor para obter preços
@@ -1433,6 +1435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       description: requestItem.description,
                       quantity: requestItem.approvedQuantity || requestItem.requestedQuantity || '0',
                       unit: requestItem.unit,
+                      unitPrice: supplierItem?.unitPrice || '0',
                       totalPrice: supplierItem?.totalPrice || '0',
                       deliveryDeadline: null,
                       costCenterId: request.costCenterId,
@@ -3074,19 +3077,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                            bufferStart.trim().startsWith('<');
 
       console.log(`📄 PDF Generation for request ${id}:`);
-      console.log(`   Buffer size: ${pdfBuffer.length} bytes`);
-      console.log(`   Content type detected: ${isHtmlContent ? 'HTML' : 'PDF'}`);
-      console.log(`   Buffer start: ${bufferStart.substring(0, 100)}...`);
-
       if (isHtmlContent) {
         // Return HTML file for browser to print/save as PDF
-        console.log(`   ✅ Returning as HTML file: ${filename}.html`);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}.html"`);
         res.send(pdfBuffer);
       } else {
         // Return actual PDF
-        console.log(`   ✅ Returning as PDF file: ${filename}.pdf`);
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
         res.setHeader('Content-Length', pdfBuffer.length);
@@ -3566,6 +3563,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error searching products:", error);
       res.status(500).json({ message: "Failed to search products" });
+    }
+  });
+
+  // Get purchase order by purchase request ID
+  app.get("/api/purchase-orders/by-request/:requestId", async (req: Request, res: Response) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "Invalid request ID" });
+      }
+
+      const purchaseOrder = await storage.getPurchaseOrderByRequestId(requestId);
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found for this request" });
+      }
+
+      res.json(purchaseOrder);
+    } catch (error) {
+      console.error("Error fetching purchase order by request ID:", error);
+      res.status(500).json({ message: "Failed to fetch purchase order" });
+    }
+  });
+
+  // Get purchase order items
+  app.get("/api/purchase-order-items/:purchaseOrderId", async (req: Request, res: Response) => {
+    try {
+      const purchaseOrderId = parseInt(req.params.purchaseOrderId);
+      
+      if (isNaN(purchaseOrderId)) {
+        return res.status(400).json({ message: "Invalid purchase order ID" });
+      }
+
+      const items = await storage.getPurchaseOrderItems(purchaseOrderId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching purchase order items:", error);
+      res.status(500).json({ message: "Failed to fetch purchase order items" });
     }
   });
 
