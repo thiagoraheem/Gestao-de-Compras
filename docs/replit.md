@@ -353,7 +353,7 @@ Key entities include:
   - ✓ Corrigida ordem de exclusão: attachments agora são deletados antes das supplier_quotations
   - ✓ Tabela attachments possui referência para supplier_quotation_id que causava erro FK
   - ✓ Sistema de limpeza agora funciona corretamente respeitando todas as constraints
-  - ✓ Ordem correta: receipt_items → receipts → purchase_order_items → purchase_orders → supplier_quotation_items → attachments → supplier_quotations → quotation_items → quotations → approval_history → purchase_request_suppliers → purchase_request_items → purchase_requests
+  - ✓ Ordem correta: receipt_items → receipts → purchase_order_items → purchase_orders → supplier_quotation_items → attachments → supplier_quotations → quotation_items → quotations → approval_history → purchase_request_items → purchase_requests
 - July 10, 2025. Personalização do remetente de e-mails RFQ implementada com sucesso:
   - ✓ Campo "De" dos e-mails para fornecedores agora usa o e-mail do usuário logado no sistema
   - ✓ Função sendRFQToSuppliers atualizada para aceitar parâmetro senderEmail opcional

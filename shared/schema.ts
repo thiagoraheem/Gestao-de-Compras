@@ -175,14 +175,7 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Purchase Request Suppliers (for quotation phase)
-export const purchaseRequestSuppliers = pgTable("purchase_request_suppliers", {
-  id: serial("id").primaryKey(),
-  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
-  supplierId: integer("supplier_id").references(() => suppliers.id),
-  quotedValue: decimal("quoted_value", { precision: 10, scale: 2 }),
-  quotationDate: timestamp("quotation_date"),
-});
+
 
 // Approval History table
 export const approvalHistory = pgTable("approval_history", {
@@ -431,7 +424,7 @@ export const suppliersRelations = relations(suppliers, ({ one, many }) => ({
     fields: [suppliers.companyId],
     references: [companies.id],
   }),
-  purchaseRequestSuppliers: many(purchaseRequestSuppliers),
+
   chosenPurchases: many(purchaseRequests, { relationName: "chosenSupplier" }),
 }));
 
@@ -478,7 +471,7 @@ export const purchaseRequestsRelations = relations(purchaseRequests, ({ one, man
     fields: [purchaseRequests.paymentMethodId],
     references: [paymentMethods.id],
   }),
-  suppliers: many(purchaseRequestSuppliers),
+
   attachments: many(attachments),
   items: many(purchaseRequestItems),
   approvalHistory: many(approvalHistory),
@@ -495,16 +488,7 @@ export const approvalHistoryRelations = relations(approvalHistory, ({ one }) => 
   }),
 }));
 
-export const purchaseRequestSuppliersRelations = relations(purchaseRequestSuppliers, ({ one }) => ({
-  purchaseRequest: one(purchaseRequests, {
-    fields: [purchaseRequestSuppliers.purchaseRequestId],
-    references: [purchaseRequests.id],
-  }),
-  supplier: one(suppliers, {
-    fields: [purchaseRequestSuppliers.supplierId],
-    references: [suppliers.id],
-  }),
-}));
+
 
 export const purchaseRequestItemsRelations = relations(purchaseRequestItems, ({ one, many }) => ({
   purchaseRequest: one(purchaseRequests, {
@@ -822,7 +806,7 @@ export type DeliveryLocation = typeof deliveryLocations.$inferSelect;
 export type InsertDeliveryLocation = z.infer<typeof insertDeliveryLocationSchema>;
 export type Attachment = typeof attachments.$inferSelect;
 export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
-export type PurchaseRequestSupplier = typeof purchaseRequestSuppliers.$inferSelect;
+
 export type PurchaseRequestItem = typeof purchaseRequestItems.$inferSelect;
 export type InsertPurchaseRequestItem = z.infer<typeof insertPurchaseRequestItemSchema>;
 

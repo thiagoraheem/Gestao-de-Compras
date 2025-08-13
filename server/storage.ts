@@ -9,7 +9,7 @@ import {
   paymentMethods,
   purchaseRequests,
   purchaseRequestItems,
-  purchaseRequestSuppliers,
+
   deliveryLocations,
   quotations,
   quotationItems,
@@ -47,6 +47,10 @@ import {
   type InsertSupplierQuotation,
   type SupplierQuotationItem,
   type InsertSupplierQuotationItem,
+  type PurchaseOrder,
+  type InsertPurchaseOrder,
+  type PurchaseOrderItem,
+  type InsertPurchaseOrderItem,
   type ApprovalHistory,
   type InsertApprovalHistory,
   type Attachment,
@@ -233,6 +237,23 @@ export interface IStorage {
     id: number,
     item: Partial<InsertSupplierQuotationItem>,
   ): Promise<SupplierQuotationItem>;
+
+  // Purchase Order operations
+  getPurchaseOrderById(id: number): Promise<PurchaseOrder | undefined>;
+  getPurchaseOrderByRequestId(purchaseRequestId: number): Promise<PurchaseOrder | undefined>;
+  createPurchaseOrder(purchaseOrder: InsertPurchaseOrder): Promise<PurchaseOrder>;
+  updatePurchaseOrder(
+    id: number,
+    purchaseOrder: Partial<InsertPurchaseOrder>,
+  ): Promise<PurchaseOrder>;
+
+  // Purchase Order Items operations
+  getPurchaseOrderItems(purchaseOrderId: number): Promise<PurchaseOrderItem[]>;
+  createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem>;
+  updatePurchaseOrderItem(
+    id: number,
+    item: Partial<InsertPurchaseOrderItem>,
+  ): Promise<PurchaseOrderItem>;
 
   // Approval History operations
   getApprovalHistory(purchaseRequestId: number): Promise<any[]>;
@@ -1248,6 +1269,72 @@ export class DatabaseStorage implements IStorage {
     await db.delete(purchaseRequests).where(eq(purchaseRequests.id, id));
   }
 
+  // Purchase Order operations
+  async getPurchaseOrderById(id: number): Promise<PurchaseOrder | undefined> {
+    const [purchaseOrder] = await db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.id, id));
+    return purchaseOrder || undefined;
+  }
+
+  async getPurchaseOrderByRequestId(purchaseRequestId: number): Promise<PurchaseOrder | undefined> {
+    const [purchaseOrder] = await db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.purchaseRequestId, purchaseRequestId));
+    return purchaseOrder || undefined;
+  }
+
+  async createPurchaseOrder(purchaseOrder: InsertPurchaseOrder): Promise<PurchaseOrder> {
+    const [created] = await db
+      .insert(purchaseOrders)
+      .values(purchaseOrder)
+      .returning();
+    return created;
+  }
+
+  async updatePurchaseOrder(
+    id: number,
+    purchaseOrder: Partial<InsertPurchaseOrder>,
+  ): Promise<PurchaseOrder> {
+    const [updated] = await db
+      .update(purchaseOrders)
+      .set({ ...purchaseOrder, updatedAt: new Date() })
+      .where(eq(purchaseOrders.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Purchase Order Items operations
+  async getPurchaseOrderItems(purchaseOrderId: number): Promise<PurchaseOrderItem[]> {
+    return await db
+      .select()
+      .from(purchaseOrderItems)
+      .where(eq(purchaseOrderItems.purchaseOrderId, purchaseOrderId))
+      .orderBy(purchaseOrderItems.id);
+  }
+
+  async createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
+    const [created] = await db
+      .insert(purchaseOrderItems)
+      .values(item)
+      .returning();
+    return created;
+  }
+
+  async updatePurchaseOrderItem(
+    id: number,
+    item: Partial<InsertPurchaseOrderItem>,
+  ): Promise<PurchaseOrderItem> {
+    const [updated] = await db
+      .update(purchaseOrderItems)
+      .set(item)
+      .where(eq(purchaseOrderItems.id, id))
+      .returning();
+    return updated;
+  }
+
   // Approval History operations
   async getApprovalHistory(purchaseRequestId: number): Promise<any[]> {
     return await db
@@ -1460,8 +1547,7 @@ export class DatabaseStorage implements IStorage {
       // 10. Delete approval history
       await db.delete(approvalHistory);
 
-      // 11. Delete purchase request suppliers
-      await db.delete(purchaseRequestSuppliers);
+
 
       // 12. Delete purchase request items
       await db.delete(purchaseRequestItems);

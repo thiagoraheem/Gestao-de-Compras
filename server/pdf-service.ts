@@ -562,15 +562,15 @@ export class PDFService {
       companyLogoBase64 = company.logoBase64;
     }
     
-    // Calcular totais
-    const subtotal = items.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
+    // Calcular totais usando preços originais para evitar desconto duplicado
+    const subtotal = items.reduce((sum, item) => sum + (Number(item.originalTotalPrice) || Number(item.totalPrice) || 0), 0);
     
     // Calcular desconto total dos itens
     const itemDiscountTotal = items.reduce((sum, item) => 
       sum + (Number(item.itemDiscount) || 0), 0
     );
     
-    // Calcular desconto da proposta
+    // Calcular desconto da proposta (aplicado sobre o subtotal original)
     let proposalDiscount = 0;
     if (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) {
       const discountValue = Number(selectedSupplierQuotation.discountValue) || 0;
@@ -847,17 +847,36 @@ export class PDFService {
         </tr>
       </thead>
       <tbody>
-        ${items.map(item => `
+        ${items.map(item => {
+          const hasDiscount = Number(item.itemDiscount) > 0;
+          const originalUnitPrice = Number(item.originalUnitPrice) || Number(item.unitPrice) || 0;
+          const originalTotalPrice = Number(item.originalTotalPrice) || Number(item.totalPrice) || 0;
+          const finalTotalPrice = Number(item.totalPrice) || 0;
+          
+          return `
           <tr>
             <td class="text-center">${item.requestedQuantity}</td>
             <td class="text-center">${item.unit || 'UND'}</td>
             <td>${item.itemCode || ''} ${item.itemCode ? '-' : ''} ${item.description}</td>
             <td class="text-center">${item.brand || 'Não informado'}</td>
-            <td class="text-right">R$ ${typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}</td>
-            <td class="text-right">R$ ${typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}</td>
+            <td class="text-right">
+              ${hasDiscount ? 
+                `<span style="text-decoration: line-through; color: #999;">R$ ${originalUnitPrice.toFixed(2).replace('.', ',')}</span><br>
+                 <span style="color: #28a745; font-weight: bold;">R$ ${(finalTotalPrice / Number(item.requestedQuantity || 1)).toFixed(2).replace('.', ',')}</span>` :
+                `R$ ${originalUnitPrice.toFixed(2).replace('.', ',')}`
+              }
+            </td>
+            <td class="text-right">
+              ${hasDiscount ? 
+                `<span style="text-decoration: line-through; color: #999;">R$ ${originalTotalPrice.toFixed(2).replace('.', ',')}</span><br>
+                 <span style="color: #28a745; font-weight: bold;">R$ ${finalTotalPrice.toFixed(2).replace('.', ',')}</span>` :
+                `R$ ${originalTotalPrice.toFixed(2).replace('.', ',')}`
+              }
+            </td>
             <td>${item.specifications || ''}</td>
           </tr>
-        `).join('')}
+          `;
+        }).join('')}
         
         <!-- Linhas vazias para completar o template -->
         ${Array(Math.max(0, 8 - items.length)).fill(0).map(() => `

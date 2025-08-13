@@ -1376,6 +1376,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
 
+      // Se aprovado, criar automaticamente o purchase order
+      if (approved) {
+        try {
+          // Buscar cotação
+          const quotation = await storage.getQuotationByPurchaseRequestId(id);
+          if (quotation) {
+            const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+            const chosenSupplierQuotation = supplierQuotations.find(sq => sq.isChosen);
+            
+            if (chosenSupplierQuotation) {
+              // Verificar se já existe um purchase order
+              const existingPurchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+              if (!existingPurchaseOrder) {
+                // Buscar itens do purchase request
+                const purchaseRequestItems = await storage.getPurchaseRequestItems(id);
+                
+                if (purchaseRequestItems.length > 0) {
+                  // Gerar número do pedido
+                  const orderNumber = `PO-${new Date().getFullYear()}-${String(id).padStart(3, '0')}`;
+                  
+                  // Criar o purchase order
+                  const purchaseOrderData = {
+                    orderNumber,
+                    purchaseRequestId: id,
+                    supplierId: chosenSupplierQuotation.supplierId,
+                    quotationId: quotation.id,
+                    status: 'draft' as const,
+                    totalValue: chosenSupplierQuotation.totalValue || '0',
+                    paymentTerms: null,
+                    deliveryTerms: null,
+                    deliveryAddress: null,
+                    contactPerson: null,
+                    contactPhone: null,
+                    observations: null,
+                    approvedBy: null,
+                    approvedAt: null,
+                    createdBy: approverId,
+                  };
+                  
+                  const purchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
+                  
+                  // Buscar itens da cotação do fornecedor para obter preços
+                  const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
+                  
+                  // Criar os itens do purchase order
+                  for (const requestItem of purchaseRequestItems) {
+                    // Encontrar o item correspondente na cotação do fornecedor
+                    const supplierItem = supplierQuotationItems.find(si => {
+                      return si.description?.toLowerCase().trim() === requestItem.description?.toLowerCase().trim();
+                    });
+                    
+                    const purchaseOrderItemData = {
+                      purchaseOrderId: purchaseOrder.id,
+                      itemCode: requestItem.productCode || `ITEM-${requestItem.id}`,
+                      description: requestItem.description,
+                      quantity: requestItem.approvedQuantity || requestItem.requestedQuantity || '0',
+                      unit: requestItem.unit,
+                      totalPrice: supplierItem?.totalPrice || '0',
+                      deliveryDeadline: null,
+                      costCenterId: request.costCenterId,
+                      accountCode: null,
+                    };
+                    
+                    await storage.createPurchaseOrderItem(purchaseOrderItemData);
+                  }
+                }
+              }
+            }
+          }
+        } catch (purchaseOrderError) {
+          console.error("Erro ao criar purchase order automaticamente:", purchaseOrderError);
+          // Não falhar a aprovação se houver erro na criação do purchase order
+        }
+      }
+
       // Send rejection notification email if request was rejected
       if (!approved && rejectionReason) {
         await notifyRejection(updatedRequest, rejectionReason, 'A2');
@@ -1531,18 +1606,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { purchaseObservations } = req.body;
+      const userId = req.session?.userId;
 
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      // Buscar o purchase request e dados relacionados
+      const purchaseRequest = await storage.getPurchaseRequest(id);
+      if (!purchaseRequest) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      // Buscar cotação e fornecedor escolhido
+      const quotation = await storage.getQuotationByPurchaseRequestId(id);
+      if (!quotation) {
+        return res.status(400).json({ message: "No quotation found for this purchase request" });
+      }
+
+      const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+      const chosenSupplierQuotation = supplierQuotations.find(sq => sq.isChosen);
+      if (!chosenSupplierQuotation) {
+        return res.status(400).json({ message: "No supplier chosen for this quotation" });
+      }
+
+      // Buscar itens do purchase request
+      const purchaseRequestItems = await storage.getPurchaseRequestItems(id);
+      if (purchaseRequestItems.length === 0) {
+        return res.status(400).json({ message: "No items found for this purchase request" });
+      }
+
+      // Buscar itens da cotação do fornecedor para obter preços
+      const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
+
+      // Verificar se já existe um purchase order para este request
+      const existingPurchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+      if (existingPurchaseOrder) {
+        return res.status(400).json({ message: "Purchase order already exists for this request" });
+      }
+
+      // Gerar número do pedido
+      const orderNumber = `PO-${new Date().getFullYear()}-${String(id).padStart(3, '0')}`;
+
+      // Criar o purchase order
+      const purchaseOrderData = {
+        orderNumber,
+        purchaseRequestId: id,
+        supplierId: chosenSupplierQuotation.supplierId,
+        quotationId: quotation.id,
+        status: 'draft' as const,
+        totalValue: chosenSupplierQuotation.totalValue || '0',
+        paymentTerms: null,
+        deliveryTerms: null,
+        deliveryAddress: null,
+        contactPerson: null,
+        contactPhone: null,
+        observations: purchaseObservations || null,
+        approvedBy: null,
+        approvedAt: null,
+        createdBy: userId,
+      };
+
+      const purchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
+
+      // Criar os itens do purchase order
+      for (const requestItem of purchaseRequestItems) {
+        // Encontrar o item correspondente na cotação do fornecedor
+        const supplierItem = supplierQuotationItems.find(si => {
+          // Tentar match por purchaseRequestItemId se disponível
+          const quotationItem = quotation ? si.quotationItemId : null;
+          if (quotationItem) {
+            // Buscar o quotation item para verificar o purchaseRequestItemId
+            // Por simplicidade, vamos usar descrição como fallback
+          }
+          return si.description?.toLowerCase().trim() === requestItem.description?.toLowerCase().trim();
+        });
+
+        const purchaseOrderItemData = {
+          purchaseOrderId: purchaseOrder.id,
+          itemCode: requestItem.productCode || `ITEM-${requestItem.id}`,
+          description: requestItem.description,
+          quantity: requestItem.approvedQuantity || requestItem.requestedQuantity || '0',
+          unit: requestItem.unit,
+          totalPrice: supplierItem?.totalPrice || '0',
+          deliveryDeadline: null,
+          costCenterId: purchaseRequest.costCenterId,
+          accountCode: null,
+        };
+
+        await storage.createPurchaseOrderItem(purchaseOrderItemData);
+      }
+
+      // Atualizar o purchase request
       const updates = {
         purchaseDate: new Date(),
         purchaseObservations,
-        currentPhase: "pedido_compra"
-      } as const;
+        currentPhase: "pedido_compra" as const
+      };
 
-      const request = await storage.updatePurchaseRequest(id, updates);
-      res.json(request);
+      const updatedRequest = await storage.updatePurchaseRequest(id, updates);
+
+      res.json({
+        purchaseRequest: updatedRequest,
+        purchaseOrder: purchaseOrder,
+        message: "Purchase order created successfully"
+      });
     } catch (error) {
       console.error("Error creating purchase order:", error);
-      res.status(400).json({ message: "Failed to create purchase order" });
+      res.status(500).json({ message: "Failed to create purchase order", error: error.message });
     }
   });
 
@@ -1562,6 +1733,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error receiving material:", error);
       res.status(400).json({ message: "Failed to record material receipt" });
+    }
+  });
+
+  // Purchase Orders endpoints
+  app.get("/api/purchase-orders/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const purchaseOrder = await storage.getPurchaseOrderById(id);
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      res.json(purchaseOrder);
+    } catch (error) {
+      console.error("Error fetching purchase order:", error);
+      res.status(500).json({ message: "Failed to fetch purchase order" });
+    }
+  });
+
+  app.get("/api/purchase-requests/:id/purchase-order", async (req, res) => {
+    try {
+      const purchaseRequestId = parseInt(req.params.id);
+      const purchaseOrder = await storage.getPurchaseOrderByRequestId(purchaseRequestId);
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found for this request" });
+      }
+      
+      res.json(purchaseOrder);
+    } catch (error) {
+      console.error("Error fetching purchase order by request:", error);
+      res.status(500).json({ message: "Failed to fetch purchase order" });
+    }
+  });
+
+  app.get("/api/purchase-orders/:id/items", async (req, res) => {
+    try {
+      const purchaseOrderId = parseInt(req.params.id);
+      const items = await storage.getPurchaseOrderItems(purchaseOrderId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching purchase order items:", error);
+      res.status(500).json({ message: "Failed to fetch purchase order items" });
     }
   });
 

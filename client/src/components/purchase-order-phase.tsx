@@ -348,8 +348,9 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   }) : [];
 
   // Calcular valores totais
+  // Usar o valor original dos itens para o subtotal (sem desconto aplicado)
   const subtotal = itemsWithPrices.reduce((sum: number, item: any) => 
-    sum + (Number(item.totalPrice) || 0), 0
+    sum + (Number(item.originalTotalPrice) || 0), 0
   );
   
   // Calcular desconto total dos itens
@@ -357,7 +358,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     sum + (Number(item.itemDiscount) || 0), 0
   );
   
-  // Calcular desconto da proposta
+  // Calcular desconto da proposta sobre o subtotal original
   let proposalDiscount = 0;
   if (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) {
     const discountValue = Number(selectedSupplierQuotation.discountValue) || 0;
@@ -546,7 +547,18 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                         R$ {typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}
                       </td>
                       <td className="border border-gray-200 px-4 py-2 text-center font-medium">
-                        R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}
+                        {item.itemDiscount > 0 ? (
+                          <div>
+                            <div className="text-sm text-gray-500 line-through">
+                              R$ {typeof item.originalTotalPrice === 'number' ? item.originalTotalPrice.toFixed(2).replace('.', ',') : '0,00'}
+                            </div>
+                            <div className="text-green-600">
+                              R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}
+                            </div>
+                          </div>
+                        ) : (
+                          <span>R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}</span>
+                        )}
                       </td>
                       <td className="border border-gray-200 px-4 py-2 text-center">
                         {item.brand || '-'}
