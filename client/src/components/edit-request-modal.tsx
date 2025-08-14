@@ -118,7 +118,10 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
         idealDeliveryDate: data.idealDeliveryDate || undefined,
         deliveryDate: data.deliveryDate || undefined,
       };
-      await apiRequest("PUT", `/api/purchase-requests/${request.id}`, updateData);
+      await apiRequest(`/api/purchase-requests/${request.id}`, {
+          method: "PUT",
+          body: updateData,
+        });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });

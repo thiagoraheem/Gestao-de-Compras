@@ -70,7 +70,9 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
   // Mark supplier as no response
   const markSupplierAsNoResponse = async (supplierQuotationId: number) => {
     try {
-      await apiRequest("PUT", `/api/supplier-quotations/${supplierQuotationId}/mark-no-response`);
+      await apiRequest(`/api/supplier-quotations/${supplierQuotationId}/mark-no-response`, {
+          method: "PUT",
+        });
       toast({
         title: "Fornecedor marcado",
         description: "Fornecedor marcado como não respondeu com sucesso.",

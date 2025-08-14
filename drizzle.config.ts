@@ -1,12 +1,13 @@
 import { defineConfig } from "drizzle-kit";
 
-// Use development database URL
+// Use environment-specific database URL
 const databaseUrl = process.env.NODE_ENV === 'production' 
   ? process.env.DATABASE_URL 
-  : process.env.DATABASE_URL_DEV || 'postgres://compras:Compras2025@54.232.194.197:5432/locador_compras';
+  : process.env.DATABASE_URL_DEV;
 
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL not found, ensure the database is provisioned");
+  const envVar = process.env.NODE_ENV === 'production' ? 'DATABASE_URL' : 'DATABASE_URL_DEV';
+  throw new Error(`${envVar} not found. Please set the appropriate database URL in your environment variables.`);
 }
 
 export default defineConfig({

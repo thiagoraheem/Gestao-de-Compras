@@ -6,19 +6,22 @@ import * as schema from "@shared/schema";
 const isProduction = process.env.NODE_ENV === "production";
 
 // Configuração do pool baseada no ambiente
+const databaseUrl = isProduction ? process.env.DATABASE_URL : process.env.DATABASE_URL_DEV;
+
+if (!databaseUrl) {
+  const envVar = isProduction ? 'DATABASE_URL' : 'DATABASE_URL_DEV';
+  throw new Error(`${envVar} not found. Please set the appropriate database URL in your environment variables.`);
+}
+
 const poolConfig = isProduction
   ? {
-      connectionString:
-        process.env.DATABASE_URL ??
-        "postgresql://neondb_owner:npg_qtBpF7Lxkfl3@ep-lingering-wildflower-acwq645y-pooler.sa-east-1.aws.neon.tech/compras",
+      connectionString: databaseUrl,
       ssl: {
         rejectUnauthorized: false,
       },
     }
   : {
-      connectionString:
-        process.env.DATABASE_URL_DEV ??
-        "postgres://compras:Compras2025@54.232.194.197:5432/locador_compras",
+      connectionString: databaseUrl,
     };
 
 export const pool = new Pool(poolConfig);

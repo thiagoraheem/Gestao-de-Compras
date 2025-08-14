@@ -137,8 +137,9 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   // Archive mutation
   const archiveMutation = useMutation({
     mutationFn: async (data: ArchiveFormData) => {
-      return apiRequest("PATCH", `/api/purchase-requests/${request.id}/archive`, {
-        ...data,
+      return apiRequest(`/api/purchase-requests/${request.id}/archive`, {
+        method: "PATCH",
+        body: data,
       });
     },
     onSuccess: () => {
@@ -603,7 +604,9 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
   const handleSendEmail = async () => {
     try {
-      await apiRequest("POST", `/api/purchase-requests/${request.id}/send-conclusion-email`);
+      await apiRequest(`/api/purchase-requests/${request.id}/send-conclusion-email`, {
+          method: "POST",
+        });
       toast({
         title: "Sucesso",
         description: "Resumo enviado por e-mail",

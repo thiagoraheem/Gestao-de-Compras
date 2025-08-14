@@ -41,7 +41,10 @@ export default function ResetPasswordPage() {
 
   const validateToken = async (resetToken: string) => {
     try {
-      await apiRequest("POST", "/api/auth/validate-reset-token", { token: resetToken });
+      await apiRequest("/api/auth/validate-reset-token", {
+          method: "POST",
+          body: { token: resetToken },
+        });
       setIsValidToken(true);
     } catch (error) {
       setIsValidToken(false);
@@ -50,7 +53,10 @@ export default function ResetPasswordPage() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: async ({ password, token }: { password: string; token: string }) => {
-      await apiRequest("POST", "/api/auth/reset-password", { password, token });
+      await apiRequest("/api/auth/reset-password", {
+          method: "POST",
+          body: { password, token },
+        });
     },
     onSuccess: () => {
       setIsSuccess(true);

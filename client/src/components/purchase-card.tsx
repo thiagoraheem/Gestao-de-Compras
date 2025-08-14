@@ -237,7 +237,7 @@ export default function PurchaseCard({
     mutationFn: async () => {
       const response = await apiRequest(
         `/api/purchase-requests/${request.id}/archive`,
-        { method: "POST" },
+        { method: "PATCH" }
       );
       return response;
     },

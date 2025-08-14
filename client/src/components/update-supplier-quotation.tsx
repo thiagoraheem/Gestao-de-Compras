@@ -1258,7 +1258,9 @@ export default function UpdateSupplierQuotation({
                               variant="destructive"
                               onClick={async () => {
                                 try {
-                                  await apiRequest("DELETE", `/api/attachments/${attachment.id}`);
+                                  await apiRequest(`/api/attachments/${attachment.id}`, {
+            method: "DELETE",
+          });
                                   toast({
                                     title: "Sucesso",
                                     description: "Anexo removido com sucesso.",

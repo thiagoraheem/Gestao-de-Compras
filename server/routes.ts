@@ -19,61 +19,23 @@ import {
   insertPurchaseOrderItemSchema
 } from "@shared/schema";
 import { z } from "zod";
-import bcrypt from "bcryptjs";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
-import multer from "multer";
 import path from "path";
 import fs from "fs";
 import mime from "mime-types";
 import { fileURLToPath } from 'url';
+// Import modular routes
+import { registerAllRoutes } from "./routes/index";
+import { isAuthenticated, canApproveRequest, isAdmin, isAdminOrBuyer } from "./routes/middleware";
+import { quotationUpload } from "./routes/upload-config";
 
 // ES modules compatibility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Configuração do multer para upload de arquivos de cotação
-const quotationUpload = multer({
-  storage: multer.diskStorage({
-    destination: function (req, file, cb) {
-      const uploadDir = './uploads/supplier_quotations';
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-  }),
-  fileFilter: function (req, file, cb) {
-    // Aceitar apenas arquivos PDF, DOC, DOCX, XLS, XLSX, TXT, PNG, JPG, JPEG
-    const allowedMimeTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/plain',
-      'image/png',
-      'image/jpeg',
-      'image/jpg'
-    ];
-
-    if (allowedMimeTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Tipo de arquivo não suportado. Apenas PDF, DOC, DOCX, XLS, XLSX, TXT, PNG, JPG são permitidos.'));
-    }
-  },
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
-  }
-});
-
-// Note: Logo upload configuration moved to base64 processing in API endpoint
+// Multer configuration now handled in modular routes
 
 // Session type declaration
 declare module "express-session" {
@@ -82,87 +44,22 @@ declare module "express-session" {
   }
 }
 
-// Authentication middleware
-function isAuthenticated(req: Request, res: Response, next: Function) {
-  if (req.session.userId) {
-    next();
-  } else {
-    res.status(401).json({ message: "Unauthorized" });
-  }
-}
+// Middlewares now handled in modular routes
+// Removed duplicate middleware definitions
 
-// Middleware para validar se o aprovador pode aprovar a solicitação
-async function canApproveRequest(req: Request, res: Response, next: Function) {
-  try {
-    const requestId = parseInt(req.params.id);
-    const userId = req.session.userId;
-
-    if (!userId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    // Buscar a solicitação
-    const request = await storage.getPurchaseRequestById(requestId);
-    if (!request) {
-      return res.status(404).json({ message: "Purchase request not found" });
-    }
-
-    // Buscar centros de custo do usuário
-    const userCostCenters = await storage.getUserCostCenters(userId);
-    
-    // Verificar se o centro de custo da solicitação está na lista do usuário
-    if (!userCostCenters.includes(request.costCenterId)) {
-      return res.status(403).json({ 
-        message: "Você não possui permissão para aprovar solicitações deste centro de custo" 
-      });
-    }
-
-    next();
-  } catch (error) {
-    console.error("Error checking approval permissions:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-}
-
-// Admin authorization middleware
-async function isAdmin(req: Request, res: Response, next: Function) {
-  try {
-    if (!req.session.userId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const user = await storage.getUser(req.session.userId);
-    if (!user || !user.isAdmin) {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-
-    next();
-  } catch (error) {
-    console.error("Error checking admin permissions:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-}
-
-// Admin or Buyer authorization middleware
-async function isAdminOrBuyer(req: Request, res: Response, next: Function) {
-  try {
-    if (!req.session.userId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const user = await storage.getUser(req.session.userId);
-    if (!user || (!user.isAdmin && !user.isBuyer)) {
-      return res.status(403).json({ message: "Admin or buyer access required" });
-    }
-
-    next();
-  } catch (error) {
-    console.error("Error checking admin or buyer permissions:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-}
+// All middleware functions have been moved to ./routes/middleware.ts
+// This includes: isAuthenticated, canApproveRequest, isAdmin, isAdminOrBuyer
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Validate required environment variables
+  if (!process.env.SESSION_SECRET) {
+    throw new Error('SESSION_SECRET environment variable is required for security. Please set a strong, random secret key.');
+  }
+
+  if (process.env.SESSION_SECRET.length < 32) {
+    throw new Error('SESSION_SECRET must be at least 32 characters long for security.');
+  }
+
   // Configure PostgreSQL session store
   const PgSession = connectPgSimple(session);
 
@@ -173,7 +70,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       tableName: 'sessions',
       createTableIfMissing: false
     }),
-    secret: process.env.SESSION_SECRET || 'your-secret-key-here-change-in-production',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     name: 'sessionId', // Custom session name
@@ -192,164 +89,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default data
   await storage.initializeDefaultData();
 
+  // Register modular routes (includes authentication, etc.)
+  registerAllRoutes(app);
 
+  // Legacy routes - TODO: Move these to modular structure
+  // Keeping existing routes for now to maintain functionality
+  
+  // Note: Authentication routes have been moved to ./routes/auth.ts
+  // All authentication endpoints (/api/auth/*) are now handled by the modular auth router
 
-  // Authentication routes
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username, password } = req.body;
+  // app.get("/api/auth/check") - moved to ./routes/auth.ts
 
-      const user = await storage.getUserByUsername(username);
-
-      if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-
-      const isValidPassword = await bcrypt.compare(password, user.password);
-
-      if (!isValidPassword) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-
-      req.session.userId = user.id;
-      
-      // Get company data
-      const company = user.companyId ? await storage.getCompanyById(user.companyId) : null;
-      
-      res.json({ 
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        departmentId: user.departmentId,
-        companyId: user.companyId,
-        company,
-        isBuyer: user.isBuyer,
-        isApproverA1: user.isApproverA1,
-        isApproverA2: user.isApproverA2,
-        isAdmin: user.isAdmin,
-        isManager: user.isManager
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ message: "Login failed" });
-    }
-  });
-
-  app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Logout failed" });
-      }
-      res.json({ message: "Logged out successfully" });
-    });
-  });
-
-  app.get("/api/auth/check", async (req, res) => {
-    if (req.session.userId) {
-      const user = await storage.getUser(req.session.userId);
-      if (user) {
-        const department = user.departmentId ? await storage.getDepartmentById(user.departmentId) : null;
-        const company = user.companyId ? await storage.getCompanyById(user.companyId) : null;
-        res.json({ 
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          departmentId: user.departmentId,
-          companyId: user.companyId,
-          department,
-          company,
-          isBuyer: user.isBuyer,
-          isApproverA1: user.isApproverA1,
-          isApproverA2: user.isApproverA2,
-          isAdmin: user.isAdmin,
-          isManager: user.isManager,
-          isReceiver: user.isReceiver
-        });
-      } else {
-        res.status(401).json({ message: "Unauthorized" });
-      }
-    } else {
-      res.status(401).json({ message: "Unauthorized" });
-    }
-  });
-
-  // Password recovery endpoints
-  app.post("/api/auth/forgot-password", async (req, res) => {
-    try {
-      const { email } = req.body;
-
-      if (!email) {
-        return res.status(400).json({ message: "E-mail é obrigatório" });
-      }
-
-      const token = await storage.generatePasswordResetToken(email);
-
-      if (token) {
-        const user = await storage.getUserByEmail(email);
-        if (user) {
-          // Import email service
-          const { sendPasswordResetEmail } = await import('./email-service');
-          await sendPasswordResetEmail(user, token);
-        }
-      }
-
-      // Always return success to prevent email enumeration
-      res.json({ message: "Se o e-mail existir em nossa base, você receberá instruções de recuperação" });
-    } catch (error) {
-      console.error("Forgot password error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-
-  app.post("/api/auth/validate-reset-token", async (req, res) => {
-    try {
-      const { token } = req.body;
-
-      if (!token) {
-        return res.status(400).json({ message: "Token é obrigatório" });
-      }
-
-      const user = await storage.validatePasswordResetToken(token);
-
-      if (!user) {
-        return res.status(400).json({ message: "Token inválido ou expirado" });
-      }
-
-      res.json({ message: "Token válido" });
-    } catch (error) {
-      console.error("Validate reset token error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-
-  app.post("/api/auth/reset-password", async (req, res) => {
-    try {
-      const { token, password } = req.body;
-
-      if (!token || !password) {
-        return res.status(400).json({ message: "Token e senha são obrigatórios" });
-      }
-
-      if (password.length < 6) {
-        return res.status(400).json({ message: "A senha deve ter no mínimo 6 caracteres" });
-      }
-
-      const success = await storage.resetPassword(token, password);
-
-      if (!success) {
-        return res.status(400).json({ message: "Token inválido ou expirado" });
-      }
-
-      res.json({ message: "Senha redefinida com sucesso" });
-    } catch (error) {
-      console.error("Reset password error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
+  // Password recovery endpoints moved to ./routes/auth.ts
 
   // Companies routes
   app.get("/api/companies", isAuthenticated, async (req, res) => {
