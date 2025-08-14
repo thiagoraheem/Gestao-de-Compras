@@ -92,6 +92,28 @@ async function debugDatabase() {
       console.log(`- Company ID ${row.company_id}: ${row.count} solicitações`);
     });
     
+    // Listar todas as solicitações existentes
+    const allRequests = await pool.query(`
+      SELECT id, request_number, current_phase, created_at 
+      FROM purchase_requests 
+      ORDER BY id DESC
+    `);
+    console.log('\n📋 Todas as solicitações existentes:');
+    allRequests.rows.forEach(row => {
+      console.log(`- ID: ${row.id}, Número: ${row.request_number}, Fase: ${row.current_phase}`);
+    });
+    
+    // Verificar especificamente SOL-2025-019
+    const sol2025019 = await pool.query(`
+      SELECT * FROM purchase_requests WHERE request_number = 'SOL-2025-019'
+    `);
+    console.log('\n🔍 Verificando SOL-2025-019:');
+    if (sol2025019.rows.length > 0) {
+      console.log('✅ SOL-2025-019 encontrada:', sol2025019.rows[0]);
+    } else {
+      console.log('❌ SOL-2025-019 NÃO encontrada no banco de dados');
+    }
+    
   } catch (error) {
     console.error('❌ Erro ao acessar o banco:', error);
   } finally {

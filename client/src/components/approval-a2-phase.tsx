@@ -147,13 +147,30 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
     });
     let unitPrice = 0;
     let totalPrice = 0;
+    let originalTotalPrice = 0;
+    let itemDiscount = 0;
     
     if (quotationItem) {
       // Encontrar o preço do fornecedor para este item da cotação
       const supplierItem = supplierQuotationItems.find((si: any) => si.quotationItemId === quotationItem.id);
       if (supplierItem) {
         unitPrice = Number(supplierItem.unitPrice) || 0;
-        totalPrice = unitPrice * Number(item.requestedQuantity || 0);
+        const quantity = Number(item.requestedQuantity || 0);
+        
+        // Calcular preço com desconto se houver
+        originalTotalPrice = unitPrice * quantity;
+        let discountedTotal = originalTotalPrice;
+        
+        if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
+          const discountPercent = Number(supplierItem.discountPercentage);
+          itemDiscount = (originalTotalPrice * discountPercent) / 100;
+          discountedTotal = originalTotalPrice - itemDiscount;
+        } else if (supplierItem.discountValue && Number(supplierItem.discountValue) > 0) {
+          itemDiscount = Number(supplierItem.discountValue);
+          discountedTotal = Math.max(0, originalTotalPrice - itemDiscount);
+        }
+        
+        totalPrice = discountedTotal;
       }
     }
 
@@ -163,7 +180,9 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
       unit: item.unit,
       requestedQuantity: parseFloat(item.requestedQuantity || '0'),
       unitPrice,
-      totalPrice
+      totalPrice,
+      originalTotalPrice,
+      itemDiscount
     };
   });
 
@@ -290,14 +309,81 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                         Quantidade: {item.requestedQuantity} {item.unit}
                       </p>
                       {item.unitPrice > 0 && (
-                        <p className="text-sm text-green-600 font-medium">
-                          Valor unitário: R$ {item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | 
-                          Total: R$ {item.totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </p>
+                        <div className="text-sm space-y-1">
+                          <p className="text-green-600 font-medium">
+                            Valor unitário: R$ {item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </p>
+                          {item.itemDiscount > 0 && (
+                            <p className="text-orange-600 text-xs">
+                              Desconto do item: R$ {item.itemDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                          )}
+                          <p className="text-green-700 font-semibold">
+                            Total: R$ {item.totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
                 ))}
+                
+                {/* Financial Summary */}
+                {selectedSupplierQuotation && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-semibold text-blue-800 mb-3">Resumo Financeiro</h4>
+                    <div className="space-y-2">
+                      {(() => {
+                        const subtotal = transformedItems.reduce((sum, item) => sum + (item.originalTotalPrice || item.totalPrice), 0);
+                        const totalDiscount = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
+                        const finalValue = Number(selectedSupplierQuotation.totalValue || 0);
+                        
+                        // Debug para SOL-2025-019
+                        if (request.requestNumber === 'SOL-2025-019') {
+                          console.log('=== DEBUG SOL-2025-019 ===');
+                          console.log('selectedSupplierQuotation:', selectedSupplierQuotation);
+                          console.log('transformedItems:', transformedItems);
+                          console.log('subtotal:', subtotal);
+                          console.log('totalDiscount:', totalDiscount);
+                          console.log('finalValue:', finalValue);
+                          console.log('discountType:', selectedSupplierQuotation.discountType);
+                          console.log('discountValue:', selectedSupplierQuotation.discountValue);
+                        }
+                        
+                        return (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-700">Subtotal (sem desconto):</span>
+                              <span className="font-medium text-gray-900">
+                                R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            
+                            {totalDiscount > 0 && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-orange-600">Desconto da proposta:</span>
+                                <span className="font-medium text-orange-600">
+                                  {selectedSupplierQuotation.discountType === 'percentage' 
+                                    ? `- ${totalDiscount}%`
+                                    : `- R$ ${totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                  }
+                                </span>
+                              </div>
+                            )}
+                            
+                            <div className="border-t border-blue-300 pt-2 mt-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-base font-semibold text-blue-800">Valor Final:</span>
+                                <span className="text-lg font-bold text-green-700">
+                                  R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -321,13 +407,21 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                     <p className="text-sm font-medium">{selectedSupplierQuotation.supplier?.phone || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Valor Total:</p>
+                    <p className="text-sm text-gray-600 mb-1">Valor Total da Proposta:</p>
                     <p className="font-medium text-green-700">
                       {new Intl.NumberFormat('pt-BR', {
                         style: 'currency',
                         currency: 'BRL',
                       }).format(Number(selectedSupplierQuotation.totalValue || 0))}
                     </p>
+                    {selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue && (
+                      <p className="text-sm text-orange-600 mt-1">
+                        Desconto da proposta: {selectedSupplierQuotation.discountType === 'percentage' 
+                          ? `${selectedSupplierQuotation.discountValue}%`
+                          : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(2).replace('.', ',')}`
+                        }
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Condições de Pagamento:</p>
@@ -369,12 +463,12 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
             </div>
           )}
 
-          {/* Attachments */}
-          {attachments && attachments.length > 0 && (
+          {/* Supplier Attachments */}
+          {supplierAttachments && supplierAttachments.length > 0 && (
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Anexos</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">Anexos dos Fornecedores</Label>
               <div className="space-y-2">
-                {attachments.map((attachment: any) => (
+                {supplierAttachments.map((attachment: any) => (
                   <div key={attachment.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                     <Paperclip className="h-4 w-4 text-gray-400" />
                     <span className="text-sm">{attachment.fileName}</span>
@@ -540,6 +634,14 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                       currency: 'BRL',
                     }).format(Number(selectedSupplierQuotation.totalValue || 0))}
                   </p>
+                  {selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue && (
+                    <p className="text-sm text-orange-600 mt-1">
+                      Desconto da proposta: {selectedSupplierQuotation.discountType === 'percentage' 
+                        ? `${selectedSupplierQuotation.discountValue}%`
+                        : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(2).replace('.', ',')}`
+                      }
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-600">Condições de Pagamento</Label>
@@ -578,6 +680,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                       <TableHead className="text-center">Qtd</TableHead>
                       <TableHead className="text-center">Unidade</TableHead>
                       <TableHead className="text-right">Valor Unit.</TableHead>
+                      <TableHead className="text-right">Desconto Item</TableHead>
                       <TableHead className="text-right">Valor Total</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -606,6 +709,18 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                           )}
                         </TableCell>
                         <TableCell className="text-right">
+                          {item.itemDiscount > 0 ? (
+                            <span className="font-medium text-orange-600">
+                              {new Intl.NumberFormat('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL',
+                              }).format(item.itemDiscount)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
                           {item.totalPrice > 0 ? (
                             <span className="font-semibold text-green-600">
                               {new Intl.NumberFormat('pt-BR', {
@@ -622,22 +737,83 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                   </TableBody>
                 </Table>
                 
-                {/* Total Summary */}
-                <div className="border-t bg-gray-50 p-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-600">
-                      Total Geral ({transformedItems.length} {transformedItems.length === 1 ? 'item' : 'itens'})
-                    </span>
-                    <span className="text-lg font-bold text-green-600">
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                      }).format(
-                        transformedItems.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
-                      )}
-                    </span>
+                {/* Financial Summary */}
+                {selectedSupplierQuotation && (
+                  <div className="border-t bg-blue-50 p-4">
+                    <h4 className="font-semibold text-blue-800 mb-3">Resumo Financeiro</h4>
+                    <div className="space-y-2">
+                      {(() => {
+                        const subtotal = transformedItems.reduce((sum, item) => sum + (item.originalTotalPrice || item.totalPrice), 0);
+                        const totalDiscount = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
+                        const finalValue = Number(selectedSupplierQuotation.totalValue || 0);
+                        
+                        // Debug para SOL-2025-019
+                        if (request.requestNumber === 'SOL-2025-019') {
+                          console.log('=== DEBUG SOL-2025-019 (Aprovação) ===');
+                          console.log('selectedSupplierQuotation:', selectedSupplierQuotation);
+                          console.log('transformedItems:', transformedItems);
+                          console.log('subtotal:', subtotal);
+                          console.log('totalDiscount:', totalDiscount);
+                          console.log('finalValue:', finalValue);
+                          console.log('discountType:', selectedSupplierQuotation.discountType);
+                          console.log('discountValue:', selectedSupplierQuotation.discountValue);
+                        }
+                        
+                        return (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-700">Subtotal (sem desconto):</span>
+                              <span className="font-medium text-gray-900">
+                                R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            
+                            {totalDiscount > 0 && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-orange-600">Desconto da proposta:</span>
+                                <span className="font-medium text-orange-600">
+                                  {selectedSupplierQuotation.discountType === 'percentage' 
+                                    ? `- ${totalDiscount}%`
+                                    : `- R$ ${totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                  }
+                                </span>
+                              </div>
+                            )}
+                            
+                            <div className="border-t border-blue-300 pt-2 mt-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-base font-semibold text-blue-800">Valor Final:</span>
+                                <span className="text-lg font-bold text-green-700">
+                                  R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()
+                    }
+                    </div>
                   </div>
-                </div>
+                )}
+                
+                {/* Total Summary - Fallback when no supplier quotation */}
+                {!selectedSupplierQuotation && (
+                  <div className="border-t bg-gray-50 p-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-600">
+                        Total Geral ({transformedItems.length} {transformedItems.length === 1 ? 'item' : 'itens'})
+                      </span>
+                      <span className="text-lg font-bold text-green-600">
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL',
+                        }).format(
+                          transformedItems.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
