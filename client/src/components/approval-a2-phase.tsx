@@ -337,17 +337,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                         const totalDiscount = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
                         const finalValue = Number(selectedSupplierQuotation.totalValue || 0);
                         
-                        // Debug para SOL-2025-019
-                        if (request.requestNumber === 'SOL-2025-019') {
-                          console.log('=== DEBUG SOL-2025-019 ===');
-                          console.log('selectedSupplierQuotation:', selectedSupplierQuotation);
-                          console.log('transformedItems:', transformedItems);
-                          console.log('subtotal:', subtotal);
-                          console.log('totalDiscount:', totalDiscount);
-                          console.log('finalValue:', finalValue);
-                          console.log('discountType:', selectedSupplierQuotation.discountType);
-                          console.log('discountValue:', selectedSupplierQuotation.discountValue);
-                        }
+
                         
                         return (
                           <>
@@ -747,17 +737,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                         const totalDiscount = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
                         const finalValue = Number(selectedSupplierQuotation.totalValue || 0);
                         
-                        // Debug para SOL-2025-019
-                        if (request.requestNumber === 'SOL-2025-019') {
-                          console.log('=== DEBUG SOL-2025-019 (Aprovação) ===');
-                          console.log('selectedSupplierQuotation:', selectedSupplierQuotation);
-                          console.log('transformedItems:', transformedItems);
-                          console.log('subtotal:', subtotal);
-                          console.log('totalDiscount:', totalDiscount);
-                          console.log('finalValue:', finalValue);
-                          console.log('discountType:', selectedSupplierQuotation.discountType);
-                          console.log('discountValue:', selectedSupplierQuotation.discountValue);
-                        }
+
                         
                         return (
                           <>

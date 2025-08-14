@@ -767,18 +767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
       const requests = await storage.getAllPurchaseRequests(companyId);
       
-      // Debug logs for SOL-2025-019
-      const sol2025019 = requests.find(r => r.requestNumber === 'SOL-2025-019');
-      if (sol2025019) {
-        console.log('🔍 DEBUG SOL-2025-019: Encontrada na lista de solicitações');
-        console.log('🔍 DEBUG SOL-2025-019: ID:', sol2025019.id);
-        console.log('🔍 DEBUG SOL-2025-019: Fase atual:', sol2025019.currentPhase);
-        console.log('🔍 DEBUG SOL-2025-019: Total de solicitações retornadas:', requests.length);
-      } else {
-        console.log('🔍 DEBUG SOL-2025-019: NÃO encontrada na lista de solicitações');
-        console.log('🔍 DEBUG SOL-2025-019: Total de solicitações retornadas:', requests.length);
-        console.log('🔍 DEBUG SOL-2025-019: Números das solicitações:', requests.map(r => r.requestNumber));
-      }
+
       
       res.json(requests);
     } catch (error) {
@@ -1108,26 +1097,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const { approved, rejectionReason, rejectionAction, approverId } = req.body;
 
-      // Debug logs for SOL-2025-019
-      if (id === 31) {
-        console.log('🔍 DEBUG SOL-2025-019: Iniciando aprovação A2');
-        console.log('🔍 DEBUG SOL-2025-019: ID da solicitação:', id);
-        console.log('🔍 DEBUG SOL-2025-019: Dados recebidos:', { approved, rejectionReason, rejectionAction, approverId });
-      }
-
       const request = await storage.getPurchaseRequestById(id);
       if (!request || request.currentPhase !== "aprovacao_a2") {
-        if (id === 31) {
-          console.log('🔍 DEBUG SOL-2025-019: Erro - solicitação não encontrada ou não está na fase aprovacao_a2');
-          console.log('🔍 DEBUG SOL-2025-019: Request encontrado:', !!request);
-          console.log('🔍 DEBUG SOL-2025-019: Fase atual:', request?.currentPhase);
-        }
         return res.status(400).json({ message: "Request must be in the A2 approval phase" });
-      }
-
-      if (id === 31) {
-        console.log('🔍 DEBUG SOL-2025-019: Solicitação encontrada e na fase correta');
-        console.log('🔍 DEBUG SOL-2025-019: Número da solicitação:', request.requestNumber);
       }
 
       let newPhase = "pedido_compra";
@@ -1172,7 +1144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (chosenSupplierQuotation) {
               // Verificar se já existe um purchase order
               const existingPurchaseOrder = await storage.getPurchaseOrderByRequestId(id);
-              console.log('📦 Purchase order existente:', existingPurchaseOrder?.id);
+              // Check existing purchase order
               if (!existingPurchaseOrder) {
                 // Buscar itens do purchase request
                 const purchaseRequestItems = await storage.getPurchaseRequestItems(id);
@@ -1200,7 +1172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     createdBy: approverId,
                   };
                   
-                  console.log('💾 Criando purchase order com dados:', purchaseOrderData);
+                  // Creating purchase order
                   const purchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
                   
                   // Buscar itens da cotação do fornecedor para obter preços
@@ -2871,7 +2843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                            bufferStart.includes('<HTML>') ||
                            bufferStart.trim().startsWith('<');
 
-      console.log(`📄 PDF Generation for request ${id}:`);
+      // PDF Generation
       if (isHtmlContent) {
         // Return HTML file for browser to print/save as PDF
         res.setHeader('Content-Type', 'text/html; charset=utf-8');

@@ -256,11 +256,7 @@ export default function KanbanBoard({
         ? parseInt(active.id.toString().split("-")[1])
         : parseInt(active.id.toString());
 
-      console.log("🔍 Processing drag end", { 
-        originalActiveId: active.id,
-        extractedRequestId: requestId,
-        targetPhase: over.id.toString()
-      });
+      // Processing drag end
 
       if (isNaN(requestId)) {
         console.error("❌ Invalid request ID", { activeId: active.id, requestId });

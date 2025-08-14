@@ -154,11 +154,11 @@ export class PDFService {
 
         const file = { content: html };
         const pdfBuffer = await htmlPdf.generatePdf(file, options);
-        console.log(`✅ PDF gerado com sucesso usando html-pdf-node para ${pdfType}`);
+        // PDF generated successfully
         return pdfBuffer;
       } catch (fallbackError) {
         console.error(`❌ html-pdf-node também falhou para ${pdfType}:`, fallbackError.message);
-        console.log(`⚠️ Retornando HTML como fallback para ${pdfType}`);
+        // Returning HTML as fallback
         
         // Como último recurso, retorna o HTML como um "PDF" (o browser pode imprimir/salvar como PDF)
         const htmlDocument = `<!-- HTML_FALLBACK_MARKER -->
