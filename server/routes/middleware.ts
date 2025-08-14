@@ -16,7 +16,7 @@ export async function canApproveRequest(req: Request, res: Response, next: Funct
     }
 
     // Only admin, buyer, and manager can approve requests
-    if (user.role === 'admin' || user.role === 'buyer' || user.role === 'manager') {
+    if (user.isAdmin || user.isBuyer || user.isManager) {
       next();
     } else {
       res.status(403).json({ message: "Insufficient permissions to approve requests" });
@@ -34,7 +34,7 @@ export async function isAdmin(req: Request, res: Response, next: Function) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (user.role === 'admin') {
+    if (user.isAdmin) {
       next();
     } else {
       res.status(403).json({ message: "Admin access required" });
@@ -52,7 +52,7 @@ export async function isAdminOrBuyer(req: Request, res: Response, next: Function
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (user.role === 'admin' || user.role === 'buyer') {
+    if (user.isAdmin || user.isBuyer) {
       next();
     } else {
       res.status(403).json({ message: "Admin or buyer access required" });
