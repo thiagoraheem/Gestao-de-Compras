@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { sendRFQToSuppliers, notifyNewRequest, notifyApprovalA1, notifyApprovalA2, notifyRejection, testEmailConfiguration } from "./email-service";
+import { invalidateCache } from "./cache";
 import { 
   insertUserSchema, 
   insertCompanySchema,
@@ -850,6 +851,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Erro ao enviar notificação de nova solicitação:", error);
       });
 
+      // Invalidate cache for purchase requests
+      invalidateCache(['/api/purchase-requests']);
+
       res.status(201).json(request);
     } catch (error) {
       console.error("Error creating purchase request:", error);
@@ -884,6 +888,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createPurchaseRequestItems(validatedItems);
       }
 
+      // Invalidate cache for purchase requests
+      invalidateCache(['/api/purchase-requests']);
+
       res.json(request);
     } catch (error) {
       console.error("Error updating purchase request:", error);
@@ -900,6 +907,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update the purchase request
       const request = await storage.updatePurchaseRequest(id, validatedRequestData);
+
+      // Invalidate cache for purchase requests
+      invalidateCache(['/api/purchase-requests']);
 
       res.json(request);
     } catch (error) {
