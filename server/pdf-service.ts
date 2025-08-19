@@ -1,6 +1,7 @@
 import puppeteer from 'puppeteer';
 import htmlPdf from 'html-pdf-node';
 import { storage } from './storage';
+import QRCode from 'qrcode';
 
 interface PurchaseOrderData {
   purchaseRequest: any;
@@ -553,6 +554,25 @@ export class PDFService {
 
     // Note: getImageAsBase64 function removed - logos now stored as base64 in database
 
+    // Generate QR Code for tracking
+    let qrCodeDataURL = '';
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || 
+                         (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000');
+      const trackingUrl = `${frontendUrl}/kanban?request=${purchaseRequest.id}`;
+      qrCodeDataURL = await QRCode.toDataURL(trackingUrl, {
+        width: 100,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+    } catch (error) {
+      console.warn('Failed to generate QR code for purchase order:', error);
+      // Continue without QR code if generation fails
+    }
+
     // Carregar logo da empresa como base64
     let companyLogoBase64 = null;
     if (company?.logoBase64) {
@@ -605,6 +625,25 @@ export class PDFService {
       margin-bottom: 20px;
       border-bottom: 2px solid #333;
       padding-bottom: 15px;
+      position: relative;
+    }
+    .qr-code-container {
+      position: absolute;
+      top: 0;
+      right: 0;
+      text-align: center;
+      font-size: 10px;
+    }
+    .qr-code-container img {
+      width: 100px;
+      height: 100px;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .qr-code-text {
+      font-size: 9px;
+      color: #666;
+      font-weight: normal;
     }
     .header-logo {
       flex: 0 0 150px;
@@ -748,6 +787,12 @@ export class PDFService {
       ${company?.phone ? `<p>Telefone: ${company.phone}</p>` : ''}
       ${company?.email ? `<p>Email: ${company.email}</p>` : ''}
     </div>
+    ${qrCodeDataURL ? `
+    <div class="qr-code-container">
+      <img src="${qrCodeDataURL}" alt="QR Code para acompanhamento" />
+      <div class="qr-code-text">Escaneie para acompanhar</div>
+    </div>
+    ` : ''}
   </div>
 
   <div class="info-grid">
