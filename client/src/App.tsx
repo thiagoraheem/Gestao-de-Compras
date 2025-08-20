@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import LoginPage from "@/pages/login";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
+import PublicRequestView from "@/pages/public-request-view";
 import NotFound from "@/pages/not-found";
 import KanbanPage from "@/pages/kanban";
 import SuppliersPage from "@/pages/suppliers";
@@ -57,7 +58,7 @@ function Router() {
     // Store the current URL to redirect after login, but only if it's not the root
     if (typeof window !== 'undefined') {
       const currentPath = window.location.pathname + window.location.search;
-      if (currentPath !== '/' && !currentPath.includes('login') && !currentPath.includes('forgot-password') && !currentPath.includes('reset-password')) {
+      if (currentPath !== '/' && !currentPath.includes('login') && !currentPath.includes('forgot-password') && !currentPath.includes('reset-password') && !currentPath.includes('public')) {
         sessionStorage.setItem('redirectAfterLogin', currentPath);
       }
     }
@@ -65,6 +66,7 @@ function Router() {
     // Public routes (no authentication required)
     return (
       <Switch>
+        <Route path="/public/request/:id" component={PublicRequestView} />
         <Route path="/forgot-password" component={ForgotPasswordPage} />
         <Route path="/reset-password" component={ResetPasswordPage} />
         <Route component={LoginPage} />

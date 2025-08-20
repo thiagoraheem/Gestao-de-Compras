@@ -559,7 +559,7 @@ export class PDFService {
     try {
       const frontendUrl = process.env.FRONTEND_URL || 
                          (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000');
-      const trackingUrl = `${frontendUrl}/kanban?request=${purchaseRequest.id}`;
+      const trackingUrl = `${frontendUrl}/public/request/${purchaseRequest.id}`;
       qrCodeDataURL = await QRCode.toDataURL(trackingUrl, {
         width: 100,
         margin: 1,
