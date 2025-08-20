@@ -6,6 +6,8 @@ import { Calendar, MapPin, User, FileText, Building2, Phone, Mail, X, Package } 
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
+import Timeline from "./timeline";
+import RequestDetailsSection from "./request-details-section";
 
 interface RequestViewProps {
   request: any;
@@ -41,7 +43,22 @@ export default function RequestView({ request, onClose }: RequestViewProps) {
     enabled: !!request.id,
   });
 
-  const isLoading = isLoadingRequest || isLoadingItems;
+  const { data: approvalHistory = [], isLoading: isLoadingApprovals } = useQuery({
+    queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
+    enabled: !!request.id,
+  });
+
+  const { data: completeTimeline = [], isLoading: isLoadingTimeline } = useQuery({
+    queryKey: [`/api/purchase-requests/${request.id}/complete-timeline`],
+    enabled: !!request.id,
+  });
+
+  const { data: attachments = [], isLoading: isLoadingAttachments } = useQuery({
+    queryKey: [`/api/purchase-requests/${request.id}/attachments`],
+    enabled: !!request.id,
+  });
+
+  const isLoading = isLoadingRequest || isLoadingItems || isLoadingApprovals || isLoadingTimeline || isLoadingAttachments;
 
   if (isLoading) {
     return (
@@ -64,7 +81,7 @@ export default function RequestView({ request, onClose }: RequestViewProps) {
   // Items don't have price information in purchase requests
 
   return (
-    <div className="w-full max-w-4xl space-y-6">
+    <div className="w-full max-w-4xl mx-auto px-6 py-4 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -282,6 +299,16 @@ export default function RequestView({ request, onClose }: RequestViewProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Timeline Completa */}
+      <Timeline events={completeTimeline} />
+
+      {/* Detalhes Adicionais */}
+      <RequestDetailsSection 
+        attachments={attachments}
+        approvalHistory={approvalHistory}
+        requestData={purchaseRequest}
+      />
     </div>
   );
 }
