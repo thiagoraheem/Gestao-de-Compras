@@ -1802,6 +1802,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Download attachment by purchase request and attachment ID
+  app.get("/api/purchase-requests/:id/attachments/:attachmentId/download", isAuthenticated, async (req, res) => {
+    try {
+      const purchaseRequestId = parseInt(req.params.id);
+      const attachmentId = parseInt(req.params.attachmentId);
+
+      // Import database and schema
+      const { db } = await import('./db');
+      const { attachments } = await import('../shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+
+      // Get attachment from database with purchase request validation
+      const attachment = await db
+        .select()
+        .from(attachments)
+        .where(and(
+          eq(attachments.id, attachmentId),
+          eq(attachments.purchaseRequestId, purchaseRequestId)
+        ))
+        .limit(1);
+
+      if (!attachment[0]) {
+        return res.status(404).json({ message: "Anexo não encontrado" });
+      }
+
+      const attachmentData = attachment[0];
+      const storageType = (attachmentData as any).storageType || 'local';
+      const s3Key = (attachmentData as any).s3Key;
+
+      // Se for arquivo S3, redirecionar para URL assinada
+      if (storageType === 's3' && s3Key) {
+        try {
+          const signedUrl = await uploadService.getFileUrl(attachmentData.filePath, 's3', s3Key);
+          return res.redirect(signedUrl);
+        } catch (error) {
+          console.error('Erro ao gerar URL S3, tentando fallback local:', error);
+          // Continuar para tentar arquivo local
+        }
+      }
+
+      // Arquivo local ou fallback
+      const filePath = attachmentData.filePath;
+
+      // Check if file exists
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "Arquivo não encontrado no servidor" });
+      }
+
+      // Set proper headers for file download
+      const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${attachmentData.fileName}"`);
+
+      // Stream file to response
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("Error downloading purchase request attachment:", error);
+      res.status(500).json({ message: "Erro ao baixar arquivo" });
+    }
+  });
+
+  // Download supplier quotation file by fileId
+  app.get("/api/quotations/supplier-files/:fileId/download", isAuthenticated, async (req, res) => {
+    try {
+      const fileId = parseInt(req.params.fileId);
+
+      // Import database and schema
+      const { db } = await import('./db');
+      const { attachments } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+
+      // Get attachment from database
+      const attachment = await db
+        .select()
+        .from(attachments)
+        .where(eq(attachments.id, fileId))
+        .limit(1);
+
+      if (!attachment[0]) {
+        return res.status(404).json({ message: "Arquivo não encontrado" });
+      }
+
+      const attachmentData = attachment[0];
+      const storageType = (attachmentData as any).storageType || 'local';
+      const s3Key = (attachmentData as any).s3Key;
+
+      // Se for arquivo S3, redirecionar para URL assinada
+      if (storageType === 's3' && s3Key) {
+        try {
+          const signedUrl = await uploadService.getFileUrl(attachmentData.filePath, 's3', s3Key);
+          return res.redirect(signedUrl);
+        } catch (error) {
+          console.error('Erro ao gerar URL S3, tentando fallback local:', error);
+          // Continuar para tentar arquivo local
+        }
+      }
+
+      // Arquivo local ou fallback
+      const filePath = attachmentData.filePath;
+
+      // Check if file exists
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "Arquivo não encontrado no servidor" });
+      }
+
+      // Set proper headers for file download
+      const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${attachmentData.fileName}"`);
+
+      // Stream file to response
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("Error downloading supplier file:", error);
+      res.status(500).json({ message: "Erro ao baixar arquivo" });
+    }
+  });
+
   // Quotation routes
   app.post("/api/purchase-requests/:id/quotations", isAuthenticated, async (req, res) => {
     try {

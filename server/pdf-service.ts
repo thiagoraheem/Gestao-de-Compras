@@ -1,6 +1,7 @@
 import puppeteer from 'puppeteer';
 import htmlPdf from 'html-pdf-node';
 import { storage } from './storage';
+import { uploadService } from './upload-service';
 import QRCode from 'qrcode';
 
 interface PurchaseOrderData {
@@ -573,10 +574,22 @@ export class PDFService {
       // Continue without QR code if generation fails
     }
 
-    // Carregar logo da empresa como base64
-    let companyLogoBase64 = null;
-    if (company?.logoBase64) {
-      companyLogoBase64 = company.logoBase64;
+    // Carregar logo da empresa (S3 ou base64)
+    let companyLogoSrc = null;
+    if (company?.s3Key) {
+      try {
+        // Tentar gerar URL assinada do S3
+        companyLogoSrc = await uploadService.getFileUrl(company.s3Key);
+      } catch (error) {
+        console.warn('Failed to generate S3 signed URL for company logo:', error);
+        // Fallback para base64 se S3 falhar
+        if (company?.logoBase64) {
+          companyLogoSrc = company.logoBase64;
+        }
+      }
+    } else if (company?.logoBase64) {
+      // Usar base64 diretamente se não houver s3Key
+      companyLogoSrc = company.logoBase64;
     }
     
     // Calcular totais usando preços originais para evitar desconto duplicado
@@ -774,9 +787,9 @@ export class PDFService {
 </head>
 <body>
   <div class="header">
-    ${companyLogoBase64 ? `
+    ${companyLogoSrc ? `
     <div class="header-logo">
-      <img src="${companyLogoBase64}" alt="Logo da Empresa" />
+      <img src="${companyLogoSrc}" alt="Logo da Empresa" />
     </div>
     ` : ''}
     <div class="header-info">
