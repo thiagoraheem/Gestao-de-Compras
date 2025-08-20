@@ -199,6 +199,8 @@ export const attachments = pgTable("attachments", {
   fileType: text("file_type").notNull(),
   fileSize: integer("file_size"),
   attachmentType: text("attachment_type").notNull(), // requisition, quotation, purchase_order, supplier_proposal, etc.
+  storageType: text("storage_type").default("local"), // 'local' or 's3'
+  s3Key: text("s3_key"), // Chave do arquivo no S3 (se aplicável)
   uploadedAt: timestamp("uploaded_at").defaultNow(),
 });
 

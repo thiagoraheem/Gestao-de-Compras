@@ -27,6 +27,15 @@ export const config = {
     productsEndpoint: "/Produtos",
     timeout: 10000, // 10 seconds timeout
     enabled: process.env.ERP_INTEGRATION_ENABLED === "true" || false,
+  },
+
+  // AWS S3 Configuration
+  s3: {
+    enabled: process.env.S3_ENABLED === "true",
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+    region: process.env.AWS_REGION || "us-east-1",
+    bucket: process.env.AWS_S3_BUCKET || "",
   }
 };
 

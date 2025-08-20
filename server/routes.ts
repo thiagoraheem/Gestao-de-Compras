@@ -31,6 +31,8 @@ import { fileURLToPath } from 'url';
 import { registerAllRoutes } from "./routes/index";
 import { isAuthenticated, canApproveRequest, isAdmin, isAdminOrBuyer } from "./routes/middleware";
 import { quotationUpload } from "./routes/upload-config";
+import { uploadService } from "./upload-service";
+import { migrationMiddleware } from "./migration-middleware";
 
 // ES modules compatibility
 const __filename = fileURLToPath(import.meta.url);
@@ -92,6 +94,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register modular routes (includes authentication, etc.)
   registerAllRoutes(app);
+
+  // Add migration middleware for automatic S3 migration
+  app.use('/api', migrationMiddleware);
 
   // Legacy routes - TODO: Move these to modular structure
   // Keeping existing routes for now to maintain functionality
@@ -1760,7 +1765,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Anexo não encontrado" });
       }
 
-      const filePath = attachment[0].filePath;
+      const attachmentData = attachment[0];
+      const storageType = (attachmentData as any).storageType || 'local';
+      const s3Key = (attachmentData as any).s3Key;
+
+      // Se for arquivo S3, redirecionar para URL assinada
+      if (storageType === 's3' && s3Key) {
+        try {
+          const signedUrl = await uploadService.getFileUrl(attachmentData.filePath, 's3', s3Key);
+          return res.redirect(signedUrl);
+        } catch (error) {
+          console.error('Erro ao gerar URL S3, tentando fallback local:', error);
+          // Continuar para tentar arquivo local
+        }
+      }
+
+      // Arquivo local ou fallback
+      const filePath = attachmentData.filePath;
 
       // Check if file exists
       if (!fs.existsSync(filePath)) {
@@ -1770,7 +1791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Set proper headers for file download
       const mimeType = mime.lookup(filePath) || 'application/octet-stream';
       res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Disposition', `attachment; filename="${attachment[0].fileName}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${attachmentData.fileName}"`);
 
       // Stream file to response
       const fileStream = fs.createReadStream(filePath);
@@ -2593,14 +2614,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cotação do fornecedor não encontrada" });
       }
 
+      // Processar upload usando o serviço híbrido
+      const uploadResult = await uploadService.processUpload(
+        req.file,
+        'supplier-quotations',
+        supplierQuotation.id.toString(),
+        req.file.originalname
+      );
+
+      if (!uploadResult.success) {
+        console.error("Upload failed:", uploadResult.error);
+        return res.status(500).json({ message: uploadResult.error || "Erro no upload do arquivo" });
+      }
+
       // Add attachment to database
       const attachment = await storage.createAttachment({
         supplierQuotationId: supplierQuotation.id,
-        fileName: req.file.originalname,
-        filePath: `/uploads/supplier_quotations/${req.file.filename}`,
-        fileType: req.file.mimetype,
-        fileSize: req.file.size,
-        attachmentType: attachmentType || "supplier_proposal"
+        fileName: uploadResult.fileName,
+        filePath: uploadResult.filePath,
+        fileType: uploadResult.contentType,
+        fileSize: uploadResult.fileSize,
+        attachmentType: attachmentType || "supplier_proposal",
+        // Adicionar campos para rastreamento S3 se necessário
+        ...(uploadResult.storage === 's3' && uploadResult.s3Key ? {
+          s3Key: uploadResult.s3Key,
+          storageType: 's3'
+        } : {
+          storageType: 'local'
+        })
       });
 
       res.json({ 
@@ -3127,6 +3168,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/files/supplier-quotations/:filename", isAuthenticated, async (req, res) => {
     try {
       const filename = req.params.filename;
+      
+      // Primeiro, tentar encontrar o arquivo no banco de dados para verificar se está no S3
+      const { db } = await import('./db');
+      const { attachments } = await import('../shared/schema');
+      const { like } = await import('drizzle-orm');
+      
+      const attachment = await db
+        .select()
+        .from(attachments)
+        .where(like(attachments.filePath, `%${filename}`))
+        .limit(1);
+      
+      // Se encontrou no banco e é S3, redirecionar
+      if (attachment[0]) {
+        const attachmentData = attachment[0];
+        const storageType = (attachmentData as any).storageType || 'local';
+        const s3Key = (attachmentData as any).s3Key;
+        
+        if (storageType === 's3' && s3Key) {
+          try {
+            const signedUrl = await uploadService.getFileUrl(attachmentData.filePath, 's3', s3Key);
+            return res.redirect(signedUrl);
+          } catch (error) {
+            console.error('Erro ao gerar URL S3, tentando fallback local:', error);
+          }
+        }
+      }
+      
+      // Fallback para arquivo local
       const filePath = path.join(process.cwd(), 'uploads', 'supplier_quotations', filename);
 
       // Check if file exists
@@ -3391,6 +3461,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching purchase order items:", error);
       res.status(500).json({ message: "Failed to fetch purchase order items" });
+    }
+  });
+
+  // S3 Migration Management Routes (Admin only)
+  
+  // Get migration status
+  app.get("/api/admin/migration/status", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { MigrationMiddleware } = await import('./migration-middleware');
+      const status = await MigrationMiddleware.getMigrationStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting migration status:", error);
+      res.status(500).json({ message: "Failed to get migration status" });
+    }
+  });
+
+  // Force migration of all local files to S3
+  app.post("/api/admin/migration/force", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { MigrationMiddleware } = await import('./migration-middleware');
+      const result = await MigrationMiddleware.forceMigration();
+      res.json({
+        message: "Migration completed",
+        result
+      });
+    } catch (error) {
+      console.error("Error during forced migration:", error);
+      res.status(500).json({ 
+        message: "Failed to execute migration",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
