@@ -12,7 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
+import { PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS, PURCHASE_PHASES } from "@/lib/types";
 import ProcessTimeline from "@/components/process-timeline";
 import { 
   Download, 
@@ -749,6 +749,59 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             <Mail className="h-4 w-4 mr-2" />
             Enviar E-mail
           </Button>
+          {request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
+            <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                >
+                  <Archive className="h-4 w-4 mr-2" />
+                  Arquivar
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Arquivar Solicitação</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleArchive)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="conclusionObservations"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Observações de Conclusão (Opcional)</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Adicione observações sobre a conclusão do processo..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowArchiveDialog(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isArchiving}
+                      >
+                        {isArchiving ? "Arquivando..." : "Arquivar"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          )}
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-5 w-5" />
           </Button>

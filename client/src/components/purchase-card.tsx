@@ -38,6 +38,7 @@ import QuotationPhase from "./quotation-phase";
 import PurchaseOrderPhase from "./purchase-order-phase";
 import ReceiptPhase from "./receipt-phase";
 import ConclusionPhase from "./conclusion-phase";
+import RequestView from "./request-view";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -1137,6 +1138,24 @@ export default function PurchaseCard({
         </div>
       )}
 
+      {/* Request View for Archived Phase */}
+      {isEditModalOpen && phase === PURCHASE_PHASES.ARQUIVADO && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setIsEditModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-y-auto w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <RequestView
+              request={request}
+              onClose={() => setIsEditModalOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Default Edit Dialog for other phases */}
       {isEditModalOpen &&
         phase !== PURCHASE_PHASES.SOLICITACAO &&
@@ -1145,7 +1164,8 @@ export default function PurchaseCard({
         phase !== PURCHASE_PHASES.COTACAO &&
         phase !== PURCHASE_PHASES.PEDIDO_COMPRA &&
         phase !== PURCHASE_PHASES.RECEBIMENTO &&
-        phase !== PURCHASE_PHASES.CONCLUSAO_COMPRA && (
+        phase !== PURCHASE_PHASES.CONCLUSAO_COMPRA &&
+        phase !== PURCHASE_PHASES.ARQUIVADO && (
           <div
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
             onClick={() => setIsEditModalOpen(false)}

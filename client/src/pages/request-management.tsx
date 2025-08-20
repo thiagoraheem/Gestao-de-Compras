@@ -10,10 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useAuth } from "@/hooks/useAuth";
 import { PURCHASE_PHASES, PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import RequestPhase from "@/components/request-phase";
+import RequestView from "@/components/request-view";
 import ApprovalA1Phase from "@/components/approval-a1-phase";
 import ApprovalA2Phase from "@/components/approval-a2-phase";
 import QuotationPhase from "@/components/quotation-phase";
 import PurchaseOrderPhase from "@/components/purchase-order-phase";
+import ReceiptPhase from "@/components/receipt-phase";
 import ConclusionPhase from "@/components/conclusion-phase";
 import { 
   FileText, 
@@ -81,6 +83,14 @@ export default function RequestManagementPage() {
         return user?.isBuyer || false;
       case PURCHASE_PHASES.APROVACAO_A2:
         return user?.isApproverA2 || false;
+      case PURCHASE_PHASES.PEDIDO_COMPRA:
+        return true; // Anyone can view purchase order details
+      case PURCHASE_PHASES.RECEBIMENTO:
+        return true; // Anyone can view receipt details
+      case PURCHASE_PHASES.CONCLUSAO_COMPRA:
+        return true; // Anyone can view conclusion details
+      case PURCHASE_PHASES.ARQUIVADO:
+        return true; // Anyone can view archived request details
       default:
         return false;
     }
@@ -100,8 +110,12 @@ export default function RequestManagementPage() {
         return <QuotationPhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.PEDIDO_COMPRA:
         return <PurchaseOrderPhase request={selectedRequest} onClose={handleCloseModal} />;
+      case PURCHASE_PHASES.RECEBIMENTO:
+        return <ReceiptPhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.CONCLUSAO_COMPRA:
         return <ConclusionPhase request={selectedRequest} onClose={handleCloseModal} />;
+      case PURCHASE_PHASES.ARQUIVADO:
+        return <RequestView request={selectedRequest} onClose={handleCloseModal} />;
       default:
         return (
           <div className="p-8 text-center">
@@ -373,7 +387,7 @@ export default function RequestManagementPage() {
                           disabled={!canAccessPhase(request, request.currentPhase)}
                           className="flex-1"
                         >
-                          {request.currentPhase === PURCHASE_PHASES.SOLICITACAO ? 'Visualizar' : 'Processar'}
+                          {request.currentPhase === PURCHASE_PHASES.SOLICITACAO || request.currentPhase === PURCHASE_PHASES.ARQUIVADO ? 'Visualizar' : 'Processar'}
                         </Button>
                       </div>
                     </CardContent>
