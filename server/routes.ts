@@ -2819,6 +2819,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               companyId: originalRequest.companyId,
               departmentId: originalRequest.departmentId,
               costCenterId: originalRequest.costCenterId,
+              category: originalRequest.category, // Campo obrigatório
               justification: `Recotação de itens indisponíveis da solicitação ${originalRequest.requestNumber}`,
               urgency: originalRequest.urgency,
               idealDeliveryDate: originalRequest.idealDeliveryDate,

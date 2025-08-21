@@ -51,6 +51,7 @@ interface SupplierQuotationData {
 export default function SupplierComparison({ quotationId, onClose, onComplete }: SupplierComparisonProps) {
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [observations, setObservations] = useState("");
+  const [createNewRequestForUnavailable, setCreateNewRequestForUnavailable] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -65,13 +66,19 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
   });
 
   const selectSupplierMutation = useMutation({
-    mutationFn: async (data: { selectedSupplierId: number; totalValue: number; observations: string }) => {
+    mutationFn: async (data: { selectedSupplierId: number; totalValue: number; observations: string; createNewRequest?: boolean; unavailableItems?: any[] }) => {
       return apiRequest(`/api/quotations/${quotationId}/select-supplier`, { method: "POST", body: data });
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      let description = "O fornecedor foi selecionado com sucesso e a solicitação avançou para Aprovação A2.";
+      
+      if (createNewRequestForUnavailable && hasUnavailableItems) {
+        description += " Uma nova solicitação foi criada automaticamente para os itens indisponíveis.";
+      }
+      
       toast({
         title: "Fornecedor selecionado",
-        description: "O fornecedor foi selecionado com sucesso e a solicitação avançou para Aprovação A2.",
+        description,
       });
       // Invalidate all related queries to ensure UI updates immediately
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
@@ -105,12 +112,33 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
     const selectedSupplier = suppliersData.find(s => s.supplier.id === selectedSupplierId);
     if (!selectedSupplier) return;
 
+    // Preparar lista de itens indisponíveis se necessário
+    const unavailableItemsData = createNewRequestForUnavailable && hasUnavailableItems 
+      ? unavailableItems.map(item => ({
+          quotationItemId: item.quotationItemId,
+          reason: item.unavailabilityReason || "Item indisponível"
+        }))
+      : undefined;
+
     selectSupplierMutation.mutate({
       selectedSupplierId,
       totalValue: selectedSupplier.totalValue,
       observations,
+      createNewRequest: createNewRequestForUnavailable,
+      unavailableItems: unavailableItemsData,
     });
   };
+
+  // Detectar itens indisponíveis apenas do fornecedor selecionado
+  const selectedSupplierData = selectedSupplierId 
+    ? suppliersData.find(s => s.supplier.id === selectedSupplierId)
+    : null;
+    
+  const unavailableItems = selectedSupplierData 
+    ? selectedSupplierData.items.filter(item => item.isAvailable === false)
+    : [];
+  
+  const hasUnavailableItems = unavailableItems.length > 0 && selectedSupplierId !== null;
 
   if (isLoading) {
     return (
@@ -433,6 +461,43 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                   />
                 </CardContent>
               </Card>
+
+              {/* Alerta para itens indisponíveis - apenas após seleção do fornecedor */}
+              {selectedSupplierId && hasUnavailableItems && (
+                <Alert className="mb-6">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <p className="font-medium">Foram encontrados {unavailableItems.length} item(ns) indisponível(is):</p>
+                      <ul className="list-disc list-inside space-y-1 text-sm">
+                        {unavailableItems.map((item, index) => {
+                          const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
+                          return (
+                            <li key={index}>
+                              {quotationItem?.description || `Item ${item.quotationItemId}`}
+                              {item.unavailabilityReason && (
+                                <span className="text-gray-600"> - {item.unavailabilityReason}</span>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <div className="flex items-center space-x-2 mt-3">
+                        <input
+                          type="checkbox"
+                          id="createNewRequest"
+                          checked={createNewRequestForUnavailable}
+                          onChange={(e) => setCreateNewRequestForUnavailable(e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        <label htmlFor="createNewRequest" className="text-sm font-medium">
+                          Criar nova solicitação automaticamente para os itens indisponíveis
+                        </label>
+                      </div>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {/* Ações */}
               <div className="flex justify-end gap-4">
