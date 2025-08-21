@@ -527,7 +527,18 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               </tr>
             </thead>
             <tbody>
-              ${items.map((item: any) => {
+              ${items.filter((item: any) => {
+                // Filter out unavailable items
+                const supplierItem = supplierQuotationItems.find((sqi: any) => {
+                  if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+                    return true;
+                  }
+                  return sqi.description === item.description || 
+                         sqi.itemCode === item.itemCode ||
+                         sqi.quotationItemId === item.id;
+                });
+                return !supplierItem || supplierItem.isAvailable !== false;
+              }).map((item: any) => {
                 const supplierItem = supplierQuotationItems.find((sqi: any) => {
                   // First try by purchaseRequestItemId (most reliable)
                   if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
@@ -636,7 +647,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
       return parseFloat(selectedSupplierQuotation.totalValue);
     }
     
-    // Priority 3: Calculate from supplier quotation items
+    // Priority 3: Calculate from supplier quotation items (excluding unavailable items)
     if (supplierQuotationItems && supplierQuotationItems.length > 0 && items && items.length > 0) {
       return items.reduce((sum: number, item: any) => {
         // Find matching supplier quotation item
@@ -651,7 +662,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                  sqi.quotationItemId === item.id;
         });
         
-        if (supplierItem) {
+        // Only include available items in the total
+        if (supplierItem && supplierItem.isAvailable !== false) {
           const unitPrice = parseFloat(supplierItem.unitPrice) || 0;
           const quantity = parseFloat(item.requestedQuantity) || 0;
           return sum + (quantity * unitPrice);
@@ -1105,7 +1117,20 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item: any) => {
+                  {items.filter((item: any) => {
+                    // Filter out unavailable items
+                    const supplierItem = supplierQuotationItems.find((sqi: any) => {
+                      if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+                        return true;
+                      }
+                      return sqi.description === item.description || 
+                             sqi.itemCode === item.itemCode ||
+                             sqi.quotationItemId === item.id ||
+                             (sqi.description && item.description && 
+                              sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
+                    });
+                    return !supplierItem || supplierItem.isAvailable !== false;
+                  }).map((item: any) => {
                     const status = getItemStatus(item);
                     
                     // Find matching supplier quotation item with multiple criteria

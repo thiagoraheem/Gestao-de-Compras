@@ -331,7 +331,8 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
           totalPrice: discountedTotal, // Usar o total com desconto
           originalTotalPrice: originalTotal,
           brand: supplierItem.brand || '',
-          deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : ''
+          deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
+          isAvailable: supplierItem.isAvailable !== false // Considerar disponível se não especificado
         };
       }
     }
@@ -343,9 +344,10 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       totalPrice: 0,
       originalTotalPrice: 0,
       brand: '',
-      deliveryTime: ''
+      deliveryTime: '',
+      isAvailable: true // Considerar disponível se não há informação do fornecedor
     };
-  }) : [];
+  }).filter((item: any) => item.isAvailable) : []; // Filtrar apenas itens disponíveis
 
   // Calcular valores totais
   // Usar o valor original dos itens para o subtotal (sem desconto aplicado)

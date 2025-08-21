@@ -1188,12 +1188,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   // Buscar itens da cotação do fornecedor para obter preços
                   const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
                   
-                  // Criar os itens do purchase order
+                  // Criar os itens do purchase order apenas para itens disponíveis
                   for (const requestItem of purchaseRequestItems) {
                     // Encontrar o item correspondente na cotação do fornecedor
                     const supplierItem = supplierQuotationItems.find(si => {
                       return si.description?.toLowerCase().trim() === requestItem.description?.toLowerCase().trim();
                     });
+                    
+                    // Pular itens marcados como indisponíveis
+                    if (supplierItem && supplierItem.isAvailable === false) {
+                      console.log(`Pulando item indisponível: ${requestItem.description}`);
+                      continue;
+                    }
                     
                     const purchaseOrderItemData = {
                       purchaseOrderId: purchaseOrder.id,
@@ -2534,7 +2540,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               deliveryDays: item.deliveryDays,
               brand: item.brand,
               model: item.model,
-              observations: item.observations
+              observations: item.observations,
+              isAvailable: item.isAvailable,
+              unavailabilityReason: item.unavailabilityReason
             });
           } else {
             // Buscar quantidade do item de cotação
@@ -2555,7 +2563,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               deliveryDays: item.deliveryDays,
               brand: item.brand,
               model: item.model,
-              observations: item.observations
+              observations: item.observations,
+              isAvailable: item.isAvailable,
+              unavailabilityReason: item.unavailabilityReason
             });
           }
         }
@@ -2732,7 +2742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations/:quotationId/select-supplier", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      const { selectedSupplierId, totalValue, observations } = req.body;
+      const { selectedSupplierId, totalValue, observations, unavailableItems, createNewRequest } = req.body;
 
       // Buscar a cotação
       const quotation = await storage.getQuotationById(quotationId);
@@ -2757,6 +2767,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isChosen: true,
           choiceReason: observations
         });
+
+        // Processar produtos indisponíveis se houver
+        if (unavailableItems && unavailableItems.length > 0) {
+          const supplierQuotationItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+          
+          for (const unavailableItem of unavailableItems) {
+            // Encontrar o item correspondente na cotação do fornecedor
+            const supplierItem = supplierQuotationItems.find(item => 
+              item.quotationItemId === unavailableItem.quotationItemId
+            );
+            
+            if (supplierItem) {
+              // Marcar item como indisponível
+              await storage.updateSupplierQuotationItem(supplierItem.id, {
+                isAvailable: false,
+                unavailabilityReason: unavailableItem.reason
+              });
+            }
+          }
+        }
       }
 
       // Atualizar a cotação (status e observações)
@@ -2772,7 +2802,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         choiceReason: observations
       });
 
-      res.json({ message: "Fornecedor selecionado com sucesso" });
+      let newRequestId = null;
+
+      // Criar nova solicitação para itens indisponíveis se solicitado
+      if (createNewRequest && unavailableItems && unavailableItems.length > 0) {
+        try {
+          // Buscar a solicitação original
+          const originalRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+          const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId);
+          
+          if (originalRequest) {
+            // Criar nova solicitação baseada na original
+            const newRequestData = {
+              requestNumber: `${originalRequest.requestNumber}-R${Date.now().toString().slice(-4)}`,
+              requesterId: originalRequest.requesterId,
+              companyId: originalRequest.companyId,
+              departmentId: originalRequest.departmentId,
+              costCenterId: originalRequest.costCenterId,
+              justification: `Recotação de itens indisponíveis da solicitação ${originalRequest.requestNumber}`,
+              urgency: originalRequest.urgency,
+              idealDeliveryDate: originalRequest.idealDeliveryDate,
+              deliveryLocationId: originalRequest.deliveryLocationId,
+              currentPhase: "aprovacao_a1" as const,
+              approvedA1: true, // Já aprovada em A1
+              approverA1Id: originalRequest.approverA1Id,
+              approvalDateA1: new Date(),
+              createdBy: req.session.userId || originalRequest.createdBy
+            };
+            
+            const newRequest = await storage.createPurchaseRequest(newRequestData);
+            newRequestId = newRequest.id;
+            
+            // Adicionar apenas os itens indisponíveis à nova solicitação
+            for (const unavailableItem of unavailableItems) {
+              const originalItem = originalItems.find(item => 
+                item.id === unavailableItem.quotationItemId
+              );
+              
+              if (originalItem) {
+                await storage.createPurchaseRequestItem({
+                  purchaseRequestId: newRequest.id,
+                  productCode: originalItem.productCode,
+                  description: originalItem.description,
+                  requestedQuantity: originalItem.requestedQuantity,
+                  approvedQuantity: originalItem.approvedQuantity,
+                  unit: originalItem.unit,
+                  estimatedUnitPrice: originalItem.estimatedUnitPrice,
+                  estimatedTotalPrice: originalItem.estimatedTotalPrice,
+                  justification: `Item indisponível: ${unavailableItem.reason}`
+                });
+              }
+            }
+            
+            // Avançar automaticamente para fase de cotação
+            await storage.updatePurchaseRequest(newRequest.id, {
+              currentPhase: "cotacao" as const
+            });
+          }
+        } catch (newRequestError) {
+          console.error("Erro ao criar nova solicitação para itens indisponíveis:", newRequestError);
+          // Não falhar a seleção do fornecedor se houver erro na criação da nova solicitação
+        }
+      }
+
+      res.json({ 
+        message: "Fornecedor selecionado com sucesso",
+        newRequestId,
+        unavailableItemsCount: unavailableItems?.length || 0
+      });
     } catch (error) {
       console.error("Error selecting supplier:", error);
       res.status(400).json({ message: "Failed to select supplier" });

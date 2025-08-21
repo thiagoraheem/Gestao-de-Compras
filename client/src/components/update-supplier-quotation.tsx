@@ -62,14 +62,36 @@ const updateSupplierQuotationSchema = z.object({
   items: z.array(
     z.object({
       quotationItemId: z.number(),
-      unitPrice: z.string().min(1, "Preço unitário é obrigatório"),
+      unitPrice: z.string().optional(),
       deliveryDays: z.string().optional(),
       brand: z.string().optional(),
       model: z.string().optional(),
       observations: z.string().optional(),
       discountPercentage: z.string().optional(),
       discountValue: z.string().optional(),
-    }),
+      isAvailable: z.boolean().default(true),
+      unavailabilityReason: z.string().optional(),
+    })
+    .refine((data) => {
+      // Se o produto estiver disponível, o preço unitário é obrigatório
+      if (data.isAvailable) {
+        return data.unitPrice && data.unitPrice.trim().length > 0;
+      }
+      return true; // Para produtos indisponíveis, não validamos o preço
+    }, {
+      message: "Preço unitário é obrigatório para produtos disponíveis",
+      path: ["unitPrice"],
+    })
+    .refine((data) => {
+      // Se o produto estiver indisponível, o motivo da indisponibilidade é obrigatório
+      if (!data.isAvailable) {
+        return data.unavailabilityReason && data.unavailabilityReason.trim().length > 0;
+      }
+      return true; // Para produtos disponíveis, não validamos o motivo
+    }, {
+      message: "Motivo da indisponibilidade é obrigatório para produtos indisponíveis",
+      path: ["unavailabilityReason"],
+    })
   ),
   paymentTerms: z.string().optional(),
   deliveryTerms: z.string().optional(),
@@ -105,6 +127,8 @@ interface SupplierQuotationItem {
   discountValue?: string;
   originalTotalPrice?: string;
   discountedTotalPrice?: string;
+  isAvailable?: boolean;
+  unavailabilityReason?: string;
 }
 
 interface ExistingSupplierQuotation {
@@ -205,6 +229,8 @@ export default function UpdateSupplierQuotation({
         observations: "",
         discountPercentage: "",
         discountValue: "",
+        isAvailable: true,
+        unavailabilityReason: "",
       }));
 
       form.setValue("items", formItems);
@@ -235,6 +261,8 @@ export default function UpdateSupplierQuotation({
           observations: existingItem?.observations || "",
           discountPercentage: existingItem?.discountPercentage || "",
           discountValue: existingItem?.discountValue || "",
+          isAvailable: existingItem?.isAvailable !== false,
+          unavailabilityReason: existingItem?.unavailabilityReason || "",
         };
       });
 
@@ -315,6 +343,8 @@ export default function UpdateSupplierQuotation({
           discountValue,
           originalTotalPrice,
           discountedTotalPrice,
+          isAvailable: item.isAvailable,
+          unavailabilityReason: item.unavailabilityReason || null,
         };
       });
 
@@ -678,6 +708,7 @@ export default function UpdateSupplierQuotation({
                         <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[80px]">Desc. %</th>
                         <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[100px]">Desc. Valor</th>
                         <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[80px]">Prazo (dias)</th>
+                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[120px]">Disponibilidade</th>
                         <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[120px]">Total Final</th>
                       </tr>
                     </thead>
@@ -925,6 +956,56 @@ export default function UpdateSupplierQuotation({
                                 </FormItem>
                               )}
                             />
+                          </td>
+                          <td className="p-3 align-top">
+                            <div className="space-y-2">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.isAvailable`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <div className="flex items-center space-x-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={field.value !== false}
+                                        onChange={(e) => {
+                                          if (viewMode === 'view') return;
+                                          field.onChange(e.target.checked);
+                                          if (e.target.checked) {
+                                            form.setValue(`items.${index}.unavailabilityReason`, "");
+                                          }
+                                        }}
+                                        disabled={viewMode === 'view'}
+                                        className="h-4 w-4"
+                                      />
+                                      <label className="text-xs font-medium">
+                                        Disponível
+                                      </label>
+                                    </div>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              {form.watch(`items.${index}.isAvailable`) === false && (
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.unavailabilityReason`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <Input
+                                          {...field}
+                                          placeholder="Motivo da indisponibilidade"
+                                          readOnly={viewMode === 'view'}
+                                          className="text-xs h-7"
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
+                            </div>
                           </td>
                           <td className="p-3 align-top">
                             <div className="font-bold text-green-600">

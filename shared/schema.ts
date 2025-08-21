@@ -285,6 +285,9 @@ export const supplierQuotationItems = pgTable("supplier_quotation_items", {
   discountValue: decimal("discount_value", { precision: 15, scale: 4 }).default("0"),
   originalTotalPrice: decimal("original_total_price", { precision: 15, scale: 2 }),
   discountedTotalPrice: decimal("discounted_total_price", { precision: 15, scale: 2 }),
+  // Availability fields for supplier return functionality
+  isAvailable: boolean("is_available").default(true),
+  unavailabilityReason: text("unavailability_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -748,6 +751,8 @@ export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuot
 }).extend({
   unitPrice: z.string().transform((val) => val),
   totalPrice: z.string().transform((val) => val),
+  isAvailable: z.boolean().optional().default(true),
+  unavailabilityReason: z.string().optional(),
 });
 
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({

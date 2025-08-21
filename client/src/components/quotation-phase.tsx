@@ -17,7 +17,7 @@ import RFQCreation from "./rfq-creation";
 import RFQAnalysis from "./rfq-analysis";
 import SupplierComparison from "./supplier-comparison";
 import UpdateSupplierQuotation from "./update-supplier-quotation";
-
+import RequestItemsList from "./request-items-list";
 
 interface Quotation {
   id: number;
@@ -170,8 +170,17 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
               <span className="text-sm font-medium text-gray-500">Justificativa</span>
               <p className="mt-1">{request.justification}</p>
             </div>
-
-
+            <Separator className="my-4" />
+            
+            {!hasQuotation ? (
+            <div>
+              <span className="text-sm font-medium text-gray-500 mb-3 block">Itens da Solicitação</span>
+              <RequestItemsList requestId={request.id} />
+            </div>
+            ) : (
+              <div></div>
+            ) 
+            }
           </CardContent>
         </Card>
 
@@ -370,7 +379,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                             {sq.totalValue ? `R$ ${parseFloat(sq.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'}
                           </p>
                         </div>
-                        <div className="flex justify-end space-x-2">
+                        <div className="flex justify-end space-x-1">
                           {sq.status !== 'received' && sq.status !== 'no_response' && user?.isBuyer && (
                             <>
                               <Button
@@ -385,7 +394,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                                 className="bg-blue-600 hover:bg-blue-700"
                               >
                                 <CheckCircle className="h-4 w-4 mr-2" />
-                                Marcar como Recebida
+                                Confirmar
                               </Button>
                               <Button
                                 size="sm"

@@ -16,7 +16,9 @@ import {
   DollarSign,
   Calendar,
   FileText,
-  Truck
+  Truck,
+  Package,
+  XCircle
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import debug from "@/lib/debug";
 
@@ -36,6 +40,11 @@ const approvalSchema = z.object({
   choiceReason: z.string().min(10, "Justificativa deve ter pelo menos 10 caracteres"),
   negotiatedValue: z.string().optional(),
   discountsObtained: z.string().optional(),
+  unavailableItems: z.array(z.object({
+    quotationItemId: z.number(),
+    reason: z.string().min(1, "Motivo é obrigatório")
+  })).optional().default([]),
+  createNewRequest: z.boolean().optional().default(false),
 });
 
 type ApprovalFormData = z.infer<typeof approvalSchema>;
@@ -56,6 +65,8 @@ export default function RFQAnalysis({
   onComplete 
 }: RFQAnalysisProps) {
   const [selectedQuotation, setSelectedQuotation] = useState<string>("");
+  const [unavailableItems, setUnavailableItems] = useState<{[key: number]: {checked: boolean, reason: string}}>({});
+  const [showUnavailableDialog, setShowUnavailableDialog] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -65,6 +76,8 @@ export default function RFQAnalysis({
       choiceReason: "",
       negotiatedValue: "",
       discountsObtained: "",
+      unavailableItems: [],
+      createNewRequest: false,
     },
   });
 
@@ -124,7 +137,32 @@ export default function RFQAnalysis({
   });
 
   const onSubmit = (data: ApprovalFormData) => {
-    approveMutation.mutate(data);
+    // Preparar lista de itens indisponíveis
+    const unavailableItemsList = Object.entries(unavailableItems)
+      .filter(([_, item]) => item.checked && item.reason.trim())
+      .map(([quotationItemId, item]) => ({
+        quotationItemId: parseInt(quotationItemId),
+        reason: item.reason
+      }));
+
+    const formDataWithUnavailable = {
+      ...data,
+      unavailableItems: unavailableItemsList,
+      createNewRequest: unavailableItemsList.length > 0 && data.createNewRequest
+    };
+
+    approveMutation.mutate(formDataWithUnavailable);
+  };
+
+  const handleUnavailableItemChange = (itemId: number, checked: boolean, reason: string = '') => {
+    setUnavailableItems(prev => ({
+      ...prev,
+      [itemId]: { checked, reason }
+    }));
+  };
+
+  const getUnavailableItemsCount = () => {
+    return Object.values(unavailableItems).filter(item => item.checked).length;
   };
 
   const getVariationColor = (value: number, average: number) => {
@@ -280,6 +318,87 @@ export default function RFQAnalysis({
                     })}
                   </TableBody>
                 </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Unavailable Products Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Produtos Indisponíveis
+                {getUnavailableItemsCount() > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {getUnavailableItemsCount()} item(s)
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    Marque os produtos que o fornecedor escolhido não possui disponível. 
+                    Estes itens não aparecerão nas próximas fases e poderão gerar uma nova solicitação.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-3">
+                  {quotationItems.map((item) => (
+                    <div key={item.id} className="flex items-start space-x-3 p-4 border rounded-lg">
+                      <Checkbox
+                        checked={unavailableItems[item.id]?.checked || false}
+                        onCheckedChange={(checked) => 
+                          handleUnavailableItemChange(item.id, checked as boolean, unavailableItems[item.id]?.reason || '')
+                        }
+                      />
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <span className="font-medium">{item.itemCode}</span>
+                          <span className="text-gray-600 ml-2">{item.description}</span>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Quantidade: {item.quantity} {item.unit}
+                        </div>
+                        {unavailableItems[item.id]?.checked && (
+                          <div className="mt-2">
+                            <Input
+                              placeholder="Motivo da indisponibilidade..."
+                              value={unavailableItems[item.id]?.reason || ''}
+                              onChange={(e) => 
+                                handleUnavailableItemChange(item.id, true, e.target.value)
+                              }
+                              className="text-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      {unavailableItems[item.id]?.checked && (
+                        <XCircle className="h-5 w-5 text-red-500 mt-1" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {getUnavailableItemsCount() > 0 && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={form.watch('createNewRequest')}
+                        onCheckedChange={(checked) => form.setValue('createNewRequest', checked as boolean)}
+                      />
+                      <label className="text-sm font-medium">
+                        Criar nova solicitação automaticamente para os itens indisponíveis
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1 ml-6">
+                      Uma nova solicitação será criada contendo apenas os itens marcados como indisponíveis, 
+                      já aprovada em A1 e na fase de Cotação.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

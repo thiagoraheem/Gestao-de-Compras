@@ -259,7 +259,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   // Get selected supplier from quotations
   const selectedSupplier = selectedSupplierQuotation;
 
-  // Combine items with supplier quotation data (same logic as conclusion phase)
+  // Combine items with supplier quotation data and filter out unavailable items
   const itemsWithPrices = useMemo(() => {
     if (!Array.isArray(items) || !Array.isArray(supplierQuotationItems)) {
       return [];
@@ -286,9 +286,10 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         totalPrice: totalPrice,
         brand: supplierItem?.brand || '',
         deliveryTime: supplierItem?.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
-        supplier: selectedSupplierQuotation?.supplier
+        supplier: selectedSupplierQuotation?.supplier,
+        isAvailable: supplierItem?.isAvailable !== false // Include availability status
       };
-    });
+    }).filter((item: any) => item.isAvailable); // Filter out unavailable items
   }, [items, supplierQuotationItems, selectedSupplierQuotation]);
 
   return (

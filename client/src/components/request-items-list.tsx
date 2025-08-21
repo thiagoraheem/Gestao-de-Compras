@@ -56,29 +56,43 @@ export default function RequestItemsList({ requestId }: RequestItemsListProps) {
   };
 
   return (
-    <div className="space-y-3">
-      {items.map((item, index) => (
-        <div key={item.id} className="border rounded-lg p-4 bg-gray-50">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <span className="text-sm font-medium text-gray-500">Descrição</span>
-              <p className="text-sm mt-1">{item.description}</p>
-              {item.technicalSpecification && (
-                <>
-                  <span className="text-sm font-medium text-gray-500 mt-2 block">Especificação Técnica</span>
-                  <p className="text-xs text-gray-600 mt-1">{item.technicalSpecification}</p>
-                </>
-              )}
-            </div>
-            <div className="space-y-2">
-              <div>
-                <span className="text-sm font-medium text-gray-500">Quantidade</span>
-                <p className="text-sm font-semibold">{formatNumber(item.requestedQuantity)} {item.unit}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
+    <div className="space-y-4">
+      <div className="overflow-x-auto">
+        <table className="min-w-full border border-gray-200 rounded-lg">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-b">
+                Descrição
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-b">
+                Quantidade
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-b">
+                Especificação Técnica
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {items.map((item, index) => (
+              <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <td className="px-4 py-3 text-sm text-gray-900">
+                  {item.description}
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-900">
+                  <span className="font-semibold">
+                    {formatNumber(item.requestedQuantity)} {item.unit}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-600">
+                  {item.technicalSpecification || (
+                    <span className="text-gray-400 italic">Não informado</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       
       {/* Summary */}
       <div className="border-t pt-3 mt-4">

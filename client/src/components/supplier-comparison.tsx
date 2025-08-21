@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle, DollarSign, Clock, Building2, Package, X, AlertCircle } from "lucide-react";
+import { CheckCircle, DollarSign, Clock, Building2, Package, X, AlertCircle, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,8 @@ interface SupplierQuotationItem {
   brand?: string;
   model?: string;
   observations?: string;
+  isAvailable?: boolean;
+  unavailabilityReason?: string;
 }
 
 interface SupplierQuotationData {
@@ -228,18 +230,39 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                           <span className="text-sm font-medium text-gray-600">Itens:</span>
                           <div className="mt-2 space-y-2">
                             {supplierData.items.slice(0, 3).map((item) => (
-                              <div key={item.id} className="text-xs p-2 bg-gray-50 rounded">
-                                <div className="flex justify-between">
-                                  <span className="font-medium">
-                                    {(() => {
-                                      const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
-                                      return quotationItem ? quotationItem.description : `Item #${item.quotationItemId}`;
-                                    })()}
+                              <div key={item.id} className={`text-xs p-2 rounded ${
+                                item.isAvailable === false 
+                                  ? 'bg-red-50 border border-red-200' 
+                                  : 'bg-gray-50'
+                              }`}>
+                                <div className="flex justify-between items-center">
+                                  <div className="flex items-center gap-1">
+                                    {item.isAvailable === false && (
+                                      <XCircle className="h-3 w-3 text-red-500 flex-shrink-0" />
+                                    )}
+                                    <span className={`font-medium ${
+                                      item.isAvailable === false ? 'text-red-700' : ''
+                                    }`}>
+                                      {(() => {
+                                        const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
+                                        return quotationItem ? quotationItem.description : `Item #${item.quotationItemId}`;
+                                      })()}
+                                    </span>
+                                  </div>
+                                  <span className={item.isAvailable === false ? 'text-red-600' : ''}>
+                                    {item.isAvailable === false 
+                                      ? 'Indisponível' 
+                                      : `R$ ${Number(item.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                    }
                                   </span>
-                                  <span>R$ {Number(item.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                 </div>
                                 {item.brand && (
                                   <div className="text-xs text-gray-500">{item.brand} {item.model}</div>
+                                )}
+                                {item.isAvailable === false && item.unavailabilityReason && (
+                                  <div className="text-xs text-red-600 mt-1 italic">
+                                    Motivo: {item.unavailabilityReason}
+                                  </div>
                                 )}
                               </div>
                             ))}
@@ -313,44 +336,70 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                                 item => item.quotationItemId === quotationItemId
                               );
                               return (
-                                <td key={supplier.id} className="p-3 border-l text-center">
+                                <td key={supplier.id} className={`p-3 border-l text-center ${
+                                  item && item.isAvailable === false ? 'bg-red-50' : ''
+                                }`}>
                                   {item ? (
-                                    <div className="space-y-1">
-                                      <div className="font-bold text-green-600">
-                                        R$ {Number(item.unitPrice).toLocaleString('pt-BR', { 
-                                          minimumFractionDigits: 2 
-                                        })}
+                                    item.isAvailable === false ? (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center justify-center gap-1 text-red-600">
+                                          <XCircle className="h-4 w-4" />
+                                          <span className="font-bold">Indisponível</span>
+                                        </div>
+                                        {item.unavailabilityReason && (
+                                          <div className="text-xs text-red-600 italic">
+                                            {item.unavailabilityReason}
+                                          </div>
+                                        )}
+                                        {item.brand && (
+                                          <div className="text-xs text-gray-500">
+                                            {item.brand} {item.model}
+                                          </div>
+                                        )}
+                                        {item.observations && (
+                                          <div className="text-xs text-gray-400 italic">
+                                            {item.observations}
+                                          </div>
+                                        )}
                                       </div>
-                                      <div className="text-sm text-gray-600">
-                                        Total: R$ {Number(item.totalPrice).toLocaleString('pt-BR', { 
-                                          minimumFractionDigits: 2 
-                                        })}
+                                    ) : (
+                                      <div className="space-y-1">
+                                        <div className="font-bold text-green-600">
+                                          R$ {Number(item.unitPrice).toLocaleString('pt-BR', { 
+                                            minimumFractionDigits: 2 
+                                          })}
+                                        </div>
+                                        <div className="text-sm text-gray-600">
+                                          Total: R$ {Number(item.totalPrice).toLocaleString('pt-BR', { 
+                                            minimumFractionDigits: 2 
+                                          })}
+                                        </div>
+                                        {/* Desconto do Item */}
+                                        {(item.discountPercentage || item.discountValue) && (
+                                          <div className="text-xs text-orange-600">
+                                            Desconto: {item.discountPercentage 
+                                              ? `${item.discountPercentage}%`
+                                              : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                            }
+                                          </div>
+                                        )}
+                                        {item.deliveryDays && (
+                                          <div className="text-xs text-blue-600">
+                                            {item.deliveryDays} dias
+                                          </div>
+                                        )}
+                                        {item.brand && (
+                                          <div className="text-xs text-gray-500">
+                                            {item.brand} {item.model}
+                                          </div>
+                                        )}
+                                        {item.observations && (
+                                          <div className="text-xs text-gray-400 italic">
+                                            {item.observations}
+                                          </div>
+                                        )}
                                       </div>
-                                      {/* Desconto do Item */}
-                                      {(item.discountPercentage || item.discountValue) && (
-                                        <div className="text-xs text-orange-600">
-                                          Desconto: {item.discountPercentage 
-                                            ? `${item.discountPercentage}%`
-                                            : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                          }
-                                        </div>
-                                      )}
-                                      {item.deliveryDays && (
-                                        <div className="text-xs text-blue-600">
-                                          {item.deliveryDays} dias
-                                        </div>
-                                      )}
-                                      {item.brand && (
-                                        <div className="text-xs text-gray-500">
-                                          {item.brand} {item.model}
-                                        </div>
-                                      )}
-                                      {item.observations && (
-                                        <div className="text-xs text-gray-400 italic">
-                                          {item.observations}
-                                        </div>
-                                      )}
-                                    </div>
+                                    )
                                   ) : (
                                     <span className="text-gray-400 text-sm">Não cotado</span>
                                   )}
