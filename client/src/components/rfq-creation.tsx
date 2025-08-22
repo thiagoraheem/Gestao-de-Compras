@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import SupplierCreationModal from "./supplier-creation-modal";
+import { SupplierSelector } from "./supplier-selector";
 import { UnitSelect } from "./unit-select";
 import { useUnits } from "@/hooks/useUnits";
 import debug from "@/lib/debug";
@@ -808,29 +809,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Fornecedores para Cotação</FormLabel>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                        {suppliers.map((supplier: any) => (
-                          <div key={supplier.id} className="flex items-center space-x-2 p-3 border rounded-lg">
-                            <Checkbox
-                              checked={field.value.includes(supplier.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  field.onChange([...field.value, supplier.id]);
-                                } else {
-                                  field.onChange(field.value.filter((id: number) => id !== supplier.id));
-                                }
-                              }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm">{supplier.name}</p>
-                              <p className="text-xs text-gray-500 truncate">{supplier.email}</p>
-                              {supplier.phone && (
-                                <p className="text-xs text-gray-500">{supplier.phone}</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <SupplierSelector
+                        suppliers={suppliers}
+                        selectedSuppliers={field.value}
+                        onSelectionChange={field.onChange}
+                      />
                       <FormMessage />
                     </FormItem>
                   )}
