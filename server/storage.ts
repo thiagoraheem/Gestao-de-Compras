@@ -1160,22 +1160,97 @@ export class DatabaseStorage implements IStorage {
             let purchaseOrderItems = [];
             try {
               const poItemsResult = await pool.query(
-                `SELECT poi.item_code, poi.description, poi.unit_price, poi.total_price 
+                `SELECT poi.item_code, poi.description, poi.unit_price, poi.total_price, po.id as purchase_order_id
                  FROM purchase_order_items poi 
                  JOIN purchase_orders po ON poi.purchase_order_id = po.id 
-                 WHERE po.purchase_request_id = $1`,
+                 WHERE po.purchase_request_id = $1
+                 ORDER BY poi.id`,
                 [request.id]
               );
               purchaseOrderItems = poItemsResult.rows;
+              
+              // Debug logging
+              if (purchaseOrderItems.length > 0) {
+                console.log(`Found ${purchaseOrderItems.length} purchase order items for request ${request.id}`);
+              } else {
+                console.log(`No purchase order items found for request ${request.id}`);
+              }
             } catch (error) {
               console.warn('Error fetching purchase order items for request', request.id, ':', error);
             }
             
+            // Fallback: Get pricing from supplier quotations if no purchase order items
+            let supplierQuotationItems = [];
+            if (purchaseOrderItems.length === 0 && request.chosenSupplierId) {
+              try {
+                const quotationResult = await pool.query(
+                  'SELECT id FROM quotations WHERE purchase_request_id = $1 LIMIT 1',
+                  [request.id]
+                );
+                
+                if (quotationResult.rows.length > 0) {
+                  const quotationId = quotationResult.rows[0].id;
+                  const supplierQuotationResult = await pool.query(
+                    'SELECT id FROM supplier_quotations WHERE quotation_id = $1 AND supplier_id = $2 AND is_chosen = true LIMIT 1',
+                    [quotationId, request.chosenSupplierId]
+                  );
+                  
+                  if (supplierQuotationResult.rows.length > 0) {
+                    const supplierQuotationId = supplierQuotationResult.rows[0].id;
+                    const sqItemsResult = await pool.query(
+                      `SELECT sqi.unit_price, sqi.total_price, qi.description, qi.item_code
+                       FROM supplier_quotation_items sqi
+                       JOIN quotation_items qi ON sqi.quotation_item_id = qi.id
+                       WHERE sqi.supplier_quotation_id = $1`,
+                      [supplierQuotationId]
+                    );
+                    supplierQuotationItems = sqItemsResult.rows;
+                    console.log(`Found ${supplierQuotationItems.length} supplier quotation items for fallback`);
+                  }
+                }
+              } catch (error) {
+                console.warn('Error fetching supplier quotation items for fallback:', error);
+              }
+            }
+            
             items = itemsResult.rows.map(item => {
               // Try to find matching purchase order item for pricing
-              const poItem = purchaseOrderItems.find(poi => 
-                poi.description === item.description || poi.item_code === item.product_code
-              );
+              let poItem = purchaseOrderItems.find(poi => {
+                const descMatch = poi.description?.toLowerCase().trim() === item.description?.toLowerCase().trim();
+                const codeMatch = poi.item_code === item.product_code;
+                return descMatch || codeMatch;
+              });
+              
+              // Fallback to supplier quotation items if no purchase order match
+              if (!poItem && supplierQuotationItems.length > 0) {
+                poItem = supplierQuotationItems.find(sqi => {
+                  const descMatch = sqi.description?.toLowerCase().trim() === item.description?.toLowerCase().trim();
+                  const codeMatch = sqi.item_code === item.product_code;
+                  return descMatch || codeMatch;
+                });
+                if (poItem) {
+                  // Using supplier quotation fallback
+                }
+              }
+              
+              // Parse the prices safely
+              let unitPrice = null;
+              let totalPrice = null;
+              
+              if (poItem) {
+                const parsedUnitPrice = parseFloat(poItem.unit_price) || 0;
+                const parsedTotalPrice = parseFloat(poItem.total_price) || 0;
+                
+                // Only use the prices if they're greater than 0
+                if (parsedUnitPrice > 0 || parsedTotalPrice > 0) {
+                  unitPrice = parsedUnitPrice;
+                  totalPrice = parsedTotalPrice;
+                } else {
+                  // No valid pricing found
+                }
+              } else {
+                // No matching item found for pricing
+              }
               
               return {
                 id: item.id,
@@ -1184,8 +1259,8 @@ export class DatabaseStorage implements IStorage {
                 unit: item.unit,
                 productCode: item.product_code,
                 technicalSpecification: item.technical_specification,
-                unitPrice: poItem ? parseFloat(poItem.unit_price) : null,
-                totalPrice: poItem ? parseFloat(poItem.total_price) : null
+                unitPrice,
+                totalPrice
               };
             });
           } catch (error) {

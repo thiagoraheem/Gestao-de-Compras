@@ -45,6 +45,7 @@ const formatCurrency = (value: any): string => {
     return "N/A";
   }
   
+  // Always format valid numbers, including zero
   return numValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 };
 

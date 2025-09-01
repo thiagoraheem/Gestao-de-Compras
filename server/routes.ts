@@ -1465,6 +1465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: requestItem.description,
           quantity: requestItem.approvedQuantity || requestItem.requestedQuantity || '0',
           unit: requestItem.unit,
+          unitPrice: supplierItem?.unitPrice || '0',
           totalPrice: supplierItem?.totalPrice || '0',
           deliveryDeadline: null,
           costCenterId: purchaseRequest.costCenterId,
