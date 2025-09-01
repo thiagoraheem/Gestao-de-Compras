@@ -967,7 +967,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseRequestsForReport(filters: any): Promise<any[]> {
-    // Simple query without complex selects
+    // Use simple query without JOINs to avoid orderSelectedFields error
     let query = db.select().from(purchaseRequests);
 
     // Apply filters
@@ -1013,30 +1013,48 @@ export class DatabaseStorage implements IStorage {
 
     const requests = await query.orderBy(desc(purchaseRequests.createdAt));
     
-    // Add requester and department names
+    // Get requester and department names separately to avoid JOIN issues
     const requestsWithNames = await Promise.all(
       requests.map(async (request) => {
-        // Get requester name
-        const requester = await db
-          .select({ name: users.name, email: users.email })
+        let requesterName = 'N/A';
+        let requesterEmail = 'N/A';
+        let departmentName = 'N/A';
+        
+        if (request.requesterId) {
+          const requester = await db.select({
+            name: users.name,
+            email: users.email
+          })
           .from(users)
           .where(eq(users.id, request.requesterId))
           .limit(1);
+          
+          if (requester.length > 0) {
+            requesterName = requester[0].name || 'N/A';
+            requesterEmail = requester[0].email || 'N/A';
+          }
+        }
         
-        // Get department name
-        const department = await db
-          .select({ name: departments.name })
+        if (request.departmentId) {
+          const department = await db.select({
+            name: departments.name
+          })
           .from(departments)
           .where(eq(departments.id, request.departmentId))
           .limit(1);
+          
+          if (department.length > 0) {
+            departmentName = department[0].name || 'N/A';
+          }
+        }
         
         return {
           ...request,
           requestDate: request.createdAt, // Map createdAt to requestDate for frontend compatibility
           phase: request.currentPhase, // Map currentPhase to phase for frontend compatibility
-          requesterName: requester[0]?.name || 'N/A',
-          requesterEmail: requester[0]?.email || 'N/A',
-          departmentName: department[0]?.name || 'N/A'
+          requesterName,
+          requesterEmail,
+          departmentName
         };
       })
     );
