@@ -967,99 +967,149 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseRequestsForReport(filters: any): Promise<any[]> {
-    // Use simple query without JOINs to avoid orderSelectedFields error
-    let query = db.select().from(purchaseRequests);
-
-    // Apply filters
-    const conditions = [];
-    
-    if (filters.dateRange) {
-      conditions.push(
-        and(
-          sql`${purchaseRequests.createdAt} >= ${filters.dateRange.start}`,
-          sql`${purchaseRequests.createdAt} <= ${filters.dateRange.end}`
-        )
-      );
-    }
-    
-    if (filters.departmentId) {
-      conditions.push(eq(purchaseRequests.departmentId, filters.departmentId));
-    }
-    
-    if (filters.requesterId) {
-      conditions.push(eq(purchaseRequests.requesterId, filters.requesterId));
-    }
-    
-    if (filters.phase) {
-      conditions.push(eq(purchaseRequests.currentPhase, filters.phase));
-    }
-    
-    if (filters.urgency) {
-      conditions.push(eq(purchaseRequests.urgency, filters.urgency));
-    }
-    
-    if (filters.search) {
-      conditions.push(
-        sql`(
-          ${purchaseRequests.description} ILIKE ${'%' + filters.search + '%'} OR
-          ${purchaseRequests.requestNumber} ILIKE ${'%' + filters.search + '%'}
-        )`
-      );
-    }
-    
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    const requests = await query.orderBy(desc(purchaseRequests.createdAt));
-    
-    // Get requester and department names separately to avoid JOIN issues
-    const requestsWithNames = await Promise.all(
-      requests.map(async (request) => {
-        let requesterName = 'N/A';
-        let requesterEmail = 'N/A';
-        let departmentName = 'N/A';
-        
-        if (request.requesterId) {
-          const requester = await db.select({
-            name: users.name,
-            email: users.email
-          })
-          .from(users)
-          .where(eq(users.id, request.requesterId))
-          .limit(1);
+    try {
+      // Use raw SQL to bypass Drizzle ORM issues
+      let sqlQuery = `
+        SELECT 
+          pr.id,
+          pr.request_number as "requestNumber",
+          pr.justification,
+          pr.category,
+          pr.requester_id as "requesterId",
+          pr.cost_center_id as "costCenterId",
+          pr.current_phase as "currentPhase",
+          pr.urgency,
+          pr.created_at as "createdAt",
+          pr.updated_at as "updatedAt",
+          pr.buyer_id as "buyerId",
+          pr.approver_a1_id as "approverA1Id",
+          pr.approver_a2_id as "approverA2Id",
+          pr.total_value as "totalValue"
+        FROM purchase_requests pr
+      `;
+      
+      const whereConditions: string[] = [];
+      const params: any[] = [];
+      let paramCounter = 1;
+      
+      // Build WHERE conditions
+      if (filters?.dateRange?.start && filters?.dateRange?.end) {
+        try {
+          const startDate = new Date(filters.dateRange.start);
+          const endDate = new Date(filters.dateRange.end);
           
-          if (requester.length > 0) {
-            requesterName = requester[0].name || 'N/A';
-            requesterEmail = requester[0].email || 'N/A';
+          if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+            whereConditions.push(`pr.created_at >= $${paramCounter}`);
+            params.push(startDate);
+            paramCounter++;
+            whereConditions.push(`pr.created_at <= $${paramCounter}`);
+            params.push(endDate);
+            paramCounter++;
           }
+        } catch (error) {
+          console.warn('Invalid date range in filters:', error);
         }
-        
-        if (request.departmentId) {
-          const department = await db.select({
-            name: departments.name
-          })
-          .from(departments)
-          .where(eq(departments.id, request.departmentId))
-          .limit(1);
+      }
+      
+      if (filters?.departmentId && !isNaN(parseInt(filters.departmentId))) {
+        whereConditions.push(`pr.cost_center_id = $${paramCounter}`);
+        params.push(parseInt(filters.departmentId));
+        paramCounter++;
+      }
+      
+      if (filters?.requesterId && !isNaN(parseInt(filters.requesterId))) {
+        whereConditions.push(`pr.requester_id = $${paramCounter}`);
+        params.push(parseInt(filters.requesterId));
+        paramCounter++;
+      }
+      
+      if (filters?.phase && typeof filters.phase === 'string') {
+        whereConditions.push(`pr.current_phase = $${paramCounter}`);
+        params.push(filters.phase);
+        paramCounter++;
+      }
+      
+      if (filters?.urgency && typeof filters.urgency === 'string') {
+        whereConditions.push(`pr.urgency = $${paramCounter}`);
+        params.push(filters.urgency);
+        paramCounter++;
+      }
+      
+      if (filters?.search && typeof filters.search === 'string' && filters.search.trim() !== '') {
+        const searchTerm = `%${filters.search.trim()}%`;
+        whereConditions.push(`(pr.justification ILIKE $${paramCounter} OR pr.request_number ILIKE $${paramCounter + 1} OR pr.category ILIKE $${paramCounter + 2})`);
+        params.push(searchTerm, searchTerm, searchTerm);
+        paramCounter += 3;
+      }
+      
+      // Add WHERE clause if we have conditions
+      if (whereConditions.length > 0) {
+        sqlQuery += ' WHERE ' + whereConditions.join(' AND ');
+      }
+      
+      // Add ORDER BY
+      sqlQuery += ' ORDER BY pr.created_at DESC';
+      
+      // Execute raw SQL query
+      const result = await pool.query(sqlQuery, params);
+      const requests = result.rows;
+      
+      // Get requester and department names separately
+      const requestsWithNames = await Promise.all(
+        requests.map(async (request: any) => {
+          let requesterName = 'N/A';
+          let requesterEmail = 'N/A';
+          let departmentName = 'N/A';
           
-          if (department.length > 0) {
-            departmentName = department[0].name || 'N/A';
+          if (request.requesterId) {
+            try {
+              const requesterResult = await pool.query(
+                'SELECT first_name, last_name, email FROM users WHERE id = $1 LIMIT 1',
+                [request.requesterId]
+              );
+              
+              if (requesterResult.rows.length > 0) {
+                const user = requesterResult.rows[0];
+                const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'N/A';
+                requesterName = fullName;
+                requesterEmail = user.email || 'N/A';
+              }
+            } catch (error) {
+              console.warn('Error fetching requester:', error);
+            }
           }
-        }
-        
-        return {
-          ...request,
-          requestDate: request.createdAt, // Map createdAt to requestDate for frontend compatibility
-          phase: request.currentPhase, // Map currentPhase to phase for frontend compatibility
-          requesterName,
-          requesterEmail,
-          departmentName
-        };
-      })
-    );
-    
-    return requestsWithNames;
+          
+          if (request.costCenterId) {
+            try {
+              const costCenterResult = await pool.query(
+                'SELECT cc.name as cost_center_name, d.name as department_name FROM cost_centers cc LEFT JOIN departments d ON cc.department_id = d.id WHERE cc.id = $1 LIMIT 1',
+                [request.costCenterId]
+              );
+              
+              if (costCenterResult.rows.length > 0) {
+                departmentName = costCenterResult.rows[0].department_name || 'N/A';
+              }
+            } catch (error) {
+              console.warn('Error fetching department:', error);
+            }
+          }
+          
+          return {
+            ...request,
+            requestDate: request.createdAt, // Map createdAt to requestDate for frontend compatibility
+            phase: request.currentPhase, // Map currentPhase to phase for frontend compatibility
+            requesterName,
+            requesterEmail,
+            departmentName
+          };
+        })
+      );
+      
+      return requestsWithNames;
+    } catch (error) {
+      console.error('Error in getPurchaseRequestsForReport:', error);
+      throw error;
+    }
   }
 
   // Purchase Request Items operations

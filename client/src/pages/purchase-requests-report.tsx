@@ -33,6 +33,21 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DateInput } from "@/components/ui/date-input";
 
+// Utility function to safely format currency
+const formatCurrency = (value: any): string => {
+  if (value === null || value === undefined) {
+    return "N/A";
+  }
+  
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  
+  if (isNaN(numValue)) {
+    return "N/A";
+  }
+  
+  return numValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+};
+
 interface PurchaseRequest {
   id: number;
   requestNumber: string;
@@ -182,7 +197,7 @@ export default function PurchaseRequestsReport() {
         request.requesterName,
         request.departmentName,
         request.phase,
-        request.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        formatCurrency(request.totalValue),
         request.urgency
       ].join(","))
     ].join("\n");
@@ -441,7 +456,7 @@ export default function PurchaseRequestsReport() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {request.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          {formatCurrency(request.totalValue)}
                         </TableCell>
                         <TableCell>
                           <Badge className={urgencyColors[request.urgency as keyof typeof urgencyColors] || "bg-gray-100 text-gray-800"}>
@@ -478,7 +493,7 @@ export default function PurchaseRequestsReport() {
                                           <TableCell>{item.quantity}</TableCell>
                                           <TableCell>{item.unit}</TableCell>
                                           <TableCell>
-                                            {item.estimatedPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                            {formatCurrency(item.estimatedPrice)}
                                           </TableCell>
                                         </TableRow>
                                       ))}
@@ -549,7 +564,7 @@ export default function PurchaseRequestsReport() {
                                           <TableRow key={quotation.id}>
                                             <TableCell>{quotation.supplierName}</TableCell>
                                             <TableCell>
-                                              {quotation.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                              {formatCurrency(quotation.totalValue)}
                                             </TableCell>
                                             <TableCell>
                                               <Badge className={quotation.status === "Enviada" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
@@ -591,7 +606,7 @@ export default function PurchaseRequestsReport() {
                                             <TableCell className="font-medium">{order.orderNumber}</TableCell>
                                             <TableCell>{order.supplierName}</TableCell>
                                             <TableCell>
-                                              {order.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                              {formatCurrency(order.totalValue)}
                                             </TableCell>
                                             <TableCell>
                                               <Badge className={order.status === "Enviado" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>

@@ -3506,21 +3506,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         search 
       } = req.query;
 
-      // Build filters object
+      // Build filters object with validation
       const filters: any = {};
       
+      // Validate and set date range
       if (startDate && endDate) {
-        filters.dateRange = {
-          start: new Date(startDate as string),
-          end: new Date(endDate as string)
-        };
+        try {
+          const start = new Date(startDate as string);
+          const end = new Date(endDate as string);
+          
+          if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+            filters.dateRange = { start, end };
+          }
+        } catch (error) {
+          console.warn('Invalid date range provided:', { startDate, endDate });
+        }
       }
       
-      if (departmentId) filters.departmentId = parseInt(departmentId as string);
-      if (requesterId) filters.requesterId = parseInt(requesterId as string);
-      if (phase) filters.phase = phase as string;
-      if (urgency) filters.urgency = urgency as string;
-      if (search) filters.search = search as string;
+      // Validate and set numeric filters
+      if (departmentId) {
+        const deptId = parseInt(departmentId as string);
+        if (!isNaN(deptId)) {
+          filters.departmentId = deptId;
+        }
+      }
+      
+      if (requesterId) {
+        const reqId = parseInt(requesterId as string);
+        if (!isNaN(reqId)) {
+          filters.requesterId = reqId;
+        }
+      }
+      
+      // Validate and set string filters
+      if (phase && typeof phase === 'string' && phase.trim() !== '') {
+        filters.phase = phase.trim();
+      }
+      
+      if (urgency && typeof urgency === 'string' && urgency.trim() !== '') {
+        filters.urgency = urgency.trim();
+      }
+      
+      if (search && typeof search === 'string' && search.trim() !== '') {
+        filters.search = search.trim();
+      }
 
       // Get purchase requests with related data
       const requests = await storage.getPurchaseRequestsForReport(filters);
