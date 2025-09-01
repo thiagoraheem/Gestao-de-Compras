@@ -55,9 +55,12 @@ interface PurchaseRequest {
   requestDate: string;
   requesterName: string;
   departmentName: string;
+  supplierName: string;
   phase: string;
   totalValue: number;
   urgency: string;
+  approverA1Name: string;
+  approverA2Name: string;
   items: PurchaseRequestItem[];
   approvals: Approval[];
   quotations: Quotation[];
@@ -69,7 +72,8 @@ interface PurchaseRequestItem {
   description: string;
   quantity: number;
   unit: string;
-  estimatedPrice: number;
+  unitPrice: number | null;
+  totalPrice: number | null;
 }
 
 interface Approval {
@@ -185,6 +189,7 @@ export default function PurchaseRequestsReport() {
         "Data",
         "Solicitante",
         "Departamento",
+        "Fornecedor",
         "Fase",
         "Valor Total",
         "Urgência"
@@ -196,6 +201,7 @@ export default function PurchaseRequestsReport() {
         format(new Date(request.requestDate), "dd/MM/yyyy"),
         request.requesterName,
         request.departmentName,
+        request.supplierName,
         request.phase,
         formatCurrency(request.totalValue),
         request.urgency
@@ -421,6 +427,7 @@ export default function PurchaseRequestsReport() {
                     <TableHead>Data</TableHead>
                     <TableHead>Solicitante</TableHead>
                     <TableHead>Departamento</TableHead>
+                    <TableHead>Fornecedor</TableHead>
                     <TableHead>Fase</TableHead>
                     <TableHead>Valor Total</TableHead>
                     <TableHead>Urgência</TableHead>
@@ -450,6 +457,7 @@ export default function PurchaseRequestsReport() {
                         </TableCell>
                         <TableCell>{request.requesterName}</TableCell>
                         <TableCell>{request.departmentName}</TableCell>
+                        <TableCell>{request.supplierName}</TableCell>
                         <TableCell>
                           <Badge className={phaseColors[request.phase as keyof typeof phaseColors] || "bg-gray-100 text-gray-800"}>
                             {request.phase}
@@ -468,8 +476,28 @@ export default function PurchaseRequestsReport() {
                       {/* Expanded Row Content */}
                       {expandedRows.has(request.id) && (
                         <TableRow>
-                          <TableCell colSpan={9} className="bg-gray-50 p-6">
+                          <TableCell colSpan={10} className="bg-gray-50 p-6">
                             <div className="space-y-6">
+                              {/* Approval Information */}
+                              <div>
+                                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                  <User className="w-4 h-4" />
+                                  Aprovação
+                                </h4>
+                                <div className="bg-white rounded-lg border p-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-500 mb-1">Aprovador A1</p>
+                                      <p className="text-sm font-semibold">{request.approverA1Name}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-500 mb-1">Aprovador A2</p>
+                                      <p className="text-sm font-semibold">{request.approverA2Name}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
                               {/* Items */}
                               <div>
                                 <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -483,7 +511,8 @@ export default function PurchaseRequestsReport() {
                                         <TableHead>Descrição</TableHead>
                                         <TableHead>Quantidade</TableHead>
                                         <TableHead>Unidade</TableHead>
-                                        <TableHead>Preço Estimado</TableHead>
+                                        <TableHead>Valor do Item</TableHead>
+                                        <TableHead>Valor Total</TableHead>
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -493,7 +522,10 @@ export default function PurchaseRequestsReport() {
                                           <TableCell>{item.quantity}</TableCell>
                                           <TableCell>{item.unit}</TableCell>
                                           <TableCell>
-                                            {formatCurrency(item.estimatedPrice)}
+                                            {formatCurrency(item.unitPrice)}
+                                          </TableCell>
+                                          <TableCell>
+                                            {formatCurrency(item.totalPrice)}
                                           </TableCell>
                                         </TableRow>
                                       ))}

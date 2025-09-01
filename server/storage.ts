@@ -984,7 +984,8 @@ export class DatabaseStorage implements IStorage {
           pr.buyer_id as "buyerId",
           pr.approver_a1_id as "approverA1Id",
           pr.approver_a2_id as "approverA2Id",
-          pr.total_value as "totalValue"
+          pr.total_value as "totalValue",
+          pr.chosen_supplier_id as "chosenSupplierId"
         FROM purchase_requests pr
       `;
       
@@ -1094,22 +1095,99 @@ export class DatabaseStorage implements IStorage {
             }
           }
           
-          // Fetch related items
+          // Fetch chosen supplier information
+          let supplierName = 'N/A';
+          if (request.chosenSupplierId) {
+            try {
+              const supplierResult = await pool.query(
+                'SELECT name FROM suppliers WHERE id = $1 LIMIT 1',
+                [request.chosenSupplierId]
+              );
+              
+              if (supplierResult.rows.length > 0) {
+                supplierName = supplierResult.rows[0].name || 'N/A';
+              }
+            } catch (error) {
+              console.warn('Error fetching supplier:', error);
+            }
+          }
+          
+          // Fetch approvers information
+          let approverA1Name = 'N/A';
+          let approverA2Name = 'N/A';
+          
+          if (request.approverA1Id) {
+            try {
+              const approverResult = await pool.query(
+                'SELECT first_name, last_name FROM users WHERE id = $1 LIMIT 1',
+                [request.approverA1Id]
+              );
+              
+              if (approverResult.rows.length > 0) {
+                const user = approverResult.rows[0];
+                approverA1Name = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'N/A';
+              }
+            } catch (error) {
+              console.warn('Error fetching approver A1:', error);
+            }
+          }
+          
+          if (request.approverA2Id) {
+            try {
+              const approverResult = await pool.query(
+                'SELECT first_name, last_name FROM users WHERE id = $1 LIMIT 1',
+                [request.approverA2Id]
+              );
+              
+              if (approverResult.rows.length > 0) {
+                const user = approverResult.rows[0];
+                approverA2Name = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'N/A';
+              }
+            } catch (error) {
+              console.warn('Error fetching approver A2:', error);
+            }
+          }
+          
+          // Fetch related items with prices from purchase orders if available
           let items = [];
           try {
             const itemsResult = await pool.query(
               'SELECT id, description, requested_quantity, unit, product_code, technical_specification FROM purchase_request_items WHERE purchase_request_id = $1 ORDER BY id',
               [request.id]
             );
-            items = itemsResult.rows.map(item => ({
-              id: item.id,
-              description: item.description,
-              quantity: parseFloat(item.requested_quantity) || 0,
-              unit: item.unit,
-              productCode: item.product_code,
-              technicalSpecification: item.technical_specification,
-              estimatedPrice: null // Not available in the database schema
-            }));
+            
+            // Get purchase order items for pricing if purchase order exists
+            let purchaseOrderItems = [];
+            try {
+              const poItemsResult = await pool.query(
+                `SELECT poi.item_code, poi.description, poi.unit_price, poi.total_price 
+                 FROM purchase_order_items poi 
+                 JOIN purchase_orders po ON poi.purchase_order_id = po.id 
+                 WHERE po.purchase_request_id = $1`,
+                [request.id]
+              );
+              purchaseOrderItems = poItemsResult.rows;
+            } catch (error) {
+              console.warn('Error fetching purchase order items for request', request.id, ':', error);
+            }
+            
+            items = itemsResult.rows.map(item => {
+              // Try to find matching purchase order item for pricing
+              const poItem = purchaseOrderItems.find(poi => 
+                poi.description === item.description || poi.item_code === item.product_code
+              );
+              
+              return {
+                id: item.id,
+                description: item.description,
+                quantity: parseFloat(item.requested_quantity) || 0,
+                unit: item.unit,
+                productCode: item.product_code,
+                technicalSpecification: item.technical_specification,
+                unitPrice: poItem ? parseFloat(poItem.unit_price) : null,
+                totalPrice: poItem ? parseFloat(poItem.total_price) : null
+              };
+            });
           } catch (error) {
             console.warn('Error fetching items for request', request.id, ':', error);
           }
@@ -1118,9 +1196,13 @@ export class DatabaseStorage implements IStorage {
             ...request,
             requestDate: request.createdAt, // Map createdAt to requestDate for frontend compatibility
             phase: request.currentPhase, // Map currentPhase to phase for frontend compatibility
+            description: request.justification, // Map justification to description for frontend compatibility
             requesterName,
             requesterEmail,
             departmentName,
+            supplierName,
+            approverA1Name,
+            approverA2Name,
             items,
             approvals: [], // TODO: Implement if needed
             quotations: [], // TODO: Implement if needed
