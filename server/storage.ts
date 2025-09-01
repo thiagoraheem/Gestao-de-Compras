@@ -1054,7 +1054,7 @@ export class DatabaseStorage implements IStorage {
       const result = await pool.query(sqlQuery, params);
       const requests = result.rows;
       
-      // Get requester and department names separately
+      // Get requester and department names separately, plus related data
       const requestsWithNames = await Promise.all(
         requests.map(async (request: any) => {
           let requesterName = 'N/A';
@@ -1094,13 +1094,37 @@ export class DatabaseStorage implements IStorage {
             }
           }
           
+          // Fetch related items
+          let items = [];
+          try {
+            const itemsResult = await pool.query(
+              'SELECT id, description, requested_quantity, unit, product_code, technical_specification FROM purchase_request_items WHERE purchase_request_id = $1 ORDER BY id',
+              [request.id]
+            );
+            items = itemsResult.rows.map(item => ({
+              id: item.id,
+              description: item.description,
+              quantity: parseFloat(item.requested_quantity) || 0,
+              unit: item.unit,
+              productCode: item.product_code,
+              technicalSpecification: item.technical_specification,
+              estimatedPrice: null // Not available in the database schema
+            }));
+          } catch (error) {
+            console.warn('Error fetching items for request', request.id, ':', error);
+          }
+          
           return {
             ...request,
             requestDate: request.createdAt, // Map createdAt to requestDate for frontend compatibility
             phase: request.currentPhase, // Map currentPhase to phase for frontend compatibility
             requesterName,
             requesterEmail,
-            departmentName
+            departmentName,
+            items,
+            approvals: [], // TODO: Implement if needed
+            quotations: [], // TODO: Implement if needed
+            purchaseOrders: [] // TODO: Implement if needed
           };
         })
       );
