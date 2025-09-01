@@ -9,7 +9,8 @@ import {
   insertCompanySchema,
   insertDepartmentSchema, 
   insertCostCenterSchema, 
-  insertSupplierSchema, 
+  insertSupplierSchema,
+  updateSupplierSchema, 
   insertDeliveryLocationSchema,
   insertPurchaseRequestSchema,
   insertPurchaseRequestItemSchema,
@@ -649,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/suppliers/:id", isAuthenticated, isAdminOrBuyer, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const supplierData = insertSupplierSchema.partial().parse(req.body);
+      const supplierData = updateSupplierSchema.parse(req.body);
       
       // Validar CNPJ se fornecido
       if (supplierData.cnpj) {

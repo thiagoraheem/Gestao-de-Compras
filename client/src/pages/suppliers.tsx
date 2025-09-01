@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -18,12 +19,25 @@ import AdminOrBuyerRoute from "@/components/admin-or-buyer-route";
 
 const supplierSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  cnpj: z.string().min(1, "CNPJ é obrigatório"),
-  contact: z.string().min(1, "Contato é obrigatório"),
-  email: z.string().email("Email inválido"),
+  type: z.number().default(0),
+  cnpj: z.string().optional(),
+  contact: z.string().optional(),
+  email: z.string().optional(),
   phone: z.string().optional(),
+  website: z.string().optional(),
   address: z.string().optional(),
   paymentTerms: z.string().optional(),
+}).refine((data) => {
+  if (data.type === 0) {
+    // Tipo 0 (Tradicional): CNPJ, Contato, Email e Telefone são obrigatórios
+    return data.cnpj && data.contact && data.email && data.phone;
+  } else if (data.type === 1) {
+    // Tipo 1 (Online): Website é obrigatório
+    return data.website;
+  }
+  return true;
+}, {
+  message: "Campos obrigatórios não preenchidos para o tipo de fornecedor selecionado",
 });
 
 type SupplierFormData = z.infer<typeof supplierSchema>;
@@ -42,10 +56,12 @@ export default function SuppliersPage() {
     resolver: zodResolver(supplierSchema),
     defaultValues: {
       name: "",
+      type: 0,
       cnpj: "",
       contact: "",
       email: "",
       phone: "",
+      website: "",
       address: "",
       paymentTerms: "",
     },
@@ -142,10 +158,12 @@ export default function SuppliersPage() {
     setEditingSupplier(supplier);
     form.reset({
       name: supplier.name || "",
+      type: supplier.type || 0,
       cnpj: supplier.cnpj || "",
       contact: supplier.contact || "",
       email: supplier.email || "",
       phone: supplier.phone || "",
+      website: supplier.website || "",
       address: supplier.address || "",
       paymentTerms: supplier.paymentTerms || "",
     });
@@ -181,17 +199,19 @@ export default function SuppliersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>CNPJ</TableHead>
                   <TableHead>Contato</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Telefone</TableHead>
+                  <TableHead>Website</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {suppliers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       Nenhum fornecedor encontrado
                     </TableCell>
                   </TableRow>
@@ -199,10 +219,33 @@ export default function SuppliersPage() {
                   suppliers.map((supplier) => (
                     <TableRow key={supplier.id}>
                       <TableCell className="font-medium">{supplier.name}</TableCell>
-                      <TableCell>{supplier.cnpj}</TableCell>
-                      <TableCell>{supplier.contact}</TableCell>
-                      <TableCell>{supplier.email}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          supplier.type === 1 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {supplier.type === 1 ? 'Online' : 'Tradicional'}
+                        </span>
+                      </TableCell>
+                      <TableCell>{supplier.cnpj || "Não informado"}</TableCell>
+                      <TableCell>{supplier.contact || "Não informado"}</TableCell>
+                      <TableCell>{supplier.email || "Não informado"}</TableCell>
                       <TableCell>{supplier.phone || "Não informado"}</TableCell>
+                      <TableCell>
+                        {supplier.website ? (
+                          <a 
+                            href={supplier.website} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline"
+                          >
+                            {supplier.website}
+                          </a>
+                        ) : (
+                          "Não informado"
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -222,14 +265,16 @@ export default function SuppliersPage() {
       </Card>
 
       <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[95vh] flex flex-col p-0">
+          <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
             <DialogTitle>
               {editingSupplier ? "Editar Fornecedor" : "Novo Fornecedor"}
             </DialogTitle>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -246,10 +291,32 @@ export default function SuppliersPage() {
 
               <FormField
                 control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Fornecedor *</FormLabel>
+                    <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="0">Tradicional</SelectItem>
+                        <SelectItem value="1">Online</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="cnpj"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>CNPJ *</FormLabel>
+                    <FormLabel>CNPJ{form.watch("type") === 0 ? " *" : ""}</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -263,7 +330,7 @@ export default function SuppliersPage() {
                 name="contact"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Contato *</FormLabel>
+                    <FormLabel>Contato{form.watch("type") === 0 ? " *" : ""}</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -277,7 +344,7 @@ export default function SuppliersPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email *</FormLabel>
+                    <FormLabel>Email{form.watch("type") === 0 ? " *" : ""}</FormLabel>
                     <FormControl>
                       <Input {...field} type="email" />
                     </FormControl>
@@ -291,9 +358,23 @@ export default function SuppliersPage() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Telefone</FormLabel>
+                    <FormLabel>Telefone{form.watch("type") === 0 ? " *" : ""}</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="(11) 99999-9999" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="website"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Website do Fornecedor{form.watch("type") === 1 ? " *" : ""}</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="https://exemplo.com" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -314,33 +395,66 @@ export default function SuppliersPage() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="paymentTerms"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Condições de Pagamento</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="paymentTerms"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Condições de Pagamento</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={handleCloseModal}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={createSupplierMutation.isPending}>
-                  {createSupplierMutation.isPending 
-                    ? "Salvando..." 
-                    : editingSupplier ? "Atualizar" : "Criar"
-                  }
-                </Button>
-              </div>
-            </form>
-          </Form>
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Endereço</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Endereço completo do fornecedor"
+                          rows={3}
+                          className="resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
+          </div>
+
+          <div className="flex-shrink-0 px-6 py-4 border-t bg-gray-50/50">
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleCloseModal}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={createSupplierMutation.isPending}
+                className="w-full sm:w-auto order-1 sm:order-2"
+                onClick={form.handleSubmit(onSubmit)}
+              >
+                {createSupplierMutation.isPending 
+                  ? "Salvando..." 
+                  : editingSupplier ? "Atualizar" : "Criar"
+                }
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       </div>

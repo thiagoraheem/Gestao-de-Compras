@@ -87,10 +87,12 @@ export const userCostCenters = pgTable("user_cost_centers", {
 export const suppliers = pgTable("suppliers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  type: integer("type").notNull().default(0), // 0: Traditional, 1: Online
   cnpj: text("cnpj"),
   contact: text("contact"),
   email: text("email"),
   phone: text("phone"),
+  website: text("website"), // Required for Online suppliers (type 1)
   address: text("address"),
   paymentTerms: text("payment_terms"),
   productsServices: text("products_services"),
@@ -667,7 +669,26 @@ export const insertCostCenterSchema = createInsertSchema(costCenters).omit({
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({
   id: true,
   createdAt: true,
+}).refine((data) => {
+  // Type 0 (Traditional): CNPJ, Contact, Email, Phone are required
+  if (data.type === 0) {
+    return data.cnpj && data.contact && data.email && data.phone;
+  }
+  // Type 1 (Online): Website is required, other fields are optional
+  if (data.type === 1) {
+    return data.website;
+  }
+  return true;
+}, {
+  message: "Para fornecedores tradicionais (Tipo 0): CNPJ, Contato, E-mail e Telefone são obrigatórios. Para fornecedores online (Tipo 1): Site é obrigatório.",
+  path: ["type"],
 });
+
+// Schema for updating suppliers - more flexible validation
+export const updateSupplierSchema = createInsertSchema(suppliers).omit({
+  id: true,
+  createdAt: true,
+}).partial();
 
 export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).omit({
   id: true,
