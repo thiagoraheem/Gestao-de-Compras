@@ -173,6 +173,7 @@ export interface IStorage {
   ): Promise<PurchaseRequest>;
   getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequest[]>;
   getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]>;
+  getPurchaseRequestsForReport(filters: any): Promise<any[]>;
   deletePurchaseRequest(id: number): Promise<void>;
 
   // Purchase Request Items operations
@@ -963,6 +964,84 @@ export class DatabaseStorage implements IStorage {
       .from(purchaseRequests)
       .where(eq(purchaseRequests.requesterId, userId))
       .orderBy(desc(purchaseRequests.createdAt));
+  }
+
+  async getPurchaseRequestsForReport(filters: any): Promise<any[]> {
+    // Simple query without complex selects
+    let query = db.select().from(purchaseRequests);
+
+    // Apply filters
+    const conditions = [];
+    
+    if (filters.dateRange) {
+      conditions.push(
+        and(
+          sql`${purchaseRequests.createdAt} >= ${filters.dateRange.start}`,
+          sql`${purchaseRequests.createdAt} <= ${filters.dateRange.end}`
+        )
+      );
+    }
+    
+    if (filters.departmentId) {
+      conditions.push(eq(purchaseRequests.departmentId, filters.departmentId));
+    }
+    
+    if (filters.requesterId) {
+      conditions.push(eq(purchaseRequests.requesterId, filters.requesterId));
+    }
+    
+    if (filters.phase) {
+      conditions.push(eq(purchaseRequests.currentPhase, filters.phase));
+    }
+    
+    if (filters.urgency) {
+      conditions.push(eq(purchaseRequests.urgency, filters.urgency));
+    }
+    
+    if (filters.search) {
+      conditions.push(
+        sql`(
+          ${purchaseRequests.description} ILIKE ${'%' + filters.search + '%'} OR
+          ${purchaseRequests.requestNumber} ILIKE ${'%' + filters.search + '%'}
+        )`
+      );
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const requests = await query.orderBy(desc(purchaseRequests.createdAt));
+    
+    // Add requester and department names
+    const requestsWithNames = await Promise.all(
+      requests.map(async (request) => {
+        // Get requester name
+        const requester = await db
+          .select({ name: users.name, email: users.email })
+          .from(users)
+          .where(eq(users.id, request.requesterId))
+          .limit(1);
+        
+        // Get department name
+        const department = await db
+          .select({ name: departments.name })
+          .from(departments)
+          .where(eq(departments.id, request.departmentId))
+          .limit(1);
+        
+        return {
+          ...request,
+          requestDate: request.createdAt, // Map createdAt to requestDate for frontend compatibility
+          phase: request.currentPhase, // Map currentPhase to phase for frontend compatibility
+          requesterName: requester[0]?.name || 'N/A',
+          requesterEmail: requester[0]?.email || 'N/A',
+          departmentName: department[0]?.name || 'N/A'
+        };
+      })
+    );
+    
+    return requestsWithNames;
   }
 
   // Purchase Request Items operations

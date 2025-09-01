@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DropdownMenu as CustomDropdownMenu } from "@/components/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import {
   ShoppingCart,
@@ -25,6 +26,8 @@ import {
   MapPin,
   BookOpen,
   HelpCircle,
+  FolderOpen,
+  ClipboardList,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -41,36 +44,42 @@ export default function PipefyHeader() {
         href: "/request-management",
         icon: FileText,
       },
-      { name: "Fornecedores", href: "/suppliers", icon: Building },
     ];
 
-    // Manager/Admin-only dashboard
-    const managerNavigation = [
-      { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
+    return baseNavigation;
+  };
+
+  const getCadastrosItems = () => {
+    const items = [
+      { label: "Fornecedores", href: "/suppliers", icon: <Building className="w-4 h-4" /> },
     ];
 
-    // Admin-only navigation items
-    const adminNavigation = [
-      { name: "Usuários", href: "/users", icon: Users },
-      { name: "Departamentos", href: "/departments", icon: Building },
-      { name: "Locais de Entrega", href: "/delivery-locations", icon: MapPin },
-      { name: "Empresas", href: "/companies", icon: Building },
-      { name: "Limpeza de Dados", href: "/admin/cleanup", icon: Database },
-    ];
-
-    let navigation = [...baseNavigation];
-
-    // Add dashboard for managers and admins
-    if (user?.isManager || user?.isAdmin) {
-      navigation = [...navigation, ...managerNavigation];
-    }
-
-    // Add admin navigation for admins
+    // Admin-only cadastros
     if (user?.isAdmin) {
-      navigation = [...navigation, ...adminNavigation];
+      items.push(
+        { label: "Usuários", href: "/users", icon: <Users className="w-4 h-4" /> },
+        { label: "Departamentos", href: "/departments", icon: <Building className="w-4 h-4" /> },
+        { label: "Locais de Entrega", href: "/delivery-locations", icon: <MapPin className="w-4 h-4" /> },
+        { label: "Empresas", href: "/companies", icon: <Building className="w-4 h-4" /> },
+        { label: "Limpeza de Dados", href: "/admin/cleanup", icon: <Database className="w-4 h-4" /> }
+      );
     }
 
-    return navigation;
+    return items;
+  };
+
+  const getRelatoriosItems = () => {
+    const items = [];
+
+    // Manager/Admin-only reports
+    if (user?.isManager || user?.isAdmin) {
+      items.push(
+        { label: "Dashboard", href: "/dashboard", icon: <BarChart3 className="w-4 h-4" /> },
+        { label: "Solicitações de Compra", href: "/reports/purchase-requests", icon: <ClipboardList className="w-4 h-4" /> }
+      );
+    }
+
+    return items;
   };
 
   const navigation = getNavigation();
@@ -98,7 +107,7 @@ export default function PipefyHeader() {
           </Link>
 
           {/* Navegação Desktop */}
-          <nav className="hidden md:flex space-x-6">
+          <nav className="hidden md:flex space-x-6 items-center">
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
@@ -118,6 +127,22 @@ export default function PipefyHeader() {
                 </Link>
               );
             })}
+            
+            {/* Menu Dropdown Cadastros */}
+            <CustomDropdownMenu 
+              trigger="Cadastros" 
+              items={getCadastrosItems()}
+              className="text-muted-foreground hover:text-foreground"
+            />
+            
+            {/* Menu Dropdown Relatórios */}
+            {(user?.isManager || user?.isAdmin) && (
+              <CustomDropdownMenu 
+                trigger="Relatórios" 
+                items={getRelatoriosItems()}
+                className="text-muted-foreground hover:text-foreground"
+              />
+            )}
           </nav>
         </div>
 

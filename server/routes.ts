@@ -3493,6 +3493,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Purchase requests report endpoint
+  app.get("/api/reports/purchase-requests", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { 
+        startDate, 
+        endDate, 
+        departmentId, 
+        requesterId, 
+        phase, 
+        urgency,
+        search 
+      } = req.query;
+
+      // Build filters object
+      const filters: any = {};
+      
+      if (startDate && endDate) {
+        filters.dateRange = {
+          start: new Date(startDate as string),
+          end: new Date(endDate as string)
+        };
+      }
+      
+      if (departmentId) filters.departmentId = parseInt(departmentId as string);
+      if (requesterId) filters.requesterId = parseInt(requesterId as string);
+      if (phase) filters.phase = phase as string;
+      if (urgency) filters.urgency = urgency as string;
+      if (search) filters.search = search as string;
+
+      // Get purchase requests with related data
+      const requests = await storage.getPurchaseRequestsForReport(filters);
+      
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching purchase requests report:", error);
+      res.status(500).json({ message: "Failed to fetch purchase requests report" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

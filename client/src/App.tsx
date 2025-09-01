@@ -24,6 +24,7 @@ import FloatingHelpButton from "@/components/floating-help-button";
 import AdminCleanupPage from "@/pages/admin-cleanup";
 import DashboardPage from "@/pages/dashboard";
 import UserManualPage from "@/pages/user-manual";
+import PurchaseRequestsReportPage from "@/pages/purchase-requests-report";
 import ManagerRoute from "@/components/manager-route";
 import AdminRoute from "@/components/admin-route";
 
@@ -98,6 +99,11 @@ function Router() {
         <Route path="/profile" component={ProfilePage} />
         <Route path="/change-password" component={ChangePasswordPage} />
         <Route path="/manual" component={UserManualPage} />
+        <Route path="/reports/purchase-requests">
+          <ManagerRoute>
+            <PurchaseRequestsReportPage />
+          </ManagerRoute>
+        </Route>
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
