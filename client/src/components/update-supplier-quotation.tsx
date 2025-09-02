@@ -296,9 +296,9 @@ export default function UpdateSupplierQuotation({
 
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateSupplierQuotationData) => {
-      // Calculate total value from items
+      // Calculate total value from items (only available items)
       const totalValue = data.items.reduce((sum, item) => {
-        if (!item.unitPrice) return sum;
+        if (!item.unitPrice || !item.isAvailable) return sum;
 
         const correspondingQuotationItem = quotationItems.find(
           (qi) => qi.id === item.quotationItemId,
@@ -604,7 +604,7 @@ export default function UpdateSupplierQuotation({
   const calculateSubtotal = () => {
     const watchedItems = form.watch("items") || [];
     return watchedItems.reduce((sum, item, index) => {
-      if (!item) return sum;
+      if (!item || !item.isAvailable) return sum;
       return sum + calculateItemTotal(item, index);
     }, 0);
   };
