@@ -98,7 +98,7 @@ export default function EnhancedNewRequestModal({
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newItemForm, setNewItemForm] = useState({
     description: "",
-    unit: "",
+    unit: "UN",
     requestedQuantity: 1,
     technicalSpecification: ""
   });
@@ -290,7 +290,7 @@ export default function EnhancedNewRequestModal({
     // Reset form
     setNewItemForm({
       description: "",
-      unit: "",
+      unit: "UN",
       requestedQuantity: 1,
       technicalSpecification: ""
     });
