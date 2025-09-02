@@ -1008,7 +1008,7 @@ export class DatabaseStorage implements IStorage {
             paramCounter++;
           }
         } catch (error) {
-          console.warn('Invalid date range in filters:', error);
+          // Invalid date range in filters - skip
         }
       }
       
@@ -1076,7 +1076,7 @@ export class DatabaseStorage implements IStorage {
                 requesterEmail = user.email || 'N/A';
               }
             } catch (error) {
-              console.warn('Error fetching requester:', error);
+              // Error fetching requester data
             }
           }
           
@@ -1091,7 +1091,7 @@ export class DatabaseStorage implements IStorage {
                 departmentName = costCenterResult.rows[0].department_name || 'N/A';
               }
             } catch (error) {
-              console.warn('Error fetching department:', error);
+              // Error fetching department data
             }
           }
           
@@ -1108,7 +1108,7 @@ export class DatabaseStorage implements IStorage {
                 supplierName = supplierResult.rows[0].name || 'N/A';
               }
             } catch (error) {
-              console.warn('Error fetching supplier:', error);
+              // Error fetching supplier data
             }
           }
           
@@ -1128,7 +1128,7 @@ export class DatabaseStorage implements IStorage {
                 approverA1Name = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'N/A';
               }
             } catch (error) {
-              console.warn('Error fetching approver A1:', error);
+              // Error fetching approver A1 data
             }
           }
           
@@ -1144,7 +1144,7 @@ export class DatabaseStorage implements IStorage {
                 approverA2Name = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'N/A';
               }
             } catch (error) {
-              console.warn('Error fetching approver A2:', error);
+              // Error fetching approver A2 data
             }
           }
           
@@ -1169,12 +1169,9 @@ export class DatabaseStorage implements IStorage {
               );
               purchaseOrderItems = poItemsResult.rows;
               
-              // Debug logging
-              if (purchaseOrderItems.length > 0) {
-                console.log(`Found ${purchaseOrderItems.length} purchase order items for request ${request.id}`);
-              }
+              // Purchase order items found
             } catch (error) {
-              console.warn('Error fetching purchase order items for request', request.id, ':', error);
+              // Error fetching purchase order items - will use fallback
             }
             
             // Fallback: Get pricing from supplier quotations if no purchase order items or if they have zero prices
@@ -1206,7 +1203,7 @@ export class DatabaseStorage implements IStorage {
                   }
                 }
               } catch (error) {
-                console.warn('Error fetching supplier quotation items for fallback:', error);
+                // Error fetching supplier quotation items fallback
               }
             }
             
@@ -1271,7 +1268,7 @@ export class DatabaseStorage implements IStorage {
               };
             });
           } catch (error) {
-            console.warn('Error fetching items for request', request.id, ':', error);
+            // Error fetching items for request - skip this request
           }
           
           return {

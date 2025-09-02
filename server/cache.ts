@@ -162,8 +162,6 @@ export function createCacheMiddleware(defaultTtl = 30000) {
 export function invalidateCache(patterns: string[]): void {
   patterns.forEach(pattern => {
     const count = apiCache.invalidatePattern(pattern);
-    if (count > 0) {
-      console.log(`Cache: Invalidated ${count} entries matching pattern: ${pattern}`);
-    }
+    // Cache invalidation completed
   });
 }

@@ -281,7 +281,7 @@ export class PDFService {
           }
         }
       } catch (error) {
-        console.warn('Could not fetch quotation data for completion summary:', error);
+        // Could not fetch quotation data for completion summary
       }
 
       const html = this.generateCompletionSummaryHTML({
@@ -569,8 +569,7 @@ export class PDFService {
         }
       });
     } catch (error) {
-      console.warn('Failed to generate QR code for purchase order:', error);
-      // Continue without QR code if generation fails
+      // QR code generation failed - continue without QR code
     }
 
     // Carregar logo da empresa como base64
