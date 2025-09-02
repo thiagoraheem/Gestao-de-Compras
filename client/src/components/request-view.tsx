@@ -6,6 +6,7 @@ import { Calendar, MapPin, User, FileText, Building2, Phone, Mail, X, Package } 
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
+import { formatCurrency } from "@/lib/currency";
 import Timeline from "./timeline";
 import RequestDetailsSection from "./request-details-section";
 
@@ -14,14 +15,7 @@ interface RequestViewProps {
   onClose?: () => void;
 }
 
-function formatCurrency(value: string | number | null | undefined) {
-  if (!value) return "R$ 0,00";
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  }).format(numValue);
-}
+
 
 function formatDate(dateString: string | null) {
   if (!dateString) return "Não informado";

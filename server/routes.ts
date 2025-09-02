@@ -1193,9 +1193,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   // Criar os itens do purchase order apenas para itens disponíveis
                   for (const requestItem of purchaseRequestItems) {
                     // Encontrar o item correspondente na cotação do fornecedor
-                    const supplierItem = supplierQuotationItems.find(si => {
-                      return si.description?.toLowerCase().trim() === requestItem.description?.toLowerCase().trim();
-                    });
+                    // Primeiro buscar os quotation items para fazer o mapeamento correto
+                    const quotationItems = await storage.getQuotationItems(quotation.id);
+                    
+                    // Encontrar o quotation item que corresponde ao request item
+                    const quotationItem = quotationItems.find(qi => 
+                      qi.purchaseRequestItemId === requestItem.id ||
+                      qi.description?.toLowerCase().trim() === requestItem.description?.toLowerCase().trim()
+                    );
+                    
+                    // Encontrar o supplier quotation item usando o quotationItemId
+                    const supplierItem = quotationItem ? 
+                      supplierQuotationItems.find(si => si.quotationItemId === quotationItem.id) :
+                      null;
                     
                     // Pular itens marcados como indisponíveis
                     if (supplierItem && supplierItem.isAvailable === false) {
@@ -1448,16 +1458,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Criar os itens do purchase order
       for (const requestItem of purchaseRequestItems) {
-        // Encontrar o item correspondente na cotação do fornecedor
-        const supplierItem = supplierQuotationItems.find(si => {
-          // Tentar match por purchaseRequestItemId se disponível
-          const quotationItem = quotation ? si.quotationItemId : null;
-          if (quotationItem) {
-            // Buscar o quotation item para verificar o purchaseRequestItemId
-            // Por simplicidade, vamos usar descrição como fallback
-          }
-          return si.description?.toLowerCase().trim() === requestItem.description?.toLowerCase().trim();
-        });
+        // Primeiro buscar os quotation items para fazer o mapeamento correto
+        const quotationItems = await storage.getQuotationItems(quotation.id);
+        
+        // Encontrar o quotation item que corresponde ao request item
+        const quotationItem = quotationItems.find(qi => 
+          qi.purchaseRequestItemId === requestItem.id ||
+          qi.description?.toLowerCase().trim() === requestItem.description?.toLowerCase().trim()
+        );
+        
+        // Encontrar o supplier quotation item usando o quotationItemId
+        const supplierItem = quotationItem ? 
+          supplierQuotationItems.find(si => si.quotationItemId === quotationItem.id) :
+          null;
 
         const purchaseOrderItemData = {
           purchaseOrderId: purchaseOrder.id,

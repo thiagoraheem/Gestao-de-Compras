@@ -8,6 +8,7 @@ import {
   PURCHASE_PHASES,
   PHASE_LABELS,
 } from "@/lib/types";
+import { formatCurrency } from "@/lib/currency";
 import {
   Paperclip,
   Clock,
@@ -572,13 +573,7 @@ export default function PurchaseCard({
     }
   };
 
-  const formatCurrency = (value: any) => {
-    if (!value) return null;
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(Number(value));
-  };
+
 
   const formatDate = (date: any) => {
     if (!date) return null;

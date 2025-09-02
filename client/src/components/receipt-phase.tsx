@@ -240,13 +240,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
     }
   };
 
-  const formatCurrency = (value: any) => {
-    if (!value) return "N/A";
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(Number(value));
-  };
+
 
   const formatDate = (date: any) => {
     if (!date) return "N/A";

@@ -7,6 +7,7 @@ import { Calendar, MapPin, User, FileText, Download, Building2, Phone, Mail } fr
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatCurrency } from "@/lib/currency";
 
 interface PublicRequestData {
   purchaseRequest: any;
@@ -21,14 +22,7 @@ interface PublicRequestData {
   hasPurchaseOrderPdf?: boolean;
 }
 
-function formatCurrency(value: string | number | null | undefined) {
-  if (!value) return 'R$ 0,00';
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  }).format(numValue);
-}
+
 
 function formatDate(dateString: string | null) {
   if (!dateString) return 'Não informado';

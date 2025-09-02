@@ -33,6 +33,7 @@ import {
 import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatCurrency } from "@/lib/currency";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -88,12 +89,7 @@ export default function Dashboard() {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
+
 
   const getStatusColor = (value: number, thresholds: { green: number; yellow: number; }) => {
     if (value >= thresholds.green) return "bg-green-100 text-green-800";

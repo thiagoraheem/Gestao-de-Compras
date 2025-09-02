@@ -32,22 +32,9 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DateInput } from "@/components/ui/date-input";
+import { formatCurrency } from "@/lib/currency";
 
-// Utility function to safely format currency
-const formatCurrency = (value: any): string => {
-  if (value === null || value === undefined) {
-    return "N/A";
-  }
-  
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  
-  if (isNaN(numValue)) {
-    return "N/A";
-  }
-  
-  // Always format valid numbers, including zero
-  return numValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-};
+
 
 interface PurchaseRequest {
   id: number;
@@ -156,7 +143,9 @@ export default function PurchaseRequestsReport() {
       if (searchTerm) params.append("search", searchTerm);
       
       return apiRequest(`/api/reports/purchase-requests?${params}`);
-    }
+    },
+    staleTime: 30000, // Cache for 30 seconds
+    gcTime: 300000    // Keep in cache for 5 minutes
   });
 
   // Fetch departments for filter

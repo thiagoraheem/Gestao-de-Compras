@@ -1172,26 +1172,24 @@ export class DatabaseStorage implements IStorage {
               // Debug logging
               if (purchaseOrderItems.length > 0) {
                 console.log(`Found ${purchaseOrderItems.length} purchase order items for request ${request.id}`);
-              } else {
-                console.log(`No purchase order items found for request ${request.id}`);
               }
             } catch (error) {
               console.warn('Error fetching purchase order items for request', request.id, ':', error);
             }
             
-            // Fallback: Get pricing from supplier quotations if no purchase order items
+            // Fallback: Get pricing from supplier quotations if no purchase order items or if they have zero prices
             let supplierQuotationItems = [];
-            if (purchaseOrderItems.length === 0 && request.chosenSupplierId) {
+            if (request.chosenSupplierId && (purchaseOrderItems.length === 0 || purchaseOrderItems.every(poi => parseFloat(poi.unit_price) === 0))) {
               try {
                 const quotationResult = await pool.query(
-                  'SELECT id FROM quotations WHERE purchase_request_id = $1 LIMIT 1',
+                  'SELECT id FROM quotations WHERE purchase_request_id = $1 ORDER BY created_at DESC LIMIT 1',
                   [request.id]
                 );
                 
                 if (quotationResult.rows.length > 0) {
                   const quotationId = quotationResult.rows[0].id;
                   const supplierQuotationResult = await pool.query(
-                    'SELECT id FROM supplier_quotations WHERE quotation_id = $1 AND supplier_id = $2 AND is_chosen = true LIMIT 1',
+                    'SELECT id FROM supplier_quotations WHERE quotation_id = $1 AND supplier_id = $2 AND (is_chosen = true OR is_chosen IS NULL) LIMIT 1',
                     [quotationId, request.chosenSupplierId]
                   );
                   
@@ -1201,11 +1199,10 @@ export class DatabaseStorage implements IStorage {
                       `SELECT sqi.unit_price, sqi.total_price, qi.description, qi.item_code
                        FROM supplier_quotation_items sqi
                        JOIN quotation_items qi ON sqi.quotation_item_id = qi.id
-                       WHERE sqi.supplier_quotation_id = $1`,
+                       WHERE sqi.supplier_quotation_id = $1 AND sqi.is_available = true`,
                       [supplierQuotationId]
                     );
                     supplierQuotationItems = sqItemsResult.rows;
-                    console.log(`Found ${supplierQuotationItems.length} supplier quotation items for fallback`);
                   }
                 }
               } catch (error) {
@@ -1233,7 +1230,7 @@ export class DatabaseStorage implements IStorage {
                 }
               }
               
-              // Parse the prices safely
+              // Parse the prices safely - always return numeric values or null
               let unitPrice = null;
               let totalPrice = null;
               
@@ -1241,15 +1238,25 @@ export class DatabaseStorage implements IStorage {
                 const parsedUnitPrice = parseFloat(poItem.unit_price) || 0;
                 const parsedTotalPrice = parseFloat(poItem.total_price) || 0;
                 
-                // Only use the prices if they're greater than 0
-                if (parsedUnitPrice > 0 || parsedTotalPrice > 0) {
-                  unitPrice = parsedUnitPrice;
-                  totalPrice = parsedTotalPrice;
-                } else {
-                  // No valid pricing found
-                }
+                // Set the prices regardless of value (including zero)
+                unitPrice = parsedUnitPrice;
+                totalPrice = parsedTotalPrice;
               } else {
-                // No matching item found for pricing
+                // Final fallback: if we're in conclusion phase and still no pricing, 
+                // try to estimate based on the total request value
+                if (request.currentPhase === 'conclusao_compra' && request.totalValue) {
+                  const totalRequestValue = parseFloat(request.totalValue) || 0;
+                  if (totalRequestValue > 0) {
+                    // Distribute total value evenly among items as a fallback
+                    const itemCount = itemsResult.rows.length;
+                    if (itemCount > 0) {
+                      const estimatedTotal = totalRequestValue / itemCount;
+                      const requestedQty = parseFloat(item.requested_quantity) || 1;
+                      unitPrice = estimatedTotal / requestedQty;
+                      totalPrice = estimatedTotal;
+                    }
+                  }
+                }
               }
               
               return {
