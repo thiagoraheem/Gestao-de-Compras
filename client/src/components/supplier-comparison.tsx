@@ -28,6 +28,11 @@ interface SupplierQuotationItem {
   observations?: string;
   isAvailable?: boolean;
   unavailabilityReason?: string;
+  // Campos de desconto
+  discountPercentage?: number;
+  discountValue?: number;
+  originalTotalPrice?: number;
+  discountedTotalPrice?: number;
 }
 
 interface SupplierQuotationData {
@@ -397,11 +402,9 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                                             minimumFractionDigits: 2 
                                           })}
                                         </div>
-                                        <div className="text-sm text-gray-600">
-                                          Total: R$ {Number(item.totalPrice).toLocaleString('pt-BR', { 
-                                            minimumFractionDigits: 2 
-                                          })}
-                                        </div>
+                                        
+
+                                        
                                         {/* Desconto do Item */}
                                         {(item.discountPercentage || item.discountValue) && (
                                           <div className="text-xs text-orange-600">
@@ -411,6 +414,13 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                                             }
                                           </div>
                                         )}
+                                        
+                                        {/* Valor Final */}
+                                        <div className="text-sm font-semibold text-green-700">
+                                          Total Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', { 
+                                            minimumFractionDigits: 2 
+                                          })}
+                                        </div>
                                         {item.deliveryDays && (
                                           <div className="text-xs text-blue-600">
                                             {item.deliveryDays} dias
