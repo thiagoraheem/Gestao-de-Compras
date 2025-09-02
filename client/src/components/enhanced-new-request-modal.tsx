@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -104,6 +104,7 @@ export default function EnhancedNewRequestModal({
   });
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user?.companyId || null);
+  const descriptionInputRef = useRef<HTMLInputElement>(null);
 
   // Removed automatic item creation - users will manually add items as needed
 
@@ -294,6 +295,11 @@ export default function EnhancedNewRequestModal({
       requestedQuantity: 1,
       technicalSpecification: ""
     });
+    
+    // Focus back to description field
+    setTimeout(() => {
+      descriptionInputRef.current?.focus();
+    }, 100);
   };
 
   const removeManualItem = (id: string) => {
@@ -614,15 +620,6 @@ export default function EnhancedNewRequestModal({
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Itens Cadastrados</h4>
-                  <Button
-                    type="button"
-                    onClick={addManualItem}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Adicionar Item
-                  </Button>
                 </div>
 
                 {/* Formulário para adicionar novo item */}
@@ -631,6 +628,7 @@ export default function EnhancedNewRequestModal({
                   <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
                     <div className="lg:col-span-2">
                       <Input
+                        ref={descriptionInputRef}
                         placeholder="Descrição do item..."
                         className="h-10"
                         value={newItemForm.description}
@@ -656,6 +654,7 @@ export default function EnhancedNewRequestModal({
                         placeholder="0"
                         className="h-10"
                         min="1"
+                        autoComplete="off"
                         value={newItemForm.requestedQuantity}
                         onChange={(e) => setNewItemForm(prev => ({ ...prev, requestedQuantity: parseInt(e.target.value) || 1 }))}
                       />
@@ -766,6 +765,7 @@ export default function EnhancedNewRequestModal({
                                   onChange={(e) => updateManualItem(item.id, 'requestedQuantity', parseInt(e.target.value) || 1)}
                                   className="h-8"
                                   min="1"
+                                  autoComplete="off"
                                 />
                               ) : (
                                 item.requestedQuantity

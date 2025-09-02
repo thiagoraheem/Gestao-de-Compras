@@ -19,6 +19,7 @@ import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Down
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
+import { formatCurrency } from "@/lib/currency";
 // import AttachmentsViewer from "./attachments-viewer";
 // import ItemsViewer from "./items-viewer";
 import { apiRequest } from "@/lib/queryClient";

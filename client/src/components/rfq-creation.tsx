@@ -688,6 +688,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                                   min="1" 
                                   {...field} 
                                   className="bg-white border-blue-300 focus:border-blue-500"
+                                  autoComplete="off"
                                 />
                               </FormControl>
                               <FormMessage />

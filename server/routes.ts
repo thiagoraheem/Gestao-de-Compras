@@ -2826,6 +2826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Buscar a solicitação original
           const originalRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
           const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId);
+          const quotationItems = await storage.getQuotationItems(quotationId);
           
           if (originalRequest) {
             // Criar nova solicitação baseada na original
@@ -2852,22 +2853,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Adicionar apenas os itens indisponíveis à nova solicitação
             for (const unavailableItem of unavailableItems) {
-              const originalItem = originalItems.find(item => 
-                item.id === unavailableItem.quotationItemId
-              );
+              // Encontrar o quotation_item pelo quotationItemId
+              const quotationItem = quotationItems.find(qi => qi.id === unavailableItem.quotationItemId);
               
-              if (originalItem) {
-                await storage.createPurchaseRequestItem({
-                  purchaseRequestId: newRequest.id,
-                  productCode: originalItem.productCode,
-                  description: originalItem.description,
-                  requestedQuantity: originalItem.requestedQuantity,
-                  approvedQuantity: originalItem.approvedQuantity,
-                  unit: originalItem.unit,
-                  estimatedUnitPrice: originalItem.estimatedUnitPrice,
-                  estimatedTotalPrice: originalItem.estimatedTotalPrice,
-                  justification: `Item indisponível: ${unavailableItem.reason}`
-                });
+              if (quotationItem) {
+                // Encontrar o item original usando o purchaseRequestItemId do quotation_item
+                const originalItem = originalItems.find(item => 
+                  item.id === quotationItem.purchaseRequestItemId
+                );
+                
+                if (originalItem) {
+                  await storage.createPurchaseRequestItem({
+                    purchaseRequestId: newRequest.id,
+                    productCode: originalItem.productCode,
+                    description: originalItem.description,
+                    requestedQuantity: originalItem.requestedQuantity,
+                    approvedQuantity: originalItem.approvedQuantity,
+                    unit: originalItem.unit,
+                    estimatedUnitPrice: originalItem.estimatedUnitPrice,
+                    estimatedTotalPrice: originalItem.estimatedTotalPrice,
+                    justification: `Item indisponível: ${unavailableItem.reason}`
+                  });
+                }
               }
             }
             

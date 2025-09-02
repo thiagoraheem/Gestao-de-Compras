@@ -659,6 +659,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                               min="1"
                               className="h-10"
                               placeholder="Qtd"
+                              autoComplete="off"
                             />
                           </div>
                         </div>

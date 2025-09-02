@@ -800,6 +800,7 @@ export default function UpdateSupplierQuotation({
                                         placeholder="1.000,00"
                                         readOnly={viewMode === 'view'}
                                         className="text-xs h-7"
+                                        autoComplete="off"
                                         onChange={(e) => {
                                           if (viewMode === 'view') return;
                                           let inputValue = e.target.value;
@@ -869,6 +870,7 @@ export default function UpdateSupplierQuotation({
                                       step="0.01"
                                       readOnly={viewMode === 'view'}
                                       className="text-xs h-7"
+                                      autoComplete="off"
                                       onChange={(e) => {
                                         if (viewMode === 'view') return;
                                         field.onChange(e.target.value);
@@ -895,6 +897,7 @@ export default function UpdateSupplierQuotation({
                                       placeholder="0,00"
                                       readOnly={viewMode === 'view'}
                                       className="text-xs h-7"
+                                      autoComplete="off"
                                       onChange={(e) => {
                                         if (viewMode === 'view') return;
                                         let inputValue = e.target.value;
@@ -1102,6 +1105,7 @@ export default function UpdateSupplierQuotation({
                                 step={form.watch("discountType") === "percentage" ? "0.01" : undefined}
                                 readOnly={viewMode === 'view' || form.watch("discountType") === "none"}
                                 className="w-full"
+                                autoComplete="off"
                                 onChange={(e) => {
                                   if (viewMode === 'view' || form.watch("discountType") === "none") return;
                                   

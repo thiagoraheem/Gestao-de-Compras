@@ -205,6 +205,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
                         className="pl-10"
                         type="number"
                         step="0.01"
+                        autoComplete="off"
                       />
                     </div>
                   </FormControl>
@@ -305,6 +306,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
                           className="pl-10"
                           type="number"
                           step="0.01"
+                          autoComplete="off"
                         />
                       </div>
                     </FormControl>
@@ -327,6 +329,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
                           className="pl-10"
                           type="number"
                           step="0.01"
+                          autoComplete="off"
                         />
                       </div>
                     </FormControl>
