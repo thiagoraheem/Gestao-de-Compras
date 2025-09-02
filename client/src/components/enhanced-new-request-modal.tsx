@@ -105,20 +105,7 @@ export default function EnhancedNewRequestModal({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user?.companyId || null);
 
-  // Adiciona um item padrão quando não há itens e o método é manual
-  useEffect(() => {
-    if (itemsMethod === "manual" && manualItems.length === 0) {
-      const defaultItem: Item = {
-        id: Date.now().toString(),
-        description: "",
-        unit: "UN",
-        requestedQuantity: 1,
-        estimatedPrice: 0,
-        technicalSpecification: "",
-      };
-      setManualItems([defaultItem]);
-    }
-  }, [itemsMethod, manualItems.length]); // Incluindo manualItems.length na dependência
+  // Removed automatic item creation - users will manually add items as needed
 
   // Get available companies (now available for all users)
   const { data: companies } = useQuery<any[]>({
@@ -724,30 +711,31 @@ export default function EnhancedNewRequestModal({
                             <TableCell>
                               <div className="space-y-1">
                                 <div className="font-medium">
-                                  {editingItemId === item.id ? (
-                                    <Input
-                                      value={item.description}
-                                      onChange={(e) => updateManualItem(item.id, 'description', e.target.value)}
-                                      className="h-8"
-                                    />
-                                  ) : (
-                                    item.description
-                                  )}
-                                </div>
-                                {item.technicalSpecification && (
-                                  <div className="text-xs text-gray-500 truncate max-w-[200px]" title={item.technicalSpecification}>
-                                    {editingItemId === item.id ? (
-                                      <Textarea
-                                        value={item.technicalSpecification}
-                                        onChange={(e) => updateManualItem(item.id, 'technicalSpecification', e.target.value)}
-                                        className="h-16 text-xs"
-                                        rows={2}
-                                      />
-                                    ) : (
-                                      item.technicalSpecification
-                                    )}
-                                  </div>
-                                )}
+                                   {editingItemId === item.id ? (
+                                     <Input
+                                       value={item.description}
+                                       onChange={(e) => updateManualItem(item.id, 'description', e.target.value)}
+                                       className="h-8"
+                                     />
+                                   ) : (
+                                     item.description
+                                   )}
+                                 </div>
+                                 {(item.technicalSpecification || editingItemId === item.id) && (
+                                   <div className="text-xs text-gray-500 truncate max-w-[200px]" title={item.technicalSpecification}>
+                                     {editingItemId === item.id ? (
+                                       <Textarea
+                                         value={item.technicalSpecification || ""}
+                                         onChange={(e) => updateManualItem(item.id, 'technicalSpecification', e.target.value)}
+                                         className="h-16 text-xs"
+                                         rows={2}
+                                         placeholder="Especificação técnica (opcional)"
+                                       />
+                                     ) : (
+                                       item.technicalSpecification
+                                     )}
+                                   </div>
+                                 )}
                               </div>
                             </TableCell>
                             <TableCell>
