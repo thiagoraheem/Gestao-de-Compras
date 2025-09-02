@@ -46,12 +46,13 @@ import {
   URGENCY_LABELS,
   CATEGORY_LABELS,
 } from "@/lib/types";
-import { Plus, X, Edit3 } from "lucide-react";
+import { Plus, X, Edit3, Edit2, Copy, Trash2, Check } from "lucide-react";
 import FileUpload from "./file-upload";
 import ProductSearch from "./product-search";
 import HybridProductInput from "./hybrid-product-input";
 import { UnitSelect } from "./unit-select";
 import { useUnits } from "@/hooks/useUnits";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import debug from "@/lib/debug";
 
 const requestSchema = z.object({
@@ -94,6 +95,13 @@ export default function EnhancedNewRequestModal({
   const { processERPUnit } = useUnits();
   const [itemsMethod, setItemsMethod] = useState<"manual" | "upload">("manual");
   const [manualItems, setManualItems] = useState<Item[]>([]);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [newItemForm, setNewItemForm] = useState({
+    description: "",
+    unit: "",
+    requestedQuantity: 1,
+    technicalSpecification: ""
+  });
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user?.companyId || null);
 
@@ -273,19 +281,59 @@ export default function EnhancedNewRequestModal({
   });
 
   const addManualItem = () => {
+    if (!newItemForm.description.trim() || !newItemForm.unit) {
+      toast({
+        title: "Erro",
+        description: "Preencha pelo menos a descrição e unidade do item.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newItem: Item = {
-      id: Date.now().toString(),
-      description: "",
-      unit: "UN",
-      requestedQuantity: 1,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      description: newItemForm.description,
+      unit: newItemForm.unit,
+      requestedQuantity: newItemForm.requestedQuantity,
+      technicalSpecification: newItemForm.technicalSpecification,
       estimatedPrice: 0,
-      technicalSpecification: "",
     };
     setManualItems([...manualItems, newItem]);
+    
+    // Reset form
+    setNewItemForm({
+      description: "",
+      unit: "",
+      requestedQuantity: 1,
+      technicalSpecification: ""
+    });
   };
 
   const removeManualItem = (id: string) => {
-    setManualItems(manualItems.filter((item) => item.id !== id));
+    setManualItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const cloneManualItem = (id: string) => {
+    const itemToClone = manualItems.find((item) => item.id === id);
+    if (itemToClone) {
+      const clonedItem: Item = {
+        ...itemToClone,
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      };
+      setManualItems((prev) => [...prev, clonedItem]);
+    }
+  };
+
+  const startEditingItem = (id: string) => {
+    setEditingItemId(id);
+  };
+
+  const cancelEditingItem = () => {
+    setEditingItemId(null);
+  };
+
+  const saveEditingItem = () => {
+    setEditingItemId(null);
   };
 
   const updateManualItem = (id: string, field: keyof Item, value: any) => {
@@ -590,109 +638,216 @@ export default function EnhancedNewRequestModal({
                   </Button>
                 </div>
 
+                {/* Formulário para adicionar novo item */}
+                <Card className="p-4 bg-gray-50">
+                  <h4 className="font-medium mb-3">Adicionar Novo Item</h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+                    <div className="lg:col-span-2">
+                      <Input
+                        placeholder="Descrição do item..."
+                        className="h-10"
+                        value={newItemForm.description}
+                        onChange={(e) => setNewItemForm(prev => ({ ...prev, description: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Select value={newItemForm.unit} onValueChange={(value) => setNewItemForm(prev => ({ ...prev, unit: value }))}>
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Unidade" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="UN">UN - Unidade</SelectItem>
+                          <SelectItem value="KG">KG - Quilograma</SelectItem>
+                          <SelectItem value="M">M - Metro</SelectItem>
+                          <SelectItem value="L">L - Litro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        className="h-10"
+                        min="1"
+                        value={newItemForm.requestedQuantity}
+                        onChange={(e) => setNewItemForm(prev => ({ ...prev, requestedQuantity: parseInt(e.target.value) || 1 }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <Textarea
+                      placeholder="Especificação técnica (opcional)"
+                      rows={2}
+                      className="resize-none"
+                      value={newItemForm.technicalSpecification}
+                      onChange={(e) => setNewItemForm(prev => ({ ...prev, technicalSpecification: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex justify-end mt-3">
+                    <Button
+                      type="button"
+                      onClick={addManualItem}
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Adicionar
+                    </Button>
+                  </div>
+                </Card>
+
                 {manualItems.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Edit3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                     <p>Nenhum item cadastrado ainda.</p>
                     <p className="text-sm">
-                      Clique em "Adicionar Item" para começar.
+                      Use o formulário acima para adicionar itens.
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {manualItems.map((item, index) => (
-                      <Card key={item.id} className="p-6 border-l-4 border-l-blue-500">
-                        <div className="flex items-center justify-between mb-4">
-                          <h5 className="font-medium text-lg flex items-center gap-2">
-                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-semibold">
-                              Item {index + 1}
-                            </span>
-                          </h5>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeManualItem(item.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <X className="w-4 h-4 mr-1" />
-                            Remover
-                          </Button>
-                        </div>
-
-                        {/* Campos principais em grid responsivo */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                          <div className="lg:col-span-2">
-                             <label className="text-sm font-medium text-gray-700 mb-1 block">
-                               Descrição do Item *
-                             </label>
-                             <HybridProductInput
-                               value={item.description}
-                               onChange={(value) => {
-                                 updateManualItem(item.id, "description", value)
-                               }}
-                               onProductSelect={(product) => {
-                                 handleProductSelect(item.id, product)
-                               }}
-                               placeholder="Digite a descrição ou busque no ERP..."
-                             />
-                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                Unidade *
-                              </label>
-                              <UnitSelect
-                                value={item.unit}
-                                onValueChange={(value) =>
-                                  updateManualItem(item.id, "unit", value)
-                                }
-                                className="h-10"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                Quantidade *
-                              </label>
-                              <Input
-                                type="number"
-                                value={item.requestedQuantity}
-                                onChange={(e) =>
-                                  updateManualItem(
-                                    item.id,
-                                    "requestedQuantity",
-                                    parseInt(e.target.value) || 0,
-                                  )
-                                }
-                                min="1"
-                                className="h-10"
-                                placeholder="Qtd"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Especificação Técnica */}
-                        <div>
-                          <label className="text-sm font-medium text-gray-700 mb-1 block">
-                            Especificação Técnica
-                          </label>
-                          <Textarea
-                            value={item.technicalSpecification || ""}
-                            onChange={(e) =>
-                              updateManualItem(
-                                item.id,
-                                "technicalSpecification",
-                                e.target.value,
-                              )
-                            }
-                            placeholder="Especificações técnicas detalhadas (marca, modelo, características, normas técnicas, etc.)"
-                            rows={3}
-                            className="resize-none"
-                          />
-                        </div>
-                      </Card>
-                    ))}
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[50px]">#</TableHead>
+                          <TableHead className="min-w-[250px]">Descrição</TableHead>
+                          <TableHead className="w-[80px]">Un.</TableHead>
+                          <TableHead className="w-[80px]">Qtd</TableHead>
+                          <TableHead className="w-[120px]">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {manualItems.map((item, index) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">
+                              {index + 1}
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="font-medium">
+                                  {editingItemId === item.id ? (
+                                    <Input
+                                      value={item.description}
+                                      onChange={(e) => updateManualItem(item.id, 'description', e.target.value)}
+                                      className="h-8"
+                                    />
+                                  ) : (
+                                    item.description
+                                  )}
+                                </div>
+                                {item.technicalSpecification && (
+                                  <div className="text-xs text-gray-500 truncate max-w-[200px]" title={item.technicalSpecification}>
+                                    {editingItemId === item.id ? (
+                                      <Textarea
+                                        value={item.technicalSpecification}
+                                        onChange={(e) => updateManualItem(item.id, 'technicalSpecification', e.target.value)}
+                                        className="h-16 text-xs"
+                                        rows={2}
+                                      />
+                                    ) : (
+                                      item.technicalSpecification
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {editingItemId === item.id ? (
+                                <Select
+                                  value={item.unit}
+                                  onValueChange={(value) => updateManualItem(item.id, 'unit', value)}
+                                >
+                                  <SelectTrigger className="h-8">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="UN">UN</SelectItem>
+                                    <SelectItem value="KG">KG</SelectItem>
+                                    <SelectItem value="M">M</SelectItem>
+                                    <SelectItem value="L">L</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                item.unit
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {editingItemId === item.id ? (
+                                <Input
+                                  type="number"
+                                  value={item.requestedQuantity}
+                                  onChange={(e) => updateManualItem(item.id, 'requestedQuantity', parseInt(e.target.value) || 1)}
+                                  className="h-8"
+                                  min="1"
+                                />
+                              ) : (
+                                item.requestedQuantity
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                {editingItemId === item.id ? (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                                      onClick={saveEditingItem}
+                                      title="Salvar alterações"
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-gray-600 hover:text-gray-700"
+                                      onClick={cancelEditingItem}
+                                      title="Cancelar edição"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => startEditingItem(item.id)}
+                                      title="Editar item"
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => cloneManualItem(item.id)}
+                                      className="h-8 w-8 p-0"
+                                      title="Clonar item"
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeManualItem(item.id)}
+                                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      title="Excluir item"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 )}
               </CardContent>
