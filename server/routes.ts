@@ -2827,26 +2827,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "approved",
       });
 
-      // Se há seleção individual de itens, primeiro filtrar os itens da solicitação original
-      if (selectedItems && selectedItems.length > 0) {
-        // Manter apenas os itens selecionados na solicitação original
-        const quotationItems = await storage.getQuotationItems(quotationId);
-        const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId);
-        
-        // Remover itens não selecionados da solicitação original
-        for (const originalItem of originalItems) {
-          // Encontrar o quotation item correspondente
-          const quotationItem = quotationItems.find(qi => qi.purchaseRequestItemId === originalItem.id);
-          if (quotationItem) {
-            // Verificar se este item NÃO foi selecionado
-            const isSelected = selectedItems.some(si => si.quotationItemId === quotationItem.id);
-            if (!isSelected) {
-              // Remover item da solicitação original
-              await storage.deletePurchaseRequestItem(originalItem.id);
-            }
-          }
-        }
-      }
+      // Para seleção individual, não removemos itens da solicitação original
+      // Em vez disso, apenas criamos nova solicitação com os não selecionados
+      // A solicitação original prossegue com todos os itens
 
       // Avançar a solicitação para aprovação A2
       await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
