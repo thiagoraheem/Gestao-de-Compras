@@ -2758,7 +2758,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations/:quotationId/select-supplier", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      const { selectedSupplierId, totalValue, observations, unavailableItems, createNewRequest } = req.body;
+      const { 
+        selectedSupplierId, 
+        totalValue, 
+        observations, 
+        unavailableItems, 
+        createNewRequest,
+        selectedItems,
+        nonSelectedItems,
+        nonSelectedItemsOption
+      } = req.body;
+      
+      // Log para debug
+      console.log("Dados recebidos para seleção de fornecedor:", {
+        selectedSupplierId,
+        selectedItems: selectedItems?.length || 0,
+        nonSelectedItems: nonSelectedItems?.length || 0,
+        nonSelectedItemsOption
+      });
 
       // Buscar a cotação
       const quotation = await storage.getQuotationById(quotationId);
@@ -2810,6 +2827,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "approved",
       });
 
+      // Se há seleção individual de itens, primeiro filtrar os itens da solicitação original
+      if (selectedItems && selectedItems.length > 0) {
+        // Manter apenas os itens selecionados na solicitação original
+        const quotationItems = await storage.getQuotationItems(quotationId);
+        const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId);
+        
+        // Remover itens não selecionados da solicitação original
+        for (const originalItem of originalItems) {
+          // Encontrar o quotation item correspondente
+          const quotationItem = quotationItems.find(qi => qi.purchaseRequestItemId === originalItem.id);
+          if (quotationItem) {
+            // Verificar se este item NÃO foi selecionado
+            const isSelected = selectedItems.some(si => si.quotationItemId === quotationItem.id);
+            if (!isSelected) {
+              // Remover item da solicitação original
+              await storage.deletePurchaseRequestItem(originalItem.id);
+            }
+          }
+        }
+      }
+
       // Avançar a solicitação para aprovação A2
       await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
         currentPhase: "aprovacao_a2",
@@ -2819,6 +2857,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       let newRequestId = null;
+      let nonSelectedRequestId = null;
+
+      // Criar nova solicitação para itens NÃO selecionados se solicitado
+      if (nonSelectedItems && nonSelectedItems.length > 0 && nonSelectedItemsOption === 'separate-quotation') {
+        try {
+          // Buscar a solicitação original
+          const originalRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+          const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId);
+          const quotationItems = await storage.getQuotationItems(quotationId);
+          
+          if (originalRequest) {
+            // Criar nova solicitação baseada na original para itens não selecionados
+            const nonSelectedRequestData = {
+              requestNumber: `${originalRequest.requestNumber}-NS${Date.now().toString().slice(-4)}`,
+              requesterId: originalRequest.requesterId,
+              companyId: originalRequest.companyId,
+              departmentId: originalRequest.departmentId,
+              costCenterId: originalRequest.costCenterId,
+              category: originalRequest.category,
+              justification: `Itens não selecionados da solicitação ${originalRequest.requestNumber}`,
+              urgency: originalRequest.urgency,
+              idealDeliveryDate: originalRequest.idealDeliveryDate,
+              deliveryLocationId: originalRequest.deliveryLocationId,
+              currentPhase: "cotacao" as const, // Diretamente para cotação
+              approvedA1: true, // Já aprovada em A1
+              approverA1Id: originalRequest.approverA1Id,
+              approvalDateA1: new Date(),
+              createdBy: req.session.userId || originalRequest.createdBy
+            };
+            
+            const nonSelectedRequest = await storage.createPurchaseRequest(nonSelectedRequestData);
+            nonSelectedRequestId = nonSelectedRequest.id;
+            
+            // Adicionar apenas os itens NÃO selecionados à nova solicitação
+            for (const nonSelectedItem of nonSelectedItems) {
+              // Encontrar o quotation_item pelo quotationItemId
+              const quotationItem = quotationItems.find(qi => qi.id === nonSelectedItem.quotationItemId);
+              
+              if (quotationItem) {
+                // Encontrar o item original usando o purchaseRequestItemId do quotation_item
+                const originalItem = originalItems.find(item => 
+                  item.id === quotationItem.purchaseRequestItemId
+                );
+                
+                if (originalItem) {
+                  await storage.createPurchaseRequestItem({
+                    purchaseRequestId: nonSelectedRequest.id,
+                    productCode: originalItem.productCode,
+                    description: originalItem.description,
+                    requestedQuantity: originalItem.requestedQuantity,
+                    approvedQuantity: originalItem.approvedQuantity,
+                    unit: originalItem.unit,
+                    estimatedUnitPrice: originalItem.estimatedUnitPrice,
+                    estimatedTotalPrice: originalItem.estimatedTotalPrice,
+                    justification: `Item não selecionado para cotação separada`
+                  });
+                }
+              }
+            }
+          }
+        } catch (nonSelectedRequestError) {
+          console.error("Erro ao criar nova solicitação para itens não selecionados:", nonSelectedRequestError);
+          // Não falhar a seleção do fornecedor se houver erro na criação da nova solicitação
+        }
+      }
 
       // Criar nova solicitação para itens indisponíveis se solicitado
       if (createNewRequest && unavailableItems && unavailableItems.length > 0) {
@@ -2892,7 +2995,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         message: "Fornecedor selecionado com sucesso",
         newRequestId,
-        unavailableItemsCount: unavailableItems?.length || 0
+        nonSelectedRequestId,
+        unavailableItemsCount: unavailableItems?.length || 0,
+        nonSelectedItemsCount: nonSelectedItems?.length || 0
       });
     } catch (error) {
       console.error("Error selecting supplier:", error);

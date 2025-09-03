@@ -97,6 +97,10 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
         description += " Uma nova solicitação foi criada automaticamente para os itens indisponíveis.";
       }
       
+      if (response.nonSelectedRequestId && response.nonSelectedItemsCount > 0) {
+        description += ` Uma nova solicitação foi criada com os ${response.nonSelectedItemsCount} itens não selecionados na fase de Cotação.`;
+      }
+      
       toast({
         title: "Fornecedor selecionado",
         description,
