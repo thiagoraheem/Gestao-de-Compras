@@ -50,6 +50,34 @@ interface DashboardData {
   topSuppliers: { name: string; requestCount: number; totalValue: number; }[];
   delayedRequests: { id: number; requestNumber: string; phase: string; daysDelayed: number; }[];
   costCenterSummary: { name: string; totalValue: number; requestCount: number; }[];
+  // New procurement KPIs
+  costSavings: number;
+  spendUnderManagement: number;
+  contractCompliance: number;
+  slaCompliance: number;
+  averagePurchaseOrderValue: number;
+  supplierPerformance: {
+    onTimeDelivery: number;
+    qualityScore: number;
+    responseTime: number;
+  };
+  budgetAnalysis: {
+    plannedBudget: number;
+    actualSpend: number;
+    variance: number;
+    utilizationRate: number;
+  };
+  riskAnalysis: {
+    highRiskSuppliers: number;
+    criticalItems: number;
+    singleSourceItems: number;
+    riskScore: string;
+  };
+  procurementEfficiency: {
+    avgProcessingTime: number;
+    automationRate: number;
+    digitalAdoption: number;
+  };
 }
 
 export default function Dashboard() {
@@ -186,7 +214,7 @@ export default function Dashboard() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -252,6 +280,41 @@ export default function Dashboard() {
                 {(dashboardData?.approvalRate || 0) >= 85 ? "Excelente" : 
                  (dashboardData?.approvalRate || 0) >= 70 ? "Bom" : "Precisa melhorar"}
               </Badge>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Compliance SLA
+              </CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData?.slaCompliance || 0}%
+              </div>
+              <Badge className={getStatusColor(dashboardData?.slaCompliance || 0, { green: 85, yellow: 70 })}>
+                {(dashboardData?.slaCompliance || 0) >= 85 ? "Excelente" : 
+                 (dashboardData?.slaCompliance || 0) >= 70 ? "Bom" : "Precisa melhorar"}
+              </Badge>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Gestão de Contratos
+              </CardTitle>
+              <Building className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData?.contractCompliance || 0}%
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Compras com contrato
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -353,48 +416,148 @@ export default function Dashboard() {
 
           <TabsContent value="performance" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Procurement Efficiency Metrics */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Top 5 Departamentos</CardTitle>
-                  <CardDescription>Por volume de compras</CardDescription>
+                  <CardTitle>Eficiência do Processo</CardTitle>
+                  <CardDescription>Métricas de otimização operacional</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {dashboardData?.topDepartments?.map((dept, index) => (
-                      <div key={dept.name} className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
-                          <span className="font-medium">{dept.name}</span>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold">{formatCurrency(dept.totalValue)}</div>
-                          <div className="text-sm text-gray-500">{dept.requestCount} solicitações</div>
-                        </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Clock className="h-4 w-4 text-blue-500" />
+                        <span className="font-medium">Tempo Médio de Processamento</span>
                       </div>
-                    ))}
+                      <div className="text-right">
+                        <div className="font-semibold">{dashboardData?.procurementEfficiency?.avgProcessingTime || 0} dias</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                        <span className="font-medium">Taxa de Automação</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{dashboardData?.procurementEfficiency?.automationRate || 0}%</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <FileText className="h-4 w-4 text-purple-500" />
+                        <span className="font-medium">Adoção Digital</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{dashboardData?.procurementEfficiency?.digitalAdoption || 0}%</div>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
+              {/* Supplier Performance */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Fornecedores Mais Utilizados</CardTitle>
-                  <CardDescription>Por número de solicitações</CardDescription>
+                  <CardTitle>Performance de Fornecedores</CardTitle>
+                  <CardDescription>Métricas de qualidade e entrega</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {dashboardData?.topSuppliers?.map((supplier, index) => (
-                      <div key={supplier.name} className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
-                          <span className="font-medium">{supplier.name}</span>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold">{supplier.requestCount} solicitações</div>
-                          <div className="text-sm text-gray-500">{formatCurrency(supplier.totalValue)}</div>
-                        </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span className="font-medium">Entrega no Prazo</span>
                       </div>
-                    ))}
+                      <div className="text-right">
+                        <div className="font-semibold">{dashboardData?.supplierPerformance?.onTimeDelivery || 0}%</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Users className="h-4 w-4 text-blue-500" />
+                        <span className="font-medium">Score de Qualidade</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{dashboardData?.supplierPerformance?.qualityScore || 0}%</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Calendar className="h-4 w-4 text-orange-500" />
+                        <span className="font-medium">Tempo de Resposta</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{dashboardData?.supplierPerformance?.responseTime || 0} dias</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Budget Analysis */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Análise Orçamentária</CardTitle>
+                  <CardDescription>Gestão de orçamento vs realizado</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Orçamento Planejado</span>
+                      <span className="font-semibold">{formatCurrency(dashboardData?.budgetAnalysis?.plannedBudget || 0)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Gasto Realizado</span>
+                      <span className="font-semibold">{formatCurrency(dashboardData?.budgetAnalysis?.actualSpend || 0)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Taxa de Utilização</span>
+                      <Badge className={getStatusColor(dashboardData?.budgetAnalysis?.utilizationRate || 0, { green: 80, yellow: 60 })}>
+                        {dashboardData?.budgetAnalysis?.utilizationRate || 0}%
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Variância</span>
+                      <span className={`font-semibold ${
+                        (dashboardData?.budgetAnalysis?.variance || 0) > 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {dashboardData?.budgetAnalysis?.variance || 0}%
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Risk Analysis */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Análise de Riscos</CardTitle>
+                  <CardDescription>Identificação e monitoramento de riscos</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Fornecedores de Alto Risco</span>
+                      <Badge variant="destructive">{dashboardData?.riskAnalysis?.highRiskSuppliers || 0}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Itens Críticos</span>
+                      <Badge variant="outline">{dashboardData?.riskAnalysis?.criticalItems || 0}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Fonte Única</span>
+                      <Badge variant="secondary">{dashboardData?.riskAnalysis?.singleSourceItems || 0}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Score de Risco Geral</span>
+                      <Badge className={
+                        dashboardData?.riskAnalysis?.riskScore === "Alto" ? "bg-red-100 text-red-800" :
+                        dashboardData?.riskAnalysis?.riskScore === "Médio" ? "bg-yellow-100 text-yellow-800" :
+                        "bg-green-100 text-green-800"
+                      }>
+                        {dashboardData?.riskAnalysis?.riskScore || "Baixo"}
+                      </Badge>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -446,6 +609,52 @@ export default function Dashboard() {
                         <div className="text-right">
                           <div className="font-semibold">{formatCurrency(center.totalValue)}</div>
                           <div className="text-sm text-gray-500">{center.requestCount} solicitações</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top 5 Departamentos</CardTitle>
+                  <CardDescription>Por volume de compras</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {dashboardData?.topDepartments?.map((dept, index) => (
+                      <div key={dept.name} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                          <span className="font-medium">{dept.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold">{formatCurrency(dept.totalValue)}</div>
+                          <div className="text-sm text-gray-500">{dept.requestCount} solicitações</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Fornecedores Mais Utilizados</CardTitle>
+                  <CardDescription>Por número de solicitações</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {dashboardData?.topSuppliers?.map((supplier, index) => (
+                      <div key={supplier.name} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                          <span className="font-medium">{supplier.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold">{supplier.requestCount} solicitações</div>
+                          <div className="text-sm text-gray-500">{formatCurrency(supplier.totalValue)}</div>
                         </div>
                       </div>
                     ))}
