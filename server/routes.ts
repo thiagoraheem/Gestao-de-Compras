@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { sendRFQToSuppliers, notifyNewRequest, notifyApprovalA1, notifyApprovalA2, notifyRejection, testEmailConfiguration } from "./email-service";
 import { invalidateCache } from "./cache";
+import { PDFService } from "./pdf-service";
 import bcrypt from "bcryptjs";
 import { 
   insertUserSchema, 
