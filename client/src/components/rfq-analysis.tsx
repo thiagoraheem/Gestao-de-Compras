@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,11 +40,14 @@ const approvalSchema = z.object({
   choiceReason: z.string().min(10, "Justificativa deve ter pelo menos 10 caracteres"),
   negotiatedValue: z.string().optional(),
   discountsObtained: z.string().optional(),
+  selectedItems: z.array(z.number()).min(1, "Selecione pelo menos um item"),
   unavailableItems: z.array(z.object({
     quotationItemId: z.number(),
     reason: z.string().min(1, "Motivo é obrigatório")
   })).optional().default([]),
   createNewRequest: z.boolean().optional().default(false),
+  createSeparateQuotation: z.boolean().optional().default(false),
+  keepUnselectedForFuture: z.boolean().optional().default(false),
 });
 
 type ApprovalFormData = z.infer<typeof approvalSchema>;
@@ -65,6 +68,7 @@ export default function RFQAnalysis({
   onComplete 
 }: RFQAnalysisProps) {
   const [selectedQuotation, setSelectedQuotation] = useState<string>("");
+  const [selectedItems, setSelectedItems] = useState<{[key: number]: boolean}>({});
   const [unavailableItems, setUnavailableItems] = useState<{[key: number]: {checked: boolean, reason: string}}>({});
   const [showUnavailableDialog, setShowUnavailableDialog] = useState(false);
   const { toast } = useToast();
@@ -76,10 +80,22 @@ export default function RFQAnalysis({
       choiceReason: "",
       negotiatedValue: "",
       discountsObtained: "",
+      selectedItems: quotationItems.map(item => item.id),
       unavailableItems: [],
       createNewRequest: false,
+      createSeparateQuotation: false,
+      keepUnselectedForFuture: false,
     },
   });
+
+  // Initialize selected items when component mounts
+  useEffect(() => {
+    const initialSelection: {[key: number]: boolean} = {};
+    quotationItems.forEach(item => {
+      initialSelection[item.id] = true; // All items selected by default
+    });
+    setSelectedItems(initialSelection);
+  }, [quotationItems]);
 
   const receivedQuotations = supplierQuotations.filter(sq => sq.status === 'received');
   
@@ -137,6 +153,11 @@ export default function RFQAnalysis({
   });
 
   const onSubmit = (data: ApprovalFormData) => {
+    // Preparar lista de itens selecionados
+    const selectedItemsList = Object.entries(selectedItems)
+      .filter(([_, isSelected]) => isSelected)
+      .map(([itemId, _]) => parseInt(itemId));
+
     // Preparar lista de itens indisponíveis
     const unavailableItemsList = Object.entries(unavailableItems)
       .filter(([_, item]) => item.checked && item.reason.trim())
@@ -145,13 +166,14 @@ export default function RFQAnalysis({
         reason: item.reason
       }));
 
-    const formDataWithUnavailable = {
+    const formDataWithSelection = {
       ...data,
+      selectedItems: selectedItemsList,
       unavailableItems: unavailableItemsList,
       createNewRequest: unavailableItemsList.length > 0 && data.createNewRequest
     };
 
-    approveMutation.mutate(formDataWithUnavailable);
+    approveMutation.mutate(formDataWithSelection);
   };
 
   const handleUnavailableItemChange = (itemId: number, checked: boolean, reason: string = '') => {
@@ -163,6 +185,51 @@ export default function RFQAnalysis({
 
   const getUnavailableItemsCount = () => {
     return Object.values(unavailableItems).filter(item => item.checked).length;
+  };
+
+  const getSelectedItemsCount = () => {
+    return Object.values(selectedItems).filter(isSelected => isSelected).length;
+  };
+
+  const getUnselectedItemsCount = () => {
+    return quotationItems.length - getSelectedItemsCount();
+  };
+
+  const handleItemSelection = (itemId: number, isSelected: boolean) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [itemId]: isSelected
+    }));
+    
+    // Update form value
+    const currentSelected = form.getValues('selectedItems') || [];
+    if (isSelected) {
+      if (!currentSelected.includes(itemId)) {
+        form.setValue('selectedItems', [...currentSelected, itemId]);
+      }
+    } else {
+      form.setValue('selectedItems', currentSelected.filter(id => id !== itemId));
+    }
+  };
+
+  const handleSelectAllItems = () => {
+    const allSelected: {[key: number]: boolean} = {};
+    const allItemIds: number[] = [];
+    quotationItems.forEach(item => {
+      allSelected[item.id] = true;
+      allItemIds.push(item.id);
+    });
+    setSelectedItems(allSelected);
+    form.setValue('selectedItems', allItemIds);
+  };
+
+  const handleDeselectAllItems = () => {
+    const noneSelected: {[key: number]: boolean} = {};
+    quotationItems.forEach(item => {
+      noneSelected[item.id] = false;
+    });
+    setSelectedItems(noneSelected);
+    form.setValue('selectedItems', []);
   };
 
   const getVariationColor = (value: number, average: number) => {
@@ -249,6 +316,119 @@ export default function RFQAnalysis({
               </CardContent>
             </Card>
           </div>
+
+          {/* Item Selection Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Seleção de Itens
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSelectAllItems}
+                >
+                  Selecionar Todos
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeselectAllItems}
+                >
+                  Desmarcar Todos
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-blue-700">
+                    <strong>{getSelectedItemsCount()}</strong> de <strong>{quotationItems.length}</strong> itens selecionados
+                  </span>
+                  {getUnselectedItemsCount() > 0 && (
+                    <span className="text-amber-700">
+                      <strong>{getUnselectedItemsCount()}</strong> itens não selecionados
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {quotationItems.map((item) => {
+                  const isSelected = selectedItems[item.id] || false;
+                  return (
+                    <div key={item.id} className={`p-4 border rounded-lg transition-colors ${
+                      isSelected ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id={`item-${item.id}`}
+                          checked={isSelected}
+                          onCheckedChange={(checked) => handleItemSelection(item.id, checked as boolean)}
+                          className="mt-1"
+                        />
+                        <div className="flex-1">
+                          <label htmlFor={`item-${item.id}`} className="cursor-pointer">
+                            <div className="font-medium text-gray-900">{item.description}</div>
+                            <div className="text-sm text-gray-600 mt-1">
+                              Quantidade: {item.quantity} {item.unit} | 
+                              Valor Unitário: R$ {item.unitPrice?.toFixed(2) || '0,00'} | 
+                              Total: R$ {((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}
+                            </div>
+                            {item.specifications && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                Especificações: {item.specifications}
+                              </div>
+                            )}
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {getUnselectedItemsCount() > 0 && (
+                <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <h4 className="font-medium text-amber-800 mb-3">Opções para Itens Não Selecionados</h4>
+                  <div className="space-y-2">
+                    <div className="flex flex-row items-start space-x-3 space-y-0">
+                      <Checkbox
+                        checked={form.watch('createSeparateQuotation')}
+                        onCheckedChange={(checked) => form.setValue('createSeparateQuotation', checked as boolean)}
+                      />
+                      <div className="space-y-1 leading-none">
+                        <label className="text-sm font-medium text-amber-800">
+                          Gerar nova cotação separada para os itens não selecionados
+                        </label>
+                        <p className="text-xs text-amber-700">
+                          Criará automaticamente uma nova RFQ com os itens não selecionados
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-row items-start space-x-3 space-y-0">
+                      <Checkbox
+                        checked={form.watch('keepUnselectedForFuture')}
+                        onCheckedChange={(checked) => form.setValue('keepUnselectedForFuture', checked as boolean)}
+                      />
+                      <div className="space-y-1 leading-none">
+                        <label className="text-sm font-medium text-amber-800">
+                          Manter itens não selecionados para futuras ações
+                        </label>
+                        <p className="text-xs text-amber-700">
+                          Os itens ficarão disponíveis para processamento posterior
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Comparative Table */}
           <Card>

@@ -2758,7 +2758,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations/:quotationId/select-supplier", isAuthenticated, async (req, res) => {
     try {
       const quotationId = parseInt(req.params.quotationId);
-      const { selectedSupplierId, totalValue, observations, unavailableItems, createNewRequest } = req.body;
+      const { 
+        selectedSupplierId, 
+        totalValue, 
+        observations, 
+        selectedItems,
+        unavailableItems, 
+        createNewRequest,
+        createSeparateQuotation,
+        keepUnselectedForFuture 
+      } = req.body;
 
       // Buscar a cotação
       const quotation = await storage.getQuotationById(quotationId);
@@ -2809,6 +2818,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateQuotation(quotationId, {
         status: "approved",
       });
+
+      // Processar itens não selecionados
+      let separateQuotationId = null;
+      const quotationItems = await storage.getQuotationItems(quotationId);
+      const selectedItemsArray = selectedItems || [];
+      const unselectedItems = quotationItems.filter(item => !selectedItemsArray.includes(item.id));
+
+      if (unselectedItems.length > 0 && createSeparateQuotation) {
+        try {
+          const originalRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+          const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId);
+          
+          if (originalRequest) {
+            // Criar nova solicitação para itens não selecionados
+            const newRequestData = {
+              requestNumber: `${originalRequest.requestNumber}-NS${Date.now().toString().slice(-4)}`,
+              requesterId: originalRequest.requesterId,
+              companyId: originalRequest.companyId,
+              departmentId: originalRequest.departmentId,
+              costCenterId: originalRequest.costCenterId,
+              category: originalRequest.category,
+              justification: `Nova cotação para itens não selecionados da solicitação ${originalRequest.requestNumber}`,
+              urgency: originalRequest.urgency,
+              idealDeliveryDate: originalRequest.idealDeliveryDate,
+              deliveryLocationId: originalRequest.deliveryLocationId,
+              currentPhase: "aprovacao_a1" as const,
+              approvedA1: true,
+              approverA1Id: originalRequest.approverA1Id,
+              approvalDateA1: new Date(),
+              createdBy: req.session.userId || originalRequest.createdBy
+            };
+            
+            const newRequest = await storage.createPurchaseRequest(newRequestData);
+            
+            // Adicionar itens não selecionados à nova solicitação
+            for (const unselectedItem of unselectedItems) {
+              const originalItem = originalItems.find(item => 
+                item.id === unselectedItem.purchaseRequestItemId
+              );
+              
+              if (originalItem) {
+                await storage.createPurchaseRequestItem({
+                  purchaseRequestId: newRequest.id,
+                  productCode: originalItem.productCode,
+                  description: originalItem.description,
+                  requestedQuantity: originalItem.requestedQuantity,
+                  approvedQuantity: originalItem.approvedQuantity,
+                  unit: originalItem.unit,
+                  estimatedUnitPrice: originalItem.estimatedUnitPrice,
+                  estimatedTotalPrice: originalItem.estimatedTotalPrice,
+                  justification: "Item não selecionado para cotação separada"
+                });
+              }
+            }
+            
+            // Criar nova cotação automaticamente
+            const newQuotationData = {
+              purchaseRequestId: newRequest.id,
+              quotationNumber: `COT-${new Date().getFullYear()}-${String(newRequest.id).padStart(4, '0')}`,
+              quotationDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias
+              deliveryLocationId: quotation.deliveryLocationId,
+              termsAndConditions: quotation.termsAndConditions,
+              technicalSpecs: quotation.technicalSpecs,
+              status: 'draft' as const,
+              createdBy: req.session.userId!
+            };
+            
+            const newQuotation = await storage.createQuotation(newQuotationData);
+            separateQuotationId = newQuotation.id;
+            
+            // Copiar itens para a nova cotação
+            for (const unselectedItem of unselectedItems) {
+              await storage.createQuotationItem({
+                quotationId: newQuotation.id,
+                purchaseRequestItemId: unselectedItem.purchaseRequestItemId,
+                itemCode: unselectedItem.itemCode,
+                description: unselectedItem.description,
+                quantity: unselectedItem.quantity,
+                unit: unselectedItem.unit,
+                unitPrice: unselectedItem.unitPrice,
+                specifications: unselectedItem.specifications
+              });
+            }
+            
+            // Copiar fornecedores da cotação original
+            const originalSupplierQuotations = await storage.getSupplierQuotations(quotationId);
+            for (const supplierQuotation of originalSupplierQuotations) {
+              await storage.createSupplierQuotation({
+                quotationId: newQuotation.id,
+                supplierId: supplierQuotation.supplierId,
+                status: 'pending' as const
+              });
+            }
+            
+            // Avançar para fase de cotação
+            await storage.updatePurchaseRequest(newRequest.id, {
+              currentPhase: "cotacao" as const
+            });
+          }
+        } catch (separateQuotationError) {
+          console.error("Erro ao criar cotação separada:", separateQuotationError);
+        }
+      }
 
       // Avançar a solicitação para aprovação A2
       await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
@@ -2892,7 +3004,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         message: "Fornecedor selecionado com sucesso",
         newRequestId,
-        unavailableItemsCount: unavailableItems?.length || 0
+        separateQuotationId,
+        unavailableItemsCount: unavailableItems?.length || 0,
+        unselectedItemsCount: unselectedItems.length,
+        selectedItemsCount: selectedItemsArray.length
       });
     } catch (error) {
       console.error("Error selecting supplier:", error);
@@ -3586,3 +3701,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   return httpServer;
 }
+

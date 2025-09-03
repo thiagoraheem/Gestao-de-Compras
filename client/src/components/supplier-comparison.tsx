@@ -57,6 +57,8 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [observations, setObservations] = useState("");
   const [createNewRequestForUnavailable, setCreateNewRequestForUnavailable] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<{[key: number]: {supplierId: number, itemId: number}}>({});
+  const [selectionMode, setSelectionMode] = useState<'supplier' | 'items'>('supplier');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -71,7 +73,7 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
   });
 
   const selectSupplierMutation = useMutation({
-    mutationFn: async (data: { selectedSupplierId: number; totalValue: number; observations: string; createNewRequest?: boolean; unavailableItems?: any[] }) => {
+    mutationFn: async (data: { selectedSupplierId?: number; selectedItems?: any[]; totalValue: number; observations: string; createNewRequest?: boolean; unavailableItems?: any[] }) => {
       return apiRequest(`/api/quotations/${quotationId}/select-supplier`, { method: "POST", body: data });
     },
     onSuccess: (response) => {
@@ -104,34 +106,83 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
     },
   });
 
-  const handleSelectSupplier = () => {
-    if (!selectedSupplierId) {
-      toast({
-        title: "Atenção",
-        description: "Selecione um fornecedor antes de continuar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const selectedSupplier = suppliersData.find(s => s.supplier.id === selectedSupplierId);
-    if (!selectedSupplier) return;
-
-    // Preparar lista de itens indisponíveis se necessário
-    const unavailableItemsData = createNewRequestForUnavailable && hasUnavailableItems 
-      ? unavailableItems.map(item => ({
-          quotationItemId: item.quotationItemId,
-          reason: item.unavailabilityReason || "Item indisponível"
-        }))
-      : undefined;
-
-    selectSupplierMutation.mutate({
-      selectedSupplierId,
-      totalValue: selectedSupplier.totalValue,
-      observations,
-      createNewRequest: createNewRequestForUnavailable,
-      unavailableItems: unavailableItemsData,
+  // Funções para gerenciar seleção de itens individuais
+  const handleItemSelection = (quotationItemId: number, supplierId: number, supplierItemId: number) => {
+    setSelectedItems(prev => {
+      const newSelection = { ...prev };
+      if (newSelection[quotationItemId]) {
+        delete newSelection[quotationItemId];
+      } else {
+        newSelection[quotationItemId] = { supplierId, itemId: supplierItemId };
+      }
+      return newSelection;
     });
+  };
+
+  const calculateSelectedItemsTotal = () => {
+    let total = 0;
+    Object.entries(selectedItems).forEach(([quotationItemId, selection]) => {
+      const supplier = suppliersData.find(s => s.supplier.id === selection.supplierId);
+      const item = supplier?.items.find(i => i.id === selection.itemId);
+      if (item) {
+        total += Number(item.discountedTotalPrice || item.totalPrice);
+      }
+    });
+    return total;
+  };
+
+  const handleSelectSupplier = () => {
+    if (selectionMode === 'supplier') {
+      if (!selectedSupplierId) {
+        toast({
+          title: "Atenção",
+          description: "Selecione um fornecedor antes de continuar.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const selectedSupplier = suppliersData.find(s => s.supplier.id === selectedSupplierId);
+      if (!selectedSupplier) return;
+
+      // Preparar lista de itens indisponíveis se necessário
+      const unavailableItemsData = createNewRequestForUnavailable && hasUnavailableItems 
+        ? unavailableItems.map(item => ({
+            quotationItemId: item.quotationItemId,
+            reason: item.unavailabilityReason || "Item indisponível"
+          }))
+        : undefined;
+
+      selectSupplierMutation.mutate({
+        selectedSupplierId,
+        totalValue: selectedSupplier.totalValue,
+        observations,
+        createNewRequest: createNewRequestForUnavailable,
+        unavailableItems: unavailableItemsData,
+      });
+    } else {
+      // Modo de seleção de itens individuais
+      if (Object.keys(selectedItems).length === 0) {
+        toast({
+          title: "Atenção",
+          description: "Selecione pelo menos um item antes de continuar.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const selectedItemsData = Object.entries(selectedItems).map(([quotationItemId, selection]) => ({
+        quotationItemId: parseInt(quotationItemId),
+        supplierId: selection.supplierId,
+        supplierItemId: selection.itemId
+      }));
+
+      selectSupplierMutation.mutate({
+        selectedItems: selectedItemsData,
+        totalValue: calculateSelectedItemsTotal(),
+        observations,
+      });
+    }
   };
 
   // Detectar itens indisponíveis apenas do fornecedor selecionado
@@ -163,7 +214,32 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
       <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Comparação de Fornecedores</h2>
+            <div>
+              <h2 className="text-2xl font-bold">Comparação de Fornecedores</h2>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant={selectionMode === 'supplier' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setSelectionMode('supplier');
+                    setSelectedItems({});
+                    setSelectedSupplierId(null);
+                  }}
+                >
+                  Selecionar Fornecedor Completo
+                </Button>
+                <Button
+                  variant={selectionMode === 'items' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setSelectionMode('items');
+                    setSelectedSupplierId(null);
+                  }}
+                >
+                  Selecionar Itens Individuais
+                </Button>
+              </div>
+            </div>
             <Button variant="ghost" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
@@ -341,6 +417,9 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                       <thead>
                         <tr className="border-b">
                           <th className="text-left p-3 font-medium">Item</th>
+                          {selectionMode === 'items' && (
+                            <th className="text-center p-3 font-medium border-l w-20">Seleção</th>
+                          )}
                           {receivedQuotations.map((supplier) => (
                             <th key={supplier.id} className="text-center p-3 font-medium border-l">
                               {supplier.supplier.name}
@@ -356,101 +435,217 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                               sq.items.map(item => item.quotationItemId)
                             )
                           )
-                        ).map((quotationItemId) => (
-                          <tr key={quotationItemId} className="border-b hover:bg-gray-50">
-                            <td className="p-3 font-medium">
-                              {(() => {
-                                const quotationItem = quotationItems.find(qi => qi.id === quotationItemId);
-                                return quotationItem ? quotationItem.description : `Item #${quotationItemId}`;
-                              })()}
-                            </td>
-                            {receivedQuotations.map((supplier) => {
-                              const item = supplier.items.find(
-                                item => item.quotationItemId === quotationItemId
-                              );
-                              return (
-                                <td key={supplier.id} className={`p-3 border-l text-center ${
-                                  item && item.isAvailable === false ? 'bg-red-50' : ''
-                                }`}>
-                                  {item ? (
-                                    item.isAvailable === false ? (
-                                      <div className="space-y-1">
-                                        <div className="flex items-center justify-center gap-1 text-red-600">
-                                          <XCircle className="h-4 w-4" />
-                                          <span className="font-bold">Indisponível</span>
+                        ).map((quotationItemId) => {
+                          // Encontrar o melhor item disponível para este quotationItemId
+                          const availableItems = receivedQuotations
+                            .map(supplier => ({
+                              supplier,
+                              item: supplier.items.find(item => item.quotationItemId === quotationItemId && item.isAvailable !== false)
+                            }))
+                            .filter(({ item }) => item)
+                            .sort((a, b) => (a.item?.unitPrice || 0) - (b.item?.unitPrice || 0));
+                          
+                          const bestItem = availableItems[0];
+                          const isSelected = selectedItems[quotationItemId];
+                          
+                          return (
+                            <tr key={quotationItemId} className="border-b hover:bg-gray-50">
+                              <td className="p-3 font-medium">
+                                {(() => {
+                                  const quotationItem = quotationItems.find(qi => qi.id === quotationItemId);
+                                  return quotationItem ? quotationItem.description : `Item #${quotationItemId}`;
+                                })()}
+                              </td>
+                              {selectionMode === 'items' && (
+                                <td className="p-3 border-l text-center">
+                                  {bestItem && (
+                                    <div className="space-y-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={!!isSelected}
+                                        onChange={() => handleItemSelection(
+                                          quotationItemId,
+                                          bestItem.supplier.supplier.id,
+                                          bestItem.item.id
+                                        )}
+                                        className="rounded border-gray-300"
+                                      />
+                                      {isSelected && (
+                                        <div className="text-xs text-green-600">
+                                          {bestItem.supplier.supplier.name}
                                         </div>
-                                        {item.unavailabilityReason && (
-                                          <div className="text-xs text-red-600 italic">
-                                            {item.unavailabilityReason}
-                                          </div>
-                                        )}
-                                        {item.brand && (
-                                          <div className="text-xs text-gray-500">
-                                            {item.brand} {item.model}
-                                          </div>
-                                        )}
-                                        {item.observations && (
-                                          <div className="text-xs text-gray-400 italic">
-                                            {item.observations}
-                                          </div>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <div className="space-y-1">
-                                        <div className="font-bold text-green-600">
-                                          R$ {Number(item.unitPrice).toLocaleString('pt-BR', { 
-                                            minimumFractionDigits: 2 
-                                          })}
-                                        </div>
-                                        
-
-                                        
-                                        {/* Desconto do Item */}
-                                        {(item.discountPercentage || item.discountValue) && (
-                                          <div className="text-xs text-orange-600">
-                                            Desconto: {item.discountPercentage 
-                                              ? `${item.discountPercentage}%`
-                                              : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                            }
-                                          </div>
-                                        )}
-                                        
-                                        {/* Valor Final */}
-                                        <div className="text-sm font-semibold text-green-700">
-                                          Total Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', { 
-                                            minimumFractionDigits: 2 
-                                          })}
-                                        </div>
-                                        {item.deliveryDays && (
-                                          <div className="text-xs text-blue-600">
-                                            {item.deliveryDays} dias
-                                          </div>
-                                        )}
-                                        {item.brand && (
-                                          <div className="text-xs text-gray-500">
-                                            {item.brand} {item.model}
-                                          </div>
-                                        )}
-                                        {item.observations && (
-                                          <div className="text-xs text-gray-400 italic">
-                                            {item.observations}
-                                          </div>
-                                        )}
-                                      </div>
-                                    )
-                                  ) : (
-                                    <span className="text-gray-400 text-sm">Não cotado</span>
+                                      )}
+                                    </div>
                                   )}
                                 </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
+                              )}
+                              {receivedQuotations.map((supplier) => {
+                                const item = supplier.items.find(
+                                  item => item.quotationItemId === quotationItemId
+                                );
+                                const isSelectedForThisSupplier = isSelected?.supplierId === supplier.supplier.id;
+                                return (
+                                  <td key={supplier.id} className={`p-3 border-l text-center ${
+                                    item && item.isAvailable === false ? 'bg-red-50' : ''
+                                  } ${
+                                    selectionMode === 'items' && isSelectedForThisSupplier ? 'bg-green-50 ring-1 ring-green-200' : ''
+                                  }`}>
+                                    {item ? (
+                                      item.isAvailable === false ? (
+                                        <div className="space-y-1">
+                                          <div className="flex items-center justify-center gap-1 text-red-600">
+                                            <XCircle className="h-4 w-4" />
+                                            <span className="font-bold">Indisponível</span>
+                                          </div>
+                                          {item.unavailabilityReason && (
+                                            <div className="text-xs text-red-600 italic">
+                                              {item.unavailabilityReason}
+                                            </div>
+                                          )}
+                                          {item.brand && (
+                                            <div className="text-xs text-gray-500">
+                                              {item.brand} {item.model}
+                                            </div>
+                                          )}
+                                          {item.observations && (
+                                            <div className="text-xs text-gray-400 italic">
+                                              {item.observations}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-1">
+                                          <div className="font-bold text-green-600">
+                                            R$ {Number(item.unitPrice).toLocaleString('pt-BR', { 
+                                              minimumFractionDigits: 2 
+                                            })}
+                                          </div>
+                                          
+
+                                          
+                                          {/* Desconto do Item */}
+                                          {(item.discountPercentage || item.discountValue) && (
+                                            <div className="text-xs text-orange-600">
+                                              Desconto: {item.discountPercentage 
+                                                ? `${item.discountPercentage}%`
+                                                : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                              }
+                                            </div>
+                                          )}
+                                          
+                                          {/* Valor Final */}
+                                          <div className="text-sm font-semibold text-green-700">
+                                            Total Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', { 
+                                              minimumFractionDigits: 2 
+                                            })}
+                                          </div>
+                                          {item.deliveryDays && (
+                                            <div className="text-xs text-blue-600">
+                                              {item.deliveryDays} dias
+                                            </div>
+                                          )}
+                                          {item.brand && (
+                                            <div className="text-xs text-gray-500">
+                                              {item.brand} {item.model}
+                                            </div>
+                                          )}
+                                          {item.observations && (
+                                            <div className="text-xs text-gray-400 italic">
+                                              {item.observations}
+                                            </div>
+                                          )}
+                                          {selectionMode === 'items' && (
+                                            <Button
+                                              size="sm"
+                                              variant={isSelectedForThisSupplier ? "default" : "outline"}
+                                              onClick={() => handleItemSelection(
+                                                quotationItemId,
+                                                supplier.supplier.id,
+                                                item.id
+                                              )}
+                                              className="text-xs h-6"
+                                            >
+                                              {isSelectedForThisSupplier ? "Selecionado" : "Selecionar"}
+                                            </Button>
+                                          )}
+                                        </div>
+                                      )
+                                    ) : (
+                                      <span className="text-gray-400 text-sm">Não cotado</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Resumo da Seleção */}
+              {selectionMode === 'supplier' && selectedSupplierId && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold text-green-800 mb-2">Fornecedor Selecionado</h3>
+                  <div className="text-green-700">
+                    {(() => {
+                      const selectedSupplier = receivedQuotations.find(q => q.supplier.id === selectedSupplierId);
+                      return selectedSupplier ? selectedSupplier.supplier.name : 'Fornecedor não encontrado';
+                    })()}
+                  </div>
+                  <div className="text-sm text-green-600 mt-1">
+                    Total: R$ {(() => {
+                      const selectedSupplier = receivedQuotations.find(q => q.supplier.id === selectedSupplierId);
+                      if (!selectedSupplier) return '0,00';
+                      
+                      const total = selectedSupplier.items
+                        .filter(item => item.isAvailable !== false)
+                        .reduce((sum, item) => sum + Number(item.discountedTotalPrice || item.totalPrice), 0);
+                      
+                      return total.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                    })()}
+                  </div>
+                </div>
+              )}
+              
+              {selectionMode === 'items' && Object.keys(selectedItems).length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold text-blue-800 mb-2">Itens Selecionados ({Object.keys(selectedItems).length})</h3>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {Object.entries(selectedItems).map(([quotationItemId, selection]) => {
+                      const quotationItem = quotationItems.find(qi => qi.id === quotationItemId);
+                      const supplier = receivedQuotations.find(q => q.supplier.id === selection.supplierId);
+                      const item = supplier?.items.find(i => i.id === selection.itemId);
+                      
+                      return (
+                        <div key={quotationItemId} className="flex justify-between items-center text-sm">
+                          <div className="flex-1">
+                            <div className="font-medium text-blue-900">
+                              {quotationItem?.description || `Item #${quotationItemId}`}
+                            </div>
+                            <div className="text-blue-600">
+                              {supplier?.supplier.name}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold text-blue-800">
+                              R$ {item ? Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-blue-200 mt-3 pt-2">
+                    <div className="flex justify-between items-center font-semibold text-blue-800">
+                      <span>Total Selecionado:</span>
+                      <span>R$ {calculateSelectedItemsTotal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Observações da Decisão */}
               <Card className="mb-6">
@@ -516,7 +711,7 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                 </Button>
                 <Button 
                   onClick={handleSelectSupplier}
-                  disabled={!selectedSupplierId || selectSupplierMutation.isPending}
+                  disabled={(selectionMode === 'supplier' && !selectedSupplierId) || (selectionMode === 'items' && Object.keys(selectedItems).length === 0) || selectSupplierMutation.isPending}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   {selectSupplierMutation.isPending ? (
@@ -524,7 +719,7 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                   ) : (
                     <>
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Selecionar Fornecedor e Avançar
+                      {selectionMode === 'supplier' ? 'Selecionar Fornecedor e Avançar' : 'Selecionar Itens e Avançar'}
                     </>
                   )}
                 </Button>
