@@ -932,7 +932,10 @@ export default function PurchaseCard({
           {phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <Button
-                onClick={() => handleAdvanceToReceipt(request.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAdvanceToReceipt(request.id);
+                }}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
