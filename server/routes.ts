@@ -2862,13 +2862,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Recalcular valor total apenas com itens selecionados
         if (selectedSupplierQuotation) {
           const supplierQuotationItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+          console.log('Itens da cotação do fornecedor:', supplierQuotationItems.length);
+          
           recalculatedTotalValue = selectedItems.reduce((total, selectedItem) => {
             const supplierItem = supplierQuotationItems.find(item => 
               item.quotationItemId === selectedItem.quotationItemId
             );
-            if (supplierItem && supplierItem.finalValue) {
-              return total + parseFloat(supplierItem.finalValue);
+            if (supplierItem) {
+              // Usar discountedTotalPrice se existir, senão totalPrice
+              const itemValue = supplierItem.discountedTotalPrice && parseFloat(supplierItem.discountedTotalPrice) > 0 
+                ? parseFloat(supplierItem.discountedTotalPrice)
+                : parseFloat(supplierItem.totalPrice);
+              
+              console.log(`Item ${supplierItem.quotationItemId}: R$ ${itemValue.toFixed(2)}`);
+              return total + itemValue;
             }
+            console.log(`Item não encontrado: ${selectedItem.quotationItemId}`);
             return total;
           }, 0);
         }
