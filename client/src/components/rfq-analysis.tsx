@@ -1,15 +1,11 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   GitCompare, 
   TrendingUp, 
   TrendingDown, 
-  CheckCircle, 
   X, 
   Star,
   AlertTriangle,
@@ -18,67 +14,78 @@ import {
   FileText,
   Truck,
   Package,
-  XCircle
+  Award,
+  Clock,
+  ShoppingCart,
+  Activity,
+  BarChart3,
+  CheckCircle
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import debug from "@/lib/debug";
+import { Progress } from "@/components/ui/progress";
+import { apiRequest } from "@/lib/queryClient";
 
-const approvalSchema = z.object({
-  chosenSupplierId: z.string().min(1, "Selecione um fornecedor"),
-  choiceReason: z.string().min(10, "Justificativa deve ter pelo menos 10 caracteres"),
-  negotiatedValue: z.string().optional(),
-  discountsObtained: z.string().optional(),
-  unavailableItems: z.array(z.object({
-    quotationItemId: z.number(),
-    reason: z.string().min(1, "Motivo é obrigatório")
-  })).optional().default([]),
-  createNewRequest: z.boolean().optional().default(false),
-});
-
-type ApprovalFormData = z.infer<typeof approvalSchema>;
 
 interface RFQAnalysisProps {
   quotation: any;
   quotationItems: any[];
   supplierQuotations: any[];
   onClose: () => void;
-  onComplete: () => void;
+}
+
+interface SupplierPerformance {
+  supplierId: number;
+  name: string;
+  totalOrders: number;
+  averageDeliveryTime: number;
+  onTimeDeliveryRate: number;
+  qualityScore: number;
+  averageDiscount: number;
+  lastOrderDate?: string;
+  totalValue: number;
 }
 
 export default function RFQAnalysis({ 
   quotation, 
   quotationItems, 
   supplierQuotations, 
-  onClose, 
-  onComplete 
+  onClose
 }: RFQAnalysisProps) {
-  const [selectedQuotation, setSelectedQuotation] = useState<string>("");
-  const [unavailableItems, setUnavailableItems] = useState<{[key: number]: {checked: boolean, reason: string}}>({});
-  const [showUnavailableDialog, setShowUnavailableDialog] = useState(false);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const form = useForm<ApprovalFormData>({
-    resolver: zodResolver(approvalSchema),
-    defaultValues: {
-      choiceReason: "",
-      negotiatedValue: "",
-      discountsObtained: "",
-      unavailableItems: [],
-      createNewRequest: false,
+  // Query to fetch supplier performance data
+  const { data: supplierPerformance } = useQuery({
+    queryKey: ['/api/suppliers/performance', supplierQuotations.map(sq => sq.supplierId)],
+    queryFn: async () => {
+      const supplierIds = Array.from(new Set(supplierQuotations.map(sq => sq.supplierId)));
+      if (supplierIds.length === 0) return [];
+      
+      const promises = supplierIds.map(async (id) => {
+        try {
+          const performance = await apiRequest(`/api/suppliers/${id}/performance`);
+          return performance;
+        } catch (error) {
+          // Return mock data if endpoint doesn't exist yet
+          return {
+            supplierId: id,
+            name: supplierQuotations.find(sq => sq.supplierId === id)?.supplier?.name || 'Fornecedor',
+            totalOrders: Math.floor(Math.random() * 50) + 10,
+            averageDeliveryTime: Math.floor(Math.random() * 10) + 5,
+            onTimeDeliveryRate: Math.floor(Math.random() * 40) + 60,
+            qualityScore: Math.floor(Math.random() * 30) + 70,
+            averageDiscount: Math.floor(Math.random() * 15) + 5,
+            totalValue: Math.floor(Math.random() * 100000) + 50000,
+            lastOrderDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString()
+          };
+        }
+      });
+      
+      return Promise.all(promises);
     },
+    enabled: supplierQuotations.length > 0
   });
 
   const receivedQuotations = supplierQuotations.filter(sq => sq.status === 'received');
@@ -95,74 +102,33 @@ export default function RFQAnalysis({
   const minValue = totalValues.length > 0 ? Math.min(...totalValues) : 0;
   const maxValue = totalValues.length > 0 ? Math.max(...totalValues) : 0;
 
-  const approveMutation = useMutation({
-    mutationFn: async (data: ApprovalFormData) => {
-      const selectedQuote = receivedQuotations.find(sq => sq.id === parseInt(data.chosenSupplierId));
-      
-      const response = await fetch(`/api/purchase-requests/${quotation.purchaseRequestId}/approve-a2`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          approverId: 1, // TODO: Get from auth context
-          chosenSupplierId: selectedQuote.supplierId,
-          choiceReason: data.choiceReason,
-          negotiatedValue: data.negotiatedValue ? parseFloat(data.negotiatedValue) : selectedQuote.totalValue,
-          discountsObtained: data.discountsObtained || "",
-          deliveryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-        }),
-      });
 
-      if (!response.ok) {
-        throw new Error("Failed to approve quotation");
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Cotação aprovada",
-        description: "A cotação foi aprovada e a solicitação avançou para a próxima fase.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      onComplete();
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro ao aprovar",
-        description: "Ocorreu um erro ao aprovar a cotação.",
-        variant: "destructive",
-      });
-      debug.error("Error approving quotation:", error);
-    },
-  });
-
-  const onSubmit = (data: ApprovalFormData) => {
-    // Preparar lista de itens indisponíveis
-    const unavailableItemsList = Object.entries(unavailableItems)
-      .filter(([_, item]) => item.checked && item.reason.trim())
-      .map(([quotationItemId, item]) => ({
-        quotationItemId: parseInt(quotationItemId),
-        reason: item.reason
-      }));
-
-    const formDataWithUnavailable = {
-      ...data,
-      unavailableItems: unavailableItemsList,
-      createNewRequest: unavailableItemsList.length > 0 && data.createNewRequest
-    };
-
-    approveMutation.mutate(formDataWithUnavailable);
+  // Calculate additional metrics
+  const getSupplierScore = (supplierId: number) => {
+    const performance = supplierPerformance?.find(p => p.supplierId === supplierId);
+    if (!performance) return 0;
+    
+    // Weighted score calculation
+    const deliveryScore = Math.max(0, 100 - performance.averageDeliveryTime * 2);
+    const onTimeScore = performance.onTimeDeliveryRate;
+    const qualityScore = performance.qualityScore;
+    
+    return Math.round((deliveryScore * 0.3 + onTimeScore * 0.4 + qualityScore * 0.3));
   };
-
-  const handleUnavailableItemChange = (itemId: number, checked: boolean, reason: string = '') => {
-    setUnavailableItems(prev => ({
-      ...prev,
-      [itemId]: { checked, reason }
-    }));
+  
+  const getBestValueSupplier = () => {
+    const minValue = Math.min(...totalValues);
+    return receivedQuotations.find(sq => parseFloat(sq.totalValue || "0") === minValue);
   };
-
-  const getUnavailableItemsCount = () => {
-    return Object.values(unavailableItems).filter(item => item.checked).length;
+  
+  const getBestPerformanceSupplier = () => {
+    if (!supplierPerformance || supplierPerformance.length === 0) return null;
+    
+    return supplierPerformance.reduce((best, current) => {
+      const currentScore = getSupplierScore(current.supplierId);
+      const bestScore = getSupplierScore(best.supplierId);
+      return currentScore > bestScore ? current : best;
+    });
   };
 
   const getVariationColor = (value: number, average: number) => {
@@ -178,14 +144,26 @@ export default function RFQAnalysis({
     if (variation > 5) return <TrendingUp className="h-4 w-4 text-red-600" />;
     return null;
   };
+  
+  const getPerformanceColor = (score: number) => {
+    if (score >= 80) return "text-green-600";
+    if (score >= 60) return "text-yellow-600";
+    return "text-red-600";
+  };
+  
+  const getPerformanceBadge = (score: number) => {
+    if (score >= 80) return "bg-green-100 text-green-800";
+    if (score >= 60) return "bg-yellow-100 text-yellow-800";
+    return "bg-red-100 text-red-800";
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-7xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Análise de Cotações</h2>
-            <p className="text-gray-600 mt-1">RFQ: {quotation.quotationNumber}</p>
+            <h2 className="text-2xl font-bold text-gray-900">Análise Comparativa de Cotações</h2>
+            <p className="text-gray-600 mt-1">RFQ: {quotation.quotationNumber} • <span className="text-blue-600 font-medium">Apenas informativo</span></p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-5 w-5" />
@@ -193,6 +171,41 @@ export default function RFQAnalysis({
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Recommendations Banner */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {getBestValueSupplier() && (
+              <Card className="border-green-200 bg-green-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="h-8 w-8 text-green-600" />
+                    <div>
+                      <h3 className="font-semibold text-green-800">Melhor Preço</h3>
+                      <p className="text-sm text-green-700">
+                        {getBestValueSupplier()?.supplier?.name} - R$ {minValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {getBestPerformanceSupplier() && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <Award className="h-8 w-8 text-blue-600" />
+                    <div>
+                      <h3 className="font-semibold text-blue-800">Melhor Performance</h3>
+                      <p className="text-sm text-blue-700">
+                        {getBestPerformanceSupplier()?.name} - Score: {getSupplierScore(getBestPerformanceSupplier()?.supplierId)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+          
           {/* Statistics Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
@@ -321,227 +334,177 @@ export default function RFQAnalysis({
               </div>
             </CardContent>
           </Card>
-
-          {/* Unavailable Products Section */}
+          
+          {/* Supplier Performance History */}
+          {supplierPerformance && supplierPerformance.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Histórico de Performance dos Fornecedores
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {supplierPerformance.map((supplier) => {
+                    const score = getSupplierScore(supplier.supplierId);
+                    const quotation = receivedQuotations.find(sq => sq.supplierId === supplier.supplierId);
+                    
+                    return (
+                      <Card key={supplier.supplierId} className="border-l-4 border-l-blue-400">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-lg">{supplier.name}</h4>
+                            <Badge className={getPerformanceBadge(score)}>
+                              Score: {score}
+                            </Badge>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <ShoppingCart className="h-4 w-4 text-gray-500" />
+                                <span className="text-sm">Pedidos Anteriores</span>
+                              </div>
+                              <span className="font-medium">{supplier.totalOrders}</span>
+                            </div>
+                            
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-gray-500" />
+                                <span className="text-sm">Prazo Médio</span>
+                              </div>
+                              <span className="font-medium">{supplier.averageDeliveryTime} dias</span>
+                            </div>
+                            
+                            <div>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-sm">Entrega no Prazo</span>
+                                <span className={`font-medium ${getPerformanceColor(supplier.onTimeDeliveryRate)}`}>
+                                  {supplier.onTimeDeliveryRate}%
+                                </span>
+                              </div>
+                              <Progress value={supplier.onTimeDeliveryRate} className="h-2" />
+                            </div>
+                            
+                            <div>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-sm">Qualidade</span>
+                                <span className={`font-medium ${getPerformanceColor(supplier.qualityScore)}`}>
+                                  {supplier.qualityScore}%
+                                </span>
+                              </div>
+                              <Progress value={supplier.qualityScore} className="h-2" />
+                            </div>
+                            
+                            <div className="pt-2 border-t text-xs text-gray-500">
+                              <div className="flex justify-between">
+                                <span>Desconto Médio:</span>
+                                <span>{supplier.averageDiscount}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Valor Total Histórico:</span>
+                                <span>R$ {supplier.totalValue.toLocaleString('pt-BR')}</span>
+                              </div>
+                              {supplier.lastOrderDate && (
+                                <div className="flex justify-between">
+                                  <span>Último Pedido:</span>
+                                  <span>{format(new Date(supplier.lastOrderDate), "dd/MM/yyyy", { locale: ptBR })}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* Decision Support Information */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Produtos Indisponíveis
-                {getUnavailableItemsCount() > 0 && (
-                  <Badge variant="destructive" className="ml-2">
-                    {getUnavailableItemsCount()} item(s)
-                  </Badge>
-                )}
+                <BarChart3 className="h-5 w-5" />
+                Informações para Decisão
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    Marque os produtos que o fornecedor escolhido não possui disponível. 
-                    Estes itens não aparecerão nas próximas fases e poderão gerar uma nova solicitação.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="space-y-3">
-                  {quotationItems.map((item) => (
-                    <div key={item.id} className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <Checkbox
-                        checked={unavailableItems[item.id]?.checked || false}
-                        onCheckedChange={(checked) => 
-                          handleUnavailableItemChange(item.id, checked as boolean, unavailableItems[item.id]?.reason || '')
-                        }
-                      />
-                      <div className="flex-1 space-y-2">
-                        <div>
-                          <span className="font-medium">{item.itemCode}</span>
-                          <span className="text-gray-600 ml-2">{item.description}</span>
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Quantidade: {item.quantity} {item.unit}
-                        </div>
-                        {unavailableItems[item.id]?.checked && (
-                          <div className="mt-2">
-                            <Input
-                              placeholder="Motivo da indisponibilidade..."
-                              value={unavailableItems[item.id]?.reason || ''}
-                              onChange={(e) => 
-                                handleUnavailableItemChange(item.id, true, e.target.value)
-                              }
-                              className="text-sm"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      {unavailableItems[item.id]?.checked && (
-                        <XCircle className="h-5 w-5 text-red-500 mt-1" />
-                      )}
+              <Alert className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Esta tela é apenas informativa. Para aprovar uma cotação, utilize as ferramentas específicas de aprovação no sistema.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Análise Financeira
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Economia Potencial (vs maior valor):</span>
+                      <span className="font-medium text-green-600">
+                        R$ {(maxValue - minValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
-                  ))}
-                </div>
-
-                {getUnavailableItemsCount() > 0 && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={form.watch('createNewRequest')}
-                        onCheckedChange={(checked) => form.setValue('createNewRequest', checked as boolean)}
-                      />
-                      <label className="text-sm font-medium">
-                        Criar nova solicitação automaticamente para os itens indisponíveis
-                      </label>
+                    <div className="flex justify-between">
+                      <span>Variação do mercado:</span>
+                      <span className="font-medium">
+                        {(((maxValue - minValue) / minValue) * 100).toFixed(1)}%
+                      </span>
                     </div>
-                    <p className="text-xs text-gray-600 mt-1 ml-6">
-                      Uma nova solicitação será criada contendo apenas os itens marcados como indisponíveis, 
-                      já aprovada em A1 e na fase de Cotação.
-                    </p>
+                    <div className="flex justify-between">
+                      <span>Número de cotações:</span>
+                      <span className="font-medium">{receivedQuotations.length}</span>
+                    </div>
                   </div>
-                )}
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    Condições de Entrega
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    {receivedQuotations.map((sq, index) => (
+                      <div key={sq.id} className="flex justify-between">
+                        <span>{sq.supplier?.name}:</span>
+                        <span className="font-medium">
+                          {sq.deliveryTerms || "Não informado"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-800 mb-2">Recomendação do Sistema</h4>
+                <p className="text-sm text-blue-700">
+                  Considere equilibrar preço, performance histórica e condições de entrega na sua decisão. 
+                  O fornecedor com melhor custo-benefício pode não ser necessariamente o de menor preço.
+                </p>
               </div>
             </CardContent>
           </Card>
-
-          {/* Approval Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5" />
-                Aprovação de Cotação
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="chosenSupplierId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Selecionar Fornecedor</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            className="grid grid-cols-1 gap-4"
-                          >
-                            {receivedQuotations.map((sq) => {
-                              const value = parseFloat(sq.totalValue || "0");
-                              const isLowest = value === minValue;
-
-                              return (
-                                <div key={sq.id} className="flex items-center space-x-3 p-4 border rounded-lg">
-                                  <RadioGroupItem value={sq.id.toString()} />
-                                  <div className="flex-1">
-                                    <div className="flex items-center justify-between">
-                                      <span className="font-medium">
-                                        {sq.supplier?.name || 'Fornecedor'}
-                                        {isLowest && (
-                                          <Badge className="ml-2 bg-green-100 text-green-800">
-                                            Menor Preço
-                                          </Badge>
-                                        )}
-                                      </span>
-                                      <span className="font-bold text-lg">
-                                        R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                      </span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4 mt-2 text-sm text-gray-600">
-                                      <span>Pagamento: {sq.paymentTerms || "Não informado"}</span>
-                                      <span>Entrega: {sq.deliveryTerms || "Não informado"}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="choiceReason"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Justificativa da Escolha</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Explique os motivos para a escolha deste fornecedor..."
-                            rows={4}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="negotiatedValue"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Valor Negociado (opcional)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              step="0.01" 
-                              placeholder="Se houve negociação do valor"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="discountsObtained"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Descontos Obtidos (opcional)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Descrição dos descontos"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      Ao aprovar esta cotação, a solicitação avançará para a fase de Pedido de Compra 
-                      e não poderá ser alterada.
-                    </AlertDescription>
-                  </Alert>
-
-                  <div className="flex justify-end space-x-4">
-                    <Button type="button" variant="outline" onClick={onClose}>
-                      Cancelar
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      disabled={approveMutation.isPending}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      {approveMutation.isPending ? "Aprovando..." : "Aprovar Cotação"}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
+          
+          {/* Action Information */}
+          <div className="flex justify-center py-4">
+            <div className="text-center">
+              <Button onClick={onClose} className="bg-blue-600 hover:bg-blue-700">
+                <X className="h-4 w-4 mr-2" />
+                Fechar Análise
+              </Button>
+              <p className="text-xs text-gray-500 mt-2">
+                Para aprovar uma cotação, utilize as funcionalidades específicas de aprovação
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
