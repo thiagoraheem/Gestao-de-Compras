@@ -2875,7 +2875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           // Buscar a solicitação original
           const originalRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
-          const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId);
+          const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true); // Incluir itens transferidos
           const quotationItems = await storage.getQuotationItems(quotationId);
           
           if (originalRequest) {
@@ -2913,23 +2913,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 );
                 
                 if (originalItem) {
+                  console.log(`Copiando item original para nova solicitação:`, {
+                    originalDescription: originalItem.description,
+                    originalProductCode: originalItem.productCode,
+                    originalQuantity: originalItem.requestedQuantity
+                  });
+                  
                   await storage.createPurchaseRequestItem({
                     purchaseRequestId: nonSelectedRequest.id,
                     productCode: originalItem.productCode,
                     description: originalItem.description,
+                    technicalSpecification: originalItem.technicalSpecification,
                     requestedQuantity: originalItem.requestedQuantity,
                     approvedQuantity: originalItem.approvedQuantity,
                     unit: originalItem.unit,
                     estimatedUnitPrice: originalItem.estimatedUnitPrice,
                     estimatedTotalPrice: originalItem.estimatedTotalPrice,
-                    justification: `Item não selecionado para cotação separada`
+                    justification: originalItem.justification || `Item transferido da solicitação ${originalRequest.requestNumber}`
                   });
                   
                   // Atualizar o item original para referenciar a nova solicitação
                   await storage.updatePurchaseRequestItem(originalItem.id, {
                     transferredToRequestId: nonSelectedRequest.id
                   });
+                } else {
+                  console.error(`Item original não encontrado para quotation item ${quotationItem.id}`);
                 }
+              } else {
+                console.error(`Quotation item não encontrado para ${nonSelectedItem.quotationItemId}`);
               }
             }
           }
@@ -2944,7 +2955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           // Buscar a solicitação original
           const originalRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
-          const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId);
+          const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true); // Incluir itens transferidos
           const quotationItems = await storage.getQuotationItems(quotationId);
           
           if (originalRequest) {
