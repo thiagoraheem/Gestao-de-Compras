@@ -866,7 +866,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/purchase-requests/:id", isAuthenticated, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const idParam = req.params.id;
+      
+      // Handle temporary IDs
+      if (idParam.startsWith('temp_')) {
+        return res.status(400).json({ message: "Solicitação precisa ser salva antes de ser atualizada" });
+      }
+      
+      const id = parseInt(idParam);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
       const { items, ...requestData } = req.body;
 
       // Validate request data
@@ -903,7 +913,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/purchase-requests/:id", isAuthenticated, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const idParam = req.params.id;
+      
+      // Handle temporary IDs
+      if (idParam.startsWith('temp_')) {
+        return res.status(400).json({ message: "Solicitação precisa ser salva antes de ser atualizada" });
+      }
+      
+      const id = parseInt(idParam);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
 
       // Validate request data (only partial update)
       const validatedRequestData = insertPurchaseRequestSchema.partial().parse(req.body);
@@ -924,7 +944,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Purchase Request Items routes
   app.get("/api/purchase-requests/:id/items", isAuthenticated, async (req, res) => {
     try {
-      const purchaseRequestId = parseInt(req.params.id);
+      const idParam = req.params.id;
+      
+      // Handle temporary IDs - return empty array for temp requests
+      if (idParam.startsWith('temp_')) {
+        return res.json([]);
+      }
+      
+      const purchaseRequestId = parseInt(idParam);
+      if (isNaN(purchaseRequestId)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
       const includeTransferred = req.query.includeTransferred === 'true';
       const items = await storage.getPurchaseRequestItems(purchaseRequestId, includeTransferred);
 
@@ -988,7 +1018,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Phase transition routes
   app.post("/api/purchase-requests/:id/send-to-approval", isAuthenticated, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const idParam = req.params.id;
+      
+      // Handle temporary IDs
+      if (idParam.startsWith('temp_')) {
+        return res.status(400).json({ message: "Solicitação precisa ser salva antes de ser enviada para aprovação" });
+      }
+      
+      const id = parseInt(idParam);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
 
       const request = await storage.getPurchaseRequestById(id);
       if (!request || request.currentPhase !== "solicitacao") {
@@ -1019,7 +1059,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/purchase-requests/:id/can-approve-a1", isAuthenticated, async (req, res) => {
     try {
-      const requestId = parseInt(req.params.id);
+      const idParam = req.params.id;
+      
+      // Handle temporary IDs
+      if (idParam.startsWith('temp_')) {
+        return res.json({ canApprove: false, message: "Solicitação temporária não pode ser aprovada" });
+      }
+      
+      const requestId = parseInt(idParam);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      
       const userId = req.session.userId;
 
       const request = await storage.getPurchaseRequestById(requestId);
