@@ -2519,7 +2519,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotalValue,
         finalValue,
         discountType,
-        discountValue
+        discountValue,
+        includesFreight,
+        freightValue
       } = req.body;
 
       // Update supplier quotation request processing
@@ -2582,6 +2584,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         deliveryTerms: deliveryTerms || null,
         warrantyPeriod: warrantyPeriod || null,
         observations: observations || null,
+        includesFreight: includesFreight || false,
+        freightValue: freightValue || null,
         receivedAt: new Date()
       };
 

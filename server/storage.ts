@@ -1516,7 +1516,7 @@ export class DatabaseStorage implements IStorage {
   async getSupplierQuotations(
     quotationId: number,
   ): Promise<SupplierQuotation[]> {
-    return await db
+    const results = await db
       .select({
         id: supplierQuotations.id,
         quotationId: supplierQuotations.quotationId,
@@ -1552,6 +1552,35 @@ export class DatabaseStorage implements IStorage {
       .from(supplierQuotations)
       .leftJoin(suppliers, eq(supplierQuotations.supplierId, suppliers.id))
       .where(eq(supplierQuotations.quotationId, quotationId));
+
+    // Recalculate totalValue to include freight when applicable
+    return results.map(quotation => {
+      let calculatedTotalValue = quotation.totalValue;
+      
+      // If includes freight and has freight value, ensure totalValue includes it
+      if (quotation.includesFreight && quotation.freightValue) {
+        const baseValue = quotation.finalValue || quotation.subtotalValue || quotation.totalValue;
+        if (baseValue) {
+          const baseAmount = parseFloat(baseValue);
+          const freightAmount = parseFloat(quotation.freightValue);
+          
+          // Only add freight if it's not already included in totalValue
+          // Check if totalValue is approximately equal to baseValue + freight
+          const expectedTotal = baseAmount + freightAmount;
+          const currentTotal = parseFloat(quotation.totalValue || '0');
+          
+          // If current total doesn't match expected total (with small tolerance for rounding)
+          if (Math.abs(currentTotal - expectedTotal) > 0.01) {
+            calculatedTotalValue = expectedTotal.toString();
+          }
+        }
+      }
+      
+      return {
+        ...quotation,
+        totalValue: calculatedTotalValue
+      };
+    });
   }
 
   async getSupplierQuotationById(
