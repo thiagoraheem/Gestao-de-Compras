@@ -924,7 +924,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/purchase-requests/:id/items", isAuthenticated, async (req, res) => {
     try {
       const purchaseRequestId = parseInt(req.params.id);
-      const items = await storage.getPurchaseRequestItems(purchaseRequestId);
+      const includeTransferred = req.query.includeTransferred === 'true';
+      const items = await storage.getPurchaseRequestItems(purchaseRequestId, includeTransferred);
 
       // Map the items to match the frontend EditableItem interface
       const mappedItems = items.map(item => ({
@@ -932,7 +933,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: item.description,
         unit: item.unit,
         requestedQuantity: parseFloat(item.requestedQuantity) || 0,
-        technicalSpecification: item.technicalSpecification || ""
+        technicalSpecification: item.technicalSpecification || "",
+        isTransferred: item.isTransferred,
+        transferReason: item.transferReason,
+        transferredToRequestId: item.transferredToRequestId
       }));
 
       res.json(mappedItems);
@@ -2827,9 +2831,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "approved",
       });
 
-      // Para seleção individual, não removemos itens da solicitação original
-      // Em vez disso, apenas criamos nova solicitação com os não selecionados
-      // A solicitação original prossegue com todos os itens
+      // Para seleção individual, marcar itens não selecionados como transferidos
+      if (selectedItems && selectedItems.length > 0 && nonSelectedItems && nonSelectedItems.length > 0 && nonSelectedItemsOption === 'separate-quotation') {
+        // Buscar os itens da solicitação original
+        const quotationItems = await storage.getQuotationItems(quotationId);
+        const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId);
+        
+        // Marcar itens não selecionados como transferidos
+        for (const nonSelectedItem of nonSelectedItems) {
+          // Encontrar o quotation item correspondente
+          const quotationItem = quotationItems.find(qi => qi.id === nonSelectedItem.quotationItemId);
+          if (quotationItem) {
+            // Encontrar o item original usando o purchaseRequestItemId do quotation_item
+            const originalItem = originalItems.find(item => 
+              item.id === quotationItem.purchaseRequestItemId
+            );
+            
+            if (originalItem) {
+              // Marcar como transferido (será atualizado com o ID da nova solicitação depois)
+              await storage.updatePurchaseRequestItem(originalItem.id, {
+                isTransferred: true,
+                transferReason: "Item não selecionado - movido para cotação separada",
+                transferredAt: new Date()
+              });
+            }
+          }
+        }
+      }
 
       // Avançar a solicitação para aprovação A2
       await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
@@ -2895,6 +2923,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     estimatedUnitPrice: originalItem.estimatedUnitPrice,
                     estimatedTotalPrice: originalItem.estimatedTotalPrice,
                     justification: `Item não selecionado para cotação separada`
+                  });
+                  
+                  // Atualizar o item original para referenciar a nova solicitação
+                  await storage.updatePurchaseRequestItem(originalItem.id, {
+                    transferredToRequestId: nonSelectedRequest.id
                   });
                 }
               }

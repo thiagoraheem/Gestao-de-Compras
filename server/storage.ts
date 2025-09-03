@@ -57,7 +57,7 @@ import {
   type InsertAttachment,
 } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, and, desc, like, sql, gt, count } from "drizzle-orm";
+import { eq, and, desc, like, sql, gt, count, or, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import bcrypt from "bcryptjs";
 
@@ -179,6 +179,7 @@ export interface IStorage {
   // Purchase Request Items operations
   getPurchaseRequestItems(
     purchaseRequestId: number,
+    includeTransferred?: boolean
   ): Promise<PurchaseRequestItem[]>;
   createPurchaseRequestItem(
     item: InsertPurchaseRequestItem,
@@ -1300,12 +1301,27 @@ export class DatabaseStorage implements IStorage {
   // Purchase Request Items operations
   async getPurchaseRequestItems(
     purchaseRequestId: number,
+    includeTransferred: boolean = false
   ): Promise<PurchaseRequestItem[]> {
-    return await db
+    let query = db
       .select()
       .from(purchaseRequestItems)
-      .where(eq(purchaseRequestItems.purchaseRequestId, purchaseRequestId))
-      .orderBy(purchaseRequestItems.id);
+      .where(eq(purchaseRequestItems.purchaseRequestId, purchaseRequestId));
+    
+    // Por padrão, excluir itens transferidos das visualizações ativas
+    if (!includeTransferred) {
+      query = query.where(
+        and(
+          eq(purchaseRequestItems.purchaseRequestId, purchaseRequestId),
+          or(
+            eq(purchaseRequestItems.isTransferred, false),
+            isNull(purchaseRequestItems.isTransferred)
+          )
+        )
+      );
+    }
+    
+    return await query.orderBy(purchaseRequestItems.id);
   }
 
   async createPurchaseRequestItem(

@@ -173,6 +173,11 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   requestedQuantity: decimal("requested_quantity", { precision: 10, scale: 2 }).notNull(),
   approvedQuantity: decimal("approved_quantity", { precision: 10, scale: 2 }),
   technicalSpecification: text("technical_specification"),
+  // Campos para controle de transferência de itens
+  isTransferred: boolean("is_transferred").default(false),
+  transferredToRequestId: integer("transferred_to_request_id").references(() => purchaseRequests.id),
+  transferReason: text("transfer_reason"),
+  transferredAt: timestamp("transferred_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
