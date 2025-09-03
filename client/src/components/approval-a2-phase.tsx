@@ -249,261 +249,6 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
     form.setValue('approved', false);
   };
 
-  if (!canApprove) {
-    return (
-      <Card className={cn("w-full max-w-4xl", className)}>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" />
-              Aprovação A2 - {request.requestNumber}
-            </CardTitle>
-            {onClose && (
-              <Button variant="ghost" size="sm" onClick={onClose}>
-                ✕
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        
-        <CardContent className="p-6 space-y-6">
-          <Alert className="border-amber-200 bg-amber-50">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-amber-700">
-              <strong>Visualização Somente Leitura:</strong> Você não possui permissão de aprovação nível A2. 
-              Entre em contato com o administrador do sistema para obter acesso.
-            </AlertDescription>
-          </Alert>
-
-          {/* Request Information - Read Only */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-gray-700">Solicitante</Label>
-              <p className="text-sm text-gray-900">{request.requesterName || 'N/A'}</p>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-gray-700">Departamento</Label>
-              <p className="text-sm text-gray-900">
-                {request.department ? 
-                  (typeof request.department === 'object' ? 
-                    request.department.name : 
-                    request.department
-                  ) : 'N/A'
-                }
-              </p>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-gray-700">Centro de Custo</Label>
-              <p className="text-sm text-gray-900">
-                {request.costCenter ? 
-                  (typeof request.costCenter === 'object' ? 
-                    `${request.costCenter.code} - ${request.costCenter.name}` : 
-                    request.costCenter
-                  ) : 'N/A'
-                }
-              </p>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-gray-700">Urgência</Label>
-              <Badge variant={request.urgency === 'alta' ? 'destructive' : request.urgency === 'media' ? 'secondary' : 'default'}>
-                {request.urgency}
-              </Badge>
-            </div>
-          </div>
-
-          {/* Items Section - Read Only */}
-          {transformedItems.length > 0 && (
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Itens da Solicitação</Label>
-              <div className="space-y-2">
-                {transformedItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium">{item.description}</p>
-                      <p className="text-sm text-gray-600">
-                        Quantidade: {item.requestedQuantity} {item.unit}
-                      </p>
-                      {item.unitPrice > 0 && (
-                        <div className="text-sm space-y-1">
-                          <p className="text-green-600 font-medium">
-                            Valor unitário: R$ {item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </p>
-                          {item.itemDiscount > 0 && (
-                            <p className="text-orange-600 text-xs">
-                              Desconto do item: R$ {item.itemDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </p>
-                          )}
-                          <p className="text-green-700 font-semibold">
-                            Total: R$ {item.totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Financial Summary */}
-                {selectedSupplierQuotation && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="font-semibold text-blue-800 mb-3">Resumo Financeiro</h4>
-                    <div className="space-y-2">
-                      {(() => {
-                        const subtotal = transformedItems.reduce((sum, item) => sum + (item.originalTotalPrice || item.totalPrice), 0);
-                        const totalDiscount = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
-                        const finalValue = Number(selectedSupplierQuotation.totalValue || 0);
-                        
-
-                        
-                        return (
-                          <>
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-700">Subtotal (sem desconto):</span>
-                              <span className="font-medium text-gray-900">
-                                R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                            
-                            {totalDiscount > 0 && (
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm text-orange-600">Desconto da proposta:</span>
-                                <span className="font-medium text-orange-600">
-                                  {selectedSupplierQuotation.discountType === 'percentage' 
-                                    ? `- ${totalDiscount}%`
-                                    : `- R$ ${totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                  }
-                                </span>
-                              </div>
-                            )}
-                            
-                            {/* Freight Information */}
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-700 flex items-center gap-1">
-                                <Truck className="h-4 w-4" />
-                                Frete:
-                              </span>
-                              <span className="font-medium">
-                                {selectedSupplierQuotation.includesFreight ? (
-                                  <span className="text-blue-600">
-                                    R$ {Number(selectedSupplierQuotation.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-500">Não incluso</span>
-                                )}
-                              </span>
-                            </div>
-                            
-                            <div className="border-t border-blue-300 pt-2 mt-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-base font-semibold text-blue-800">Valor Final:</span>
-                                <span className="text-lg font-bold text-green-700">
-                                  R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Selected Supplier */}
-          {selectedSupplierQuotation && (
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Fornecedor Vencedor</Label>
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <h3 className="font-semibold text-green-800">{selectedSupplierQuotation.supplier?.name}</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">E-mail:</p>
-                    <p className="text-sm font-medium">{selectedSupplierQuotation.supplier?.email || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Telefone:</p>
-                    <p className="text-sm font-medium">{selectedSupplierQuotation.supplier?.phone || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Valor Total da Proposta:</p>
-                    <p className="font-medium text-green-700">
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                      }).format(Number(selectedSupplierQuotation.totalValue || 0))}
-                    </p>
-                    {selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue && (
-                      <p className="text-sm text-orange-600 mt-1">
-                        Desconto da proposta: {selectedSupplierQuotation.discountType === 'percentage' 
-                          ? `${selectedSupplierQuotation.discountValue}%`
-                          : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(2).replace('.', ',')}`
-                        }
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Condições de Pagamento:</p>
-                    <p className="text-sm font-medium">{selectedSupplierQuotation.paymentTerms || "N/A"}</p>
-                  </div>
-                </div>
-                {selectedSupplierQuotation.choiceReason && (
-                  <div className="mt-3">
-                    <p className="text-sm text-gray-600 mb-1">Justificativa da Escolha:</p>
-                    <p className="text-sm text-gray-700">{selectedSupplierQuotation.choiceReason}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Approval History */}
-          {approvalHistory && approvalHistory.length > 0 && (
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Histórico de Aprovações</Label>
-              <div className="space-y-2">
-                {approvalHistory.map((history: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">{history.approverName}</p>
-                      <p className="text-sm text-gray-600">{getPhaseDescription(history.approverType)}</p>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant={history.approved ? 'default' : 'destructive'}>
-                        {history.approved ? 'Aprovado' : 'Reprovado'}
-                      </Badge>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {new Date(history.createdAt).toLocaleString('pt-BR')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Supplier Attachments */}
-          {supplierAttachments && supplierAttachments.length > 0 && (
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Anexos dos Fornecedores</Label>
-              <div className="space-y-2">
-                {supplierAttachments.map((attachment: any) => (
-                  <div key={attachment.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                    <Paperclip className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm">{attachment.fileName}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <>
     <Card className={cn("w-full max-w-4xl", className)}>
@@ -876,8 +621,6 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
           </CardContent>
         </Card>
 
-        {/* Attachments section removed - no longer showing purchase request attachments */}
-
         {/* Supplier Attachments */}
         {supplierAttachments && supplierAttachments.length > 0 && (
           <Card>
@@ -982,8 +725,9 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
           </Card>
         )}
 
+          
         {/* Supplier Comparison */}
-        {quotation?.id && (
+        {canApprove && quotation?.id && (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-lg">Comparação de Fornecedores</CardTitle>
@@ -1005,107 +749,110 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
         )}
 
         {/* Approval Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Ação de Aprovação A2</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="flex gap-4">
-                  <Button
-                    type="button"
-                    variant={selectedAction === 'approve' ? 'default' : 'outline'}
-                    className="flex-1"
-                    onClick={handleApprove}
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Aprovar
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={selectedAction === 'reject' ? 'destructive' : 'outline'}
-                    className="flex-1"
-                    onClick={handleReject}
-                  >
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Reprovar
-                  </Button>
-                </div>
-
-                {selectedAction === 'reject' && (
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="rejectionAction"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Destino da Solicitação Reprovada</FormLabel>
-                          <FormControl>
-                            <RadioGroup
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                              className="flex flex-col space-y-2"
-                            >
-                              {(user?.isAdmin || user?.isBuyer) && (
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="archive" id="archive" />
-                                  <Label htmlFor="archive">Arquivar definitivamente</Label>
-                                </div>
-                              )}
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="recotacao" id="recotacao" />
-                                <Label htmlFor="recotacao">Retornar para nova cotação</Label>
-                              </div>
-                            </RadioGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="rejectionReason"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Justificativa da Reprovação</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Explique o motivo da reprovação..."
-                              {...field}
-                              rows={4}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
-                {selectedAction && (
-                  <div className="flex justify-end gap-2">
+        {canApprove && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Ação de Aprovação A2</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="flex gap-4">
                     <Button
                       type="button"
-                      variant="outline"
-                      onClick={() => setSelectedAction(null)}
+                      variant={selectedAction === 'approve' ? 'default' : 'outline'}
+                      className="flex-1"
+                      onClick={handleApprove}
                     >
-                      Cancelar
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Aprovar
                     </Button>
                     <Button
-                      type="submit"
-                      disabled={approvalMutation.isPending}
-                      className={selectedAction === 'approve' ? 'bg-green-500 hover:bg-green-600' : ''}
+                      type="button"
+                      variant={selectedAction === 'reject' ? 'destructive' : 'outline'}
+                      className="flex-1"
+                      onClick={handleReject}
                     >
-                      {approvalMutation.isPending ? 'Processando...' : 'Confirmar'}
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Reprovar
                     </Button>
                   </div>
-                )}
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+
+                  {selectedAction === 'reject' && (
+                    <div className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="rejectionAction"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Destino da Solicitação Reprovada</FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                className="flex flex-col space-y-2"
+                              >
+                                {(user?.isAdmin || user?.isBuyer) && (
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="archive" id="archive" />
+                                    <Label htmlFor="archive">Arquivar definitivamente</Label>
+                                  </div>
+                                )}
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="recotacao" id="recotacao" />
+                                  <Label htmlFor="recotacao">Retornar para nova cotação</Label>
+                                </div>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="rejectionReason"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Justificativa da Reprovação</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Explique o motivo da reprovação..."
+                                {...field}
+                                rows={4}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  {selectedAction && (
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setSelectedAction(null)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={approvalMutation.isPending}
+                        className={selectedAction === 'approve' ? 'bg-green-500 hover:bg-green-600' : ''}
+                      >
+                        {approvalMutation.isPending ? 'Processando...' : 'Confirmar'}
+                      </Button>
+                    </div>
+                  )}
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        )}
+        
       </CardContent>
     </Card>
     
