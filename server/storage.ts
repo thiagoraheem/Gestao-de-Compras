@@ -284,6 +284,7 @@ export interface IStorage {
 // Create aliases for user tables
 const requesterUser = alias(users, "requester_user");
 const approverA1User = alias(users, "approver_a1_user");
+const chosenSupplier = alias(suppliers, "chosen_supplier");
 
 export class DatabaseStorage implements IStorage {
   // Company operations
@@ -834,6 +835,12 @@ export class DatabaseStorage implements IStorage {
         },
         // Check if quotation exists
         hasQuotation: sql<boolean>`EXISTS(SELECT 1 FROM ${quotations} WHERE ${quotations.purchaseRequestId} = ${purchaseRequests.id})`,
+        // Chosen Supplier data
+        chosenSupplier: {
+          id: chosenSupplier.id,
+          name: chosenSupplier.name,
+          email: chosenSupplier.email,
+        },
       })
       .from(purchaseRequests)
       .leftJoin(
@@ -846,6 +853,10 @@ export class DatabaseStorage implements IStorage {
       )
       .leftJoin(costCenters, eq(purchaseRequests.costCenterId, costCenters.id))
       .leftJoin(departments, eq(costCenters.departmentId, departments.id))
+      .leftJoin(
+        chosenSupplier,
+        eq(purchaseRequests.chosenSupplierId, chosenSupplier.id),
+      )
       .where(companyId ? eq(purchaseRequests.companyId, companyId) : undefined)
       .orderBy(desc(purchaseRequests.createdAt));
 

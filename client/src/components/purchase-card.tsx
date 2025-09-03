@@ -809,6 +809,17 @@ export default function PurchaseCard({
                 </p>
               )}
 
+            {/* Show chosen supplier for specific phases */}
+            {(phase === PURCHASE_PHASES.APROVACAO_A2 ||
+              phase === PURCHASE_PHASES.PEDIDO_COMPRA ||
+              phase === PURCHASE_PHASES.RECEBIMENTO ||
+              phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) &&
+              request.chosenSupplier && (
+                <p>
+                  <strong>Fornecedor:</strong> {request.chosenSupplier.name}
+                </p>
+              )}
+
             {phase === PURCHASE_PHASES.APROVACAO_A1 && (
               <p>
                 <strong>Aprovador:</strong> Pendente
