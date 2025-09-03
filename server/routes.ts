@@ -2883,6 +2883,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         console.log(`Valor recalculado após transferência: R$ ${recalculatedTotalValue.toFixed(2)} (era R$ ${totalValue.toFixed(2)})`);
+        
+        // Atualizar também o valor da cotação do fornecedor selecionado
+        if (selectedSupplierQuotation) {
+          await storage.updateSupplierQuotation(selectedSupplierQuotation.id, {
+            totalValue: recalculatedTotalValue.toString()
+          });
+          console.log(`Cotação do fornecedor atualizada com valor: R$ ${recalculatedTotalValue.toFixed(2)}`);
+        }
       }
 
       // Avançar a solicitação para aprovação A2
