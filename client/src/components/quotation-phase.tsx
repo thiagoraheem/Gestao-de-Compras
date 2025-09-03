@@ -454,6 +454,16 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                 </Button>
               )}
               
+              {hasQuotation && supplierQuotations.length > 0 && user?.isBuyer && (
+                <Button 
+                  onClick={() => setShowRFQAnalysis(true)}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Analisar Cotações
+                </Button>
+              )}
+              
               {canCompareSuppliers && user?.isBuyer && (
                 <Button 
                   onClick={() => setShowSupplierComparison(true)}
