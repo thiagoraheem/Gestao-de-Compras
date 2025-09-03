@@ -124,9 +124,11 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000 for Replit compatibility
+  // In Replit, always use port 5000. In production deployment, use environment PORT
   // this serves both the API and the client.
-  const port = 5000;
+  const port = process.env.NODE_ENV === 'production' && process.env.PORT 
+    ? parseInt(process.env.PORT, 10) 
+    : 5000;
   server.listen({
     port,
     host: "0.0.0.0",
