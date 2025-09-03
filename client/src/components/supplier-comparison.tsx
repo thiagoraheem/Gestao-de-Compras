@@ -51,12 +51,18 @@ interface SupplierQuotationData {
   warrantyPeriod: string;
   paymentTerms: string;
   observations: string;
+  discountType?: string;
+  discountValue?: number;
 }
 
 export default function SupplierComparison({ quotationId, onClose, onComplete }: SupplierComparisonProps) {
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [observations, setObservations] = useState("");
   const [createNewRequestForUnavailable, setCreateNewRequestForUnavailable] = useState(false);
+  const [unavailableItemsOption, setUnavailableItemsOption] = useState<'none' | 'with-rfq' | 'without-rfq'>('none');
+  const [selectedItems, setSelectedItems] = useState<{[key: number]: boolean}>({});
+  const [nonSelectedItemsOption, setNonSelectedItemsOption] = useState<'none' | 'separate-quotation' | 'info-only'>('none');
+  const [showItemSelection, setShowItemSelection] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -65,13 +71,22 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
   });
 
   // Fetch quotation items to get descriptions
-  const { data: quotationItems = [] } = useQuery({
+  const { data: quotationItems = [] } = useQuery<any[]>({
     queryKey: [`/api/quotations/${quotationId}/items`],
     enabled: !!quotationId,
   });
 
   const selectSupplierMutation = useMutation({
-    mutationFn: async (data: { selectedSupplierId: number; totalValue: number; observations: string; createNewRequest?: boolean; unavailableItems?: any[] }) => {
+    mutationFn: async (data: { 
+      selectedSupplierId: number; 
+      totalValue: number; 
+      observations: string; 
+      createNewRequest?: boolean; 
+      unavailableItems?: any[];
+      unavailableItemsOption?: string;
+      selectedItems?: any[];
+      nonSelectedItemsOption?: string;
+    }) => {
       return apiRequest(`/api/quotations/${quotationId}/select-supplier`, { method: "POST", body: data });
     },
     onSuccess: (response) => {
@@ -118,19 +133,29 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
     if (!selectedSupplier) return;
 
     // Preparar lista de itens indisponíveis se necessário
-    const unavailableItemsData = createNewRequestForUnavailable && hasUnavailableItems 
+    const unavailableItemsData = hasUnavailableItems && unavailableItemsOption !== 'none'
       ? unavailableItems.map(item => ({
           quotationItemId: item.quotationItemId,
           reason: item.unavailabilityReason || "Item indisponível"
         }))
       : undefined;
 
+    // Preparar lista de itens selecionados se estiver em modo de seleção individual
+    const selectedItemsData = showItemSelection 
+      ? Object.entries(selectedItems)
+          .filter(([_, isSelected]) => isSelected)
+          .map(([itemId, _]) => ({ quotationItemId: parseInt(itemId) }))
+      : undefined;
+
     selectSupplierMutation.mutate({
       selectedSupplierId,
       totalValue: selectedSupplier.totalValue,
       observations,
-      createNewRequest: createNewRequestForUnavailable,
+      createNewRequest: hasUnavailableItems && unavailableItemsOption !== 'none',
       unavailableItems: unavailableItemsData,
+      unavailableItemsOption,
+      selectedItems: selectedItemsData,
+      nonSelectedItemsOption: showItemSelection ? nonSelectedItemsOption : 'none',
     });
   };
 
@@ -144,6 +169,26 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
     : [];
   
   const hasUnavailableItems = unavailableItems.length > 0 && selectedSupplierId !== null;
+
+  // Função para inicializar seleção de itens disponíveis
+  const initializeItemSelection = () => {
+    if (selectedSupplierData) {
+      const availableItems = selectedSupplierData.items.filter(item => item.isAvailable !== false);
+      const initialSelection: {[key: number]: boolean} = {};
+      availableItems.forEach(item => {
+        initialSelection[item.quotationItemId] = true; // Por padrão, todos os itens disponíveis são selecionados
+      });
+      setSelectedItems(initialSelection);
+    }
+  };
+
+  // Inicializar seleção quando fornecedor for selecionado e modo de seleção ativado
+  const handleToggleItemSelection = () => {
+    if (!showItemSelection) {
+      initializeItemSelection();
+    }
+    setShowItemSelection(!showItemSelection);
+  };
 
   if (isLoading) {
     return (
@@ -472,41 +517,212 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                 </CardContent>
               </Card>
 
-              {/* Alerta para itens indisponíveis - apenas após seleção do fornecedor */}
+              {/* Opções para itens indisponíveis */}
               {selectedSupplierId && hasUnavailableItems && (
-                <Alert className="mb-6">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="space-y-2">
-                      <p className="font-medium">Foram encontrados {unavailableItems.length} item(ns) indisponível(is):</p>
-                      <ul className="list-disc list-inside space-y-1 text-sm">
-                        {unavailableItems.map((item, index) => {
-                          const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
-                          return (
-                            <li key={index}>
-                              {quotationItem?.description || `Item ${item.quotationItemId}`}
-                              {item.unavailabilityReason && (
-                                <span className="text-gray-600"> - {item.unavailabilityReason}</span>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                      <div className="flex items-center space-x-2 mt-3">
-                        <input
-                          type="checkbox"
-                          id="createNewRequest"
-                          checked={createNewRequestForUnavailable}
-                          onChange={(e) => setCreateNewRequestForUnavailable(e.target.checked)}
-                          className="rounded border-gray-300"
-                        />
-                        <label htmlFor="createNewRequest" className="text-sm font-medium">
-                          Criar nova solicitação automaticamente para os itens indisponíveis
-                        </label>
+                <Card className="mb-6 border-orange-200 bg-orange-50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-orange-800">
+                      <AlertCircle className="h-5 w-5" />
+                      Itens Indisponíveis Encontrados
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="font-medium text-orange-800 mb-2">
+                          {unavailableItems.length} item(ns) indisponível(is):
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-sm text-orange-700">
+                          {unavailableItems.map((item, index) => {
+                            const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
+                            return (
+                              <li key={index}>
+                                {quotationItem?.description || `Item ${item.quotationItemId}`}
+                                {item.unavailabilityReason && (
+                                  <span className="text-orange-600"> - {item.unavailabilityReason}</span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-3">
+                        <p className="font-medium text-gray-900">Escolha uma opção para os itens indisponíveis:</p>
+                        
+                        <div className="space-y-2">
+                          <label className="flex items-start space-x-3 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="unavailableOption"
+                              value="none"
+                              checked={unavailableItemsOption === 'none'}
+                              onChange={(e) => setUnavailableItemsOption(e.target.value as any)}
+                              className="mt-1"
+                            />
+                            <div>
+                              <span className="font-medium">Não realizar nenhuma ação</span>
+                              <p className="text-sm text-gray-600">Prosseguir para Aprovação A2 sem os itens indisponíveis</p>
+                            </div>
+                          </label>
+
+                          <label className="flex items-start space-x-3 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="unavailableOption"
+                              value="with-rfq"
+                              checked={unavailableItemsOption === 'with-rfq'}
+                              onChange={(e) => setUnavailableItemsOption(e.target.value as any)}
+                              className="mt-1"
+                            />
+                            <div>
+                              <span className="font-medium">Criar solicitação aprovada A1 com RFQ gerada</span>
+                              <p className="text-sm text-gray-600">
+                                Mantém fornecedores selecionados anteriormente (exceto o atual) e gera RFQ automaticamente
+                              </p>
+                            </div>
+                          </label>
+
+                          <label className="flex items-start space-x-3 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="unavailableOption"
+                              value="without-rfq"
+                              checked={unavailableItemsOption === 'without-rfq'}
+                              onChange={(e) => setUnavailableItemsOption(e.target.value as any)}
+                              className="mt-1"
+                            />
+                            <div>
+                              <span className="font-medium">Criar solicitação aprovada A1 aguardando nova RFQ</span>
+                              <p className="text-sm text-gray-600">
+                                Criará solicitação na fase de Cotação aguardando criação de nova RFQ
+                              </p>
+                            </div>
+                          </label>
+                        </div>
                       </div>
                     </div>
-                  </AlertDescription>
-                </Alert>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Seleção individual de itens */}
+              {selectedSupplierId && selectedSupplierData && (
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-5 w-5" />
+                        Seleção de Itens
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleToggleItemSelection}
+                      >
+                        {showItemSelection ? 'Seleção Simples' : 'Seleção Individual'}
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {showItemSelection ? (
+                      <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                          Selecione individualmente os itens que deseja adquirir do fornecedor escolhido:
+                        </p>
+                        
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {selectedSupplierData.items
+                            .filter(item => item.isAvailable !== false)
+                            .map((item) => {
+                              const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
+                              return (
+                                <label key={item.id} className="flex items-center space-x-3 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedItems[item.quotationItemId] || false}
+                                    onChange={(e) => setSelectedItems(prev => ({
+                                      ...prev,
+                                      [item.quotationItemId]: e.target.checked
+                                    }))}
+                                    className="rounded"
+                                  />
+                                  <div className="flex-1">
+                                    <span className="font-medium">
+                                      {quotationItem?.description || `Item ${item.quotationItemId}`}
+                                    </span>
+                                    <div className="text-sm text-gray-600">
+                                      R$ {Number(item.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                      {item.brand && ` - ${item.brand} ${item.model}`}
+                                    </div>
+                                  </div>
+                                </label>
+                              );
+                            })}
+                        </div>
+
+                        {/* Opções para itens não selecionados */}
+                        <div className="border-t pt-4 space-y-3">
+                          <p className="font-medium text-gray-900">
+                            O que fazer com os itens não selecionados?
+                          </p>
+                          
+                          <div className="space-y-2">
+                            <label className="flex items-start space-x-3 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="nonSelectedOption"
+                                value="none"
+                                checked={nonSelectedItemsOption === 'none'}
+                                onChange={(e) => setNonSelectedItemsOption(e.target.value as any)}
+                                className="mt-1"
+                              />
+                              <div>
+                                <span className="font-medium">Não realizar nenhuma ação</span>
+                                <p className="text-sm text-gray-600">Prosseguir para Aprovação A2 apenas com itens selecionados</p>
+                              </div>
+                            </label>
+
+                            <label className="flex items-start space-x-3 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="nonSelectedOption"
+                                value="separate-quotation"
+                                checked={nonSelectedItemsOption === 'separate-quotation'}
+                                onChange={(e) => setNonSelectedItemsOption(e.target.value as any)}
+                                className="mt-1"
+                              />
+                              <div>
+                                <span className="font-medium">Gerar cotação separada</span>
+                                <p className="text-sm text-gray-600">Criar nova solicitação com características do item 1 acima</p>
+                              </div>
+                            </label>
+
+                            <label className="flex items-start space-x-3 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="nonSelectedOption"
+                                value="info-only"
+                                checked={nonSelectedItemsOption === 'info-only'}
+                                onChange={(e) => setNonSelectedItemsOption(e.target.value as any)}
+                                className="mt-1"
+                              />
+                              <div>
+                                <span className="font-medium">Manter apenas como informação</span>
+                                <p className="text-sm text-gray-600">Salvar informações para ações futuras, sem criar nova solicitação</p>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600">
+                        Todos os itens disponíveis do fornecedor selecionado serão incluídos na compra.
+                        Clique em "Seleção Individual" para escolher itens específicos.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
               )}
 
               {/* Ações */}
