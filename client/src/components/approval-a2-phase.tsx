@@ -17,7 +17,8 @@ import {
   MessageSquare,
   History,
   Paperclip,
-  BarChart3
+  BarChart3,
+  Truck
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -282,11 +283,25 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
             </div>
             <div>
               <Label className="text-sm font-medium text-gray-700">Departamento</Label>
-              <p className="text-sm text-gray-900">{request.department || 'N/A'}</p>
+              <p className="text-sm text-gray-900">
+                {request.department ? 
+                  (typeof request.department === 'object' ? 
+                    request.department.name : 
+                    request.department
+                  ) : 'N/A'
+                }
+              </p>
             </div>
             <div>
               <Label className="text-sm font-medium text-gray-700">Centro de Custo</Label>
-              <p className="text-sm text-gray-900">{request.costCenter || 'N/A'}</p>
+              <p className="text-sm text-gray-900">
+                {request.costCenter ? 
+                  (typeof request.costCenter === 'object' ? 
+                    `${request.costCenter.code} - ${request.costCenter.name}` : 
+                    request.costCenter
+                  ) : 'N/A'
+                }
+              </p>
             </div>
             <div>
               <Label className="text-sm font-medium text-gray-700">Urgência</Label>
@@ -359,6 +374,23 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                                 </span>
                               </div>
                             )}
+                            
+                            {/* Freight Information */}
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-700 flex items-center gap-1">
+                                <Truck className="h-4 w-4" />
+                                Frete:
+                              </span>
+                              <span className="font-medium">
+                                {selectedSupplierQuotation.includesFreight ? (
+                                  <span className="text-blue-600">
+                                    R$ {Number(selectedSupplierQuotation.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-500">Não incluso</span>
+                                )}
+                              </span>
+                            </div>
                             
                             <div className="border-t border-blue-300 pt-2 mt-2">
                               <div className="flex justify-between items-center">
@@ -634,6 +666,29 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                   )}
                 </div>
                 <div>
+                  <Label className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    Frete
+                  </Label>
+                  <p className="text-lg font-semibold mt-1">
+                    {selectedSupplierQuotation.includesFreight ? (
+                      <span className="text-blue-600">
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL',
+                        }).format(Number(selectedSupplierQuotation.freightValue || 0))}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">Não incluso</span>
+                    )}
+                  </p>
+                  {selectedSupplierQuotation.includesFreight && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      ✓ Frete incluído na proposta
+                    </p>
+                  )}
+                </div>
+                <div>
                   <Label className="text-sm font-medium text-gray-600">Condições de Pagamento</Label>
                   <p className="text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
                 </div>
@@ -759,6 +814,23 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                                 </span>
                               </div>
                             )}
+                            
+                            {/* Freight Information */}
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-700 flex items-center gap-1">
+                                <Truck className="h-4 w-4" />
+                                Frete:
+                              </span>
+                              <span className="font-medium">
+                                {selectedSupplierQuotation.includesFreight ? (
+                                  <span className="text-blue-600">
+                                    R$ {Number(selectedSupplierQuotation.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-500">Não incluso</span>
+                                )}
+                              </span>
+                            </div>
                             
                             <div className="border-t border-blue-300 pt-2 mt-2">
                               <div className="flex justify-between items-center">
