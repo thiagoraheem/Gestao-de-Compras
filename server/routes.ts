@@ -2832,6 +2832,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Para seleção individual, marcar itens não selecionados como transferidos
+      let recalculatedTotalValue = totalValue;
       if (selectedItems && selectedItems.length > 0 && nonSelectedItems && nonSelectedItems.length > 0 && nonSelectedItemsOption === 'separate-quotation') {
         // Buscar os itens da solicitação original
         const quotationItems = await storage.getQuotationItems(quotationId);
@@ -2857,12 +2858,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
+        
+        // Recalcular valor total apenas com itens selecionados
+        if (selectedSupplierQuotation) {
+          const supplierQuotationItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+          recalculatedTotalValue = selectedItems.reduce((total, selectedItem) => {
+            const supplierItem = supplierQuotationItems.find(item => 
+              item.quotationItemId === selectedItem.quotationItemId
+            );
+            if (supplierItem && supplierItem.finalValue) {
+              return total + parseFloat(supplierItem.finalValue);
+            }
+            return total;
+          }, 0);
+        }
+        
+        console.log(`Valor recalculado após transferência: R$ ${recalculatedTotalValue.toFixed(2)} (era R$ ${totalValue.toFixed(2)})`);
       }
 
       // Avançar a solicitação para aprovação A2
       await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
         currentPhase: "aprovacao_a2",
-        totalValue,
+        totalValue: recalculatedTotalValue,
         chosenSupplierId: selectedSupplierId,
         choiceReason: observations
       });
