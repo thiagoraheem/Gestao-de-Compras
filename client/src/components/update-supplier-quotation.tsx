@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -55,6 +56,7 @@ import {
   Clock,
   Eye,
   History,
+  Truck,
 } from "lucide-react";
 import debug from "@/lib/debug";
 
@@ -99,6 +101,8 @@ const updateSupplierQuotationSchema = z.object({
   observations: z.string().optional(),
   discountType: z.enum(["none", "percentage", "fixed"]).default("none"),
   discountValue: z.string().optional(),
+  includesFreight: z.boolean().default(false),
+  freightValue: z.string().optional(),
 });
 
 type UpdateSupplierQuotationData = z.infer<
@@ -145,6 +149,8 @@ interface ExistingSupplierQuotation {
   discountValue?: string;
   subtotalValue?: string;
   finalValue?: string;
+  includesFreight?: boolean;
+  freightValue?: string;
 }
 
 interface SupplierAttachment {
@@ -214,6 +220,8 @@ export default function UpdateSupplierQuotation({
       observations: "",
       discountType: "none",
       discountValue: "",
+      includesFreight: false,
+      freightValue: "",
     },
   });
 
@@ -290,6 +298,14 @@ export default function UpdateSupplierQuotation({
       form.setValue(
         "discountValue",
         existingSupplierQuotation.discountValue || "",
+      );
+      form.setValue(
+        "includesFreight",
+        existingSupplierQuotation.includesFreight || false,
+      );
+      form.setValue(
+        "freightValue",
+        existingSupplierQuotation.freightValue || "",
       );
     }
   }, [existingSupplierQuotation, quotationItems, form]);
@@ -368,6 +384,8 @@ export default function UpdateSupplierQuotation({
                 ? parseFloat(data.discountValue)
                 : parseNumberFromCurrency(data.discountValue)
             ) : null,
+            includesFreight: data.includesFreight,
+            freightValue: data.freightValue ? parseNumberFromCurrency(data.freightValue) : null,
             paymentTerms: data.paymentTerms || null,
             deliveryTerms: data.deliveryTerms || null,
             warrantyPeriod: data.warrantyPeriod || null,
@@ -630,7 +648,16 @@ export default function UpdateSupplierQuotation({
   };
 
   const calculateTotalValue = () => {
-    return calculateFinalTotal();
+    const finalTotal = calculateFinalTotal();
+    const includesFreight = form.watch("includesFreight");
+    const freightValue = form.watch("freightValue");
+    
+    if (includesFreight && freightValue) {
+      const freightAmount = parseNumberFromCurrency(freightValue);
+      return finalTotal + freightAmount;
+    }
+    
+    return finalTotal;
   };
 
   if (isLoadingItems) {
@@ -1152,6 +1179,89 @@ export default function UpdateSupplierQuotation({
                         )}
                       />
 
+                      {/* Freight Section */}
+                      <FormField
+                        control={form.control}
+                        name="includesFreight"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={viewMode === 'view'}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="flex items-center gap-2">
+                                <Truck className="h-4 w-4" />
+                                Inclui Frete
+                              </FormLabel>
+                              <p className="text-sm text-muted-foreground">
+                                Marque se a proposta inclui valor de frete
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      {form.watch("includesFreight") && (
+                        <FormField
+                          control={form.control}
+                          name="freightValue"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Valor do Frete (R$)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder="0,00"
+                                  type="text"
+                                  readOnly={viewMode === 'view'}
+                                  className="w-full"
+                                  autoComplete="off"
+                                  onChange={(e) => {
+                                    if (viewMode === 'view') return;
+                                    
+                                    let inputValue = e.target.value;
+                                    if (/^\d+$/.test(inputValue)) {
+                                      field.onChange(inputValue);
+                                    } else {
+                                      const cleanValue = inputValue.replace(/[^\d.,]/g, "");
+                                      field.onChange(cleanValue);
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    if (viewMode === 'view') return;
+                                    
+                                    const value = e.target.value;
+                                    if (value) {
+                                      let number;
+                                      if (/^\d+$/.test(value)) {
+                                        number = parseFloat(value);
+                                      } else if (/^\d+[.,]\d+$/.test(value)) {
+                                        number = parseFloat(value.replace(",", "."));
+                                      } else {
+                                        const cleanValue = value.replace(/[^\d.,]/g, "");
+                                        number = parseFloat(cleanValue.replace(",", "."));
+                                      }
+                                      if (!isNaN(number)) {
+                                        const formatted = number.toLocaleString("pt-BR", {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        });
+                                        field.onChange(formatted);
+                                      }
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
                       <div className="flex flex-col justify-end">
                         <div className="text-right space-y-2">
                           <div>
@@ -1185,6 +1295,22 @@ export default function UpdateSupplierQuotation({
                                   }
                                   
                                   return discountAmount.toLocaleString("pt-BR", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  });
+                                })()}
+                              </p>
+                            </div>
+                          )}
+                          {form.watch("includesFreight") && form.watch("freightValue") && (
+                            <div>
+                              <p className="text-sm text-blue-600">Frete</p>
+                              <p className="text-lg font-semibold text-blue-600">
+                                + R$ {(() => {
+                                  const freightValue = form.watch("freightValue");
+                                  if (!freightValue) return "0,00";
+                                  const freightAmount = parseNumberFromCurrency(freightValue);
+                                  return freightAmount.toLocaleString("pt-BR", {
                                     minimumFractionDigits: 2,
                                     maximumFractionDigits: 2,
                                   });

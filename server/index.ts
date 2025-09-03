@@ -124,9 +124,9 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // In Replit, always use port 5000. In production deployment, use environment PORT
+  // Use PORT from environment variables, fallback to 5000 if not set
   // this serves both the API and the client.
-  const port = process.env.NODE_ENV === 'production' && process.env.PORT 
+  const port = process.env.PORT 
     ? parseInt(process.env.PORT, 10) 
     : 5000;
   server.listen({

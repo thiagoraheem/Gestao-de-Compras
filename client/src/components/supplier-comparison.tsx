@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle, DollarSign, Clock, Building2, Package, X, AlertCircle, XCircle } from "lucide-react";
+import { CheckCircle, DollarSign, Clock, Building2, Package, X, AlertCircle, XCircle, Truck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +53,8 @@ interface SupplierQuotationData {
   observations: string;
   discountType?: string;
   discountValue?: number;
+  includesFreight?: boolean;
+  freightValue?: number;
 }
 
 export default function SupplierComparison({ quotationId, onClose, onComplete }: SupplierComparisonProps) {
@@ -304,17 +306,34 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                         </div>
 
                         {/* Desconto da Proposta */}
-                        {(supplierData.discountType && supplierData.discountType !== 'none' && supplierData.discountValue) && (
-                          <div>
-                            <span className="text-sm font-medium text-gray-600">Desconto da Proposta:</span>
-                            <p className="text-sm mt-1 text-green-600 font-medium">
-                              {supplierData.discountType === 'percentage' 
-                                ? `${supplierData.discountValue}%`
-                                : `R$ ${Number(supplierData.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                              }
-                            </p>
-                          </div>
-                        )}
+        {(supplierData.discountType && supplierData.discountType !== 'none' && supplierData.discountValue) && (
+          <div>
+            <span className="text-sm font-medium text-gray-600">Desconto da Proposta:</span>
+            <p className="text-sm mt-1 text-green-600 font-medium">
+              {supplierData.discountType === 'percentage' 
+                ? `${supplierData.discountValue}%`
+                : `R$ ${Number(supplierData.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+              }
+            </p>
+          </div>
+        )}
+
+        {/* Frete */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Truck className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium">Frete</span>
+          </div>
+          <div className="text-sm">
+            {supplierData.includesFreight ? (
+              <span className="text-blue-600 font-medium">
+                R$ {Number(supplierData.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            ) : (
+              <span className="text-gray-500">Não incluso</span>
+            )}
+          </div>
+        </div>
 
                         {/* Itens */}
                         <div>

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { DollarSign, Clock, Building2, Package, X, AlertCircle, CheckCircle } from "lucide-react";
+import { DollarSign, Clock, Building2, Package, X, AlertCircle, CheckCircle, Truck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +39,8 @@ interface SupplierQuotationData {
   paymentTerms: string;
   observations: string;
   isChosen?: boolean;
+  includesFreight?: boolean;
+  freightValue?: number;
 }
 
 export default function SupplierComparisonReadonly({ quotationId, onClose }: SupplierComparisonReadonlyProps) {
@@ -174,6 +176,23 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                             </p>
                           </div>
                         )}
+
+                        {/* Frete */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Truck className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-medium">Frete</span>
+                          </div>
+                          <div className="text-sm">
+                            {supplierData.includesFreight ? (
+                              <span className="text-blue-600 font-medium">
+                                R$ {Number(supplierData.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500">Não incluso</span>
+                            )}
+                          </div>
+                        </div>
 
                         {/* Itens */}
                         <div>

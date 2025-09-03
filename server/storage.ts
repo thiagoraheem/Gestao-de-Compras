@@ -1529,6 +1529,8 @@ export class DatabaseStorage implements IStorage {
         finalValue: supplierQuotations.finalValue,
         discountType: supplierQuotations.discountType,
         discountValue: supplierQuotations.discountValue,
+        includesFreight: supplierQuotations.includesFreight,
+        freightValue: supplierQuotations.freightValue,
         paymentTerms: supplierQuotations.paymentTerms,
         deliveryTerms: supplierQuotations.deliveryTerms,
         warrantyPeriod: supplierQuotations.warrantyPeriod,

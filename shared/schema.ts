@@ -274,6 +274,9 @@ export const supplierQuotations = pgTable("supplier_quotations", {
   discountValue: decimal("discount_value", { precision: 15, scale: 4 }).default("0"),
   subtotalValue: decimal("subtotal_value", { precision: 15, scale: 2 }),
   finalValue: decimal("final_value", { precision: 15, scale: 2 }),
+  // Freight fields
+  includesFreight: boolean("includes_freight").default(false),
+  freightValue: decimal("freight_value", { precision: 15, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
