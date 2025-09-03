@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export interface EditableItem {
-  id?: number;
+  id?: number | string;
   description: string;
   unit: string;
   requestedQuantity: number;
@@ -21,7 +21,7 @@ interface EditableItemsTableProps {
 }
 
 export default function EditableItemsTable({ items, onChange, readonly = false, className }: EditableItemsTableProps) {
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | string | null>(null);
   const [editingValues, setEditingValues] = useState<EditableItem>({
     description: '',
     unit: '',
@@ -30,7 +30,7 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
 
   const handleAddItem = () => {
     const newItem: EditableItem = {
-      id: Date.now(), // Temporary ID for new items
+      id: `temp_${Date.now()}` as any, // Temporary ID for new items - using string to avoid confusion with real IDs
       description: '',
       unit: '',
       requestedQuantity: 0

@@ -1811,7 +1811,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // For now, return success response as quotation functionality is simplified
       res.status(201).json({ 
-        id: Date.now(), 
+        id: Math.floor(Math.random() * 1000000), // Generate a reasonable temporary ID
         supplierId, 
         quotedValue, 
         paymentConditions, 

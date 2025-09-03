@@ -206,7 +206,7 @@ export default function EnhancedNewRequestModal({
           (cc) => cc.id === Number(data.costCenterId),
         );
         const optimisticRequest = {
-          id: Date.now(), // Temporary ID
+          id: `temp_${Date.now()}`, // Temporary ID - using string to avoid confusion with real IDs
           requestNumber: `SOL-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
           phase: "Solicitação",
           urgency: data.urgency,

@@ -199,7 +199,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
             (cc) => cc.id === Number(data.costCenterId),
           );
           const optimisticRequest = {
-            id: Date.now(), // Temporary ID
+            id: `temp_${Date.now()}`, // Temporary ID - using string to avoid confusion with real IDs
             requestNumber: `SOL-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
             currentPhase: "solicitacao",
             urgency: data.urgency,
@@ -238,13 +238,22 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
         variant: "destructive",
       });
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
       // Comprehensive cache invalidation and immediate refetch
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
       queryClient.invalidateQueries({ queryKey: [`/api/purchase-requests/${request?.id}/items`] });
+
+      // For new requests, also update the cache with the real data returned from server
+      if (!request && response) {
+        queryClient.setQueryData(["/api/purchase-requests"], (old: any[]) => {
+          if (!Array.isArray(old)) return old;
+          // Remove temporary entries and ensure we get fresh data
+          return old.filter(item => !item.id.toString().startsWith('temp_'));
+        });
+      }
 
       // Force immediate refetch for real data
       queryClient.refetchQueries({
