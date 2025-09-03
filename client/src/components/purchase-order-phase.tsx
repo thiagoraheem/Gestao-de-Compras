@@ -372,7 +372,13 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
   }
   
   const totalDiscount = itemDiscountTotal + proposalDiscount;
-  const finalTotal = subtotal - totalDiscount;
+  
+  // Calcular frete
+  const freightValue = selectedSupplierQuotation?.includesFreight && selectedSupplierQuotation?.freightValue 
+    ? Number(selectedSupplierQuotation.freightValue) || 0 
+    : 0;
+  
+  const finalTotal = subtotal - totalDiscount + freightValue;
 
 
 
@@ -592,6 +598,24 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                       <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
                     </tr>
                   )}
+                  <tr>
+                    <td className="border border-gray-200 px-4 py-2" colSpan={4}>
+                      <div className="flex items-center gap-1">
+                        <Truck className="h-4 w-4" />
+                        Frete:
+                      </div>
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center">
+                      {freightValue > 0 ? (
+                        <span className="text-blue-600">
+                          R$ {freightValue.toFixed(2).replace('.', ',')}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">Não incluso</span>
+                      )}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
+                  </tr>
                   <tr className="bg-gray-100 font-bold">
                     <td className="border border-gray-200 px-4 py-2" colSpan={4}>
                       Total Geral:
@@ -659,6 +683,21 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                 <div className="text-sm">
                   <span className="font-medium text-gray-600">Condições de Pagamento:</span>
                   <p>{selectedSupplierQuotation.paymentTerms || 'Não informado'}</p>
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium text-gray-600 flex items-center gap-1">
+                    <Truck className="h-4 w-4" />
+                    Frete:
+                  </span>
+                  <p className="text-lg font-semibold">
+                    {freightValue > 0 ? (
+                      <span className="text-blue-600">
+                        R$ {freightValue.toFixed(2).replace('.', ',')}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">Não incluso</span>
+                    )}
+                  </p>
                 </div>
                 {selectedSupplierQuotation.observations && (
                   <div className="text-sm">

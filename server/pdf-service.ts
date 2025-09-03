@@ -599,7 +599,8 @@ export class PDFService {
     }
     
     const desconto = itemDiscountTotal + proposalDiscount;
-    const valorFinal = subtotal - desconto;
+    const freightValue = Number(selectedSupplierQuotation?.freightValue) || 0;
+    const valorFinal = subtotal - desconto + freightValue;
     
     // Encontrar aprovações - usando approverType em vez de phase
     const aprovacaoA1 = approvalHistory.find(h => h.approverType === 'A1');
@@ -932,17 +933,26 @@ export class PDFService {
           </tr>
         `).join('')}
         
-        ${desconto > 0 ? `
+        ${desconto > 0 || freightValue > 0 ? `
          <tr class="subtotal-row">
            <td colspan="5" class="text-right"><strong>SUBTOTAL:</strong></td>
            <td class="text-right"><strong>R$ ${subtotal.toFixed(2).replace('.', ',')}</strong></td>
            <td>&nbsp;</td>
          </tr>
+         ${desconto > 0 ? `
          <tr class="discount-row">
            <td colspan="5" class="text-right"><strong>DESCONTO ${selectedSupplierQuotation.discountType === 'percentage' ? `(${selectedSupplierQuotation.discountValue}%)` : ''}:</strong></td>
            <td class="text-right"><strong>- R$ ${desconto.toFixed(2).replace('.', ',')}</strong></td>
            <td>&nbsp;</td>
          </tr>
+         ` : ''}
+         ${freightValue > 0 ? `
+         <tr class="subtotal-row">
+           <td colspan="5" class="text-right"><strong>FRETE:</strong></td>
+           <td class="text-right"><strong>R$ ${freightValue.toFixed(2).replace('.', ',')}</strong></td>
+           <td>&nbsp;</td>
+         </tr>
+         ` : ''}
          <tr class="total-row">
            <td colspan="5" class="text-right"><strong>TOTAL FINAL:</strong></td>
            <td class="text-right"><strong>R$ ${valorFinal.toFixed(2).replace('.', ',')}</strong></td>
@@ -951,7 +961,7 @@ export class PDFService {
          ` : `
         <tr class="total-row">
           <td colspan="5" class="text-right"><strong>TOTAL GERAL:</strong></td>
-          <td class="text-right"><strong>R$ ${subtotal.toFixed(2).replace('.', ',')}</strong></td>
+          <td class="text-right"><strong>R$ ${(subtotal + freightValue).toFixed(2).replace('.', ',')}</strong></td>
           <td>&nbsp;</td>
         </tr>
         `}

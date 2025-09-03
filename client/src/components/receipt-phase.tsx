@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye } from "lucide-react";
+import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
@@ -69,6 +69,11 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
 
   // Get selected supplier quotation (ensure we find the chosen one)
   const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen === true) || supplierQuotations[0];
+  
+  // Calculate freight value
+  const freightValue = selectedSupplierQuotation?.includesFreight && selectedSupplierQuotation?.freightValue 
+    ? parseFloat(selectedSupplierQuotation.freightValue?.toString().replace(/[^\d.,]/g, '').replace(',', '.')) || 0
+    : 0;
   
   // Fetch supplier quotation items with prices
   const { data: supplierQuotationItems = [] } = useQuery({
@@ -256,36 +261,86 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
 
   // Combine items with supplier quotation data and filter out unavailable items
   const itemsWithPrices = useMemo(() => {
-    if (!Array.isArray(items) || !Array.isArray(supplierQuotationItems)) {
+    if (!Array.isArray(items) || !Array.isArray(supplierQuotationItems) || !Array.isArray(quotationItems)) {
       return [];
     }
 
     return (items as any[]).map((item: any) => {
-      // Find matching supplier quotation item using purchaseRequestItemId
-      const supplierItem = (supplierQuotationItems as any[]).find((sqi: any) => {
+      // Find the corresponding quotation item first (same logic as PDF)
+      const quotationItem = (quotationItems as any[]).find((qi: any) => {
         // First try by purchaseRequestItemId (most reliable)
-        if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+        if (qi.purchaseRequestItemId && item.id && qi.purchaseRequestItemId === item.id) {
           return true;
         }
-        // Fallback: try by description or item code
-        return sqi.description === item.description || sqi.itemCode === item.itemCode;
+        // Fallback: try by exact description match
+        if (qi.description && item.description && 
+            qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()) {
+          return true;
+        }
+        // Fallback: try by item code
+        if (qi.itemCode && item.itemCode && qi.itemCode === item.itemCode) {
+          return true;
+        }
+        // Fallback: try by partial description match
+        if (qi.description && item.description) {
+          const qiDesc = qi.description.trim().toLowerCase();
+          const itemDesc = item.description.trim().toLowerCase();
+          return qiDesc.includes(itemDesc) || itemDesc.includes(qiDesc);
+        }
+        return false;
       });
       
-      const unitPrice = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
-      const quantity = parseFloat(item.requestedQuantity) || 0;
-      const totalPrice = quantity * unitPrice;
+      if (quotationItem) {
+        // Find the supplier item for this quotation item
+        const supplierItem = (supplierQuotationItems as any[]).find((si: any) => 
+          si.quotationItemId === quotationItem.id
+        );
+        
+        if (supplierItem) {
+          const unitPrice = Number(supplierItem.unitPrice) || 0;
+          const quantity = Number(item.requestedQuantity) || 1;
+          
+          // Calculate price with discount if any (same logic as PDF)
+          const originalTotal = unitPrice * quantity;
+          let discountedTotal = originalTotal;
+          let itemDiscount = 0;
+          
+          if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
+            const discountPercent = Number(supplierItem.discountPercentage);
+            itemDiscount = (originalTotal * discountPercent) / 100;
+            discountedTotal = originalTotal - itemDiscount;
+          } else if (supplierItem.discountValue && Number(supplierItem.discountValue) > 0) {
+            itemDiscount = Number(supplierItem.discountValue);
+            discountedTotal = Math.max(0, originalTotal - itemDiscount);
+          }
+          
+          return {
+            ...item,
+            unitPrice: unitPrice,
+            totalPrice: discountedTotal,
+            originalTotalPrice: originalTotal,
+            itemDiscount: itemDiscount,
+            brand: supplierItem.brand || '',
+            deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
+            supplier: selectedSupplierQuotation?.supplier,
+            isAvailable: supplierItem?.isAvailable !== false
+          };
+        }
+      }
       
       return {
         ...item,
-        unitPrice: unitPrice,
-        totalPrice: totalPrice,
-        brand: supplierItem?.brand || '',
-        deliveryTime: supplierItem?.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
+        unitPrice: 0,
+        totalPrice: 0,
+        originalTotalPrice: 0,
+        itemDiscount: 0,
+        brand: '',
+        deliveryTime: '',
         supplier: selectedSupplierQuotation?.supplier,
-        isAvailable: supplierItem?.isAvailable !== false // Include availability status
+        isAvailable: false
       };
     }).filter((item: any) => item.isAvailable); // Filter out unavailable items
-  }, [items, supplierQuotationItems, selectedSupplierQuotation]);
+  }, [items, supplierQuotationItems, quotationItems, selectedSupplierQuotation]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -456,6 +511,30 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                   {formatCurrency(selectedSupplierQuotation.totalValue)}
                 </p>
               </div>
+              
+              {/* Freight Information - Highlighted */}
+              <div className="col-span-full">
+                <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Truck className="h-5 w-5 text-blue-600" />
+                    <p className="text-sm font-semibold text-blue-800">Informações de Frete</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-blue-700">Frete Incluso</p>
+                      <p className="text-sm mt-1">
+                        {selectedSupplierQuotation.includesFreight ? 'Sim' : 'Não'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-700">Valor do Frete</p>
+                      <p className="text-lg font-bold text-blue-800 mt-1">
+                        {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Condições de Pagamento</p>
                 <p className="text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
@@ -548,16 +627,41 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
               </Table>
               
               {/* Total Summary */}
-              <div className="border-t bg-gray-50 p-4">
+              <div className="border-t bg-gray-50 p-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-600">
-                    Total Geral ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
+                    Subtotal ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
                   </span>
-                  <span className="text-lg font-bold text-green-600">
+                  <span className="text-base font-semibold text-gray-800">
                     {formatCurrency(
                       itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
                     )}
                   </span>
+                </div>
+                
+                {/* Freight Display */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-blue-600 flex items-center gap-1">
+                    <Truck className="h-4 w-4" />
+                    Frete
+                  </span>
+                  <span className="text-base font-semibold text-blue-600">
+                    {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
+                  </span>
+                </div>
+                
+                {/* Total with Freight */}
+                <div className="border-t pt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-bold text-gray-800">
+                      Total Geral
+                    </span>
+                    <span className="text-xl font-bold text-green-600">
+                      {formatCurrency(
+                        (itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0) || 0) + (freightValue || 0)
+                      )}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
