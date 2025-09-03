@@ -86,6 +86,7 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
       unavailableItemsOption?: string;
       selectedItems?: any[];
       nonSelectedItemsOption?: string;
+      nonSelectedItems?: any[];
     }) => {
       return apiRequest(`/api/quotations/${quotationId}/select-supplier`, { method: "POST", body: data });
     },
@@ -147,6 +148,13 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
           .map(([itemId, _]) => ({ quotationItemId: parseInt(itemId) }))
       : undefined;
 
+    // Preparar lista de itens NÃO selecionados para cotação separada
+    const nonSelectedItemsData = showItemSelection && nonSelectedItemsOption === 'separate-quotation'
+      ? Object.entries(selectedItems)
+          .filter(([_, isSelected]) => !isSelected) // Itens NÃO selecionados
+          .map(([itemId, _]) => ({ quotationItemId: parseInt(itemId) }))
+      : undefined;
+
     selectSupplierMutation.mutate({
       selectedSupplierId,
       totalValue: selectedSupplier.totalValue,
@@ -156,6 +164,7 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
       unavailableItemsOption,
       selectedItems: selectedItemsData,
       nonSelectedItemsOption: showItemSelection ? nonSelectedItemsOption : 'none',
+      nonSelectedItems: nonSelectedItemsData,
     });
   };
 
@@ -693,8 +702,11 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                                 className="mt-1"
                               />
                               <div>
-                                <span className="font-medium">Gerar cotação separada</span>
-                                <p className="text-sm text-gray-600">Criar nova solicitação com características do item 1 acima</p>
+                                <span className="font-medium">Gerar cotação separada para itens não selecionados</span>
+                                <p className="text-sm text-gray-600">
+                                  Criar nova solicitação aprovada A1 com os itens NÃO selecionados, 
+                                  na fase de Cotação aguardando nova RFQ
+                                </p>
                               </div>
                             </label>
 
