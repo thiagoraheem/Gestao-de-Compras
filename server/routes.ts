@@ -3397,19 +3397,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard PDF export
   app.get('/api/dashboard/export-pdf', isAuthenticated, async (req, res) => {
     try {
-      const { period, department, status } = req.query;
+      const { period = "30", department = "all", status = "all" } = req.query;
 
-      // Get dashboard data (reuse the same logic)
-      const dashboardResponse = await fetch(`${req.protocol}://${req.get('host')}/api/dashboard?period=${period}&department=${department}&status=${status}`, {
-        headers: {
-          'Cookie': req.headers.cookie || ''
-        }
+      // Check if user is manager or admin
+      const user = await storage.getUser(req.session.userId!);
+      if (!user?.isManager && !user?.isAdmin) {
+        return res.status(403).json({ message: "Manager access required" });
+      }
+
+      // Reuse the same dashboard data generation logic directly instead of HTTP call
+      const daysAgo = parseInt(period as string);
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - daysAgo);
+
+      const allRequests = await storage.getAllPurchaseRequests();
+      const filteredRequests = allRequests.filter(request => {
+        const createdAt = new Date(request.createdAt);
+        const isInPeriod = createdAt >= startDate;
+        const departmentMatch = department === "all" || 
+          (request.costCenter?.departmentId === parseInt(department as string));
+        const statusMatch = status === "all" || request.currentPhase === status;
+        return isInPeriod && departmentMatch && statusMatch;
       });
-      const dashboardData = await dashboardResponse.json();
+
+      // Build dashboard data object (simplified version for PDF)
+      const totalActiveRequests = filteredRequests.filter(req => req.currentPhase !== "arquivado").length;
+      const totalProcessingValue = filteredRequests.reduce((sum, req) => 
+        sum + (Number(req.totalValue) || Number(req.availableBudget) || 0), 0);
+      
+      const approvedRequests = filteredRequests.filter(req => 
+        req.currentPhase !== "solicitacao" && req.approvalDateA1
+      );
+      const averageApprovalTime = approvedRequests.length > 0 
+        ? Math.round(approvedRequests.reduce((sum, req) => {
+            const created = new Date(req.createdAt);
+            const approved = new Date(req.approvalDateA1!);
+            return sum + (approved.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+          }, 0) / approvedRequests.length)
+        : 0;
+
+      const dashboardData = {
+        totalActiveRequests,
+        totalProcessingValue,
+        averageApprovalTime,
+        approvalRate: filteredRequests.length > 0 ? Math.round((approvedRequests.length / filteredRequests.length) * 100) : 0,
+        period,
+        department,
+        status,
+        generatedAt: new Date().toLocaleString('pt-BR')
+      };
 
       // Generate PDF using the PDF service
       const pdfBuffer = await PDFService.generateDashboardPDF(dashboardData);
-
+      
       // Check if the buffer is HTML (fallback mode)
       const bufferStart = pdfBuffer.toString('utf8', 0, Math.min(1000, pdfBuffer.length));
       const isHtmlContent = bufferStart.includes('HTML_FALLBACK_MARKER') ||
@@ -3434,7 +3474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Error generating dashboard PDF:', error);
-      res.status(500).json({ error: 'Error generating PDF' });
+      res.status(500).json({ error: 'Erro ao gerar PDF do dashboard' });
     }
   });
 
