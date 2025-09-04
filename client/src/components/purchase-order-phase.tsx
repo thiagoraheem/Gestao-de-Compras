@@ -284,20 +284,41 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       if (qi.purchaseRequestItemId && item.id && qi.purchaseRequestItemId === item.id) {
         return true;
       }
-      // Fallback: tenta por descrição exata
-      if (qi.description && item.description && 
-          qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()) {
-        return true;
-      }
-      // Fallback: tenta por código do item
-      if (qi.itemCode && item.itemCode && qi.itemCode === item.itemCode) {
-        return true;
-      }
-      // Fallback: tenta por descrição parcial
+      return false;
+    }) || quotationItems.find((qi: any) => {
+      // Segundo: tenta por descrição exata
+       if (qi.description && item.description && 
+           qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()) {
+         return true;
+       }
+      return false;
+    }) || quotationItems.find((qi: any) => {
+      // Terceiro: tenta por código do item
+       if (qi.itemCode && item.itemCode && qi.itemCode === item.itemCode) {
+         return true;
+       }
+      return false;
+    }) || quotationItems.find((qi: any) => {
+      // Último recurso: descrição parcial muito restritiva
       if (qi.description && item.description) {
         const qiDesc = qi.description.trim().toLowerCase();
         const itemDesc = item.description.trim().toLowerCase();
-        return qiDesc.includes(itemDesc) || itemDesc.includes(qiDesc);
+        
+        // Só considera correspondência parcial se as descrições forem muito similares
+        // E se não há risco de correspondência cruzada
+        const similarity = Math.min(qiDesc.length, itemDesc.length) / Math.max(qiDesc.length, itemDesc.length);
+        
+        // Verifica se não há outro item com descrição mais similar
+        const hasMoreSimilarItem = quotationItems.some((otherQi: any) => {
+          if (otherQi.id === qi.id || !otherQi.description) return false;
+          const otherDesc = otherQi.description.trim().toLowerCase();
+          const otherSimilarity = Math.min(otherDesc.length, itemDesc.length) / Math.max(otherDesc.length, itemDesc.length);
+          return otherSimilarity > similarity && (otherDesc.includes(itemDesc) || itemDesc.includes(otherDesc));
+        });
+        
+        if (similarity > 0.85 && !hasMoreSimilarItem && (qiDesc.includes(itemDesc) || itemDesc.includes(qiDesc))) {
+           return true;
+         }
       }
       return false;
     });
@@ -305,6 +326,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     if (quotationItem) {
       // Encontrar o preço do fornecedor para este item da cotação
       const supplierItem = supplierQuotationItems.find((si: any) => si.quotationItemId === quotationItem.id);
+      
       if (supplierItem) {
         const unitPrice = Number(supplierItem.unitPrice) || 0;
         const quantity = Number(item.requestedQuantity) || 1;
@@ -323,7 +345,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
           discountedTotal = Math.max(0, originalTotal - itemDiscount);
         }
         
-        return {
+        const result = {
           ...item,
           unitPrice: unitPrice, // Manter o preço unitário original
           originalUnitPrice: unitPrice,
@@ -334,8 +356,10 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
           deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
           isAvailable: supplierItem.isAvailable !== false // Considerar disponível se não especificado
         };
-      }
-    }
+        
+        return result;
+       }
+     }
     return {
       ...item,
       unitPrice: 0,
