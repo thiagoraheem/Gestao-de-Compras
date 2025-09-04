@@ -22,6 +22,58 @@ export class PDFService {
     return process.platform === 'win32';
   }
 
+  // Cria e verifica diretórios temporários necessários
+  private static async ensureTempDirectories(): Promise<string> {
+    const tempBase = this.isWindows() ? 
+      path.join(process.env.TEMP || process.env.TMP || 'C:\\Windows\\Temp') :
+      '/tmp';
+
+    // Criar diretórios específicos para Puppeteer
+    const puppeteerTempDir = path.join(tempBase, 'puppeteer_pdf_service');
+    
+    try {
+      // Criar diretório base se não existir
+      if (!fs.existsSync(tempBase)) {
+        fs.mkdirSync(tempBase, { recursive: true });
+      }
+      
+      // Criar diretório para Puppeteer se não existir
+      if (!fs.existsSync(puppeteerTempDir)) {
+        fs.mkdirSync(puppeteerTempDir, { recursive: true });
+      }
+      
+      // No Windows, também criar os diretórios comuns que o Puppeteer usa
+      if (this.isWindows()) {
+        const commonTempDirs = [
+          path.join(tempBase, '1'),
+          path.join(tempBase, '2'), 
+          path.join(tempBase, '3'),
+          path.join(process.env.LOCALAPPDATA || 'C:\\Users\\Default\\AppData\\Local', 'Temp'),
+          path.join(process.env.LOCALAPPDATA || 'C:\\Users\\Default\\AppData\\Local', 'Temp', '1'),
+          path.join(process.env.LOCALAPPDATA || 'C:\\Users\\Default\\AppData\\Local', 'Temp', '2')
+        ];
+        
+        for (const dir of commonTempDirs) {
+          try {
+            if (!fs.existsSync(dir)) {
+              fs.mkdirSync(dir, { recursive: true });
+              console.log(`✓ Diretório temporário criado: ${dir}`);
+            }
+          } catch (error) {
+            console.warn(`⚠ Não foi possível criar diretório ${dir}:`, error instanceof Error ? error.message : String(error));
+          }
+        }
+      }
+      
+      console.log(`✓ Diretório temporário do Puppeteer: ${puppeteerTempDir}`);
+      return puppeteerTempDir;
+    } catch (error) {
+      console.error('❌ Erro ao criar diretórios temporários:', error instanceof Error ? error.message : String(error));
+      // Fallback para diretório padrão
+      return tempBase;
+    }
+  }
+
   // Detecta o caminho do browser automaticamente
   private static async findBrowserPath(): Promise<string | undefined> {
     
@@ -66,6 +118,8 @@ export class PDFService {
 
   // Método auxiliar para lançar browser com retry e fallback
   private static async launchBrowserWithRetry(retries: number = 3): Promise<any> {
+    // Garantir que os diretórios temporários existem
+    const tempDir = await this.ensureTempDirectories();
     // Argumentos específicos para Windows Server
     const windowsArgs = [
       '--no-sandbox',
@@ -89,7 +143,11 @@ export class PDFService {
       '--disable-permissions-api',
       '--disable-background-mode',
       '--memory-pressure-off',
-      '--max_old_space_size=4096'
+      '--max_old_space_size=4096',
+      // Configurações de diretórios temporários
+      `--user-data-dir=${tempDir}`,
+      `--data-path=${tempDir}`,
+      `--temp-dir=${tempDir}`
     ];
 
     // Argumentos para Linux/Unix
@@ -110,7 +168,10 @@ export class PDFService {
       '--disable-features=TranslateUI',
       '--disable-ipc-flooding-protection',
       '--memory-pressure-off',
-      '--max_old_space_size=4096'
+      '--max_old_space_size=4096',
+      // Configurações de diretórios temporários
+      `--user-data-dir=${tempDir}`,
+      `--data-path=${tempDir}`
     ];
 
     const baseArgs = this.isWindows() ? windowsArgs : linuxArgs;
@@ -141,7 +202,10 @@ export class PDFService {
           '--disable-dev-shm-usage',
           '--disable-gpu',
           '--disable-extensions',
-          '--disable-plugins'
+          '--disable-plugins',
+          `--user-data-dir=${tempDir}`,
+          `--data-path=${tempDir}`,
+          `--temp-dir=${tempDir}`
         ],
         headless: true,
         timeout: 60000,
@@ -154,14 +218,19 @@ export class PDFService {
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
           '--single-process',
-          '--disable-gpu'
+          '--disable-gpu',
+          `--user-data-dir=${tempDir}`
         ],
         headless: true,
         timeout: 60000
       },
       // Configuração 5: Ultra minimal para ambientes muito restritivos
       {
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        args: [
+          '--no-sandbox', 
+          '--disable-setuid-sandbox',
+          `--user-data-dir=${tempDir}`
+        ],
         headless: true,
         timeout: 60000
       }
