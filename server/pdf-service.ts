@@ -1194,31 +1194,100 @@ export class PDFService {
         // Primeiro, buscar os itens da cotação
         const quotationItems = await storage.getQuotationItems(quotation.id);
         
+        // Função para calcular similaridade entre strings
+        const calculateSimilarity = (str1: string, str2: string): number => {
+          const s1 = str1.toLowerCase().trim();
+          const s2 = str2.toLowerCase().trim();
+          
+          if (s1 === s2) return 1;
+          
+          const longer = s1.length > s2.length ? s1 : s2;
+          const shorter = s1.length > s2.length ? s2 : s1;
+          
+          if (longer.length === 0) return 1;
+          
+          const editDistance = (s1: string, s2: string): number => {
+            const costs = [];
+            for (let i = 0; i <= s2.length; i++) {
+              let lastValue = i;
+              for (let j = 0; j <= s1.length; j++) {
+                if (i === 0) {
+                  costs[j] = j;
+                } else if (j > 0) {
+                  let newValue = costs[j - 1];
+                  if (s2.charAt(i - 1) !== s1.charAt(j - 1)) {
+                    newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                  }
+                  costs[j - 1] = lastValue;
+                  lastValue = newValue;
+                }
+              }
+              if (i > 0) costs[s1.length] = lastValue;
+            }
+            return costs[s1.length];
+          };
+          
+          return (longer.length - editDistance(longer, shorter)) / longer.length;
+        };
+
         // Combinar os itens da solicitação com os preços do fornecedor
         itemsWithPrices = items.map(item => {
-          // Encontrar o item correspondente na cotação usando purchaseRequestItemId
-          const quotationItem = quotationItems.find(qi => {
-            // Primeiro tenta por purchaseRequestItemId (método mais confiável)
-            if (qi.purchaseRequestItemId && item.id && qi.purchaseRequestItemId === item.id) {
-              return true;
+          let quotationItem = null;
+          
+          // 1. Busca por purchaseRequestItemId (mais confiável)
+          if (item.id) {
+            quotationItem = quotationItems.find(qi => 
+              qi.purchaseRequestItemId && qi.purchaseRequestItemId === item.id
+            );
+          }
+          
+          // 2. Se não encontrou, busca por descrição exata
+          if (!quotationItem && item.description) {
+            quotationItem = quotationItems.find(qi => 
+              qi.description && 
+              qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()
+            );
+          }
+          
+          // 3. Se não encontrou, busca por código do item
+          if (!quotationItem && (item as any).productCode) {
+            quotationItem = quotationItems.find(qi => 
+              qi.itemCode && qi.itemCode === (item as any).productCode
+            );
+          }
+          
+          // 4. Se não encontrou, busca por descrição parcial com validação rigorosa
+          if (!quotationItem && item.description) {
+            const candidates = quotationItems.filter(qi => {
+              if (!qi.description) return false;
+              
+              const similarity = calculateSimilarity(qi.description, item.description);
+              return similarity > 0.85;
+            });
+            
+            if (candidates.length > 0) {
+              // Se há múltiplos candidatos, pega o com maior similaridade
+              quotationItem = candidates.reduce((best, current) => {
+                const bestSim = calculateSimilarity(best.description, item.description);
+                const currentSim = calculateSimilarity(current.description, item.description);
+                return currentSim > bestSim ? current : best;
+              });
+              
+              // Validação adicional: evitar correspondências cruzadas
+              const finalSimilarity = calculateSimilarity(quotationItem.description, item.description);
+              
+              // Verificar se não há um item mais similar para este quotationItem
+              const betterMatch = items.find(otherItem => 
+                otherItem.id !== item.id && 
+                otherItem.description &&
+                calculateSimilarity(quotationItem!.description, otherItem.description) > finalSimilarity
+              );
+              
+              if (betterMatch) {
+                quotationItem = null; // Anular a correspondência se há um item mais similar
+              }
             }
-            // Fallback: tenta por descrição exata
-            if (qi.description && item.description && 
-                qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()) {
-              return true;
-            }
-            // Fallback: tenta por código do item
-            if (qi.itemCode && (item as any).productCode && qi.itemCode === (item as any).productCode) {
-              return true;
-            }
-            // Fallback: tenta por descrição parcial
-            if (qi.description && item.description) {
-              const qiDesc = qi.description.trim().toLowerCase();
-              const itemDesc = item.description.trim().toLowerCase();
-              return qiDesc.includes(itemDesc) || itemDesc.includes(qiDesc);
-            }
-            return false;
-          });
+          }
           
           if (quotationItem) {
             // Encontrar o preço do fornecedor para este item da cotação
