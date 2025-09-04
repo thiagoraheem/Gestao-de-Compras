@@ -17,6 +17,7 @@ import { Plus, Building, Edit, Check, X, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminRoute from "@/components/AdminRoute";
+import debug from "@/lib/debug";
 
 const departmentSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -169,8 +170,8 @@ export default function DepartmentsPage() {
         queryClient.setQueryData(["/api/cost-centers"], context.previousCostCenters);
       }
       
-      console.error("Cost center creation error:", err);
-      console.error("Error details:", {
+      debug.error("Cost center creation error:", err);
+      debug.error("Error details:", {
         message: err instanceof Error ? err.message : 'Unknown error',
         variables,
         errorType: typeof err,
@@ -244,7 +245,7 @@ export default function DepartmentsPage() {
       });
     },
     onError: (error: any) => {
-      console.error("Error deleting department:", error);
+      debug.error("Error deleting department:", error);
       toast({
         title: "Erro",
         description: error.message || "Erro ao excluir departamento",
@@ -272,7 +273,7 @@ export default function DepartmentsPage() {
       });
     },
     onError: (error: any) => {
-      console.error("Error deleting cost center:", error);
+      debug.error("Error deleting cost center:", error);
       toast({
         title: "Erro",
         description: error.message || "Erro ao excluir centro de custo",
@@ -286,7 +287,7 @@ export default function DepartmentsPage() {
       const response = await apiRequest(`/api/departments/${id}/can-delete`, { method: "GET" });
       return response;
     } catch (error) {
-      console.error("Error checking department can be deleted:", error);
+      debug.error("Error checking department can be deleted:", error);
       return { canDelete: false, reason: "Erro ao verificar se departamento pode ser excluído" };
     }
   };
@@ -296,7 +297,7 @@ export default function DepartmentsPage() {
       const response = await apiRequest(`/api/cost-centers/${id}/can-delete`, { method: "GET" });
       return response;
     } catch (error) {
-      console.error("Error checking cost center can be deleted:", error);
+      debug.error("Error checking cost center can be deleted:", error);
       return { canDelete: false, reason: "Erro ao verificar se centro de custo pode ser excluído" };
     }
   };

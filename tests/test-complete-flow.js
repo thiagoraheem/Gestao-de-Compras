@@ -141,50 +141,50 @@ const testData = {
 
 // Função principal do teste
 async function runCompleteTest() {
-  console.log('🚀 Iniciando teste completo do fluxo de compras...');
+  console.log('Iniciando teste completo do fluxo de compras...');
   
   let cookies = '';
   
   try {
     // 0. Fazer login
-    console.log('\n🔐 Fazendo login...');
+    // Fazendo login...
     const loginResponse = await makeRequest(`${API_BASE}/auth/login`, {
       method: 'POST',
       body: JSON.stringify(testData.login)
     });
     cookies = loginResponse.cookies;
-    console.log('✅ Login realizado');
+    // Login realizado
     
     // 1. Criar solicitação de compra
-    console.log('\n📝 Criando solicitação de compra...');
+    // Criando solicitação de compra...
     const purchaseRequestResponse = await makeRequest(`${API_BASE}/purchase-requests`, {
       method: 'POST',
       body: JSON.stringify(testData.purchaseRequest)
     }, cookies);
     const purchaseRequest = purchaseRequestResponse.data;
-    console.log('✅ Solicitação criada:', purchaseRequest.requestNumber);
+    console.log('Solicitação criada:', purchaseRequest.requestNumber);
     
     const requestId = purchaseRequest.id;
     
     // 2. Adicionar itens à solicitação
-    console.log('\n📦 Adicionando itens à solicitação...');
+    // Adicionando itens à solicitação...
     for (const item of testData.items) {
       await makeRequest(`${API_BASE}/purchase-requests/${requestId}/items`, {
         method: 'POST',
         body: JSON.stringify(item)
       }, cookies);
     }
-    console.log('✅ Itens adicionados');
+    console.log('Itens adicionados');
     
     // 3. Enviar para aprovação A1
-    console.log('\n📤 Enviando para aprovação A1...');
+    // Enviando para aprovação A1...
     await makeRequest(`${API_BASE}/purchase-requests/${requestId}/send-to-approval`, {
       method: 'POST'
     }, cookies);
-    console.log('✅ Enviado para aprovação A1');
+    console.log('Enviado para aprovação A1');
 
     // 4. Aprovar A1
-    console.log('\n👍 Aprovando A1...');
+    // Aprovando A1...
     await makeRequest(`${API_BASE}/purchase-requests/${requestId}/approve-a1`, {
       method: 'POST',
       body: JSON.stringify({
@@ -193,10 +193,10 @@ async function runCompleteTest() {
         approverId: 2
       })
     }, cookies);
-    console.log('✅ A1 aprovado');
+    console.log('A1 aprovado');
     
     // 5. Criar RFQ
-    console.log('\n📋 Criando RFQ...');
+    // Criando RFQ...
     const rfqData = {
       purchaseRequestId: requestId,
       quotationDeadline: testData.rfq.deadline,
@@ -210,12 +210,12 @@ async function runCompleteTest() {
       body: JSON.stringify(rfqData)
     }, cookies);
     const rfq = rfqResponse.data;
-    console.log('✅ RFQ criada:', rfq.title);
+    console.log(`RFQ criada: ${rfq.title}`);
     
     const quotationId = rfq.id;
     
     // 6. Adicionar itens à RFQ
-    console.log('\n📋 Adicionando itens à RFQ...');
+    // Adicionando itens à RFQ...
     const quotationItemIds = [];
     for (const item of testData.items) {
       const quotationItem = {
@@ -232,10 +232,10 @@ async function runCompleteTest() {
       }, cookies);
       quotationItemIds.push(quotationItemResponse.data.id);
     }
-    console.log('✅ Itens da RFQ adicionados');
+    console.log('Itens da RFQ adicionados');
     
     // 7. Criar cotações dos fornecedores
-    console.log('\n🏢 Criando cotações dos fornecedores...');
+    // Criando cotações dos fornecedores...
     for (const supplierQuote of testData.supplierQuotations) {
       const supplierQuotationData = {
         quotationId: quotationId,
@@ -273,10 +273,10 @@ async function runCompleteTest() {
         }, cookies);
       }
     }
-    console.log('✅ Cotações dos fornecedores criadas');
+    console.log('Cotações dos fornecedores criadas');
     
     // 8. Selecionar fornecedor vencedor
-    console.log('\n🏆 Selecionando fornecedor vencedor...');
+    // Selecionando fornecedor vencedor...
     await makeRequest(`${API_BASE}/quotations/${quotationId}/select-supplier`, {
       method: 'POST',
       body: JSON.stringify({
@@ -285,10 +285,10 @@ async function runCompleteTest() {
         observations: 'Melhor proposta técnica e comercial'
       })
     }, cookies);
-    console.log('✅ Fornecedor selecionado');
+    console.log('Fornecedor selecionado');
 
     // 9. Atualizar cotação para mover para aprovação A2
-    console.log('\n📋 Atualizando cotação para A2...');
+    // Atualizando cotação para A2...
     await makeRequest(`${API_BASE}/purchase-requests/${requestId}/update-quotation`, {
       method: 'POST',
       body: JSON.stringify({
@@ -297,10 +297,10 @@ async function runCompleteTest() {
         paymentMethodId: 1
       })
     }, cookies);
-    console.log('✅ Cotação atualizada para A2');
+    console.log('Cotação atualizada para A2');
 
     // 10. Aprovar A2
-    console.log('\n👍 Aprovando A2...');
+    // Aprovando A2...
     await makeRequest(`${API_BASE}/purchase-requests/${requestId}/approve-a2`, {
       method: 'POST',
       body: JSON.stringify({
@@ -312,10 +312,10 @@ async function runCompleteTest() {
         observations: 'Aprovado para teste'
       })
     }, cookies);
-    console.log('✅ A2 aprovado');
+    console.log('A2 aprovado');
     
     // 11. Verificar pedido de compra
-    console.log('\n🔍 Verificando pedido de compra...');
+    // Verificando pedido de compra...
     await sleep(2000);
     
     try {
@@ -323,8 +323,8 @@ async function runCompleteTest() {
       const purchaseOrder = purchaseOrderResponse.data;
       
       if (purchaseOrder) {
-        console.log('✅ Pedido de compra criado:', purchaseOrder.orderNumber);
-        console.log('💰 Valor total: R$', purchaseOrder.totalValue);
+        console.log('Pedido de compra criado:', purchaseOrder.orderNumber);
+        console.log('Valor total: R$', purchaseOrder.totalValue);
       } else {
         console.log('❌ ERRO: Pedido de compra NÃO foi criado!');
         return false;
@@ -334,7 +334,7 @@ async function runCompleteTest() {
       return false;
     }
     
-    console.log('\n🎉 Teste completo finalizado com SUCESSO!');
+    console.log('Teste completo finalizado com SUCESSO!');
     return true;
     
   } catch (error) {

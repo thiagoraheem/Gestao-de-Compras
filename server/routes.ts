@@ -1265,7 +1265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     
                     // Pular itens marcados como indisponíveis
                     if (supplierItem && supplierItem.isAvailable === false) {
-                      console.log(`Pulando item indisponível: ${requestItem.description}`);
+                      // Item indisponível será pulado
                       continue;
                     }
                     
@@ -2829,13 +2829,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nonSelectedItemsOption
       } = req.body;
       
-      // Log para debug
-      console.log("Dados recebidos para seleção de fornecedor:", {
-        selectedSupplierId,
-        selectedItems: selectedItems?.length || 0,
-        nonSelectedItems: nonSelectedItems?.length || 0,
-        nonSelectedItemsOption
-      });
+      // Validar dados recebidos para seleção de fornecedor
 
       // Buscar a cotação
       const quotation = await storage.getQuotationById(quotationId);
@@ -2918,7 +2912,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Recalcular valor total apenas com itens selecionados
         if (selectedSupplierQuotation) {
           const supplierQuotationItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
-          console.log('Itens da cotação do fornecedor:', supplierQuotationItems.length);
+          // Recalculando valor total com itens selecionados
           
           recalculatedTotalValue = selectedItems.reduce((total, selectedItem) => {
             const supplierItem = supplierQuotationItems.find(item => 
@@ -2930,22 +2924,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 ? parseFloat(supplierItem.discountedTotalPrice)
                 : parseFloat(supplierItem.totalPrice);
               
-              console.log(`Item ${supplierItem.quotationItemId}: R$ ${itemValue.toFixed(2)}`);
+              // Calculando valor do item
               return total + itemValue;
             }
-            console.log(`Item não encontrado: ${selectedItem.quotationItemId}`);
+            // Item não encontrado na cotação do fornecedor
             return total;
           }, 0);
         }
         
-        console.log(`Valor recalculado após transferência: R$ ${recalculatedTotalValue.toFixed(2)} (era R$ ${totalValue.toFixed(2)})`);
+        // Valor recalculado após transferência de itens
         
         // Atualizar também o valor da cotação do fornecedor selecionado
         if (selectedSupplierQuotation) {
           await storage.updateSupplierQuotation(selectedSupplierQuotation.id, {
             totalValue: recalculatedTotalValue.toString()
           });
-          console.log(`Cotação do fornecedor atualizada com valor: R$ ${recalculatedTotalValue.toFixed(2)}`);
+          // Cotação do fornecedor atualizada com novo valor
         }
       }
 
@@ -3003,11 +2997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 );
                 
                 if (originalItem) {
-                  console.log(`Copiando item original para nova solicitação:`, {
-                    originalDescription: originalItem.description,
-                    originalProductCode: originalItem.productCode,
-                    originalQuantity: originalItem.requestedQuantity
-                  });
+                  // Copiando item original para nova solicitação
                   
                   await storage.createPurchaseRequestItem({
                     purchaseRequestId: nonSelectedRequest.id,

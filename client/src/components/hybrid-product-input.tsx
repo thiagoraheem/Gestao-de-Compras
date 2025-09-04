@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import debug from "@/lib/debug";
 
 interface Product {
   codigo: string;
@@ -51,7 +52,7 @@ export function HybridProductInput({
         setShowResults(true);
       }
     } catch (error) {
-      console.error("Erro ao buscar produtos:", error);
+      debug.error("Erro ao buscar produtos:", error);
       setSearchResults([]);
     } finally {
       setIsLoading(false);

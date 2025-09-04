@@ -25,11 +25,11 @@ const pool = new Pool(poolConfig);
 
 async function debugDatabase() {
   try {
-    console.log('🔍 Conectando ao banco de dados...');
+    // Conectando ao banco de dados...
     
     // Verificar total de purchase_requests
     const totalRequests = await pool.query('SELECT COUNT(*) as total FROM purchase_requests');
-    console.log(`📊 Total de purchase_requests no banco: ${totalRequests.rows[0].total}`);
+    console.log(`Total de purchase_requests: ${totalRequests.rows[0].total}`);
     
     // Verificar purchase_requests por status
     const statusCount = await pool.query(`
@@ -38,9 +38,9 @@ async function debugDatabase() {
       GROUP BY current_phase 
       ORDER BY count DESC
     `);
-    console.log('\n📋 Purchase requests por fase:');
+    console.log('Purchase requests por fase:');
     statusCount.rows.forEach(row => {
-      console.log(`- ${row.current_phase}: ${row.count}`);
+      console.log(`${row.current_phase}: ${row.count}`);
     });
     
     // Verificar aprovações A2
@@ -49,11 +49,11 @@ async function debugDatabase() {
       FROM purchase_requests 
       WHERE approved_a2 = true
     `);
-    console.log(`\n✅ Total de solicitações aprovadas A2: ${a2Approvals.rows[0].total}`);
+    console.log(`Total de solicitações aprovadas A2: ${a2Approvals.rows[0].total}`);
     
     // Verificar purchase_orders
     const totalPOs = await pool.query('SELECT COUNT(*) as total FROM purchase_orders');
-    console.log(`📦 Total de purchase_orders no banco: ${totalPOs.rows[0].total}`);
+    console.log(`Total de purchase_orders: ${totalPOs.rows[0].total}`);
     
     // Verificar solicitações A2 aprovadas sem purchase_orders
     const missingPOs = await pool.query(`
@@ -63,12 +63,12 @@ async function debugDatabase() {
       WHERE pr.approved_a2 = true AND po.id IS NULL
       ORDER BY pr.id
     `);
-    console.log(`\n🔍 Solicitações A2 aprovadas SEM purchase_orders: ${missingPOs.rows.length}`);
+    console.log(`Solicitações A2 aprovadas SEM purchase_orders: ${missingPOs.rows.length}`);
     
     if (missingPOs.rows.length > 0) {
-      console.log('\n📋 Lista detalhada:');
+      console.log('Lista detalhada:');
       missingPOs.rows.forEach(row => {
-        console.log(`- ID: ${row.id}, Número: ${row.request_number}, Fase: ${row.current_phase}, Aprovação A2: ${row.approval_date_a2}`);
+        console.log(`ID: ${row.id}, Número: ${row.request_number}, Fase: ${row.current_phase}`);
       });
     }
     
@@ -78,7 +78,7 @@ async function debugDatabase() {
       FROM approval_history 
       WHERE approver_type = 'A2' AND approved = true
     `);
-    console.log(`\n📜 Total de aprovações A2 no histórico: ${a2History.rows[0].total}`);
+    console.log(`Total de aprovações A2 no histórico: ${a2History.rows[0].total}`);
     
     // Verificar company_id nas purchase_requests
     const companyIds = await pool.query(`
@@ -87,9 +87,9 @@ async function debugDatabase() {
       GROUP BY company_id 
       ORDER BY count DESC
     `);
-    console.log('\n🏢 Purchase requests por company_id:');
+    console.log('Purchase requests por company_id:');
     companyIds.rows.forEach(row => {
-      console.log(`- Company ID ${row.company_id}: ${row.count} solicitações`);
+      console.log(`Company ID ${row.company_id}: ${row.count} solicitações`);
     });
     
     // Listar todas as solicitações existentes
@@ -98,20 +98,20 @@ async function debugDatabase() {
       FROM purchase_requests 
       ORDER BY id DESC
     `);
-    console.log('\n📋 Todas as solicitações existentes:');
+    console.log('Todas as solicitações existentes:');
     allRequests.rows.forEach(row => {
-      console.log(`- ID: ${row.id}, Número: ${row.request_number}, Fase: ${row.current_phase}`);
+      console.log(`ID: ${row.id}, Número: ${row.request_number}, Fase: ${row.current_phase}`);
     });
     
     // Verificar especificamente SOL-2025-019
     const sol2025019 = await pool.query(`
       SELECT * FROM purchase_requests WHERE request_number = 'SOL-2025-019'
     `);
-    console.log('\n🔍 Verificando SOL-2025-019:');
+    console.log('Verificando SOL-2025-019:');
     if (sol2025019.rows.length > 0) {
-      console.log('✅ SOL-2025-019 encontrada:', sol2025019.rows[0]);
+      console.log('SOL-2025-019 encontrada:', sol2025019.rows[0]);
     } else {
-      console.log('❌ SOL-2025-019 NÃO encontrada no banco de dados');
+      console.error('SOL-2025-019 NÃO encontrada no banco de dados');
     }
     
   } catch (error) {

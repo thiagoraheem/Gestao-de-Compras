@@ -19,7 +19,7 @@ const pool = new Pool(poolConfig);
 
 // Função auxiliar para criar dados de teste
 async function createTestData() {
-  console.log('🔧 Criando dados de teste...');
+  // Criando dados de teste...
   
   const client = await pool.connect();
   
@@ -114,7 +114,7 @@ async function createTestData() {
 
 // Teste 1: Validar marcação de itens como indisponíveis
 async function testUnavailableItemsMarking() {
-  console.log('\n📋 Teste 1: Validando marcação de itens como indisponíveis...');
+  // Teste 1: Validando marcação de itens como indisponíveis...
   
   try {
     const testData = await createTestData();
@@ -129,7 +129,7 @@ async function testUnavailableItemsMarking() {
       `, [testData.quotationId]);
       
       const unavailableItems = unavailableResult.rows;
-      console.log(`✅ Encontrados ${unavailableItems.length} itens indisponíveis`);
+      // Encontrados itens indisponíveis
       
       // Validar que os itens indisponíveis têm motivo preenchido
       const itemsWithReason = unavailableItems.filter(item => 
@@ -137,9 +137,9 @@ async function testUnavailableItemsMarking() {
       );
       
       if (itemsWithReason.length === unavailableItems.length) {
-        console.log('✅ Todos os itens indisponíveis têm motivo preenchido');
+        // Todos os itens indisponíveis têm motivo preenchido
       } else {
-        console.log('❌ Alguns itens indisponíveis não têm motivo preenchido');
+        console.error('❌ Alguns itens indisponíveis não têm motivo preenchido');
       }
       
       // Validar que itens indisponíveis têm preço zero
@@ -148,9 +148,9 @@ async function testUnavailableItemsMarking() {
       );
       
       if (itemsWithZeroPrice.length === unavailableItems.length) {
-        console.log('✅ Todos os itens indisponíveis têm preço zero');
+        // Todos os itens indisponíveis têm preço zero
       } else {
-        console.log('❌ Alguns itens indisponíveis têm preço diferente de zero');
+        console.error('❌ Alguns itens indisponíveis têm preço diferente de zero');
       }
       
       return testData;
@@ -167,7 +167,7 @@ async function testUnavailableItemsMarking() {
 
 // Teste 2: Simular criação de nova solicitação com itens indisponíveis
 async function testNewRequestCreation(testData) {
-  console.log('\n🔄 Teste 2: Simulando criação de nova solicitação...');
+  // Teste 2: Simulando criação de nova solicitação...
   
   try {
     const client = await pool.connect();
@@ -194,7 +194,7 @@ async function testNewRequestCreation(testData) {
       `, [testData.quotationId]);
       
       const unavailableItems = unavailableResult.rows;
-      console.log(`📦 Encontrados ${unavailableItems.length} itens para nova solicitação`);
+      // Encontrados itens para nova solicitação
       
       // Criar nova solicitação
       const newRequestNumber = `${originalRequest.request_number}-R${Date.now().toString().slice(-4)}`;
@@ -217,7 +217,7 @@ async function testNewRequestCreation(testData) {
       ]);
       
       const newRequest = newRequestResult.rows[0];
-      console.log(`✅ Nova solicitação criada: ${newRequest.request_number}`);
+      // Nova solicitação criada
       
       // Buscar detalhes dos itens originais para copiar
       const originalItemsResult = await client.query(`
@@ -246,7 +246,7 @@ async function testNewRequestCreation(testData) {
         }
       }
       
-      console.log(`✅ ${itemsAdded} itens adicionados à nova solicitação`);
+      // Itens adicionados à nova solicitação
       
       return newRequest.id;
       
@@ -262,7 +262,7 @@ async function testNewRequestCreation(testData) {
 
 // Teste 3: Validar filtros nas fases posteriores
 async function testPhaseFilters(testData) {
-  console.log('\n🔍 Teste 3: Validando filtros nas fases posteriores...');
+  // Teste 3: Validando filtros nas fases posteriores...
   
   try {
     const client = await pool.connect();
@@ -275,7 +275,7 @@ async function testPhaseFilters(testData) {
         WHERE id = $1
       `, [testData.requestId]);
       
-      console.log('✅ Solicitação avançada para fase A2');
+      // Solicitação avançada para fase A2
       
       // Buscar apenas itens disponíveis (simulando filtro da aplicação)
       const availableResult = await client.query(`
@@ -287,13 +287,13 @@ async function testPhaseFilters(testData) {
       `, [testData.quotationId]);
       
       const availableItems = availableResult.rows;
-      console.log(`✅ Filtro aplicado: ${availableItems.length} itens disponíveis para próximas fases`);
+      // Filtro aplicado para próximas fases
       
       // Calcular valor total apenas dos itens disponíveis
       const totalValue = availableItems.reduce((sum, item) => 
         sum + (parseFloat(item.total_price) || 0), 0
       );
-      console.log(`💰 Valor total dos itens disponíveis: R$ ${totalValue.toFixed(2)}`);
+      // Valor total calculado
       
       return availableItems;
       
@@ -309,7 +309,7 @@ async function testPhaseFilters(testData) {
 
 // Função de limpeza
 async function cleanup(requestNumber = null) {
-  console.log('\n🧹 Limpando dados de teste...');
+  // Limpando dados de teste...
   
   try {
     const client = await pool.connect();
@@ -392,7 +392,7 @@ async function cleanup(requestNumber = null) {
         `, [request.id]);
       }
       
-      console.log('✅ Dados de teste removidos com sucesso');
+      // Dados de teste removidos
       
     } finally {
       client.release();
@@ -405,7 +405,7 @@ async function cleanup(requestNumber = null) {
 
 // Função principal de teste
 async function runTests() {
-  console.log('🚀 Iniciando testes de produtos indisponíveis...');
+  // Iniciando testes de produtos indisponíveis...
   
   let testData = null;
   
@@ -415,7 +415,7 @@ async function runTests() {
     await testNewRequestCreation(testData);
     await testPhaseFilters(testData);
     
-    console.log('\n🎉 Todos os testes executados com sucesso!');
+    console.log('✅ Todos os testes executados com sucesso!');
     
   } catch (error) {
     console.error('\n💥 Erro durante os testes:', error.message);
@@ -433,7 +433,7 @@ async function runTests() {
 if (require.main === module) {
   runTests()
     .then(() => {
-      console.log('\n✨ Testes finalizados');
+      // Testes finalizados
       process.exit(0);
     })
     .catch((error) => {

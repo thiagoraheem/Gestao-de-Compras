@@ -12,7 +12,7 @@ async function initFetch() {
 
 // Função para fazer login
 async function login() {
-  console.log('🔐 Fazendo login como admin...');
+  // Fazendo login como admin...
   
   const response = await fetch(`${API_BASE}/api/auth/login`, {
     method: 'POST',
@@ -30,7 +30,7 @@ async function login() {
   }
   
   const cookies = response.headers.get('set-cookie');
-  console.log('✅ Login realizado com sucesso');
+  // Login realizado com sucesso
   return cookies;
 }
 
@@ -52,7 +52,7 @@ async function makeRequest(endpoint, cookies) {
 async function checkA2Requests() {
   try {
     await initFetch();
-    console.log('🔍 Verificando solicitações com status A2...');
+    console.log('Verificando solicitações com status A2...');
     
     // Fazer login
     const cookies = await login();
@@ -62,43 +62,43 @@ async function checkA2Requests() {
     
     // Filtrar por status A2
     const a2Requests = allRequests.filter(r => r.status === 'A2');
-    console.log(`📊 Total de solicitações com status A2: ${a2Requests.length}`);
+    console.log(`Total de solicitações com status A2: ${a2Requests.length}`);
     
     if (a2Requests.length > 0) {
-      console.log('\n📋 Lista de solicitações A2:');
+      console.log('Lista de solicitações A2:');
       a2Requests.forEach(r => {
-        console.log(`- ${r.requestNumber} (ID: ${r.id}) - Criada em: ${r.createdAt}`);
+        console.log(`${r.requestNumber} (ID: ${r.id}) - Criada em: ${r.createdAt}`);
       });
     }
     
     // Verificar também solicitações concluídas
     const completedRequests = allRequests.filter(r => r.status === 'concluida');
-    console.log(`\n📊 Total de solicitações concluídas: ${completedRequests.length}`);
+    console.log(`Total de solicitações concluídas: ${completedRequests.length}`);
     
     if (completedRequests.length > 0) {
-      console.log('\n📋 Primeiras 5 solicitações concluídas:');
+      console.log('Primeiras 5 solicitações concluídas:');
       completedRequests.slice(0, 5).forEach(r => {
-        console.log(`- ${r.requestNumber} (ID: ${r.id}) - Criada em: ${r.createdAt}`);
+        console.log(`${r.requestNumber} (ID: ${r.id}) - Criada em: ${r.createdAt}`);
       });
     }
     
     // Verificar se existem purchase orders
     try {
       const purchaseOrders = await makeRequest('/api/purchase-orders', cookies);
-      console.log(`\n📦 Total de Purchase Orders existentes: ${purchaseOrders.length}`);
+      console.log(`Total de Purchase Orders existentes: ${purchaseOrders.length}`);
       
       if (purchaseOrders.length > 0) {
-        console.log('\n📋 Primeiras 3 Purchase Orders:');
+        console.log('Primeiras 3 Purchase Orders:');
         purchaseOrders.slice(0, 3).forEach(po => {
-          console.log(`- ${po.orderNumber} (ID: ${po.id}) - Request ID: ${po.purchaseRequestId}`);
+          console.log(`${po.orderNumber} (ID: ${po.id}) - Request ID: ${po.purchaseRequestId}`);
         });
       }
     } catch (error) {
-      console.log('\n⚠️ Não foi possível buscar Purchase Orders:', error.message);
+      console.log('Não foi possível buscar Purchase Orders:', error.message);
     }
     
   } catch (error) {
-    console.error('❌ Erro:', error);
+    console.error('Erro:', error);
   }
 }
 

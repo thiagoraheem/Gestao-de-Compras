@@ -18,6 +18,7 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import debug from "@/lib/debug";
 
 interface Attachment {
   id: number;
@@ -110,7 +111,7 @@ export default function RequestDetailsSection({
         document.body.removeChild(a);
       }
     } catch (error) {
-      console.error('Erro ao baixar anexo:', error);
+      debug.error('Erro ao baixar anexo:', error);
     }
   };
 

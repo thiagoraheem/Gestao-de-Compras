@@ -403,7 +403,7 @@ export default function UpdateSupplierQuotation({
           await uploadFiles();
         } catch (error) {
           uploadSuccess = false;
-          console.error("Upload failed:", error);
+          debug.error("Upload failed:", error);
         }
       }
 

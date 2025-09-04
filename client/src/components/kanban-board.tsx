@@ -14,6 +14,7 @@ import PurchaseCard from "./purchase-card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import debug from "@/lib/debug";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import {
@@ -221,7 +222,7 @@ export default function KanbanBoard({
 
       return supplierQuotations.some((sq: any) => sq.isChosen);
     } catch (error) {
-      console.error(
+      debug.error(
         "Error checking quotation status for request",
         requestId,
         ":",
@@ -259,7 +260,7 @@ export default function KanbanBoard({
       // Processing drag end
 
       if (isNaN(requestId)) {
-        console.error("❌ Invalid request ID", { activeId: active.id, requestId });
+        debug.error("❌ Invalid request ID", { activeId: active.id, requestId });
         toast({
           title: "Erro",
           description: "ID do pedido inválido",

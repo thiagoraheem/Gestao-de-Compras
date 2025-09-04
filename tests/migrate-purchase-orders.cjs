@@ -38,7 +38,7 @@ async function makeRequest(endpoint, options = {}) {
 
 // Função para fazer login
 async function login() {
-  console.log('🔐 Fazendo login como admin...');
+  // Fazendo login como admin...
   
   const response = await fetch(`${API_BASE}/api/auth/login`, {
     method: 'POST',
@@ -56,7 +56,7 @@ async function login() {
     if (cookies) {
       sessionCookie = cookies.split(';')[0];
     }
-    console.log('✅ Login realizado com sucesso');
+    // Login realizado com sucesso
     return true;
   } else {
     console.error('❌ Erro no login');
@@ -66,7 +66,7 @@ async function login() {
 
 // Função para buscar solicitações aprovadas A2 sem pedidos de compra
 async function findRequestsWithoutPurchaseOrders() {
-  console.log('🔍 Buscando solicitações aprovadas A2 sem pedidos de compra...');
+  // Buscando solicitações aprovadas A2 sem pedidos de compra...
   
   try {
     // Buscar todas as solicitações (incluindo companyId=1)
@@ -79,33 +79,33 @@ async function findRequestsWithoutPurchaseOrders() {
       const hasA2Approval = request.approvedA2 === true;
       
       if (hasA2Approval) {
-        console.log(`🔍 Verificando solicitação ${request.requestNumber} (ID: ${request.id}) - Aprovada A2: ${request.approvedA2}`);
+        // Verificando solicitação
         // Verificar se já tem purchase order
         try {
           const purchaseOrders = await makeRequest(`/api/purchase-orders/by-request/${request.id}`);
-          console.log(`   📦 Purchase Orders para ${request.requestNumber}:`, purchaseOrders);
+          // Verificando Purchase Orders existentes
           
           // Verificar se realmente tem purchase order (não é uma mensagem de erro)
           const hasPurchaseOrder = purchaseOrders && !purchaseOrders.message && purchaseOrders.id;
           
           if (!hasPurchaseOrder) {
             requestsNeedingPO.push(request);
-            console.log(`   ✅ Adicionada à lista: ${request.requestNumber} (ID: ${request.id})`);
+            // Adicionada à lista para migração
           } else {
-            console.log(`   ⚠️ Já tem PO: ${request.requestNumber}`);
+            // Já possui Purchase Order
           }
         } catch (error) {
           console.log(`   ❌ Erro ao verificar PO para ${request.requestNumber}:`, error.message);
           // Se der erro 404, significa que não tem purchase order
           if (error.message?.includes('404')) {
             requestsNeedingPO.push(request);
-            console.log(`   ✅ Adicionada à lista (404): ${request.requestNumber} (ID: ${request.id})`);
+            // Adicionada à lista (404)
           }
         }
       }
     }
     
-    console.log(`\n📊 Total de solicitações que precisam de PO: ${requestsNeedingPO.length}`);
+    console.log(`Total de solicitações que precisam de PO: ${requestsNeedingPO.length}`);
     return requestsNeedingPO;
     
   } catch (error) {
@@ -116,13 +116,13 @@ async function findRequestsWithoutPurchaseOrders() {
 
 // Função para criar purchase order para uma solicitação
 async function createPurchaseOrderForRequest(request) {
-  console.log(`\n🔄 Processando ${request.requestNumber}...`);
+  // Processando solicitação...
   
   try {
     // Buscar cotação da solicitação
     const quotation = await makeRequest(`/api/quotations/purchase-request/${request.id}`);
     if (!quotation) {
-      console.log(`⚠️ Nenhuma cotação encontrada para ${request.requestNumber}`);
+      console.warn(`Nenhuma cotação encontrada para ${request.requestNumber}`);
       return false;
     }
     
@@ -131,14 +131,14 @@ async function createPurchaseOrderForRequest(request) {
     const chosenQuotation = supplierQuotations.find(sq => sq.isChosen === true);
     
     if (!chosenQuotation) {
-      console.log(`⚠️ Nenhum fornecedor escolhido para ${request.requestNumber}`);
+      console.warn(`Nenhum fornecedor escolhido para ${request.requestNumber}`);
       return false;
     }
     
     // Buscar itens da cotação do fornecedor escolhido
     const supplierQuotationItems = await makeRequest(`/api/supplier-quotations/${chosenQuotation.id}/items`);
     if (!supplierQuotationItems || supplierQuotationItems.length === 0) {
-      console.log(`⚠️ Nenhum item encontrado na cotação do fornecedor para ${request.requestNumber}`);
+      console.warn(`Nenhum item encontrado na cotação do fornecedor para ${request.requestNumber}`);
       return false;
     }
     
@@ -147,12 +147,12 @@ async function createPurchaseOrderForRequest(request) {
     const a2Approval = approvalHistory.find(h => h.approverType === 'A2' && h.approved === true);
     
     if (!a2Approval) {
-      console.log(`⚠️ Aprovação A2 não encontrada para ${request.requestNumber}`);
+      console.warn(`Aprovação A2 não encontrada para ${request.requestNumber}`);
       return false;
     }
     
     if (!a2Approval.approver?.id) {
-      console.log(`⚠️ ApproverId não encontrado na aprovação A2 para ${request.requestNumber}`);
+      console.warn(`ApproverId não encontrado na aprovação A2 para ${request.requestNumber}`);
       return false;
     }
     
@@ -178,7 +178,7 @@ async function createPurchaseOrderForRequest(request) {
       createdBy: a2Approval.approver.id,
     };
     
-    console.log(`📦 Criando PO: ${orderNumber}`);
+    // Criando Purchase Order...
     
     // Criar purchase order
     const purchaseOrder = await makeRequest('/api/purchase-orders', {
@@ -186,7 +186,7 @@ async function createPurchaseOrderForRequest(request) {
       body: JSON.stringify(purchaseOrderData)
     });
     
-    console.log(`✅ PO criado com ID: ${purchaseOrder?.id || 'UNDEFINED'}`);
+    console.log(`PO criado com ID: ${purchaseOrder?.id || 'UNDEFINED'}`);
     
     // Criar itens do purchase order
     let itemsCreated = 0;
@@ -211,8 +211,8 @@ async function createPurchaseOrderForRequest(request) {
       itemsCreated++;
     }
     
-    console.log(`✅ ${itemsCreated} itens criados para o PO`);
-    console.log(`💰 Valor total: R$ ${parseFloat(chosenQuotation.totalValue || 0).toFixed(2)}`);
+    console.log(`${itemsCreated} itens criados para o PO`);
+    console.log(`Valor total: R$ ${parseFloat(chosenQuotation.totalValue || 0).toFixed(2)}`);
     
     return true;
     
@@ -224,8 +224,8 @@ async function createPurchaseOrderForRequest(request) {
 
 // Função principal
 async function runMigration() {
-  console.log('🚀 Iniciando migração de Purchase Orders...');
-  console.log('=' .repeat(60));
+  console.log('Iniciando migração de Purchase Orders...');
+  
   
   // Inicializar fetch
   await initFetch();
@@ -241,12 +241,12 @@ async function runMigration() {
   const requestsNeedingPO = await findRequestsWithoutPurchaseOrders();
   
   if (requestsNeedingPO.length === 0) {
-    console.log('\n✅ Nenhuma solicitação encontrada que precise de Purchase Order.');
-    console.log('🎉 Migração concluída!');
+    console.log('Nenhuma solicitação encontrada que precise de Purchase Order.');
+    console.log('Migração concluída!');
     return;
   }
   
-  console.log('\n🔄 Iniciando criação dos Purchase Orders...');
+  console.log('Iniciando criação dos Purchase Orders...');
   console.log('=' .repeat(60));
   
   let successCount = 0;
@@ -265,8 +265,8 @@ async function runMigration() {
     await new Promise(resolve => setTimeout(resolve, 500));
   }
   
-  console.log('\n' + '=' .repeat(60));
-  console.log('📊 RESUMO DA MIGRAÇÃO:');
+  
+  console.log('RESUMO DA MIGRAÇÃO:');
   console.log(`✅ Purchase Orders criados com sucesso: ${successCount}`);
   console.log(`❌ Erros encontrados: ${errorCount}`);
   console.log(`📋 Total processado: ${requestsNeedingPO.length}`);

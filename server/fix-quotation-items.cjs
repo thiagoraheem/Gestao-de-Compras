@@ -9,7 +9,7 @@ const { eq } = require('drizzle-orm');
 
 (async () => {
   try {
-    console.log('Fixing quotation items for SOL-2025-004...');
+    // console.log('Fixing quotation items for SOL-2025-004...');
     
     // Get purchase request by ID 14
     const pr = await storage.getPurchaseRequestById(14);
@@ -18,11 +18,11 @@ const { eq } = require('drizzle-orm');
       return;
     }
     
-    console.log('Purchase Request:', pr.requestNumber);
+    // console.log('Purchase Request:', pr.requestNumber);
     
     // Get purchase request items
     const requestItems = await storage.getPurchaseRequestItems(pr.id);
-    console.log('Purchase Request Items:', requestItems.length);
+    // console.log('Purchase Request Items:', requestItems.length);
     
     // Get quotation
     const quotation = await storage.getQuotationByPurchaseRequestId(pr.id);
@@ -33,14 +33,14 @@ const { eq } = require('drizzle-orm');
     
     // Get quotation items
     const quotationItemsList = await storage.getQuotationItems(quotation.id);
-    console.log('Quotation Items:', quotationItemsList.length);
+    // console.log('Quotation Items:', quotationItemsList.length);
     
     // Update quotation items with correct descriptions
     for (let i = 0; i < Math.min(requestItems.length, quotationItemsList.length); i++) {
       const requestItem = requestItems[i];
       const quotationItem = quotationItemsList[i];
       
-      console.log(`Updating quotation item ${quotationItem.id}: "${quotationItem.description}" -> "${requestItem.description}"`);
+      // console.log(`Updating quotation item ${quotationItem.id}: "${quotationItem.description}" -> "${requestItem.description}"`);;
       
       await db
         .update(quotationItems)

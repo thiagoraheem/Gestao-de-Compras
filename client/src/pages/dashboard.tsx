@@ -34,6 +34,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";
+import debug from "@/lib/debug";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -110,10 +111,10 @@ export default function Dashboard() {
         a.click();
         window.URL.revokeObjectURL(url);
       } else {
-        console.error('Failed to export PDF');
+        debug.error('Failed to export PDF');
       }
     } catch (error) {
-      console.error('Error exporting PDF:', error);
+      debug.error('Error exporting PDF:', error);
     }
   };
 

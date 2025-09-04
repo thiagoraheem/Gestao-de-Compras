@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";
+import debug from "@/lib/debug";
 
 interface PublicRequestData {
   purchaseRequest: any;
@@ -93,7 +94,7 @@ export default function PublicRequestView() {
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Erro ao baixar PDF:', error);
+      debug.error('Erro ao baixar PDF:', error);
     }
   };
 

@@ -23,10 +23,10 @@ const db = drizzle(pool, { schema });
     // Get all quotations
     const allQuotations = await db.select().from(quotations);
     
-    console.log(`Found ${allQuotations.length} quotations`);
+    // console.log(`Found ${allQuotations.length} quotations`);
     
     for (const quotation of allQuotations) {
-      console.log(`\nProcessing quotation ${quotation.quotationNumber} (ID: ${quotation.id})`);
+      // console.log(`\nProcessing quotation ${quotation.quotationNumber} (ID: ${quotation.id})`);
       
       // Get purchase request items
       const requestItems = await db
@@ -42,15 +42,15 @@ const db = drizzle(pool, { schema });
         .where(eq(quotationItems.quotationId, quotation.id))
         .orderBy(quotationItems.id);
       
-      console.log(`  Purchase request items: ${requestItems.length}`);
-      console.log(`  Quotation items: ${quotationItemsList.length}`);
+      // console.log(`  Purchase request items: ${requestItems.length}`);
+      // console.log(`  Quotation items: ${quotationItemsList.length}`);
       
       // Update quotation items to link with purchase request items
       for (let i = 0; i < Math.min(requestItems.length, quotationItemsList.length); i++) {
         const requestItem = requestItems[i];
         const quotationItem = quotationItemsList[i];
         
-        console.log(`    Linking QI ${quotationItem.id} (${quotationItem.description}) -> PRI ${requestItem.id} (${requestItem.description})`);
+        // console.log(`    Linking QI ${quotationItem.id} (${quotationItem.description}) -> PRI ${requestItem.id} (${requestItem.description})`);
         
         await db
           .update(quotationItems)
@@ -61,7 +61,7 @@ const db = drizzle(pool, { schema });
       }
     }
     
-    console.log('\n✓ Item relationships fixed successfully!');
+    console.log('✓ Item relationships fixed successfully!');
     
   } catch (e) {
     console.error('Error:', e.message);
