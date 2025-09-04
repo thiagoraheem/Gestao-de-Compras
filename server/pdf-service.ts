@@ -2,6 +2,8 @@ import puppeteer from 'puppeteer';
 import htmlPdf from 'html-pdf-node';
 import { storage } from './storage';
 import QRCode from 'qrcode';
+import fs from 'fs';
+import path from 'path';
 
 interface PurchaseOrderData {
   purchaseRequest: any;
@@ -17,8 +19,6 @@ interface PurchaseOrderData {
 export class PDFService {
   // Detecta o caminho do browser automaticamente
   private static async findBrowserPath(): Promise<string | undefined> {
-    const fs = require('fs');
-    const path = require('path');
     
     // Possíveis caminhos de browsers em diferentes sistemas
     const possiblePaths = [
@@ -119,7 +119,7 @@ export class PDFService {
           return browser;
         } catch (error) {
           lastError = error;
-          console.error(`  ✗ Erro na tentativa ${retry + 1}:`, error.message);
+          console.error(`  ✗ Erro na tentativa ${retry + 1}:`, error instanceof Error ? error.message : String(error));
           if (retry < retries - 1) {
             const delay = 1000 * (retry + 1);
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -129,7 +129,7 @@ export class PDFService {
     }
     
     console.error('❌ Todas as configurações e tentativas falharam');
-    throw new Error(`Falha ao lançar browser após todas as tentativas. Último erro: ${lastError?.message}`);
+    throw new Error(`Falha ao lançar browser após todas as tentativas. Último erro: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
   }
 
   // Método de fallback que retorna o HTML quando PDF falha
@@ -138,7 +138,7 @@ export class PDFService {
       const pdfBuffer = await this.generatePDFWithPuppeteer(html);
       return pdfBuffer;
     } catch (puppeteerError) {
-      console.error(`❌ Puppeteer falhou para ${pdfType}:`, puppeteerError.message);
+      console.error(`❌ Puppeteer falhou para ${pdfType}:`, puppeteerError instanceof Error ? puppeteerError.message : String(puppeteerError));
       
       try {
         const options = {
@@ -158,7 +158,7 @@ export class PDFService {
         // PDF generated successfully
         return pdfBuffer;
       } catch (fallbackError) {
-        console.error(`❌ html-pdf-node também falhou para ${pdfType}:`, fallbackError.message);
+        console.error(`❌ html-pdf-node também falhou para ${pdfType}:`, fallbackError instanceof Error ? fallbackError.message : String(fallbackError));
         // Returning HTML as fallback
         
         // Como último recurso, retorna o HTML como um "PDF" (o browser pode imprimir/salvar como PDF)
@@ -252,7 +252,7 @@ export class PDFService {
       }
 
       // Buscar dados do centro de custo e departamento
-      let costCenter = null;
+      let costCenter: any = null;
       let department = null;
       if (purchaseRequest.costCenterId) {
         const allCostCenters = await storage.getAllCostCenters();
@@ -267,7 +267,7 @@ export class PDFService {
       // Buscar cotação e fornecedor selecionado
       let selectedSupplier = null;
       let selectedSupplierQuotation = null;
-      let supplierQuotationItems = [];
+      let supplierQuotationItems: any[] = [];
       
       try {
         const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
@@ -276,7 +276,7 @@ export class PDFService {
           selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen);
           
           if (selectedSupplierQuotation) {
-            selectedSupplier = selectedSupplierQuotation.supplier;
+            selectedSupplier = await storage.getSupplierById(selectedSupplierQuotation.supplierId);
             supplierQuotationItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
           }
         }
@@ -1022,7 +1022,7 @@ export class PDFService {
     
     // Buscar dados da empresa através da solicitação
     let company = null;
-    const requester = await storage.getUser(purchaseRequest.requesterId);
+    const requester = await storage.getUser(purchaseRequest.requesterId!);
     
     if (purchaseRequest.companyId) {
       company = await storage.getCompanyById(purchaseRequest.companyId);
@@ -1079,7 +1079,7 @@ export class PDFService {
               return true;
             }
             // Fallback: tenta por código do item
-            if (qi.itemCode && item.itemCode && qi.itemCode === item.itemCode) {
+            if (qi.itemCode && (item as any).productCode && qi.itemCode === (item as any).productCode) {
               return true;
             }
             // Fallback: tenta por descrição parcial
