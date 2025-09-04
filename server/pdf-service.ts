@@ -17,15 +17,27 @@ interface PurchaseOrderData {
 }
 
 export class PDFService {
+  // Detecta o sistema operacional
+  private static isWindows(): boolean {
+    return process.platform === 'win32';
+  }
+
   // Detecta o caminho do browser automaticamente
   private static async findBrowserPath(): Promise<string | undefined> {
     
     // Possíveis caminhos de browsers em diferentes sistemas
     const possiblePaths = [
-      // Windows
+      // Windows (incluindo Windows Server)
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
       'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
       'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      // Windows Server caminhos específicos
+      'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\chrome.exe',
+      'C:\\ProgramData\\chocolatey\\lib\\GoogleChrome\\tools\\GoogleChromePortable.exe',
+      // Caminhos comuns em servidores Windows
+      'D:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'D:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
       // Linux/Unix
       '/usr/bin/google-chrome',
       '/usr/bin/google-chrome-stable',
@@ -54,7 +66,34 @@ export class PDFService {
 
   // Método auxiliar para lançar browser com retry e fallback
   private static async launchBrowserWithRetry(retries: number = 3): Promise<any> {
-    const baseArgs = [
+    // Argumentos específicos para Windows Server
+    const windowsArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox', 
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-web-security',
+      '--disable-features=VizDisplayCompositor',
+      '--disable-background-timer-throttling',
+      '--disable-renderer-backgrounding',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-features=TranslateUI',
+      '--disable-ipc-flooding-protection',
+      '--disable-extensions',
+      '--disable-plugins',
+      '--disable-default-apps',
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--disable-translate',
+      '--disable-notifications',
+      '--disable-permissions-api',
+      '--disable-background-mode',
+      '--memory-pressure-off',
+      '--max_old_space_size=4096'
+    ];
+
+    // Argumentos para Linux/Unix
+    const linuxArgs = [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
@@ -74,6 +113,8 @@ export class PDFService {
       '--max_old_space_size=4096'
     ];
 
+    const baseArgs = this.isWindows() ? windowsArgs : linuxArgs;
+
     // Detectar caminho do browser automaticamente
     const detectedBrowserPath = await this.findBrowserPath();
 
@@ -83,15 +124,30 @@ export class PDFService {
         executablePath: detectedBrowserPath,
         args: baseArgs,
         headless: true,
-        timeout: 30000
+        timeout: 60000,
+        ignoreDefaultArgs: false
       }] : []),
       // Configuração 2: Sem path específico (usa browser padrão do sistema)
       {
         args: baseArgs,
         headless: true,
-        timeout: 30000
+        timeout: 60000,
+        ignoreDefaultArgs: false
       },
-      // Configuração 3: Minimal fallback com menos argumentos
+      // Configuração 3: Windows Server minimal
+      ...(this.isWindows() ? [{
+        args: [
+          '--no-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-extensions',
+          '--disable-plugins'
+        ],
+        headless: true,
+        timeout: 60000,
+        ignoreDefaultArgs: true
+      }] : []),
+      // Configuração 4: Minimal fallback com menos argumentos
       {
         args: [
           '--no-sandbox',
@@ -101,13 +157,13 @@ export class PDFService {
           '--disable-gpu'
         ],
         headless: true,
-        timeout: 30000
+        timeout: 60000
       },
-      // Configuração 4: Ultra minimal para ambientes muito restritivos
+      // Configuração 5: Ultra minimal para ambientes muito restritivos
       {
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
         headless: true,
-        timeout: 30000
+        timeout: 60000
       }
     ];
 
@@ -200,9 +256,12 @@ export class PDFService {
       await page.setDefaultTimeout(30000);
       
       await page.setContent(html, { 
-        waitUntil: 'networkidle0', 
-        timeout: 30000 
+        waitUntil: 'domcontentloaded',
+        timeout: 60000 
       });
+      
+      // Aguardar um pouco para garantir que CSS foi processado
+      await page.waitForTimeout(1000);
       
       const pdfBuffer = await page.pdf({
         format: 'A4',
@@ -213,7 +272,8 @@ export class PDFService {
           left: '15mm'
         },
         printBackground: true,
-        timeout: 30000
+        timeout: 60000,
+        preferCSSPageSize: false
       });
 
       return pdfBuffer;
