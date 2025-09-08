@@ -48,6 +48,7 @@ export async function sendRFQToSuppliers(
       const mailOptions = {
         from: senderEmail || config.email.from,
         to: supplier.email,
+        replyTo: senderEmail || config.email.from,
         subject: `Solicitação de Cotação - ${rfqData.quotationNumber}`,
         html: emailHtml,
         attachments: [], // Could add PDF attachments here
@@ -205,6 +206,7 @@ export async function notifyNewRequest(
       const mailOptions = {
         from: config.email.from,
         to: buyer.email,
+        replyTo: config.email.from,
         subject: `Nova Solicitação de Compra - ${purchaseRequest.requestNumber}`,
         html: generateNewRequestEmailHTML(
           buyer,
@@ -269,6 +271,7 @@ export async function notifyApprovalA1(
       const mailOptions = {
         from: config.email.from,
         to: approver.email,
+        replyTo: config.email.from,
         subject: `Solicitação Pendente de Aprovação A1 - ${purchaseRequest.requestNumber}`,
         html: generateApprovalA1EmailHTML(
           approver,
@@ -333,6 +336,7 @@ export async function notifyApprovalA2(
       const mailOptions = {
         from: config.email.from,
         to: approver.email,
+        replyTo: config.email.from,
         subject: `Solicitação Pendente de Aprovação A2 - ${purchaseRequest.requestNumber}`,
         html: generateApprovalA2EmailHTML(
           approver,
@@ -565,6 +569,7 @@ export async function notifyRejection(
     const mailOptions = {
       from: config.email.from,
       to: requester.email,
+      replyTo: config.email.from,
       subject: `Solicitação Reprovada - ${purchaseRequest.requestNumber}`,
       html: generateRejectionEmailHTML(
         requester,
@@ -663,6 +668,7 @@ export async function sendPasswordResetEmail(
   const mailOptions = {
     from: config.email.from,
     to: user.email,
+    replyTo: config.email.from,
     subject: "Recuperação de Senha - Sistema LOCADOR",
     html: emailHtml,
   };
