@@ -269,6 +269,7 @@ export interface IStorage {
 
   // Attachment operations
   createAttachment(attachment: InsertAttachment): Promise<Attachment>;
+  getAttachmentsByPurchaseRequestId(purchaseRequestId: number): Promise<Attachment[]>;
 
   // Initialize default data
   initializeDefaultData(): Promise<void>;
@@ -1910,6 +1911,13 @@ export class DatabaseStorage implements IStorage {
       .values(attachmentData)
       .returning();
     return attachment;
+  }
+
+  async getAttachmentsByPurchaseRequestId(purchaseRequestId: number): Promise<Attachment[]> {
+    return await db
+      .select()
+      .from(attachments)
+      .where(eq(attachments.purchaseRequestId, purchaseRequestId));
   }
 
   async cleanupPurchaseRequestsData(): Promise<void> {
