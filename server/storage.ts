@@ -97,6 +97,7 @@ export interface IStorage {
 
   // Cost Center operations
   getAllCostCenters(): Promise<CostCenter[]>;
+  getCostCenterById(id: number): Promise<CostCenter | undefined>;
   getCostCentersByDepartment(departmentId: number): Promise<CostCenter[]>;
   createCostCenter(costCenter: InsertCostCenter): Promise<CostCenter>;
   updateCostCenter(
@@ -500,6 +501,14 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCostCenters(): Promise<CostCenter[]> {
     return await db.select().from(costCenters);
+  }
+
+  async getCostCenterById(id: number): Promise<CostCenter | undefined> {
+    const [costCenter] = await db
+      .select()
+      .from(costCenters)
+      .where(eq(costCenters.id, id));
+    return costCenter || undefined;
   }
 
   async getCostCentersByDepartment(
