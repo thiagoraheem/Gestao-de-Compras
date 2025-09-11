@@ -61,7 +61,8 @@ export default function PipefyHeader() {
         { label: "Departamentos", href: "/departments", icon: <Building className="w-4 h-4" /> },
         { label: "Locais de Entrega", href: "/delivery-locations", icon: <MapPin className="w-4 h-4" /> },
         { label: "Empresas", href: "/companies", icon: <Building className="w-4 h-4" /> },
-        { label: "Limpeza de Dados", href: "/admin/cleanup", icon: <Database className="w-4 h-4" /> }
+        { label: "Limpeza de Dados", href: "/admin/cleanup", icon: <Database className="w-4 h-4" /> },
+        { label: "Super Usuário", href: "/admin/super-user", icon: <Settings className="w-4 h-4" /> }
       );
     }
 

@@ -22,6 +22,7 @@ import PipefyHeader from "@/components/pipefy-header";
 import FloatingNewRequestButton from "@/components/floating-new-request-button";
 import FloatingHelpButton from "@/components/floating-help-button";
 import AdminCleanupPage from "@/pages/admin-cleanup";
+import AdminSuperUserPage from "@/pages/admin-super-user";
 import DashboardPage from "@/pages/dashboard";
 import UserManualPage from "@/pages/user-manual";
 import PurchaseRequestsReportPage from "@/pages/purchase-requests-report";
@@ -96,6 +97,11 @@ function Router() {
         <Route path="/departments" component={DepartmentsPage} />
         <Route path="/delivery-locations" component={DeliveryLocationsPage} />
         <Route path="/admin/cleanup" component={AdminCleanupPage} />
+        <Route path="/admin/super-user">
+          <AdminRoute>
+            <AdminSuperUserPage />
+          </AdminRoute>
+        </Route>
         <Route path="/profile" component={ProfilePage} />
         <Route path="/change-password" component={ChangePasswordPage} />
         <Route path="/manual" component={UserManualPage} />

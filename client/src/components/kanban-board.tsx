@@ -176,6 +176,11 @@ export default function KanbanBoard({
       return true;
     }
     
+    // Special permission: Admin/Manager can move from "arquivado" to "aprovacao_a1"
+    if (phase === "arquivado" && targetPhase === "aprovacao_a1") {
+      return user?.isAdmin || user?.isManager;
+    }
+    
     // Allow moving from Aprovação A1 back to Solicitação (for corrections)
     if (phase === "aprovacao_a1" && targetPhase === "solicitacao") {
       return true;

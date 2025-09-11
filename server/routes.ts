@@ -1638,7 +1638,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin endpoint to search purchase request by request number
+  app.get("/api/admin/purchase-requests/search/:requestNumber", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { requestNumber } = req.params;
+      const request = await storage.getPurchaseRequestByNumber(requestNumber);
+      
+      if (!request) {
+        return res.status(404).json({ message: "Solicitação não encontrada" });
+      }
 
+      // Get complete request data with relationships
+      const [items, attachments, costCenter, requester] = await Promise.all([
+        storage.getPurchaseRequestItems(request.id),
+        storage.getAttachmentsByPurchaseRequestId(request.id),
+        storage.getCostCenterById(request.costCenterId),
+        storage.getUser(request.requesterId)
+      ]);
+
+      const enrichedRequest = {
+        ...request,
+        items,
+        attachments,
+        costCenter,
+        requester: requester ? {
+          id: requester.id,
+          firstName: requester.firstName,
+          lastName: requester.lastName,
+          email: requester.email
+        } : null
+      };
+
+      res.json(enrichedRequest);
+    } catch (error) {
+      console.error("Error searching purchase request:", error);
+      res.status(500).json({ message: "Falha ao buscar solicitação" });
+    }
+  });
+
+  // Admin endpoint to update complete purchase request data
+  app.patch("/api/admin/purchase-requests/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const {
+        category,
+        urgency,
+        justification,
+        idealDeliveryDate,
+        availableBudget,
+        additionalInfo,
+        currentPhase,
+        items
+      } = req.body;
+
+      // Validate phase
+      const validPhases = ["solicitacao", "aprovacao_a1", "cotacao", "aprovacao_a2", "pedido_compra", "recebimento", "conclusao_compra", "arquivado"] as const;
+      if (currentPhase && !validPhases.includes(currentPhase)) {
+        return res.status(400).json({ message: "Fase inválida" });
+      }
+
+      // Update main request data
+      const updates: any = {};
+      if (category !== undefined) updates.category = category;
+      if (urgency !== undefined) updates.urgency = urgency;
+      if (justification !== undefined) updates.justification = justification;
+      if (idealDeliveryDate !== undefined) updates.idealDeliveryDate = idealDeliveryDate ? new Date(idealDeliveryDate) : null;
+      if (availableBudget !== undefined) updates.availableBudget = availableBudget;
+      if (additionalInfo !== undefined) updates.additionalInfo = additionalInfo;
+      if (currentPhase !== undefined) updates.currentPhase = currentPhase;
+
+      const updatedRequest = await storage.updatePurchaseRequest(id, updates);
+
+      // Update items if provided
+      if (items && Array.isArray(items)) {
+        // Get existing items
+        const existingItems = await storage.getPurchaseRequestItems(id);
+        
+        // Update existing items and add new ones
+        for (const item of items) {
+          if (item.id && existingItems.some(ei => ei.id === item.id)) {
+            // Update existing item
+            await storage.updatePurchaseRequestItem(item.id, {
+              description: item.description,
+              unit: item.unit,
+              requestedQuantity: item.requestedQuantity,
+              technicalSpecification: item.technicalSpecification
+            });
+          } else if (!item.id) {
+            // Add new item
+            await storage.createPurchaseRequestItem({
+              purchaseRequestId: id,
+              description: item.description,
+              unit: item.unit,
+              requestedQuantity: item.requestedQuantity,
+              technicalSpecification: item.technicalSpecification
+            });
+          }
+        }
+      }
+
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error("Error updating purchase request:", error);
+      res.status(500).json({ message: "Falha ao atualizar solicitação" });
+    }
+  });
 
   // Endpoint para atualizar a fase do cartão (Kanban) com controle de permissões
   app.patch("/api/purchase-requests/:id/update-phase", isAuthenticated, async (req, res) => {
@@ -1668,9 +1772,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Permission checks based on current phase and user permissions
       const currentPhase = request.currentPhase;
 
-      // Check if user has permission to move from current phase
-      if (currentPhase === "aprovacao_a1" && !user.isApproverA1) {
-        return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Aprovação A1" });
+      // Special permission for Admin/Manager to move from "arquivado" to "aprovacao_a1"
+      if (currentPhase === "arquivado" && newPhase === "aprovacao_a1") {
+        if (!user.isAdmin && !user.isManager) {
+          return res.status(403).json({ 
+            message: "Apenas Administradores e Gerentes podem reabrir solicitações arquivadas" 
+          });
+        }
+        // Admin/Manager can move from arquivado to aprovacao_a1, continue without other checks
+      } else {
+        // Normal permission checks for other phase transitions
+        // Check if user has permission to move from current phase
+        if (currentPhase === "aprovacao_a1" && !user.isApproverA1) {
+          return res.status(403).json({ message: "Você não possui permissão para mover cards da fase Aprovação A1" });
+        }
       }
 
       // Additional check for A1 approvers - must have access to cost center

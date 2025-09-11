@@ -164,6 +164,7 @@ export interface IStorage {
   // Purchase Request operations
   getAllPurchaseRequests(): Promise<PurchaseRequest[]>;
   getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined>;
+  getPurchaseRequestByNumber(requestNumber: string): Promise<PurchaseRequest | undefined>;
   createPurchaseRequest(
     request: InsertPurchaseRequest,
   ): Promise<PurchaseRequest>;
@@ -914,6 +915,14 @@ export class DatabaseStorage implements IStorage {
     };
 
     return result as any;
+  }
+
+  async getPurchaseRequestByNumber(requestNumber: string): Promise<PurchaseRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(purchaseRequests)
+      .where(eq(purchaseRequests.requestNumber, requestNumber));
+    return request || undefined;
   }
 
   async createPurchaseRequest(
