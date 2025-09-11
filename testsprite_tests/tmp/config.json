@@ -1,0 +1,17 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:5201",
+  "loginUser": "admin",
+  "loginPassword": "admin123",
+  "executionArgs": {
+    "projectName": "Gestao-de-Compras",
+    "projectPath": "c:\\Projetos\\Locador\\Gestao-de-Compras",
+    "testIds": [],
+    "additionalInstruction": "Executar testes abrangentes no sistema de gestão de compras, focando nos fluxos críticos: autenticação, criação de solicitações, aprovações, cotações e pedidos de compra. Verificar funcionalidades do Kanban, validações de formulários e integrações.",
+    "envs": {
+      "API_KEY": "sk-user-q7xHJT_83JgFsg3JORKj40OEsuvFD7VSzDv8x6PSD-mpnwhNZx2-PawT55p7REJGZ-M-hWvT-PTN4WfPVDUuZiy5ilEeVFS_7hL2n27kGzNBOJ7jQcWYi57uu2feTQ_4uHs"
+    }
+  }
+}

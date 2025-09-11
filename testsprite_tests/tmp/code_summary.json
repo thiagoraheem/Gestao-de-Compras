@@ -1,0 +1,164 @@
+{
+  "project_name": "Sistema de Gestão de Compras",
+  "description": "Sistema web full-stack para gestão completa de solicitações de compra com workflow Kanban de 8 fases, desde solicitação até recebimento",
+  "tech_stack": {
+    "frontend": {
+      "framework": "React 18",
+      "language": "TypeScript",
+      "build_tool": "Vite",
+      "ui_library": "Shadcn/ui (Radix UI)",
+      "styling": "Tailwind CSS",
+      "state_management": "TanStack Query",
+      "routing": "Wouter",
+      "form_handling": "React Hook Form + Zod",
+      "drag_drop": "@dnd-kit",
+      "charts": "Recharts",
+      "icons": "Lucide React"
+    },
+    "backend": {
+      "runtime": "Node.js",
+      "language": "TypeScript",
+      "framework": "Express.js",
+      "database": "PostgreSQL",
+      "orm": "Drizzle ORM",
+      "validation": "Zod",
+      "session_management": "express-session + connect-pg-simple",
+      "file_upload": "Multer",
+      "pdf_generation": "html-pdf-node + Puppeteer",
+      "email": "Nodemailer",
+      "authentication": "bcryptjs"
+    },
+    "database": {
+      "type": "PostgreSQL",
+      "provider": "Neon Serverless",
+      "migration_tool": "Drizzle Kit"
+    },
+    "deployment": {
+      "platform": "Replit",
+      "build_system": "Vite + esbuild"
+    }
+  },
+  "architecture": {
+    "pattern": "Full-stack monolith with REST API",
+    "structure": {
+      "client/": "Frontend React application",
+      "server/": "Backend Express.js API",
+      "shared/": "Shared schemas and types",
+      "migrations/": "Database migrations",
+      "uploads/": "File storage"
+    },
+    "api_style": "RESTful endpoints",
+    "authentication": "Session-based with PostgreSQL store"
+  },
+  "core_features": {
+    "workflow": {
+      "type": "Kanban with 8 fixed phases",
+      "phases": [
+        "Solicitação",
+        "Aprovação A1",
+        "Cotação (RFQ)",
+        "Aprovação A2",
+        "Pedido de Compra",
+        "Conclusão",
+        "Recebimento",
+        "Arquivado"
+      ]
+    },
+    "user_management": {
+      "roles": ["Admin", "Manager", "Buyer", "Approver A1", "Approver A2", "Receiver"],
+      "permissions": "Role-based access control",
+      "multi_company": true,
+      "departments": true,
+      "cost_centers": true
+    },
+    "purchase_process": {
+      "request_creation": "Form-based with Excel import",
+      "approval_workflow": "Two-level approval (A1/A2)",
+      "quotation_management": "RFQ with multiple suppliers",
+      "purchase_orders": "Automated PDF generation",
+      "receipt_tracking": "Material receipt confirmation"
+    },
+    "supplier_management": {
+      "types": ["Traditional", "Online"],
+      "quotation_system": "Multi-supplier comparison",
+      "document_upload": "PDF quotations"
+    },
+    "reporting": {
+      "dashboard": "Executive metrics with charts",
+      "real_time_data": "Live status tracking",
+      "export_formats": ["PDF", "Excel"]
+    }
+  },
+  "business_rules": {
+    "approval_hierarchy": {
+      "A1": "Department/Cost center validation",
+      "A2": "Final purchase approval"
+    },
+    "cost_center_restrictions": "Users limited to assigned cost centers (except managers)",
+    "manager_privileges": "Can create requests for any cost center",
+    "quotation_requirements": "Minimum supplier participation",
+    "document_management": "Attachment support for all phases"
+  },
+  "integrations": {
+    "email_notifications": "SMTP-based alerts",
+    "erp_integration": "Product data sync (configurable)",
+    "file_storage": "Local file system",
+    "pdf_generation": "Purchase order automation"
+  },
+  "database_entities": [
+    "companies",
+    "users",
+    "departments",
+    "cost_centers",
+    "suppliers",
+    "purchase_requests",
+    "purchase_request_items",
+    "quotations",
+    "quotation_items",
+    "supplier_quotations",
+    "supplier_quotation_items",
+    "purchase_orders",
+    "purchase_order_items",
+    "receipts",
+    "receipt_items",
+    "attachments",
+    "approval_history",
+    "payment_methods",
+    "delivery_locations"
+  ],
+  "key_endpoints": {
+    "authentication": "/api/auth/*",
+    "purchase_requests": "/api/purchase-requests/*",
+    "quotations": "/api/quotations/*",
+    "suppliers": "/api/suppliers/*",
+    "users": "/api/users/*",
+    "uploads": "/api/upload/*",
+    "reports": "/api/reports/*"
+  },
+  "testing": {
+    "existing_tests": [
+      "Complete flow test (test-complete-flow.js)",
+      "User validation (check-users.js)",
+      "Database debugging scripts"
+    ],
+    "test_coverage": "Basic integration tests"
+  },
+  "deployment_config": {
+    "environment": "Development/Production",
+    "port": 5000,
+    "session_store": "PostgreSQL",
+    "file_uploads": "Local storage",
+    "email_service": "SMTP configurable"
+  },
+  "project_status": {
+    "completion": "75%",
+    "production_ready": true,
+    "main_features_implemented": true,
+    "pending_features": [
+      "Advanced reporting",
+      "Mobile app",
+      "AI integrations",
+      "Advanced workflow configuration"
+    ]
+  }
+}

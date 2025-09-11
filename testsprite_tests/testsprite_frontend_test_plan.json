@@ -1,0 +1,400 @@
+[
+  {
+    "id": "TC001",
+    "title": "User Authentication and Role-Based Access Control",
+    "description": "Verify that users with valid credentials can authenticate successfully and gain access according to their assigned roles. Validate session management, password encryption, and CSRF protection.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to log in with valid username and password"
+      },
+      {
+        "type": "assertion",
+        "description": "User is authenticated and session is established with encrypted password validation"
+      },
+      {
+        "type": "action",
+        "description": "Access resources according to role permissions (Admin, Manager, Buyer, Approver A1, Approver A2, Receiver)"
+      },
+      {
+        "type": "assertion",
+        "description": "Access is granted or denied properly based on role and cost center restrictions"
+      },
+      {
+        "type": "action",
+        "description": "Attempt actions forbidden to the user's role"
+      },
+      {
+        "type": "assertion",
+        "description": "Forbidden actions are correctly blocked and user receives appropriate feedback"
+      },
+      {
+        "type": "action",
+        "description": "Check protection against CSRF attacks during form submissions"
+      },
+      {
+        "type": "assertion",
+        "description": "CSRF tokens are validated and requests without tokens are rejected"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Purchase Request Creation with Excel Import",
+    "description": "Validate creation of purchase requests using the form with and without Excel import, including field validations and cost center restrictions.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Manager and create a purchase request selecting any cost center"
+      },
+      {
+        "type": "assertion",
+        "description": "Request is created successfully and associated with selected cost center"
+      },
+      {
+        "type": "action",
+        "description": "Login as Buyer and attempt to create purchase request for an unauthorized cost center"
+      },
+      {
+        "type": "assertion",
+        "description": "Creation is blocked with clear validation message"
+      },
+      {
+        "type": "action",
+        "description": "Create a purchase request using manual form entry with all mandatory fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Request is saved and visible in the user workflow"
+      },
+      {
+        "type": "action",
+        "description": "Upload valid Excel file containing purchase request items"
+      },
+      {
+        "type": "assertion",
+        "description": "Excel items are imported correctly with real-time validation and feedback for invalid formats"
+      },
+      {
+        "type": "action",
+        "description": "Upload Excel file with invalid structure and unsupported fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Error message displayed describing the import failure"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Workflow Phase Transitions and State Validations",
+    "description": "Verify that purchase requests correctly transition through all 8 Kanban workflow phases with proper validations and restrictions.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create purchase request and submit for Aprovação A1"
+      },
+      {
+        "type": "assertion",
+        "description": "Purchase request appears in Aprovação A1 queue only if cost center matches approver"
+      },
+      {
+        "type": "action",
+        "description": "Approver A1 approves the request with no justification"
+      },
+      {
+        "type": "assertion",
+        "description": "Approval is accepted and request moves to Cotação (RFQ) phase"
+      },
+      {
+        "type": "action",
+        "description": "Approver A1 rejects request without providing justification"
+      },
+      {
+        "type": "assertion",
+        "description": "Rejection is rejected, and justification is enforced"
+      },
+      {
+        "type": "action",
+        "description": "Create RFQ with multiple suppliers and upload supplier quotations"
+      },
+      {
+        "type": "assertion",
+        "description": "Quotations are listed correctly for comparison in Cotação phase"
+      },
+      {
+        "type": "action",
+        "description": "Approver A2 reviews quotations and approves the request"
+      },
+      {
+        "type": "assertion",
+        "description": "Request proceeds to Pedido de Compra phase"
+      },
+      {
+        "type": "action",
+        "description": "Approver A2 rejects request and opts to archive or request new quotes"
+      },
+      {
+        "type": "assertion",
+        "description": "Request is either moved to Arquivado or back to Cotação accordingly"
+      },
+      {
+        "type": "action",
+        "description": "Buyer generates purchase order PDF and signs electronically"
+      },
+      {
+        "type": "assertion",
+        "description": "Generated PDF contains all dynamic information and has professional layout"
+      },
+      {
+        "type": "action",
+        "description": "Receiver confirms receipt and quality control"
+      },
+      {
+        "type": "assertion",
+        "description": "Request moves to Conclusão phase and records quality outcomes"
+      },
+      {
+        "type": "action",
+        "description": "Receiver returns request with pending issues"
+      },
+      {
+        "type": "assertion",
+        "description": "Request is flagged and returned to appropriate phase for correction"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Access Control for Multi-Company, Department, and Cost Center",
+    "description": "Ensure that users with multiple company affiliations and departmental assignments have restricted access per role and cost center requirements, except for managers with elevated privileges.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as a user assigned to multiple companies and departments"
+      },
+      {
+        "type": "assertion",
+        "description": "User can switch context but is restricted to assigned cost centers except when role is Manager"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to create purchase request for cost center outside user assignments as non-manager"
+      },
+      {
+        "type": "assertion",
+        "description": "Creation is blocked with appropriate error message"
+      },
+      {
+        "type": "action",
+        "description": "Manager creates purchase request for any cost center"
+      },
+      {
+        "type": "assertion",
+        "description": "Creation is successful without restriction"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Email Notification System",
+    "description": "Test automatic email notifications are triggered asynchronously on all critical workflow events without blocking primary processes.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger purchase request submission"
+      },
+      {
+        "type": "assertion",
+        "description": "Email notification is sent to Aprover A1 asynchronously"
+      },
+      {
+        "type": "action",
+        "description": "Approve or reject the request at Aprovação A1"
+      },
+      {
+        "type": "assertion",
+        "description": "Appropriate email notifications are sent with justification if rejected"
+      },
+      {
+        "type": "action",
+        "description": "Perform status changes in Cotação, Aprovação A2, and Pedido de Compra phases"
+      },
+      {
+        "type": "assertion",
+        "description": "Each event triggers corresponding emails to related users without process blocking"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "PDF Document Generation and Validation",
+    "description": "Verify that purchase order and completion reports are generated automatically with accurate dynamic content, professional layout, and proper file format.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Generate PDF for purchase order after approval"
+      },
+      {
+        "type": "assertion",
+        "description": "PDF contains complete data including signatures, itemized lists, supplier details, and follows company branding"
+      },
+      {
+        "type": "action",
+        "description": "Generate PDF report on process completion"
+      },
+      {
+        "type": "assertion",
+        "description": "Report reflects accurate timeline, metrics, and is formatted properly for download"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to upload unsupported file formats as attachments"
+      },
+      {
+        "type": "assertion",
+        "description": "Upload is rejected with clear message stating accepted formats and size limits"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "File Upload and Attachment Management",
+    "description": "Validate the upload, storage, and retrieval of documents and attachments with file type and size validations.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Upload valid PDF documents and image files as attachments in various workflow phases"
+      },
+      {
+        "type": "assertion",
+        "description": "Files are uploaded successfully, stored securely, and accessible when requested"
+      },
+      {
+        "type": "action",
+        "description": "Attempt upload of files exceeding size limits or disallowed types (e.g., executables)"
+      },
+      {
+        "type": "assertion",
+        "description": "Uploads are blocked and user receives appropriate error feedback"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Dashboard and Reports Accessibility and Data Accuracy",
+    "description": "Check that dashboard displays real-time metrics and graphical charts accurately and supports keyboard navigation and accessibility features.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access dashboard as each user role"
+      },
+      {
+        "type": "assertion",
+        "description": "Dashboard loads quickly with correct metrics for the user's companies and departments"
+      },
+      {
+        "type": "action",
+        "description": "Navigate dashboard using keyboard only"
+      },
+      {
+        "type": "assertion",
+        "description": "All interactive elements are reachable and usable; aria labels are present"
+      },
+      {
+        "type": "action",
+        "description": "Export reports in PDF and Excel formats"
+      },
+      {
+        "type": "assertion",
+        "description": "Exports are correctly formatted with up-to-date data"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Error Handling and Feedback on API Endpoints",
+    "description": "Test all major REST API endpoints for proper error handling, including missing data, validation failures, unauthorized access, and server errors.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send purchase request creation API call with missing required fields"
+      },
+      {
+        "type": "assertion",
+        "description": "API returns validation error with descriptive messages"
+      },
+      {
+        "type": "action",
+        "description": "Attempt access to purchase request endpoint with insufficient permissions"
+      },
+      {
+        "type": "assertion",
+        "description": "API returns appropriate 403 Forbidden status"
+      },
+      {
+        "type": "action",
+        "description": "Trigger error during quotation process (e.g., missing supplier data)"
+      },
+      {
+        "type": "assertion",
+        "description": "API returns meaningful error message; system does not crash or hang"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Complete End-to-End Purchase Process Flow",
+    "description": "Execute the full purchase request lifecycle across all workflow phases, roles, and integrations to confirm system correctness and stability.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Manager and create a purchase request"
+      },
+      {
+        "type": "action",
+        "description": "Login as Approver A1 and approve the request with justification if rejecting"
+      },
+      {
+        "type": "action",
+        "description": "Login as Buyer and create RFQ with multiple suppliers and upload quotations"
+      },
+      {
+        "type": "action",
+        "description": "Login as Approver A2 and review quotations, approving or rejecting appropriately"
+      },
+      {
+        "type": "action",
+        "description": "Buyer generates purchase order PDF and electronically signs it"
+      },
+      {
+        "type": "action",
+        "description": "Receiver confirms receipt with quality control or returns with pendencies"
+      },
+      {
+        "type": "assertion",
+        "description": "Purchase request transitions through all states properly; notifications and document generations occur; audit logs and history are complete"
+      }
+    ]
+  }
+]
