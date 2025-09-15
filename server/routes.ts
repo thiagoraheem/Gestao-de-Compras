@@ -3328,10 +3328,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { period = "30", department = "all", status = "all" } = req.query;
 
-      // Check if user is manager or admin
+      // Check if user is manager, admin or buyer
       const user = await storage.getUser(req.session.userId!);
-      if (!user?.isManager && !user?.isAdmin) {
-        return res.status(403).json({ message: "Manager access required" });
+      if (!user?.isManager && !user?.isAdmin && !user?.isBuyer) {
+        return res.status(403).json({ message: "Manager, admin or buyer access required" });
       }
 
       // Calculate date range
@@ -3562,8 +3562,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if user is manager or admin
       const user = await storage.getUser(req.session.userId!);
-      if (!user?.isManager && !user?.isAdmin) {
-        return res.status(403).json({ message: "Manager access required" });
+      if (!user?.isManager && !user?.isAdmin && !user?.isBuyer) {
+        return res.status(403).json({ message: "Manager, admin or buyer access required" });
       }
 
       // Reuse the same dashboard data generation logic directly instead of HTTP call
