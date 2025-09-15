@@ -105,11 +105,7 @@ function Router() {
         <Route path="/profile" component={ProfilePage} />
         <Route path="/change-password" component={ChangePasswordPage} />
         <Route path="/manual" component={UserManualPage} />
-        <Route path="/reports/purchase-requests">
-          <ManagerRoute>
-            <PurchaseRequestsReportPage />
-          </ManagerRoute>
-        </Route>
+        <Route path="/reports/purchase-requests" component={PurchaseRequestsReportPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

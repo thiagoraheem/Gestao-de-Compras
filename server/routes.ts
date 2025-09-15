@@ -3911,7 +3911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Purchase requests report endpoint
-  app.get("/api/reports/purchase-requests", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/reports/purchase-requests", async (req: Request, res: Response) => {
     try {
       const { 
         startDate, 

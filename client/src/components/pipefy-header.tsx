@@ -75,10 +75,12 @@ export default function PipefyHeader() {
     // Manager/Admin-only reports
     if (user?.isManager || user?.isAdmin) {
       items.push(
-        { label: "Dashboard", href: "/dashboard", icon: <BarChart3 className="w-4 h-4" /> },
-        { label: "Solicitações de Compra", href: "/reports/purchase-requests", icon: <ClipboardList className="w-4 h-4" /> }
+        { label: "Dashboard", href: "/dashboard", icon: <BarChart3 className="w-4 h-4" /> }
       );
     }
+    items.push(
+        { label: "Solicitações de Compra", href: "/reports/purchase-requests", icon: <ClipboardList className="w-4 h-4" /> }
+      );
 
     return items;
   };
@@ -137,13 +139,11 @@ export default function PipefyHeader() {
             />
             
             {/* Menu Dropdown Relatórios */}
-            {(user?.isManager || user?.isAdmin) && (
               <CustomDropdownMenu 
                 trigger="Relatórios" 
                 items={getRelatoriosItems()}
                 className="text-muted-foreground hover:text-foreground"
-              />
-            )}
+              />            
           </nav>
         </div>
 
