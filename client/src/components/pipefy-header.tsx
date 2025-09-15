@@ -73,7 +73,7 @@ export default function PipefyHeader() {
     const items = [];
 
     // Manager/Admin-only reports
-    if (user?.isManager || user?.isAdmin) {
+    if (user?.isManager || user?.isAdmin || user?.isBuyer) {
       items.push(
         { label: "Dashboard", href: "/dashboard", icon: <BarChart3 className="w-4 h-4" /> }
       );

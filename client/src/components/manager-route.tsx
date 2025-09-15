@@ -10,28 +10,19 @@ interface ManagerRouteProps {
 export default function ManagerRoute({ children }: ManagerRouteProps) {
   const { user } = useAuth();
 
-  if (!user) {
-    return null;
-  }
-
-  // Allow admins and managers to access
-  if (!user.isAdmin && !user.isManager) {
+  if (!user || (!user.isAdmin && !user.isManager && !user.isBuyer)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <Shield className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <CardTitle>Acesso Restrito</CardTitle>
-            <CardDescription>
-              Esta página é restrita para usuários com perfil gerencial.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-sm text-gray-600">
-              Entre em contato com o administrador do sistema para obter acesso.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="text-center p-8 bg-white rounded-lg shadow-md max-w-md">
+          <Shield className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Acesso Restrito</h2>
+          <p className="text-gray-600 mb-4">
+            Esta página é restrita para usuários com perfil gerencial ou comprador.
+          </p>
+          <p className="text-sm text-gray-500">
+            Entre em contato com o administrador do sistema para obter acesso.
+          </p>
+        </div>
       </div>
     );
   }
