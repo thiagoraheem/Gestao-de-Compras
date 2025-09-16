@@ -3591,7 +3591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard PDF export
   app.get('/api/dashboard/export-pdf', isAuthenticated, async (req, res) => {
     try {
-      const { period = "30", department = "all", status = "all" } = req.query;
+      const { period = "30", department = "all", status = "all", startDate: startDateParam, endDate: endDateParam } = req.query;
 
       // Check if user is manager or admin
       const user = await storage.getUser(req.session.userId!);
@@ -3599,15 +3599,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Manager, admin or buyer access required" });
       }
 
-      // Reuse the same dashboard data generation logic directly instead of HTTP call
-      const daysAgo = parseInt(period as string);
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - daysAgo);
+      // Calculate date range with same logic as dashboard route
+      let startDate: Date, endDate: Date;
+      
+      if (startDateParam && endDateParam) {
+        startDate = new Date(startDateParam as string);
+        endDate = new Date(endDateParam as string);
+      } else {
+        const daysAgo = parseInt(period as string);
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - daysAgo);
+        endDate = new Date();
+      }
 
       const allRequests = await storage.getAllPurchaseRequests();
       const filteredRequests = allRequests.filter(request => {
-        const createdAt = new Date(request.createdAt);
-        const isInPeriod = createdAt >= startDate;
+        const createdAt = new Date(request.createdAt!);
+        const isInPeriod = createdAt >= startDate && createdAt <= endDate;
         const departmentMatch = department === "all" || 
           (request.costCenter?.departmentId === parseInt(department as string));
         const statusMatch = status === "all" || request.currentPhase === status;
