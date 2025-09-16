@@ -30,11 +30,12 @@ import {
   Download,
   RefreshCw
 } from "lucide-react";
-import { useState } from "react";
-import { format } from "date-fns";
+import { useState, useEffect } from "react";
+import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";
 import debug from "@/lib/debug";
+import { DateInput } from "@/components/ui/date-input";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -53,6 +54,7 @@ interface DashboardData {
   costCenterSummary: { name: string; totalValue: number; requestCount: number; }[];
   // New procurement KPIs
   costSavings: number;
+  valueSaved: number;
   spendUnderManagement: number;
   contractCompliance: number;
   slaCompliance: number;
@@ -85,9 +87,21 @@ export default function Dashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState("30");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  // Automatically update dates when period changes
+  useEffect(() => {
+    const today = new Date();
+    const daysAgo = parseInt(selectedPeriod);
+    const calculatedStartDate = subDays(today, daysAgo);
+    
+    setStartDate(format(calculatedStartDate, "yyyy-MM-dd"));
+    setEndDate(format(today, "yyyy-MM-dd"));
+  }, [selectedPeriod]);
 
   const { data: dashboardData, isLoading, refetch } = useQuery<DashboardData>({
-    queryKey: [`/api/dashboard?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}`],
+    queryKey: [`/api/dashboard?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}`],
   });
 
   const { data: departments } = useQuery<{ id: number; name: string; }[]>({
@@ -96,7 +110,7 @@ export default function Dashboard() {
 
   const handleExportPDF = async () => {
     try {
-      const response = await fetch(`/api/dashboard/export-pdf?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}`, {
+      const response = await fetch(`/api/dashboard/export-pdf?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}`, {
         method: 'GET',
       });
       
@@ -169,7 +183,7 @@ export default function Dashboard() {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger>
               <SelectValue placeholder="Período" />
@@ -181,6 +195,26 @@ export default function Dashboard() {
               <SelectItem value="180">Últimos 6 meses</SelectItem>
             </SelectContent>
           </Select>
+
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">Data Inicial</label>
+            <DateInput
+              value={startDate}
+              onChange={setStartDate}
+              placeholder="DD/MM/AAAA"
+              data-testid="input-start-date"
+            />
+          </div>
+
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">Data Final</label>
+            <DateInput
+              value={endDate}
+              onChange={setEndDate}
+              placeholder="DD/MM/AAAA"
+              data-testid="input-end-date"
+            />
+          </div>
 
           <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
             <SelectTrigger>
@@ -215,7 +249,7 @@ export default function Dashboard() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -244,6 +278,23 @@ export default function Dashboard() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Valor total das solicitações ativas
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Valor Economizado
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {formatCurrency(dashboardData?.valueSaved || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Economia através de descontos
               </p>
             </CardContent>
           </Card>
