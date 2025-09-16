@@ -1,34 +1,46 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   LineChart,
   Line,
   PieChart,
   Pie,
-  Cell
+  Cell,
 } from "recharts";
-import { 
-  TrendingUp, 
-  DollarSign, 
-  Clock, 
-  CheckCircle, 
-  FileText, 
-  Users, 
-  Building, 
+import {
+  TrendingUp,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  FileText,
+  Users,
+  Building,
   Calendar,
   Download,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { format, subDays } from "date-fns";
@@ -37,21 +49,30 @@ import { formatCurrency } from "@/lib/currency";
 import debug from "@/lib/debug";
 import { DateInput } from "@/components/ui/date-input";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
 interface DashboardData {
   totalActiveRequests: number;
   totalProcessingValue: number;
   averageApprovalTime: number;
   approvalRate: number;
-  requestsByDepartment: { name: string; value: number; }[];
-  monthlyTrend: { month: string; requests: number; }[];
-  urgencyDistribution: { name: string; value: number; }[];
-  phaseConversion: { name: string; value: number; }[];
-  topDepartments: { name: string; totalValue: number; requestCount: number; }[];
-  topSuppliers: { name: string; requestCount: number; totalValue: number; }[];
-  delayedRequests: { id: number; requestNumber: string; phase: string; daysDelayed: number; }[];
-  costCenterSummary: { name: string; totalValue: number; requestCount: number; }[];
+  requestsByDepartment: { name: string; value: number }[];
+  monthlyTrend: { month: string; requests: number }[];
+  urgencyDistribution: { name: string; value: number }[];
+  phaseConversion: { name: string; value: number }[];
+  topDepartments: { name: string; totalValue: number; requestCount: number }[];
+  topSuppliers: { name: string; requestCount: number; totalValue: number }[];
+  delayedRequests: {
+    id: number;
+    requestNumber: string;
+    phase: string;
+    daysDelayed: number;
+  }[];
+  costCenterSummary: {
+    name: string;
+    totalValue: number;
+    requestCount: number;
+  }[];
   // New procurement KPIs
   costSavings: number;
   valueSaved: number;
@@ -95,46 +116,56 @@ export default function Dashboard() {
     const today = new Date();
     const daysAgo = parseInt(selectedPeriod);
     const calculatedStartDate = subDays(today, daysAgo);
-    
+
     setStartDate(format(calculatedStartDate, "yyyy-MM-dd"));
     setEndDate(format(today, "yyyy-MM-dd"));
   }, [selectedPeriod]);
 
-  const { data: dashboardData, isLoading, refetch } = useQuery<DashboardData>({
-    queryKey: [`/api/dashboard?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}`],
+  const {
+    data: dashboardData,
+    isLoading,
+    refetch,
+  } = useQuery<DashboardData>({
+    queryKey: [
+      `/api/dashboard?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}`,
+    ],
   });
 
-  const { data: departments } = useQuery<{ id: number; name: string; }[]>({
-    queryKey: ['/api/departments'],
+  const { data: departments } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["/api/departments"],
   });
 
   const handleExportPDF = async () => {
     try {
-      const response = await fetch(`/api/dashboard/export-pdf?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}`, {
-        method: 'GET',
-      });
-      
+      const response = await fetch(
+        `/api/dashboard/export-pdf?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}`,
+        {
+          method: "GET",
+        },
+      );
+
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
+        const a = document.createElement("a");
+        a.style.display = "none";
         a.href = url;
-        a.download = `dashboard-executivo-${new Date().toISOString().split('T')[0]}.pdf`;
+        a.download = `dashboard-executivo-${new Date().toISOString().split("T")[0]}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
       } else {
-        debug.error('Failed to export PDF');
+        debug.error("Failed to export PDF");
       }
     } catch (error) {
-      debug.error('Error exporting PDF:', error);
+      debug.error("Error exporting PDF:", error);
     }
   };
 
-
-
-  const getStatusColor = (value: number, thresholds: { green: number; yellow: number; }) => {
+  const getStatusColor = (
+    value: number,
+    thresholds: { green: number; yellow: number },
+  ) => {
     if (value >= thresholds.green) return "bg-green-100 text-green-800";
     if (value >= thresholds.yellow) return "bg-yellow-100 text-yellow-800";
     return "bg-red-100 text-red-800";
@@ -167,8 +198,12 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard Executivo</h1>
-            <p className="text-gray-600 mt-1">Visão gerencial completa do processo de compras</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Dashboard Executivo
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Visão gerencial completa do processo de compras
+            </p>
           </div>
           <div className="flex flex-col sm:flex-row items-end sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
             <Button onClick={() => refetch()} variant="outline" size="sm">
@@ -197,7 +232,6 @@ export default function Dashboard() {
           </Select>
 
           <div className="flex flex-col space-y-1">
-            <label className="text-sm font-medium text-gray-700">Data Inicial</label>
             <DateInput
               value={startDate}
               onChange={setStartDate}
@@ -207,7 +241,6 @@ export default function Dashboard() {
           </div>
 
           <div className="flex flex-col space-y-1">
-            <label className="text-sm font-medium text-gray-700">Data Final</label>
             <DateInput
               value={endDate}
               onChange={setEndDate}
@@ -216,12 +249,15 @@ export default function Dashboard() {
             />
           </div>
 
-          <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+          <Select
+            value={selectedDepartment}
+            onValueChange={setSelectedDepartment}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Departamento" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os departamentos</SelectItem>
+              <SelectItem value="all">Departamentos</SelectItem>
               {departments?.map((dept) => (
                 <SelectItem key={dept.id} value={dept.id.toString()}>
                   {dept.name}
@@ -235,7 +271,7 @@ export default function Dashboard() {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="all">Status</SelectItem>
               <SelectItem value="solicitacao">Solicitação</SelectItem>
               <SelectItem value="aprovacao_a1">Aprovação A1</SelectItem>
               <SelectItem value="cotacao">Cotação</SelectItem>
@@ -258,7 +294,9 @@ export default function Dashboard() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dashboardData?.totalActiveRequests || 0}</div>
+              <div className="text-2xl font-bold">
+                {dashboardData?.totalActiveRequests || 0}
+              </div>
               <p className="text-xs text-muted-foreground">
                 No período selecionado
               </p>
@@ -310,9 +348,17 @@ export default function Dashboard() {
               <div className="text-2xl font-bold">
                 {dashboardData?.averageApprovalTime || 0} dias
               </div>
-              <Badge className={getStatusColor(dashboardData?.averageApprovalTime || 0, { green: 7, yellow: 14 })}>
-                {(dashboardData?.averageApprovalTime || 0) <= 7 ? "Excelente" : 
-                 (dashboardData?.averageApprovalTime || 0) <= 14 ? "Bom" : "Precisa melhorar"}
+              <Badge
+                className={getStatusColor(
+                  dashboardData?.averageApprovalTime || 0,
+                  { green: 7, yellow: 14 },
+                )}
+              >
+                {(dashboardData?.averageApprovalTime || 0) <= 7
+                  ? "Excelente"
+                  : (dashboardData?.averageApprovalTime || 0) <= 14
+                    ? "Bom"
+                    : "Precisa melhorar"}
               </Badge>
             </CardContent>
           </Card>
@@ -328,9 +374,17 @@ export default function Dashboard() {
               <div className="text-2xl font-bold">
                 {dashboardData?.approvalRate || 0}%
               </div>
-              <Badge className={getStatusColor(dashboardData?.approvalRate || 0, { green: 85, yellow: 70 })}>
-                {(dashboardData?.approvalRate || 0) >= 85 ? "Excelente" : 
-                 (dashboardData?.approvalRate || 0) >= 70 ? "Bom" : "Precisa melhorar"}
+              <Badge
+                className={getStatusColor(dashboardData?.approvalRate || 0, {
+                  green: 85,
+                  yellow: 70,
+                })}
+              >
+                {(dashboardData?.approvalRate || 0) >= 85
+                  ? "Excelente"
+                  : (dashboardData?.approvalRate || 0) >= 70
+                    ? "Bom"
+                    : "Precisa melhorar"}
               </Badge>
             </CardContent>
           </Card>
@@ -346,9 +400,17 @@ export default function Dashboard() {
               <div className="text-2xl font-bold">
                 {dashboardData?.slaCompliance || 0}%
               </div>
-              <Badge className={getStatusColor(dashboardData?.slaCompliance || 0, { green: 85, yellow: 70 })}>
-                {(dashboardData?.slaCompliance || 0) >= 85 ? "Excelente" : 
-                 (dashboardData?.slaCompliance || 0) >= 70 ? "Bom" : "Precisa melhorar"}
+              <Badge
+                className={getStatusColor(dashboardData?.slaCompliance || 0, {
+                  green: 85,
+                  yellow: 70,
+                })}
+              >
+                {(dashboardData?.slaCompliance || 0) >= 85
+                  ? "Excelente"
+                  : (dashboardData?.slaCompliance || 0) >= 70
+                    ? "Bom"
+                    : "Precisa melhorar"}
               </Badge>
             </CardContent>
           </Card>
@@ -411,14 +473,21 @@ export default function Dashboard() {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) =>
+                          `${name} ${(percent * 100).toFixed(0)}%`
+                        }
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
                       >
-                        {(dashboardData?.urgencyDistribution || []).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
+                        {(dashboardData?.urgencyDistribution || []).map(
+                          (entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={COLORS[index % COLORS.length]}
+                            />
+                          ),
+                        )}
                       </Pie>
                       <Tooltip />
                     </PieChart>
@@ -441,7 +510,12 @@ export default function Dashboard() {
                       <XAxis dataKey="month" />
                       <YAxis />
                       <Tooltip />
-                      <Line type="monotone" dataKey="requests" stroke="#0088FE" strokeWidth={2} />
+                      <Line
+                        type="monotone"
+                        dataKey="requests"
+                        stroke="#0088FE"
+                        strokeWidth={2}
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -453,7 +527,10 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={dashboardData?.phaseConversion || []} layout="horizontal">
+                    <BarChart
+                      data={dashboardData?.phaseConversion || []}
+                      layout="horizontal"
+                    >
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis type="number" />
                       <YAxis dataKey="name" type="category" width={100} />
@@ -472,17 +549,25 @@ export default function Dashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle>Eficiência do Processo</CardTitle>
-                  <CardDescription>Métricas de otimização operacional</CardDescription>
+                  <CardDescription>
+                    Métricas de otimização operacional
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <Clock className="h-4 w-4 text-blue-500" />
-                        <span className="font-medium">Tempo Médio de Processamento</span>
+                        <span className="font-medium">
+                          Tempo Médio de Processamento
+                        </span>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold">{dashboardData?.procurementEfficiency?.avgProcessingTime || 0} dias</div>
+                        <div className="font-semibold">
+                          {dashboardData?.procurementEfficiency
+                            ?.avgProcessingTime || 0}{" "}
+                          dias
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -491,7 +576,11 @@ export default function Dashboard() {
                         <span className="font-medium">Taxa de Automação</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold">{dashboardData?.procurementEfficiency?.automationRate || 0}%</div>
+                        <div className="font-semibold">
+                          {dashboardData?.procurementEfficiency
+                            ?.automationRate || 0}
+                          %
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -500,7 +589,11 @@ export default function Dashboard() {
                         <span className="font-medium">Adoção Digital</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold">{dashboardData?.procurementEfficiency?.digitalAdoption || 0}%</div>
+                        <div className="font-semibold">
+                          {dashboardData?.procurementEfficiency
+                            ?.digitalAdoption || 0}
+                          %
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -511,7 +604,9 @@ export default function Dashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle>Performance de Fornecedores</CardTitle>
-                  <CardDescription>Métricas de qualidade e entrega</CardDescription>
+                  <CardDescription>
+                    Métricas de qualidade e entrega
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -521,7 +616,11 @@ export default function Dashboard() {
                         <span className="font-medium">Entrega no Prazo</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold">{dashboardData?.supplierPerformance?.onTimeDelivery || 0}%</div>
+                        <div className="font-semibold">
+                          {dashboardData?.supplierPerformance?.onTimeDelivery ||
+                            0}
+                          %
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -530,7 +629,11 @@ export default function Dashboard() {
                         <span className="font-medium">Score de Qualidade</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold">{dashboardData?.supplierPerformance?.qualityScore || 0}%</div>
+                        <div className="font-semibold">
+                          {dashboardData?.supplierPerformance?.qualityScore ||
+                            0}
+                          %
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -539,7 +642,11 @@ export default function Dashboard() {
                         <span className="font-medium">Tempo de Resposta</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold">{dashboardData?.supplierPerformance?.responseTime || 0} dias</div>
+                        <div className="font-semibold">
+                          {dashboardData?.supplierPerformance?.responseTime ||
+                            0}{" "}
+                          dias
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -550,29 +657,48 @@ export default function Dashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle>Análise Orçamentária</CardTitle>
-                  <CardDescription>Gestão de orçamento vs realizado</CardDescription>
+                  <CardDescription>
+                    Gestão de orçamento vs realizado
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">Orçamento Planejado</span>
-                      <span className="font-semibold">{formatCurrency(dashboardData?.budgetAnalysis?.plannedBudget || 0)}</span>
+                      <span className="font-semibold">
+                        {formatCurrency(
+                          dashboardData?.budgetAnalysis?.plannedBudget || 0,
+                        )}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="font-medium">Gasto Realizado</span>
-                      <span className="font-semibold">{formatCurrency(dashboardData?.budgetAnalysis?.actualSpend || 0)}</span>
+                      <span className="font-semibold">
+                        {formatCurrency(
+                          dashboardData?.budgetAnalysis?.actualSpend || 0,
+                        )}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="font-medium">Taxa de Utilização</span>
-                      <Badge className={getStatusColor(dashboardData?.budgetAnalysis?.utilizationRate || 0, { green: 80, yellow: 60 })}>
+                      <Badge
+                        className={getStatusColor(
+                          dashboardData?.budgetAnalysis?.utilizationRate || 0,
+                          { green: 80, yellow: 60 },
+                        )}
+                      >
                         {dashboardData?.budgetAnalysis?.utilizationRate || 0}%
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="font-medium">Variância</span>
-                      <span className={`font-semibold ${
-                        (dashboardData?.budgetAnalysis?.variance || 0) > 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span
+                        className={`font-semibold ${
+                          (dashboardData?.budgetAnalysis?.variance || 0) > 0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
                         {dashboardData?.budgetAnalysis?.variance || 0}%
                       </span>
                     </div>
@@ -584,29 +710,43 @@ export default function Dashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle>Análise de Riscos</CardTitle>
-                  <CardDescription>Identificação e monitoramento de riscos</CardDescription>
+                  <CardDescription>
+                    Identificação e monitoramento de riscos
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">Fornecedores de Alto Risco</span>
-                      <Badge variant="destructive">{dashboardData?.riskAnalysis?.highRiskSuppliers || 0}</Badge>
+                      <span className="font-medium">
+                        Fornecedores de Alto Risco
+                      </span>
+                      <Badge variant="destructive">
+                        {dashboardData?.riskAnalysis?.highRiskSuppliers || 0}
+                      </Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="font-medium">Itens Críticos</span>
-                      <Badge variant="outline">{dashboardData?.riskAnalysis?.criticalItems || 0}</Badge>
+                      <Badge variant="outline">
+                        {dashboardData?.riskAnalysis?.criticalItems || 0}
+                      </Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="font-medium">Fonte Única</span>
-                      <Badge variant="secondary">{dashboardData?.riskAnalysis?.singleSourceItems || 0}</Badge>
+                      <Badge variant="secondary">
+                        {dashboardData?.riskAnalysis?.singleSourceItems || 0}
+                      </Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="font-medium">Score de Risco Geral</span>
-                      <Badge className={
-                        dashboardData?.riskAnalysis?.riskScore === "Alto" ? "bg-red-100 text-red-800" :
-                        dashboardData?.riskAnalysis?.riskScore === "Médio" ? "bg-yellow-100 text-yellow-800" :
-                        "bg-green-100 text-green-800"
-                      }>
+                      <Badge
+                        className={
+                          dashboardData?.riskAnalysis?.riskScore === "Alto"
+                            ? "bg-red-100 text-red-800"
+                            : dashboardData?.riskAnalysis?.riskScore === "Médio"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-green-100 text-green-800"
+                        }
+                      >
                         {dashboardData?.riskAnalysis?.riskScore || "Baixo"}
                       </Badge>
                     </div>
@@ -621,22 +761,32 @@ export default function Dashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle>Solicitações em Atraso</CardTitle>
-                  <CardDescription>Solicitações que ultrapassaram o SLA</CardDescription>
+                  <CardDescription>
+                    Solicitações que ultrapassaram o SLA
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {dashboardData?.delayedRequests?.map((request) => (
-                      <div key={request.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                      <div
+                        key={request.id}
+                        className="flex items-center justify-between p-3 bg-red-50 rounded-lg"
+                      >
                         <div>
-                          <div className="font-medium">{request.requestNumber}</div>
-                          <div className="text-sm text-gray-600">{request.phase}</div>
+                          <div className="font-medium">
+                            {request.requestNumber}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {request.phase}
+                          </div>
                         </div>
                         <Badge variant="destructive">
                           {request.daysDelayed} dias de atraso
                         </Badge>
                       </div>
                     ))}
-                    {(!dashboardData?.delayedRequests || dashboardData.delayedRequests.length === 0) && (
+                    {(!dashboardData?.delayedRequests ||
+                      dashboardData.delayedRequests.length === 0) && (
                       <div className="text-center py-8 text-gray-500">
                         Nenhuma solicitação em atraso
                       </div>
@@ -648,19 +798,28 @@ export default function Dashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle>Resumo por Centro de Custo</CardTitle>
-                  <CardDescription>Análise de gastos por centro de custo</CardDescription>
+                  <CardDescription>
+                    Análise de gastos por centro de custo
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {dashboardData?.costCenterSummary?.map((center) => (
-                      <div key={center.name} className="flex items-center justify-between">
+                      <div
+                        key={center.name}
+                        className="flex items-center justify-between"
+                      >
                         <div className="flex items-center space-x-3">
                           <Building className="h-4 w-4 text-gray-400" />
                           <span className="font-medium">{center.name}</span>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold">{formatCurrency(center.totalValue)}</div>
-                          <div className="text-sm text-gray-500">{center.requestCount} solicitações</div>
+                          <div className="font-semibold">
+                            {formatCurrency(center.totalValue)}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {center.requestCount} solicitações
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -676,14 +835,23 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="space-y-4">
                     {dashboardData?.topDepartments?.map((dept, index) => (
-                      <div key={dept.name} className="flex items-center justify-between">
+                      <div
+                        key={dept.name}
+                        className="flex items-center justify-between"
+                      >
                         <div className="flex items-center space-x-3">
-                          <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                          <span className="text-sm font-medium text-gray-500">
+                            #{index + 1}
+                          </span>
                           <span className="font-medium">{dept.name}</span>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold">{formatCurrency(dept.totalValue)}</div>
-                          <div className="text-sm text-gray-500">{dept.requestCount} solicitações</div>
+                          <div className="font-semibold">
+                            {formatCurrency(dept.totalValue)}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {dept.requestCount} solicitações
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -699,14 +867,23 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="space-y-4">
                     {dashboardData?.topSuppliers?.map((supplier, index) => (
-                      <div key={supplier.name} className="flex items-center justify-between">
+                      <div
+                        key={supplier.name}
+                        className="flex items-center justify-between"
+                      >
                         <div className="flex items-center space-x-3">
-                          <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                          <span className="text-sm font-medium text-gray-500">
+                            #{index + 1}
+                          </span>
                           <span className="font-medium">{supplier.name}</span>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold">{supplier.requestCount} solicitações</div>
-                          <div className="text-sm text-gray-500">{formatCurrency(supplier.totalValue)}</div>
+                          <div className="font-semibold">
+                            {supplier.requestCount} solicitações
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {formatCurrency(supplier.totalValue)}
+                          </div>
                         </div>
                       </div>
                     ))}

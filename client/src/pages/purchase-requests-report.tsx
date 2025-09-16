@@ -1,40 +1,54 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  Download, 
-  Filter, 
+import {
+  ChevronDown,
+  ChevronRight,
+  Download,
+  Filter,
   Search,
   Calendar,
   User,
   Building2,
   FileText,
   Eye,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DateInput } from "@/components/ui/date-input";
 import { formatCurrency } from "@/lib/currency";
-
-
 
 interface PurchaseRequest {
   id: number;
@@ -108,15 +122,15 @@ const phaseColors = {
   "Em Cotação": "bg-purple-100 text-purple-800",
   "Cotação Recebida": "bg-indigo-100 text-indigo-800",
   "Pedido Gerado": "bg-green-100 text-green-800",
-  "Concluído": "bg-emerald-100 text-emerald-800",
-  "Rejeitado": "bg-red-100 text-red-800"
+  Concluído: "bg-emerald-100 text-emerald-800",
+  Rejeitado: "bg-red-100 text-red-800",
 };
 
 const urgencyColors = {
-  "Baixa": "bg-gray-100 text-gray-800",
-  "Média": "bg-yellow-100 text-yellow-800",
-  "Alta": "bg-orange-100 text-orange-800",
-  "Crítica": "bg-red-100 text-red-800"
+  Baixa: "bg-gray-100 text-gray-800",
+  Média: "bg-yellow-100 text-yellow-800",
+  Alta: "bg-orange-100 text-orange-800",
+  Crítica: "bg-red-100 text-red-800",
 };
 
 export default function PurchaseRequestsReport() {
@@ -126,14 +140,18 @@ export default function PurchaseRequestsReport() {
     departmentId: "all",
     requesterId: "all",
     phase: "all",
-    urgency: "all"
+    urgency: "all",
   });
-  
+
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
 
   // Fetch purchase requests with filters
-  const { data: requests = [], isLoading, refetch } = useQuery({
+  const {
+    data: requests = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["purchase-requests-report", filters],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -141,23 +159,23 @@ export default function PurchaseRequestsReport() {
         if (value && value !== "all") params.append(key, value);
       });
       if (searchTerm) params.append("search", searchTerm);
-      
+
       return apiRequest(`/api/reports/purchase-requests?${params}`);
     },
     staleTime: 30000, // Cache for 30 seconds
-    gcTime: 300000    // Keep in cache for 5 minutes
+    gcTime: 300000, // Keep in cache for 5 minutes
   });
 
   // Fetch departments for filter
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
-    queryFn: () => apiRequest("/api/departments")
+    queryFn: () => apiRequest("/api/departments"),
   });
 
   // Fetch users for filter
   const { data: users = [] } = useQuery({
     queryKey: ["users"],
-    queryFn: () => apiRequest("/api/users")
+    queryFn: () => apiRequest("/api/users"),
   });
 
   const toggleRowExpansion = (requestId: number) => {
@@ -175,34 +193,39 @@ export default function PurchaseRequestsReport() {
       // Header
       [
         "Número",
-        "Descrição", 
+        "Descrição",
         "Data",
         "Solicitante",
         "Departamento",
         "Fornecedor",
         "Fase",
         "Valor Total",
-        "Urgência"
+        "Urgência",
       ].join(","),
       // Data rows
-      ...requests.map((request: PurchaseRequest) => [
-        request.requestNumber,
-        `"${request.description}"`,
-        format(new Date(request.requestDate), "dd/MM/yyyy"),
-        request.requesterName,
-        request.departmentName,
-        request.supplierName,
-        request.phase,
-        formatCurrency(request.totalValue),
-        request.urgency
-      ].join(","))
+      ...requests.map((request: PurchaseRequest) =>
+        [
+          request.requestNumber,
+          `"${request.description}"`,
+          format(new Date(request.requestDate), "dd/MM/yyyy"),
+          request.requesterName,
+          request.departmentName,
+          request.supplierName,
+          request.phase,
+          formatCurrency(request.totalValue),
+          request.urgency,
+        ].join(","),
+      ),
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `relatorio-solicitacoes-${format(new Date(), "yyyy-MM-dd")}.csv`);
+    link.setAttribute(
+      "download",
+      `relatorio-solicitacoes-${format(new Date(), "yyyy-MM-dd")}.csv`,
+    );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -216,7 +239,7 @@ export default function PurchaseRequestsReport() {
       departmentId: "all",
       requesterId: "all",
       phase: "all",
-      urgency: "all"
+      urgency: "all",
     });
     setSearchTerm("");
   };
@@ -226,8 +249,12 @@ export default function PurchaseRequestsReport() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Relatório de Solicitações de Compra</h1>
-          <p className="text-gray-600 mt-1">Visualize e analise todas as solicitações de compra do sistema</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Relatório de Solicitações de Compra
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Visualize e analise todas as solicitações de compra do sistema
+          </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => refetch()} variant="outline" size="sm">
@@ -274,7 +301,9 @@ export default function PurchaseRequestsReport() {
               <Label htmlFor="startDate">Data Inicial</Label>
               <DateInput
                 value={filters.startDate}
-                onChange={(value) => setFilters(prev => ({ ...prev, startDate: value }))}
+                onChange={(value) =>
+                  setFilters((prev) => ({ ...prev, startDate: value }))
+                }
                 placeholder="DD/MM/AAAA"
               />
             </div>
@@ -283,7 +312,9 @@ export default function PurchaseRequestsReport() {
               <Label htmlFor="endDate">Data Final</Label>
               <DateInput
                 value={filters.endDate}
-                onChange={(value) => setFilters(prev => ({ ...prev, endDate: value }))}
+                onChange={(value) =>
+                  setFilters((prev) => ({ ...prev, endDate: value }))
+                }
                 placeholder="DD/MM/AAAA"
               />
             </div>
@@ -293,7 +324,9 @@ export default function PurchaseRequestsReport() {
               <Label>Departamento</Label>
               <Select
                 value={filters.departmentId}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, departmentId: value }))}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, departmentId: value }))
+                }
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
@@ -317,7 +350,9 @@ export default function PurchaseRequestsReport() {
               <Label>Solicitante</Label>
               <Select
                 value={filters.requesterId}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, requesterId: value }))}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, requesterId: value }))
+                }
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
@@ -341,7 +376,9 @@ export default function PurchaseRequestsReport() {
               <Label>Fase</Label>
               <Select
                 value={filters.phase}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, phase: value }))}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, phase: value }))
+                }
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
@@ -351,14 +388,16 @@ export default function PurchaseRequestsReport() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as fases</SelectItem>
-                  <SelectItem value="Aguardando Aprovação A1">Aguardando Aprovação A1</SelectItem>
-                  <SelectItem value="Aguardando Aprovação A2">Aguardando Aprovação A2</SelectItem>
-                  <SelectItem value="Aprovado - Aguardando Cotação">Aprovado - Aguardando Cotação</SelectItem>
-                  <SelectItem value="Em Cotação">Em Cotação</SelectItem>
-                  <SelectItem value="Cotação Recebida">Cotação Recebida</SelectItem>
-                  <SelectItem value="Pedido Gerado">Pedido Gerado</SelectItem>
-                  <SelectItem value="Concluído">Concluído</SelectItem>
-                  <SelectItem value="Rejeitado">Rejeitado</SelectItem>
+                  <SelectItem value="solicitacao">Solicitação</SelectItem>
+                  <SelectItem value="aprovacao_a1">Aprovação A1</SelectItem>
+                  <SelectItem value="cotacao">Cotação</SelectItem>
+                  <SelectItem value="aprovacao_a2">Aprovação A2</SelectItem>
+                  <SelectItem value="pedido_compra">
+                    Pedido de Compra
+                  </SelectItem>
+                  <SelectItem value="conclusao_compra">Conclusão</SelectItem>
+                  <SelectItem value="recebimento">Recebimento</SelectItem>
+                  <SelectItem value="arquivado">Arquivado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -368,7 +407,9 @@ export default function PurchaseRequestsReport() {
               <Label>Urgência</Label>
               <Select
                 value={filters.urgency}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, urgency: value }))}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, urgency: value }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Todas as urgências" />
@@ -385,7 +426,11 @@ export default function PurchaseRequestsReport() {
 
             {/* Clear Filters Button */}
             <div className="flex items-end">
-              <Button onClick={clearFilters} variant="outline" className="w-full">
+              <Button
+                onClick={clearFilters}
+                variant="outline"
+                className="w-full"
+              >
                 Limpar Filtros
               </Button>
             </div>
@@ -398,7 +443,9 @@ export default function PurchaseRequestsReport() {
         <CardHeader>
           <CardTitle>Resultados</CardTitle>
           <CardDescription>
-            {isLoading ? "Carregando..." : `${requests.length} solicitação(ões) encontrada(s)`}
+            {isLoading
+              ? "Carregando..."
+              : `${requests.length} solicitação(ões) encontrada(s)`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -426,7 +473,10 @@ export default function PurchaseRequestsReport() {
                 <TableBody>
                   {requests.map((request: PurchaseRequest) => (
                     <>
-                      <TableRow key={request.id} className="cursor-pointer hover:bg-gray-50">
+                      <TableRow
+                        key={request.id}
+                        className="cursor-pointer hover:bg-gray-50"
+                      >
                         <TableCell>
                           <Button
                             variant="ghost"
@@ -440,16 +490,28 @@ export default function PurchaseRequestsReport() {
                             )}
                           </Button>
                         </TableCell>
-                        <TableCell className="font-medium">{request.requestNumber}</TableCell>
-                        <TableCell className="max-w-xs truncate">{request.description}</TableCell>
+                        <TableCell className="font-medium">
+                          {request.requestNumber}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {request.description}
+                        </TableCell>
                         <TableCell>
-                          {format(new Date(request.requestDate), "dd/MM/yyyy", { locale: ptBR })}
+                          {format(new Date(request.requestDate), "dd/MM/yyyy", {
+                            locale: ptBR,
+                          })}
                         </TableCell>
                         <TableCell>{request.requesterName}</TableCell>
                         <TableCell>{request.departmentName}</TableCell>
                         <TableCell>{request.supplierName}</TableCell>
                         <TableCell>
-                          <Badge className={phaseColors[request.phase as keyof typeof phaseColors] || "bg-gray-100 text-gray-800"}>
+                          <Badge
+                            className={
+                              phaseColors[
+                                request.phase as keyof typeof phaseColors
+                              ] || "bg-gray-100 text-gray-800"
+                            }
+                          >
                             {request.phase}
                           </Badge>
                         </TableCell>
@@ -457,12 +519,18 @@ export default function PurchaseRequestsReport() {
                           {formatCurrency(request.totalValue)}
                         </TableCell>
                         <TableCell>
-                          <Badge className={urgencyColors[request.urgency as keyof typeof urgencyColors] || "bg-gray-100 text-gray-800"}>
+                          <Badge
+                            className={
+                              urgencyColors[
+                                request.urgency as keyof typeof urgencyColors
+                              ] || "bg-gray-100 text-gray-800"
+                            }
+                          >
                             {request.urgency}
                           </Badge>
                         </TableCell>
                       </TableRow>
-                      
+
                       {/* Expanded Row Content */}
                       {expandedRows.has(request.id) && (
                         <TableRow>
@@ -477,12 +545,20 @@ export default function PurchaseRequestsReport() {
                                 <div className="bg-white rounded-lg border p-4">
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                      <p className="text-sm font-medium text-gray-500 mb-1">Aprovador A1</p>
-                                      <p className="text-sm font-semibold">{request.approverA1Name}</p>
+                                      <p className="text-sm font-medium text-gray-500 mb-1">
+                                        Aprovador A1
+                                      </p>
+                                      <p className="text-sm font-semibold">
+                                        {request.approverA1Name}
+                                      </p>
                                     </div>
                                     <div>
-                                      <p className="text-sm font-medium text-gray-500 mb-1">Aprovador A2</p>
-                                      <p className="text-sm font-semibold">{request.approverA2Name}</p>
+                                      <p className="text-sm font-medium text-gray-500 mb-1">
+                                        Aprovador A2
+                                      </p>
+                                      <p className="text-sm font-semibold">
+                                        {request.approverA2Name}
+                                      </p>
                                     </div>
                                   </div>
                                 </div>
@@ -508,7 +584,9 @@ export default function PurchaseRequestsReport() {
                                     <TableBody>
                                       {request.items?.map((item) => (
                                         <TableRow key={item.id}>
-                                          <TableCell>{item.description}</TableCell>
+                                          <TableCell>
+                                            {item.description}
+                                          </TableCell>
                                           <TableCell>{item.quantity}</TableCell>
                                           <TableCell>{item.unit}</TableCell>
                                           <TableCell>
@@ -525,126 +603,189 @@ export default function PurchaseRequestsReport() {
                               </div>
 
                               {/* Approvals */}
-                              {request.approvals && request.approvals.length > 0 && (
-                                <div>
-                                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                    <Eye className="w-4 h-4" />
-                                    Aprovações
-                                  </h4>
-                                  <div className="bg-white rounded-lg border">
-                                    <Table>
-                                      <TableHeader>
-                                        <TableRow>
-                                          <TableHead>Nível</TableHead>
-                                          <TableHead>Status</TableHead>
-                                          <TableHead>Aprovador</TableHead>
-                                          <TableHead>Data</TableHead>
-                                          <TableHead>Comentários</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {request.approvals.map((approval) => (
-                                          <TableRow key={approval.id}>
-                                            <TableCell>{approval.level}</TableCell>
-                                            <TableCell>
-                                              <Badge className={approval.status === "Aprovado" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
-                                                {approval.status}
-                                              </Badge>
-                                            </TableCell>
-                                            <TableCell>{approval.approverName}</TableCell>
-                                            <TableCell>
-                                              {format(new Date(approval.approvalDate), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                                            </TableCell>
-                                            <TableCell>{approval.comments || "-"}</TableCell>
+                              {request.approvals &&
+                                request.approvals.length > 0 && (
+                                  <div>
+                                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                      <Eye className="w-4 h-4" />
+                                      Aprovações
+                                    </h4>
+                                    <div className="bg-white rounded-lg border">
+                                      <Table>
+                                        <TableHeader>
+                                          <TableRow>
+                                            <TableHead>Nível</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Aprovador</TableHead>
+                                            <TableHead>Data</TableHead>
+                                            <TableHead>Comentários</TableHead>
                                           </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {request.approvals.map((approval) => (
+                                            <TableRow key={approval.id}>
+                                              <TableCell>
+                                                {approval.level}
+                                              </TableCell>
+                                              <TableCell>
+                                                <Badge
+                                                  className={
+                                                    approval.status ===
+                                                    "Aprovado"
+                                                      ? "bg-green-100 text-green-800"
+                                                      : "bg-red-100 text-red-800"
+                                                  }
+                                                >
+                                                  {approval.status}
+                                                </Badge>
+                                              </TableCell>
+                                              <TableCell>
+                                                {approval.approverName}
+                                              </TableCell>
+                                              <TableCell>
+                                                {format(
+                                                  new Date(
+                                                    approval.approvalDate,
+                                                  ),
+                                                  "dd/MM/yyyy HH:mm",
+                                                  { locale: ptBR },
+                                                )}
+                                              </TableCell>
+                                              <TableCell>
+                                                {approval.comments || "-"}
+                                              </TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
 
                               {/* Quotations */}
-                              {request.quotations && request.quotations.length > 0 && (
-                                <div>
-                                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                    <FileText className="w-4 h-4" />
-                                    Cotações
-                                  </h4>
-                                  <div className="bg-white rounded-lg border">
-                                    <Table>
-                                      <TableHeader>
-                                        <TableRow>
-                                          <TableHead>Fornecedor</TableHead>
-                                          <TableHead>Valor Total</TableHead>
-                                          <TableHead>Status</TableHead>
-                                          <TableHead>Data de Envio</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {request.quotations.map((quotation) => (
-                                          <TableRow key={quotation.id}>
-                                            <TableCell>{quotation.supplierName}</TableCell>
-                                            <TableCell>
-                                              {formatCurrency(quotation.totalValue)}
-                                            </TableCell>
-                                            <TableCell>
-                                              <Badge className={quotation.status === "Enviada" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                                                {quotation.status}
-                                              </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                              {format(new Date(quotation.submissionDate), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                                            </TableCell>
+                              {request.quotations &&
+                                request.quotations.length > 0 && (
+                                  <div>
+                                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                      <FileText className="w-4 h-4" />
+                                      Cotações
+                                    </h4>
+                                    <div className="bg-white rounded-lg border">
+                                      <Table>
+                                        <TableHeader>
+                                          <TableRow>
+                                            <TableHead>Fornecedor</TableHead>
+                                            <TableHead>Valor Total</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Data de Envio</TableHead>
                                           </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {request.quotations.map(
+                                            (quotation) => (
+                                              <TableRow key={quotation.id}>
+                                                <TableCell>
+                                                  {quotation.supplierName}
+                                                </TableCell>
+                                                <TableCell>
+                                                  {formatCurrency(
+                                                    quotation.totalValue,
+                                                  )}
+                                                </TableCell>
+                                                <TableCell>
+                                                  <Badge
+                                                    className={
+                                                      quotation.status ===
+                                                      "Enviada"
+                                                        ? "bg-green-100 text-green-800"
+                                                        : "bg-yellow-100 text-yellow-800"
+                                                    }
+                                                  >
+                                                    {quotation.status}
+                                                  </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                  {format(
+                                                    new Date(
+                                                      quotation.submissionDate,
+                                                    ),
+                                                    "dd/MM/yyyy HH:mm",
+                                                    { locale: ptBR },
+                                                  )}
+                                                </TableCell>
+                                              </TableRow>
+                                            ),
+                                          )}
+                                        </TableBody>
+                                      </Table>
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
 
                               {/* Purchase Orders */}
-                              {request.purchaseOrders && request.purchaseOrders.length > 0 && (
-                                <div>
-                                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                    <FileText className="w-4 h-4" />
-                                    Pedidos de Compra
-                                  </h4>
-                                  <div className="bg-white rounded-lg border">
-                                    <Table>
-                                      <TableHeader>
-                                        <TableRow>
-                                          <TableHead>Número do Pedido</TableHead>
-                                          <TableHead>Fornecedor</TableHead>
-                                          <TableHead>Valor Total</TableHead>
-                                          <TableHead>Status</TableHead>
-                                          <TableHead>Data do Pedido</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {request.purchaseOrders.map((order) => (
-                                          <TableRow key={order.id}>
-                                            <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                                            <TableCell>{order.supplierName}</TableCell>
-                                            <TableCell>
-                                              {formatCurrency(order.totalValue)}
-                                            </TableCell>
-                                            <TableCell>
-                                              <Badge className={order.status === "Enviado" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                                                {order.status}
-                                              </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                              {format(new Date(order.orderDate), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                                            </TableCell>
+                              {request.purchaseOrders &&
+                                request.purchaseOrders.length > 0 && (
+                                  <div>
+                                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                      <FileText className="w-4 h-4" />
+                                      Pedidos de Compra
+                                    </h4>
+                                    <div className="bg-white rounded-lg border">
+                                      <Table>
+                                        <TableHeader>
+                                          <TableRow>
+                                            <TableHead>
+                                              Número do Pedido
+                                            </TableHead>
+                                            <TableHead>Fornecedor</TableHead>
+                                            <TableHead>Valor Total</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>
+                                              Data do Pedido
+                                            </TableHead>
                                           </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {request.purchaseOrders.map(
+                                            (order) => (
+                                              <TableRow key={order.id}>
+                                                <TableCell className="font-medium">
+                                                  {order.orderNumber}
+                                                </TableCell>
+                                                <TableCell>
+                                                  {order.supplierName}
+                                                </TableCell>
+                                                <TableCell>
+                                                  {formatCurrency(
+                                                    order.totalValue,
+                                                  )}
+                                                </TableCell>
+                                                <TableCell>
+                                                  <Badge
+                                                    className={
+                                                      order.status === "Enviado"
+                                                        ? "bg-green-100 text-green-800"
+                                                        : "bg-yellow-100 text-yellow-800"
+                                                    }
+                                                  >
+                                                    {order.status}
+                                                  </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                  {format(
+                                                    new Date(order.orderDate),
+                                                    "dd/MM/yyyy HH:mm",
+                                                    { locale: ptBR },
+                                                  )}
+                                                </TableCell>
+                                              </TableRow>
+                                            ),
+                                          )}
+                                        </TableBody>
+                                      </Table>
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -653,11 +794,13 @@ export default function PurchaseRequestsReport() {
                   ))}
                 </TableBody>
               </Table>
-              
+
               {requests.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Nenhuma solicitação encontrada com os filtros aplicados.</p>
+                  <p>
+                    Nenhuma solicitação encontrada com os filtros aplicados.
+                  </p>
                 </div>
               )}
             </div>
