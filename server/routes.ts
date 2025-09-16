@@ -3326,7 +3326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard API endpoints
   app.get("/api/dashboard", isAuthenticated, async (req, res) => {
     try {
-      const { period = "30", department = "all", status = "all", startDate: startDateParam, endDate: endDateParam } = req.query;
+      const { period = "30", department = "all", status = "all", startDate: startDateParam, endDate: endDateParam, dateFilterType = "created" } = req.query;
 
       // Check if user is manager, admin or buyer
       const user = await storage.getUser(req.session.userId!);
@@ -3351,8 +3351,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all purchase requests within the period
       const allRequests = await storage.getAllPurchaseRequests();
       const filteredRequests = allRequests.filter(request => {
-        const createdAt = new Date(request.createdAt!);
-        const isInPeriod = createdAt >= startDate && createdAt <= endDate;
+        let isInPeriod = false;
+
+        // Apply date filter based on type
+        if (dateFilterType === "created") {
+          const createdAt = new Date(request.createdAt!);
+          isInPeriod = createdAt >= startDate && createdAt <= endDate;
+        } else if (dateFilterType === "completion") {
+          // Filter by completion date (arquivado phase date)
+          if (request.currentPhase === "arquivado" && request.updatedAt) {
+            const completionDate = new Date(request.updatedAt);
+            isInPeriod = completionDate >= startDate && completionDate <= endDate;
+          } else {
+            isInPeriod = false; // Only show completed requests for completion filter
+          }
+        } else if (dateFilterType === "both") {
+          // Filter by both creation and completion dates
+          const createdAt = new Date(request.createdAt!);
+          const creationMatch = createdAt >= startDate && createdAt <= endDate;
+          
+          let completionMatch = false;
+          if (request.currentPhase === "arquivado" && request.updatedAt) {
+            const completionDate = new Date(request.updatedAt);
+            completionMatch = completionDate >= startDate && completionDate <= endDate;
+          }
+          
+          isInPeriod = creationMatch || completionMatch;
+        }
 
         const departmentMatch = department === "all" || 
           (request.costCenter?.departmentId === parseInt(department as string));
@@ -3591,7 +3616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard PDF export
   app.get('/api/dashboard/export-pdf', isAuthenticated, async (req, res) => {
     try {
-      const { period = "30", department = "all", status = "all", startDate: startDateParam, endDate: endDateParam } = req.query;
+      const { period = "30", department = "all", status = "all", startDate: startDateParam, endDate: endDateParam, dateFilterType = "created" } = req.query;
 
       // Check if user is manager or admin
       const user = await storage.getUser(req.session.userId!);
@@ -3614,8 +3639,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const allRequests = await storage.getAllPurchaseRequests();
       const filteredRequests = allRequests.filter(request => {
-        const createdAt = new Date(request.createdAt!);
-        const isInPeriod = createdAt >= startDate && createdAt <= endDate;
+        let isInPeriod = false;
+
+        // Apply date filter based on type (same logic as dashboard)
+        if (dateFilterType === "created") {
+          const createdAt = new Date(request.createdAt!);
+          isInPeriod = createdAt >= startDate && createdAt <= endDate;
+        } else if (dateFilterType === "completion") {
+          // Filter by completion date (arquivado phase date)
+          if (request.currentPhase === "arquivado" && request.updatedAt) {
+            const completionDate = new Date(request.updatedAt);
+            isInPeriod = completionDate >= startDate && completionDate <= endDate;
+          } else {
+            isInPeriod = false; // Only show completed requests for completion filter
+          }
+        } else if (dateFilterType === "both") {
+          // Filter by both creation and completion dates
+          const createdAt = new Date(request.createdAt!);
+          const creationMatch = createdAt >= startDate && createdAt <= endDate;
+          
+          let completionMatch = false;
+          if (request.currentPhase === "arquivado" && request.updatedAt) {
+            const completionDate = new Date(request.updatedAt);
+            completionMatch = completionDate >= startDate && completionDate <= endDate;
+          }
+          
+          isInPeriod = creationMatch || completionMatch;
+        }
+
         const departmentMatch = department === "all" || 
           (request.costCenter?.departmentId === parseInt(department as string));
         const statusMatch = status === "all" || request.currentPhase === status;
