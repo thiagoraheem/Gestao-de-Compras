@@ -3326,7 +3326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard API endpoints
   app.get("/api/dashboard", isAuthenticated, async (req, res) => {
     try {
-      const { period = "30", department = "all", status = "all" } = req.query;
+      const { period = "30", department = "all", status = "all", startDate: startDateParam, endDate: endDateParam } = req.query;
 
       // Check if user is manager, admin or buyer
       const user = await storage.getUser(req.session.userId!);
@@ -3334,16 +3334,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Manager, admin or buyer access required" });
       }
 
-      // Calculate date range
-      const daysAgo = parseInt(period as string);
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - daysAgo);
+      // Calculate date range - use provided dates or fallback to period
+      let startDate: Date;
+      let endDate: Date;
+      
+      if (startDateParam && endDateParam) {
+        startDate = new Date(startDateParam as string);
+        endDate = new Date(endDateParam as string);
+      } else {
+        const daysAgo = parseInt(period as string);
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - daysAgo);
+        endDate = new Date();
+      }
 
       // Get all purchase requests within the period
       const allRequests = await storage.getAllPurchaseRequests();
       const filteredRequests = allRequests.filter(request => {
-        const createdAt = new Date(request.createdAt);
-        const isInPeriod = createdAt >= startDate;
+        const createdAt = new Date(request.createdAt!);
+        const isInPeriod = createdAt >= startDate && createdAt <= endDate;
 
         const departmentMatch = department === "all" || 
           (request.costCenter?.departmentId === parseInt(department as string));
@@ -3507,6 +3516,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).filter(item => item.totalValue > 0)
         .sort((a, b) => b.totalValue - a.totalValue);
 
+      // Calculate Value Saved (Valor Economizado)
+      let valueSaved = 0;
+      try {
+        // Get all quotations for requests with chosen suppliers
+        const quotations = await storage.getAllQuotations();
+        for (const quotation of quotations) {
+          const relatedRequest = filteredRequests.find(req => req.id === quotation.purchaseRequestId);
+          if (relatedRequest && relatedRequest.chosenSupplierId) {
+            const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+            const chosenSupplierQuotation = supplierQuotations.find(sq => sq.isChosen && sq.supplierId === relatedRequest.chosenSupplierId);
+            
+            if (chosenSupplierQuotation && chosenSupplierQuotation.totalValue && chosenSupplierQuotation.finalValue) {
+              const originalValue = Number(chosenSupplierQuotation.totalValue);
+              const finalValue = Number(chosenSupplierQuotation.finalValue);
+              valueSaved += originalValue - finalValue;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error calculating value saved:", error);
+        valueSaved = 0;
+      }
+
       res.json({
         totalActiveRequests,
         totalProcessingValue,
@@ -3522,6 +3554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         costCenterSummary,
         // New procurement KPIs based on industry best practices
         costSavings: 0, // Would need historical price data to calculate actual savings
+        valueSaved, // Valor Economizado - calculated from quotation discounts
         spendUnderManagement: totalActiveRequests > 0 ? Math.round((filteredRequests.filter(req => req.chosenSupplierId).length / totalActiveRequests) * 100) : 0,
         contractCompliance: totalActiveRequests > 0 ? Math.round((filteredRequests.filter(req => req.contractRequired && req.chosenSupplierId).length / Math.max(filteredRequests.filter(req => req.contractRequired).length, 1)) * 100) : 0,
         slaCompliance: Math.round(100 - (delayedRequests.length / Math.max(totalActiveRequests, 1)) * 100),
