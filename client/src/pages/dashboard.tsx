@@ -110,6 +110,7 @@ export default function Dashboard() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [dateFilterType, setDateFilterType] = useState("created");
 
   // Automatically update dates when period changes
   useEffect(() => {
@@ -127,7 +128,7 @@ export default function Dashboard() {
     refetch,
   } = useQuery<DashboardData>({
     queryKey: [
-      `/api/dashboard?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}`,
+      `/api/dashboard?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}&dateFilterType=${dateFilterType}`,
     ],
   });
 
@@ -138,7 +139,7 @@ export default function Dashboard() {
   const handleExportPDF = async () => {
     try {
       const response = await fetch(
-        `/api/dashboard/export-pdf?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}`,
+        `/api/dashboard/export-pdf?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}&dateFilterType=${dateFilterType}`,
         {
           method: "GET",
         },
@@ -218,7 +219,7 @@ export default function Dashboard() {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger>
               <SelectValue placeholder="Período" />
@@ -248,6 +249,20 @@ export default function Dashboard() {
               data-testid="input-end-date"
             />
           </div>
+
+          <Select
+            value={dateFilterType}
+            onValueChange={setDateFilterType}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Filtrar por Data" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="created">Data de Criação</SelectItem>
+              <SelectItem value="completion">Data de Conclusão</SelectItem>
+              <SelectItem value="both">Ambas as Datas</SelectItem>
+            </SelectContent>
+          </Select>
 
           <Select
             value={selectedDepartment}
