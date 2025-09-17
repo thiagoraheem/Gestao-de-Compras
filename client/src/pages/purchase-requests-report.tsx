@@ -60,6 +60,8 @@ interface PurchaseRequest {
   supplierName: string;
   phase: string;
   totalValue: number;
+  originalValue: number | null;
+  discount: number | null;
   urgency: string;
   approverA1Name: string;
   approverA2Name: string;

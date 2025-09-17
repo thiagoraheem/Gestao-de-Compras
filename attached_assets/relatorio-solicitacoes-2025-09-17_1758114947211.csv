@@ -1,0 +1,199 @@
+Número,Descrição,Data,Solicitante,Departamento,Fornecedor,Fase,Valor Total,Urgência
+SOL-2025-154,"- Lixeira para sala de reunião
+1 - Sala de reunião
+1 - Sala T.i
+1 - Para o alexandre
+ 
+- Mop de limpeza (Esfregão)",16/09/2025,Fabrizio Toyoda,Manutenção Predial,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-153,"Compra de um perfurador de solo com broca de 200mm CSM na Xavier Ferramentas 
+Orçamento já mandei no Wpp da Paula , pg 30/60 ",16/09/2025,Marcos Vinicius,Operacional,XAVIER FERRAMENTAS,recebimento,R$ 1.432,00,alta_urgencia
+SOL-2025-152,"SERVIÇO DO GUINCHO DO HR 01",16/09/2025,Rafael Dourado,Operacional,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-151,"Justificativa: equipamento para estoque de locação",16/09/2025,Anderson Matheus,Operacional,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-150,"Manutenção Corretiva no Equipamento",16/09/2025,Anderson Matheus,Operacional,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-149,"Compra de uma peça de cabo de 100 metros com 1 mm de diâmetro na cor preta ,para dar manutenção em plataforma articulada a Diesel ",16/09/2025,Marcos Vinicius,Operacional,REI DA CONSTRUCAO,pedido_compra,R$ 138,00,alta_urgencia
+SOL-2025-148,"serviço do guincho do HR 01 ",16/09/2025,Rafael Dourado,Operacional,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-147,"Carimbo para os seguinte Colaboradores Daene Chaves e Anderson Matheus",16/09/2025,Anderson Matheus,Operacional,N/A,cotacao,N/A,baixo
+SOL-2025-146,"Chave reserva(Cópia), para Gerador Buffalo 40KVA.",16/09/2025,Anderson Matheus,Operacional,N/A,cotacao,N/A,alto
+SOL-2025-145,"MANUTENÇÃO NA SALA DO T.I - REPARO NA JANELA",15/09/2025,Paula Mariana Xavier,Manutenção Predial,REI DA CONSTRUCAO,conclusao_compra,R$ 6,00,alto
+SOL-2025-144,"Recotação de itens indisponíveis da solicitação SOL-2025-132",15/09/2025,Andréa Luniere,Operacional,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-143,"Carimbo para documentos operacionais",15/09/2025,Daene Chaves,Operacional,N/A,cotacao,N/A,medio
+SOL-2025-142,"Impressão das artes de MISSÃO, VISÃO E VALORES",15/09/2025,Ana Carolina,Marketing,ECAVI DESIGN E GRÁFICA,aprovacao_a2,R$ 90,00,alto
+SOL-2025-141,"MANUTENÇÃO NA NOVA SALA DO T.I 
+SERÁ REALIZADO UM REPARO NA LATERAL DA JANELA",15/09/2025,Paula Mariana Xavier,Operacional,N/A,arquivado,N/A,alto
+SOL-2025-140,"manutenção de escoras metalicas ",12/09/2025,Rafael Dourado,Operacional,CIDADE DO AÇO,recebimento,R$ 272,00,alto
+SOL-2025-139,"Equipamentos estoque zero.",12/09/2025,Anderson Matheus,Operacional,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-138,"SERVIÇO NA LAVADORA DE PRESSÃO",12/09/2025,Rafael Dourado,Operacional,N/A,cotacao,N/A,alto
+SOL-2025-137,"Para locação dos bebedouros",12/09/2025,Anderson Matheus,Operacional,XAVIER FERRAMENTAS,recebimento,R$ 80,00,alta_urgencia
+SOL-2025-136," Manutenção de betoneira para atender cliente nova locação.",12/09/2025,Anderson Matheus,Operacional,GIMAQ,conclusao_compra,R$ 270,00,alta_urgencia
+SOL-2025-135,"Recotação de itens indisponíveis da solicitação SOL-2025-133",12/09/2025,Anderson Matheus,Operacional,XAVIER FERRAMENTAS,conclusao_compra,R$ 556,00,alta_urgencia
+SOL-2025-134,"Recotação de itens indisponíveis da solicitação SOL-2025-120",12/09/2025,Anderson Matheus,Operacional,GIMAQ,recebimento,R$ 200,00,alta_urgencia
+SOL-2025-133,"Recotação de itens indisponíveis da solicitação SOL-2025-122",12/09/2025,Anderson Matheus,Operacional,GIMAQ,recebimento,R$ 120,00,alta_urgencia
+SOL-2025-132,"Recotação de itens indisponíveis da solicitação SOL-2025-066",12/09/2025,Andréa Luniere,Operacional,STRUTURAL,recebimento,R$ 350,65,alta_urgencia
+SOL-2025-131,"Para uso da oficina e almoxarifado",11/09/2025,Anderson Matheus,Operacional,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-130,"Venda para nova locação",11/09/2025,Anderson Matheus,Operacional,KADOSH MATERIAIS DE CONSTRUCAO EIRELI,recebimento,R$ 372,00,alta_urgencia
+SOL-2025-129,"Suporte de monitor para colocar na parede",11/09/2025,Luiz Felipe Reat,TI,MERCADO LIVRE,pedido_compra,R$ 179,99,alta_urgencia
+SOL-2025-128,"Suporte para colocar monitores na parede",11/09/2025,Luiz Felipe Reat,TI,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-127,"Equipamento para locação da MRV",11/09/2025,Alderlan Benezar,Operacional,XAVIER FERRAMENTAS,recebimento,R$ 1.896,00,alta_urgencia
+SOL-2025-126,"Compra de aspirador para Innflat Business , estamos com o hotel lotado e precisamos desse equipamento para ajudar na limpeza dos flats.",11/09/2025,Marcos Vinicius,Manutenção Predial,N/A,arquivado,N/A,alta_urgencia
+SOL-2025-125,"Cautela de substituição de peças e requisição de equipamentos",11/09/2025,Anderson Matheus,Operacional,ECAVI DESIGN E GRÁFICA,cotacao,R$ 1.824,00,alta_urgencia
+SOL-2025-124,"Recotação de itens indisponíveis da solicitação SOL-2025-113",11/09/2025,Adriedne Progenio,Operacional,PROTMASTER INDÚSTRIA E CONSTRUÇÃO,pedido_compra,R$ 67,73,alto
+SOL-2025-123,"Equipamentos de manutenção que precisa voltar pro cliente",10/09/2025,Anderson Matheus,Operacional,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-122," Urgência de retorno de manutenção para o cliente.",10/09/2025,Anderson Matheus,Operacional,PONTO DO ELETRICISTA,recebimento,R$ 145,00,alta_urgencia
+SOL-2025-121,"MANUTENÇÃO PREDIAL - CONCERTO DO PISO DA SALA DE MANUTENÇÃO DE EQUIPAMENTOS A COMBUSTÃO",10/09/2025,Paula Mariana Xavier,Manutenção Predial,REI DA CONSTRUCAO,conclusao_compra,R$ 62,00,alto
+SOL-2025-120,"Situação crítica 
+Equipamentos para nova locação",09/09/2025,Anderson Matheus,Operacional,XAVIER FERRAMENTAS,recebimento,R$ 68,80,alta_urgencia
+SOL-2025-119,"Compra de 04uni de cadeiras novas para as oficinas Elétrica e Combustão ",09/09/2025,Wenderson Breno,Operacional,TRÊSZ OFFICE,recebimento,R$ 2.788,00,medio
+SOL-2025-118,"Está em falta, e para deixar em estoque 
+",09/09/2025,Luiz Felipe Reat,TI,N/A,arquivado,N/A,medio
+SOL-2025-117,"MANUTENÇÃO DE ABRAÇADEIRAS FIXA/GIRATORIAS PRETA",09/09/2025,Andréa Luniere,Operacional,MECAN,aprovacao_a2,R$ 6.925,00,alta_urgencia
+SOL-2025-116,"Sem estoque para os técnicos da oficina.",09/09/2025,Anderson Matheus,Operacional,VETOH,pedido_compra,R$ 95,40,alto
+SOL-2025-115,"Levantamento de equipamentos parados na oficina interna.
+
+Esmerilhadeira Bosch GWS 850 220v
+CP: 001130
+CP: 002745
+
+Serra Mármore GDC 150 220v
+CP: 001233
+CP: 000673
+CP: 002587
+
+",08/09/2025,Anderson Matheus,Operacional,XAVIER FERRAMENTAS,recebimento,R$ 272,80,alta_urgencia
+SOL-2025-114,"MATERIAL COMPLEMENTAR PARA FINALIZAÇÃO DO SERVIÇO DE CIRCUITOS ELÉTRICOS NA JB",08/09/2025,Paula Mariana Xavier,Manutenção Predial,CASA DAS CORREIAS,recebimento,R$ 916,70,alta_urgencia
+SOL-2025-113,"SERVIÇO OPERACIONAL ",08/09/2025,Adriedne Progenio,Operacional,STRUTURAL,recebimento,R$ 180,64,alto
+SOL-2025-112,"Serviço Operacional e Manutenção ",08/09/2025,Adriedne Progenio,Operacional,CASA DAS CORREIAS,recebimento,R$ 535,05,alto
+SOL-2025-111,"INSTALAÇÃO DO EQUIPAMENTO NA OFICINA",08/09/2025,Paula Mariana Xavier,Operacional,MERCANTIL NOVA ERA LTDA,conclusao_compra,R$ 3.199,99,medio
+SOL-2025-110,"Estoque zerado",08/09/2025,Anderson Matheus,Operacional,XAVIER FERRAMENTAS,conclusao_compra,R$ 648,00,alta_urgencia
+SOL-2025-109,"Estoque zerado",08/09/2025,Anderson Matheus,Operacional,XAVIER FERRAMENTAS,conclusao_compra,R$ 1.040,00,alta_urgencia
+SOL-2025-108,"COOLER PARA MAQUINA RESERVA",04/09/2025,Luiz Felipe Reat,TI,INFO STORE,conclusao_compra,R$ 59,85,alta_urgencia
+SOL-2025-107,"COOLER PARA ADICIONAR NA MAQUINA RESERVA",04/09/2025,Admin Sistema,TI,N/A,arquivado,N/A,alta_urgencia
+SOL-2025-106,"ITEM HAVIA SIDO COMPRADO NA CASA DAS CORREIAS, MAS O FORNECEDOR SÓ IDENTIFICOU QUE NÃO TINHA DEPOIS QUE O PEDIDO HAVIA SIDO EMITIDO ",04/09/2025,Paula Mariana Xavier,Operacional,AM SOLUÇÕES,recebimento,R$ 2.100,00,alto
+SOL-2025-105,"Itens não selecionados da solicitação SOL-2025-082",04/09/2025,Daene Chaves,Operacional,AMAZON COMPRESSORES,conclusao_compra,R$ 400,50,medio
+SOL-2025-104,"serviço operacional e manutenções ",04/09/2025,Andréa Luniere,Operacional,N/A,arquivado,N/A,alto
+SOL-2025-103,"uso administrativo",04/09/2025,Andréa Luniere,Operacional,CASA DAS CORREIAS,recebimento,R$ 925,46,alta_urgencia
+SOL-2025-102,"serviço no HR para melhor proteger ",04/09/2025,Andréa Luniere,Operacional,CIDADE DO AÇO,conclusao_compra,R$ 209,00,alto
+SOL-2025-101,"Recotação de itens indisponíveis da solicitação SOL-2025-100",04/09/2025,Andréa Luniere,Operacional,ECAVI DESIGN E GRÁFICA,recebimento,R$ 125,00,alta_urgencia
+SOL-2025-100,"Recotação de itens indisponíveis da solicitação SOL-2025-099",04/09/2025,Andréa Luniere,Operacional,CASA DAS CORREIAS,conclusao_compra,R$ 1.444,50,alta_urgencia
+SOL-2025-099,"Recotação de itens indisponíveis da solicitação SOL-2025-063",04/09/2025,Andréa Luniere,Operacional,XAVIER FERRAMENTAS,conclusao_compra,R$ 480,00,alta_urgencia
+SOL-2025-098,"Recotação de itens indisponíveis da solicitação SOL-2025-094",03/09/2025,Anderson Matheus,Operacional,N/A,cotacao,N/A,alta_urgencia
+SOL-2025-097,"Recotação de itens indisponíveis da solicitação SOL-2025-036",03/09/2025,Daene Chaves,Operacional,N/A,arquivado,N/A,alto
+SOL-2025-096,"Recotação de itens indisponíveis da solicitação SOL-2025-039",03/09/2025,Daene Chaves,Operacional,N/A,arquivado,N/A,alto
+SOL-2025-095,"Material de limpeza para Blomaq e Inflat  ",03/09/2025,Carla dos Santos Lima,Financeiro,QUEIROZ,conclusao_compra,R$ 1.144,85,medio
+SOL-2025-094,"Manutenção de equipamentos parados na oficina.",03/09/2025,Anderson Matheus,Operacional,XAVIER FERRAMENTAS,conclusao_compra,R$ 3.597,60,alta_urgencia
+SOL-2025-093,"Compra de Ar-condicionado para nova sala do T.I",03/09/2025,Fabrizio Toyoda,Manutenção Predial,MERCANTIL NOVA ERA LTDA,conclusao_compra,R$ 1.699,99,medio
+SOL-2025-092,"Manutenção da nova sala T.I",03/09/2025,Paula Mariana Xavier,Manutenção Predial,DON MANOEL,conclusao_compra,R$ 12,00,alta_urgencia
+SOL-2025-091,"MANUTENÇÃO DA NOVA SALA DO T.I",03/09/2025,Paula Mariana Xavier,Manutenção Predial,REI DA CONSTRUCAO,conclusao_compra,R$ 127,00,alta_urgencia
+SOL-2025-090,"solicitação de material de limpeza e escritório para Blomaq e Inflat ",02/09/2025,Carla dos Santos Lima,RH,LIVRARIA CONCORDE,conclusao_compra,R$ 846,10,medio
+SOL-2025-089,"Danificou a Válvula da lavadora devido o uso excessivo da máquina, lavadora usada para lavar os equipamentos de manutenção.",02/09/2025,Anderson Matheus,Operacional,AGROPISCO,pedido_compra,R$ 51,50,alta_urgencia
+SOL-2025-088,"Para uso na máquina de lixar piso (locação)",02/09/2025,Daene Chaves,Operacional,KADOSH MATERIAIS DE CONSTRUCAO EIRELI,conclusao_compra,R$ 372,00,alta_urgencia
+SOL-2025-087,"Peça será utilizada em betoneira que será locada",02/09/2025,Anderson Matheus,Operacional,CASA DAS CORREIAS,conclusao_compra,R$ 150,84,alta_urgencia
+SOL-2025-086,"SEM ESTOQUE - USO NA OFICINA",02/09/2025,Paula Mariana Xavier,Operacional,S V INSTALACOES LTDA,conclusao_compra,R$ 425,00,alta_urgencia
+SOL-2025-085,"Sem estoque.",01/09/2025,Anderson Matheus,Operacional,XAVIER FERRAMENTAS,conclusao_compra,R$ 3.688,00,alta_urgencia
+SOL-2025-084,"MANUTENÇÃO NOVA SALA T.I",01/09/2025,Paula Mariana Xavier,Manutenção Predial,REI DA CONSTRUCAO,conclusao_compra,R$ 83,00,alta_urgencia
+SOL-2025-083,"REFERENTE A OBRA  DOS BOX DAS PLATAFORMAS ",01/09/2025,Andréa Luniere,Operacional,CASA DAS CORREIAS,conclusao_compra,R$ 6.657,01,alta_urgencia
+SOL-2025-082,"Para lubrificação da parte móvel das plataformas elevatórias 
+Para lavagem das plataformas elevatórias ",29/08/2025,Daene Chaves,Operacional,CASA DAS CORREIAS,conclusao_compra,R$ 325,84,medio
+SOL-2025-081,"MANUTENÇÃO DA NOVA SALA T.I",29/08/2025,Paula Mariana Xavier,Manutenção Predial,REI DA CONSTRUCAO,conclusao_compra,R$ 39,50,alta_urgencia
+SOL-2025-080,"MANUTENÇÃO DA NOVA SALA T.I",29/08/2025,Paula Mariana Xavier,Manutenção Predial,REI DA CONSTRUCAO,conclusao_compra,R$ 177,00,alta_urgencia
+SOL-2025-079,"Justificativa: Para uso pelo time operacional BloMaq Sede (Wesley, Alexandre, Adriano, Issac, Djailson, Anderson, Regicleuber)",29/08/2025,Anderson Matheus,Operacional,N/A,cotacao,N/A,medio
+SOL-2025-078,"MANUTENÇÃO DO PORTÃO ELÉTRICO AZUL  DO DEPOSITO JB ANDAIMES ",29/08/2025,Andréa Luniere,Operacional,CIDADE DO AÇO,conclusao_compra,R$ 278,00,alta_urgencia
+SOL-2025-077,"Recotação de itens indisponíveis da solicitação SOL-2025-067",29/08/2025,Andréa Luniere,Operacional,QUEIROZ,conclusao_compra,R$ 266,84,alta_urgencia
+SOL-2025-076,"Ref a reforma da nova sala do T.I",28/08/2025,Fabrizio Toyoda,Manutenção Predial,REI DA CONSTRUCAO,conclusao_compra,R$ 30,00,alta_urgencia
+SOL-2025-075,"Reforma da nova sala ao lado da MIX para transferir o T.I",28/08/2025,Fabrizio Toyoda,Manutenção Predial,REI DA CONSTRUCAO,conclusao_compra,R$ 154,00,alta_urgencia
+SOL-2025-074,"Para reforma da sala ao lado da MIX para transferir o T.I.",28/08/2025,Fabrizio Toyoda,Manutenção Predial,N/A,arquivado,N/A,alta_urgencia
+SOL-2025-073,"FINALIDADE: USO PARA MANUTENÇÃO NO BANHEIRO MASCULINO E NOVA SALA DE T.I",28/08/2025,Anderson Matheus,Operacional,N/A,arquivado,N/A,alto
+SOL-2025-072,"Kit desktop para montarmos uma maquina reserva",28/08/2025,Luiz Felipe Reat,TI,LCSSI INFOGAMER,conclusao_compra,R$ 850,00,alta_urgencia
+SOL-2025-071,"Compra de EPIs Para os colaboradores Blomaq
+Jossany (motorista)
+Jocicley (motorista)
+Jameson (motorista)
+Xavier (Ajudante de caminhão)",27/08/2025,Anderson Matheus,Operacional,PROTMASTER INDÚSTRIA E CONSTRUÇÃO,conclusao_compra,R$ 565,25,medio
+SOL-2025-070,"IMPRESSORA CANON /  JB ",26/08/2025,Andréa Luniere,Operacional,ESTACAO DOS CARTUCHO,conclusao_compra,R$ 180,00,alta_urgencia
+SOL-2025-069,"ACESSÓRIO PARA LOCAÇÃO - USO NA LIXADEIRA DE PISO",26/08/2025,Paula Mariana Xavier,Operacional,N/A,arquivado,N/A,alta_urgencia
+SOL-2025-068,"Produto para atender locação de cliente vip",26/08/2025,Alderlan Benezar,Operacional,KADOSH MATERIAIS DE CONSTRUCAO EIRELI,conclusao_compra,R$ 1.488,00,alta_urgencia
+SOL-2025-067,"PRA USO GERAL ",26/08/2025,Andréa Luniere,Operacional,LIVRARIA CONCORDE,conclusao_compra,R$ 1.212,67,alta_urgencia
+SOL-2025-066,"SERVIÇO DA CABINE DE PINTURA ",26/08/2025,Andréa Luniere,Operacional,REI DAS MANGUEIRAS,recebimento,R$ 1.300,00,alta_urgencia
+SOL-2025-065,"Segue relatório sobre o estado de duas máquinas:
+
+Máquina do Wesley:
+A máquina não está ligando. Antes ainda recebia energia, porém não tinha força suficiente para iniciar completamente o sistema. No momento, permanece sem funcionamento.
+
+Máquina 2:
+O equipamento inicia normalmente e carrega o sistema operacional, porém apresenta lentidão excessiva, tornando o uso praticamente inviável.
+
+Conclusão:
+Ambos os equipamentos estão com problema para utilização, e é mais viável fazer a aquisição de uma maquina nova do que mandar para o conserto essas antigas.",26/08/2025,Luiz Felipe Reat,TI,N/A,arquivado,N/A,alta_urgencia
+SOL-2025-064,"SERVIÇO DE MANUTEÇÃO NA SERRALHERIA ",26/08/2025,Andréa Luniere,Operacional,CIDADE DO AÇO,conclusao_compra,R$ 1.510,35,alta_urgencia
+SOL-2025-063,"SERVIÇO DE MANUTEMÇÃO DOS EXAUSTORES/EXTINTORES DO GALPÃO",26/08/2025,Andréa Luniere,Operacional,WM EXINTORES,recebimento,R$ 1.692,00,alta_urgencia
+SOL-2025-062,"Substituição das luminárias emergências danificadas no INFLAT ",26/08/2025,Carla dos Santos Lima,Financeiro,S V INSTALACOES LTDA,conclusao_compra,R$ 208,23,alto
+SOL-2025-061,"SOLICITANTE: BRUNO DERZI
+AQUISIÇÃO DE ITEM CRÍTICO PARA ATENDER O COMERCIAL",26/08/2025,Paula Mariana Xavier,Operacional,SUPER ALPINA,recebimento,R$ 2.475,00,alta_urgencia
+SOL-2025-060,"para os serviços de operacional na jb andaimes ",26/08/2025,Andréa Luniere,Operacional,CASA DAS CORREIAS,conclusao_compra,R$ 5.564,57,alta_urgencia
+SOL-2025-059,"Solicitação de quadros para colocar as MISSÃO, VISÃO E VALOR, em cada setor da empresa.",26/08/2025,Ana Carolina,Marketing,UNIVERSO 7 DESIGNER,conclusao_compra,R$ 1.620,00,medio
+SOL-2025-058,"Cartucho impressora CANON JB",26/08/2025,Luiz Felipe Reat,TI,MERCADO LIVRE,conclusao_compra,R$ 299,00,alta_urgencia
+SOL-2025-057,"Para manutenções preventivas do motogerador L15194 Motogerador bfde 40kva trifásico 220/ 380/440v PRO",25/08/2025,Anderson Matheus,Operacional,VEMAP,conclusao_compra,R$ 217,64,medio
+SOL-2025-056,"Para manutenções preventivas do motogerador L15194 Motogerador bfde 40kva trifásico 220/ 380/440v PRO",25/08/2025,Anderson Matheus,Operacional,VEMAP,conclusao_compra,R$ 53,75,medio
+SOL-2025-055,"Para manutenções preventivas do motogerador L15194 Motogerador bfde 40kva trifásico 220/ 380/440v PRO",25/08/2025,Anderson Matheus,Operacional,VEMAP,conclusao_compra,R$ 147,21,medio
+SOL-2025-054,"COMPRA DE REEMBOLSO/DEVOLUÇÃO DE EQUIPAMENTO",25/08/2025,Paula Mariana Xavier,Comercial,WM EXINTORES,conclusao_compra,R$ 230,00,alto
+SOL-2025-053,"Locação do bebedouro prevista amanhã dia 26/08",25/08/2025,Anderson Matheus,Operacional,JL REFRIGERAÇÃO,conclusao_compra,R$ 350,00,alta_urgencia
+SOL-2025-052,"AQUISIÇÃO DE EQUIPAMENTO PARA LOCAÇÃO",25/08/2025,Paula Mariana Xavier,Operacional,CASA DAS CORREIAS,conclusao_compra,R$ 719,10,alta_urgencia
+SOL-2025-051,"AQUISIÇÃO DE EQUIPAMENTO PARA LOCAÇÃO ",25/08/2025,Paula Mariana Xavier,Comercial,N/A,arquivado,N/A,alta_urgencia
+SOL-2025-050,"MATERIAL PARA USO OPERACIONAL ",22/08/2025,Andréa Luniere,Operacional,N/A,arquivado,N/A,alto
+SOL-2025-049,"Solicito a compra de 18 quadros no formato A3, em vidro com moldura preta, para fixação nos setores da empresa com os textos institucionais de Missão, Visão e Valores.
+Segue em anexo uma referência visual para melhor compreensão do modelo desejado (quadros de vidro e moldura preta) 
+",22/08/2025,Paula Mariana Xavier,Marketing,N/A,arquivado,N/A,medio
+SOL-2025-048,"Aquisição de toner e cilindro para impressora da recepção",22/08/2025,Luiz Felipe Reat,TI,ESTACAO DOS CARTUCHO,conclusao_compra,R$ 640,00,alto
+SOL-2025-047,"Papeis são usados para impressão de portfólios da Blomaq",22/08/2025,Ana Carolina,Marketing,LIVRARIA CONCORDE,conclusao_compra,R$ 259,00,medio
+SOL-2025-046,"Papeis são usados para impressão de portfólios da Blomaq",22/08/2025,Ana Carolina,Marketing,N/A,arquivado,N/A,medio
+SOL-2025-045,"Serviço de BI",22/08/2025,Admin Sistema,TI,POWER BI - SISTEMA MICROSOFT,conclusao_compra,R$ 98,18,alta_urgencia
+SOL-2025-044,"Reforma da escada para estoque locação",21/08/2025,Anderson Matheus,Operacional,PROT ESCADA,conclusao_compra,R$ 385,00,alta_urgencia
+SOL-2025-043,"Conserto do compressor ar, usado na pintura dos equipamentos (andaimes, fachadeiro, escoras e outros ) e marcação. 
+Vazamento ar.",21/08/2025,Andréa Luniere,Operacional,N/A,arquivado,N/A,alta_urgencia
+SOL-2025-042,"EPIs para os colaboradores Blomaq:
+
+Jossany (motorista)
+Jocicley (motorista)
+Jameson (motorista)
+Xavier (Ajudante de caminhão)
+
+
+A utilização correta dos EPIs é fundamental para garantir a segurança no ambiente laboral e é regulamentada pela Norma Regulamentadora NR06 do Ministério do Trabalho e Emprego.",20/08/2025,Anderson Matheus,Operacional,N/A,arquivado,N/A,medio
+SOL-2025-041,"Armário para o Banheiro Masculino BLOMAQ
+
+Armário de 12 lugares Vertical.",20/08/2025,Anderson Matheus,Operacional,JCL - MOBILIÁRIO PARA ESCRITÓRIO,recebimento,R$ 2.309,88,medio
+SOL-2025-040,"A utilização correta dos EPIs é fundamental para garantir a segurança no ambiente laboral e é regulamentada pela Norma Regulamentadora NR06 do Ministério do Trabalho e Emprego.",20/08/2025,Anderson Matheus,Operacional,N/A,arquivado,N/A,medio
+SOL-2025-039,"ACESSÓRIOS PARA SERRA CIRCULAR GKS 71/14"",19/08/2025,Daene Chaves,Operacional,XAVIER FERRAMENTAS,conclusao_compra,R$ 44,80,alto
+SOL-2025-038,"Acessórios para serra circular GKS 235",19/08/2025,Daene Chaves,Operacional,XAVIER FERRAMENTAS,conclusao_compra,R$ 104,00,alto
+SOL-2025-037,"Aquisição de toner para impressora da recepção",19/08/2025,Luiz Felipe Reat,TI,ESTACAO DOS CARTUCHO,conclusao_compra,R$ 230,00,medio
+SOL-2025-036,"Acessórios para serra circular GKS 20-65",19/08/2025,Daene Chaves,Operacional,XAVIER FERRAMENTAS,conclusao_compra,R$ 324,00,alto
+SOL-2025-035,"Acessórios para serra circular GKS 235",19/08/2025,Daene Chaves,Operacional,N/A,arquivado,N/A,alto
+SOL-2025-034,"Botões sem funcionamento - Plataforma 15M-2688",19/08/2025,Daene Chaves,Operacional,AWP PARTS,recebimento,R$ 1.040,00,alto
+SOL-2025-033,"Para uso com cabos - conserto da plataforma 2688",19/08/2025,Anderson Matheus,Operacional,S V INSTALACOES LTDA,conclusao_compra,R$ 180,00,alta_urgencia
+SOL-2025-032,"Para uso com cabos - conserto da plataforma.",19/08/2025,Anderson Matheus,Operacional,N/A,arquivado,N/A,alta_urgencia
+SOL-2025-031,"Norton para maior segurança de antivirus",18/08/2025,Luiz Felipe Reat,TI,NORTON,conclusao_compra,R$ 218,00,alto
+SOL-2025-030,"1 bebedouro estoque que estava com defeito, já aproveitamos e fizemos um serviço no pacote completo dos 2 bebedouros",18/08/2025,Anderson Matheus,Operacional,JL REFRIGERAÇÃO,conclusao_compra,R$ 795,00,alta_urgencia
+SOL-2025-029,"Para fins organizacionais do setor de operacional e manutenção.",15/08/2025,Anderson Matheus,Operacional,N/A,arquivado,N/A,medio
+SOL-2025-028,"Para marcação dos produtos contados (1ª, 2ª e 3ª contagem) - Inventário",14/08/2025,Daene Chaves,Operacional,LIVRARIA CONCORDE,conclusao_compra,R$ 35,10,alto
+SOL-2025-027,"Rebobinamento de 4 bombas submersíveis e 01 de betoneira (Serviço de Manutenção Externa)",14/08/2025,Anderson Matheus,Operacional,J/A ELÉTRICA,conclusao_compra,R$ 2.600,00,alta_urgencia
+SOL-2025-026,"Peça critica para manutenção corretiva do bebedouro.",13/08/2025,Anderson Matheus,Operacional,FRIGELAR,conclusao_compra,R$ 825,20,alta_urgencia
+SOL-2025-025,"Crachá com urgência para funcionário usar no evento Cenatec ",12/08/2025,Carla dos Santos Lima,RH,BRASIL.COM GRÁFICA RÁPIDA,conclusao_compra,R$ 40,00,alto
+SOL-2025-024,"Tubo esponjoso para uso protetivo da plataforma usado como proteção contra impactos ou para vedar espaços em equipamentos e estruturas.",12/08/2025,Anderson Matheus,Operacional,RONDÔNIA REFRIGERAÇÃO,recebimento,R$ 90,00,alta_urgencia
+SOL-2025-023,"Segregar equipamentos de forma segura;
+Organização do Ambiente da Oficina e recebimento (Almoxarifado);
+Evitar incidentes durante a circulação de pessoas ;
+Cuidado com os Equipamento.",12/08/2025,Anderson Matheus,Operacional,ECO PALLETS,conclusao_compra,R$ 480,00,medio
+SOL-2025-022,"Para uso dos funcionários ",11/08/2025,Carla dos Santos Lima,RH,ECAVI DESIGN E GRÁFICA,recebimento,R$ 1.320,00,alto
+SOL-2025-021,"Aquisição das ferramentas básicas para uso do Técnico Rafael de Jesus, a fim de realizar os serviços de manutenção preventiva e corretiva - Plataformas ",11/08/2025,Daene Chaves,Operacional,CASA DAS CORREIAS,conclusao_compra,R$ 1.714,00,medio
+SOL-2025-020,"Aquisição de Vídeo Extensor para colocar nas tv´s para transmissão de imagem das cameras. 3 pares, no caso 3 unidades do produto.",11/08/2025,Luiz Felipe Reat,TI,MERCADO LIVRE,conclusao_compra,R$ 972,27,alto
+SOL-2025-019,"Porta papel toalha para o banheiro masculino, galpão Blomaq.",07/08/2025,Wesley Fernandes,Operacional,N/A,arquivado,N/A,medio
+SOL-2025-017,"Aquisição de material de escritório e alimentícios.",06/08/2025,Paula Mariana Xavier,RH,N/A,arquivado,N/A,alto
+SOL-2025-008,"SSD necessario para manutenção de uma maquina que vai entrar em uso com urgencia",31/07/2025,Luiz Felipe Reat,TI,INFO STORE,conclusao_compra,R$ 134,90,alta_urgencia
+SOL-2025-007,"Compra de material de limpeza e expediente para Blomaq e inflat",30/07/2025,Carla dos Santos Lima,RH,QUEIROZ,conclusao_compra,R$ 1.183,57,alto
+SOL-2025-006,"Material de limpeza e expediente para o inflat e da Blomaq",30/07/2025,Carla dos Santos Lima,RH,LIVRARIA CONCORDE,conclusao_compra,R$ 679,60,alto
+SOL-2025-005,"Aquisição desse equipamento para fazer divisão de portas hdmi das tv's com câmeras da empresa, aparelho atual não suporta",29/07/2025,Luiz Felipe Reat,TI,MERCADO LIVRE,conclusao_compra,R$ 150,48,alto
+SOL-2025-004,"Estoque baixo para suprir a oficina.",25/07/2025,Wesley Fernandes,Operacional,N/A,arquivado,N/A,alta_urgencia
+SOL-2025-003,"Ref a compra de equipamento para Daniele R.",17/07/2025,Fabrizio Toyoda,Financeiro,N/A,arquivado,N/A,medio
+SOL-2025-002,"Ref a compras de mesas para nova sala de operações para as contratações",16/07/2025,Fabrizio Toyoda,Financeiro,COMODITA MOVEIS,arquivado,R$ 5.600,00,alto
+SOL-2025-001,"1 - PAPEL HIGIENICO 08X300M LIRIOS - papel para o banheiro em geral 
+10 - DETERGENTE 500ml JAPIM (NEUTRO) - para a manutenção 
+ 1 - DESIFETANTE LAVANDA 5L - para limpeza da Blomaq",15/07/2025,Carla dos Santos Lima,RH,N/A,arquivado,N/A,medio
