@@ -468,6 +468,8 @@ export default function PurchaseRequestsReport() {
                     <TableHead>Departamento</TableHead>
                     <TableHead>Fornecedor</TableHead>
                     <TableHead>Fase</TableHead>
+                    <TableHead>Valor Original</TableHead>
+                    <TableHead>Desconto</TableHead>
                     <TableHead>Valor Total</TableHead>
                     <TableHead>Urgência</TableHead>
                   </TableRow>
@@ -518,6 +520,12 @@ export default function PurchaseRequestsReport() {
                           </Badge>
                         </TableCell>
                         <TableCell>
+                          {request.originalValue ? formatCurrency(request.originalValue) : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          {request.discount ? formatCurrency(request.discount) : "N/A"}
+                        </TableCell>
+                        <TableCell>
                           {formatCurrency(request.totalValue)}
                         </TableCell>
                         <TableCell>
@@ -536,7 +544,7 @@ export default function PurchaseRequestsReport() {
                       {/* Expanded Row Content */}
                       {expandedRows.has(request.id) && (
                         <TableRow>
-                          <TableCell colSpan={10} className="bg-gray-50 p-6">
+                          <TableCell colSpan={12} className="bg-gray-50 p-6">
                             <div className="space-y-6">
                               {/* Approval Information */}
                               <div>
