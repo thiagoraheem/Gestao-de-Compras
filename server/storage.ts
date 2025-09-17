@@ -1179,6 +1179,40 @@ export class DatabaseStorage implements IStorage {
             }
           }
           
+          // Calculate original value and discount based on supplier quotations
+          let originalValue = null;
+          let discount = null;
+          
+          try {
+            // Get all supplier quotations for this request to find the highest (original) value
+            const quotationsResult = await pool.query(
+              `SELECT sq.total_value 
+               FROM supplier_quotations sq
+               JOIN quotations q ON sq.quotation_id = q.id
+               WHERE q.purchase_request_id = $1 
+               AND sq.total_value > 0
+               ORDER BY sq.total_value DESC`,
+              [request.id]
+            );
+            
+            if (quotationsResult.rows.length > 0) {
+              // Original value is the highest quoted value
+              originalValue = parseFloat(quotationsResult.rows[0].total_value);
+              
+              // Calculate discount if we have both original and final values
+              if (originalValue && request.totalValue) {
+                const finalValue = parseFloat(request.totalValue);
+                if (finalValue > 0 && originalValue > finalValue) {
+                  discount = originalValue - finalValue;
+                } else {
+                  discount = 0; // No discount if final value >= original value
+                }
+              }
+            }
+          } catch (error) {
+            // Error calculating original value and discount - will use null values
+          }
+
           // Fetch related items with prices from purchase orders if available
           let items = [];
           try {
@@ -1313,6 +1347,8 @@ export class DatabaseStorage implements IStorage {
             supplierName,
             approverA1Name,
             approverA2Name,
+            originalValue,
+            discount,
             items,
             approvals: [], // TODO: Implement if needed
             quotations: [], // TODO: Implement if needed
