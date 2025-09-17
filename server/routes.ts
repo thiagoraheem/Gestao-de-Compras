@@ -3431,12 +3431,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }).filter(item => item.value > 0);
 
-      // Urgency distribution - fixed to match actual database values
+      // Urgency distribution - fixed to match all 4 urgency levels available
       const urgencyDistribution = [
         { name: "Baixa", value: filteredRequests.filter(req => req.urgency === "baixo").length },
         { name: "Média", value: filteredRequests.filter(req => req.urgency === "medio").length },
-        { name: "Alta", value: filteredRequests.filter(req => req.urgency === "alto" || req.urgency === "alta_urgencia").length }
-      ];
+        { name: "Alta", value: filteredRequests.filter(req => req.urgency === "alto").length },
+        { name: "Crítica", value: filteredRequests.filter(req => req.urgency === "critico" || req.urgency === "alta_urgencia").length }
+      ].filter(item => item.value > 0); // Only show urgency levels that have actual data
 
       // Monthly trend (last 6 months)
       const monthlyTrend = [];
