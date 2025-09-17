@@ -191,47 +191,97 @@ export default function PurchaseRequestsReport() {
   };
 
   const exportToCSV = () => {
-    const csvContent = [
-      // Header
+    // Function to safely escape CSV fields and handle line breaks
+    const escapeCsvField = (field: string | number | null): string => {
+      if (field === null || field === undefined) return "N/A";
+      
+      let stringField = String(field);
+      
+      // Replace line breaks with spaces to prevent CSV corruption
+      stringField = stringField.replace(/[\r\n]+/g, ' ');
+      
+      // Replace multiple spaces with single space and trim
+      stringField = stringField.replace(/\s+/g, ' ').trim();
+      
+      // If field contains semicolon, quotes, or was originally multiline, wrap in quotes
+      if (stringField.includes(';') || stringField.includes('"') || String(field).includes('\n')) {
+        // Escape existing quotes by doubling them
+        stringField = stringField.replace(/"/g, '""');
+        return `"${stringField}"`;
+      }
+      
+      return stringField;
+    };
+
+    // Function to format currency values for CSV
+    const formatCurrencyForCSV = (value: number | null): string => {
+      if (!value || value === 0) return "R$ 0,00";
+      return value.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    };
+
+    const csvRows = [
+      // Header with proper encoding
       [
         "Número",
-        "Descrição",
+        "Descrição", 
         "Data",
         "Solicitante",
         "Departamento",
         "Fornecedor",
         "Fase",
+        "Valor Original",
+        "Desconto",
         "Valor Total",
-        "Urgência",
-      ].join(","),
-      // Data rows
-      ...requests.map((request: PurchaseRequest) =>
-        [
-          request.requestNumber,
-          `"${request.description}"`,
-          format(new Date(request.requestDate), "dd/MM/yyyy"),
-          request.requesterName,
-          request.departmentName,
-          request.supplierName,
-          request.phase,
-          formatCurrency(request.totalValue),
-          request.urgency,
-        ].join(","),
-      ),
-    ].join("\n");
+        "Urgência"
+      ].join(";")
+    ];
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    // Data rows with proper escaping and encoding
+    requests.forEach((request: PurchaseRequest) => {
+      const row = [
+        escapeCsvField(request.requestNumber),
+        escapeCsvField(request.description),
+        escapeCsvField(format(new Date(request.requestDate), "dd/MM/yyyy")),
+        escapeCsvField(request.requesterName),
+        escapeCsvField(request.departmentName),
+        escapeCsvField(request.supplierName || "N/A"),
+        escapeCsvField(request.phase),
+        escapeCsvField(formatCurrencyForCSV(request.originalValue)),
+        escapeCsvField(formatCurrencyForCSV(request.discount)),
+        escapeCsvField(formatCurrencyForCSV(request.totalValue)),
+        escapeCsvField(request.urgency)
+      ].join(";");
+      
+      csvRows.push(row);
+    });
+
+    const csvContent = csvRows.join("\n");
+
+    // Create blob with UTF-8 BOM for proper encoding in Excel
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], { 
+      type: "text/csv;charset=utf-8;" 
+    });
+    
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `relatorio-solicitacoes-${format(new Date(), "yyyy-MM-dd")}.csv`,
+      `relatorio-solicitacoes-${format(new Date(), "yyyy-MM-dd")}_${Date.now()}.csv`
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    // Clean up
+    URL.revokeObjectURL(url);
   };
 
   const clearFilters = () => {
