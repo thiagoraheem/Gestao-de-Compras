@@ -48,8 +48,8 @@ import {
 } from "@/lib/types";
 import { Plus, X, Edit3, Edit2, Copy, Trash2, Check } from "lucide-react";
 import FileUpload from "./file-upload";
-import ProductSearch from "./product-search";
 import HybridProductInput from "./hybrid-product-input";
+import ProductSearch from "./product-search";
 import { UnitSelect } from "./unit-select";
 import { useUnits } from "@/hooks/useUnits";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -100,8 +100,11 @@ export default function EnhancedNewRequestModal({
     description: "",
     unit: "UN",
     requestedQuantity: 1,
-    technicalSpecification: ""
+    technicalSpecification: "",
+    productCode: ""
   });
+  const [resetTrigger, setResetTrigger] = useState(0);
+  const [maintainSearchMode, setMaintainSearchMode] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user?.companyId || null);
   const descriptionInputRef = useRef<HTMLInputElement>(null);
@@ -269,7 +272,7 @@ export default function EnhancedNewRequestModal({
   });
 
   const addManualItem = () => {
-    if (!newItemForm.description.trim() || !newItemForm.unit) {
+    if (!newItemForm.description || !newItemForm.description.trim() || !newItemForm.unit) {
       toast({
         title: "Erro",
         description: "Preencha pelo menos a descrição e unidade do item.",
@@ -293,8 +296,15 @@ export default function EnhancedNewRequestModal({
       description: "",
       unit: "UN",
       requestedQuantity: 1,
-      technicalSpecification: ""
+      technicalSpecification: "",
+      productCode: ""
     });
+    
+    // Trigger reset do HybridProductInput
+    setResetTrigger(prev => prev + 1);
+    
+    // Reset maintainSearchMode para permitir que o usuário saia do modo busca
+    setMaintainSearchMode(false);
     
     // Focus back to description field
     setTimeout(() => {
@@ -627,13 +637,32 @@ export default function EnhancedNewRequestModal({
                   <h4 className="font-medium mb-3">Adicionar Novo Item</h4>
                   <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
                     <div className="lg:col-span-2">
-                      <Input
-                        ref={descriptionInputRef}
-                        placeholder="Descrição do item..."
-                        className="h-10"
+                      <HybridProductInput
                         value={newItemForm.description}
-                        onChange={(e) => setNewItemForm(prev => ({ ...prev, description: e.target.value }))}
+                        onChange={(value) => setNewItemForm(prev => ({ ...prev, description: value }))}
+                        onProductSelect={(product) => {
+                          const processedUnit = processERPUnit(product.unidade);
+                          setNewItemForm(prev => ({
+                            ...prev,
+                            description: product.descricao,
+                            unit: processedUnit,
+                            productCode: product.codigo
+                          }));
+                          // Manter modo de busca ativo após selecionar produto do ERP
+                          setMaintainSearchMode(true);
+                        }}
+                        placeholder="Digite a descrição ou busque no ERP..."
+                        className="h-10"
+                        resetTrigger={resetTrigger}
+                        maintainSearchMode={maintainSearchMode}
                       />
+                      {newItemForm.productCode && (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            ERP: {newItemForm.productCode}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Select value={newItemForm.unit} onValueChange={(value) => setNewItemForm(prev => ({ ...prev, unit: value }))}>
@@ -711,13 +740,22 @@ export default function EnhancedNewRequestModal({
                               <div className="space-y-1">
                                 <div className="font-medium">
                                    {editingItemId === item.id ? (
-                                     <Input
+                                     <HybridProductInput
                                        value={item.description}
-                                       onChange={(e) => updateManualItem(item.id, 'description', e.target.value)}
+                                       onChange={(value) => updateManualItem(item.id, 'description', value)}
+                                       onProductSelect={(product) => handleProductSelect(item.id, product)}
+                                       placeholder="Digite a descrição ou busque no ERP..."
                                        className="h-8"
                                      />
                                    ) : (
-                                     item.description
+                                     <div className="flex items-center gap-2">
+                                       <span>{item.description}</span>
+                                       {item.productCode && (
+                                         <Badge variant="secondary" className="text-xs">
+                                           ERP: {item.productCode}
+                                         </Badge>
+                                       )}
+                                     </div>
                                    )}
                                  </div>
                                  {(item.technicalSpecification || editingItemId === item.id) && (

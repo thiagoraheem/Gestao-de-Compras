@@ -17,6 +17,8 @@ interface HybridProductInputProps {
   onProductSelect?: (product: Product) => void;
   placeholder?: string;
   className?: string;
+  resetTrigger?: number; // Prop para forçar reset do componente
+  maintainSearchMode?: boolean; // Prop para manter modo de busca ativo
 }
 
 export function HybridProductInput({
@@ -25,6 +27,8 @@ export function HybridProductInput({
   onProductSelect,
   placeholder = "Digite a descrição ou busque no ERP...",
   className,
+  resetTrigger,
+  maintainSearchMode = false,
 }: HybridProductInputProps) {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -88,6 +92,18 @@ export function HybridProductInput({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Reset do componente quando resetTrigger mudar
+  useEffect(() => {
+    if (resetTrigger !== undefined) {
+      setSelectedProduct(null);
+      if (!maintainSearchMode) {
+        setIsSearchMode(false);
+      }
+      setShowResults(false);
+      setSearchTerm("");
+    }
+  }, [resetTrigger, maintainSearchMode]);
 
   const handleInputChange = (inputValue: string) => {
     if (isSearchMode) {
