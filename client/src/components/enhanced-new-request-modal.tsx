@@ -47,13 +47,9 @@ import {
   CATEGORY_LABELS,
 } from "@/lib/types";
 import { Plus, X, Edit3, Edit2, Copy, Trash2, Check } from "lucide-react";
-import FileUpload from "./file-upload";
 import HybridProductInput from "./hybrid-product-input";
-import ProductSearch from "./product-search";
-import { UnitSelect } from "./unit-select";
 import { useUnits } from "@/hooks/useUnits";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import debug from "@/lib/debug";
 
 const requestSchema = z.object({
   companyId: z.coerce.number().min(1, "Empresa é obrigatória"),
@@ -674,6 +670,7 @@ export default function EnhancedNewRequestModal({
                           <SelectItem value="KG">KG - Quilograma</SelectItem>
                           <SelectItem value="M">M - Metro</SelectItem>
                           <SelectItem value="L">L - Litro</SelectItem>
+                          <SelectItem value="Par">Par - Par</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -789,6 +786,7 @@ export default function EnhancedNewRequestModal({
                                     <SelectItem value="KG">KG</SelectItem>
                                     <SelectItem value="M">M</SelectItem>
                                     <SelectItem value="L">L</SelectItem>
+                                    <SelectItem value="Par">Par - Par</SelectItem>
                                   </SelectContent>
                                 </Select>
                               ) : (
