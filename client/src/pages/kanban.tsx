@@ -16,6 +16,8 @@ import { useLocation } from "wouter";
 export default function KanbanPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [selectedUrgency, setSelectedUrgency] = useState<string>("all");
+  const [selectedRequester, setSelectedRequester] = useState<string>("all");
+  const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
   const [location, setLocation] = useLocation();
 
   // Date filter state - default to current month
@@ -30,6 +32,14 @@ export default function KanbanPage() {
 
   const { data: departments } = useQuery({
     queryKey: ["/api/departments"],
+  });
+
+  const { data: users } = useQuery({
+    queryKey: ["/api/users"],
+  });
+
+  const { data: suppliers } = useQuery({
+    queryKey: ["/api/suppliers"],
   });
 
   // Check for URL parameters to auto-open specific requests
