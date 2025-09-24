@@ -30,6 +30,8 @@ import RFQCreation from "./rfq-creation";
 interface KanbanBoardProps {
   departmentFilter?: string;
   urgencyFilter?: string;
+  requesterFilter?: string;
+  supplierFilter?: string;
   dateFilter?: {
     startDate: string;
     endDate: string;
@@ -39,6 +41,8 @@ interface KanbanBoardProps {
 export default function KanbanBoard({
   departmentFilter = "all",
   urgencyFilter = "all",
+  requesterFilter = "all",
+  supplierFilter = "all",
   dateFilter,
 }: KanbanBoardProps) {
   const { toast } = useToast();

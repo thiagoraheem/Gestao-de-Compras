@@ -313,6 +313,8 @@ export default function KanbanPage() {
         <KanbanBoard
           departmentFilter={selectedDepartment}
           urgencyFilter={selectedUrgency}
+          requesterFilter={selectedRequester}
+          supplierFilter={selectedSupplier}
           dateFilter={dateFilter}
         />
       </div>
