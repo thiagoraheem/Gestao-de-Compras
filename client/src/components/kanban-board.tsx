@@ -298,7 +298,7 @@ export default function KanbanBoard({
       if (!canUserDragCard(request.currentPhase, newPhase)) {
         toast({
           title: "Acesso Negado",
-          description: `Você não possui permissão para mover cards da fase ${PHASE_LABELS[request.currentPhase]} para ${PHASE_LABELS[newPhase]}`,
+          description: `Você não possui permissão para mover cards da fase ${PHASE_LABELS[request.currentPhase as keyof typeof PHASE_LABELS]} para ${PHASE_LABELS[newPhase as keyof typeof PHASE_LABELS]}`,
           variant: "destructive",
         });
         setActiveId(null);
