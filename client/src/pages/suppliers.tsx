@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -66,6 +66,47 @@ export default function SuppliersPage() {
       paymentTerms: "",
     },
   });
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingSupplier(null);
+    form.reset();
+  };
+
+  const handleEditSupplier = (supplier: any) => {
+    setEditingSupplier(supplier);
+    form.reset({
+      name: supplier.name || "",
+      type: supplier.type || 0,
+      cnpj: supplier.cnpj || "",
+      contact: supplier.contact || "",
+      email: supplier.email || "",
+      phone: supplier.phone || "",
+      website: supplier.website || "",
+      address: supplier.address || "",
+      paymentTerms: supplier.paymentTerms || "",
+    });
+    setIsModalOpen(true);
+  };
+
+  // Check for URL parameters to auto-open supplier edit modal
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const editSupplierId = urlParams.get("edit");
+
+    if (editSupplierId && suppliers.length > 0) {
+      const supplierToEdit = suppliers.find(
+        (supplier: any) => supplier.id === parseInt(editSupplierId)
+      );
+      
+      if (supplierToEdit) {
+        handleEditSupplier(supplierToEdit);
+        // Clear the URL parameter after opening
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+  }, [suppliers]);
 
   const createSupplierMutation = useMutation({
     mutationFn: async (data: SupplierFormData) => {
@@ -147,28 +188,6 @@ export default function SuppliersPage() {
       });
     },
   });
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingSupplier(null);
-    form.reset();
-  };
-
-  const handleEditSupplier = (supplier: any) => {
-    setEditingSupplier(supplier);
-    form.reset({
-      name: supplier.name || "",
-      type: supplier.type || 0,
-      cnpj: supplier.cnpj || "",
-      contact: supplier.contact || "",
-      email: supplier.email || "",
-      phone: supplier.phone || "",
-      website: supplier.website || "",
-      address: supplier.address || "",
-      paymentTerms: supplier.paymentTerms || "",
-    });
-    setIsModalOpen(true);
-  };
 
   const onSubmit = (data: SupplierFormData) => {
     createSupplierMutation.mutate(data);

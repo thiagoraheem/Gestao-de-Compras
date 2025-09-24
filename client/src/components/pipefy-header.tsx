@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import GlobalSearch from "@/components/global-search";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -145,6 +146,11 @@ export default function PipefyHeader() {
                 className="text-muted-foreground hover:text-foreground"
               />            
           </nav>
+
+          {/* Campo de Pesquisa Global - Centralizado */}
+          <div className="hidden md:flex flex-1 justify-center max-w-2xl mx-4">
+            <GlobalSearch />
+          </div>
         </div>
 
         {/* Right Side - User Menu Desktop + Mobile Menu Button */}
@@ -225,6 +231,10 @@ export default function PipefyHeader() {
       {isMobileMenuOpen && (
         <div className="md:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 bg-background border-t border-border shadow-lg">
+            {/* Campo de Pesquisa Mobile */}
+            <div className="px-2 py-2">
+              <GlobalSearch />
+            </div>
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;

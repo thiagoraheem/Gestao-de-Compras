@@ -16,7 +16,7 @@ import { useLocation } from "wouter";
 export default function KanbanPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [selectedUrgency, setSelectedUrgency] = useState<string>("all");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   // Date filter state - default to current month
   const currentDate = new Date();
@@ -50,7 +50,7 @@ export default function KanbanPage() {
         window.dispatchEvent(event);
       }, 500);
     }
-  }, []);
+  }, [location]); // React to URL location changes
 
   return (
     <div className="flex flex-col h-full">
