@@ -108,6 +108,38 @@ export default function KanbanPage() {
               </SelectContent>
             </Select>
 
+            <Select value={selectedRequester} onValueChange={setSelectedRequester}>
+              <SelectTrigger className="w-full h-8 text-sm">
+                <SelectValue placeholder="Todos os Solicitantes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Solicitantes</SelectItem>
+                {Array.isArray(users) &&
+                  users.map((user: any) => (
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      {user.firstName && user.lastName 
+                        ? `${user.firstName} ${user.lastName}`
+                        : user.username}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+              <SelectTrigger className="w-full h-8 text-sm">
+                <SelectValue placeholder="Todos os Fornecedores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Fornecedores</SelectItem>
+                {Array.isArray(suppliers) &&
+                  suppliers.map((supplier: any) => (
+                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+
             {/* Date Filter for Archived Items */}
             <div className="grid grid-cols-2 gap-1.5">
               <div>
@@ -194,6 +226,44 @@ export default function KanbanPage() {
                   <SelectItem value="alto">Alta</SelectItem>
                   <SelectItem value="medio">Média</SelectItem>
                   <SelectItem value="baixo">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={selectedRequester}
+                onValueChange={setSelectedRequester}
+              >
+                <SelectTrigger className="w-44 h-8 text-sm">
+                  <SelectValue placeholder="Solicitantes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Solicitantes</SelectItem>
+                  {Array.isArray(users) &&
+                    users.map((user: any) => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        {user.firstName && user.lastName 
+                          ? `${user.firstName} ${user.lastName}`
+                          : user.username}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={selectedSupplier}
+                onValueChange={setSelectedSupplier}
+              >
+                <SelectTrigger className="w-44 h-8 text-sm">
+                  <SelectValue placeholder="Fornecedores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Fornecedores</SelectItem>
+                  {Array.isArray(suppliers) &&
+                    suppliers.map((supplier: any) => (
+                      <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                        {supplier.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
