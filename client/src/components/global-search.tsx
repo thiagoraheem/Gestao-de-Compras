@@ -4,19 +4,6 @@ import { useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { Search, FileText, Building, Clock, Tag, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +23,7 @@ interface GlobalSearchProps {
 export default function GlobalSearch({ className }: GlobalSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [, setLocation] = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -166,32 +154,61 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
 
   // Lidar com seleção de item
   const handleSelect = (suggestion: SearchSuggestion) => {
-    // Use setTimeout to avoid conflicts with onBlur
-    setTimeout(() => {
-      setIsOpen(false);
-      setSearchValue("");
+    setIsOpen(false);
+    setSearchValue("");
 
-      if (suggestion.type === "request") {
-        // Navegar para o kanban e destacar a solicitação
-        const request = suggestion.metadata;
-        setLocation(`/?request=${request.id}&phase=${request.currentPhase}`);
-      } else if (suggestion.type === "supplier") {
-        // Navegar para fornecedores e abrir edição
-        const supplier = suggestion.metadata;
-        setLocation(`/suppliers?edit=${supplier.id}`);
-      } else if (suggestion.type === "recent") {
-        // Navegação direta
-        const path = suggestion.value.replace("/kanban-recent", "/");
-        setLocation(path);
-      }
-    }, 50);
+    if (suggestion.type === "request") {
+      // Navegar para o kanban e destacar a solicitação
+      const request = suggestion.metadata;
+      setLocation(`/?request=${request.id}&phase=${request.currentPhase}`);
+    } else if (suggestion.type === "supplier") {
+      // Navegar para fornecedores e abrir edição
+      const supplier = suggestion.metadata;
+      setLocation(`/suppliers?edit=${supplier.id}`);
+    } else if (suggestion.type === "recent") {
+      // Navegação direta
+      const path = suggestion.value.replace("/kanban-recent", "/");
+      setLocation(path);
+    }
   };
 
-  // Executar pesquisa direta ao pressionar Enter
+  // Reset selected index when suggestions change
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [suggestions]);
+
+  // Executar pesquisa direta ao pressionar Enter e navegação por teclado
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && suggestions.length > 0) {
-      e.preventDefault();
-      handleSelect(suggestions[0]);
+    if (!isOpen || suggestions.length === 0) {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+        setSearchValue("");
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedIndex((prev) => 
+          prev < suggestions.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedIndex((prev) => 
+          prev > 0 ? prev - 1 : suggestions.length - 1
+        );
+        break;
+      case "Enter":
+        e.preventDefault();
+        handleSelect(suggestions[selectedIndex]);
+        break;
+      case "Escape":
+        e.preventDefault();
+        setIsOpen(false);
+        setSearchValue("");
+        break;
     }
   };
 
@@ -251,38 +268,47 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
             // Delay closing to allow clicks on suggestions
             setTimeout(() => {
               setIsOpen(false);
-            }, 300);
+            }, 150);
           }}
           className="pl-10 pr-4 w-full md:w-80 bg-background/60 border-border/60 focus:bg-background focus:border-border"
         />
       </div>
 
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
-        <PopoverTrigger asChild>
-          <div className="absolute inset-0 pointer-events-none" />
-        </PopoverTrigger>
-
-        <PopoverContent className="w-96 p-0" align="start">
-          <Command shouldFilter={false}>
+      {/* Custom dropdown overlay */}
+      {isOpen && (
+        <>
+          {/* Backdrop to close dropdown */}
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setIsOpen(false)}
+            onMouseDown={(e) => e.preventDefault()}
+          />
+          
+          {/* Dropdown content */}
+          <div className="absolute top-full left-0 right-0 mt-1 z-50 w-96 max-w-full bg-white rounded-md border border-gray-200 shadow-lg">
             <div className="px-3 py-2 text-xs text-muted-foreground border-b">
               {getSearchTypeHint(searchValue)}
             </div>
 
-            <CommandList className="max-h-80">
+            <div className="max-h-80 overflow-y-auto">
               {suggestions.length === 0 ? (
-                <CommandEmpty className="py-6 text-center text-sm">
+                <div className="py-6 text-center text-sm text-muted-foreground">
                   {searchValue
                     ? "Nenhum resultado encontrado."
                     : "Digite para pesquisar..."}
-                </CommandEmpty>
+                </div>
               ) : (
-                <CommandGroup>
-                  {suggestions.map((suggestion) => (
-                    <CommandItem
+                <div>
+                  {suggestions.map((suggestion, index) => (
+                    <div
                       key={suggestion.id}
-                      value={suggestion.value}
-                      onSelect={() => handleSelect(suggestion)}
-                      className="flex items-center gap-3 p-3 cursor-pointer hover:bg-muted"
+                      onClick={() => handleSelect(suggestion)}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
+                        index === selectedIndex 
+                          ? "bg-muted" 
+                          : "hover:bg-muted"
+                      }`}
                       data-testid={`search-result-${suggestion.type}-${suggestion.id}`}
                     >
                       <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
@@ -303,11 +329,11 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
                           </p>
                         )}
                       </div>
-                    </CommandItem>
+                    </div>
                   ))}
-                </CommandGroup>
+                </div>
               )}
-            </CommandList>
+            </div>
 
             <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/50 border-t">
               <div className="flex items-center gap-4">
@@ -317,9 +343,9 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
                 <span>Ctrl+K para focar</span>
               </div>
             </div>
-          </Command>
-        </PopoverContent>
-      </Popover>
+          </div>
+        </>
+      )}
     </div>
   );
 }
