@@ -64,6 +64,7 @@ interface PurchaseCardProps {
   phase: PurchasePhase;
   isDragging?: boolean;
   onCreateRFQ?: (request: any) => void;
+  isSearchHighlighted?: boolean;
 }
 
 export default function PurchaseCard({
@@ -71,6 +72,7 @@ export default function PurchaseCard({
   phase,
   isDragging = false,
   onCreateRFQ,
+  isSearchHighlighted = false,
 }: PurchaseCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -457,7 +459,7 @@ export default function PurchaseCard({
     enabled: phase === PURCHASE_PHASES.COTACAO,
     retry: 2,
     staleTime: 0, // No cache to avoid stale data issues
-    cacheTime: 0, // No cache time
+    gcTime: 0, // No cache time
     refetchInterval: 5000, // Auto-refetch every 5 seconds
     queryFn: async () => {
       try {
@@ -619,7 +621,6 @@ export default function PurchaseCard({
     (phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1) ||
     (phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2) ||
     (phase !== PURCHASE_PHASES.APROVACAO_A1 &&
-      phase !== PURCHASE_PHASES.APROVACAO_A2.APROVACAO_A1 &&
       phase !== PURCHASE_PHASES.APROVACAO_A2);
 
   return (
@@ -636,6 +637,7 @@ export default function PurchaseCard({
           sortableIsDragging && "opacity-50",
           isFinalPhase && "bg-gray-100 text-gray-600 border-gray-300",
           !canDragCard && "cursor-not-allowed border-gray-300 bg-gray-50",
+          isSearchHighlighted && "ring-2 ring-blue-500 ring-offset-2 bg-blue-50 border-blue-300 shadow-lg",
         )}
       >
         <CardContent className="p-4">
@@ -947,7 +949,7 @@ export default function PurchaseCard({
 
           {phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1 && (
             <div className="mt-3 pt-3 border-t border-gray-100">
-              {canApproveThisRequest?.canApprove ? (
+              {(canApproveThisRequest as any)?.canApprove ? (
                 <div className="flex space-x-2">
                   <Button
                     size="sm"

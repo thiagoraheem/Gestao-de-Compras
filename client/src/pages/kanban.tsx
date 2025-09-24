@@ -18,6 +18,7 @@ export default function KanbanPage() {
   const [selectedUrgency, setSelectedUrgency] = useState<string>("all");
   const [selectedRequester, setSelectedRequester] = useState<string>("all");
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
+  const [searchFilter, setSearchFilter] = useState<string>("");
   const [location, setLocation] = useLocation();
 
   // Date filter state - default to current month
@@ -42,11 +43,19 @@ export default function KanbanPage() {
     queryKey: ["/api/suppliers"],
   });
 
-  // Check for URL parameters to auto-open specific requests
+  // Check for URL parameters to auto-open specific requests and apply search filters
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const requestId = urlParams.get("request");
     const phase = urlParams.get("phase");
+    const search = urlParams.get("search");
+
+    // Apply search filter from URL
+    if (search) {
+      setSearchFilter(decodeURIComponent(search));
+    } else {
+      setSearchFilter("");
+    }
 
     if (requestId) {
       // Give the board a moment to load then trigger the request modal
@@ -61,6 +70,20 @@ export default function KanbanPage() {
       }, 500);
     }
   }, [location]); // React to URL location changes
+
+  // Listen for global search events
+  useEffect(() => {
+    const handleGlobalSearch = (event: any) => {
+      const { searchTerm } = event.detail;
+      setSearchFilter(searchTerm || "");
+    };
+
+    window.addEventListener("globalSearchApplied", handleGlobalSearch);
+
+    return () => {
+      window.removeEventListener("globalSearchApplied", handleGlobalSearch);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
@@ -334,6 +357,27 @@ export default function KanbanPage() {
             </div>
           </div>
         </div>
+
+        {/* Search Filter Indicator */}
+        {searchFilter && (
+          <div className="mt-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-blue-700 font-medium">
+                🔍 Filtrado por: "{searchFilter}"
+              </span>
+            </div>
+            <button 
+              onClick={() => {
+                setSearchFilter("");
+                setLocation("/");
+              }}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium underline"
+              data-testid="button-clear-search-filter"
+            >
+              Limpar filtro
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Kanban Board Full Width */}
@@ -343,6 +387,7 @@ export default function KanbanPage() {
           urgencyFilter={selectedUrgency}
           requesterFilter={selectedRequester}
           supplierFilter={selectedSupplier}
+          searchFilter={searchFilter}
           dateFilter={dateFilter}
         />
       </div>

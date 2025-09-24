@@ -155,20 +155,58 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
   // Lidar com seleção de item
   const handleSelect = (suggestion: SearchSuggestion) => {
     setIsOpen(false);
-    setSearchValue("");
 
     if (suggestion.type === "request") {
-      // Navegar para o kanban e destacar a solicitação
+      // Aplicar filtro de busca no kanban para destacar o card
       const request = suggestion.metadata;
-      setLocation(`/?request=${request.id}&phase=${request.currentPhase}`);
+      const searchTerm = request.requestNumber || request.title || suggestion.title;
+      
+      // Navegar para o kanban com filtro de busca
+      setLocation(`/?search=${encodeURIComponent(searchTerm)}&request=${request.id}&phase=${request.currentPhase}`);
+      
+      // Emitir evento para aplicar o filtro
+      window.dispatchEvent(new CustomEvent("globalSearchApplied", {
+        detail: { searchTerm }
+      }));
+      
+      setSearchValue("");
     } else if (suggestion.type === "supplier") {
-      // Navegar para fornecedores e abrir edição
+      // Para fornecedores, aplicar filtro de busca por nome
       const supplier = suggestion.metadata;
-      setLocation(`/suppliers?edit=${supplier.id}`);
+      const searchTerm = supplier.name;
+      
+      // Navegar para o kanban com filtro de busca por fornecedor
+      setLocation(`/?search=${encodeURIComponent(searchTerm)}`);
+      
+      // Emitir evento para aplicar o filtro
+      window.dispatchEvent(new CustomEvent("globalSearchApplied", {
+        detail: { searchTerm }
+      }));
+      
+      setSearchValue("");
     } else if (suggestion.type === "recent") {
-      // Navegação direta
+      // Navegação direta sem filtro
       const path = suggestion.value.replace("/kanban-recent", "/");
       setLocation(path);
+      setSearchValue("");
+    }
+  };
+
+  // Busca direta ao pressionar Enter sem sugestão selecionada
+  const handleDirectSearch = () => {
+    if (searchValue.trim()) {
+      const searchTerm = searchValue.trim();
+      
+      // Navegar para o kanban com filtro de busca
+      setLocation(`/?search=${encodeURIComponent(searchTerm)}`);
+      
+      // Emitir evento para aplicar o filtro
+      window.dispatchEvent(new CustomEvent("globalSearchApplied", {
+        detail: { searchTerm }
+      }));
+      
+      setSearchValue("");
+      setIsOpen(false);
     }
   };
 
@@ -179,35 +217,36 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
 
   // Executar pesquisa direta ao pressionar Enter e navegação por teclado
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen || suggestions.length === 0) {
-      if (e.key === "Escape") {
-        setIsOpen(false);
-        setSearchValue("");
-      }
-      return;
-    }
-
     switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        setSelectedIndex((prev) => 
-          prev < suggestions.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        setSelectedIndex((prev) => 
-          prev > 0 ? prev - 1 : suggestions.length - 1
-        );
-        break;
-      case "Enter":
-        e.preventDefault();
-        handleSelect(suggestions[selectedIndex]);
-        break;
       case "Escape":
         e.preventDefault();
         setIsOpen(false);
         setSearchValue("");
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (isOpen && suggestions.length > 0) {
+          handleSelect(suggestions[selectedIndex]);
+        } else {
+          // Busca direta se não há sugestões ou dropdown fechado
+          handleDirectSearch();
+        }
+        break;
+      case "ArrowDown":
+        if (isOpen && suggestions.length > 0) {
+          e.preventDefault();
+          setSelectedIndex((prev) => 
+            prev < suggestions.length - 1 ? prev + 1 : 0
+          );
+        }
+        break;
+      case "ArrowUp":
+        if (isOpen && suggestions.length > 0) {
+          e.preventDefault();
+          setSelectedIndex((prev) => 
+            prev > 0 ? prev - 1 : suggestions.length - 1
+          );
+        }
         break;
     }
   };

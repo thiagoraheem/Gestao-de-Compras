@@ -9,7 +9,7 @@ import {
   DragOverlay,
   closestCorners,
 } from "@dnd-kit/core";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import PurchaseCard from "./purchase-card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +32,7 @@ interface KanbanBoardProps {
   urgencyFilter?: string;
   requesterFilter?: string;
   supplierFilter?: string;
+  searchFilter?: string;
   dateFilter?: {
     startDate: string;
     endDate: string;
@@ -43,6 +44,7 @@ export default function KanbanBoard({
   urgencyFilter = "all",
   requesterFilter = "all",
   supplierFilter = "all",
+  searchFilter = "",
   dateFilter,
 }: KanbanBoardProps) {
   const { toast } = useToast();
@@ -439,6 +441,41 @@ export default function KanbanBoard({
             passesFilters && requestDate >= startDate && requestDate <= endDate;
         }
 
+        // Search filter - flexible search across multiple fields
+        if (searchFilter && searchFilter.trim()) {
+          const query = searchFilter.toLowerCase().trim();
+          const searchFields = [
+            request.requestNumber?.toLowerCase(),
+            request.title?.toLowerCase(),
+            request.description?.toLowerCase(),
+            request.justification?.toLowerCase(),
+            // Requester search
+            request.requester?.firstName?.toLowerCase(),
+            request.requester?.lastName?.toLowerCase(),
+            request.requester?.username?.toLowerCase(),
+            // Department search
+            request.department?.name?.toLowerCase(),
+            // Supplier search
+            request.chosenSupplier?.name?.toLowerCase(),
+            request.chosenSupplier?.cnpj?.toLowerCase(),
+            // Items search
+            ...(request.items || []).map((item: any) => 
+              `${item.description} ${item.technicalSpecification} ${item.model} ${item.brand}`.toLowerCase()
+            ),
+          ].filter(Boolean);
+
+          const matchesSearch = searchFields.some(field => 
+            field && field.includes(query)
+          );
+
+          // Also check for request number patterns (R123, SOL-2025-045, etc)
+          const numbers = query.replace(/[^\d]/g, "");
+          const matchesRequestNumber = numbers && 
+            request.requestNumber?.replace(/[^\d]/g, "").includes(numbers);
+
+          passesFilters = passesFilters && (matchesSearch || matchesRequestNumber);
+        }
+
         return passesFilters;
       })
     : [];
@@ -479,6 +516,54 @@ export default function KanbanBoard({
     requestsByPhase[phase] = sortRequestsByPriority(requestsByPhase[phase]);
   });
 
+  // Calculate which requests should be highlighted based on search filter
+  const highlightedRequestIds = useMemo(() => {
+    const ids = new Set<number>();
+    
+    if (searchFilter && searchFilter.trim()) {
+      const query = searchFilter.toLowerCase().trim();
+      
+      // Find all requests that match the search filter
+      const allRequests = Array.isArray(purchaseRequests) ? purchaseRequests : [];
+      allRequests.forEach((request: any) => {
+        const searchFields = [
+          request.requestNumber?.toLowerCase(),
+          request.title?.toLowerCase(),
+          request.description?.toLowerCase(),
+          request.justification?.toLowerCase(),
+          // Requester search
+          request.requester?.firstName?.toLowerCase(),
+          request.requester?.lastName?.toLowerCase(),
+          request.requester?.username?.toLowerCase(),
+          // Department search
+          request.department?.name?.toLowerCase(),
+          // Supplier search
+          request.chosenSupplier?.name?.toLowerCase(),
+          request.chosenSupplier?.cnpj?.toLowerCase(),
+          // Items search
+          ...(request.items || []).map((item: any) => 
+            `${item.description} ${item.technicalSpecification} ${item.model} ${item.brand}`.toLowerCase()
+          ),
+        ].filter(Boolean);
+
+        const matchesSearch = searchFields.some(field => 
+          field && field.includes(query)
+        );
+
+        // Also check for request number patterns (R123, SOL-2025-045, etc)
+        const numbers = query.replace(/[^\d]/g, "");
+        const matchesRequestNumber = numbers && 
+          request.requestNumber?.replace(/[^\d]/g, "").includes(numbers);
+
+        if (matchesSearch || matchesRequestNumber) {
+          ids.add(request.id);
+        }
+      });
+    }
+    
+    return ids;
+  }, [searchFilter, purchaseRequests]);
+
   const handleCreateRFQ = (request: any) => {
     setSelectedRequestForRFQ(request);
     setShowRFQCreation(true);
@@ -502,6 +587,7 @@ export default function KanbanBoard({
               title={PHASE_LABELS[phase]}
               requests={requestsByPhase[phase] || []}
               onCreateRFQ={handleCreateRFQ}
+              highlightedRequestIds={highlightedRequestIds}
             />
           ))}
         </div>
