@@ -393,7 +393,7 @@ export default function KanbanBoard({
     );
   }
 
-  // Filter requests based on department, urgency, and date
+  // Filter requests based on department, urgency, requester, supplier, and date
   const filteredRequests = Array.isArray(purchaseRequests)
     ? purchaseRequests.filter((request: any) => {
         let passesFilters = true;
@@ -408,6 +408,20 @@ export default function KanbanBoard({
         // Urgency filter - exact match
         if (urgencyFilter !== "all") {
           passesFilters = passesFilters && request.urgency === urgencyFilter;
+        }
+
+        // Requester filter - filter by requester user
+        if (requesterFilter !== "all") {
+          passesFilters =
+            passesFilters &&
+            request.requester?.id?.toString() === requesterFilter;
+        }
+
+        // Supplier filter - filter by chosen supplier
+        if (supplierFilter !== "all") {
+          passesFilters =
+            passesFilters &&
+            request.chosenSupplier?.id?.toString() === supplierFilter;
         }
 
         // Date filter - apply to conclusion and archived items
