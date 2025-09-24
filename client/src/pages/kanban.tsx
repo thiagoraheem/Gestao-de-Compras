@@ -115,13 +115,23 @@ export default function KanbanPage() {
               <SelectContent>
                 <SelectItem value="all">Todos os Solicitantes</SelectItem>
                 {Array.isArray(users) &&
-                  users.map((user: any) => (
-                    <SelectItem key={user.id} value={user.id.toString()}>
-                      {user.firstName && user.lastName 
-                        ? `${user.firstName} ${user.lastName}`
-                        : user.username}
-                    </SelectItem>
-                  ))}
+                  users
+                    .sort((a: any, b: any) => {
+                      const nameA = a.firstName && a.lastName 
+                        ? `${a.firstName} ${a.lastName}`
+                        : a.username;
+                      const nameB = b.firstName && b.lastName 
+                        ? `${b.firstName} ${b.lastName}`
+                        : b.username;
+                      return nameA.localeCompare(nameB, 'pt-BR', { sensitivity: 'base' });
+                    })
+                    .map((user: any) => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        {user.firstName && user.lastName 
+                          ? `${user.firstName} ${user.lastName}`
+                          : user.username}
+                      </SelectItem>
+                    ))}
               </SelectContent>
             </Select>
 
@@ -132,11 +142,15 @@ export default function KanbanPage() {
               <SelectContent>
                 <SelectItem value="all">Todos os Fornecedores</SelectItem>
                 {Array.isArray(suppliers) &&
-                  suppliers.map((supplier: any) => (
-                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                      {supplier.name}
-                    </SelectItem>
-                  ))}
+                  suppliers
+                    .sort((a: any, b: any) => 
+                      a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+                    )
+                    .map((supplier: any) => (
+                      <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                        {supplier.name}
+                      </SelectItem>
+                    ))}
               </SelectContent>
             </Select>
 
@@ -239,13 +253,23 @@ export default function KanbanPage() {
                 <SelectContent>
                   <SelectItem value="all">Solicitantes</SelectItem>
                   {Array.isArray(users) &&
-                    users.map((user: any) => (
-                      <SelectItem key={user.id} value={user.id.toString()}>
-                        {user.firstName && user.lastName 
-                          ? `${user.firstName} ${user.lastName}`
-                          : user.username}
-                      </SelectItem>
-                    ))}
+                    users
+                      .sort((a: any, b: any) => {
+                        const nameA = a.firstName && a.lastName 
+                          ? `${a.firstName} ${a.lastName}`
+                          : a.username;
+                        const nameB = b.firstName && b.lastName 
+                          ? `${b.firstName} ${b.lastName}`
+                          : b.username;
+                        return nameA.localeCompare(nameB, 'pt-BR', { sensitivity: 'base' });
+                      })
+                      .map((user: any) => (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          {user.firstName && user.lastName 
+                            ? `${user.firstName} ${user.lastName}`
+                            : user.username}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
 
@@ -259,11 +283,15 @@ export default function KanbanPage() {
                 <SelectContent>
                   <SelectItem value="all">Fornecedores</SelectItem>
                   {Array.isArray(suppliers) &&
-                    suppliers.map((supplier: any) => (
-                      <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                        {supplier.name}
-                      </SelectItem>
-                    ))}
+                    suppliers
+                      .sort((a: any, b: any) => 
+                        a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+                      )
+                      .map((supplier: any) => (
+                        <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
             </div>
