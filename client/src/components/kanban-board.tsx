@@ -174,6 +174,77 @@ export default function KanbanBoard({
     },
   });
 
+  // Calculate which requests should be highlighted based on search filter
+  const highlightedRequestIds = useMemo(() => {
+    const ids = new Set<number>();
+    
+    if (searchFilter && searchFilter.trim()) {
+      const query = searchFilter.toLowerCase().trim();
+      
+      // Find all requests that match the search filter
+      const allRequests = Array.isArray(purchaseRequests) ? purchaseRequests : [];
+      allRequests.forEach((request: any) => {
+        const searchFields = [
+          request.requestNumber?.toLowerCase(),
+          request.title?.toLowerCase(),
+          request.description?.toLowerCase(),
+          request.justification?.toLowerCase(),
+          // Requester search
+          request.requester?.firstName?.toLowerCase(),
+          request.requester?.lastName?.toLowerCase(),
+          request.requester?.username?.toLowerCase(),
+          // Department search
+          request.department?.name?.toLowerCase(),
+          // Supplier search
+          request.chosenSupplier?.name?.toLowerCase(),
+          request.chosenSupplier?.cnpj?.toLowerCase(),
+          // Items search
+          ...(request.items || []).map((item: any) => 
+            `${item.description} ${item.technicalSpecification} ${item.model} ${item.brand}`.toLowerCase()
+          ),
+        ].filter(Boolean);
+
+        const matchesSearch = searchFields.some(field => 
+          field && field.includes(query)
+        );
+
+        // Also check for request number patterns (R123, SOL-2025-045, etc)
+        const numbers = query.replace(/[^\d]/g, "");
+        const matchesRequestNumber = numbers && 
+          request.requestNumber?.replace(/[^\d]/g, "").includes(numbers);
+
+        if (matchesSearch || matchesRequestNumber) {
+          ids.add(request.id);
+        }
+      });
+    }
+    
+    return ids;
+  }, [searchFilter, purchaseRequests]);
+
+  // Auto-open the first matching card when search is performed
+  useEffect(() => {
+    if (searchFilter && searchFilter.trim() && highlightedRequestIds.size > 0 && Array.isArray(purchaseRequests)) {
+      // Get the first highlighted request ID
+      const firstHighlightedId = Array.from(highlightedRequestIds)[0];
+      
+      // Find the corresponding request
+      const firstHighlightedRequest = purchaseRequests.find((req: any) => req.id === firstHighlightedId);
+      
+      if (firstHighlightedRequest) {
+        // Trigger opening the card in its current phase
+        setTimeout(() => {
+          const cardElement = document.querySelector(
+            `[data-request-id="${firstHighlightedId}"]`
+          );
+          if (cardElement) {
+            (cardElement as HTMLElement).click();
+          }
+        }, 100); // Small delay to ensure the DOM is updated with highlights
+      }
+    }
+  }, [searchFilter, highlightedRequestIds, purchaseRequests]);
+
   // Permission check function
   const canUserDragCard = (phase: string, targetPhase?: string) => {
     // If targetPhase is not provided, we're checking if the card can be dragged at all
@@ -370,32 +441,8 @@ export default function KanbanBoard({
     setActiveRequest(null);
   };
 
-  if (isLoading) {
-    return (
-      <div className="h-full overflow-x-auto px-6 py-4">
-        <div
-          className="flex space-x-6"
-          style={{ minWidth: "max-content", height: "100%" }}
-        >
-          {Object.values(PURCHASE_PHASES).map((phase) => (
-            <div key={phase} className="flex-shrink-0 w-80">
-              <div className="bg-white rounded-lg shadow-md h-full flex flex-col">
-                <div className="p-4 border-b border-gray-200">
-                  <Skeleton className="h-6 w-32" />
-                </div>
-                <div className="flex-1 p-4 space-y-3">
-                  <Skeleton className="h-32 w-full" />
-                  <Skeleton className="h-32 w-full" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   // Filter requests based on department, urgency, requester, supplier, and date
+  // NOTE: Search filter is NOT applied here - it's handled separately via highlighting
   const filteredRequests = Array.isArray(purchaseRequests)
     ? purchaseRequests.filter((request: any) => {
         let passesFilters = true;
@@ -441,40 +488,7 @@ export default function KanbanBoard({
             passesFilters && requestDate >= startDate && requestDate <= endDate;
         }
 
-        // Search filter - flexible search across multiple fields
-        if (searchFilter && searchFilter.trim()) {
-          const query = searchFilter.toLowerCase().trim();
-          const searchFields = [
-            request.requestNumber?.toLowerCase(),
-            request.title?.toLowerCase(),
-            request.description?.toLowerCase(),
-            request.justification?.toLowerCase(),
-            // Requester search
-            request.requester?.firstName?.toLowerCase(),
-            request.requester?.lastName?.toLowerCase(),
-            request.requester?.username?.toLowerCase(),
-            // Department search
-            request.department?.name?.toLowerCase(),
-            // Supplier search
-            request.chosenSupplier?.name?.toLowerCase(),
-            request.chosenSupplier?.cnpj?.toLowerCase(),
-            // Items search
-            ...(request.items || []).map((item: any) => 
-              `${item.description} ${item.technicalSpecification} ${item.model} ${item.brand}`.toLowerCase()
-            ),
-          ].filter(Boolean);
-
-          const matchesSearch = searchFields.some(field => 
-            field && field.includes(query)
-          );
-
-          // Also check for request number patterns (R123, SOL-2025-045, etc)
-          const numbers = query.replace(/[^\d]/g, "");
-          const matchesRequestNumber = numbers && 
-            request.requestNumber?.replace(/[^\d]/g, "").includes(numbers);
-
-          passesFilters = passesFilters && (matchesSearch || matchesRequestNumber);
-        }
+        // Search filter is handled separately via highlighting - don't filter out cards here
 
         return passesFilters;
       })
@@ -516,58 +530,36 @@ export default function KanbanBoard({
     requestsByPhase[phase] = sortRequestsByPriority(requestsByPhase[phase]);
   });
 
-  // Calculate which requests should be highlighted based on search filter
-  const highlightedRequestIds = useMemo(() => {
-    const ids = new Set<number>();
-    
-    if (searchFilter && searchFilter.trim()) {
-      const query = searchFilter.toLowerCase().trim();
-      
-      // Find all requests that match the search filter
-      const allRequests = Array.isArray(purchaseRequests) ? purchaseRequests : [];
-      allRequests.forEach((request: any) => {
-        const searchFields = [
-          request.requestNumber?.toLowerCase(),
-          request.title?.toLowerCase(),
-          request.description?.toLowerCase(),
-          request.justification?.toLowerCase(),
-          // Requester search
-          request.requester?.firstName?.toLowerCase(),
-          request.requester?.lastName?.toLowerCase(),
-          request.requester?.username?.toLowerCase(),
-          // Department search
-          request.department?.name?.toLowerCase(),
-          // Supplier search
-          request.chosenSupplier?.name?.toLowerCase(),
-          request.chosenSupplier?.cnpj?.toLowerCase(),
-          // Items search
-          ...(request.items || []).map((item: any) => 
-            `${item.description} ${item.technicalSpecification} ${item.model} ${item.brand}`.toLowerCase()
-          ),
-        ].filter(Boolean);
-
-        const matchesSearch = searchFields.some(field => 
-          field && field.includes(query)
-        );
-
-        // Also check for request number patterns (R123, SOL-2025-045, etc)
-        const numbers = query.replace(/[^\d]/g, "");
-        const matchesRequestNumber = numbers && 
-          request.requestNumber?.replace(/[^\d]/g, "").includes(numbers);
-
-        if (matchesSearch || matchesRequestNumber) {
-          ids.add(request.id);
-        }
-      });
-    }
-    
-    return ids;
-  }, [searchFilter, purchaseRequests]);
-
   const handleCreateRFQ = (request: any) => {
     setSelectedRequestForRFQ(request);
     setShowRFQCreation(true);
   };
+
+  // Render loading skeleton if data is loading
+  if (isLoading) {
+    return (
+      <div className="h-full overflow-x-auto px-6 py-4">
+        <div
+          className="flex space-x-6"
+          style={{ minWidth: "max-content", height: "100%" }}
+        >
+          {Object.values(PURCHASE_PHASES).map((phase) => (
+            <div key={phase} className="flex-shrink-0 w-80">
+              <div className="bg-white rounded-lg shadow-md h-full flex flex-col">
+                <div className="p-4 border-b border-gray-200">
+                  <Skeleton className="h-6 w-32" />
+                </div>
+                <div className="flex-1 p-4 space-y-3">
+                  <Skeleton className="h-32 w-full" />
+                  <Skeleton className="h-32 w-full" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <DndContext
