@@ -43,10 +43,12 @@ export default function RequestManagementPage() {
 
   const { data: requests, isLoading } = useQuery<any[]>({
     queryKey: ["/api/purchase-requests"],
+    queryFn: () => apiRequest("/api/purchase-requests"),
   });
 
   const { data: departments } = useQuery<any[]>({
     queryKey: ["/api/departments"],
+    queryFn: () => apiRequest("/api/departments"),
   });
 
   const filteredRequests = requests?.filter(request => {

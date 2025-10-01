@@ -17,6 +17,7 @@ interface RequestItemsListProps {
 export default function RequestItemsList({ requestId }: RequestItemsListProps) {
   const { data: items = [], isLoading, error } = useQuery<RequestItem[]>({
     queryKey: [`/api/purchase-requests/${requestId}/items`],
+    queryFn: () => apiRequest(`/api/purchase-requests/${requestId}/items`),
     enabled: !!requestId,
   });
 

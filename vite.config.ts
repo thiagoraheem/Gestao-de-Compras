@@ -37,6 +37,8 @@ export default defineConfig({
       deny: ["**/.*"],
     },
     host: true,
+    port: 5201,
+    hmr: false,
     allowedHosts: [
       'localhost',
       '*.replit.dev',

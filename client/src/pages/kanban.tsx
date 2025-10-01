@@ -33,14 +33,17 @@ export default function KanbanPage() {
 
   const { data: departments } = useQuery({
     queryKey: ["/api/departments"],
+    queryFn: () => apiRequest("/api/departments"),
   });
 
   const { data: users } = useQuery({
     queryKey: ["/api/users"],
+    queryFn: () => apiRequest("/api/users"),
   });
 
   const { data: suppliers } = useQuery({
     queryKey: ["/api/suppliers"],
+    queryFn: () => apiRequest("/api/suppliers"),
   });
 
   // Check for URL parameters to auto-open specific requests and apply search filters

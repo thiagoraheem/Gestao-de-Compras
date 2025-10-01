@@ -47,10 +47,12 @@ export default function DepartmentsPage() {
 
   const { data: departments = [], isLoading: isDeptLoading } = useQuery<any[]>({
     queryKey: ["/api/departments"],
+    queryFn: () => apiRequest("/api/departments"),
   });
 
   const { data: costCenters = [], isLoading: isCostCenterLoading } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
+    queryFn: () => apiRequest("/api/cost-centers"),
   });
 
   const deptForm = useForm<DepartmentFormData>({

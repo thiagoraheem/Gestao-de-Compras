@@ -56,23 +56,28 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
 
   const { data: companies } = useQuery<any[]>({
     queryKey: ["/api/companies"],
+    queryFn: () => apiRequest("/api/companies"),
     enabled: !!user, // Load companies for all authenticated users
   });
 
   const { data: costCenters } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
+    queryFn: () => apiRequest("/api/cost-centers"),
   });
 
   const { data: suppliers } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
+    queryFn: () => apiRequest("/api/suppliers"),
   });
 
   const { data: paymentMethods } = useQuery<any[]>({
     queryKey: ["/api/payment-methods"],
+    queryFn: () => apiRequest("/api/payment-methods"),
   });
 
   const { data: users } = useQuery<any[]>({
     queryKey: ["/api/users"],
+    queryFn: () => apiRequest("/api/users"),
   });
 
   type EditFormData = z.infer<typeof editSchema>;

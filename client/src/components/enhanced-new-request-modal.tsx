@@ -110,6 +110,7 @@ export default function EnhancedNewRequestModal({
   // Get available companies (now available for all users)
   const { data: companies } = useQuery<any[]>({
     queryKey: ["/api/companies"],
+    queryFn: () => apiRequest("/api/companies"),
     enabled: !!user, // Load companies for all authenticated users
   });
 
@@ -124,6 +125,7 @@ export default function EnhancedNewRequestModal({
   // Get all cost centers
   const { data: allCostCenters } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
+    queryFn: () => apiRequest("/api/cost-centers"),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 

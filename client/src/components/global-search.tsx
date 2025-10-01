@@ -30,11 +30,13 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
   // Buscar dados para sugestões
   const { data: purchaseRequests = [] } = useQuery<any[]>({
     queryKey: ["/api/purchase-requests"],
+    queryFn: () => apiRequest("/api/purchase-requests"),
     enabled: isOpen || searchValue.length > 0,
   });
 
   const { data: suppliers = [] } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
+    queryFn: () => apiRequest("/api/suppliers"),
     enabled: isOpen || searchValue.length > 0,
   });
 

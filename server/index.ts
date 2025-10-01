@@ -2,6 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { createCacheMiddleware } from "./cache";
+import { PostgreSQLListener } from "./services/pgListener";
+import { IntelligentCacheManager } from "./services/cacheManager";
+import { WebSocketManager } from "./services/websocketManager";
 
 const app = express();
 app.use(express.json());
@@ -104,8 +107,38 @@ app.use((req, res, next) => {
   next();
 });
 
+// Initialize real-time services
+let cacheManager: IntelligentCacheManager;
+let pgListener: PostgreSQLListener;
+let wsManager: WebSocketManager;
+
 (async () => {
   const server = await registerRoutes(app);
+
+  // Initialize real-time services
+  try {
+    log('🚀 Initializing real-time services...');
+    
+    // Initialize Cache Manager
+    cacheManager = new IntelligentCacheManager({
+      maxSize: 1000,
+      defaultTTL: 300000, // 5 minutes
+      cleanupInterval: 60000 // 1 minute
+    });
+    
+    // Initialize WebSocket Manager
+    wsManager = new WebSocketManager(cacheManager);
+    wsManager.initialize(server);
+    
+    // Initialize PostgreSQL Listener
+    pgListener = new PostgreSQLListener();
+    await pgListener.connect();
+    
+    log('✅ Real-time services initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize real-time services:', error);
+    // Continue without real-time features
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -135,4 +168,32 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Graceful shutdown
+  const gracefulShutdown = async (signal: string) => {
+    log(`\n🔄 Received ${signal}, shutting down gracefully...`);
+    
+    try {
+      if (wsManager) {
+        await wsManager.shutdown();
+      }
+      if (pgListener) {
+        await pgListener.shutdown();
+      }
+      if (cacheManager) {
+        cacheManager.clear();
+      }
+      
+      server.close(() => {
+        log('✅ Server shut down gracefully');
+        process.exit(0);
+      });
+    } catch (error) {
+      console.error('❌ Error during shutdown:', error);
+      process.exit(1);
+    }
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 })();

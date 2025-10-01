@@ -26,6 +26,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import RFQCreation from "./rfq-creation";
+import { useWebSocketHook } from "@/hooks/useWebSocket";
+import { useKanbanStore } from "@/stores/kanbanStore";
+import { debounce } from "@/lib/debounce";
 
 interface KanbanBoardProps {
   departmentFilter?: string;
@@ -55,21 +58,98 @@ export default function KanbanBoard({
   const [showRFQCreation, setShowRFQCreation] = useState(false);
   const [selectedRequestForRFQ, setSelectedRequestForRFQ] = useState<any>(null);
 
-  const { data: purchaseRequests, isLoading } = useQuery({
-    queryKey: ["/api/purchase-requests"],
-    refetchInterval: 60000, // Refetch every 60 seconds to reduce server load
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    staleTime: 30000, // 30 seconds stale time for better performance
+  // WebSocket and Kanban Store integration
+  const { isConnected, connectionStatus } = useWebSocketHook({
+    onNotification: (notification) => {
+      // Handle real-time notifications
+      debug.log('📡 Received WebSocket notification:', notification);
+      
+      // Show toast for relevant updates
+      if (notification.type === 'purchase_request_updated' && notification.data) {
+        const request = notification.data;
+        toast({
+          title: "Atualização em Tempo Real",
+          description: `Solicitação ${request.requestNumber} foi atualizada`,
+          variant: "default",
+        });
+      }
+    },
+    onError: (error) => {
+      debug.error('❌ WebSocket error:', error);
+      // Fallback to React Query polling on WebSocket errors
+    }
   });
+
+  // Kanban store selectors and actions
+  const {
+    purchaseRequests,
+    isLoading: storeLoading,
+    lastUpdate,
+    fetchPurchaseRequests,
+    updatePurchaseRequestPhase,
+    setFilters,
+    clearFilters,
+    refreshData
+  } = useKanbanStore();
+
+  // Initialize data and WebSocket subscriptions
+  useEffect(() => {
+    // Initial data fetch
+    fetchPurchaseRequests();
+
+    // Subscribe to relevant WebSocket channels
+    if (isConnected) {
+      // Subscribe to global updates and company-specific updates
+      debug.log('🔌 WebSocket connected, subscribing to channels');
+    }
+  }, [isConnected, fetchPurchaseRequests]);
+
+  // Update filters in store when props change
+  useEffect(() => {
+    setFilters({
+      department: departmentFilter,
+      urgency: urgencyFilter,
+      requester: requesterFilter,
+      supplier: supplierFilter,
+      search: searchFilter,
+      dateRange: dateFilter
+    });
+  }, [departmentFilter, urgencyFilter, requesterFilter, supplierFilter, searchFilter, dateFilter, setFilters]);
+
+  // Fallback React Query for when WebSocket is not available
+  const { data: fallbackData, isLoading: fallbackLoading } = useQuery({
+    queryKey: ["/api/purchase-requests"],
+    queryFn: () => apiRequest("/api/purchase-requests"),
+    refetchInterval: isConnected ? false : 60000, // Only poll when WebSocket is disconnected
+    refetchOnWindowFocus: !isConnected,
+    refetchOnMount: !isConnected,
+    staleTime: 30000,
+    enabled: !isConnected, // Only use fallback when WebSocket is not connected
+  });
+
+  // Use WebSocket data when available, fallback to React Query otherwise
+  const currentPurchaseRequests = isConnected ? purchaseRequests : fallbackData;
+  const isLoading = isConnected ? storeLoading : fallbackLoading;
+
+  // Debounced refresh function for performance
+  const debouncedRefresh = useMemo(
+    () => debounce(() => {
+      if (!isConnected) {
+        queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      } else {
+        refreshData();
+      }
+    }, 1000),
+    [isConnected, queryClient, refreshData]
+  );
 
   // Listen for URL-based request opening
   useEffect(() => {
     const handleOpenRequestFromUrl = (event: any) => {
       const { requestId, phase } = event.detail;
 
-      if (purchaseRequests && Array.isArray(purchaseRequests)) {
-        const request = purchaseRequests.find(
+      if (currentPurchaseRequests && Array.isArray(currentPurchaseRequests)) {
+        const request = currentPurchaseRequests.find(
           (req: any) => req.id === requestId,
         );
         if (request) {
@@ -92,7 +172,7 @@ export default function KanbanBoard({
         handleOpenRequestFromUrl,
       );
     };
-  }, [purchaseRequests]);
+  }, [currentPurchaseRequests]);
 
   const moveRequestMutation = useMutation({
     mutationFn: async ({ id, newPhase }: { id: number; newPhase: string }) => {
@@ -102,15 +182,16 @@ export default function KanbanBoard({
       });
     },
     onMutate: async ({ id, newPhase }) => {
-      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      // Use Kanban store for optimistic updates when WebSocket is connected
+      if (isConnected) {
+        updatePurchaseRequestPhase(id, newPhase);
+        return { usingWebSocket: true };
+      }
+
+      // Fallback to React Query optimistic updates
       await queryClient.cancelQueries({ queryKey: ["/api/purchase-requests"] });
+      const previousRequests = queryClient.getQueryData(["/api/purchase-requests"]);
 
-      // Snapshot the previous value
-      const previousRequests = queryClient.getQueryData([
-        "/api/purchase-requests",
-      ]);
-
-      // Optimistically update to the new value
       queryClient.setQueryData(["/api/purchase-requests"], (old: any) => {
         if (!Array.isArray(old)) return old;
         return old.map((request: any) =>
@@ -118,12 +199,14 @@ export default function KanbanBoard({
         );
       });
 
-      // Return a context object with the snapshotted value
-      return { previousRequests };
+      return { previousRequests, usingWebSocket: false };
     },
     onError: (error, variables, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
-      if (context?.previousRequests) {
+      // Handle rollback based on the update method used
+      if (context?.usingWebSocket) {
+        // Refresh data from server to get correct state
+        debouncedRefresh();
+      } else if (context?.previousRequests) {
         queryClient.setQueryData(
           ["/api/purchase-requests"],
           context.previousRequests,
@@ -154,18 +237,21 @@ export default function KanbanBoard({
       });
     },
     onSuccess: () => {
-      // Comprehensive cache invalidation for all related queries
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-      // Invalidate all quotation status and related queries
-      queryClient.invalidateQueries({
-        predicate: (query) =>
-          !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
-      });
-
-      // Force immediate refetch for absolute certainty
-      queryClient.refetchQueries({ queryKey: ["/api/purchase-requests"] });
+      // Refresh data to ensure consistency
+      if (isConnected) {
+        // WebSocket will handle real-time updates, but refresh to ensure consistency
+        setTimeout(() => debouncedRefresh(), 500);
+      } else {
+        // Comprehensive cache invalidation for React Query fallback
+        queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+            query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
+        });
+        queryClient.refetchQueries({ queryKey: ["/api/purchase-requests"] });
+      }
 
       toast({
         title: "Sucesso",
@@ -182,7 +268,7 @@ export default function KanbanBoard({
       const query = searchFilter.toLowerCase().trim();
       
       // Find all requests that match the search filter
-      const allRequests = Array.isArray(purchaseRequests) ? purchaseRequests : [];
+      const allRequests = Array.isArray(currentPurchaseRequests) ? currentPurchaseRequests : [];
       allRequests.forEach((request: any) => {
         const searchFields = [
           request.requestNumber?.toLowerCase(),
@@ -220,16 +306,16 @@ export default function KanbanBoard({
     }
     
     return ids;
-  }, [searchFilter, purchaseRequests]);
+  }, [searchFilter, currentPurchaseRequests]);
 
   // Auto-open the first matching card when search is performed
   useEffect(() => {
-    if (searchFilter && searchFilter.trim() && highlightedRequestIds.size > 0 && Array.isArray(purchaseRequests)) {
+    if (searchFilter && searchFilter.trim() && highlightedRequestIds.size > 0 && Array.isArray(currentPurchaseRequests)) {
       // Get the first highlighted request ID
       const firstHighlightedId = Array.from(highlightedRequestIds)[0];
       
       // Find the corresponding request
-      const firstHighlightedRequest = purchaseRequests.find((req: any) => req.id === firstHighlightedId);
+      const firstHighlightedRequest = currentPurchaseRequests.find((req: any) => req.id === firstHighlightedId);
       
       if (firstHighlightedRequest) {
         // Trigger opening the card in its current phase
@@ -243,7 +329,7 @@ export default function KanbanBoard({
         }, 100); // Small delay to ensure the DOM is updated with highlights
       }
     }
-  }, [searchFilter, highlightedRequestIds, purchaseRequests]);
+  }, [searchFilter, highlightedRequestIds, currentPurchaseRequests]);
 
   // Permission check function
   const canUserDragCard = (phase: string, targetPhase?: string) => {
@@ -319,8 +405,8 @@ export default function KanbanBoard({
     setActiveId(active.id as string);
 
     // Find the active request for overlay
-    const request = Array.isArray(purchaseRequests)
-      ? purchaseRequests.find((req: any) => `request-${req.id}` === active.id)
+    const request = Array.isArray(currentPurchaseRequests)
+      ? currentPurchaseRequests.find((req: any) => `request-${req.id}` === active.id)
       : undefined;
 
     // Store request for later permission check in handleDragEnd
@@ -354,8 +440,8 @@ export default function KanbanBoard({
       }
 
       // Find the request to check current phase
-      const request = Array.isArray(purchaseRequests)
-        ? purchaseRequests.find((req: any) => req.id === requestId)
+      const request = Array.isArray(currentPurchaseRequests)
+        ? currentPurchaseRequests.find((req: any) => req.id === requestId)
         : undefined;
 
       if (!request) {
@@ -443,8 +529,8 @@ export default function KanbanBoard({
 
   // Filter requests based on department, urgency, requester, supplier, and date
   // NOTE: Search filter is NOT applied here - it's handled separately via highlighting
-  const filteredRequests = Array.isArray(purchaseRequests)
-    ? purchaseRequests.filter((request: any) => {
+  const filteredRequests = Array.isArray(currentPurchaseRequests)
+    ? currentPurchaseRequests.filter((request: any) => {
         let passesFilters = true;
 
         // Department filter - use nested department object
@@ -567,6 +653,16 @@ export default function KanbanBoard({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
+      {/* Connection Status Indicator */}
+      {!isConnected && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-2 mb-4 text-sm">
+          <div className="flex items-center">
+            <span className="mr-2">⚠️</span>
+            <span>Conexão em tempo real indisponível. Usando modo de fallback com atualizações periódicas.</span>
+          </div>
+        </div>
+      )}
+      
       <div className="h-full overflow-x-auto px-4 md:px-6 py-4 kanban-scroll">
         <div
           className="flex space-x-4 md:space-x-6"
@@ -608,18 +704,24 @@ export default function KanbanBoard({
           onComplete={() => {
             setShowRFQCreation(false);
             setSelectedRequestForRFQ(null);
-            // Comprehensive cache invalidation
-            queryClient.invalidateQueries({
-              queryKey: ["/api/purchase-requests"],
-            });
-            queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-            queryClient.invalidateQueries({
-              predicate: (query) =>
-                !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-                query.queryKey[0]
-                  ?.toString()
-                  .includes(`/api/purchase-requests`)),
-            });
+            
+            // Refresh data based on connection type
+            if (isConnected) {
+              debouncedRefresh();
+            } else {
+              // Comprehensive cache invalidation for React Query fallback
+              queryClient.invalidateQueries({
+                queryKey: ["/api/purchase-requests"],
+              });
+              queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+              queryClient.invalidateQueries({
+                predicate: (query) =>
+                  !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+                  query.queryKey[0]
+                    ?.toString()
+                    .includes(`/api/purchase-requests`)),
+              });
+            }
           }}
         />
       )}

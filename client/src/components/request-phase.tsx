@@ -100,6 +100,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   // Get all cost centers
   const { data: allCostCenters } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
+    queryFn: () => apiRequest("/api/cost-centers"),
   });
 
   // Filter cost centers based on user's assigned cost centers

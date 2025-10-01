@@ -99,11 +99,13 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   // Buscar dados do centro de custo
   const { data: allCostCenters = [], isLoading: costCentersLoading } = useQuery({
     queryKey: ['/api/cost-centers'],
+    queryFn: () => apiRequest('/api/cost-centers'),
   });
 
   // Buscar departamento
   const { data: allDepartments = [], isLoading: departmentsLoading } = useQuery({
     queryKey: ['/api/departments'],
+    queryFn: () => apiRequest('/api/departments'),
   });
 
   // Encontrar centro de custo e departamento

@@ -58,14 +58,17 @@ export default function UsersPage() {
 
   const { data: users = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/users"],
+    queryFn: () => apiRequest("/api/users"),
   });
 
   const { data: departments = [] } = useQuery<any[]>({
     queryKey: ["/api/departments"],
+    queryFn: () => apiRequest("/api/departments"),
   });
 
   const { data: costCenters = [] } = useQuery<any[]>({
     queryKey: ["/api/cost-centers"],
+    queryFn: () => apiRequest("/api/cost-centers"),
   });
 
   const form = useForm<UserFormData>({

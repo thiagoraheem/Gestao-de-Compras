@@ -31,6 +31,7 @@ export default function DeliveryLocationsPage() {
   // Fetch delivery locations
   const { data: allDeliveryLocations = [], isLoading, error } = useQuery({
     queryKey: ["/api/delivery-locations"],
+    queryFn: () => apiRequest("/api/delivery-locations"),
     staleTime: 0
   });
 

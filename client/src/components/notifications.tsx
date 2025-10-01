@@ -18,6 +18,7 @@ export default function Notifications({ className }: NotificationsProps) {
 
   const { data: purchaseRequests } = useQuery({
     queryKey: ["/api/purchase-requests"],
+    queryFn: () => apiRequest("/api/purchase-requests"),
   });
 
   // Filter requests that need attention (pending approvals, quotations, etc.)

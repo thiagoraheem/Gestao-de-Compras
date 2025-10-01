@@ -50,6 +50,7 @@ export default function SuppliersPage() {
 
   const { data: suppliers = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
+    queryFn: () => apiRequest("/api/suppliers"),
   });
 
   const form = useForm<SupplierFormData>({
