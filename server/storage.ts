@@ -1067,6 +1067,13 @@ export class DatabaseStorage implements IStorage {
         paramCounter++;
       }
       
+      if (filters?.supplierId && typeof filters.supplierId === 'string') {
+        // Filter by supplier name instead of ID since frontend sends supplier name
+        whereConditions.push(`pr.chosen_supplier_id IN (SELECT id FROM suppliers WHERE name = $${paramCounter})`);
+        params.push(filters.supplierId);
+        paramCounter++;
+      }
+      
       if (filters?.search && typeof filters.search === 'string' && filters.search.trim() !== '') {
         const searchTerm = `%${filters.search.trim()}%`;
         whereConditions.push(`(pr.justification ILIKE $${paramCounter} OR pr.request_number ILIKE $${paramCounter + 1} OR pr.category ILIKE $${paramCounter + 2})`);

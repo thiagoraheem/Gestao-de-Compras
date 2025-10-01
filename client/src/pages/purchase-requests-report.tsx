@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -44,6 +44,7 @@ import {
   FileText,
   Eye,
   RefreshCw,
+  Truck,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -129,10 +130,17 @@ const phaseColors = {
 };
 
 const urgencyColors = {
-  Baixa: "bg-gray-100 text-gray-800",
-  Média: "bg-yellow-100 text-yellow-800",
-  Alta: "bg-orange-100 text-orange-800",
-  Crítica: "bg-red-100 text-red-800",
+  baixa: "bg-gray-100 text-gray-800",
+  medio: "bg-yellow-100 text-yellow-800",
+  alto: "bg-orange-100 text-orange-800",
+  alta_urgencia: "bg-red-100 text-red-800",
+};
+
+const urgencyLabels = {
+  baixa: "Baixa",
+  medio: "Média",
+  alto: "Alta",
+  alta_urgencia: "Crítica",
 };
 
 export default function PurchaseRequestsReport() {
@@ -141,6 +149,7 @@ export default function PurchaseRequestsReport() {
     endDate: "",
     departmentId: "all",
     requesterId: "all",
+    supplierId: "all",
     phase: "all",
     urgency: "all",
   });
@@ -179,6 +188,30 @@ export default function PurchaseRequestsReport() {
     queryKey: ["users"],
     queryFn: () => apiRequest("/api/users"),
   });
+
+  // Get unique suppliers from requests for filter
+  const uniqueSuppliers = useMemo(() => {
+    const suppliers = new Set<string>();
+    requests.forEach((request: PurchaseRequest) => {
+      if (request.supplierName && request.supplierName !== "N/A") {
+        suppliers.add(request.supplierName);
+      }
+    });
+    return Array.from(suppliers).sort();
+  }, [requests]);
+
+  // Calculate totals for filtered requests
+  const totals = useMemo(() => {
+    return requests.reduce(
+      (acc: any, request: PurchaseRequest) => {
+        acc.originalValue += request.originalValue || 0;
+        acc.discount += request.discount || 0;
+        acc.totalValue += request.totalValue || 0;
+        return acc;
+      },
+      { originalValue: 0, discount: 0, totalValue: 0 }
+    );
+  }, [requests]);
 
   const toggleRowExpansion = (requestId: number) => {
     const newExpanded = new Set(expandedRows);
@@ -254,11 +287,26 @@ export default function PurchaseRequestsReport() {
         escapeCsvField(formatCurrencyForCSV(request.originalValue)),
         escapeCsvField(formatCurrencyForCSV(request.discount)),
         escapeCsvField(formatCurrencyForCSV(request.totalValue)),
-        escapeCsvField(request.urgency)
+        escapeCsvField(urgencyLabels[request.urgency as keyof typeof urgencyLabels] || request.urgency)
       ].join(";");
       
       csvRows.push(row);
     });
+
+    // Add totals row
+    csvRows.push([
+      "TOTAL",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      escapeCsvField(formatCurrencyForCSV(totals.originalValue)),
+      escapeCsvField(formatCurrencyForCSV(totals.discount)),
+      escapeCsvField(formatCurrencyForCSV(totals.totalValue)),
+      ""
+    ].join(";"));
 
     const csvContent = csvRows.join("\n");
 
@@ -290,6 +338,7 @@ export default function PurchaseRequestsReport() {
       endDate: "",
       departmentId: "all",
       requesterId: "all",
+      supplierId: "all",
       phase: "all",
       urgency: "all",
     });
@@ -423,6 +472,32 @@ export default function PurchaseRequestsReport() {
               </Select>
             </div>
 
+            {/* Supplier Filter */}
+            <div className="space-y-2">
+              <Label>Fornecedor</Label>
+              <Select
+                value={filters.supplierId}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, supplierId: value }))
+                }
+              >
+                <SelectTrigger>
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-gray-400" />
+                    <SelectValue placeholder="Todos os fornecedores" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os fornecedores</SelectItem>
+                  {uniqueSuppliers.map((supplier) => (
+                    <SelectItem key={supplier} value={supplier}>
+                      {supplier}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Phase Filter */}
             <div className="space-y-2">
               <Label>Fase</Label>
@@ -468,10 +543,10 @@ export default function PurchaseRequestsReport() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as urgências</SelectItem>
-                  <SelectItem value="Baixa">Baixa</SelectItem>
-                  <SelectItem value="Média">Média</SelectItem>
-                  <SelectItem value="Alta">Alta</SelectItem>
-                  <SelectItem value="Crítica">Crítica</SelectItem>
+                  <SelectItem value="baixa">Baixa</SelectItem>
+                  <SelectItem value="medio">Média</SelectItem>
+                  <SelectItem value="alto">Alta</SelectItem>
+                  <SelectItem value="alta_urgencia">Crítica</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -586,7 +661,7 @@ export default function PurchaseRequestsReport() {
                               ] || "bg-gray-100 text-gray-800"
                             }
                           >
-                            {request.urgency}
+                            {urgencyLabels[request.urgency as keyof typeof urgencyLabels] || request.urgency}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -852,6 +927,30 @@ export default function PurchaseRequestsReport() {
                       )}
                     </>
                   ))}
+
+                  {/* Totals Row */}
+                  {requests.length > 0 && (
+                    <TableRow className="bg-blue-50 font-semibold border-t-2 border-blue-200">
+                      <TableCell></TableCell>
+                      <TableCell className="font-bold">TOTAL</TableCell>
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                      <TableCell className="font-bold">
+                        {formatCurrency(totals.originalValue)}
+                      </TableCell>
+                      <TableCell className="font-bold">
+                        {formatCurrency(totals.discount)}
+                      </TableCell>
+                      <TableCell className="font-bold">
+                        {formatCurrency(totals.totalValue)}
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
 

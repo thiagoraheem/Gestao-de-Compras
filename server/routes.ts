@@ -5172,6 +5172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           endDate,
           departmentId,
           requesterId,
+          supplierId,
           phase,
           urgency,
           search,
@@ -5216,6 +5217,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (urgency && typeof urgency === "string" && urgency.trim() !== "") {
           filters.urgency = urgency.trim();
+        }
+
+        if (supplierId && typeof supplierId === "string" && supplierId.trim() !== "") {
+          filters.supplierId = supplierId.trim();
         }
 
         if (search && typeof search === "string" && search.trim() !== "") {
