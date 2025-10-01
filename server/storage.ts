@@ -1179,38 +1179,94 @@ export class DatabaseStorage implements IStorage {
             }
           }
           
-          // Calculate original value and discount based on supplier quotations
+          // Calculate original value and discount based on chosen supplier quotations
           let originalValue = null;
           let discount = null;
           
           try {
-            // Get all supplier quotations for this request to find the highest (original) value
-            const quotationsResult = await pool.query(
-              `SELECT sq.total_value 
-               FROM supplier_quotations sq
-               JOIN quotations q ON sq.quotation_id = q.id
-               WHERE q.purchase_request_id = $1 
-               AND sq.total_value > 0
-               ORDER BY sq.total_value DESC`,
-              [request.id]
-            );
+            let foundQuotationData = false;
             
-            if (quotationsResult.rows.length > 0) {
-              // Original value is the highest quoted value
-              originalValue = parseFloat(quotationsResult.rows[0].total_value);
+            // Only calculate values if we have a chosen supplier
+            if (request.chosenSupplierId) {
+              console.log(`[DEBUG] Processing request ${request.id} with chosen supplier ${request.chosenSupplierId}`);
               
-              // Calculate discount if we have both original and final values
-              if (originalValue && request.totalValue) {
-                const finalValue = parseFloat(request.totalValue);
-                if (finalValue > 0 && originalValue > finalValue) {
+              // Get the quotation value from the chosen supplier
+              const chosenSupplierQuotationResult = await pool.query(
+                `SELECT sq.total_value, sq.subtotal_value, sq.final_value
+                 FROM supplier_quotations sq
+                 JOIN quotations q ON sq.quotation_id = q.id
+                 WHERE q.purchase_request_id = $1 
+                 AND sq.supplier_id = $2
+                 AND sq.total_value > 0
+                 ORDER BY sq.created_at DESC
+                 LIMIT 1`,
+                [request.id, request.chosenSupplierId]
+              );
+              
+              if (chosenSupplierQuotationResult.rows.length > 0) {
+                const quotation = chosenSupplierQuotationResult.rows[0];
+                foundQuotationData = true;
+                
+                console.log(`[DEBUG] Found quotation data for request ${request.id}:`, {
+                  total_value: quotation.total_value,
+                  subtotal_value: quotation.subtotal_value,
+                  final_value: quotation.final_value
+                });
+                
+                // Use subtotal_value if available, otherwise use total_value as original
+                originalValue = quotation.subtotal_value 
+                  ? parseFloat(quotation.subtotal_value)
+                  : parseFloat(quotation.total_value);
+                
+                // Final value is the final_value if available, otherwise total_value from the quotation
+                const finalValue = quotation.final_value 
+                  ? parseFloat(quotation.final_value)
+                  : parseFloat(quotation.total_value);
+                
+                // Calculate discount: Original Value - Final Value = Discount
+                if (originalValue && finalValue && originalValue > finalValue) {
                   discount = originalValue - finalValue;
                 } else {
                   discount = 0; // No discount if final value >= original value
                 }
+                
+                // Update the request total value to match the chosen supplier's final value
+                // This ensures consistency: Original Value - Discount = Total Value
+                request.totalValue = finalValue;
+              } else {
+                console.log(`[DEBUG] No quotation data found for request ${request.id} with supplier ${request.chosenSupplierId}`);
+              }
+            } else {
+              console.log(`[DEBUG] No chosen supplier for request ${request.id}`);
+            }
+            
+            // FALLBACK: If no quotation data found but we have totalValue from purchase_request
+            if (!foundQuotationData && request.totalValue) {
+              const requestTotalValue = parseFloat(request.totalValue);
+              if (requestTotalValue > 0) {
+                console.log(`[DEBUG] Using fallback for request ${request.id}: totalValue = ${requestTotalValue}`);
+                
+                // Assume no discount if we don't have quotation data
+                originalValue = requestTotalValue;
+                discount = 0;
+                
+                console.log(`[DEBUG] Fallback values set - originalValue: ${originalValue}, discount: ${discount}, totalValue: ${requestTotalValue}`);
               }
             }
+            
           } catch (error) {
-            // Error calculating original value and discount - will use null values
+            // Error calculating original value and discount - will use fallback if possible
+            console.error('Error calculating values for chosen supplier:', error);
+            
+            // Even on error, try to use fallback if we have totalValue
+            if (request.totalValue) {
+              const requestTotalValue = parseFloat(request.totalValue);
+              if (requestTotalValue > 0) {
+                console.log(`[DEBUG] Using error fallback for request ${request.id}: totalValue = ${requestTotalValue}`);
+                originalValue = requestTotalValue;
+                discount = 0;
+              }
+            }
           }
 
           // Fetch related items with prices from purchase orders if available
