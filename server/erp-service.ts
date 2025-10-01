@@ -76,7 +76,6 @@ class ERPService {
    */
   private mapERPResponse(data: any): ERPProduct[] {
     if (!Array.isArray(data)) {
-      console.warn('ERP response is not an array, trying to extract products');
       // Se a resposta não for um array, tentar extrair de uma propriedade comum
       if (data.products) data = data.products;
       else if (data.items) data = data.items;

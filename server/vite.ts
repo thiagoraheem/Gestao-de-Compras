@@ -16,7 +16,10 @@ export function log(message: string, source = "express") {
     hour12: true,
   });
 
-  console.log(`${formattedTime} [${source}] ${message}`);
+  // Only log in development environment
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`${formattedTime} [${source}] ${message}`);
+  }
 }
 
 export async function setupVite(app: Express, server: Server) {

@@ -57,15 +57,13 @@ export class PDFService {
           try {
             if (!fs.existsSync(dir)) {
               fs.mkdirSync(dir, { recursive: true });
-              console.log(`✓ Diretório temporário criado: ${dir}`);
             }
           } catch (error) {
-            console.warn(`⚠ Não foi possível criar diretório ${dir}:`, error instanceof Error ? error.message : String(error));
+            // Silently ignore directory creation errors
           }
         }
       }
       
-      console.log(`✓ Diretório temporário do Puppeteer: ${puppeteerTempDir}`);
       return puppeteerTempDir;
     } catch (error) {
       console.error('❌ Erro ao criar diretórios temporários:', error instanceof Error ? error.message : String(error));

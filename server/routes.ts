@@ -4306,9 +4306,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (req) => req.currentPhase !== "arquivado",
       ).length;
 
+      // Calculate total processing value - use totalValue from requests (which should be the final value after discounts)
       const totalProcessingValue = filteredRequests.reduce(
-        (sum, req) =>
-          sum + (Number(req.totalValue) || Number(req.availableBudget) || 0),
+        (sum, req) => {
+          // Prioritize totalValue from the request, fallback to availableBudget
+          const value = Number(req.totalValue) || Number(req.availableBudget) || 0;
+          return sum + value;
+        },
         0,
       );
 
@@ -4538,14 +4542,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 sq.supplierId === relatedRequest.chosenSupplierId,
             );
 
-            if (
-              chosenSupplierQuotation &&
-              chosenSupplierQuotation.totalValue &&
-              chosenSupplierQuotation.finalValue
-            ) {
-              const originalValue = Number(chosenSupplierQuotation.totalValue);
-              const finalValue = Number(chosenSupplierQuotation.finalValue);
-              valueSaved += originalValue - finalValue;
+            if (chosenSupplierQuotation) {
+              // Use the same logic as the report: prioritize subtotal_value for originalValue
+              const originalValue = chosenSupplierQuotation.subtotalValue 
+                ? Number(chosenSupplierQuotation.subtotalValue)
+                : Number(chosenSupplierQuotation.totalValue);
+              
+              const finalValue = chosenSupplierQuotation.finalValue 
+                ? Number(chosenSupplierQuotation.finalValue)
+                : Number(chosenSupplierQuotation.totalValue);
+              
+              // Only add to savings if we have valid values and there's actually a discount
+              if (originalValue && finalValue && originalValue > finalValue) {
+                valueSaved += originalValue - finalValue;
+              }
             }
           }
         }
@@ -5180,10 +5190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               filters.dateRange = { start, end };
             }
           } catch (error) {
-            console.warn("Invalid date range provided:", {
-              startDate,
-              endDate,
-            });
+            // Invalid date range - silently ignore
           }
         }
 

@@ -1188,8 +1188,6 @@ export class DatabaseStorage implements IStorage {
             
             // Only calculate values if we have a chosen supplier
             if (request.chosenSupplierId) {
-              console.log(`[DEBUG] Processing request ${request.id} with chosen supplier ${request.chosenSupplierId}`);
-              
               // Get the quotation value from the chosen supplier
               const chosenSupplierQuotationResult = await pool.query(
                 `SELECT sq.total_value, sq.subtotal_value, sq.final_value
@@ -1206,12 +1204,6 @@ export class DatabaseStorage implements IStorage {
               if (chosenSupplierQuotationResult.rows.length > 0) {
                 const quotation = chosenSupplierQuotationResult.rows[0];
                 foundQuotationData = true;
-                
-                console.log(`[DEBUG] Found quotation data for request ${request.id}:`, {
-                  total_value: quotation.total_value,
-                  subtotal_value: quotation.subtotal_value,
-                  final_value: quotation.final_value
-                });
                 
                 // Use subtotal_value if available, otherwise use total_value as original
                 originalValue = quotation.subtotal_value 
@@ -1233,24 +1225,16 @@ export class DatabaseStorage implements IStorage {
                 // Update the request total value to match the chosen supplier's final value
                 // This ensures consistency: Original Value - Discount = Total Value
                 request.totalValue = finalValue;
-              } else {
-                console.log(`[DEBUG] No quotation data found for request ${request.id} with supplier ${request.chosenSupplierId}`);
               }
-            } else {
-              console.log(`[DEBUG] No chosen supplier for request ${request.id}`);
             }
             
             // FALLBACK: If no quotation data found but we have totalValue from purchase_request
             if (!foundQuotationData && request.totalValue) {
               const requestTotalValue = parseFloat(request.totalValue);
               if (requestTotalValue > 0) {
-                console.log(`[DEBUG] Using fallback for request ${request.id}: totalValue = ${requestTotalValue}`);
-                
                 // Assume no discount if we don't have quotation data
                 originalValue = requestTotalValue;
                 discount = 0;
-                
-                console.log(`[DEBUG] Fallback values set - originalValue: ${originalValue}, discount: ${discount}, totalValue: ${requestTotalValue}`);
               }
             }
             
@@ -1262,7 +1246,6 @@ export class DatabaseStorage implements IStorage {
             if (request.totalValue) {
               const requestTotalValue = parseFloat(request.totalValue);
               if (requestTotalValue > 0) {
-                console.log(`[DEBUG] Using error fallback for request ${request.id}: totalValue = ${requestTotalValue}`);
                 originalValue = requestTotalValue;
                 discount = 0;
               }

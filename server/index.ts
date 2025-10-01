@@ -94,7 +94,10 @@ app.use((req, res, next) => {
       if (res.statusCode >= 500) {
         console.error(logLine);
       } else if (res.statusCode >= 400) {
-        console.warn(logLine);
+        // Only log warnings in development
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(logLine);
+        }
       } else {
         log(logLine);
       }
