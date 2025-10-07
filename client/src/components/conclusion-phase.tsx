@@ -195,6 +195,45 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
     },
   });
 
+  // Download Purchase Order PDF mutation
+  const downloadPurchaseOrderPDFMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
+        method: "GET",
+        headers: {
+          'Content-Type': 'application/pdf',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error("Erro ao baixar PDF do Pedido de Compra");
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Pedido_Compra_${request.requestNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Sucesso",
+        description: "PDF do Pedido de Compra baixado com sucesso!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao baixar PDF do Pedido de Compra",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleArchive = async (data: ArchiveFormData) => {
     setIsArchiving(true);
     try {
@@ -736,6 +775,16 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
           <p className="text-gray-600">Solicitação {request.requestNumber}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadPurchaseOrderPDFMutation.mutate()}
+            disabled={downloadPurchaseOrderPDFMutation.isPending}
+            className="border-blue-600 text-blue-600 hover:bg-blue-50"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            {downloadPurchaseOrderPDFMutation.isPending ? "Baixando..." : "PDF Pedido de Compra"}
+          </Button>
           <Button
             variant="outline"
             size="sm"
