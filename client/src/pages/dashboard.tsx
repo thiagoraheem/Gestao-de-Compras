@@ -41,6 +41,8 @@ import {
   Calendar,
   Download,
   RefreshCw,
+  Zap,
+  Target,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { format, subDays } from "date-fns";
@@ -668,54 +670,61 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              {/* Budget Analysis */}
+              {/* Economy and Efficiency Analysis */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Análise Orçamentária</CardTitle>
+                  <CardTitle>Análise de Economia e Eficiência</CardTitle>
                   <CardDescription>
-                    Gestão de orçamento vs realizado
+                    Métricas de economia e eficiência operacional
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">Orçamento Planejado</span>
-                      <span className="font-semibold">
-                        {formatCurrency(
-                          dashboardData?.budgetAnalysis?.plannedBudget || 0,
-                        )}
+                      <div className="flex items-center space-x-3">
+                        <DollarSign className="h-4 w-4 text-green-500" />
+                        <span className="font-medium">Economia Gerada</span>
+                      </div>
+                      <span className="font-semibold text-green-600">
+                        {formatCurrency(dashboardData?.valueSaved || 0)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">Gasto Realizado</span>
-                      <span className="font-semibold">
-                        {formatCurrency(
-                          dashboardData?.budgetAnalysis?.actualSpend || 0,
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">Taxa de Utilização</span>
+                      <div className="flex items-center space-x-3">
+                        <Zap className="h-4 w-4 text-blue-500" />
+                        <span className="font-medium">Taxa de Automação</span>
+                      </div>
                       <Badge
                         className={getStatusColor(
-                          dashboardData?.budgetAnalysis?.utilizationRate || 0,
+                          dashboardData?.procurementEfficiency?.automationRate || 0,
                           { green: 80, yellow: 60 },
                         )}
                       >
-                        {dashboardData?.budgetAnalysis?.utilizationRate || 0}%
+                        {dashboardData?.procurementEfficiency?.automationRate || 0}%
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">Variância</span>
-                      <span
-                        className={`font-semibold ${
-                          (dashboardData?.budgetAnalysis?.variance || 0) > 0
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {dashboardData?.budgetAnalysis?.variance || 0}%
+                      <div className="flex items-center space-x-3">
+                        <Clock className="h-4 w-4 text-orange-500" />
+                        <span className="font-medium">Tempo Médio Processamento</span>
+                      </div>
+                      <span className="font-semibold">
+                        {dashboardData?.procurementEfficiency?.avgProcessingTime || 0} dias
                       </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Target className="h-4 w-4 text-purple-500" />
+                        <span className="font-medium">Adoção Digital</span>
+                      </div>
+                      <Badge
+                        className={getStatusColor(
+                          dashboardData?.procurementEfficiency?.digitalAdoption || 0,
+                          { green: 85, yellow: 70 },
+                        )}
+                      >
+                        {dashboardData?.procurementEfficiency?.digitalAdoption || 0}%
+                      </Badge>
                     </div>
                   </div>
                 </CardContent>
