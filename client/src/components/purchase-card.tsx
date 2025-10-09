@@ -58,6 +58,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useApprovalType } from "@/hooks/useApprovalType";
+import { ApprovalTypeBadge, ApprovalProgressBadge } from "@/components/ApprovalTypeBadge";
+import { ApprovalTimeline } from "@/components/ApprovalTimeline";
 
 interface PurchaseCardProps {
   request: any;
@@ -81,6 +84,9 @@ export default function PurchaseCard({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [initialA2Action, setInitialA2Action] = useState<'approve' | 'reject' | null>(null);
+
+  // Get approval type for A2 phase
+  const { data: approvalType } = useApprovalType(request.totalValue);
 
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
@@ -599,12 +605,53 @@ export default function PurchaseCard({
   const canApproveA1 = user?.isApproverA1 || false;
   const canApproveA2 = user?.isApproverA2 || false;
 
+  // Get approval rules and status for A2 phase
+  const { data: approvalRules } = useQuery({
+    queryKey: [`/api/approval-rules/${request.id}`],
+    enabled: !!(phase === PURCHASE_PHASES.APROVACAO_A2 && request?.id),
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
   // Check if user can approve this specific request based on cost center
   const { data: canApproveThisRequest } = useQuery({
     queryKey: [`/api/purchase-requests/${request.id}/can-approve-a1`],
     enabled: !!(user?.isApproverA1 && phase === PURCHASE_PHASES.APROVACAO_A1 && request?.id),
     staleTime: 30000, // Cache for 30 seconds to avoid excessive requests
   });
+
+  // Determine if current user can approve A2 based on approval rules
+  const canUserApproveA2 = useMemo(() => {
+    if (!canApproveA2 || phase !== PURCHASE_PHASES.APROVACAO_A2 || !approvalRules) {
+      return false;
+    }
+
+    const { requiresDualApproval, approvalStatus, firstApprover } = approvalRules;
+    
+    // For single approval, any A2 approver can approve
+    if (!requiresDualApproval) {
+      return true;
+    }
+
+    // For dual approval, check the current status
+    if (approvalStatus === "awaiting_first") {
+      // First approval - any director or CEO can approve
+      return user?.isDirector || user?.isCEO;
+    } else if (approvalStatus === "awaiting_final") {
+      // Final approval - must be different from first approver
+      if (firstApprover && firstApprover.approverId === user?.id) {
+        return false; // Same user cannot provide both approvals
+      }
+      
+      // If first approver was not CEO, final approval must be from CEO
+      if (firstApprover && !firstApprover.isCEO && !user?.isCEO) {
+        return false;
+      }
+      
+      return user?.isDirector || user?.isCEO;
+    }
+
+    return false;
+  }, [canApproveA2, phase, approvalRules, user]);
 
   // Check if user can drag this card
   const canDragCard = useMemo(() => {
@@ -722,7 +769,7 @@ export default function PurchaseCard({
           </h4>
 
           {/* Urgency and category info */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             {request.urgency && (
               <Badge
                 variant={
@@ -741,6 +788,20 @@ export default function PurchaseCard({
                 ]
               }
             </Badge>
+            {/* Show approval type badge for A2 phase */}
+            {phase === PURCHASE_PHASES.APROVACAO_A2 && approvalType && (
+              <ApprovalTypeBadge approvalType={approvalType} />
+            )}
+            {/* Show approval progress for A2 phase */}
+            {phase === PURCHASE_PHASES.APROVACAO_A2 && request.approvalProgress && (
+              <ApprovalProgressBadge 
+                approvalType={approvalType || 'single'}
+                currentStep={request.approvalProgress.currentStep}
+                totalSteps={request.approvalProgress.totalSteps}
+                isCompleted={request.approvalProgress.isCompleted}
+                isRejected={request.approvalProgress.isRejected}
+              />
+            )}
             {/* Show red tag for items with pending issues returned from receipt */}
             {request.hasPendency && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
               <div
@@ -828,6 +889,13 @@ export default function PurchaseCard({
               </p>
             )}
           </div>
+
+          {/* Approval Timeline for A2 phase */}
+          {phase === PURCHASE_PHASES.APROVACAO_A2 && request.approvalProgress && (
+            <div className="mt-3">
+              <ApprovalTimeline progress={request.approvalProgress} />
+            </div>
+          )}
 
           {/* Footer */}
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
@@ -993,35 +1061,81 @@ export default function PurchaseCard({
 
           {phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2 && (
             <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="flex space-x-2">
-                <Button
-                  size="sm"
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setInitialA2Action('approve');
-                    setIsEditModalOpen(true);
-                  }}
-                  disabled={approveA2Mutation.isPending}
-                >
-                  <Check className="mr-1 h-3 w-3" />
-                  Aprovar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setInitialA2Action('reject');
-                    setIsEditModalOpen(true);
-                  }}
-                  disabled={approveA2Mutation.isPending}
-                >
-                  <X className="mr-1 h-3 w-3" />
-                  Rejeitar
-                </Button>
-              </div>
+              {canUserApproveA2 && (
+                <div>
+                  {/* Show approval status information for dual approval */}
+                  {approvalRules?.requiresDualApproval && (
+                    <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="text-xs text-blue-700">
+                        {approvalRules.approvalStatus === "awaiting_first" && (
+                          <span>🔄 Aguardando primeira aprovação (Diretor ou CEO)</span>
+                        )}
+                        {approvalRules.approvalStatus === "awaiting_final" && (
+                          <span>
+                            ✅ Primeira aprovação concluída por {approvalRules.firstApprover?.firstName} {approvalRules.firstApprover?.lastName}
+                            <br />
+                            🔄 Aguardando aprovação final {!approvalRules.firstApprover?.isCEO ? "(CEO)" : "(Diretor/CEO)"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setInitialA2Action('approve');
+                        setIsEditModalOpen(true);
+                      }}
+                      disabled={approveA2Mutation.isPending}
+                    >
+                      <Check className="mr-1 h-3 w-3" />
+                      Aprovar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setInitialA2Action('reject');
+                        setIsEditModalOpen(true);
+                      }}
+                      disabled={approveA2Mutation.isPending}
+                    >
+                      <X className="mr-1 h-3 w-3" />
+                      Rejeitar
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Show message when user cannot approve A2 */}
+              {canApproveA2 && !canUserApproveA2 && approvalRules && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-md">
+                    <TriangleAlert className="h-4 w-4" />
+                    <span className="text-sm">
+                      {approvalRules.requiresDualApproval ? (
+                        approvalRules.approvalStatus === "awaiting_final" ? (
+                          approvalRules.firstApprover?.approverId === user?.id ? 
+                            "Você já forneceu a primeira aprovação. Aguardando aprovação final de outro usuário." :
+                            !approvalRules.firstApprover?.isCEO && !user?.isCEO ?
+                              "Aprovação final deve ser realizada pelo CEO." :
+                              "Aguardando sua aprovação final."
+                        ) : (
+                          "Aguardando primeira aprovação por Diretor."
+                        )
+                      ) : (
+                        "Permissão de Aprovação A2 necessária"
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

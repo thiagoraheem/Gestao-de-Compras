@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Shield, User, Building, Shield as ShieldIcon, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Edit, Shield, User, Building, Shield as ShieldIcon, Trash2, AlertTriangle, Crown, UserCheck } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminRoute from "@/components/AdminRoute";
@@ -33,6 +33,8 @@ const userSchema = z.object({
   isAdmin: z.boolean().default(false),
   isManager: z.boolean().default(false),
   isReceiver: z.boolean().default(false),
+  isCEO: z.boolean().default(false),
+  isDirector: z.boolean().default(false),
 }).refine((data) => {
   // Password is required only when creating a new user
   if (!data.password || data.password === "") {
@@ -42,6 +44,15 @@ const userSchema = z.object({
 }, {
   message: "Senha deve ter pelo menos 6 caracteres",
   path: ["password"],
+}).refine((data) => {
+  // CEO and Director validation: CEO cannot be Director and vice versa
+  if (data.isCEO && data.isDirector) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Um usuário não pode ser CEO e Diretor ao mesmo tempo",
+  path: ["isCEO"],
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -83,6 +94,8 @@ export default function UsersPage() {
       isAdmin: false,
       isManager: false,
       isReceiver: false,
+      isCEO: false,
+      isDirector: false,
     },
   });
 
@@ -295,6 +308,8 @@ export default function UsersPage() {
       isAdmin: user.isAdmin || false,
       isManager: user.isManager || false,
       isReceiver: user.isReceiver || false,
+      isCEO: user.isCEO || false,
+      isDirector: user.isDirector || false,
     });
     setIsModalOpen(true);
   };
@@ -317,6 +332,8 @@ export default function UsersPage() {
     if (user.isApproverA1) roles.push("Aprovador A1");
     if (user.isApproverA2) roles.push("Aprovador A2");
     if (user.isReceiver) roles.push("Recebedor");
+    if (user.isCEO) roles.push("CEO");
+    if (user.isDirector) roles.push("Diretor");
     return roles;
   };
 
@@ -698,6 +715,54 @@ export default function UsersPage() {
                               <FormLabel className="text-sm font-medium">É Recebedor</FormLabel>
                               <p className="text-xs text-muted-foreground">
                                 Pode acessar fase de recebimento de materiais
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="isCEO"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg bg-purple-50 border-purple-200">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="flex-1 space-y-1">
+                              <FormLabel className="text-sm font-medium text-purple-700">
+                                <Crown className="inline h-4 w-4 mr-1" />
+                                É CEO
+                              </FormLabel>
+                              <p className="text-xs text-purple-600">
+                                Pode aprovar compras de alto valor na dupla aprovação
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="isDirector"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg bg-blue-50 border-blue-200">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="flex-1 space-y-1">
+                              <FormLabel className="text-sm font-medium text-blue-700">
+                                <UserCheck className="inline h-4 w-4 mr-1" />
+                                É Diretor
+                              </FormLabel>
+                              <p className="text-xs text-blue-600">
+                                Pode iniciar aprovação de compras de alto valor
                               </p>
                             </div>
                           </FormItem>

@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useApprovalType } from "@/hooks/useApprovalType";
 import { apiRequest } from "@/lib/queryClient";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -187,6 +188,12 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
     };
   });
 
+  // Calcular valor total da solicitação
+  const totalValue = transformedItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+
+  // Usar hook para determinar tipo de aprovação
+  const { data: approvalType, approvalInfo } = useApprovalType(totalValue, request.id);
+
   const form = useForm<ApprovalFormData>({
     resolver: zodResolver(approvalSchema),
     defaultValues: {
@@ -198,7 +205,8 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
   const approvalMutation = useMutation({
     mutationFn: async (data: ApprovalFormData) => {
       debug.log("Sending A2 approval data:", data);
-      const response = await apiRequest(`/api/purchase-requests/${request.id}/approve-a2`, {
+      // Usar o novo endpoint que implementa dupla aprovação
+      const response = await apiRequest(`/api/approval-rules/${request.id}/approve`, {
         method: "POST",
         body: {
           ...data,
@@ -210,12 +218,26 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
     onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       
-      let message = "Solicitação aprovada e movida para Pedido de Compra!";
-      if (!variables.approved) {
-        if (variables.rejectionAction === "recotacao") {
-          message = "Solicitação reprovada e movida para nova Cotação!";
+      // Mensagem baseada no resultado da dupla aprovação
+      let message = "Aprovação processada com sucesso!";
+      
+      if (result.isComplete) {
+        // Aprovação completa (single ou segunda aprovação dual)
+        if (variables.approved) {
+          message = "Solicitação aprovada e movida para Pedido de Compra!";
         } else {
-          message = "Solicitação reprovada e movida para Arquivado!";
+          if (variables.rejectionAction === "recotacao") {
+            message = "Solicitação reprovada e movida para nova Cotação!";
+          } else {
+            message = "Solicitação reprovada e movida para Arquivado!";
+          }
+        }
+      } else {
+        // Primeira aprovação em dupla aprovação
+        if (variables.approved) {
+          message = "Primeira aprovação realizada! Aguardando aprovação final do CEO.";
+        } else {
+          message = "Solicitação reprovada na primeira aprovação.";
         }
       }
       
@@ -229,7 +251,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
       debug.error("Erro na aprovação A2:", error);
       toast({
         title: "Erro",
-        description: "Falha ao processar aprovação A2",
+        description: error.message || "Falha ao processar aprovação A2",
         variant: "destructive",
       });
     },
@@ -753,6 +775,29 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Ação de Aprovação A2</CardTitle>
+              {/* Mostrar informações sobre o tipo de aprovação */}
+              {approvalType && (
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">
+                      {approvalType === 'dual' ? 'Dupla Aprovação Necessária' : 'Aprovação Simples'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-700 mt-1">
+                    {approvalType === 'dual' 
+                      ? `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer aprovação sequencial de dois aprovadores A2.`
+                      : `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer apenas uma aprovação A2.`
+                    }
+                  </p>
+                  {approvalInfo && approvalInfo.nextApprover && (
+                    <p className="text-xs text-blue-700 mt-1">
+                      Próximo aprovador: {approvalInfo.nextApprover.firstName} {approvalInfo.nextApprover.lastName}
+                      {approvalInfo.nextApprover.isCEO && ' (CEO)'}
+                    </p>
+                  )}
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               <Form {...form}>

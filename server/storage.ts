@@ -9,7 +9,6 @@ import {
   paymentMethods,
   purchaseRequests,
   purchaseRequestItems,
-
   deliveryLocations,
   quotations,
   quotationItems,
@@ -21,6 +20,8 @@ import {
   receiptItems,
   attachments,
   approvalHistory,
+  approvalConfigurations,
+  configurationHistory,
   type User,
   type InsertUser,
   type Company,
@@ -55,6 +56,10 @@ import {
   type InsertApprovalHistory,
   type Attachment,
   type InsertAttachment,
+  type ApprovalConfiguration,
+  type InsertApprovalConfiguration,
+  type ConfigurationHistory,
+  type InsertConfigurationHistory,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, desc, like, sql, gt, count, or, isNull } from "drizzle-orm";
@@ -261,9 +266,25 @@ export interface IStorage {
 
   // Approval History operations
   getApprovalHistory(purchaseRequestId: number): Promise<any[]>;
+  getApprovalHistoryByRequestId(requestId: number): Promise<ApprovalHistory[]>;
   createApprovalHistory(
     approvalHistory: InsertApprovalHistory,
   ): Promise<ApprovalHistory>;
+  
+  // Value-based approval system operations
+  getActiveApprovalConfiguration(): Promise<ApprovalConfiguration | undefined>;
+  getCEOAndDirectors(): Promise<User[]>;
+  getA2Approvers(): Promise<User[]>;
+  createApprovalHistoryWithStep(history: InsertApprovalHistory & { 
+    approvalStep: number; 
+    approvalValue: string; 
+    requiresDualApproval: boolean; 
+    ipAddress: string; 
+    userAgent: string; 
+  }): Promise<ApprovalHistory>;
+  createApprovalConfiguration(config: InsertApprovalConfiguration): Promise<ApprovalConfiguration>;
+  getConfigurationHistory(): Promise<ConfigurationHistory[]>;
+  getUserById(id: number): Promise<User | undefined>;
 
   // Complete Timeline operations
   getCompleteTimeline(purchaseRequestId: number): Promise<any[]>;
@@ -2135,6 +2156,176 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getUserById(id: number): Promise<User | undefined> {
+    try {
+      const result = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, id))
+        .limit(1);
+      return result[0];
+    } catch (error) {
+      console.error("Error fetching user by ID:", error);
+      return undefined;
+    }
+  }
+
+  async getApprovalHistoryByRequestId(requestId: number): Promise<ApprovalHistory[]> {
+    try {
+      const result = await db
+        .select()
+        .from(approvalHistory)
+        .where(eq(approvalHistory.purchaseRequestId, requestId))
+        .orderBy(desc(approvalHistory.createdAt));
+      return result;
+    } catch (error) {
+      console.error("Error fetching approval history by request ID:", error);
+      return [];
+    }
+  }
+
+  async getActiveApprovalConfiguration(): Promise<ApprovalConfiguration | undefined> {
+    try {
+      const result = await db
+        .select()
+        .from(approvalConfigurations)
+        .where(eq(approvalConfigurations.isActive, true))
+        .orderBy(desc(approvalConfigurations.effectiveDate))
+        .limit(1);
+      return result[0];
+    } catch (error) {
+      console.error("Error fetching active approval configuration:", error);
+      return undefined;
+    }
+  }
+
+  async getCEOAndDirectors(): Promise<User[]> {
+    try {
+      const result = await db
+        .select()
+        .from(users)
+        .where(
+          and(
+            or(eq(users.isCEO, true), eq(users.isDirector, true)),
+            eq(users.isApproverA2, true)
+          )
+        )
+        .orderBy(desc(users.isCEO), users.firstName, users.lastName);
+      return result;
+    } catch (error) {
+      console.error("Error fetching CEO and Directors:", error);
+      return [];
+    }
+  }
+
+  async getA2Approvers(): Promise<User[]> {
+    try {
+      const result = await db
+        .select()
+        .from(users)
+        .where(eq(users.isApproverA2, true))
+        .orderBy(users.firstName, users.lastName);
+      return result;
+    } catch (error) {
+      console.error("Error fetching A2 approvers:", error);
+      return [];
+    }
+  }
+
+  async createApprovalHistoryWithStep(history: InsertApprovalHistory & { 
+    approvalStep: number; 
+    approvalValue: string; 
+    requiresDualApproval: boolean; 
+    ipAddress: string; 
+    userAgent: string; 
+  }): Promise<ApprovalHistory> {
+    try {
+      const result = await db
+        .insert(approvalHistory)
+        .values({
+          purchaseRequestId: history.purchaseRequestId,
+          approverType: history.approverType,
+          approverId: history.approverId,
+          approved: history.approved,
+          rejectionReason: history.rejectionReason,
+          approvalStep: history.approvalStep,
+          approvalValue: history.approvalValue,
+          requiresDualApproval: history.requiresDualApproval,
+          ipAddress: history.ipAddress,
+          userAgent: history.userAgent,
+          createdAt: new Date(),
+        })
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating approval history with step:", error);
+      throw error;
+    }
+  }
+
+  async createApprovalConfiguration(config: InsertApprovalConfiguration): Promise<ApprovalConfiguration> {
+    try {
+      // Deactivate current active configuration
+      await db
+        .update(approvalConfigurations)
+        .set({ isActive: false })
+        .where(eq(approvalConfigurations.isActive, true));
+
+      // Create new configuration
+      const result = await db
+        .insert(approvalConfigurations)
+        .values({
+          valueThreshold: config.valueThreshold,
+          isActive: true,
+          effectiveDate: new Date(),
+          createdBy: config.createdBy,
+          reason: config.reason,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error creating approval configuration:", error);
+      throw error;
+    }
+  }
+
+  async getConfigurationHistory(): Promise<ConfigurationHistory[]> {
+    try {
+      const result = await db
+        .select({
+          id: configurationHistory.id,
+          configurationId: configurationHistory.configurationId,
+          changeType: configurationHistory.changeType,
+          previousValues: configurationHistory.previousValues,
+          newValues: configurationHistory.newValues,
+          changedBy: configurationHistory.changedBy,
+          ipAddress: configurationHistory.ipAddress,
+          userAgent: configurationHistory.userAgent,
+          changedAt: configurationHistory.changedAt,
+          changedByUser: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+          }
+        })
+        .from(configurationHistory)
+        .leftJoin(users, eq(configurationHistory.changedBy, users.id))
+        .orderBy(desc(configurationHistory.changedAt));
+      
+      return result.map(row => ({
+        ...row,
+        changedByUser: row.changedByUser.id ? row.changedByUser : undefined,
+      })) as ConfigurationHistory[];
+    } catch (error) {
+      console.error("Error fetching configuration history:", error);
+      return [];
+    }
+  }
+
   async initializeDefaultData(): Promise<void> {
     // Check if admin user already exists
     const adminUser = await this.getUserByUsername("admin");
@@ -2222,6 +2413,16 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Create default approval configuration
+    const existingConfig = await this.getActiveApprovalConfiguration();
+    if (!existingConfig) {
+      await this.createApprovalConfiguration({
+        valueThreshold: "2500.00",
+        reason: "Configuração inicial do sistema - limite padrão R$ 2.500,00",
+        createdBy: 1, // Will be created after admin user
+      });
+    }
+
     // Create default admin user
     const hashedPassword = await bcrypt.hash("admin123", 10);
     await this.createUser({
@@ -2234,6 +2435,7 @@ export class DatabaseStorage implements IStorage {
       isApproverA1: true,
       isApproverA2: true,
       isAdmin: true,
+      isCEO: true, // Make admin a CEO for testing dual approval
     });
   }
 }

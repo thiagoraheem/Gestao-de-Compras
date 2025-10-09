@@ -45,6 +45,8 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").default(false),
   isManager: boolean("is_manager").default(false),
   isReceiver: boolean("is_receiver").default(false),
+  isCEO: boolean("is_ceo").default(false),
+  isDirector: boolean("is_director").default(false),
   passwordResetToken: text("password_reset_token"),
   passwordResetExpires: timestamp("password_reset_expires"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -147,6 +149,14 @@ export const purchaseRequests = pgTable("purchase_requests", {
   discountsObtained: decimal("discounts_obtained", { precision: 10, scale: 2 }),
   deliveryDate: timestamp("delivery_date"),
 
+  // Value-based dual approval fields
+  requiresDualApproval: boolean("requires_dual_approval").default(false),
+  firstApproverA2Id: integer("first_approver_a2_id").references(() => users.id),
+  finalApproverId: integer("final_approver_id").references(() => users.id),
+  firstApprovalDate: timestamp("first_approval_date"),
+  finalApprovalDate: timestamp("final_approval_date"),
+  approvalConfigurationId: integer("approval_configuration_id"),
+
   // Pedido de Compra
   purchaseDate: timestamp("purchase_date"),
   purchaseObservations: text("purchase_observations"),
@@ -192,6 +202,11 @@ export const approvalHistory = pgTable("approval_history", {
   approverId: integer("approver_id").references(() => users.id).notNull(),
   approved: boolean("approved").notNull(),
   rejectionReason: text("rejection_reason"),
+  approvalStep: text("approval_step").default("single"), // 'single', 'first', 'final'
+  approvalValue: decimal("approval_value", { precision: 15, scale: 2 }),
+  requiresDualApproval: boolean("requires_dual_approval").default(false),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -862,9 +877,53 @@ export type ReceiptItem = typeof receiptItems.$inferSelect;
 export type InsertReceiptItem = z.infer<typeof insertReceiptItemSchema>;
 export type ApprovalHistory = typeof approvalHistory.$inferSelect;
 
+// Approval Configurations table
+export const approvalConfigurations = pgTable("approval_configurations", {
+  id: serial("id").primaryKey(),
+  valueThreshold: decimal("value_threshold", { precision: 15, scale: 2 }).notNull().default("2500.00"),
+  isActive: boolean("is_active").default(true),
+  effectiveDate: timestamp("effective_date").defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Configuration History table for audit trail
+export const configurationHistory = pgTable("configuration_history", {
+  id: serial("id").primaryKey(),
+  configurationId: integer("configuration_id").references(() => approvalConfigurations.id),
+  changeType: text("change_type").notNull(), // 'create', 'update', 'deactivate'
+  previousValues: jsonb("previous_values"),
+  newValues: jsonb("new_values").notNull(),
+  changedBy: integer("changed_by").references(() => users.id),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  changedAt: timestamp("changed_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertApprovalHistorySchema = createInsertSchema(approvalHistory).omit({
   id: true,
   createdAt: true,
 });
+
+export const insertApprovalConfigurationSchema = createInsertSchema(approvalConfigurations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  valueThreshold: z.union([z.string(), z.number()]).transform((val) => val.toString()),
+  effectiveDate: z.string().optional().transform((val) => val ? new Date(val) : new Date()),
+});
+
+export const insertConfigurationHistorySchema = createInsertSchema(configurationHistory).omit({
+  id: true,
+  changedAt: true,
+});
+
 export type InsertApprovalHistory = z.infer<typeof insertApprovalHistorySchema>;
+export type ApprovalConfiguration = typeof approvalConfigurations.$inferSelect;
+export type InsertApprovalConfiguration = z.infer<typeof insertApprovalConfigurationSchema>;
+export type ConfigurationHistory = typeof configurationHistory.$inferSelect;
+export type InsertConfigurationHistory = z.infer<typeof insertConfigurationHistorySchema>;
