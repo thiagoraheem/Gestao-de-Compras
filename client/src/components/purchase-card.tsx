@@ -687,14 +687,14 @@ export default function PurchaseCard({
           isSearchHighlighted && "ring-2 ring-blue-500 ring-offset-2 bg-blue-50 border-blue-300 shadow-lg",
         )}
       >
-        <CardContent className="p-4">
+        <CardContent className="p-2 md:p-3 lg:p-2">
           {/* Header with drag handle and request number */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between mb-2 md:mb-2 lg:mb-1">
+            <div className="flex items-center gap-1 md:gap-1 lg:gap-1">
               <div
                 {...(canDragCard ? listeners : {})}
                 className={cn(
-                  "p-1 rounded",
+                  "p-0.5 rounded",
                   canDragCard
                     ? "cursor-grab active:cursor-grabbing hover:bg-gray-100"
                     : "cursor-not-allowed opacity-50",
@@ -707,51 +707,51 @@ export default function PurchaseCard({
               >
                 <GripVertical
                   className={cn(
-                    "h-4 w-4",
+                    "h-3 w-3 md:h-4 md:w-4 lg:h-3 lg:w-3",
                     canDragCard ? "text-gray-400" : "text-gray-300",
                   )}
                 />
               </div>
-              <Badge>{request.requestNumber}</Badge>
+              <Badge className="text-xs px-1.5 py-0.5">{request.requestNumber}</Badge>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-0.5">
               {phase === "solicitacao" && !request.approvedA1 && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-6 w-6 md:h-6 md:w-6 lg:h-5 lg:w-5"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowDeleteDialog(true);
                   }}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               )}
               {!isArchived && phase !== PURCHASE_PHASES.CONCLUSAO_COMPRA && (user?.isAdmin || user?.isBuyer) && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-6 w-6 md:h-6 md:w-6 lg:h-5 lg:w-5"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowArchiveDialog(true);
                   }}
                 >
-                  <Archive className="h-4 w-4" />
+                  <Archive className="h-3 w-3" />
                 </Button>
               )}
               {canEditInApprovalPhase && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-6 w-6 md:h-6 md:w-6 lg:h-5 lg:w-5"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsEditModalOpen(true);
                   }}
                 >
-                  <Edit className="h-4 w-4" />
+                  <Edit className="h-3 w-3" />
                 </Button>
               )}
             </div>
@@ -760,7 +760,7 @@ export default function PurchaseCard({
           {/* Title in one line */}
           <h4
             className={cn(
-              "font-medium mb-2 truncate",
+              "font-medium mb-1 md:mb-1 lg:mb-1 truncate text-sm",
               isArchived ? "text-gray-700" : "text-gray-900",
             )}
             title={request.justification}
@@ -769,19 +769,19 @@ export default function PurchaseCard({
           </h4>
 
           {/* Urgency and category info */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <div className="flex items-center gap-1 md:gap-1 lg:gap-1 mb-2 md:mb-2 lg:mb-1 flex-wrap">
             {request.urgency && (
               <Badge
                 variant={
                   request.urgency === "alta_urgencia" || request.urgency === "alto" ? "destructive" : "secondary"
                 }
-                className="text-xs"
+                className="text-xs px-1.5 py-0.5"
               >
                 {getUrgencyIcon(request.urgency)}
                 {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
               </Badge>
             )}
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs px-1.5 py-0.5">
               {
                 CATEGORY_LABELS[
                   request.category as keyof typeof CATEGORY_LABELS
@@ -798,8 +798,6 @@ export default function PurchaseCard({
                 approvalType={approvalType || 'single'}
                 currentStep={request.approvalProgress.currentStep}
                 totalSteps={request.approvalProgress.totalSteps}
-                isCompleted={request.approvalProgress.isCompleted}
-                isRejected={request.approvalProgress.isRejected}
               />
             )}
             {/* Show red tag for items with pending issues returned from receipt */}
@@ -811,7 +809,7 @@ export default function PurchaseCard({
               >
                 <Badge
                   variant="destructive"
-                  className="text-xs bg-red-500 text-white border-red-600 cursor-help"
+                  className="text-xs px-1.5 py-0.5 bg-red-500 text-white border-red-600 cursor-help"
                 >
                   <AlertCircle className="mr-1 h-3 w-3" />
                   Pendência
@@ -825,7 +823,7 @@ export default function PurchaseCard({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger>
-                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500 text-white border border-red-600 cursor-help">
+                    <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-500 text-white border border-red-600 cursor-help">
                       <X className="mr-1 h-3 w-3" />
                       Nec.Cotação
                     </div>
@@ -841,19 +839,19 @@ export default function PurchaseCard({
           {/* Additional info */}
           <div
             className={cn(
-              "text-sm space-y-1",
+              "text-sm space-y-0.5 md:space-y-0.5 lg:space-y-0.5",
               isArchived ? "text-gray-500" : "text-gray-600",
             )}
           >
             {request.totalValue && (
-              <p>
+              <p className="text-xs md:text-xs lg:text-xs">
                 <strong>Valor:</strong> {formatCurrency(request.totalValue)}
               </p>
             )}
 
             {/* Show requester on all cards */}
             {request.requester && (
-              <p>
+              <p className="text-xs md:text-xs lg:text-xs">
                 <strong>Solicitante:</strong> {request.requester.firstName}{" "}
                 {request.requester.lastName}
               </p>
@@ -866,7 +864,7 @@ export default function PurchaseCard({
               phase === PURCHASE_PHASES.RECEBIMENTO ||
               phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) &&
               request.approverA1 && (
-                <p>
+                <p className="text-xs md:text-xs lg:text-xs">
                   <strong>Aprovador:</strong> {request.approverA1.firstName}{" "}
                   {request.approverA1.lastName}
                 </p>
@@ -878,13 +876,13 @@ export default function PurchaseCard({
               phase === PURCHASE_PHASES.RECEBIMENTO ||
               phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) &&
               request.chosenSupplier && (
-                <p>
+                <p className="text-xs md:text-xs lg:text-xs">
                   <strong>Fornecedor:</strong> {request.chosenSupplier.name}
                 </p>
               )}
 
             {phase === PURCHASE_PHASES.APROVACAO_A1 && (
-              <p>
+              <p className="text-xs md:text-xs lg:text-xs">
                 <strong>Aprovador:</strong> Pendente
               </p>
             )}
@@ -892,13 +890,13 @@ export default function PurchaseCard({
 
           {/* Approval Timeline for A2 phase */}
           {phase === PURCHASE_PHASES.APROVACAO_A2 && request.approvalProgress && (
-            <div className="mt-3">
+            <div className="mt-2 md:mt-2 lg:mt-1">
               <ApprovalTimeline progress={request.approvalProgress} />
             </div>
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-between mt-2 md:mt-2 lg:mt-1 pt-2 md:pt-2 lg:pt-1 border-t border-gray-100">
             <span className="text-xs text-gray-500">
               {formatDate(request.createdAt)}
             </span>
@@ -912,10 +910,10 @@ export default function PurchaseCard({
 
           {/* Send to Approval Button for Request Phase */}
           {phase === PURCHASE_PHASES.SOLICITACAO && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="mt-3 md:mt-2 lg:mt-2 pt-3 md:pt-2 lg:pt-2 border-t border-gray-100">
               <Button
                 size="sm"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs"
                 onClick={(e) => {
                   e.stopPropagation();
                   sendToApprovalMutation.mutate();
@@ -934,10 +932,10 @@ export default function PurchaseCard({
           {phase === PURCHASE_PHASES.COTACAO &&
             user?.isBuyer &&
             onCreateRFQ && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="mt-3 md:mt-2 lg:mt-2 pt-3 md:pt-2 lg:pt-2 border-t border-gray-100">
                 <Button
                   size="sm"
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (request.hasQuotation) {
@@ -958,10 +956,10 @@ export default function PurchaseCard({
           {/* Permission Warning for Restricted Cards */}
           {((phase === PURCHASE_PHASES.APROVACAO_A1 && !canApproveA1) ||
             (phase === PURCHASE_PHASES.APROVACAO_A2 && !canApproveA2)) && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-md">
-                  <TriangleAlert className="h-4 w-4" />
-                  <span className="text-sm">
+              <div className="mt-3 md:mt-2 lg:mt-2 pt-3 md:pt-2 lg:pt-2 border-t border-gray-100">
+                <div className="flex items-center gap-2 md:gap-1 lg:gap-1 text-amber-600 bg-amber-50 p-2 md:p-1.5 lg:p-1.5 rounded-md">
+                  <TriangleAlert className="h-4 w-4 md:h-3 md:w-3 lg:h-3 lg:w-3" />
+                  <span className="text-sm md:text-xs lg:text-xs">
                     {phase === PURCHASE_PHASES.APROVACAO_A1
                       ? "Permissão de Aprovação A1 necessária"
                       : "Permissão de Aprovação A2 necessária"}
@@ -972,9 +970,9 @@ export default function PurchaseCard({
 
           {/* Quotation Status Indicator for Cotação phase */}
           {phase === PURCHASE_PHASES.COTACAO && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="mt-3 md:mt-2 lg:mt-2 pt-3 md:pt-2 lg:pt-2 border-t border-gray-100">
               <div
-                className={`flex items-center gap-2 p-2 rounded-md ${
+                className={`flex items-center gap-2 md:gap-1 lg:gap-1 p-2 md:p-1.5 lg:p-1.5 rounded-md ${
                   quotationStatusError
                     ? "text-red-600 bg-red-50"
                     : quotationStatus?.isReady
@@ -983,13 +981,13 @@ export default function PurchaseCard({
                 }`}
               >
                 {quotationStatusError ? (
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4 md:h-3 md:w-3 lg:h-3 lg:w-3" />
                 ) : quotationStatus?.isReady ? (
-                  <Check className="h-4 w-4" />
+                  <Check className="h-4 w-4 md:h-3 md:w-3 lg:h-3 lg:w-3" />
                 ) : (
-                  <Clock className="h-4 w-4" />
+                  <Clock className="h-4 w-4 md:h-3 md:w-3 lg:h-3 lg:w-3" />
                 )}
-                <span className="text-sm font-medium">
+                <span className="text-sm md:text-xs lg:text-xs font-medium">
                   {quotationStatusError
                     ? "Nenhuma cotação criada"
                     : quotationStatus?.reason || "Carregando status..."}

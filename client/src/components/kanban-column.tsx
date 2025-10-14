@@ -31,13 +31,13 @@ export default function KanbanColumn({
   const isFinalPhase = phase === PURCHASE_PHASES.ARQUIVADO || phase === PURCHASE_PHASES.CONCLUSAO_COMPRA;
 
   return (
-    <div className="flex-shrink-0 w-80">
+    <div className="flex-shrink-0 w-64 md:w-72 lg:w-64">
       <div className={`rounded-lg shadow-md h-full flex flex-col ${isFinalPhase ? 'bg-gray-50' : 'bg-white'}`}>
-        <div className={`p-4 border-b ${isFinalPhase ? 'border-gray-300 bg-gray-100' : 'border-gray-200'}`}>
+        <div className={`p-2 md:p-3 lg:p-2 border-b ${isFinalPhase ? 'border-gray-300 bg-gray-100' : 'border-gray-200'}`}>
           <div className="flex items-center justify-between">
-            <h3 className={`font-semibold flex items-center ${isFinalPhase ? 'text-gray-600' : 'text-gray-900'}`}>
+            <h3 className={`font-semibold flex items-center text-sm md:text-base lg:text-sm ${isFinalPhase ? 'text-gray-600' : 'text-gray-900'}`}>
               <div 
-                className="w-3 h-3 rounded-full mr-2"
+                className="w-2 h-2 md:w-3 md:h-3 lg:w-2 lg:h-2 rounded-full mr-1 md:mr-2 lg:mr-1"
                 style={{ backgroundColor: isFinalPhase ? '#9CA3AF' : phaseColor }}
               />
               {title}
@@ -49,7 +49,7 @@ export default function KanbanColumn({
         </div>
         <div 
           ref={setNodeRef}
-          className={`flex-1 p-4 overflow-y-auto space-y-3 transition-colors ${
+          className={`flex-1 p-2 md:p-3 lg:p-2 overflow-y-auto space-y-1 md:space-y-2 lg:space-y-1 transition-colors ${
             isOver ? "bg-blue-50" : ""
           }`}
         >
@@ -68,7 +68,7 @@ export default function KanbanColumn({
             ))}
           </SortableContext>
           {requests.length === 0 && (
-            <div className="text-center text-gray-500 text-sm py-8">
+            <div className="text-center text-gray-500 text-sm py-4 md:py-6 lg:py-4">
               Nenhuma solicitação nesta fase
             </div>
           )}

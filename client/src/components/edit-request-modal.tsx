@@ -148,7 +148,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
     switch (phase) {
       case PURCHASE_PHASES.APROVACAO_A1:
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 md:space-y-3 lg:space-y-3">
             <FormField
               control={form.control}
               name="approvedA1"
@@ -189,7 +189,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
 
       case PURCHASE_PHASES.COTACAO:
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 md:space-y-3 lg:space-y-3">
             <FormField
               control={form.control}
               name="totalValue"
@@ -242,7 +242,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
 
       case PURCHASE_PHASES.APROVACAO_A2:
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 md:space-y-3 lg:space-y-3">
             <FormField
               control={form.control}
               name="chosenSupplierId"
@@ -290,7 +290,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 md:gap-3 lg:gap-3">
               <FormField
                 control={form.control}
                 name="negotiatedValue"
@@ -354,14 +354,13 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
                   </FormControl>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
+              />
           </div>
         );
 
       case PURCHASE_PHASES.PEDIDO_COMPRA:
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 md:space-y-3 lg:space-y-3">
             <FormField
               control={form.control}
               name="purchaseObservations"
@@ -396,7 +395,7 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
 
       case PURCHASE_PHASES.RECEBIMENTO:
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 md:space-y-3 lg:space-y-3">
             <FormField
               control={form.control}
               name="receivedById"
@@ -434,51 +433,35 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="edit-request-description">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>Editar Solicitação - {request?.requestNumber}</DialogTitle>
-            <Badge variant="outline" className="text-sm">
-              {PHASE_LABELS[phase]}
-            </Badge>
-          </div>
+      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-3 md:p-4 lg:p-3">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-lg">Editar Solicitação</DialogTitle>
         </DialogHeader>
-        <p id="edit-request-description" className="sr-only">
-          Formulário para editar solicitação de compra com campos específicos da fase atual
-        </p>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Basic Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Informações Básicas</h3>
-              
-              {/* Company Selection - now available for all users */}
-              {companies && companies.length > 0 && (
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 md:space-y-4 lg:space-y-2">
+            {/* Informações Básicas */}
+            <div className="space-y-2 md:space-y-3 lg:space-y-2">
+              <h3 className="text-base font-semibold mb-1">Informações Básicas</h3>
+              <div className="grid grid-cols-2 gap-2 md:gap-3 lg:gap-2">
                 <FormField
                   control={form.control}
-                  name="companyId"
+                  name="requesterId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Empresa *</FormLabel>
+                      <FormLabel className="text-sm">Solicitante</FormLabel>
                       <FormControl>
-                        <Select
-                          onValueChange={(value) => {
-                            field.onChange(Number(value));
-                            setSelectedCompanyId(Number(value));
-                          }}
-                          value={field.value?.toString()}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma empresa..." />
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Selecione..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {companies.map((company: any) => (
-                              <SelectItem
-                                key={company.id}
-                                value={company.id.toString()}
-                              >
-                                {company.name}
+                            {users && (users as any[]).map((user: any) => (
+                              <SelectItem key={user.id} value={user.id.toString()}>
+                                {user.firstName || user.lastName 
+                                  ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
+                                  : user.username
+                                }
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -488,49 +471,21 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
                     </FormItem>
                   )}
                 />
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="category"
+                  name="categoryId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Categoria de Compra</FormLabel>
+                      <FormLabel className="text-sm">Categoria</FormLabel>
                       <FormControl>
                         <Select onValueChange={field.onChange} value={field.value}>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-8">
                             <SelectValue placeholder="Selecione..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(CATEGORY_OPTIONS).map(([key, value]) => (
-                              <SelectItem key={value} value={value}>
-                                {CATEGORY_LABELS[value]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="urgency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Grau de Urgência</FormLabel>
-                      <FormControl>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(URGENCY_LEVELS).map(([key, value]) => (
-                              <SelectItem key={value} value={value}>
-                                {URGENCY_LABELS[value]}
+                            {categories && (categories as any[]).map((category: any) => (
+                              <SelectItem key={category.id} value={category.id.toString()}>
+                                {category.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -541,82 +496,90 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
                   )}
                 />
               </div>
-
               <FormField
                 control={form.control}
-                name="justification"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Justificativa</FormLabel>
+                    <FormLabel className="text-sm">Descrição</FormLabel>
                     <FormControl>
-                      <Textarea {...field} rows={3} />
+                      <Textarea {...field} rows={2} className="text-sm" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2 md:gap-3 lg:gap-2">
                 <FormField
                   control={form.control}
-                  name="idealDeliveryDate"
+                  name="priority"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Prazo Ideal de Entrega</FormLabel>
+                      <FormLabel className="text-sm">Prioridade</FormLabel>
+                      <FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="baixa">Baixa</SelectItem>
+                            <SelectItem value="media">Média</SelectItem>
+                            <SelectItem value="alta">Alta</SelectItem>
+                            <SelectItem value="urgente">Urgente</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="expectedDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">Data Esperada</FormLabel>
                       <FormControl>
                         <DateInput
                           value={field.value}
                           onChange={field.onChange}
                           onBlur={field.onBlur}
                           placeholder="DD/MM/AAAA"
+                          className="h-8"
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
-
               </div>
-
-              <FormField
-                control={form.control}
-                name="additionalInfo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Informações Adicionais</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} rows={2} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
             {/* Phase-specific fields */}
             {renderPhaseSpecificFields() && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">
+              <div className="space-y-2 md:space-y-3 lg:space-y-2">
+                <h3 className="text-base font-medium mb-1">
                   Campos Específicos - {PHASE_LABELS[phase]}
                 </h3>
                 {renderPhaseSpecificFields()}
               </div>
             )}
 
-            <div className="flex justify-end space-x-3 pt-4">
+            <div className="flex justify-end space-x-2 pt-2 md:pt-3 lg:pt-2">
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={() => onOpenChange(false)}
+                size="sm"
               >
                 Cancelar
               </Button>
               <Button 
                 type="submit" 
                 disabled={updateRequestMutation.isPending}
+                size="sm"
               >
-                <Save className="mr-2 h-4 w-4" />
+                <Save className="mr-1 h-3 w-3" />
                 {updateRequestMutation.isPending ? "Salvando..." : "Salvar Alterações"}
               </Button>
             </div>
