@@ -665,6 +665,420 @@ export class PDFService {
     `;
   }
 
+  private static async generateApprovalA2HTML(data: any): Promise<string> {
+    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company, requester } = data;
+    
+    // Função para formatar data brasileira
+    const formatBrazilianDate = (dateString: string | null | undefined): string => {
+      if (!dateString) return 'Não informado';
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR');
+      } catch {
+        return 'Não informado';
+      }
+    };
+
+    // Função para formatar moeda
+    const formatCurrency = (value: number): string => {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(value || 0);
+    };
+
+    // Generate QR Code for tracking
+    let qrCodeDataURL = '';
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || 
+                         (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000');
+      const trackingUrl = `${frontendUrl}/public/request/${purchaseRequest.id}`;
+      qrCodeDataURL = await QRCode.toDataURL(trackingUrl, {
+        width: 100,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+    } catch (error) {
+      // QR code generation failed - continue without QR code
+    }
+
+    // Carregar logo da empresa como base64
+    let companyLogoBase64 = null;
+    if (company?.logoBase64) {
+      companyLogoBase64 = company.logoBase64;
+    }
+    
+    // Calcular totais
+    const subtotal = items.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0);
+    const itemDiscountTotal = items.reduce((sum: number, item: any) => sum + (Number(item.itemDiscount) || 0), 0);
+    
+    // Calcular desconto da proposta
+    let proposalDiscount = 0;
+    if (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) {
+      const discountValue = Number(selectedSupplierQuotation.discountValue) || 0;
+      
+      if (selectedSupplierQuotation.discountType === 'percentage') {
+        proposalDiscount = (subtotal * discountValue) / 100;
+      } else if (selectedSupplierQuotation.discountType === 'fixed') {
+        proposalDiscount = discountValue;
+      }
+    }
+    
+    const desconto = itemDiscountTotal + proposalDiscount;
+    const freightValue = Number(selectedSupplierQuotation?.freightValue) || 0;
+    const valorFinal = subtotal - desconto + freightValue;
+    
+    // Encontrar aprovações
+    const aprovacaoA1 = approvalHistory.find((h: any) => h.approverType === 'A1');
+    const aprovacaoA2 = approvalHistory.find((h: any) => h.approverType === 'A2');
+    
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Aprovação A2 - ${purchaseRequest.requestNumber}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      margin: 10px;
+      color: #000;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 15px;
+      position: relative;
+    }
+    .qr-code-container {
+      position: absolute;
+      top: 0;
+      right: 0;
+      text-align: center;
+      font-size: 10px;
+    }
+    .qr-code-container img {
+      width: 100px;
+      height: 100px;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .qr-code-text {
+      font-size: 9px;
+      color: #666;
+      font-weight: normal;
+    }
+    .header-logo {
+      flex: 0 0 150px;
+      margin-right: 20px;
+    }
+    .header-logo img {
+      max-width: 150px;
+      max-height: 100px;
+      object-fit: contain;
+    }
+    .header-info {
+      flex: 1;
+      text-align: center;
+    }
+    .header-info h1 {
+      font-size: 16px;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+    .header-info h2 {
+      font-size: 14px;
+      font-weight: bold;
+      margin: 5px 0;
+      color: #333;
+    }
+    .header-info p {
+      margin: 2px 0;
+      font-size: 11px;
+    }
+    .section {
+      margin: 10px 0;
+    }
+    .section-title {
+      background-color: #f0f0f0;
+      padding: 5px;
+      font-weight: bold;
+      border: 1px solid #ccc;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 10px 0;
+    }
+    .info-item {
+      margin: 3px 0;
+    }
+    .info-label {
+      font-weight: bold;
+      display: inline-block;
+      width: 120px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f0f0f0;
+      font-weight: bold;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .total-row {
+      font-weight: bold;
+      background-color: #f9f9f9;
+    }
+    .discount-row {
+      font-weight: bold;
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    .subtotal-row {
+      font-weight: bold;
+      background-color: #f8f9fa;
+    }
+    .footer {
+      margin-top: 15px;
+      font-size: 10px;
+    }
+    .approval-status {
+      background-color: #d4edda;
+      color: #155724;
+      padding: 5px;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+    .approval-pending {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    .approval-rejected {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    ${companyLogoBase64 ? `
+    <div class="header-logo">
+      <img src="data:image/png;base64,${companyLogoBase64}" alt="Logo da Empresa">
+    </div>
+    ` : ''}
+    <div class="header-info">
+      <h1>APROVAÇÃO A2</h1>
+      <h2>Solicitação de Compra Nº ${purchaseRequest.requestNumber}</h2>
+      <p>Data de Geração: ${formatBrazilianDate(new Date().toISOString())}</p>
+      ${company ? `<p>${company.name}</p>` : ''}
+    </div>
+    ${qrCodeDataURL ? `
+    <div class="qr-code-container">
+      <img src="${qrCodeDataURL}" alt="QR Code">
+      <div class="qr-code-text">Acompanhe online</div>
+    </div>
+    ` : ''}
+  </div>
+
+  <div class="section">
+    <div class="section-title">Informações da Solicitação</div>
+    <div class="info-grid">
+      <div>
+        <div class="info-item">
+          <span class="info-label">Número:</span> ${purchaseRequest.requestNumber}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Solicitante:</span> ${requester?.name || 'Não informado'}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Departamento:</span> ${purchaseRequest.departmentName}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Centro de Custo:</span> ${purchaseRequest.costCenterName}
+        </div>
+      </div>
+      <div>
+        <div class="info-item">
+          <span class="info-label">Data Solicitação:</span> ${formatBrazilianDate(purchaseRequest.createdAt)}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Data Entrega:</span> ${formatBrazilianDate(purchaseRequest.deliveryDate)}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Urgência:</span> ${purchaseRequest.urgency || 'Normal'}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Valor Total:</span> ${formatCurrency(valorFinal)}
+        </div>
+      </div>
+    </div>
+    ${purchaseRequest.justification ? `
+    <div class="info-item">
+      <span class="info-label">Justificativa:</span><br>
+      ${purchaseRequest.justification}
+    </div>
+    ` : ''}
+  </div>
+
+  ${supplier ? `
+  <div class="section">
+    <div class="section-title">Fornecedor Selecionado</div>
+    <div class="info-grid">
+      <div>
+        <div class="info-item">
+          <span class="info-label">Nome:</span> ${supplier.name}
+        </div>
+        <div class="info-item">
+          <span class="info-label">CNPJ:</span> ${supplier.cnpj || 'Não informado'}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Email:</span> ${supplier.email || 'Não informado'}
+        </div>
+      </div>
+      <div>
+        <div class="info-item">
+          <span class="info-label">Telefone:</span> ${supplier.phone || 'Não informado'}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Cidade:</span> ${supplier.city || 'Não informado'}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Estado:</span> ${supplier.state || 'Não informado'}
+        </div>
+      </div>
+    </div>
+  </div>
+  ` : ''}
+
+  <div class="section">
+    <div class="section-title">Itens da Solicitação</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Descrição</th>
+          <th>Qtd</th>
+          <th>Unidade</th>
+          <th>Marca</th>
+          <th>Valor Unit.</th>
+          <th>Valor Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map((item: any, index: number) => `
+        <tr>
+          <td class="text-center">${index + 1}</td>
+          <td>${item.description}</td>
+          <td class="text-center">${item.requestedQuantity}</td>
+          <td class="text-center">${item.unit || 'UN'}</td>
+          <td>${item.brand || 'N/A'}</td>
+          <td class="text-right">${formatCurrency(item.unitPrice)}</td>
+          <td class="text-right">${formatCurrency(item.totalPrice)}</td>
+        </tr>
+        `).join('')}
+        <tr class="subtotal-row">
+          <td colspan="6" class="text-right">Subtotal:</td>
+          <td class="text-right">${formatCurrency(subtotal)}</td>
+        </tr>
+        ${desconto > 0 ? `
+        <tr class="discount-row">
+          <td colspan="6" class="text-right">Desconto:</td>
+          <td class="text-right">-${formatCurrency(desconto)}</td>
+        </tr>
+        ` : ''}
+        ${freightValue > 0 ? `
+        <tr>
+          <td colspan="6" class="text-right">Frete:</td>
+          <td class="text-right">${formatCurrency(freightValue)}</td>
+        </tr>
+        ` : ''}
+        <tr class="total-row">
+          <td colspan="6" class="text-right">VALOR TOTAL:</td>
+          <td class="text-right">${formatCurrency(valorFinal)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  ${deliveryLocation ? `
+  <div class="section">
+    <div class="section-title">Local de Entrega</div>
+    <div class="info-grid">
+      <div>
+        <div class="info-item">
+          <span class="info-label">Nome:</span> ${deliveryLocation.name}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Endereço:</span> ${deliveryLocation.address}
+        </div>
+      </div>
+      <div>
+        <div class="info-item">
+          <span class="info-label">Cidade:</span> ${deliveryLocation.city}
+        </div>
+        <div class="info-item">
+          <span class="info-label">CEP:</span> ${deliveryLocation.zipCode}
+        </div>
+      </div>
+    </div>
+  </div>
+  ` : ''}
+
+  <div class="section">
+    <div class="section-title">Histórico de Aprovações</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Nível</th>
+          <th>Aprovador</th>
+          <th>Data</th>
+          <th>Status</th>
+          <th>Observações</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${approvalHistory.map((approval: any) => `
+        <tr>
+          <td>${approval.approverType}</td>
+          <td>${approval.approverName || 'N/A'}</td>
+          <td>${formatBrazilianDate(approval.createdAt)}</td>
+          <td>
+            <span class="approval-status ${approval.action === 'approved' ? '' : approval.action === 'rejected' ? 'approval-rejected' : 'approval-pending'}">
+              ${approval.action === 'approved' ? 'Aprovado' : approval.action === 'rejected' ? 'Rejeitado' : 'Pendente'}
+            </span>
+          </td>
+          <td>${approval.comments || '-'}</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <p><strong>Documento gerado automaticamente pelo Sistema de Gestão de Compras</strong></p>
+    <p>Data/Hora: ${new Date().toLocaleString('pt-BR')}</p>
+  </div>
+</body>
+</html>
+    `;
+  }
+
   private static async generatePurchaseOrderHTML(data: PurchaseOrderData): Promise<string> {
     const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company, buyer } = data;
     
@@ -1135,6 +1549,143 @@ export class PDFService {
 </body>
 </html>
     `;
+  }
+
+  static async generateApprovalA2PDF(purchaseRequestId: number): Promise<Buffer> {
+    // Buscar dados da solicitação
+    const purchaseRequest = await storage.getPurchaseRequestById(purchaseRequestId);
+    if (!purchaseRequest) {
+      throw new Error('Solicitação de compra não encontrada');
+    }
+
+    // Buscar itens da solicitação
+    const items = await storage.getPurchaseRequestItems(purchaseRequestId);
+    
+    // Buscar dados da empresa através da solicitação
+    let company = null;
+    const requester = await storage.getUser(purchaseRequest.requesterId!);
+    
+    if (purchaseRequest.companyId) {
+      company = await storage.getCompanyById(purchaseRequest.companyId);
+    }
+    
+    // Buscar departamento através do cost center
+    let department = null;
+    let costCenter = null;
+    if (purchaseRequest.costCenterId) {
+      const allCostCenters = await storage.getAllCostCenters();
+      costCenter = allCostCenters.find(cc => cc.id === purchaseRequest.costCenterId);
+      if (costCenter && costCenter.departmentId) {
+        department = await storage.getDepartmentById(costCenter.departmentId);
+      }
+    }
+    
+    // Buscar fornecedor e valores dos itens do fornecedor selecionado
+    let supplier = null;
+    let selectedSupplierQuotation = null;
+    let itemsWithPrices = items;
+    let deliveryLocation = null;
+    
+    const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
+    
+    // Buscar local de entrega se a cotação existir
+    if (quotation && quotation.deliveryLocationId) {
+      deliveryLocation = await storage.getDeliveryLocationById(quotation.deliveryLocationId);
+    }
+    
+    if (quotation) {
+      const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+      selectedSupplierQuotation = supplierQuotations.find(sq => sq.isChosen) || supplierQuotations[0];
+      
+      if (selectedSupplierQuotation) {
+        supplier = await storage.getSupplierById(selectedSupplierQuotation.supplierId);
+        
+        // Buscar os itens do fornecedor selecionado com preços
+        const supplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+        const quotationItems = await storage.getQuotationItems(quotation.id);
+        
+        // Combinar os itens da solicitação com os preços do fornecedor
+        itemsWithPrices = items.map(item => {
+          let quotationItem = quotationItems.find(qi => 
+            qi.purchaseRequestItemId && qi.purchaseRequestItemId === item.id
+          );
+          
+          if (!quotationItem && item.description) {
+            quotationItem = quotationItems.find(qi => 
+              qi.description && 
+              qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()
+            );
+          }
+          
+          if (quotationItem) {
+            const supplierItem = supplierItems.find(si => si.quotationItemId === quotationItem.id);
+            
+            if (supplierItem) {
+              const unitPrice = Number(supplierItem.unitPrice) || 0;
+              const quantity = Number(item.requestedQuantity) || 1;
+              const originalTotal = unitPrice * quantity;
+              let discountedTotal = originalTotal;
+              let itemDiscount = 0;
+              
+              if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
+                const discountPercent = Number(supplierItem.discountPercentage);
+                itemDiscount = (originalTotal * discountPercent) / 100;
+                discountedTotal = originalTotal - itemDiscount;
+              } else if (supplierItem.discountValue && Number(supplierItem.discountValue) > 0) {
+                itemDiscount = Number(supplierItem.discountValue);
+                discountedTotal = Math.max(0, originalTotal - itemDiscount);
+              }
+              
+              return {
+                ...item,
+                unitPrice: unitPrice,
+                originalUnitPrice: unitPrice,
+                itemDiscount: itemDiscount,
+                brand: supplierItem.brand || '',
+                deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
+                totalPrice: discountedTotal,
+                originalTotalPrice: originalTotal
+              };
+            }
+          }
+          
+          return {
+            ...item,
+            unitPrice: 0,
+            originalUnitPrice: 0,
+            itemDiscount: 0,
+            brand: '',
+            deliveryTime: '',
+            totalPrice: 0,
+            originalTotalPrice: 0
+          };
+        });
+      }
+    }
+
+    // Buscar histórico de aprovações
+    const approvalHistory = await storage.getApprovalHistory(purchaseRequestId);
+
+    const data = {
+      purchaseRequest: {
+        ...purchaseRequest,
+        departmentName: department?.name || 'Não informado',
+        costCenterName: costCenter?.name || 'Não informado'
+      },
+      items: itemsWithPrices,
+      supplier,
+      approvalHistory,
+      selectedSupplierQuotation,
+      deliveryLocation,
+      company,
+      requester
+    };
+
+    // Gerar HTML
+    const html = await this.generateApprovalA2HTML(data);
+
+    // Gerar PDF usando sistema de fallback robusto
+    return await this.generatePDFWithFallback(html, 'approval-a2');
   }
 
   static async generatePurchaseOrderPDF(purchaseRequestId: number): Promise<Buffer> {

@@ -18,7 +18,9 @@ import {
   History,
   Paperclip,
   BarChart3,
-  Truck
+  Truck,
+  Download,
+  Printer
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -90,6 +92,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
   const { user } = useAuth();
   const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | null>(initialAction);
   const [showComparison, setShowComparison] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Check if user has A2 approval permissions
   const canApprove = user?.isApproverA2 || false;
@@ -271,6 +274,91 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
     form.setValue('approved', false);
   };
 
+  // Função para download do PDF
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await fetch(`/api/purchase-requests/${request.id}/approval-a2-pdf`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao gerar PDF');
+      }
+
+      // Criar blob e fazer download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `Aprovacao_A2_${request.requestNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Sucesso",
+        description: "PDF da aprovação A2 baixado com sucesso!",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao baixar PDF da aprovação A2",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Função para imprimir
+  const handlePrint = async () => {
+    try {
+      const response = await fetch(`/api/purchase-requests/${request.id}/approval-a2-pdf`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao gerar PDF para impressão');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      // Abrir em nova janela para impressão
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+      
+      // Limpar URL após um tempo
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+
+      toast({
+        title: "Sucesso",
+        description: "PDF preparado para impressão!",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao preparar PDF para impressão",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
     <Card className={cn("w-full max-w-4xl", className)}>
@@ -280,11 +368,33 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
             <CheckCircle className="h-5 w-5" />
             Aprovação A2 - {request.requestNumber}
           </CardTitle>
-          {onClose && (
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              ✕
+          <div className="flex items-center gap-2">
+            {/* Botões de PDF e Impressão */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPDF}
+              disabled={isDownloading}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              {isDownloading ? 'Gerando...' : 'Gerar PDF'}
             </Button>
-          )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              className="flex items-center gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir
+            </Button>
+            {onClose && (
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                ✕
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       

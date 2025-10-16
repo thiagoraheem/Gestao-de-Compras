@@ -133,6 +133,56 @@ function registerPublicRoutes(app: Express) {
       res.status(500).json({ message: "Error generating PDF" });
     }
   });
+
+  // Public endpoint to download approval A2 PDF
+  app.get("/api/purchase-requests/:id/approval-a2-pdf", async (req, res) => {
+    try {
+      console.log(`[A2 PDF] Request received for ID: ${req.params.id}`);
+      
+      const requestId = parseInt(req.params.id);
+      if (isNaN(requestId)) {
+        console.log(`[A2 PDF] Invalid request ID: ${req.params.id}`);
+        return res.status(400).json({ message: "Invalid request ID" });
+      }
+
+      const purchaseRequest = await storage.getPurchaseRequestById(requestId);
+      if (!purchaseRequest) {
+        console.log(`[A2 PDF] Purchase request not found: ${requestId}`);
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+
+      console.log(`[A2 PDF] Purchase Request ${requestId} - Current Phase: ${purchaseRequest.currentPhase}`);
+
+      // Check if approval A2 PDF is available based on phase
+      // For approval A2 PDF, we need the request to be at least in approval_a2 phase
+      const hasApprovalA2Pdf = purchaseRequest.currentPhase === 'aprovacao_a2' || 
+                              purchaseRequest.currentPhase === 'pedido_compra' || 
+                              purchaseRequest.currentPhase === 'conclusao_compra' || 
+                              purchaseRequest.currentPhase === 'recebimento' || 
+                              purchaseRequest.currentPhase === 'arquivado';
+
+      console.log(`[A2 PDF] Has A2 PDF available: ${hasApprovalA2Pdf}`);
+
+      if (!hasApprovalA2Pdf) {
+        console.log(`[A2 PDF] PDF not available for phase: ${purchaseRequest.currentPhase}`);
+        return res.status(404).json({ message: "Approval A2 PDF not available yet" });
+      }
+
+      console.log(`[A2 PDF] Generating PDF for request ${requestId}...`);
+      
+      // Generate PDF
+      const pdfBuffer = await PDFService.generateApprovalA2PDF(requestId);
+      
+      console.log(`[A2 PDF] PDF generated successfully for request ${requestId}`);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Aprovacao_A2_${purchaseRequest.requestNumber}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("[A2 PDF] Error generating approval A2 PDF:", error);
+      res.status(500).json({ message: "Error generating approval A2 PDF" });
+    }
+  });
 }
 
 export function registerAllRoutes(app: Express) {
