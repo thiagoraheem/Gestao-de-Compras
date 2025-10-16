@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, addDays } from "date-fns";
@@ -87,12 +87,14 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
 
   // Fetch existing purchase request items
   const { data: purchaseRequestItems = [], isLoading: itemsLoading } = useQuery<any[]>({
-    queryKey: [`/api/purchase-requests/${purchaseRequest.id}/items`],
+    queryKey: [`/api/purchase-requests/${purchaseRequest?.id}/items`],
+    enabled: !!purchaseRequest?.id,
   });
 
   // Fetch complete purchase request data with requester info
   const { data: completeRequestData, isLoading: requestLoading } = useQuery<any>({
-    queryKey: [`/api/purchase-requests/${purchaseRequest.id}`],
+    queryKey: [`/api/purchase-requests/${purchaseRequest?.id}`],
+    enabled: !!purchaseRequest?.id,
   });
 
   // Fetch existing quotation items if editing
@@ -110,7 +112,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
   const form = useForm<RFQCreationData>({
     resolver: zodResolver(rfqCreationSchema),
     defaultValues: {
-      purchaseRequestId: purchaseRequest.id,
+      purchaseRequestId: purchaseRequest?.id || 0,
       quotationDeadline: format(addDays(new Date(), 7), "yyyy-MM-dd"),
       deliveryLocationId: 0,
       selectedSuppliers: [],
@@ -122,6 +124,22 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
     control: form.control,
     name: "items",
   });
+
+  // Use useWatch to watch selectedSuppliers instead of form.watch to prevent infinite loops
+  const selectedSuppliers = useWatch({
+    control: form.control,
+    name: "selectedSuppliers",
+  });
+
+  // Create a stable callback for supplier selection to prevent infinite loops
+  const handleSupplierSelectionChange = useCallback((selected: number[]) => {
+    form.setValue("selectedSuppliers", selected, { shouldValidate: true });
+  }, [form]);
+
+  // Create a stable callback for delivery location change to prevent infinite loops
+  const handleDeliveryLocationChange = useCallback((value: string) => {
+    form.setValue("deliveryLocationId", parseInt(value), { shouldValidate: true });
+  }, [form]);
 
   // Check if we have all the data we need
   const isLoadingData = existingQuotation 
@@ -181,10 +199,10 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       // Fallback to default item if no items exist
       const defaultItem = {
         itemCode: "",
-        description: purchaseRequest.justification || "",
+        description: purchaseRequest?.justification || "",
         quantity: "1",
         unit: "UN",
-        specifications: purchaseRequest.additionalInfo || "", // Load from additional info if available
+        specifications: purchaseRequest?.additionalInfo || "", // Load from additional info if available
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
       };
       
@@ -197,11 +215,10 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
     existingQuotationItems, 
     existingQuotation, 
     fields.length, 
-    form, 
     isLoadingData, 
     isDataLoaded,
     append
-  ]);
+  ]); // Removido 'form' das dependências
 
   // Set form values when existing quotation data is loaded
   useEffect(() => {
@@ -209,11 +226,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       form.setValue("quotationDeadline", existingQuotation.quotationDeadline ? format(new Date(existingQuotation.quotationDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 7), "yyyy-MM-dd"));
       form.setValue("termsAndConditions", existingQuotation.termsAndConditions || "");
       form.setValue("technicalSpecs", existingQuotation.technicalSpecs || "");
-    } else if (purchaseRequest.additionalInfo && !form.getValues("technicalSpecs")) {
+    } else if (purchaseRequest?.additionalInfo && !form.getValues("technicalSpecs")) {
       // Load technical specs from original request when creating new quotation, only if not already set
-      form.setValue("technicalSpecs", purchaseRequest.additionalInfo);
+      form.setValue("technicalSpecs", purchaseRequest?.additionalInfo);
     }
-  }, [existingQuotation?.id, purchaseRequest.additionalInfo]);
+  }, [existingQuotation, purchaseRequest]); // Removido 'form' das dependências
 
   // Set selected suppliers when existing supplier quotations are loaded
   useEffect(() => {
@@ -221,14 +238,14 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       const selectedSupplierIds = existingSupplierQuotations.map(sq => sq.supplierId);
       form.setValue("selectedSuppliers", selectedSupplierIds);
     }
-  }, [existingSupplierQuotations, form]);
+  }, [existingSupplierQuotations]); // Removido 'form' das dependências
 
   // Set delivery location to first available option when delivery locations are loaded
   useEffect(() => {
     if (deliveryLocations.length > 0 && form.getValues("deliveryLocationId") === 0) {
       form.setValue("deliveryLocationId", deliveryLocations[0].id);
     }
-  }, [deliveryLocations, form]);
+  }, [deliveryLocations]); // Removido 'form' das dependências
 
   // Mutation para criar RFQ e enviar por e-mail
   const createRFQWithEmailMutation = useMutation({
@@ -310,11 +327,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       // Invalidate all quotation-related queries
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}/status`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest?.id}/status`] });
       queryClient.invalidateQueries({ 
         predicate: (query) => 
-          !!(query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
+          !!(query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest?.id}`) ||
           query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
           query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
       });
@@ -406,11 +423,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       // Invalidate all quotation-related queries
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}/status`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest?.id}/status`] });
       queryClient.invalidateQueries({ 
         predicate: (query) => 
-          !!(query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
+          !!(query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest?.id}`) ||
           query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
           query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
       });
@@ -475,424 +492,397 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
   }
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {existingQuotation ? 'Editar' : 'Criar'} Solicitação de Cotação (RFQ)
-              </h2>
-              <p className="text-gray-600 mt-1">Solicitação: {purchaseRequest.requestNumber}</p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[95vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b p-2 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold">
+              {existingQuotation ? "Editar RFQ" : "Criar Solicitação de Cotação (RFQ)"}
+            </h2>
+            <p className="text-xs text-gray-600">
+              Solicitação {purchaseRequest?.requestNumber || "N/A"}
+            </p>
           </div>
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
         <Form {...form}>
-          <div className="p-6 space-y-6">
-            {/* Header Information */}
+          <form className="p-2 space-y-2">
+            {/* Basic Information */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Informações da Solicitação
+              <CardHeader className="pb-1">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Informações Básicas
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">Número da Solicitação</Label>
-                  <p className="text-lg font-semibold">{purchaseRequest.requestNumber}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">Solicitante</Label>
-                  <p className="text-lg">
-                    {completeRequestData?.requester 
-                      ? `${completeRequestData.requester.firstName} ${completeRequestData.requester.lastName}`.trim() || completeRequestData.requester.username
-                      : completeRequestData?.requesterName 
-                      || purchaseRequest.requesterName 
-                      || purchaseRequest.requesterUsername 
-                      || 'Carregando...'}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">Data de Criação</Label>
-                  <p className="text-lg">{format(new Date(purchaseRequest.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
-                </div>
-              </CardContent>
-            </Card>
+              <CardContent className="p-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <FormField
+                    control={form.control}
+                    name="quotationDeadline"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Prazo para Cotação *</FormLabel>
+                        <FormControl>
+                          <DateInput
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Selecione a data"
+                            className="h-8 text-xs"
+                          />
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
 
-            {/* Quotation Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Configurações da Cotação
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="quotationDeadline"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Prazo para Envio de Cotações</FormLabel>
-                      <FormControl>
-                        <DateInput
-                          value={field.value}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                          placeholder="DD/MM/AAAA"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="deliveryLocationId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Local de Entrega *</FormLabel>
-                      <FormControl>
-                        <Select 
-                          value={field.value.toString()} 
-                          onValueChange={(value) => field.onChange(parseInt(value))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o local de entrega" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {deliveryLocations
-                              .sort((a, b) => a.id - b.id)
-                              .map((location) => (
+                  <FormField
+                    control={form.control}
+                    name="deliveryLocationId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Local de Entrega *</FormLabel>
+                        <FormControl>
+                          <Select 
+                            onValueChange={handleDeliveryLocationChange} 
+                            value={field.value?.toString()}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {deliveryLocations.map((location: any) => (
                                 <SelectItem key={location.id} value={location.id.toString()}>
                                   {location.name}
                                 </SelectItem>
                               ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="termsAndConditions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Termos e Condições</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Insira os termos e condições específicos para esta cotação..."
-                          rows={4}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-                <FormField
-                  control={form.control}
-                  name="technicalSpecs"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Especificações Técnicas Gerais</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Especificações técnicas gerais da solicitação (carregadas automaticamente da solicitação original)"
-                          rows={3}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 gap-2 mt-2">
+                  <FormField
+                    control={form.control}
+                    name="termsAndConditions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Termos e Condições</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            placeholder="Descreva os termos e condições específicos..."
+                            rows={2}
+                            className="resize-none text-xs min-h-[50px]"
+                          />
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
 
+                  <FormField
+                    control={form.control}
+                    name="technicalSpecs"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Especificações Técnicas</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            placeholder="Descreva as especificações técnicas consolidadas..."
+                            rows={2}
+                            className="resize-none text-xs min-h-[50px]"
+                          />
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </CardContent>
             </Card>
 
-            {/* Items List */}
+            {/* Items */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Itens da Solicitação
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {purchaseRequestItems.length > 0 ? 
-                      `${purchaseRequestItems.length} item(s) carregado(s)` : 
-                      "Carregando itens..."}
-                  </Badge>
-                  <Button type="button" onClick={addItem} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
+              <CardHeader className="pb-1">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Itens da Cotação
+                  </CardTitle>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addItem}
+                    className="h-7 text-xs"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
                     Adicionar Item
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {purchaseRequestItems.length > 0 && (
-                  <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                    <p className="text-sm text-blue-700">
-                      <strong>Itens carregados da solicitação original:</strong> 
-                      Revise e confirme os itens abaixo, adicionando especificações técnicas e prazos de entrega conforme necessário.
-                    </p>
-                  </div>
-                )}
-                
-                {fields.map((field, index) => (
-                  <div key={field.id} className="border rounded-lg p-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium flex items-center gap-2">
-                        Item {index + 1}
-                        {purchaseRequestItems[index] && (
-                          <Badge variant="secondary" className="text-xs">
-                            Original
-                          </Badge>
-                        )}
-                      </h4>
-                      {fields.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    
-                    {/* Editable Item Fields */}
-                    <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        
+              <CardContent className="p-2">
+                <div className="space-y-2">
+                  {fields.map((field, index) => (
+                    <Card key={field.id} className="border-gray-200">
+                      <CardHeader className="pb-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-medium">Item {index + 1}</h4>
+                          {fields.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeItem(index)}
+                              className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-2">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.itemCode`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Código</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    placeholder="Código do item"
+                                    className="h-8 text-xs"
+                                  />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.description`}
+                            render={({ field }) => (
+                              <FormItem className="md:col-span-2">
+                                <FormLabel className="text-xs">Descrição *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    placeholder="Descrição do item"
+                                    className="h-8 text-xs"
+                                  />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.quantity`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Quantidade *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    placeholder="Qtd"
+                                    type="number"
+                                    step="0.01"
+                                    className="h-8 text-xs"
+                                  />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.unit`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Unidade *</FormLabel>
+                                <FormControl>
+                                  <UnitSelect
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    className="h-8 text-xs"
+                                  />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.deliveryDeadline`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Prazo de Entrega</FormLabel>
+                                <FormControl>
+                                  <DateInput
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    placeholder="Data de entrega"
+                                    className="h-8 text-xs"
+                                  />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
                         <FormField
                           control={form.control}
-                          name={`items.${index}.quantity`}
+                          name={`items.${index}.specifications`}
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-gray-700 font-medium">Quantidade</FormLabel>
+                            <FormItem className="mt-2">
+                              <FormLabel className="text-xs">Especificações</FormLabel>
                               <FormControl>
-                                <Input 
-                                  type="number" 
-                                  min="1" 
-                                  {...field} 
-                                  className="bg-white border-blue-300 focus:border-blue-500"
-                                  autoComplete="off"
+                                <Textarea
+                                  {...field}
+                                  placeholder="Especificações técnicas do item..."
+                                  rows={2}
+                                  className="resize-none text-xs min-h-[40px]"
                                 />
                               </FormControl>
-                              <FormMessage />
+                              <FormMessage className="text-xs" />
                             </FormItem>
                           )}
                         />
-                        
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.unit`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-gray-700 font-medium">Unidade</FormLabel>
-                              <FormControl>
-                                <UnitSelect
-                                  value={field.value}
-                                  onValueChange={field.onChange}
-                                  className="bg-white border-blue-300 focus:border-blue-500"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.deliveryDeadline`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-blue-600 font-medium">Prazo de Entrega *</FormLabel>
-                              <FormControl>
-                                <DateInput
-                                  value={field.value}
-                                  onChange={field.onChange}
-                                  onBlur={field.onBlur}
-                                  placeholder="DD/MM/AAAA"
-                                  className="bg-white border-blue-300 focus:border-blue-500"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Quotation-specific fields */}
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.description`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">Descrição do Item</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder="Descrição detalhada do item (carregada da solicitação original)"
-                                rows={2}
-                                {...field}
-                                className="bg-white border-gray-300 focus:border-blue-500"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.specifications`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-blue-600 font-medium">
-                              Especificações Técnicas para Cotação *
-                            </FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder="Especificações técnicas detalhadas que serão enviadas aos fornecedores para cotação (marca, modelo, características técnicas, normas, etc.)"
-                                rows={3}
-                                {...field}
-                                className="bg-white border-blue-300 focus:border-blue-500"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
-            {/* Supplier Selection */}
+            {/* Suppliers */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Seleção de Fornecedores
-                  </div>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+              <CardHeader className="pb-1">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Fornecedores
+                  </CardTitle>
+                  <Button
+                    type="button"
+                    variant="outline"
                     size="sm"
                     onClick={() => setShowSupplierCreationModal(true)}
-                    className="flex items-center gap-2"
+                    className="h-7 text-xs"
                   >
-                    <UserPlus className="h-4 w-4" />
+                    <UserPlus className="h-3 w-3 mr-1" />
                     Novo Fornecedor
                   </Button>
-                </CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
-                <FormField
-                  control={form.control}
-                  name="selectedSuppliers"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Fornecedores para Cotação</FormLabel>
-                      <SupplierSelector
-                        suppliers={suppliers}
-                        selectedSuppliers={field.value}
-                        onSelectionChange={field.onChange}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
+              <CardContent className="p-2">
+                <SupplierSelector
+                  suppliers={suppliers}
+                  selectedSuppliers={selectedSuppliers || []}
+                  onSelectionChange={handleSupplierSelectionChange}
                 />
+                {form.formState.errors.selectedSuppliers && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {form.formState.errors.selectedSuppliers.message}
+                  </p>
+                )}
               </CardContent>
             </Card>
 
-
-
-            {/* Actions */}
-            <div className="flex justify-end space-x-4 pt-6 border-t">
-              <Button type="button" variant="outline" onClick={onClose}>
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onClose}
+                className="h-8 text-xs"
+              >
+                <X className="h-3 w-3 mr-1" />
                 Cancelar
               </Button>
-              <Button type="button" variant="outline" onClick={saveDraft}>
-                <Save className="h-4 w-4 mr-2" />
+              
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={saveDraft}
+                className="h-8 text-xs"
+              >
+                <Save className="h-3 w-3 mr-1" />
                 Salvar Rascunho
               </Button>
+              
               <Button 
-                type="button"
+                type="button" 
                 onClick={form.handleSubmit(onSubmitWithoutEmail)}
-                disabled={createRFQWithoutEmailMutation.isPending || createRFQWithEmailMutation.isPending}
-                variant="outline"
-                className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                disabled={createRFQWithoutEmailMutation.isPending}
+                className="h-8 text-xs"
               >
                 {createRFQWithoutEmailMutation.isPending ? (
                   <>
-                    <Clock className="h-4 w-4 mr-2 animate-spin" />
-                    Liberando...
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                    Criando...
                   </>
                 ) : (
                   <>
-                    <FileText className="h-4 w-4 mr-2" />
-                    Liberar sem E-mail
+                    <FileText className="h-3 w-3 mr-1" />
+                    Criar RFQ
                   </>
                 )}
               </Button>
+              
               <Button 
-                type="button"
+                type="button" 
                 onClick={form.handleSubmit(onSubmitWithEmail)}
-                disabled={createRFQWithEmailMutation.isPending || createRFQWithoutEmailMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700"
+                disabled={createRFQWithEmailMutation.isPending}
+                className="h-8 text-xs bg-blue-600 hover:bg-blue-700"
               >
                 {createRFQWithEmailMutation.isPending ? (
                   <>
-                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
                     Enviando...
                   </>
                 ) : (
                   <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Cotação em E-mail
+                    <Send className="h-3 w-3 mr-1" />
+                    Criar e Enviar RFQ
                   </>
                 )}
               </Button>
             </div>
-          </div>
+          </form>
         </Form>
+
+        {/* Supplier Creation Modal */}
+        {showSupplierCreationModal && (
+          <SupplierCreationModal
+            isOpen={showSupplierCreationModal}
+            onClose={() => setShowSupplierCreationModal(false)}
+            onSuccess={() => {
+              setShowSupplierCreationModal(false);
+              // Refresh suppliers list
+              queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+            }}
+          />
+        )}
       </div>
     </div>
-    
-    {/* Supplier Creation Modal */}
-    <SupplierCreationModal
-      isOpen={showSupplierCreationModal}
-      onClose={() => setShowSupplierCreationModal(false)}
-      onSuccess={(newSupplier) => {
-        // Invalidate and refetch suppliers to ensure the list is updated
-        queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
-        
-        // Automatically select the newly created supplier
-        const currentSelected = form.getValues("selectedSuppliers");
-        form.setValue("selectedSuppliers", [...currentSelected, newSupplier.id]);
-        toast({
-          title: "Fornecedor criado",
-          description: `${newSupplier.name} foi criado e selecionado automaticamente para cotação.`,
-        });
-      }}
-    />
-    </>
   );
 }

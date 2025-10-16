@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -225,6 +226,32 @@ export default function UpdateSupplierQuotation({
     },
   });
 
+  // Use useWatch to prevent infinite loops
+  const watchedItems = useWatch({
+    control: form.control,
+    name: "items",
+  }) || [];
+
+  const discountType = useWatch({
+    control: form.control,
+    name: "discountType",
+  });
+
+  const discountValue = useWatch({
+    control: form.control,
+    name: "discountValue",
+  });
+
+  const includesFreight = useWatch({
+    control: form.control,
+    name: "includesFreight",
+  });
+
+  const freightValue = useWatch({
+    control: form.control,
+    name: "freightValue",
+  });
+
   // Initialize form with quotation items
   useEffect(() => {
     if (quotationItems.length > 0) {
@@ -243,7 +270,7 @@ export default function UpdateSupplierQuotation({
 
       form.setValue("items", formItems);
     }
-  }, [quotationItems, form]);
+  }, [quotationItems]); // Removido 'form' das dependências
 
   // Determine view mode based on quotation status
   useEffect(() => {
@@ -308,7 +335,7 @@ export default function UpdateSupplierQuotation({
         existingSupplierQuotation.freightValue || "",
       );
     }
-  }, [existingSupplierQuotation, quotationItems, form]);
+  }, [existingSupplierQuotation, quotationItems]); // Removido 'form' das dependências
 
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateSupplierQuotationData) => {
@@ -620,7 +647,6 @@ export default function UpdateSupplierQuotation({
   };
 
   const calculateSubtotal = () => {
-    const watchedItems = form.watch("items") || [];
     return watchedItems.reduce((sum, item, index) => {
       if (!item || !item.isAvailable) return sum;
       return sum + calculateItemTotal(item, index);
@@ -629,8 +655,6 @@ export default function UpdateSupplierQuotation({
 
   const calculateFinalTotal = () => {
     const subtotal = calculateSubtotal();
-    const discountType = form.watch("discountType");
-    const discountValue = form.watch("discountValue");
 
     if (discountType === "none" || !discountValue) {
       return subtotal;
@@ -649,8 +673,6 @@ export default function UpdateSupplierQuotation({
 
   const calculateTotalValue = () => {
     const finalTotal = calculateFinalTotal();
-    const includesFreight = form.watch("includesFreight");
-    const freightValue = form.watch("freightValue");
     
     if (includesFreight && freightValue) {
       const freightAmount = parseNumberFromCurrency(freightValue);
@@ -868,7 +890,7 @@ export default function UpdateSupplierQuotation({
                               />
                               <div className="text-xs text-gray-500">
                                 Original: R$ {(() => {
-                                  const unitPrice = form.watch(`items.${index}.unitPrice`);
+                                  const unitPrice = watchedItems[index]?.unitPrice;
                                   if (!unitPrice) return "0,00";
                                   const quantity = parseFloat(item.quantity);
                                   const price = parseNumberFromCurrency(unitPrice);
@@ -1016,7 +1038,7 @@ export default function UpdateSupplierQuotation({
                                   </FormItem>
                                 )}
                               />
-                              {form.watch(`items.${index}.isAvailable`) === false && (
+                              {watchedItems[index]?.isAvailable === false && (
                                 <FormField
                                   control={form.control}
                                   name={`items.${index}.unavailabilityReason`}

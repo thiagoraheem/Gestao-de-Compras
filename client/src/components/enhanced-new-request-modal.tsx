@@ -46,7 +46,7 @@ import {
   URGENCY_LABELS,
   CATEGORY_LABELS,
 } from "@/lib/types";
-import { Plus, X, Edit3, Edit2, Copy, Trash2, Check } from "lucide-react";
+import { Plus, X, Edit3, Edit2, Copy, Trash2, Check, CloudUpload } from "lucide-react";
 import HybridProductInput from "./hybrid-product-input";
 import { useUnits } from "@/hooks/useUnits";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -308,6 +308,33 @@ export default function EnhancedNewRequestModal({
     }, 100);
   };
 
+  // Handler para o botão "Adicionar Item"
+  const handleAddItem = () => {
+    addManualItem();
+  };
+
+  // Handler para o botão "Limpar"
+  const handleClearForm = () => {
+    setNewItemForm({
+      description: "",
+      unit: "UN",
+      requestedQuantity: 1,
+      technicalSpecification: "",
+      productCode: ""
+    });
+    
+    // Trigger reset do HybridProductInput
+    setResetTrigger(prev => prev + 1);
+    
+    // Reset maintainSearchMode
+    setMaintainSearchMode(false);
+    
+    // Focus back to description field
+    setTimeout(() => {
+      descriptionInputRef.current?.focus();
+    }, 100);
+  };
+
   const removeManualItem = (id: string) => {
     setManualItems((prev) => prev.filter((item) => item.id !== id));
   };
@@ -372,6 +399,43 @@ export default function EnhancedNewRequestModal({
     });
   };
 
+  // Handler para upload de arquivo
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validar tipo de arquivo
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: "Tipo de arquivo inválido",
+          description: "Apenas arquivos Excel (.xlsx, .xls) são permitidos",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Validar tamanho do arquivo (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "Arquivo muito grande",
+          description: "O arquivo deve ter no máximo 10MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setUploadedFile(file);
+      toast({
+        title: "Arquivo selecionado",
+        description: `${file.name} foi selecionado com sucesso`,
+      });
+    }
+  };
+
   const onSubmit = (data: RequestFormData) => {
     // Validação: deve ter itens manuais OU arquivo anexado
     if (itemsMethod === "manual" && manualItems.length === 0) {
@@ -402,20 +466,20 @@ export default function EnhancedNewRequestModal({
         aria-describedby="new-request-description"
       >
         <DialogHeader>
-          <DialogTitle>Nova Solicitação de Compra</DialogTitle>
+          <DialogTitle className="text-sm md:text-base">Nova Solicitação de Compra</DialogTitle>
         </DialogHeader>
         <p id="new-request-description" className="sr-only">
           Formulário para criar uma nova solicitação de compra no sistema
         </p>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
             {/* Informações Básicas */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Informações Básicas</CardTitle>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Informações Básicas</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-2">
                 {/* Company Selection - now available for all users */}
                 {companies && companies.length > 0 && (
                   <FormField
@@ -423,74 +487,61 @@ export default function EnhancedNewRequestModal({
                     name="companyId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Empresa *</FormLabel>
+                        <FormLabel className="text-xs">Empresa *</FormLabel>
                         <FormControl>
                           <Select
                             onValueChange={(value) => {
-                              field.onChange(value);
-                              setSelectedCompanyId(Number(value));
+                              field.onChange(parseInt(value));
+                              setSelectedCompanyId(parseInt(value));
+                              // Reset cost center when company changes
+                              form.setValue("costCenterId", 0);
                             }}
                             value={field.value?.toString()}
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione uma empresa..." />
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
                               {companies.map((company: any) => (
-                                <SelectItem
-                                  key={company.id}
-                                  value={company.id.toString()}
-                                >
+                                <SelectItem key={company.id} value={company.id.toString()}>
                                   {company.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <FormField
                     control={form.control}
                     name="costCenterId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Centro de Custo *</FormLabel>
+                        <FormLabel className="text-xs">Centro de Custo *</FormLabel>
                         <FormControl>
                           <Select
                             onValueChange={field.onChange}
                             value={field.value?.toString()}
+                            disabled={!selectedCompanyId || isLoadingCostCenters}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="h-8 text-xs">
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {isLoadingUserCostCenters ? (
-                                <SelectItem value="loading" disabled>
-                                  Carregando centros de custo...
+                              {costCenters?.map((costCenter: any) => (
+                                <SelectItem key={costCenter.id} value={costCenter.id.toString()}>
+                                  {costCenter.code} - {costCenter.name}
                                 </SelectItem>
-                              ) : costCenters && costCenters.length > 0 ? (
-                                costCenters.map((center: any) => (
-                                  <SelectItem
-                                    key={center.id}
-                                    value={center.id.toString()}
-                                  >
-                                    {center.code} - {center.name}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="no-centers" disabled>
-                                  Nenhum centro de custo disponível
-                                </SelectItem>
-                              )}
+                              ))}
                             </SelectContent>
                           </Select>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -500,13 +551,10 @@ export default function EnhancedNewRequestModal({
                     name="category"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Categoria de Compra *</FormLabel>
+                        <FormLabel className="text-xs">Categoria *</FormLabel>
                         <FormControl>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <SelectTrigger>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="h-8 text-xs">
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -520,58 +568,52 @@ export default function EnhancedNewRequestModal({
                             </SelectContent>
                           </Select>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <FormField
                     control={form.control}
                     name="urgency"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Urgência *</FormLabel>
+                        <FormLabel className="text-xs">Urgência *</FormLabel>
                         <FormControl>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <SelectTrigger>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="h-8 text-xs">
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {Object.entries(URGENCY_LEVELS).map(
-                                ([key, value]) => (
-                                  <SelectItem key={value} value={value}>
-                                    {URGENCY_LABELS[value]}
-                                  </SelectItem>
-                                ),
-                              )}
+                              {Object.entries(URGENCY_LEVELS).map(([key, value]) => (
+                                <SelectItem key={value} value={value}>
+                                  {URGENCY_LABELS[value]}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
 
                   <FormField
                     control={form.control}
-                    name="idealDeliveryDate"
+                    name="availableBudget"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Prazo Ideal de Entrega</FormLabel>
+                        <FormLabel className="text-xs">Orçamento Disponível</FormLabel>
                         <FormControl>
-                          <DateInput
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            placeholder="DD/MM/AAAA"
+                          <Input
+                            placeholder="R$ 0,00"
+                            className="h-8 text-xs"
+                            {...field}
                           />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -579,18 +621,37 @@ export default function EnhancedNewRequestModal({
 
                 <FormField
                   control={form.control}
+                  name="idealDeliveryDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Data Ideal de Entrega</FormLabel>
+                      <FormControl>
+                        <DateInput
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Selecione a data..."
+                          className="h-8 text-xs"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="justification"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Justificativa *</FormLabel>
+                      <FormLabel className="text-xs">Justificativa *</FormLabel>
                       <FormControl>
                         <Textarea
+                          placeholder="Descreva a justificativa para esta solicitação..."
+                          className="min-h-[60px] text-xs"
                           {...field}
-                          rows={3}
-                          placeholder="Descreva a necessidade e justificativa para esta compra..."
                         />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs" />
                     </FormItem>
                   )}
                 />
@@ -600,15 +661,15 @@ export default function EnhancedNewRequestModal({
                   name="additionalInfo"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Informações Adicionais</FormLabel>
+                      <FormLabel className="text-xs">Informações Adicionais</FormLabel>
                       <FormControl>
                         <Textarea
+                          placeholder="Informações complementares..."
+                          className="min-h-[60px] text-xs"
                           {...field}
-                          rows={2}
-                          placeholder="Informações complementares sobre a solicitação..."
                         />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs" />
                     </FormItem>
                   )}
                 />
@@ -617,280 +678,325 @@ export default function EnhancedNewRequestModal({
 
             {/* Itens da Solicitação */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Itens da Solicitação</CardTitle>
-                <CardDescription>
-                  Adicione os itens necessários. Você pode buscar produtos do ERP ou cadastrar itens avulsos.
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Itens da Solicitação</CardTitle>
+                <CardDescription className="text-xs">
+                  Adicione os itens que deseja solicitar
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Itens Cadastrados</h4>
-                </div>
+              <CardContent className="space-y-2">
+                <Tabs value={itemsMethod} onValueChange={(value) => setItemsMethod(value as "manual" | "upload")}>
+                  <TabsList className="grid w-full grid-cols-2 h-8">
+                    <TabsTrigger value="manual" className="text-xs">Adicionar Manualmente</TabsTrigger>
+                    <TabsTrigger value="upload" className="text-xs">Upload de Arquivo</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="manual" className="space-y-2">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Adicionar Item</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="space-y-2">
+                          <div>
+                            <label className="text-xs font-medium">Descrição do Item *</label>
+                            <HybridProductInput
+                              value={newItemForm.description}
+                              onChange={(value) => setNewItemForm(prev => ({ ...prev, description: value }))}
+                              onProductSelect={(product) => {
+                                setNewItemForm(prev => ({
+                                  ...prev,
+                                  description: product.description,
+                                  productCode: product.code,
+                                  unit: processERPUnit(product.unit)
+                                }));
+                              }}
+                              placeholder="Digite ou busque um produto..."
+                              className="h-8 text-xs"
+                              resetTrigger={resetTrigger}
+                              maintainSearchMode={maintainSearchMode}
+                              ref={descriptionInputRef}
+                            />
+                          </div>
 
-                {/* Formulário para adicionar novo item */}
-                <Card className="p-4 bg-gray-50">
-                  <h4 className="font-medium mb-3">Adicionar Novo Item</h4>
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-                    <div className="lg:col-span-2">
-                      <HybridProductInput
-                        value={newItemForm.description}
-                        onChange={(value) => setNewItemForm(prev => ({ ...prev, description: value }))}
-                        onProductSelect={(product) => {
-                          const processedUnit = processERPUnit(product.unidade);
-                          setNewItemForm(prev => ({
-                            ...prev,
-                            description: product.descricao,
-                            unit: processedUnit,
-                            productCode: product.codigo
-                          }));
-                          // Manter modo de busca ativo após selecionar produto do ERP
-                          setMaintainSearchMode(true);
-                        }}
-                        placeholder="Digite a descrição ou busque no ERP..."
-                        className="h-10"
-                        resetTrigger={resetTrigger}
-                        maintainSearchMode={maintainSearchMode}
-                      />
-                      {newItemForm.productCode && (
-                        <div className="mt-1">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            ERP: {newItemForm.productCode}
-                          </span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-xs font-medium">Unidade</label>
+                              <Select
+                                value={newItemForm.unit}
+                                onValueChange={(value) => setNewItemForm(prev => ({ ...prev, unit: value }))}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="UN">Unidade</SelectItem>
+                                  <SelectItem value="KG">Quilograma</SelectItem>
+                                  <SelectItem value="M">Metro</SelectItem>
+                                  <SelectItem value="M2">Metro Quadrado</SelectItem>
+                                  <SelectItem value="M3">Metro Cúbico</SelectItem>
+                                  <SelectItem value="L">Litro</SelectItem>
+                                  <SelectItem value="CX">Caixa</SelectItem>
+                                  <SelectItem value="PC">Peça</SelectItem>
+                                  <SelectItem value="PAR">Par</SelectItem>
+                                  <SelectItem value="KIT">Kit</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-medium">Quantidade *</label>
+                              <Input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={newItemForm.requestedQuantity}
+                                onChange={(e) => setNewItemForm(prev => ({ ...prev, requestedQuantity: parseInt(e.target.value) || 1 }))}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-medium">Especificação Técnica</label>
+                            <Input
+                              value={newItemForm.technicalSpecification}
+                              onChange={(e) => setNewItemForm(prev => ({ ...prev, technicalSpecification: e.target.value }))}
+                              placeholder="Especificações técnicas..."
+                              className="h-8 text-xs"
+                            />
+                          </div>
                         </div>
-                      )}
-                    </div>
-                    <div>
-                      <Select value={newItemForm.unit} onValueChange={(value) => setNewItemForm(prev => ({ ...prev, unit: value }))}>
-                        <SelectTrigger className="h-10">
-                          <SelectValue placeholder="Unidade" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="UN">UN - Unidade</SelectItem>
-                          <SelectItem value="KG">KG - Quilograma</SelectItem>
-                          <SelectItem value="M">M - Metro</SelectItem>
-                          <SelectItem value="L">L - Litro</SelectItem>
-                          <SelectItem value="Par">Par - Par</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        className="h-10"
-                        min="1"
-                        autoComplete="off"
-                        value={newItemForm.requestedQuantity}
-                        onChange={(e) => setNewItemForm(prev => ({ ...prev, requestedQuantity: parseInt(e.target.value) || 1 }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <Textarea
-                      placeholder="Especificação técnica (opcional)"
-                      rows={2}
-                      className="resize-none"
-                      value={newItemForm.technicalSpecification}
-                      onChange={(e) => setNewItemForm(prev => ({ ...prev, technicalSpecification: e.target.value }))}
-                    />
-                  </div>
-                  <div className="flex justify-end mt-3">
-                    <Button
-                      type="button"
-                      onClick={addManualItem}
-                      size="sm"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Adicionar
-                    </Button>
-                  </div>
-                </Card>
 
-                {manualItems.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Edit3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>Nenhum item cadastrado ainda.</p>
-                    <p className="text-sm">
-                      Use o formulário acima para adicionar itens.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[50px]">#</TableHead>
-                          <TableHead className="min-w-[250px]">Descrição</TableHead>
-                          <TableHead className="w-[80px]">Un.</TableHead>
-                          <TableHead className="w-[80px]">Qtd</TableHead>
-                          <TableHead className="w-[120px]">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {manualItems.map((item, index) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">
-                              {index + 1}
-                            </TableCell>
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="font-medium">
-                                   {editingItemId === item.id ? (
-                                     <HybridProductInput
-                                       value={item.description}
-                                       onChange={(value) => updateManualItem(item.id, 'description', value)}
-                                       onProductSelect={(product) => handleProductSelect(item.id, product)}
-                                       placeholder="Digite a descrição ou busque no ERP..."
-                                       className="h-8"
-                                     />
-                                   ) : (
-                                     <div className="flex items-center gap-2">
-                                       <span>{item.description}</span>
-                                       {item.productCode && (
-                                         <Badge variant="secondary" className="text-xs">
-                                           ERP: {item.productCode}
-                                         </Badge>
-                                       )}
-                                     </div>
-                                   )}
-                                 </div>
-                                 {(item.technicalSpecification || editingItemId === item.id) && (
-                                   <div className="text-xs text-gray-500 truncate max-w-[200px]" title={item.technicalSpecification}>
-                                     {editingItemId === item.id ? (
-                                       <Textarea
-                                         value={item.technicalSpecification || ""}
-                                         onChange={(e) => updateManualItem(item.id, 'technicalSpecification', e.target.value)}
-                                         className="h-16 text-xs"
-                                         rows={2}
-                                         placeholder="Especificação técnica (opcional)"
-                                       />
-                                     ) : (
-                                       item.technicalSpecification
-                                     )}
-                                   </div>
-                                 )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {editingItemId === item.id ? (
-                                <Select
-                                  value={item.unit}
-                                  onValueChange={(value) => updateManualItem(item.id, 'unit', value)}
-                                >
-                                  <SelectTrigger className="h-8">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="UN">UN</SelectItem>
-                                    <SelectItem value="KG">KG</SelectItem>
-                                    <SelectItem value="M">M</SelectItem>
-                                    <SelectItem value="L">L</SelectItem>
-                                    <SelectItem value="Par">Par - Par</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                item.unit
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {editingItemId === item.id ? (
-                                <Input
-                                  type="number"
-                                  value={item.requestedQuantity}
-                                  onChange={(e) => updateManualItem(item.id, 'requestedQuantity', parseInt(e.target.value) || 1)}
-                                  className="h-8"
-                                  min="1"
-                                  autoComplete="off"
-                                />
-                              ) : (
-                                item.requestedQuantity
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                {editingItemId === item.id ? (
-                                  <>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
-                                      onClick={saveEditingItem}
-                                      title="Salvar alterações"
-                                    >
-                                      <Check className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 text-gray-600 hover:text-gray-700"
-                                      onClick={cancelEditingItem}
-                                      title="Cancelar edição"
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0"
-                                      onClick={() => startEditingItem(item.id)}
-                                      title="Editar item"
-                                    >
-                                      <Edit2 className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => cloneManualItem(item.id)}
-                                      className="h-8 w-8 p-0"
-                                      title="Clonar item"
-                                    >
-                                      <Copy className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => removeManualItem(item.id)}
-                                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                      title="Excluir item"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            onClick={handleAddItem}
+                            disabled={!newItemForm.description.trim()}
+                            className="h-8 text-xs"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Adicionar Item
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleClearForm}
+                            className="h-8 text-xs"
+                          >
+                            Limpar
+                          </Button>
+                        </div>
+
+                        {/* Lista de Itens */}
+                        <div className="space-y-2">
+                          {manualItems.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-medium mb-1">
+                                Itens Adicionados ({manualItems.length})
+                              </h4>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="text-xs">Descrição</TableHead>
+                                    <TableHead className="text-xs">Unidade</TableHead>
+                                    <TableHead className="text-xs">Quantidade</TableHead>
+                                    <TableHead className="text-xs">Especificação</TableHead>
+                                    <TableHead className="text-xs">Ações</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {manualItems.map((item) => (
+                                    <TableRow key={item.id}>
+                                      <TableCell className="py-1">
+                                        {editingItemId === item.id ? (
+                                          <Input
+                                            value={newItemForm.description}
+                                            onChange={(e) => setNewItemForm(prev => ({ ...prev, description: e.target.value }))}
+                                            className="h-6 text-xs"
+                                          />
+                                        ) : (
+                                          <div>
+                                            <p className="font-medium text-xs">{item.description}</p>
+                                            {item.productCode && (
+                                              <p className="text-xs text-gray-500">Código: {item.productCode}</p>
+                                            )}
+                                          </div>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="py-1">
+                                        {editingItemId === item.id ? (
+                                          <Select
+                                            value={newItemForm.unit}
+                                            onValueChange={(value) => setNewItemForm(prev => ({ ...prev, unit: value }))}
+                                          >
+                                            <SelectTrigger className="h-6 text-xs">
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="UN">UN</SelectItem>
+                                              <SelectItem value="KG">KG</SelectItem>
+                                              <SelectItem value="M">M</SelectItem>
+                                              <SelectItem value="M2">M²</SelectItem>
+                                              <SelectItem value="M3">M³</SelectItem>
+                                              <SelectItem value="L">L</SelectItem>
+                                              <SelectItem value="CX">CX</SelectItem>
+                                              <SelectItem value="PC">PC</SelectItem>
+                                              <SelectItem value="PAR">PAR</SelectItem>
+                                              <SelectItem value="KIT">KIT</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        ) : (
+                                          <span className="text-xs">{item.unit}</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="py-1">
+                                        {editingItemId === item.id ? (
+                                          <Input
+                                            type="number"
+                                            min="1"
+                                            value={newItemForm.requestedQuantity}
+                                            onChange={(e) => setNewItemForm(prev => ({ ...prev, requestedQuantity: parseInt(e.target.value) || 1 }))}
+                                            className="h-6 text-xs"
+                                          />
+                                        ) : (
+                                          <span className="text-xs">{item.requestedQuantity}</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="py-1">
+                                        {editingItemId === item.id ? (
+                                          <Input
+                                            value={newItemForm.technicalSpecification}
+                                            onChange={(e) => setNewItemForm(prev => ({ ...prev, technicalSpecification: e.target.value }))}
+                                            className="h-6 text-xs"
+                                          />
+                                        ) : (
+                                          <span className="text-xs">{item.technicalSpecification || "-"}</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="py-1">
+                                        <div className="flex gap-1">
+                                          {editingItemId === item.id ? (
+                                            <>
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={saveEditingItem}
+                                                className="h-6 w-6 p-0"
+                                              >
+                                                <Check className="w-3 h-3" />
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={cancelEditingItem}
+                                                className="h-6 w-6 p-0"
+                                              >
+                                                <X className="w-3 h-3" />
+                                              </Button>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => startEditingItem(item.id)}
+                                                className="h-6 w-6 p-0"
+                                              >
+                                                <Edit2 className="w-3 h-3" />
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => cloneManualItem(item.id)}
+                                                className="h-6 w-6 p-0"
+                                              >
+                                                <Copy className="w-3 h-3" />
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => removeManualItem(item.id)}
+                                                className="h-6 w-6 p-0"
+                                              >
+                                                <Trash2 className="w-3 h-3" />
+                                              </Button>
+                                            </>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="upload" className="space-y-2">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Upload de Planilha</CardTitle>
+                        <CardDescription className="text-xs">
+                          Faça upload de uma planilha Excel com os itens
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                          <CloudUpload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                          <p className="text-xs text-gray-600 mb-2">
+                            Arraste e solte sua planilha aqui ou clique para selecionar
+                          </p>
+                          <input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                            id="file-upload"
+                          />
+                          <label
+                            htmlFor="file-upload"
+                            className="cursor-pointer inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
+                          >
+                            Selecionar Arquivo
+                          </label>
+                          {uploadedFile && (
+                            <p className="text-xs text-green-600 mt-2">
+                              Arquivo selecionado: {uploadedFile.name}
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
 
-            {/* Seção de anexos será adicionada após criar solicitação */}
-            {/* Botões */}
-            <div className="flex justify-end space-x-3">
+            {/* Submit Button */}
+            <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                className="h-8 text-xs"
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createRequestMutation.isPending}>
-                {createRequestMutation.isPending
-                  ? "Criando..."
-                  : "Criar Solicitação"}
+              <Button
+                type="submit"
+                disabled={createRequestMutation.isPending || (itemsMethod === "manual" && manualItems.length === 0)}
+                className="h-8 text-xs"
+              >
+                {createRequestMutation.isPending ? "Criando..." : "Criar Solicitação"}
               </Button>
             </div>
           </form>

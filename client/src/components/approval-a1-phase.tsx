@@ -209,121 +209,117 @@ export default function ApprovalA1Phase({
 
   // Render normal approval form
   return (
-    <Card className={cn("w-full max-w-6xl", className)}>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-blue-600" />
-            Aprovação A1 - Solicitação #{request.requestNumber}
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant={request.urgency === "alto" ? "destructive" : "secondary"}
-            >
-              {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS] ||
-                request.urgency}
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="h-8 w-8 p-0"
-            >
-              <XCircle className="h-4 w-4" />
-              <span className="sr-only">Fechar</span>
-            </Button>
-          </div>
+    <Card className={cn("w-full", className)}>
+      <CardHeader className="pb-1 md:pb-2">
+        <CardTitle className="text-xs md:text-sm lg:text-base flex items-center gap-1 md:gap-2">
+          <FileText className="h-3 w-3 md:h-4 md:w-4" />
+          Aprovação A1 - Solicitação #{request.requestNumber}
         </CardTitle>
       </CardHeader>
+      <CardContent className="p-1 md:p-2 lg:p-4 space-y-1 md:space-y-2">
+        {/* Permission Alert */}
+        <PermissionAlert
+          hasA1Permission={hasA1Permission}
+          canApprove={canApprove}
+          className="mb-1 md:mb-2"
+        />
 
-      <CardContent className="space-y-6">
-        {/* Request Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Basic Information */}
+        {/* Request Details Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2">
+          {/* Requester Information */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Informações da Solicitação
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+                <User className="h-3 w-3" />
+                Informações do Solicitante
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    Solicitante:
-                  </span>
-                  <span className="font-medium">
+            <CardContent className="p-1 md:p-2">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">Nome:</span>
+                  <span className="text-xs font-medium">
                     {request.requester?.firstName && request.requester?.lastName
                       ? `${request.requester.firstName} ${request.requester.lastName}`
                       : request.requester?.username || "N/A"}
                   </span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    Centro de Custo:
-                  </span>
-                  <span className="font-medium">
-                    {request.costCenter?.code} - {request.costCenter?.name}
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">Centro de Custo:</span>
+                  <span className="text-xs font-medium">
+                    {request.costCenter?.name || "N/A"}
                   </span>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    Categoria:
-                  </span>
-                  <Badge variant="outline">
-                    {request.category in CATEGORY_LABELS
-                      ? CATEGORY_LABELS[
-                          request.category as keyof typeof CATEGORY_LABELS
-                        ]
-                      : request.category}
+          {/* Request Status */}
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+                <Building className="h-3 w-3" />
+                Status da Solicitação
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-1 md:p-2">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">Categoria:</span>
+                  <Badge variant="outline" className="text-xs h-4">
+                    {CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS] || request.category}
                   </Badge>
                 </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">Urgência:</span>
+                  <Badge
+                    variant={
+                      request.urgency === "alta_urgencia"
+                        ? "destructive"
+                        : request.urgency === "alto"
+                        ? "default"
+                        : "secondary"
+                    }
+                    className="text-xs h-4"
+                  >
+                    {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS] || request.urgency}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                Datas e Prazos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-1 md:p-2">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">Data da Solicitação:</span>
+                  <span className="text-xs font-medium">
+                    {format(new Date(request.requestDate), "dd/MM/yyyy", {
+                      locale: ptBR,
+                    })}
+                  </span>
+                </div>
                 {request.idealDeliveryDate && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      Prazo Ideal:
-                    </span>
-                    <span className="font-medium">
-                      {format(
-                        new Date(request.idealDeliveryDate),
-                        "dd/MM/yyyy",
-                        { locale: ptBR },
-                      )}
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Entrega Ideal:</span>
+                    <span className="text-xs font-medium">
+                      {format(new Date(request.idealDeliveryDate), "dd/MM/yyyy", {
+                        locale: ptBR,
+                      })}
                     </span>
                   </div>
                 )}
-
-                {request.availableBudget && (
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      Orçamento:
-                    </span>
-                    <span className="font-medium">
-                      R${" "}
-                      {parseFloat(request.availableBudget).toLocaleString(
-                        "pt-BR",
-                        {
-                          minimumFractionDigits: 2,
-                        },
-                      )}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Criado:</span>
-                  <span className="font-medium">
-                    {formatDistanceToNow(new Date(request.createdAt), {
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">Tempo Decorrido:</span>
+                  <span className="text-xs font-medium">
+                    {formatDistanceToNow(new Date(request.requestDate), {
                       addSuffix: true,
                       locale: ptBR,
                     })}
@@ -332,71 +328,65 @@ export default function ApprovalA1Phase({
               </div>
             </CardContent>
           </Card>
+        </div>
 
-          {/* Justification */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Justificativa
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-32">
-                <p className="text-sm leading-relaxed">
-                  {request.justification}
-                </p>
-              </ScrollArea>
-
+        {/* Justification and Additional Info */}
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+              <MessageSquare className="h-3 w-3" />
+              Justificativa e Informações
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-1 md:p-2">
+            <div className="space-y-1">
+              <div>
+                <h4 className="text-xs font-medium mb-1">Justificativa:</h4>
+                <ScrollArea className="h-10 md:h-12">
+                  <p className="text-xs text-muted-foreground leading-tight">
+                    {request.justification}
+                  </p>
+                </ScrollArea>
+              </div>
               {request.additionalInfo && (
-                <div className="mt-4 pt-4 border-t">
-                  <h4 className="text-sm font-medium mb-2">
-                    Informações Adicionais:
-                  </h4>
-                  <ScrollArea className="h-20">
-                    <p className="text-sm text-muted-foreground leading-relaxed">
+                <div>
+                  <h4 className="text-xs font-medium mb-1">Informações Adicionais:</h4>
+                  <ScrollArea className="h-10 md:h-12">
+                    <p className="text-xs text-muted-foreground leading-tight">
                       {request.additionalInfo}
                     </p>
                   </ScrollArea>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Request Items */}
         <ApprovalItemsViewer
           items={transformedItems}
-          requestId={request.id}
-          requestNumber={request.requestNumber}
+          title="Itens da Solicitação"
+          className="mb-1 md:mb-2"
         />
-
-        {/* Attachments section removed - no longer showing purchase request attachments */}
 
         {/* Approval History */}
         {approvalHistory && approvalHistory.length > 0 && (
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <History className="h-4 w-4" />
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+                <History className="h-3 w-3" />
                 Histórico de Aprovações
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
+            <CardContent className="p-1 md:p-2">
+              <div className="space-y-1">
                 {approvalHistory.map((item: any, index: number) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-2 border rounded"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={item.approved ? "default" : "destructive"}
-                        className="text-xs"
-                      >
-                        {item.approved ? "Aprovado" : "Reprovado"}
+                  <div key={index} className="flex items-center justify-between p-1 border rounded-md">
+                    <div className="flex items-center gap-1">
+                      <Badge variant={item.approved ? 'default' : 'destructive'} className="text-xs h-4">
+                        {item.approved ? 'Aprovado' : 'Reprovado'}
                       </Badge>
-                      <span className="text-sm font-medium">
+                      <span className="text-xs font-medium">
                         {item.approver?.firstName && item.approver?.lastName
                           ? `${item.approver.firstName} ${item.approver.lastName}`
                           : item.approver?.username || "N/A"}
@@ -419,104 +409,100 @@ export default function ApprovalA1Phase({
           </Card>
         )}
 
-        <Separator />
-
         {/* Approval Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Decisão de Aprovação</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-4"
-              >
-                {/* Action Buttons */}
-                <div className="flex gap-4">
-                  <Button
-                    type="button"
-                    onClick={handleApprove}
-                    variant={
-                      selectedAction === "approve" ? "default" : "outline"
-                    }
-                    className="flex items-center gap-2"
-                    disabled={!canApprove}
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                    Aprovar Solicitação
-                  </Button>
-
-                  <Button
-                    type="button"
-                    onClick={handleReject}
-                    variant={
-                      selectedAction === "reject" ? "destructive" : "outline"
-                    }
-                    className="flex items-center gap-2"
-                    disabled={!canApprove}
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Reprovar Solicitação
-                  </Button>
-                </div>
-
-                {/* Rejection Reason Field */}
-                {selectedAction === "reject" && (
-                  <FormField
-                    control={form.control}
-                    name="rejectionReason"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Justificativa da Reprovação *</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            {...field}
-                            rows={4}
-                            placeholder="Descreva detalhadamente os motivos da reprovação..."
-                            className="resize-none"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {/* Submit Button */}
-                {selectedAction && (
-                  <div className="flex justify-end gap-3">
+        {canApprove && (
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs md:text-sm">
+                Decisão de Aprovação
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-1 md:p-2">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1 md:space-y-2">
+                  {/* Action Selection */}
+                  <div className="flex gap-1">
                     <Button
                       type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedAction(null);
-                        form.reset();
-                      }}
+                      variant={selectedAction === "approve" ? "default" : "outline"}
+                      onClick={handleApprove}
+                      className="flex-1 h-7 md:h-8 text-xs"
                       disabled={approvalMutation.isPending}
                     >
-                      Cancelar
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Aprovar
                     </Button>
                     <Button
-                      type="submit"
-                      disabled={approvalMutation.isPending || !canApprove}
-                      variant={
-                        selectedAction === "approve" ? "default" : "destructive"
-                      }
-                      className="min-w-[120px]"
+                      type="button"
+                      variant={selectedAction === "reject" ? "destructive" : "outline"}
+                      onClick={handleReject}
+                      className="flex-1 h-7 md:h-8 text-xs"
+                      disabled={approvalMutation.isPending}
                     >
-                      {approvalMutation.isPending
-                        ? "Processando..."
-                        : selectedAction === "approve"
-                          ? "Confirmar Aprovação"
-                          : "Confirmar Reprovação"}
+                      <XCircle className="h-3 w-3 mr-1" />
+                      Reprovar
                     </Button>
                   </div>
-                )}
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+
+                  {/* Rejection Reason */}
+                  {selectedAction === "reject" && (
+                    <FormField
+                      control={form.control}
+                      name="rejectionReason"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">
+                            Justificativa da Reprovação *
+                          </FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Descreva o motivo da reprovação..."
+                              {...field}
+                              rows={2}
+                              className="text-xs min-h-[50px]"
+                            />
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* Submit Button */}
+                  {selectedAction && (
+                    <div className="flex justify-end gap-1 pt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedAction(null);
+                          form.reset();
+                        }}
+                        disabled={approvalMutation.isPending}
+                        className="h-7 md:h-8 text-xs"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={approvalMutation.isPending}
+                        className="h-7 md:h-8 text-xs"
+                      >
+                        {approvalMutation.isPending ? (
+                          "Processando..."
+                        ) : selectedAction === "approve" ? (
+                          "Confirmar Aprovação"
+                        ) : (
+                          "Confirmar Reprovação"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        )}
       </CardContent>
     </Card>
   );

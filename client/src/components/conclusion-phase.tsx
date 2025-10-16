@@ -574,42 +574,68 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   }
                   return sqi.description === item.description || 
                          sqi.itemCode === item.itemCode ||
-                         sqi.quotationItemId === item.id;
+                         sqi.quotationItemId === item.id ||
+                         (sqi.description && item.description && 
+                          sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
                 });
                 return !supplierItem || supplierItem.isAvailable !== false;
               }).map((item: any) => {
+                const status = getItemStatus(item);
+                
+                // Find matching supplier quotation item with multiple criteria
                 const supplierItem = supplierQuotationItems.find((sqi: any) => {
                   // First try by purchaseRequestItemId (most reliable)
                   if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
                     return true;
                   }
-                  // Fallback: try by description, item code, or quotationItemId
+                  // Fallback: try by description, item code, quotationItemId, or normalized description
                   return sqi.description === item.description || 
                          sqi.itemCode === item.itemCode ||
-                         sqi.quotationItemId === item.id;
+                         sqi.quotationItemId === item.id ||
+                         (sqi.description && item.description && 
+                          sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
                 });
                 
-                const unitPrice = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
+                // Get unit price with better fallback logic
+                let unitPrice = 0;
+                if (supplierItem) {
+                  unitPrice = parseFloat(supplierItem.unitPrice) || 0;
+                } else if (selectedSupplierQuotation?.totalValue && items.length === 1) {
+                  // If only one item and we have total value, use it as unit price
+                  unitPrice = parseFloat(selectedSupplierQuotation.totalValue) || 0;
+                }
+                
                 const quantity = parseFloat(item.requestedQuantity) || 0;
                 const total = quantity * unitPrice;
-                const status = getItemStatus(item);
                 
-                return `
-                  <tr>
-                    <td>${item.description}</td>
-                    <td>${item.unit}</td>
-                    <td class="text-right">${quantity}</td>
-                    <td class="text-right">${quantity}</td>
-                    <td class="text-right">${formatCurrency(unitPrice)}</td>
-                    <td class="text-right" style="font-weight: 600;">${formatCurrency(total)}</td>
-                    <td class="text-center">
-                      <span class="badge ${status === 'received' ? 'badge-success' : 'badge-outline'}">
-                        ${status === 'received' ? 'Recebido' : 'Pendente'}
-                      </span>
+                return (
+                  <tr key={item.id} className="border-b">
+                    <td className="py-1 md:py-2">
+                      <div>
+                        <p className="font-medium text-xs md:text-sm">{item.description}</p>
+                        {item.specifications && (
+                          <p className="text-xs text-gray-600">{item.specifications}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-1 md:py-2 text-xs md:text-sm">{item.unit}</td>
+                    <td className="text-right py-1 md:py-2 text-xs md:text-sm">{quantity}</td>
+                    <td className="text-right py-1 md:py-2 text-xs md:text-sm">{quantity}</td>
+                    <td className="text-right py-1 md:py-2 text-xs md:text-sm">
+                      {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </td>
+                    <td className="text-right py-1 md:py-2 font-medium text-xs md:text-sm">
+                      {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </td>
+                    <td className="text-center py-1 md:py-2">
+                      <div className="flex items-center justify-center gap-1">
+                        {getStatusIcon(status)}
+                        {getStatusBadge(status)}
+                      </div>
                     </td>
                   </tr>
-                `;
-              }).join('')}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -769,46 +795,49 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   return (
     <div className={className}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Conclusão da Compra</h2>
-          <p className="text-gray-600">Solicitação {request.requestNumber}</p>
+          <h2 className="text-lg font-bold text-gray-900">Conclusão da Compra</h2>
+          <p className="text-sm text-gray-600">Solicitação {request.requestNumber}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="sm"
             onClick={() => downloadPurchaseOrderPDFMutation.mutate()}
             disabled={downloadPurchaseOrderPDFMutation.isPending}
-            className="border-blue-600 text-blue-600 hover:bg-blue-50"
+            className="border-blue-600 text-blue-600 hover:bg-blue-50 h-7 text-xs px-2"
           >
-            <FileText className="h-4 w-4 mr-2" />
-            {downloadPurchaseOrderPDFMutation.isPending ? "Baixando..." : "PDF Pedido de Compra"}
+            <FileText className="h-3 w-3 mr-1" />
+            {downloadPurchaseOrderPDFMutation.isPending ? "Baixando..." : "PDF Pedido"}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => exportPDFMutation.mutate()}
             disabled={exportPDFMutation.isPending}
+            className="h-7 text-xs px-2"
           >
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="h-3 w-3 mr-1" />
             Exportar PDF
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handlePrint}
+            className="h-7 text-xs px-2"
           >
-            <Printer className="h-4 w-4 mr-2" />
+            <Printer className="h-3 w-3 mr-1" />
             Imprimir
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleSendEmail}
+            className="h-7 text-xs px-2"
           >
-            <Mail className="h-4 w-4 mr-2" />
-            Enviar E-mail
+            <Mail className="h-3 w-3 mr-1" />
+            E-mail
           </Button>
           {request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
             <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
@@ -816,44 +845,49 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-7 text-xs px-2"
                 >
-                  <Archive className="h-4 w-4 mr-2" />
+                  <Archive className="h-3 w-3 mr-1" />
                   Arquivar
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Arquivar Solicitação</DialogTitle>
+                  <DialogTitle className="text-sm">Arquivar Solicitação</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleArchive)} className="space-y-4">
+                  <form onSubmit={form.handleSubmit(handleArchive)} className="space-y-2">
                     <FormField
                       control={form.control}
                       name="conclusionObservations"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Observações de Conclusão (Opcional)</FormLabel>
+                          <FormLabel className="text-xs">Observações de Conclusão (Opcional)</FormLabel>
                           <FormControl>
                             <Textarea
                               placeholder="Adicione observações sobre a conclusão do processo..."
+                              className="h-16 text-xs"
                               {...field}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-xs" />
                         </FormItem>
                       )}
                     />
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-1">
                       <Button
                         type="button"
                         variant="outline"
                         onClick={() => setShowArchiveDialog(false)}
+                        className="h-7 text-xs px-2"
                       >
                         Cancelar
                       </Button>
                       <Button
                         type="submit"
+                        size="sm"
                         disabled={isArchiving}
+                        className="h-7 text-xs px-2"
                       >
                         {isArchiving ? "Arquivando..." : "Arquivar"}
                       </Button>
@@ -863,278 +897,256 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               </DialogContent>
             </Dialog>
           )}
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+            <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       <div className="space-y-6">
         {/* Process Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Tempo Total</p>
-                  <p className="text-2xl font-bold text-gray-900">{totalProcessTime} dias</p>
-                </div>
-                <Clock className="h-8 w-8 text-blue-500" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+          <Card className="p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-600">Tempo Total</p>
+                <p className="text-lg font-bold text-gray-900">{totalProcessTime}</p>
               </div>
-            </CardContent>
+              <Clock className="h-6 w-6 text-blue-600" />
+            </div>
           </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Valor Total</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {totalItemsValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </p>
-                </div>
-                <DollarSign className="h-8 w-8 text-green-500" />
+          <Card className="p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-600">Valor Total</p>
+                <p className="text-lg font-bold text-green-600">
+                  R$ {totalItemsValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
               </div>
-            </CardContent>
+              <DollarSign className="h-6 w-6 text-green-600" />
+            </div>
           </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Status</p>
-                  <p className="text-2xl font-bold text-green-600">Concluído</p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-green-500" />
+          <Card className="p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-600">Status</p>
+                <Badge variant="default" className="text-xs">
+                  {request.currentPhase === PURCHASE_PHASES.ARQUIVADO ? 'Arquivado' : 'Concluído'}
+                </Badge>
               </div>
-            </CardContent>
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
           </Card>
         </div>
 
         {/* Request Summary */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Resumo da Solicitação
-            </CardTitle>
+        <Card className="p-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Resumo da Solicitação</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Número da Solicitação</span>
-                  <p className="text-lg font-semibold">{request.requestNumber}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Data de Criação</span>
-                  <p>{format(new Date(request.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Status Final</span>
-                  <Badge variant="default" className="bg-green-100 text-green-800">
-                    {PHASE_LABELS[request.currentPhase]}
-                  </Badge>
-                </div>
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div>
+                <p className="text-xs text-gray-600">Número da Solicitação</p>
+                <p className="text-sm font-medium">{request.requestNumber}</p>
               </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Solicitante</span>
-                  <p className="font-medium">
-                    {requester ? `${requester.firstName} ${requester.lastName}` : request.requesterName || 'Não informado'}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {requester?.email || request.requesterEmail || 'Não informado'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Departamento</span>
-                  <p>{department?.name || request.departmentName || 'Não informado'}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Centro de Custo</span>
-                  <p>{costCenter ? `${costCenter.code} - ${costCenter.name}` : request.costCenterName || 'Não informado'}</p>
-                </div>
+              <div>
+                <p className="text-xs text-gray-600">Data de Criação</p>
+                <p className="text-sm font-medium">{formatDate(request.createdAt)}</p>
               </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Categoria</span>
-                  <Badge variant="outline">{CATEGORY_LABELS[request.category]}</Badge>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Urgência</span>
-                  <Badge variant="outline">{URGENCY_LABELS[request.urgency]}</Badge>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Orçamento Disponível</span>
-                  <p className="font-medium">
-                    {request.availableBudget?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'Não informado'}
-                  </p>
-                </div>
+              <div>
+                <p className="text-xs text-gray-600">Status Final</p>
+                <Badge variant="default" className="text-xs">
+                  {request.currentPhase === PURCHASE_PHASES.ARQUIVADO ? 'Arquivado' : 'Concluído'}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Solicitante</p>
+                <p className="text-sm font-medium">{requesterData?.name || 'Carregando...'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Departamento</p>
+                <p className="text-sm font-medium">{departmentData?.name || 'Carregando...'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Centro de Custo</p>
+                <p className="text-sm font-medium">{costCenterData?.name || 'Carregando...'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Categoria</p>
+                <p className="text-sm font-medium">{request.category}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Urgência</p>
+                <Badge variant={request.urgency === 'ALTA' ? 'destructive' : request.urgency === 'MEDIA' ? 'default' : 'secondary'} className="text-xs">
+                  {request.urgency}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Orçamento Disponível</p>
+                <p className="text-sm font-medium">
+                  R$ {request.availableBudget?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Economia Gerada</p>
+                <p className="text-sm font-medium text-green-600">
+                  R$ {budgetSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
               </div>
             </div>
-            
-            <Separator className="my-4" />
-            
             <div>
-              <span className="text-sm font-medium text-gray-500">Justificativa</span>
-              <p className="mt-1 text-gray-900">{request.justification}</p>
+              <p className="text-xs text-gray-600">Justificativa</p>
+              <p className="text-sm">{request.justification}</p>
             </div>
           </CardContent>
         </Card>
 
         {/* Selected Supplier */}
+        <Card className="p-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Fornecedor Selecionado</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div>
+                <p className="text-xs text-gray-600">Nome</p>
+                <p className="text-sm font-medium">{selectedSupplier?.name || 'Não informado'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Contato</p>
+                <p className="text-sm">{selectedSupplier?.email || 'Não informado'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Valor da Cotação</p>
+                <p className="text-sm font-medium text-green-600">
+                  R$ {selectedSupplierQuotation?.totalValue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Prazo de Entrega</p>
+                <p className="text-sm">{selectedSupplierQuotation?.deliveryTerms || 'Não informado'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Status</p>
+                <Badge variant="default" className="text-xs">Selecionado</Badge>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Desconto</p>
+                <p className="text-sm font-medium text-green-600">
+                  {selectedSupplierQuotation?.discount ? `${selectedSupplierQuotation.discount}%` : '0%'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         {selectedSupplier && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="h-5 w-5" />
-                Fornecedor Selecionado
-              </CardTitle>
+          <Card className="p-3">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Dados Detalhados do Fornecedor</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Nome do Fornecedor</span>
-                    <p className="text-lg font-semibold">{selectedSupplier.supplier?.name || 'Não informado'}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Contato</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Phone className="h-4 w-4 text-gray-400" />
-                      <p>{selectedSupplier.supplier?.phone || 'Não informado'}</p>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Mail className="h-4 w-4 text-gray-400" />
-                      <p>{selectedSupplier.supplier?.email || 'Não informado'}</p>
-                    </div>
-                  </div>
+            <CardContent className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div>
+                  <p className="text-xs text-gray-600">Nome Completo</p>
+                  <p className="text-sm font-medium">{selectedSupplier.supplier?.name || 'Não informado'}</p>
                 </div>
-                
-                <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-gray-600">Telefone</p>
+                  <p className="text-sm">{selectedSupplier.supplier?.phone || 'Não informado'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">E-mail</p>
+                  <p className="text-sm">{selectedSupplier.supplier?.email || 'Não informado'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Valor Total</p>
+                  <p className="text-sm font-medium text-green-600">
+                    {selectedSupplier.totalValue ? 
+                      parseFloat(selectedSupplier.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
+                      (request.totalValue ? 
+                        parseFloat(request.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
+                        'Não informado'
+                      )
+                    }
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Prazo de Entrega</p>
+                  <p className="text-sm">{selectedSupplier.deliveryTerms || selectedSupplier.deliveryTime || 'Não informado'}</p>
+                </div>
+                {(selectedSupplier.discountType && selectedSupplier.discountType !== 'none' && selectedSupplier.discountValue) && (
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Valor da Cotação</span>
-                    <p className="text-lg font-semibold text-green-600">
-                      {selectedSupplier.totalValue ? 
-                        parseFloat(selectedSupplier.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
-                        (request.totalValue ? 
-                          parseFloat(request.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
-                          'Não informado'
-                        )
+                    <p className="text-xs text-gray-600">Desconto da Proposta</p>
+                    <p className="text-sm font-medium text-green-600">
+                      {selectedSupplier.discountType === 'percentage' 
+                        ? `${selectedSupplier.discountValue}%`
+                        : parseFloat(selectedSupplier.discountValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
                       }
                     </p>
                   </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Prazo de Entrega</span>
-                    <p>{selectedSupplier.deliveryTerms || selectedSupplier.deliveryTime || 'Não informado'}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Status</span>
-                    <Badge variant="default" className="bg-green-100 text-green-800">
-                      Selecionado
-                    </Badge>
-                  </div>
-                  
-                  {/* Desconto da Proposta */}
-                  {(selectedSupplier.discountType && selectedSupplier.discountType !== 'none' && selectedSupplier.discountValue) && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Desconto da Proposta</span>
-                      <p className="text-lg font-semibold text-green-600">
-                        {selectedSupplier.discountType === 'percentage' 
-                          ? `${selectedSupplier.discountValue}%`
-                          : `R$ ${Number(selectedSupplier.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                        }
-                      </p>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
-              
-              
             </CardContent>
           </Card>
         )}
 
         {/* Purchase Order Data */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Dados do Pedido de Compra
-            </CardTitle>
+        <Card className="p-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Dados do Pedido de Compra</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Número do Pedido</span>
-                  <p className="text-lg font-semibold">{request.requestNumber}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Data de Emissão</span>
-                  <p>{format(new Date(request.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Status do Pedido</span>
-                  <Badge variant="default" className="bg-green-100 text-green-800">
-                    Entregue
-                  </Badge>
-                </div>
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div>
+                <p className="text-xs text-gray-600">Número do Pedido</p>
+                <p className="text-sm font-medium">{request.requestNumber}</p>
               </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Condições de Pagamento</span>
-                  <p>{request.paymentConditions || 'Conforme contrato'}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Local de Entrega</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <MapPin className="h-4 w-4 text-gray-400" />
-                    <p>{request.deliveryLocation || 'Sede da empresa'}</p>
-                  </div>
-                </div>
+              <div>
+                <p className="text-xs text-gray-600">Data de Emissão</p>
+                <p className="text-sm">{format(new Date(request.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Status do Pedido</p>
+                <Badge variant="default" className="text-xs">Entregue</Badge>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Condições de Pagamento</p>
+                <p className="text-sm">{request.paymentConditions || 'Conforme contrato'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Local de Entrega</p>
+                <p className="text-sm">{request.deliveryLocation || 'Sede da empresa'}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Receipt Data */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Dados do Recebimento
-            </CardTitle>
+        <Card className="p-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Dados do Recebimento</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Data do Recebimento</span>
-                  <p>{format(new Date(request.updatedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Responsável pelo Recebimento</span>
-                  <p>{request.receivedBy || 'Sistema Automático'}</p>
-                </div>
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div>
+                <p className="text-xs text-gray-600">Data do Recebimento</p>
+                <p className="text-sm">{format(new Date(request.updatedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
               </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Status da Conferência</span>
-                  <Badge variant="default" className="bg-green-100 text-green-800">
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Conforme
-                  </Badge>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Observações</span>
-                  <p>{request.receiptObservations || 'Recebimento sem observações'}</p>
-                </div>
+              <div>
+                <p className="text-xs text-gray-600">Responsável pelo Recebimento</p>
+                <p className="text-sm">{request.receivedBy || 'Sistema Automático'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Status da Conferência</p>
+                <Badge variant="default" className="text-xs">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Conforme
+                </Badge>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Observações</p>
+                <p className="text-sm">{request.receiptObservations || 'Recebimento sem observações'}</p>
               </div>
             </div>
           </CardContent>
@@ -1144,98 +1156,54 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
         <ProcessTimeline timeline={completeTimeline} isLoading={timelineLoading} />
 
         {/* Items Received */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Itens Recebidos
-            </CardTitle>
+        <Card className="p-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Itens Recebidos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2">Item</th>
-                    <th className="text-left py-2">Unidade</th>
-                    <th className="text-right py-2">Qtd. Solicitada</th>
-                    <th className="text-right py-2">Qtd. Recebida</th>
-                    <th className="text-right py-2">Preço Unitário</th>
-                    <th className="text-right py-2">Total</th>
-                    <th className="text-center py-2">Status</th>
+                    <th className="text-left py-1 text-xs">Item</th>
+                    <th className="text-left py-1 text-xs">Unidade</th>
+                    <th className="text-right py-1 text-xs">Qtd. Solicitada</th>
+                    <th className="text-right py-1 text-xs">Qtd. Recebida</th>
+                    <th className="text-right py-1 text-xs">Preço Unitário</th>
+                    <th className="text-right py-1 text-xs">Total</th>
+                    <th className="text-center py-1 text-xs">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.filter((item: any) => {
-                    // Filter out unavailable items
-                    const supplierItem = supplierQuotationItems.find((sqi: any) => {
-                      if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
-                        return true;
-                      }
-                      return sqi.description === item.description || 
-                             sqi.itemCode === item.itemCode ||
-                             sqi.quotationItemId === item.id ||
-                             (sqi.description && item.description && 
-                              sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
-                    });
-                    return !supplierItem || supplierItem.isAvailable !== false;
-                  }).map((item: any) => {
-                    const status = getItemStatus(item);
-                    
-                    // Find matching supplier quotation item with multiple criteria
-                    const supplierItem = supplierQuotationItems.find((sqi: any) => {
-                      // First try by purchaseRequestItemId (most reliable)
-                      if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
-                        return true;
-                      }
-                      // Fallback: try by description, item code, quotationItemId, or normalized description
-                      return sqi.description === item.description || 
-                             sqi.itemCode === item.itemCode ||
-                             sqi.quotationItemId === item.id ||
-                             (sqi.description && item.description && 
-                              sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
-                    });
-                    
-                    // Get unit price with better fallback logic
-                    let unitPrice = 0;
-                    if (supplierItem) {
-                      unitPrice = parseFloat(supplierItem.unitPrice) || 0;
-                    } else if (selectedSupplierQuotation?.totalValue && items.length === 1) {
-                      // If only one item and we have total value, use it as unit price
-                      unitPrice = parseFloat(selectedSupplierQuotation.totalValue) || 0;
-                    }
-                    
-                    const quantity = parseFloat(item.requestedQuantity) || 0;
-                    const total = quantity * unitPrice;
-                    
-                    return (
-                      <tr key={item.id} className="border-b">
-                        <td className="py-2">
-                          <div>
-                            <p className="font-medium">{item.description}</p>
-                            {item.specifications && (
-                              <p className="text-sm text-gray-600">{item.specifications}</p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-2">{item.unit}</td>
-                        <td className="text-right py-2">{quantity}</td>
-                        <td className="text-right py-2">{quantity}</td>
-                        <td className="text-right py-2">
-                          {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </td>
-                        <td className="text-right py-2 font-medium">
-                          {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </td>
-                        <td className="text-center py-2">
-                          <div className="flex items-center justify-center gap-1">
-                            {getStatusIcon(status)}
-                            {getStatusBadge(status)}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {combinedItems.map((item, index) => (
+                    <tr key={index} className="border-b border-gray-100">
+                      <td className="py-1 text-xs">
+                        <div>
+                          <p className="font-medium">{item.description}</p>
+                          {item.itemCode && (
+                            <p className="text-gray-500">Cód: {item.itemCode}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-1 text-xs">{item.unit}</td>
+                      <td className="text-right py-1 text-xs">{item.quantity}</td>
+                      <td className="text-right py-1 text-xs">{item.receivedQuantity || item.quantity}</td>
+                      <td className="text-right py-1 text-xs">
+                        R$ {item.unitPrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                      </td>
+                      <td className="text-right py-1 text-xs font-medium">
+                        R$ {item.totalPrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                      </td>
+                      <td className="text-center py-1">
+                        <div className="flex items-center justify-center">
+                          {item.status.icon}
+                          <Badge variant={item.status.variant} className="ml-1 text-xs">
+                            {item.status.label}
+                          </Badge>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -1255,21 +1223,21 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               {/* Anexos da Solicitação Original */}
               {attachments.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Anexos da Solicitação</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 md:mb-3">Anexos da Solicitação</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4">
                     {attachments.map((attachment: any) => (
-                      <div key={attachment.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                        <FileText className="h-8 w-8 text-blue-500" />
+                      <div key={attachment.id} className="flex items-center gap-2 md:gap-3 p-2 md:p-3 border rounded-lg">
+                        <FileText className="h-6 md:h-7 lg:h-8 w-6 md:w-7 lg:w-8 text-blue-500" />
                         <div className="flex-1">
-                          <p className="font-medium">{attachment.fileName || attachment.filename}</p>
-                          <p className="text-sm text-gray-600">{attachment.fileType}</p>
+                          <p className="font-medium text-xs md:text-sm">{attachment.fileName || attachment.filename}</p>
+                          <p className="text-xs text-gray-600">{attachment.fileType}</p>
                           <p className="text-xs text-gray-500">
                             {attachment.attachmentType === 'requisition' ? 'Anexo de Solicitação' : attachment.attachmentType}
                           </p>
                         </div>
-                        <Button variant="ghost" size="sm" asChild>
+                        <Button variant="ghost" size="sm" asChild className="h-8 w-8">
                           <a href={`/api/attachments/${attachment.id}/download`} target="_blank">
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-3 md:h-4 w-3 md:w-4" />
                           </a>
                         </Button>
                       </div>
@@ -1281,21 +1249,21 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               {/* Anexos de Cotações de Fornecedores */}
               {quotationAttachments.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Anexos de Cotações</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 md:mb-3">Anexos de Cotações</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4">
                     {quotationAttachments.map((attachment: any) => (
-                      <div key={attachment.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                        <FileText className="h-8 w-8 text-green-500" />
+                      <div key={attachment.id} className="flex items-center gap-2 md:gap-3 p-2 md:p-3 border rounded-lg">
+                        <FileText className="h-6 md:h-7 lg:h-8 w-6 md:w-7 lg:w-8 text-green-500" />
                         <div className="flex-1">
-                          <p className="font-medium">{attachment.fileName || attachment.filename}</p>
-                          <p className="text-sm text-gray-600">{attachment.fileType}</p>
+                          <p className="font-medium text-xs md:text-sm">{attachment.fileName || attachment.filename}</p>
+                          <p className="text-xs text-gray-600">{attachment.fileType}</p>
                           <p className="text-xs text-gray-500">
                             Proposta de {attachment.supplierName || 'Fornecedor'}
                           </p>
                         </div>
-                        <Button variant="ghost" size="sm" asChild>
+                        <Button variant="ghost" size="sm" asChild className="h-8 w-8">
                           <a href={`/api/attachments/${attachment.id}/download`} target="_blank">
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-3 md:h-4 w-3 md:w-4" />
                           </a>
                         </Button>
                       </div>
@@ -1306,9 +1274,9 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
               {/* Mensagem quando não há anexos */}
               {attachments.length === 0 && quotationAttachments.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                  <p>Nenhum anexo encontrado para esta solicitação</p>
+                <div className="text-center py-4 md:py-6 lg:py-8 text-gray-500">
+                  <FileText className="h-8 md:h-10 lg:h-12 w-8 md:w-10 lg:w-12 mx-auto mb-2 md:mb-3 text-gray-400" />
+                  <p className="text-xs md:text-sm">Nenhum anexo encontrado para esta solicitação</p>
                 </div>
               )}
             </div>
@@ -1317,18 +1285,18 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
         {/* Process Completion Status */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" />
+          <CardHeader className="pb-2 md:pb-3 lg:pb-4">
+            <CardTitle className="text-base md:text-lg flex items-center gap-2">
+              <CheckCircle className="h-4 md:h-5 w-4 md:w-5" />
               Status do Processo
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+            <div className="flex items-start gap-2 md:gap-3 p-2 md:p-3 lg:p-4 bg-green-50 rounded-lg">
+              <CheckCircle className="h-4 md:h-5 w-4 md:w-5 text-green-600 mt-0.5" />
               <div>
-                <p className="font-medium text-green-900">Processo Concluído</p>
-                <p className="text-sm text-green-700">
+                <p className="font-medium text-green-900 text-xs md:text-sm">Processo Concluído</p>
+                <p className="text-xs text-green-700">
                   Todas as etapas foram executadas com sucesso. O processo está finalizado.
                 </p>
               </div>

@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Search, Check, Users, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,29 +42,29 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
     return suppliers.filter(supplier => selectedSuppliers.includes(supplier.id));
   }, [suppliers, selectedSuppliers]);
 
-  const handleSupplierToggle = (supplierId: number) => {
+  const handleSupplierToggle = useCallback((supplierId: number) => {
     if (selectedSuppliers.includes(supplierId)) {
       onSelectionChange(selectedSuppliers.filter(id => id !== supplierId));
     } else {
       onSelectionChange([...selectedSuppliers, supplierId]);
     }
-  };
+  }, [selectedSuppliers, onSelectionChange]);
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     const allFilteredIds = filteredSuppliers.map(s => s.id);
     const newSelection = [...new Set([...selectedSuppliers, ...allFilteredIds])];
     onSelectionChange(newSelection);
-  };
+  }, [filteredSuppliers, selectedSuppliers, onSelectionChange]);
 
-  const handleDeselectAll = () => {
+  const handleDeselectAll = useCallback(() => {
     const filteredIds = filteredSuppliers.map(s => s.id);
     const newSelection = selectedSuppliers.filter(id => !filteredIds.includes(id));
     onSelectionChange(newSelection);
-  };
+  }, [filteredSuppliers, selectedSuppliers, onSelectionChange]);
 
-  const handleClearSelection = () => {
+  const handleClearSelection = useCallback(() => {
     onSelectionChange([]);
-  };
+  }, [onSelectionChange]);
 
   return (
     <div className="space-y-4">

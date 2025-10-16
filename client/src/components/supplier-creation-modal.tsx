@@ -153,55 +153,54 @@ export default function SupplierCreationModal({ isOpen, onClose, onSuccess }: Su
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl w-[95vw] max-h-[95vh] flex flex-col p-0">
-        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            Criar Novo Fornecedor
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-sm flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Novo Fornecedor
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome da Empresa *</FormLabel>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Nome do Fornecedor *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nome da empresa" className="h-8 text-xs" {...field} />
+                  </FormControl>
+                  <FormMessage className="text-xs" />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Tipo de Fornecedor *</FormLabel>
+                  <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value?.toString()}>
                     <FormControl>
-                      <Input placeholder="Nome do fornecedor" {...field} />
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    <SelectContent>
+                      <SelectItem value="0">Tradicional</SelectItem>
+                      <SelectItem value="1">Online</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage className="text-xs" />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Fornecedor *</FormLabel>
-                    <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value?.toString()}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="0">Tradicional</SelectItem>
-                        <SelectItem value="1">Online</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <FormField
                 control={form.control}
                 name="cnpj"
@@ -210,11 +209,11 @@ export default function SupplierCreationModal({ isOpen, onClose, onSuccess }: Su
                   const isRequired = supplierType === 0;
                   return (
                     <FormItem>
-                      <FormLabel>CNPJ {isRequired ? "*" : ""}</FormLabel>
+                      <FormLabel className="text-xs">CNPJ {isRequired ? "*" : ""}</FormLabel>
                       <FormControl>
-                        <Input placeholder="00.000.000/0000-00" {...field} />
+                        <Input placeholder="00.000.000/0000-00" className="h-8 text-xs" {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs" />
                     </FormItem>
                   );
                 }}
@@ -228,16 +227,18 @@ export default function SupplierCreationModal({ isOpen, onClose, onSuccess }: Su
                   const isRequired = supplierType === 0;
                   return (
                     <FormItem>
-                      <FormLabel>Pessoa de Contato {isRequired ? "*" : ""}</FormLabel>
+                      <FormLabel className="text-xs">Pessoa de Contato {isRequired ? "*" : ""}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nome do contato" {...field} />
+                        <Input placeholder="Nome do contato" className="h-8 text-xs" {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs" />
                     </FormItem>
                   );
                 }}
               />
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <FormField
                 control={form.control}
                 name="email"
@@ -246,11 +247,11 @@ export default function SupplierCreationModal({ isOpen, onClose, onSuccess }: Su
                   const isRequired = supplierType === 0;
                   return (
                     <FormItem>
-                      <FormLabel>Email {isRequired ? "*" : ""}</FormLabel>
+                      <FormLabel className="text-xs">Email {isRequired ? "*" : ""}</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="email@empresa.com" {...field} />
+                        <Input type="email" placeholder="email@empresa.com" className="h-8 text-xs" {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs" />
                     </FormItem>
                   );
                 }}
@@ -264,102 +265,99 @@ export default function SupplierCreationModal({ isOpen, onClose, onSuccess }: Su
                   const isRequired = supplierType === 0;
                   return (
                     <FormItem>
-                      <FormLabel>Telefone {isRequired ? "*" : ""}</FormLabel>
+                      <FormLabel className="text-xs">Telefone {isRequired ? "*" : ""}</FormLabel>
                       <FormControl>
-                        <Input placeholder="(11) 99999-9999" {...field} />
+                        <Input placeholder="(11) 99999-9999" className="h-8 text-xs" {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs" />
                     </FormItem>
                   );
                 }}
               />
+            </div>
 
-              <FormField
-                control={form.control}
-                name="website"
-                render={({ field }) => {
-                  const supplierType = form.watch("type");
-                  const isRequired = supplierType === 1;
-                  return (
-                    <FormItem>
-                      <FormLabel>Site do Fornecedor {isRequired ? "*" : ""}</FormLabel>
-                      <FormControl>
-                        <Input type="url" placeholder="https://www.exemplo.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
-              />
+            <FormField
+              control={form.control}
+              name="website"
+              render={({ field }) => {
+                const supplierType = form.watch("type");
+                const isRequired = supplierType === 1;
+                return (
+                  <FormItem>
+                    <FormLabel className="text-xs">Site do Fornecedor {isRequired ? "*" : ""}</FormLabel>
+                    <FormControl>
+                      <Input type="url" placeholder="https://www.exemplo.com" className="h-8 text-xs" {...field} />
+                    </FormControl>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                );
+              }}
+            />
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <FormField
                 control={form.control}
                 name="paymentTerms"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Condições de Pagamento</FormLabel>
+                    <FormLabel className="text-xs">Condições de Pagamento</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: 30 dias" {...field} />
+                      <Input placeholder="Ex: 30 dias" className="h-8 text-xs" {...field} />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
-              </div>
+            </div>
 
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Endereço</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Endereço completo do fornecedor"
-                        rows={3}
-                        className="resize-none"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </form>
-          </Form>
-        </div>
-
-        <div className="flex-shrink-0 px-6 py-4 border-t bg-gray-50/50">
-          <div className="flex flex-col sm:flex-row justify-end gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleClose}
-              className="w-full sm:w-auto order-2 sm:order-1"
-            >
-              <X className="h-4 w-4 mr-2" />
-              Cancelar
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={createSupplierMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto order-1 sm:order-2"
-              onClick={form.handleSubmit(onSubmit)}
-            >
-              {createSupplierMutation.isPending ? (
-                <>
-                  <Save className="h-4 w-4 mr-2 animate-spin" />
-                  Criando...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Criar Fornecedor
-                </>
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Endereço</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Endereço completo do fornecedor"
+                      className="min-h-[60px] text-xs"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs" />
+                </FormItem>
               )}
-            </Button>
-          </div>
-        </div>
+            />
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                className="h-8 text-xs"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={createSupplierMutation.isPending}
+                className="h-8 text-xs"
+              >
+                {createSupplierMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                    Criando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-3 w-3 mr-1" />
+                    Criar Fornecedor
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

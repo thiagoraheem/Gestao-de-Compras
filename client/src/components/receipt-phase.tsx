@@ -343,137 +343,134 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   }, [items, supplierQuotationItems, quotationItems, selectedSupplierQuotation]);
 
   return (
-    <div className={cn("space-y-6", className)}>
+    <div className={cn("space-y-2 md:space-y-3 lg:space-y-6", className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Recebimento de Material</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg md:text-xl lg:text-2xl font-semibold text-gray-900">Recebimento - {request.requestNumber}</h2>
+          <p className="text-xs md:text-sm text-gray-500">
             Confirme o recebimento ou reporte pendências
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1 md:gap-2">
           <Button
             onClick={handlePreviewPDF}
             disabled={isLoadingPreview}
             variant="outline"
-            className="border-green-600 text-green-600 hover:bg-green-50"
+            className="border-green-600 text-green-600 hover:bg-green-50 h-6 md:h-7 lg:h-8 text-xs md:text-sm"
           >
-            <Eye className="w-4 h-4 mr-2" />
+            <Eye className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
             {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
           </Button>
           <Button
             onClick={handleDownloadPDF}
             disabled={isDownloading}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-green-600 hover:bg-green-700 h-6 md:h-7 lg:h-8 text-xs md:text-sm"
           >
-            <Download className="w-4 h-4 mr-2" />
-            {isDownloading ? "Gerando PDF..." : "Baixar PDF"}
+            <Download className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+            {isDownloading ? "Baixando..." : "Baixar PDF"}
           </Button>
-          <Button variant="ghost" onClick={onClose}>
-            <X className="h-5 w-5" />
+          <Button variant="outline" onClick={onClose} className="h-6 md:h-7 lg:h-8 text-xs md:text-sm">
+            <X className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+            Fechar
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Request Information */}
+      {/* Request Information */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 md:gap-3 lg:gap-4">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
+          <CardHeader className="pb-1 md:pb-2">
+            <CardTitle className="text-sm md:text-base lg:text-lg flex items-center gap-1 md:gap-2">
+              <FileText className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5" />
               Informações da Solicitação
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <CardContent className="p-2 md:p-3 lg:p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2 lg:gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-500">Número</p>
-                <Badge variant="outline" className="mt-1">
-                  {request.requestNumber}
-                </Badge>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Número</p>
+                <p className="text-xs md:text-sm font-semibold mt-1">{request.requestNumber}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Categoria</p>
-                <p className="text-sm">{CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Categoria</p>
+                <p className="text-xs md:text-sm">{CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}</p>
               </div>
             </div>
 
-            <div>
-              <p className="text-sm font-medium text-gray-500">Justificativa</p>
-              <p className="text-sm mt-1">{request.justification}</p>
+            <div className="mt-1 md:mt-2 lg:mt-4">
+              <p className="text-xs md:text-sm font-medium text-gray-500">Justificativa</p>
+              <p className="text-xs md:text-sm mt-1">{request.justification}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-1 md:gap-2 lg:gap-4 mt-1 md:mt-2 lg:mt-4">
               <div>
-                <p className="text-sm font-medium text-gray-500">Urgência</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Urgência</p>
                 <Badge 
-                  variant={request.urgency === "alto" ? "destructive" : "secondary"} 
-                  className="mt-1"
+                  variant={request.urgency === 'high' ? 'destructive' : request.urgency === 'medium' ? 'default' : 'secondary'} 
+                  className="text-xs"
                 >
                   {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
                 </Badge>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Valor Total</p>
-                <p className="text-sm font-medium mt-1">{formatCurrency(request.totalValue)}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Valor Total</p>
+                <p className="text-sm md:text-base lg:text-lg font-bold text-green-600">
+                  {formatCurrency(request.totalValue || 0)}
+                </p>
               </div>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-gray-500">Data de Criação</p>
-              <p className="text-sm mt-1">{formatDate(request.createdAt)}</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* People Information */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
+          <CardHeader className="pb-1 md:pb-2">
+            <CardTitle className="text-sm md:text-base lg:text-lg flex items-center gap-1 md:gap-2">
+              <User className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5" />
               Responsáveis
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Solicitante</p>
-              <p className="text-sm mt-1">
-                {request.requester ? 
-                  `${request.requester.firstName} ${request.requester.lastName}` : 
-                  "N/A"
-                }
-              </p>
-              <p className="text-xs text-gray-400">{request.requester?.email}</p>
+          <CardContent className="p-2 md:p-3 lg:p-6">
+            <div className="space-y-1 md:space-y-2">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Solicitante</p>
+                <p className="text-xs md:text-sm mt-1">
+                  {request.requester ? 
+                    `${request.requester.firstName} ${request.requester.lastName}` : 
+                    "N/A"
+                  }
+                </p>
+                <p className="text-xs text-gray-400">{request.requester?.email}</p>
+              </div>
+
+              {request.approverA1 && (
+                <div>
+                  <p className="text-xs md:text-sm font-medium text-gray-500">Aprovador A1</p>
+                  <p className="text-xs md:text-sm mt-1">
+                    {`${request.approverA1.firstName} ${request.approverA1.lastName}`}
+                  </p>
+                  <p className="text-xs text-gray-400">{request.approverA1.email}</p>
+                </div>
+              )}
+
+              {request.approverA2 && (
+                <div>
+                  <p className="text-xs md:text-sm font-medium text-gray-500">Aprovador A2</p>
+                  <p className="text-xs md:text-sm mt-1">
+                    {`${request.approverA2.firstName} ${request.approverA2.lastName}`}
+                  </p>
+                  <p className="text-xs text-gray-400">{request.approverA2.email}</p>
+                </div>
+              )}
+
+              {request.costCenter && (
+                <div>
+                  <p className="text-xs md:text-sm font-medium text-gray-500">Centro de Custo</p>
+                  <p className="text-xs md:text-sm mt-1">{request.costCenter.name}</p>
+                  <p className="text-xs text-gray-400">Código: {request.costCenter.code}</p>
+                </div>
+              )}
             </div>
-
-            {request.approverA1 && (
-              <div>
-                <p className="text-sm font-medium text-gray-500">Aprovador A1</p>
-                <p className="text-sm mt-1">
-                  {`${request.approverA1.firstName} ${request.approverA1.lastName}`}
-                </p>
-                <p className="text-xs text-gray-400">{request.approverA1.email}</p>
-              </div>
-            )}
-
-            {request.approverA2 && (
-              <div>
-                <p className="text-sm font-medium text-gray-500">Aprovador A2</p>
-                <p className="text-sm mt-1">
-                  {`${request.approverA2.firstName} ${request.approverA2.lastName}`}
-                </p>
-                <p className="text-xs text-gray-400">{request.approverA2.email}</p>
-              </div>
-            )}
-
-            {request.costCenter && (
-              <div>
-                <p className="text-sm font-medium text-gray-500">Centro de Custo</p>
-                <p className="text-sm mt-1">{request.costCenter.name}</p>
-                <p className="text-xs text-gray-400">Código: {request.costCenter.code}</p>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -481,322 +478,175 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
       {/* Selected Supplier Information */}
       {selectedSupplierQuotation && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5 text-green-600" />
+          <CardHeader className="pb-1 md:pb-2">
+            <CardTitle className="text-sm md:text-base lg:text-lg flex items-center gap-1 md:gap-2">
+              <Building className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5 text-green-600" />
               Fornecedor Selecionado
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <CardContent className="p-2 md:p-3 lg:p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1 md:gap-2 lg:gap-4 mb-1 md:mb-2 lg:mb-4">
               <div>
-                <p className="text-sm font-medium text-gray-500">Nome do Fornecedor</p>
-                <p className="text-sm font-semibold mt-1">{selectedSupplierQuotation.supplier?.name || 'N/A'}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Nome do Fornecedor</p>
+                <p className="text-xs md:text-sm font-semibold mt-1">{selectedSupplierQuotation.supplier?.name || 'N/A'}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">E-mail</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.email || 'N/A'}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">E-mail</p>
+                <p className="text-xs md:text-sm mt-1">{selectedSupplierQuotation.supplier?.email || 'N/A'}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Contato</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.contact || 'N/A'}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Contato</p>
+                <p className="text-xs md:text-sm mt-1">{selectedSupplierQuotation.supplier?.contact || 'N/A'}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">CNPJ</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.cnpj || 'N/A'}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">CNPJ</p>
+                <p className="text-xs md:text-sm mt-1">{selectedSupplierQuotation.supplier?.cnpj || 'N/A'}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Valor Total da Proposta</p>
-                <p className="text-lg font-bold text-green-600 mt-1">
-                  {formatCurrency(selectedSupplierQuotation.totalValue)}
+                <p className="text-xs md:text-sm font-medium text-gray-500">Valor Total</p>
+                <p className="text-sm md:text-base lg:text-lg font-bold text-green-600">
+                  {formatCurrency(selectedSupplierQuotation.totalValue || 0)}
                 </p>
               </div>
-              
-              {/* Freight Information - Highlighted */}
-              <div className="col-span-full">
-                <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Truck className="h-5 w-5 text-blue-600" />
-                    <p className="text-sm font-semibold text-blue-800">Informações de Frete</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-blue-700">Frete Incluso</p>
-                      <p className="text-sm mt-1">
-                        {selectedSupplierQuotation.includesFreight ? 'Sim' : 'Não'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-blue-700">Valor do Frete</p>
-                      <p className="text-lg font-bold text-blue-800 mt-1">
-                        {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Condições de Pagamento</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500 flex items-center gap-1">
+                  <Truck className="h-3 w-3 md:h-4 md:w-4" />
+                  Frete
+                </p>
+                <p className="text-xs md:text-sm mt-1">
+                  {selectedSupplierQuotation.includesFreight ? 
+                    `R$ ${freightValue.toFixed(2).replace('.', ',')}` : 
+                    'Não incluso'
+                  }
+                </p>
               </div>
-              
-              {/* Desconto da Proposta */}
-              {(selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Desconto da Proposta</p>
-                  <p className="text-lg font-bold text-green-600 mt-1">
-                    {selectedSupplierQuotation.discountType === 'percentage' 
-                      ? `${selectedSupplierQuotation.discountValue}%`
-                      : formatCurrency(selectedSupplierQuotation.discountValue)
-                    }
-                  </p>
-                </div>
-              )}
             </div>
             
-            {selectedSupplierQuotation.choiceReason && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm font-medium text-green-800">Justificativa da Escolha:</p>
-                <p className="text-sm text-green-700 mt-1">{selectedSupplierQuotation.choiceReason}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2 lg:gap-4">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Condições de Pagamento</p>
+                <p className="text-xs md:text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Purchase Order Observations */}
-      {(request.purchaseOrderObservations || request.purchaseObservations) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-600" />
-              Observações do Pedido de Compra
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 whitespace-pre-wrap">
-                {request.purchaseOrderObservations || request.purchaseObservations || 'Nenhuma observação encontrada'}
-              </p>
+              <div>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Prazo de Entrega</p>
+                <p className="text-xs md:text-sm mt-1">{selectedSupplierQuotation.deliveryTerms || 'N/A'}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
-
-      
 
       {/* Items Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Itens da Compra</CardTitle>
+        <CardHeader className="pb-1 md:pb-2">
+          <CardTitle className="text-sm md:text-base lg:text-lg">Itens da Compra</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-1 md:p-2 lg:p-6">
           {itemsWithPrices.length > 0 ? (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead className="text-center">Qtd</TableHead>
-                    <TableHead className="text-center">Unidade</TableHead>
-                    <TableHead className="text-right">Valor Unit.</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead className="text-xs md:text-sm py-1 md:py-2">Descrição</TableHead>
+                    <TableHead className="text-center text-xs md:text-sm py-1 md:py-2">Qtd</TableHead>
+                    <TableHead className="text-center text-xs md:text-sm py-1 md:py-2">Unidade</TableHead>
+                    <TableHead className="text-right text-xs md:text-sm py-1 md:py-2">Valor Unit.</TableHead>
+                    <TableHead className="text-right text-xs md:text-sm py-1 md:py-2">Valor Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {itemsWithPrices.map((item: any, index: number) => (
                     <TableRow key={index}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium text-xs md:text-sm py-1 md:py-2">
                         {item.description}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center text-xs md:text-sm py-1 md:py-2">
                         {item.requestedQuantity}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center text-xs md:text-sm py-1 md:py-2">
                         {item.unit}
                       </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.unitPrice)}
+                      <TableCell className="text-right text-xs md:text-sm py-1 md:py-2">
+                        {formatCurrency(item.unitPrice || 0)}
                       </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(item.totalPrice)}
+                      <TableCell className="text-right text-xs md:text-sm font-medium py-1 md:py-2">
+                        {formatCurrency(item.totalPrice || 0)}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              
-              {/* Total Summary */}
-              <div className="border-t bg-gray-50 p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">
-                    Subtotal ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
-                  </span>
-                  <span className="text-base font-semibold text-gray-800">
-                    {formatCurrency(
-                      itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
-                    )}
-                  </span>
-                </div>
-                
-                {/* Freight Display */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-blue-600 flex items-center gap-1">
-                    <Truck className="h-4 w-4" />
-                    Frete
-                  </span>
-                  <span className="text-base font-semibold text-blue-600">
-                    {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
-                  </span>
-                </div>
-                
-                {/* Total with Freight */}
-                <div className="border-t pt-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-base font-bold text-gray-800">
-                      Total Geral
-                    </span>
-                    <span className="text-xl font-bold text-green-600">
-                      {formatCurrency(
-                        (itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0) || 0) + (freightValue || 0)
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Nenhum item encontrado</p>
-              <p className="text-sm">Os dados dos itens serão carregados automaticamente</p>
+            <div className="text-center py-2 md:py-4 text-gray-500">
+              <Package className="h-6 w-6 md:h-8 md:w-8 mx-auto mb-1 md:mb-2 opacity-50" />
+              <p className="text-xs md:text-sm">Nenhum item encontrado</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Approval History */}
-      {Array.isArray(approvalHistory) && approvalHistory.length > 0 && (
+      {/* Receipt Actions */}
+      {canPerformReceiptActions && (
         <Card>
-          <CardHeader>
-            <CardTitle>Histórico de Aprovações</CardTitle>
+          <CardHeader className="pb-1 md:pb-2">
+            <CardTitle className="text-sm md:text-base lg:text-lg">Ações de Recebimento</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {(approvalHistory as any[]).map((history: any, index: number) => (
-                <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">
-                        {history.approver?.firstName} {history.approver?.lastName}
-                      </p>
-                      <Badge variant={history.approved ? "default" : "destructive"}>
-                        {history.approved ? "Aprovado" : "Rejeitado"}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formatDate(history.createdAt)}
-                    </p>
-                    {history.rejectionReason && (
-                      <p className="text-sm text-red-600 mt-2">
-                        <strong>Motivo:</strong> {history.rejectionReason}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
+          <CardContent className="p-2 md:p-3 lg:p-6">
+            <div className="flex flex-col sm:flex-row gap-1 md:gap-2">
+              <Button
+                onClick={() => confirmReceiptMutation.mutate()}
+                disabled={confirmReceiptMutation.isPending}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-xs md:text-sm h-6 md:h-7 lg:h-10"
+              >
+                <Check className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                {confirmReceiptMutation.isPending ? 'Confirmando...' : 'Confirmar Recebimento'}
+              </Button>
+              <Button
+                onClick={() => setIsPendencyModalOpen(true)}
+                variant="outline"
+                className="flex-1 border-red-600 text-red-600 hover:bg-red-50 text-xs md:text-sm h-6 md:h-7 lg:h-10"
+              >
+                <X className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                Reportar Pendência
+              </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      <Separator />
-
-      {/* Action Buttons */}
-      <div className="flex justify-end space-x-3">
-        <Button variant="outline" onClick={onClose}>
-          Fechar
-        </Button>
-        {canPerformReceiptActions ? (
-          <>
-            <Button
-              variant="destructive"
-              onClick={() => setIsPendencyModalOpen(true)}
-              disabled={reportIssueMutation.isPending}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Reportar Pendência
-            </Button>
-            <Button
-              onClick={() => confirmReceiptMutation.mutate()}
-              disabled={confirmReceiptMutation.isPending}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Check className="mr-2 h-4 w-4" />
-              Confirmar Recebimento
-            </Button>
-          </>
-        ) : (
-          <div className="text-sm text-gray-500 flex items-center">
-            <User className="mr-2 h-4 w-4" />
-            Apenas usuários com perfil "Recebedor" podem confirmar recebimentos
-          </div>
-        )}
-      </div>
-
-      {/* Pendency Modal */}
-      <PendencyModal
-        isOpen={isPendencyModalOpen}
-        onClose={() => setIsPendencyModalOpen(false)}
-        onConfirm={(reason) => reportIssueMutation.mutate(reason)}
-        isLoading={reportIssueMutation.isPending}
-      />
-
-      {/* Modal de Pré-visualização do PDF */}
-      <Dialog open={showPreviewModal} onOpenChange={handleClosePreview}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+      {/* PDF Preview Modal */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="max-w-4xl h-[80vh]">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Pré-visualização - Pedido de Compra {request.requestNumber}</span>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleDownloadFromPreview}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Baixar PDF
-                </Button>
-                <Button
-                  onClick={handleClosePreview}
-                  size="sm"
-                  variant="outline"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Fechar
-                </Button>
-              </div>
-            </DialogTitle>
+            <DialogTitle className="text-sm md:text-base">Visualização do Pedido de Compra</DialogTitle>
           </DialogHeader>
-          
           <div className="flex-1 overflow-hidden">
             {pdfPreviewUrl ? (
               <iframe
                 src={pdfPreviewUrl}
-                className="w-full h-[75vh] border rounded-lg"
-                title="Pré-visualização do PDF"
+                className="w-full h-full border-0"
+                title="Visualização do Pedido de Compra"
               />
             ) : (
-              <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Carregando pré-visualização...</p>
-                </div>
+              <div className="flex items-center justify-center h-full">
+                <p className="text-xs md:text-sm text-gray-500">Carregando visualização...</p>
               </div>
             )}
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Pendency Modal */}
+      <PendencyModal
+        isOpen={isPendencyModalOpen}
+        onClose={() => setIsPendencyModalOpen(false)}
+        requestId={request.id}
+        onPendencyReported={() => {
+          setIsPendencyModalOpen(false);
+          onClose();
+        }}
+      />
     </div>
   );
 }

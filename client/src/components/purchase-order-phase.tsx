@@ -61,7 +61,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     form.reset({
       purchaseObservations: request?.purchaseObservations || "",
     });
-  }, [request?.purchaseObservations, form]);
+  }, [request?.purchaseObservations]); // Removido 'form' das dependências
 
   // Buscar dados relacionados
   const { data: items = [] } = useQuery<any[]>({
@@ -413,175 +413,118 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     approvalHistory.find((h: any) => h.approverType === 'A2') : null;
 
   return (
-    <div className={`space-y-6 ${className}`}>
-      {/* Header com título e botão de fechar */}
+    <div className={`space-y-2 md:space-y-3 lg:space-y-6 ${className}`}>
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold">Pedido de Compra</h2>
-            {request.hasPendency && (
-              <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-300">
-                <X className="w-3 h-3 mr-1" />
-                PENDÊNCIA
-              </Badge>
-            )}
-          </div>
-          <p className="text-muted-foreground">
-            Solicitação {request.requestNumber} - Resumo completo do processo
-          </p>
-          {request.hasPendency && request.pendencyReason && (
-            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-800">
-                <strong>Motivo da Pendência:</strong> {request.pendencyReason}
-              </p>
-            </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={handleAdvanceToReceipt}
-            disabled={advanceToReceiptMutation.isPending}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Truck className="w-4 h-4 mr-2" />
-            {advanceToReceiptMutation.isPending ? "Avançando..." : "Avançar para Recebimento"}
-          </Button>
-          <Button
-            onClick={handlePreviewPDF}
-            disabled={isLoadingPreview}
-            variant="outline"
-            className="border-green-600 text-green-600 hover:bg-green-50"
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
-          </Button>
-          <Button
-            onClick={handleDownloadPDF}
-            disabled={isDownloading}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            {isDownloading ? "Gerando PDF..." : "Baixar PDF"}
-          </Button>
-          <Button variant="outline" onClick={onClose}>
-            <X className="w-4 h-4 mr-2" />
-            Fechar
-          </Button>
-        </div>
+        <h2 className="text-lg md:text-xl lg:text-2xl font-bold">
+          Pedido de Compra #{request.purchaseOrderNumber || request.id}
+        </h2>
+        <Button
+          onClick={onClose}
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 md:h-8 md:w-8 p-0"
+        >
+          <X className="h-3 w-3 md:h-4 md:w-4" />
+        </Button>
       </div>
 
-      {/* Resumo da Solicitação */}
+      {/* Request Information */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5" />
+        <CardHeader className="pb-1 md:pb-2">
+          <CardTitle className="text-sm md:text-base lg:text-lg flex items-center gap-1 md:gap-2">
+            <User className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5" />
             Informações da Solicitação
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">Solicitante:</span>
-                <span>{request.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "Não informado"}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Building className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">Departamento:</span>
-                <span>{request.department?.name || "Não informado"}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">Data da Solicitação:</span>
-                <span>{new Date(request.createdAt).toLocaleDateString('pt-BR')}</span>
-              </div>
+        <CardContent className="p-2 md:p-3 lg:p-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1 md:gap-2 lg:gap-4">
+            <div>
+              <span className="text-xs md:text-sm font-medium text-gray-500">Solicitante</span>
+              <p className="text-xs md:text-sm lg:text-base font-semibold">{request.requester?.name}</p>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">Urgência:</span>
-                <Badge variant={request.urgency === 'alto' ? 'destructive' : 'secondary'}>
-                  {request.urgency === 'alto' ? 'Alto' : request.urgency === 'medio' ? 'Médio' : request.urgency === 'baixo' ? 'Baixo' : request.urgency}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">Categoria:</span>
-                <span>{request.category}</span>
-              </div>
-              {selectedSupplier && (
-                <div className="flex items-center gap-2">
-                  <Building className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-medium">Fornecedor Selecionado:</span>
-                  <span className="text-green-600 font-medium">{selectedSupplier.name}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <Truck className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">Entrega Ideal:</span>
-                <span>
-                  {request.idealDeliveryDate 
-                    ? new Date(request.idealDeliveryDate).toLocaleDateString('pt-BR')
-                    : "Não especificada"
-                  }
-                </span>
-              </div>
+            <div>
+              <span className="text-xs md:text-sm font-medium text-gray-500">Centro de Custo</span>
+              <p className="text-xs md:text-sm lg:text-base">{request.costCenter}</p>
+            </div>
+            <div>
+              <span className="text-xs md:text-sm font-medium text-gray-500">Data da Solicitação</span>
+              <p className="text-xs md:text-sm lg:text-base">
+                {formatDistanceToNow(new Date(request.createdAt), { addSuffix: true, locale: ptBR })}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs md:text-sm font-medium text-gray-500">Urgência</span>
+              <Badge variant={request.urgency === 'high' ? 'destructive' : request.urgency === 'medium' ? 'default' : 'secondary'} className="text-xs">
+                {request.urgency}
+              </Badge>
+            </div>
+            <div>
+              <span className="text-xs md:text-sm font-medium text-gray-500">Status</span>
+              <Badge variant="default" className="text-xs">Pedido de Compra</Badge>
+            </div>
+            <div>
+              <span className="text-xs md:text-sm font-medium text-gray-500">Valor Total</span>
+              <p className="text-sm md:text-base lg:text-lg font-bold text-green-600">
+                R$ {(request.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
           </div>
-          <div>
-            <span className="font-medium">Justificativa:</span>
-            <p className="text-sm text-muted-foreground mt-1">{request.justification}</p>
+          
+          <div className="mt-1 md:mt-2 lg:mt-4">
+            <span className="text-xs md:text-sm font-medium text-gray-500">Justificativa</span>
+            <p className="mt-1 text-xs md:text-sm lg:text-base">{request.justification}</p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Itens da Solicitação */}
+      {/* Items Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Itens Solicitados</CardTitle>
+        <CardHeader className="pb-1 md:pb-2">
+          <CardTitle className="text-sm md:text-base lg:text-lg flex items-center gap-1 md:gap-2">
+            <Package className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5" />
+            Itens do Pedido
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          {isLoadingSupplierItems ? (
-            <div className="text-center py-4">Carregando itens...</div>
-          ) : (
+        <CardContent className="p-1 md:p-2 lg:p-6">
+          {itemsWithPrices.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-200">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-200 px-4 py-2 text-left">Item</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Qtd.</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Unidade</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Valor Unit.</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Valor Total</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Marca</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Prazo</th>
+              <table className="w-full border-collapse border border-gray-200 text-xs md:text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-left text-xs md:text-sm">Descrição</th>
+                    <th className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">Qtd</th>
+                    <th className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">Un.</th>
+                    <th className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">Preço Unit.</th>
+                    <th className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">Total</th>
+                    <th className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">Marca</th>
+                    <th className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">Prazo</th>
                   </tr>
                 </thead>
                 <tbody>
                   {itemsWithPrices.map((item: any, index: number) => (
                     <tr key={index} className="hover:bg-gray-50">
-                      <td className="border border-gray-200 px-4 py-2">
-                        <div className="font-medium">{item.description}</div>
+                      <td className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1">
+                        <div className="font-medium text-xs md:text-sm">{item.description}</div>
                         {item.specifications && (
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             Especificações: {item.specifications}
                           </div>
                         )}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
+                      <td className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">
                         {item.requestedQuantity}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
+                      <td className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">
                         {item.unit || 'UND'}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
+                      <td className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">
                         R$ {typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center font-medium">
+                      <td className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center font-medium text-xs md:text-sm">
                         {item.itemDiscount > 0 ? (
                           <div>
-                            <div className="text-sm text-gray-500 line-through">
+                            <div className="text-xs text-gray-500 line-through">
                               R$ {typeof item.originalTotalPrice === 'number' ? item.originalTotalPrice.toFixed(2).replace('.', ',') : '0,00'}
                             </div>
                             <div className="text-green-600">
@@ -592,304 +535,168 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                           <span>R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}</span>
                         )}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
+                      <td className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">
                         {item.brand || '-'}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
+                      <td className="border border-gray-200 px-1 md:px-2 py-0.5 md:py-1 text-center text-xs md:text-sm">
                         {item.deliveryTime || '-'}
                       </td>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr className="bg-gray-50 font-bold">
-                    <td className="border border-gray-200 px-4 py-2" colSpan={4}>
-                      Subtotal:
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center">
-                      R$ {subtotal.toFixed(2).replace('.', ',')}
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
-                  </tr>
-                  {totalDiscount > 0 && (
-                    <tr>
-                      <td className="border border-gray-200 px-4 py-2" colSpan={4}>
-                        Desconto Total:
-                      </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center text-red-600">
-                        - R$ {totalDiscount.toFixed(2).replace('.', ',')}
-                      </td>
-                      <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
-                    </tr>
-                  )}
-                  <tr>
-                    <td className="border border-gray-200 px-4 py-2" colSpan={4}>
-                      <div className="flex items-center gap-1">
-                        <Truck className="h-4 w-4" />
-                        Frete:
-                      </div>
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center">
-                      {freightValue > 0 ? (
-                        <span className="text-blue-600">
-                          R$ {freightValue.toFixed(2).replace('.', ',')}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500">Não incluso</span>
-                      )}
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
-                  </tr>
-                  <tr className="bg-gray-100 font-bold">
-                    <td className="border border-gray-200 px-4 py-2" colSpan={4}>
-                      Total Geral:
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center">
-                      R$ {finalTotal.toFixed(2).replace('.', ',')}
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
-                  </tr>
-                </tfoot>
               </table>
+            </div>
+          ) : (
+            <div className="text-center py-2 md:py-4 text-gray-500">
+              <Package className="h-6 w-6 md:h-8 md:w-8 mx-auto mb-1 md:mb-2 opacity-50" />
+              <p className="text-xs md:text-sm">Nenhum item encontrado</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Fornecedor Vencedor */}
+      {/* Supplier Information */}
       {selectedSupplierQuotation && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="w-5 h-5" />
+          <CardHeader className="pb-1 md:pb-2">
+            <CardTitle className="text-sm md:text-base lg:text-lg flex items-center gap-1 md:gap-2">
+              <Building className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5" />
               Fornecedor Vencedor
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <div className="text-sm">
-                  <span className="font-medium text-gray-600">Nome:</span>
-                  <p className="text-lg font-semibold">{selectedSupplierQuotation.supplier?.name || selectedSupplier?.name}</p>
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium text-gray-600">E-mail:</span>
-                  <p>{selectedSupplierQuotation.supplier?.email || selectedSupplier?.email}</p>
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium text-gray-600">Telefone:</span>
-                  <p>{selectedSupplierQuotation.supplier?.phone || selectedSupplier?.phone || 'Não informado'}</p>
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium text-gray-600">CNPJ:</span>
-                  <p>{selectedSupplierQuotation.supplier?.cnpj || selectedSupplier?.cnpj || 'Não informado'}</p>
-                </div>
+          <CardContent className="p-2 md:p-3 lg:p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2 lg:gap-4">
+              <div>
+                <span className="text-xs md:text-sm font-medium text-gray-500">Nome</span>
+                <p className="text-sm md:text-base lg:text-lg font-semibold">{selectedSupplierQuotation.supplier?.name || selectedSupplier?.name}</p>
               </div>
-              <div className="space-y-3">
-                <div className="text-sm">
-                  <span className="font-medium text-gray-600">Valor Total da Proposta:</span>
-                  <p className="text-lg font-semibold text-green-600">
-                    R$ {finalTotal.toFixed(2).replace('.', ',')}
-                  </p>
-                </div>
-                {totalDiscount > 0 && (
-                  <div className="text-sm">
-                    <span className="font-medium text-gray-600">Desconto Total Aplicado:</span>
-                    <p className="text-lg font-semibold text-red-600">
-                      - R$ {totalDiscount.toFixed(2).replace('.', ',')}
-                    </p>
-                  </div>
-                )}
-                <div className="text-sm">
-                  <span className="font-medium text-gray-600">Prazo de Entrega:</span>
-                  <p>{selectedSupplierQuotation.deliveryTerms || 'Não informado'}</p>
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium text-gray-600">Condições de Pagamento:</span>
-                  <p>{selectedSupplierQuotation.paymentTerms || 'Não informado'}</p>
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium text-gray-600 flex items-center gap-1">
-                    <Truck className="h-4 w-4" />
-                    Frete:
-                  </span>
-                  <p className="text-lg font-semibold">
-                    {freightValue > 0 ? (
-                      <span className="text-blue-600">
-                        R$ {freightValue.toFixed(2).replace('.', ',')}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500">Não incluso</span>
-                    )}
-                  </p>
-                </div>
-                {selectedSupplierQuotation.observations && (
-                  <div className="text-sm">
-                    <span className="font-medium text-gray-600">Observações:</span>
-                    <p>{selectedSupplierQuotation.observations}</p>
-                  </div>
-                )}
-                
-                {/* Desconto da Proposta */}
-                {(selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) && (
-                  <div className="text-sm">
-                    <span className="font-medium text-gray-600">Desconto da Proposta:</span>
-                    <p className="text-lg font-semibold text-green-600">
-                      {selectedSupplierQuotation.discountType === 'percentage' 
-                        ? `${selectedSupplierQuotation.discountValue}%`
-                        : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(2).replace('.', ',')}`
-                      }
-                    </p>
-                  </div>
-                )}
+              <div>
+                <span className="text-xs md:text-sm font-medium text-gray-500">E-mail</span>
+                <p className="text-xs md:text-sm lg:text-base">{selectedSupplierQuotation.supplier?.email || selectedSupplier?.email}</p>
               </div>
+              <div>
+                <span className="text-xs md:text-sm font-medium text-gray-500">Telefone</span>
+                <p className="text-xs md:text-sm lg:text-base">{selectedSupplierQuotation.supplier?.phone || selectedSupplier?.phone || 'Não informado'}</p>
+              </div>
+              <div>
+                <span className="text-xs md:text-sm font-medium text-gray-500">CNPJ</span>
+                <p className="text-xs md:text-sm lg:text-base">{selectedSupplierQuotation.supplier?.cnpj || selectedSupplier?.cnpj || 'Não informado'}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2 lg:gap-4 mt-1 md:mt-2 lg:mt-4">
+              <div>
+                <span className="text-xs md:text-sm font-medium text-gray-500">Valor Total da Proposta</span>
+                <p className="text-sm md:text-base lg:text-lg font-bold text-green-600">
+                  R$ {(selectedSupplierQuotation.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs md:text-sm font-medium text-gray-500 flex items-center gap-1">
+                  <Truck className="h-3 w-3 md:h-4 md:w-4" />
+                  Frete
+                </span>
+                <p className="text-sm md:text-base lg:text-lg font-semibold">
+                  {selectedSupplierQuotation.includesFreight ? (
+                    <span className="text-blue-600">
+                      R$ {(selectedSupplierQuotation.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">Não incluso</span>
+                  )}
+                </p>
+              </div>
+            </div>
+            
+            <div className="mt-1 md:mt-2 lg:mt-4">
+              <span className="text-xs md:text-sm font-medium text-gray-500">Condições de Pagamento</span>
+              <p className="text-xs md:text-sm lg:text-base">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Histórico de Aprovações */}
+      {/* Purchase Order Observations */}
       <Card>
-        <CardHeader>
-          <CardTitle>Histórico de Aprovações</CardTitle>
+        <CardHeader className="pb-1 md:pb-2">
+          <CardTitle className="text-sm md:text-base lg:text-lg">Observações do Pedido de Compra</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {aprovacaoA1 && (
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <div className="flex-1">
-                  <div className="font-medium">Aprovação A1</div>
-                  <div className="text-sm text-muted-foreground">
-                    {aprovacaoA1.approved ? 'Aprovado' : 'Rejeitado'} por {aprovacaoA1.approver?.firstName} {aprovacaoA1.approver?.lastName} em{" "}
-                    {new Date(aprovacaoA1.createdAt).toLocaleDateString('pt-BR')}
-                  </div>
-                  {aprovacaoA1.rejectionReason && (
-                    <div className="text-sm text-muted-foreground">
-                      Motivo: {aprovacaoA1.rejectionReason}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {aprovacaoA2 && (
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <div className="flex-1">
-                  <div className="font-medium">Aprovação A2</div>
-                  <div className="text-sm text-muted-foreground">
-                    {aprovacaoA2.approved ? 'Aprovado' : 'Rejeitado'} por {aprovacaoA2.approver?.firstName} {aprovacaoA2.approver?.lastName} em{" "}
-                    {new Date(aprovacaoA2.createdAt).toLocaleDateString('pt-BR')}
-                  </div>
-                  {aprovacaoA2.rejectionReason && (
-                    <div className="text-sm text-muted-foreground">
-                      Motivo: {aprovacaoA2.rejectionReason}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {!aprovacaoA1 && !aprovacaoA2 && (
-              <div className="text-center text-muted-foreground py-4">
-                Nenhuma aprovação encontrada no histórico
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Observações do Pedido */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Observações do Pedido de Compra</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-2 md:p-3 lg:p-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1 md:space-y-2 lg:space-y-4">
               <FormField
                 control={form.control}
                 name="purchaseObservations"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Observações Adicionais</FormLabel>
+                    <FormLabel className="text-xs md:text-sm">Observações</FormLabel>
                     <FormControl>
-                      <Textarea 
-                        {...field} 
-                        rows={4} 
+                      <Textarea
                         placeholder="Adicione observações específicas para o pedido de compra..."
+                        className="min-h-[50px] md:min-h-[60px] lg:min-h-[80px] text-xs md:text-sm"
+                        {...field}
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={updateRequestMutation.isPending}>
-                {updateRequestMutation.isPending ? "Salvando..." : "Salvar Observações"}
+              <Button 
+                type="submit" 
+                disabled={updateObservationsMutation.isPending}
+                className="w-full text-xs md:text-sm h-6 md:h-7 lg:h-10"
+              >
+                {updateObservationsMutation.isPending ? 'Salvando...' : 'Salvar Observações'}
               </Button>
             </form>
           </Form>
         </CardContent>
       </Card>
 
-      {/* Anexos */}
-      {Array.isArray(attachments) && attachments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Anexos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {attachments.map((attachment: any) => (
-                <div key={attachment.id} className="flex items-center gap-2 p-2 border rounded">
-                  <FileText className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{attachment.filename}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* PDF Actions */}
+      <Card>
+        <CardHeader className="pb-1 md:pb-2">
+          <CardTitle className="text-sm md:text-base lg:text-lg">Pedido de Compra (PDF)</CardTitle>
+        </CardHeader>
+        <CardContent className="p-2 md:p-3 lg:p-6">
+          <div className="flex flex-col sm:flex-row gap-1 md:gap-2">
+            <Button
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+              className="flex-1 text-xs md:text-sm h-6 md:h-7 lg:h-10"
+            >
+              <Download className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+              {isDownloading ? 'Baixando...' : 'Baixar PDF'}
+            </Button>
+            <Button
+              onClick={handlePreviewPdf}
+              disabled={isLoadingPreview}
+              variant="outline"
+              className="flex-1 text-xs md:text-sm h-6 md:h-7 lg:h-10"
+            >
+              <Eye className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+              {isLoadingPreview ? 'Carregando...' : 'Visualizar PDF'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Modal de Pré-visualização do PDF */}
-      <Dialog open={showPreviewModal} onOpenChange={handleClosePreview}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+      {/* PDF Preview Modal */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="max-w-4xl h-[80vh]">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Pré-visualização - Pedido de Compra {request.requestNumber}</span>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleDownloadFromPreview}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Baixar PDF
-                </Button>
-                <Button
-                  onClick={handleClosePreview}
-                  size="sm"
-                  variant="outline"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Fechar
-                </Button>
-              </div>
-            </DialogTitle>
+            <DialogTitle className="text-sm md:text-base">Visualização do Pedido de Compra</DialogTitle>
           </DialogHeader>
-          
           <div className="flex-1 overflow-hidden">
             {pdfPreviewUrl ? (
               <iframe
                 src={pdfPreviewUrl}
-                className="w-full h-[75vh] border rounded-lg"
-                title="Pré-visualização do PDF"
+                className="w-full h-full border-0"
+                title="Visualização do Pedido de Compra"
               />
             ) : (
-              <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Carregando pré-visualização...</p>
-                </div>
+              <div className="flex items-center justify-center h-full">
+                <p className="text-xs md:text-sm text-gray-500">Carregando visualização...</p>
               </div>
             )}
           </div>

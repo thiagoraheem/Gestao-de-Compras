@@ -272,642 +272,332 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
   };
 
   return (
-    <>
-    <Card className={cn("w-full max-w-4xl", className)}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <CheckCircle className="h-5 w-5" />
-            Aprovação A2 - {request.requestNumber}
+    <div className={`space-y-1 md:space-y-2 ${className || ''}`}>
+      {/* Request Details */}
+      <Card>
+        <CardHeader className="pb-1">
+          <CardTitle className="text-sm flex items-center gap-1">
+            <FileText className="h-3 w-3" />
+            Detalhes da Solicitação
           </CardTitle>
-          {onClose && (
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              ✕
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      
-      <CardContent className="p-6 space-y-6">
-        {/* Request Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Informações da Solicitação
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Solicitante:</span>
-                <span className="font-medium">
-                  {request.requester?.firstName && request.requester?.lastName 
-                    ? `${request.requester.firstName} ${request.requester.lastName}`
-                    : request.requester?.username || 'N/A'
-                  }
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Building className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Centro de Custo:</span>
-                <span className="font-medium">
-                  {request.costCenter?.code} - {request.costCenter?.name}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Categoria:</span>
-                <Badge variant="outline">
-                  {request.category in CATEGORY_LABELS ? CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS] : request.category}
-                </Badge>
-              </div>
-              
-              {request.idealDeliveryDate && (
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Data Ideal:</span>
-                  <span className="font-medium">
-                    {format(new Date(request.idealDeliveryDate), 'dd/MM/yyyy', { locale: ptBR })}
-                  </span>
-                </div>
-              )}
-              
-              {request.urgency && (
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Urgência:</span>
-                  <Badge variant={request.urgency === "alta_urgencia" || request.urgency === "alto" ? "destructive" : "secondary"}>
-                    {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
-                  </Badge>
-                </div>
-              )}
-              
-              {request.totalValue && (
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Valor Total:</span>
-                  <span className="font-medium text-green-600">
-                    {new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                    }).format(Number(request.totalValue))}
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        </CardHeader>
+        <CardContent className="p-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2">
+            <div>
+              <span className="text-xs font-medium text-gray-500">Número</span>
+              <p className="text-sm font-semibold">{request.requestNumber}</p>
+            </div>
+            <div>
+              <span className="text-xs font-medium text-gray-500">Solicitante</span>
+              <p className="text-xs">
+                {request.requester?.firstName && request.requester?.lastName
+                  ? `${request.requester.firstName} ${request.requester.lastName}`
+                  : request.requesterName || 'N/A'}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs font-medium text-gray-500">Centro de Custo</span>
+              <p className="text-xs">{request.costCenter?.name || 'N/A'}</p>
+            </div>
+            <div>
+              <span className="text-xs font-medium text-gray-500">Data da Solicitação</span>
+              <p className="text-xs">{format(new Date(request.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-2 mt-2">
+            <div>
+              <span className="text-xs font-medium text-gray-500">Urgência</span>
+              <Badge variant={request.urgency === 'high' ? 'destructive' : request.urgency === 'medium' ? 'default' : 'secondary'} className="text-xs">
+                {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
+              </Badge>
+            </div>
+            <div>
+              <span className="text-xs font-medium text-gray-500">Categoria</span>
+              <Badge variant="outline" className="text-xs">
+                {CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}
+              </Badge>
+            </div>
+            <div>
+              <span className="text-xs font-medium text-gray-500">Valor Total</span>
+              <p className="text-sm font-bold text-green-600">
+                R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-2">
+            <span className="text-xs font-medium text-gray-500">Justificativa</span>
+            <p className="mt-1 text-xs">{request.justification}</p>
+          </div>
+        </CardContent>
+      </Card>
 
-          {/* Justification */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Justificativa
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-32">
-                <p className="text-sm leading-relaxed">{request.justification}</p>
-              </ScrollArea>
-              
-              {request.additionalInfo && (
-                <div className="mt-4 pt-4 border-t">
-                  <h4 className="text-sm font-medium mb-2">Informações Adicionais:</h4>
-                  <ScrollArea className="h-20">
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {request.additionalInfo}
-                    </p>
-                  </ScrollArea>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+      {/* Items */}
+      <Card>
+        <CardHeader className="pb-1">
+          <CardTitle className="text-sm flex items-center gap-1">
+            <DollarSign className="h-3 w-3" />
+            Itens com Preços
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-1">
+          <ApprovalItemsViewer items={itemsWithPrices} />
+        </CardContent>
+      </Card>
 
-        {/* Winning Supplier Information */}
-        {selectedSupplierQuotation && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                Fornecedor Vencedor
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Nome do Fornecedor</Label>
-                  <p className="text-sm font-semibold mt-1">{selectedSupplierQuotation.supplier?.name || 'N/A'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">E-mail</Label>
-                  <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.email || 'N/A'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Telefone</Label>
-                  <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.phone || 'N/A'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">CNPJ</Label>
-                  <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.cnpj || 'N/A'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Valor Total da Proposta</Label>
-                  <p className="text-lg font-bold text-green-600 mt-1">
-                    {new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                    }).format(Number(selectedSupplierQuotation.totalValue || 0))}
-                  </p>
-                  {selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue && (
-                    <p className="text-sm text-orange-600 mt-1">
-                      Desconto da proposta: {selectedSupplierQuotation.discountType === 'percentage' 
-                        ? `${selectedSupplierQuotation.discountValue}%`
-                        : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(2).replace('.', ',')}`
-                      }
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                    <Truck className="h-4 w-4" />
-                    Frete
-                  </Label>
-                  <p className="text-lg font-semibold mt-1">
-                    {selectedSupplierQuotation.includesFreight ? (
-                      <span className="text-blue-600">
-                        {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL',
-                        }).format(Number(selectedSupplierQuotation.freightValue || 0))}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500">Não incluso</span>
-                    )}
-                  </p>
-                  {selectedSupplierQuotation.includesFreight && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      ✓ Frete incluído na proposta
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Condições de Pagamento</Label>
-                  <p className="text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
-                </div>
-              </div>
-              
-              {selectedSupplierQuotation.choiceReason && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <Label className="text-sm font-medium text-green-800">Justificativa da Escolha:</Label>
-                  <p className="text-sm text-green-700 mt-1">{selectedSupplierQuotation.choiceReason}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Items Table with Supplier Pricing */}
+      {/* Supplier Attachments */}
+      {supplierAttachments && supplierAttachments.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Itens da Solicitação
+          <CardHeader className="pb-1">
+            <CardTitle className="text-sm flex items-center gap-1">
+              <Paperclip className="h-3 w-3" />
+              Anexos dos Fornecedores
             </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              {transformedItems.length} {transformedItems.length === 1 ? 'item cadastrado' : 'itens cadastrados'}
-            </p>
           </CardHeader>
-          <CardContent>
-            {transformedItems.length > 0 ? (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="text-center">Qtd</TableHead>
-                      <TableHead className="text-center">Unidade</TableHead>
-                      <TableHead className="text-right">Valor Unit.</TableHead>
-                      <TableHead className="text-right">Desconto Item</TableHead>
-                      <TableHead className="text-right">Valor Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transformedItems.map((item: any, index: number) => (
-                      <TableRow key={item.id || index}>
-                        <TableCell className="font-medium">
-                          {item.description}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.requestedQuantity}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.unit}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.unitPrice > 0 ? (
-                            <span className="font-medium text-green-600">
-                              {new Intl.NumberFormat('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL',
-                              }).format(item.unitPrice)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.itemDiscount > 0 ? (
-                            <span className="font-medium text-orange-600">
-                              {new Intl.NumberFormat('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL',
-                              }).format(item.itemDiscount)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.totalPrice > 0 ? (
-                            <span className="font-semibold text-green-600">
-                              {new Intl.NumberFormat('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL',
-                              }).format(item.totalPrice)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                
-                {/* Financial Summary */}
-                {selectedSupplierQuotation && (
-                  <div className="border-t bg-blue-50 p-4">
-                    <h4 className="font-semibold text-blue-800 mb-3">Resumo Financeiro</h4>
-                    <div className="space-y-2">
-                      {(() => {
-                        const subtotal = transformedItems.reduce((sum, item) => sum + (item.originalTotalPrice || item.totalPrice), 0);
-                        const totalDiscount = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
-                        const finalValue = Number(selectedSupplierQuotation.totalValue || 0);
-                        
-
-                        
-                        return (
-                          <>
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-700">Subtotal (sem desconto):</span>
-                              <span className="font-medium text-gray-900">
-                                R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                            
-                            {totalDiscount > 0 && (
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm text-orange-600">Desconto da proposta:</span>
-                                <span className="font-medium text-orange-600">
-                                  {selectedSupplierQuotation.discountType === 'percentage' 
-                                    ? `- ${totalDiscount}%`
-                                    : `- R$ ${totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                  }
-                                </span>
-                              </div>
-                            )}
-                            
-                            {/* Freight Information */}
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-700 flex items-center gap-1">
-                                <Truck className="h-4 w-4" />
-                                Frete:
-                              </span>
-                              <span className="font-medium">
-                                {selectedSupplierQuotation.includesFreight ? (
-                                  <span className="text-blue-600">
-                                    R$ {Number(selectedSupplierQuotation.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-500">Não incluso</span>
-                                )}
-                              </span>
-                            </div>
-                            
-                            <div className="border-t border-blue-300 pt-2 mt-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-base font-semibold text-blue-800">Valor Final:</span>
-                                <span className="text-lg font-bold text-green-700">
-                                  R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                            </div>
-                          </>
-                        );
-                      })()
-                    }
+          <CardContent className="p-1">
+            <div className="space-y-1">
+              {supplierAttachments.map((attachment: any) => (
+                <div key={attachment.id} className="flex items-center justify-between p-1 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 bg-blue-100 rounded-full">
+                      <Paperclip className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-xs">{attachment.fileName}</p>
+                      <p className="text-xs text-gray-500">
+                        {attachment.supplierName} • {attachment.fileType}
+                      </p>
                     </div>
                   </div>
-                )}
-                
-                {/* Total Summary - Fallback when no supplier quotation */}
-                {!selectedSupplierQuotation && (
-                  <div className="border-t bg-gray-50 p-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-600">
-                        Total Geral ({transformedItems.length} {transformedItems.length === 1 ? 'item' : 'itens'})
-                      </span>
-                      <span className="text-lg font-bold text-green-600">
-                        {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL',
-                        }).format(
-                          transformedItems.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
-                        )}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs">
+                      {attachment.attachmentType === 'supplier_proposal' ? 'Proposta' : 'Documento'}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(attachment.fileUrl, '_blank')}
+                      className="text-xs h-6"
+                    >
+                      Ver
+                    </Button>
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Nenhum item encontrado</p>
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* Supplier Attachments */}
-        {supplierAttachments && supplierAttachments.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Paperclip className="h-4 w-4" />
-                Anexos dos Fornecedores
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Propostas e documentos enviados pelos fornecedores
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {supplierAttachments.map((attachment: any) => (
-                  <div key={attachment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded-full">
-                        <Paperclip className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{attachment.fileName}</p>
-                        <p className="text-xs text-gray-500">
-                          {attachment.supplierName} • {attachment.fileType}
-                        </p>
-                      </div>
+      {/* Approval History */}
+      {approvalHistory && approvalHistory.length > 0 && (
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-sm flex items-center gap-1">
+              <History className="h-3 w-3" />
+              Histórico de Aprovações
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-1">
+            <div className="space-y-1">
+              {approvalHistory.map((item: any, index: number) => (
+                <div key={index} className="flex items-center justify-between p-1 border rounded-lg">
+                  <div className="flex items-center gap-1">
+                    <Badge variant={item.approved ? 'default' : 'destructive'} className="text-xs">
+                      {item.approved ? 'Aprovado' : 'Reprovado'}
+                    </Badge>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium">
+                        {item.approver?.firstName && item.approver?.lastName 
+                          ? `${item.approver.firstName} ${item.approver.lastName}`
+                          : item.approver?.username || 'N/A'
+                        }
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {getPhaseDescription(item.approverType)}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {attachment.attachmentType === 'supplier_proposal' ? 'Proposta' : 'Documento'}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-blue-600 hover:text-blue-700"
-                        onClick={() => {
-                          // Extract filename from filePath
-                          const filename = attachment.filePath.split('/').pop();
-                          if (filename) {
-                            const fileUrl = `/api/files/supplier-quotations/${filename}`;
-                            window.open(fileUrl, '_blank');
-                          } else {
-                            toast({
-                              title: "Erro",
-                              description: "Nome do arquivo não encontrado",
-                              variant: "destructive",
-                            });
-                          }
-                        }}
-                      >
-                        Visualizar
-                      </Button>
-                    </div>
+                    {item.rejectionReason && (
+                      <span className="text-xs text-muted-foreground">
+                        - {item.rejectionReason}
+                      </span>
+                    )}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Approval History */}
-        {approvalHistory && approvalHistory.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <History className="h-4 w-4" />
-                Histórico de Aprovações
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {approvalHistory.map((item: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={item.approved ? 'default' : 'destructive'} className="text-xs">
-                        {item.approved ? 'Aprovado' : 'Reprovado'}
-                      </Badge>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">
-                          {item.approver?.firstName && item.approver?.lastName 
-                            ? `${item.approver.firstName} ${item.approver.lastName}`
-                            : item.approver?.username || 'N/A'
-                          }
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {getPhaseDescription(item.approverType)}
-                        </span>
-                      </div>
-                      {item.rejectionReason && (
-                        <span className="text-xs text-muted-foreground">
-                          - {item.rejectionReason}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(item.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-          
-        {/* Supplier Comparison */}
-        {canApprove && quotation?.id && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-lg">Comparação de Fornecedores</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm text-gray-600 mb-4">
-                Visualize a comparação completa dos fornecedores que foi feita na fase de cotação para auxiliar na tomada de decisão.
-              </div>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => setShowComparison(true)}
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Ver Comparação de Fornecedores
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Approval Actions */}
-        {canApprove && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Ação de Aprovação A2</CardTitle>
-              {/* Mostrar informações sobre o tipo de aprovação */}
-              {approvalType && (
-                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800">
-                      {approvalType === 'dual' ? 'Dupla Aprovação Necessária' : 'Aprovação Simples'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-blue-700 mt-1">
-                    {approvalType === 'dual' 
-                      ? `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer aprovação sequencial de dois aprovadores A2.`
-                      : `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer apenas uma aprovação A2.`
-                    }
-                  </p>
-                  {approvalInfo && approvalInfo.nextApprover && (
-                    <p className="text-xs text-blue-700 mt-1">
-                      Próximo aprovador: {approvalInfo.nextApprover.firstName} {approvalInfo.nextApprover.lastName}
-                      {approvalInfo.nextApprover.isCEO && ' (CEO)'}
-                    </p>
-                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(item.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  </span>
                 </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="flex gap-4">
-                    <Button
-                      type="button"
-                      variant={selectedAction === 'approve' ? 'default' : 'outline'}
-                      className="flex-1"
-                      onClick={handleApprove}
-                    >
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Aprovar
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={selectedAction === 'reject' ? 'destructive' : 'outline'}
-                      className="flex-1"
-                      onClick={handleReject}
-                    >
-                      <XCircle className="mr-2 h-4 w-4" />
-                      Reprovar
-                    </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Supplier Comparison */}
+      {selectedSupplier && (
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-sm flex items-center gap-1">
+              <Building className="h-3 w-3" />
+              Fornecedor Escolhido
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-1">
+            <Button 
+              variant="outline" 
+              className="w-full h-6 text-xs"
+              onClick={() => setShowComparison(true)}
+            >
+              <BarChart3 className="mr-1 h-3 w-3" />
+              Ver Comparação de Fornecedores
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Approval Actions */}
+      {canApprove && (
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-sm">Ação de Aprovação A2</CardTitle>
+            {/* Mostrar informações sobre o tipo de aprovação */}
+            {approvalType && (
+              <div className="mt-1 p-1 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3 text-blue-600" />
+                  <span className="text-xs font-medium text-blue-800">
+                    {approvalType === 'dual' ? 'Dupla Aprovação Necessária' : 'Aprovação Simples'}
+                  </span>
+                </div>
+                <p className="text-xs text-blue-700 mt-0.5">
+                  {approvalType === 'dual' 
+                    ? `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer aprovação sequencial de dois aprovadores A2.`
+                    : `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer apenas uma aprovação A2.`
+                  }
+                </p>
+                {approvalInfo && approvalInfo.nextApprover && (
+                  <p className="text-xs text-blue-700 mt-0.5">
+                    Próximo aprovador: {approvalInfo.nextApprover.firstName} {approvalInfo.nextApprover.lastName}
+                    {approvalInfo.nextApprover.isCEO && ' (CEO)'}
+                  </p>
+                )}
+              </div>
+            )}
+          </CardHeader>
+          <CardContent className="p-2">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1">
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    onClick={handleApprove}
+                    variant={selectedAction === 'approve' ? 'default' : 'outline'}
+                    className={cn(
+                      "flex-1 text-xs h-7",
+                      selectedAction === 'approve' && "bg-green-600 hover:bg-green-700"
+                    )}
+                  >
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Aprovar
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleReject}
+                    variant={selectedAction === 'reject' ? 'destructive' : 'outline'}
+                    className="flex-1 text-xs h-7"
+                  >
+                    <XCircle className="h-3 w-3 mr-1" />
+                    Reprovar
+                  </Button>
+                </div>
+
+                {selectedAction === 'reject' && (
+                  <div className="space-y-1">
+                    <FormField
+                      control={form.control}
+                      name="rejectionReason"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Justificativa da Reprovação</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Descreva o motivo da reprovação..."
+                              className="min-h-[60px] text-xs"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="rejectionAction"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Ação após Reprovação</FormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              className="flex flex-col space-y-1"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="recotacao" id="recotacao" />
+                                <Label htmlFor="recotacao" className="text-xs">
+                                  Retornar para nova cotação
+                                </Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="archive" id="archive" />
+                                <Label htmlFor="archive" className="text-xs">
+                                  Arquivar solicitação
+                                </Label>
+                              </div>
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
                   </div>
+                )}
 
-                  {selectedAction === 'reject' && (
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="rejectionAction"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Destino da Solicitação Reprovada</FormLabel>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                                className="flex flex-col space-y-2"
-                              >
-                                {(user?.isAdmin || user?.isBuyer) && (
-                                  <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="archive" id="archive" />
-                                    <Label htmlFor="archive">Arquivar definitivamente</Label>
-                                  </div>
-                                )}
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="recotacao" id="recotacao" />
-                                  <Label htmlFor="recotacao">Retornar para nova cotação</Label>
-                                </div>
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="rejectionReason"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Justificativa da Reprovação</FormLabel>
-                            <FormControl>
-                              <Textarea
-                                placeholder="Explique o motivo da reprovação..."
-                                {...field}
-                                rows={4}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
+                {selectedAction && (
+                  <Button
+                    type="submit"
+                    disabled={approvalMutation.isPending}
+                    className="w-full text-xs h-7"
+                  >
+                    {approvalMutation.isPending ? 'Processando...' : 'Confirmar Decisão'}
+                  </Button>
+                )}
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      )}
 
-                  {selectedAction && (
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setSelectedAction(null)}
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={approvalMutation.isPending}
-                        className={selectedAction === 'approve' ? 'bg-green-500 hover:bg-green-600' : ''}
-                      >
-                        {approvalMutation.isPending ? 'Processando...' : 'Confirmar'}
-                      </Button>
-                    </div>
-                  )}
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        )}
-        
-      </CardContent>
-    </Card>
-    
-    {/* Supplier Comparison Modal */}
-    {showComparison && quotation?.id && (
-      <SupplierComparisonReadonly 
-        quotationId={quotation.id}
-        onClose={() => setShowComparison(false)}
-      />
-    )}
-    </>
+      {/* Permission Warning */}
+      {!canApprove && (
+        <Alert>
+          <AlertTriangle className="h-3 w-3" />
+          <AlertDescription className="text-xs">
+            Você não possui permissão para aprovar esta solicitação. Apenas usuários com perfil de Aprovador A2 podem realizar esta ação.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Supplier Comparison Modal */}
+      {showComparison && selectedSupplier && (
+        <SupplierComparisonReadonly
+          requestId={request.id}
+          chosenSupplierId={selectedSupplier.id}
+          onClose={() => setShowComparison(false)}
+        />
+      )}
+    </div>
   );
 }

@@ -128,53 +128,39 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
   }
 
   return (
-    <div className={className}>
-      {/* Header with close button */}
-      {onClose && (
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Gestão de Cotações</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-      )}
-      
-      <div className="space-y-6">
-        {/* Request Information */}
+    <div className={`space-y-1 md:space-y-2 ${className || ''}`}>
+      <div className="space-y-1 md:space-y-2">
+        {/* Request Details */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Informações da Solicitação
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+              <FileText className="h-3 w-3" />
+              Detalhes da Solicitação
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <CardContent className="p-1 md:p-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2">
               <div>
-                <span className="text-sm font-medium text-gray-500">Número</span>
-                <p className="text-lg font-semibold">{request.requestNumber}</p>
+                <span className="text-xs font-medium text-gray-500">Solicitante</span>
+                <p className="text-xs">{request.requesterName || (request.requester ? `${request.requester.firstName || ''} ${request.requester.lastName || ''}`.trim() : 'N/A')}</p>
               </div>
               <div>
-                <span className="text-sm font-medium text-gray-500">Solicitante</span>
-                <p>{request.requesterName || (request.requester ? `${request.requester.firstName || ''} ${request.requester.lastName || ''}`.trim() : 'N/A')}</p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-500">Data da Solicitação</span>
-                <p>{format(new Date(request.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
+                <span className="text-xs font-medium text-gray-500">Data da Solicitação</span>
+                <p className="text-xs">{format(new Date(request.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
               </div>
             </div>
             
-            <Separator className="my-4" />
+            <Separator className="my-1" />
             
             <div>
-              <span className="text-sm font-medium text-gray-500">Justificativa</span>
-              <p className="mt-1">{request.justification}</p>
+              <span className="text-xs font-medium text-gray-500">Justificativa</span>
+              <p className="mt-1 text-xs">{request.justification}</p>
             </div>
-            <Separator className="my-4" />
+            <Separator className="my-1" />
             
             {!hasQuotation ? (
             <div>
-              <span className="text-sm font-medium text-gray-500 mb-3 block">Itens da Solicitação</span>
+              <span className="text-xs font-medium text-gray-500 mb-1 block">Itens da Solicitação</span>
               <RequestItemsList requestId={request.id} />
             </div>
             ) : (
@@ -187,55 +173,46 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
         {/* RFQ Status */}
         {!hasQuotation ? (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Solicitação de Cotação (RFQ)
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                Status da Cotação
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-1 md:p-2">
               <Alert>
-                <FileText className="h-4 w-4" />
-                <AlertDescription>
-                  Esta solicitação ainda não possui uma RFQ criada. Para prosseguir com as cotações, 
-                  é necessário criar uma solicitação formal de cotação que será enviada aos fornecedores.
+                <AlertDescription className="text-xs">
+                  Nenhuma RFQ (Request for Quotation) foi criada ainda para esta solicitação.
                 </AlertDescription>
               </Alert>
               
-              <div className="mt-4">
-                {user?.isBuyer ? (
+              {user?.isBuyer && (
+                <div className="mt-1">
                   <Button 
                     onClick={() => setShowRFQCreation(true)}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="w-full text-xs h-7"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar Solicitação de Cotação (RFQ)
+                    <Plus className="h-3 w-3 mr-1" />
+                    Criar RFQ
                   </Button>
-                ) : (
-                  <Alert>
-                    <AlertDescription>
-                      Apenas usuários com perfil de comprador podem criar solicitações de cotação.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
           <>
-            {/* Existing RFQ Information */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  RFQ Ativa - {quotation.quotationNumber}
+              <CardHeader className="pb-1">
+                <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Status da Cotação
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardContent className="p-1 md:p-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-2">
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Status</span>
-                    <p className="text-lg font-semibold">
+                    <span className="text-xs font-medium text-gray-500">Status</span>
+                    <p className="text-xs font-semibold">
                       {quotation.status === 'draft' && 'Rascunho'}
                       {quotation.status === 'sent' && 'Enviada'}
                       {quotation.status === 'received' && 'Recebida'}
@@ -244,39 +221,39 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Prazo para Resposta</span>
-                    <p>{format(new Date(quotation.quotationDeadline), "dd/MM/yyyy", { locale: ptBR })}</p>
+                    <span className="text-xs font-medium text-gray-500">Prazo para Resposta</span>
+                    <p className="text-xs">{format(new Date(quotation.quotationDeadline), "dd/MM/yyyy", { locale: ptBR })}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Respostas Recebidas</span>
-                    <p>{supplierQuotations.length}</p>
+                    <span className="text-xs font-medium text-gray-500">Respostas Recebidas</span>
+                    <p className="text-xs">{supplierQuotations.length}</p>
                   </div>
                 </div>
                 
                 {/* Option to create new RFQ */}
                 {user?.isBuyer && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="flex justify-between items-center">
+                  <div className="mt-1 pt-1 border-t">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-1">
                       <div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs text-gray-600">
                           Precisa de uma nova cotação? Você pode criar uma nova RFQ mantenendo o histórico anterior.
                         </p>
                       </div>
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-1">
                         <Button 
                           onClick={() => setShowRFQHistory(true)}
                           variant="outline"
-                          className="ml-4"
+                          className="text-xs h-6"
                         >
-                          <Clock className="h-4 w-4 mr-2" />
+                          <Clock className="h-3 w-3 mr-1" />
                           Histórico
                         </Button>
                         <Button 
                           onClick={() => setShowRFQCreation(true)}
                           variant="outline"
-                          className="ml-2"
+                          className="text-xs h-6"
                         >
-                          <Plus className="h-4 w-4 mr-2" />
+                          <Plus className="h-3 w-3 mr-1" />
                           Nova RFQ
                         </Button>
                       </div>
@@ -288,40 +265,40 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
 
             {/* Items List */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
+              <CardHeader className="pb-1">
+                <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+                  <Package className="h-3 w-3" />
                   Itens Solicitados
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-1">
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="border-b bg-gray-50">
-                        <th className="text-left p-3 text-sm font-medium text-gray-700">Descrição</th>
-                        <th className="text-center p-3 text-sm font-medium text-gray-700 w-32">Quantidade</th>
-                        <th className="text-center p-3 text-sm font-medium text-gray-700 w-40">Prazo de Entrega</th>
+                        <th className="text-left p-1 text-xs font-medium text-gray-700">Descrição</th>
+                        <th className="text-center p-1 text-xs font-medium text-gray-700 w-20">Quantidade</th>
+                        <th className="text-center p-1 text-xs font-medium text-gray-700 w-24">Prazo de Entrega</th>
                       </tr>
                     </thead>
                     <tbody>
                       {quotationItems.map((item, index) => (
                         <tr key={item.id} className="border-b hover:bg-gray-50">
-                          <td className="p-3">
+                          <td className="p-1">
                             <div>
-                              <p className="text-sm font-medium text-gray-900">{item.description}</p>
+                              <p className="text-xs font-medium text-gray-900">{item.description}</p>
                               {item.itemCode && (
-                                <p className="text-xs text-gray-500 mt-1">Código: {item.itemCode}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Código: {item.itemCode}</p>
                               )}
                             </div>
                           </td>
-                          <td className="p-3 text-center">
-                            <span className="text-sm font-semibold text-gray-900">
+                          <td className="p-1 text-center">
+                            <span className="text-xs font-semibold text-gray-900">
                               {Math.round(Number(item.quantity))} {item.unit}
                             </span>
                           </td>
-                          <td className="p-3 text-center">
-                            <span className="text-sm text-gray-700">
+                          <td className="p-1 text-center">
+                            <span className="text-xs text-gray-700">
                               {item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "dd/MM/yyyy", { locale: ptBR }) : 'Não informado'}
                             </span>
                           </td>
@@ -331,8 +308,8 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                   </table>
                   
                   {/* Summary */}
-                  <div className="mt-4 pt-3 border-t bg-gray-50 rounded-b-lg px-3 py-2">
-                    <div className="flex justify-between items-center text-sm">
+                  <div className="mt-1 pt-1 border-t bg-gray-50 rounded-b-lg px-1 py-0.5">
+                    <div className="flex justify-between items-center text-xs">
                       <span className="font-medium text-gray-600">Total de itens:</span>
                       <span className="font-semibold text-gray-900">{quotationItems.length} item(s)</span>
                     </div>
@@ -343,145 +320,113 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
 
             {/* Supplier Responses */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
+              <CardHeader className="pb-1">
+                <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+                  <Building2 className="h-3 w-3" />
                   Respostas dos Fornecedores
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="p-1">
+                <div className="space-y-1">
                   {supplierQuotations.map((sq) => (
-                    <div key={sq.id} className="border rounded-lg p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                    <div key={sq.id} className="border rounded-lg p-1">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-1 items-center">
                         <div>
-                          <span className="text-sm font-medium text-gray-500">Fornecedor</span>
-                          <p className="font-medium">{sq.supplier?.name || 'Fornecedor não definido'}</p>
+                          <span className="text-xs font-medium text-gray-500">Fornecedor</span>
+                          <p className="text-xs font-medium">{sq.supplier?.name || 'Fornecedor não definido'}</p>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-gray-500">Status</span>
+                          <span className="text-xs font-medium text-gray-500">Status</span>
                           <Badge variant={
-                            sq.status === 'received' ? 'default' : 
-                            sq.status === 'sent' ? 'secondary' : 
-                            sq.status === 'expired' ? 'destructive' : 
-                            sq.status === 'no_response' ? 'destructive' : 'outline'
-                          }>
+                            sq.status === 'received' ? 'default' :
+                            sq.status === 'sent' ? 'secondary' :
+                            sq.status === 'expired' ? 'destructive' :
+                            'outline'
+                          } className="text-xs">
                             {sq.status === 'pending' && 'Pendente'}
                             {sq.status === 'sent' && 'Enviada'}
                             {sq.status === 'received' && 'Recebida'}
-                            {sq.status === 'no_response' && 'Não Respondeu'}
                             {sq.status === 'expired' && 'Expirada'}
                           </Badge>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-gray-500">Valor Total</span>
-                          <p className="font-medium">
-                            {sq.totalValue ? `R$ ${parseFloat(sq.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'}
+                          <span className="text-xs font-medium text-gray-500">Valor Total</span>
+                          <p className="text-xs font-semibold">
+                            {sq.totalValue ? `R$ ${Number(sq.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'}
                           </p>
                         </div>
-                        <div className="flex justify-end space-x-1">
-                          {sq.status !== 'received' && sq.status !== 'no_response' && user?.isBuyer && (
-                            <>
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedSupplierForUpdate({
-                                    id: (sq as any).supplierId || sq.id,
-                                    name: sq.supplier?.name || 'Fornecedor'
-                                  });
-                                  setShowUpdateQuotation(true);
-                                }}
-                                className="bg-blue-600 hover:bg-blue-700"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Confirmar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => markSupplierAsNoResponse(sq.id)}
-                              >
-                                Não Respondeu
-                              </Button>
-                            </>
+                        <div className="flex flex-col gap-1">
+                          {sq.status === 'received' && user?.isBuyer && (
+                            <Button
+                              onClick={() => {
+                                setSelectedSupplierForUpdate({
+                                  id: sq.supplierId,
+                                  name: sq.supplier?.name || 'Fornecedor'
+                                });
+                                setShowUpdateQuotation(true);
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-6"
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              Ver/Editar
+                            </Button>
                           )}
-                          {sq.status === 'received' && (
-                            <div className="flex items-center gap-2">
-                              <div className="text-sm text-green-600 font-medium">
-                                ✓ Recebida em {sq.receivedAt ? format(new Date(sq.receivedAt), "dd/MM/yyyy", { locale: ptBR }) : ''}
-                              </div>
-                              {user?.isBuyer && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedSupplierForUpdate({
-                                      id: (sq as any).supplierId || sq.id,
-                                      name: sq.supplier?.name || 'Fornecedor'
-                                    });
-                                    setShowUpdateQuotation(true);
-                                  }}
-                                  className="bg-blue-600 hover:bg-blue-700"
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Visualizar/Editar
-                                </Button>
-                              )}
-                            </div>
+                          {sq.status === 'sent' && user?.isBuyer && (
+                            <Button
+                              onClick={() => markSupplierAsNoResponse(sq.id)}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-6 text-red-600 hover:text-red-700"
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Não Respondeu
+                            </Button>
                           )}
                         </div>
                       </div>
-                      {(sq as any).observations && (
-                        <div className="mt-3 pt-3 border-t">
-                          <span className="text-sm font-medium text-gray-500">Observações:</span>
-                          <p className="text-sm mt-1">{(sq as any).observations}</p>
+                      {sq.observations && (
+                        <div className="mt-1 pt-1 border-t">
+                          <span className="text-xs font-medium text-gray-500">Observações</span>
+                          <p className="text-xs text-gray-700 mt-0.5">{sq.observations}</p>
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
+
+                {/* Action Buttons */}
+                {user?.isBuyer && supplierQuotations.some(sq => sq.status === 'received') && (
+                  <div className="mt-1 pt-1 border-t">
+                    <div className="flex flex-col md:flex-row gap-1">
+                      <Button
+                        onClick={() => setShowRFQAnalysis(true)}
+                        variant="outline"
+                        className="flex-1 text-xs h-7"
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        Analisar Cotações
+                      </Button>
+                      <Button
+                        onClick={() => setShowSupplierComparison(true)}
+                        className="flex-1 text-xs h-7"
+                      >
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Comparar e Escolher
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-4">
-              {quotation.status === 'draft' && user?.isBuyer && (
-                <Button 
-                  onClick={() => setShowRFQCreation(true)}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Editar RFQ
-                </Button>
-              )}
-              
-              {hasQuotation && supplierQuotations.length > 0 && user?.isBuyer && (
-                <Button 
-                  onClick={() => setShowRFQAnalysis(true)}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Analisar Cotações
-                </Button>
-              )}
-              
-              {canCompareSuppliers && user?.isBuyer && (
-                <Button 
-                  onClick={() => setShowSupplierComparison(true)}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Comparar e Selecionar Fornecedor
-                </Button>
-              )}
-            </div>
           </>
         )}
 
         {/* Modals */}
         {showRFQCreation && (
           <RFQCreation
-            purchaseRequest={request}
-            existingQuotation={quotation}
+            requestId={request.id}
             onClose={() => setShowRFQCreation(false)}
             onComplete={() => {
               setShowRFQCreation(false);
@@ -535,34 +480,34 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
         <Dialog open={showRFQHistory} onOpenChange={setShowRFQHistory}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Histórico de RFQs</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-xs md:text-sm">Histórico de RFQs</DialogTitle>
+              <DialogDescription className="text-xs">
                 Histórico completo de todas as RFQs criadas para esta solicitação
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-1">
               {rfqHistory.length === 0 ? (
-                <p className="text-gray-500">Nenhuma RFQ encontrada no histórico.</p>
+                <p className="text-xs text-gray-500">Nenhuma RFQ encontrada no histórico.</p>
               ) : (
                 rfqHistory.map((rfq, index) => (
                   <Card key={rfq.id} className={rfq.isActive ? "border-blue-500 bg-blue-50" : "border-gray-200"}>
-                    <CardHeader>
+                    <CardHeader className="pb-1">
                       <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg">
+                        <CardTitle className="text-xs">
                           {rfq.quotationNumber} 
-                          {rfq.isActive && <Badge className="ml-2 bg-blue-600">Ativa</Badge>}
-                          {!rfq.isActive && <Badge variant="outline" className="ml-2">Inativa</Badge>}
+                          {rfq.isActive && <Badge className="ml-2 bg-blue-600 text-xs">Ativa</Badge>}
+                          {!rfq.isActive && <Badge variant="outline" className="ml-2 text-xs">Inativa</Badge>}
                         </CardTitle>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-xs text-gray-500">
                           Versão {rfq.rfqVersion || 1}
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <CardContent className="p-1">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
                         <div>
-                          <span className="text-sm font-medium text-gray-500">Status</span>
-                          <p className="text-sm">
+                          <span className="text-xs font-medium text-gray-500">Status</span>
+                          <p className="text-xs">
                             {rfq.status === 'draft' && 'Rascunho'}
                             {rfq.status === 'sent' && 'Enviada'}
                             {rfq.status === 'received' && 'Recebida'}
@@ -571,12 +516,12 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                           </p>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-gray-500">Prazo para Resposta</span>
-                          <p className="text-sm">{format(new Date(rfq.quotationDeadline), "dd/MM/yyyy", { locale: ptBR })}</p>
+                          <span className="text-xs font-medium text-gray-500">Prazo para Resposta</span>
+                          <p className="text-xs">{format(new Date(rfq.quotationDeadline), "dd/MM/yyyy", { locale: ptBR })}</p>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-gray-500">Criada em</span>
-                          <p className="text-sm">{format(new Date(rfq.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                          <span className="text-xs font-medium text-gray-500">Criada em</span>
+                          <p className="text-xs">{format(new Date(rfq.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                         </div>
                       </div>
                     </CardContent>

@@ -162,7 +162,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
         additionalInfo: request.additionalInfo || "",
       });
     }
-  }, [request, form]);
+  }, [request]); // Removido 'form' das dependências
 
   const createRequestMutation = useMutation({
     mutationFn: async (data: RequestFormData) => {
@@ -388,378 +388,400 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
 
   const isFormValid = form.formState.isValid && manualItems.length > 0;
 
+  // Define displayItems based on whether we're viewing an existing request or creating a new one
+  const displayItems = request ? existingItems : manualItems;
+
   return (
-    <div className={cn("w-full max-w-4xl", className)}>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <FileText className="h-6 w-6" />
-          {request ? 'Editar Solicitação de Compra' : 'Nova Solicitação de Compra'}
-        </h2>
-        {onClose && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="h-8 w-8 p-0"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Fechar</span>
-          </Button>
-        )}
-      </div>
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-1 md:p-2">
+        <DialogHeader className="pb-1 md:pb-2">
+          <DialogTitle className="text-sm md:text-base">
+            {request ? "Visualizar Solicitação" : "Nova Solicitação de Compra"}
+          </DialogTitle>
+        </DialogHeader>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Informações Básicas */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Informações Básicas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="costCenterId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Centro de Custo *</FormLabel>
-                      <FormControl>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value?.toString()}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {costCenters &&
-                              (costCenters as any[]).map((center: any) => (
-                                <SelectItem
-                                  key={center.id}
-                                  value={center.id.toString()}
-                                >
-                                  {center.code} - {center.name}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1 md:space-y-2">
+            <Tabs defaultValue="general" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 h-7 md:h-8">
+                <TabsTrigger value="general" className="text-xs">Informações Gerais</TabsTrigger>
+                <TabsTrigger value="items" className="text-xs">Itens</TabsTrigger>
+              </TabsList>
 
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Categoria de Compra *</FormLabel>
-                      <FormControl>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(CATEGORY_OPTIONS).map(
-                              ([key, value]) => (
-                                <SelectItem key={value} value={value}>
-                                  {CATEGORY_LABELS[value]}
-                                </SelectItem>
-                              ),
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <TabsContent value="general" className="space-y-1 md:space-y-2 mt-1 md:mt-2">
+                <Card>
+                  <CardHeader className="pb-1 md:pb-2 p-2 md:p-3">
+                    <CardTitle className="text-xs md:text-sm">Dados da Solicitação</CardTitle>
+                    <CardDescription className="text-xs">
+                      Preencha as informações básicas da solicitação
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-2 md:p-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2">
+                      <FormField
+                        control={form.control}
+                        name="costCenterId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Centro de Custo *</FormLabel>
+                            <Select
+                              onValueChange={(value) => field.onChange(Number(value))}
+                              value={field.value?.toString() || ""}
+                              disabled={request}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-7 md:h-8 text-xs">
+                                  <SelectValue placeholder="Selecione o centro de custo" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {costCenters.map((costCenter) => (
+                                  <SelectItem key={costCenter.id} value={costCenter.id.toString()}>
+                                    {costCenter.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="urgency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Urgência *</FormLabel>
-                      <FormControl>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(URGENCY_LEVELS).map(
-                              ([key, value]) => (
-                                <SelectItem key={value} value={value}>
-                                  {URGENCY_LABELS[value]}
-                                </SelectItem>
-                              ),
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                      <FormField
+                        control={form.control}
+                        name="category"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Categoria *</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                              disabled={request}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-7 md:h-8 text-xs">
+                                  <SelectValue placeholder="Selecione a categoria" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {Object.entries(CATEGORY_OPTIONS).map(([key, value]) => (
+                                  <SelectItem key={key} value={value}>
+                                    {CATEGORY_LABELS[value as keyof typeof CATEGORY_LABELS]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
 
-                <FormField
-                  control={form.control}
-                  name="idealDeliveryDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Prazo Ideal de Entrega</FormLabel>
-                      <FormControl>
-                        <DateInput
-                          value={field.value}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                          placeholder="DD/MM/AAAA"
+                      <FormField
+                        control={form.control}
+                        name="urgency"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Urgência *</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                              disabled={request}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-7 md:h-8 text-xs">
+                                  <SelectValue placeholder="Selecione a urgência" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {Object.entries(URGENCY_LEVELS).map(([key, value]) => (
+                                  <SelectItem key={key} value={value}>
+                                    {URGENCY_LABELS[value as keyof typeof URGENCY_LABELS]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="idealDeliveryDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Data Ideal de Entrega</FormLabel>
+                            <FormControl>
+                              <DateInput
+                                value={field.value}
+                                onChange={field.onChange}
+                                placeholder="Selecione a data"
+                                disabled={request}
+                                className="h-7 md:h-8 text-xs"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="mt-1 md:mt-2">
+                      <FormField
+                        control={form.control}
+                        name="justification"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Justificativa *</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Descreva a justificativa para esta solicitação..."
+                                {...field}
+                                disabled={request}
+                                rows={2}
+                                className="text-xs min-h-[40px] md:min-h-[50px]"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="mt-1 md:mt-2">
+                      <FormField
+                        control={form.control}
+                        name="additionalInfo"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Informações Adicionais</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Informações complementares (opcional)..."
+                                {...field}
+                                disabled={request}
+                                rows={2}
+                                className="text-xs min-h-[30px] md:min-h-[40px]"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Status Information for existing requests */}
+                {request && (
+                  <Card>
+                    <CardHeader className="pb-1 md:pb-2 p-2 md:p-3">
+                      <CardTitle className="text-xs md:text-sm">Status da Solicitação</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-2 md:p-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1 md:gap-2">
+                        <div>
+                          <p className="text-xs font-medium text-gray-600">Número</p>
+                          <p className="text-xs">{request.requestNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-600">Data</p>
+                          <p className="text-xs">
+                            {new Date(request.requestDate).toLocaleDateString("pt-BR")}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-600">Fase Atual</p>
+                          <Badge variant="outline" className="text-xs h-5">
+                            {request.currentPhase}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-600">Solicitante</p>
+                          <p className="text-xs">
+                            {request.requester?.firstName} {request.requester?.lastName}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-600">Urgência</p>
+                          <Badge
+                            variant={
+                              request.urgency === URGENCY_LEVELS.ALTA_URGENCIA
+                                ? "destructive"
+                                : request.urgency === URGENCY_LEVELS.ALTO
+                                ? "default"
+                                : "secondary"
+                            }
+                            className="text-xs h-5"
+                          >
+                            {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-600">Categoria</p>
+                          <p className="text-xs">
+                            {CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="items" className="space-y-1 md:space-y-2 mt-1 md:mt-2">
+                <Card>
+                  <CardHeader className="pb-1 md:pb-2 p-2 md:p-3">
+                    <CardTitle className="text-xs md:text-sm flex items-center gap-1">
+                      <FileText className="h-3 w-3 md:h-4 md:w-4" />
+                      Itens da Solicitação
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      {request ? "Visualize os itens desta solicitação" : "Adicione os itens que deseja solicitar"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-2 md:p-3">
+                    {!request && (
+                      <div className="mb-1 md:mb-2">
+                        <HybridProductInput
+                          onAddItem={handleAddItem}
+                          disabled={isSubmitting}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                      </div>
+                    )}
 
-              <FormField
-                control={form.control}
-                name="justification"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Justificativa *</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        rows={3}
-                        placeholder="Descreva a necessidade e justificativa para esta compra..."
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    {/* Items List */}
+                    <div className="space-y-1 md:space-y-2">
+                      {displayItems.map((item, index) => (
+                        <Card key={item.id} className="border-l-4 border-l-blue-500">
+                          <CardContent className="p-2">
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center gap-1">
+                                  <h4 className="text-xs font-medium">{item.description}</h4>
+                                  {item.productCode && (
+                                    <Badge variant="outline" className="text-xs h-4">
+                                      {item.productCode}
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1 md:gap-2 text-xs text-gray-600">
+                                  <div>
+                                    <span className="font-medium">Qtd:</span> {item.requestedQuantity}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Un:</span> {item.unit}
+                                  </div>
+                                  {item.estimatedPrice && (
+                                    <div>
+                                      <span className="font-medium">Preço:</span> R$ {item.estimatedPrice.toFixed(2)}
+                                    </div>
+                                  )}
+                                  {item.estimatedPrice && (
+                                    <div>
+                                      <span className="font-medium">Total:</span> R$ {(item.estimatedPrice * item.requestedQuantity).toFixed(2)}
+                                    </div>
+                                  )}
+                                </div>
 
-              <FormField
-                control={form.control}
-                name="additionalInfo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Informações Adicionais</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        rows={2}
-                        placeholder="Informações complementares sobre a solicitação..."
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+                                {item.technicalSpecification && (
+                                  <div className="text-xs text-gray-600">
+                                    <span className="font-medium">Especificação:</span> {item.technicalSpecification}
+                                  </div>
+                                )}
+                              </div>
 
-          {/* Itens da Solicitação */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Itens da Solicitação</CardTitle>
-              <CardDescription>
-                Adicione os itens necessários. Você pode buscar produtos do ERP ou cadastrar itens avulsos.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">Itens Cadastrados</h4>
+                              {!request && (
+                                <div className="flex gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleEditItem(index)}
+                                    className="h-5 w-5 p-0"
+                                  >
+                                    <Edit3 className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemoveItem(index)}
+                                    className="h-5 w-5 p-0 text-red-600 hover:text-red-700"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                      {displayItems.length === 0 && (
+                        <div className="text-center py-4 text-gray-500">
+                          <FileText className="h-6 w-6 md:h-8 md:w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-xs">
+                            {request ? "Nenhum item encontrado" : "Nenhum item adicionado ainda"}
+                          </p>
+                          {!request && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              Use o campo acima para adicionar itens à solicitação
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Total Estimated Value */}
+                    {displayItems.length > 0 && displayItems.some(item => item.estimatedPrice) && (
+                      <div className="mt-1 md:mt-2 pt-1 md:pt-2 border-t">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-medium">Valor Total Estimado:</span>
+                          <span className="text-sm font-bold text-green-600">
+                            R$ {displayItems
+                              .reduce((total, item) => total + (item.estimatedPrice || 0) * item.requestedQuantity, 0)
+                              .toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+
+            {/* Action Buttons */}
+            {!request && (
+              <div className="flex flex-col sm:flex-row gap-1 pt-1 md:pt-2">
                 <Button
                   type="button"
-                  onClick={addManualItem}
                   variant="outline"
-                  size="sm"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Item
-                </Button>
-              </div>
-
-              {manualItems.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Edit3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Nenhum item cadastrado ainda.</p>
-                  <p className="text-sm">
-                    Clique em "Adicionar Item" para começar.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {manualItems.map((item, index) => (
-                    <Card key={item.id} className="p-6 border-l-4 border-l-blue-500">
-                      <div className="flex items-center justify-between mb-4">
-                        <h5 className="font-medium text-lg flex items-center gap-2">
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-semibold">
-                            Item {index + 1}
-                          </span>
-                        </h5>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeManualItem(item.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <X className="w-4 h-4 mr-1" />
-                          Remover
-                        </Button>
-                      </div>
-
-                      {/* Campos principais em grid responsivo */}
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                        <div className="lg:col-span-2">
-                          <label className="text-sm font-medium text-gray-700 mb-1 block">
-                            Descrição do Item *
-                          </label>
-                          <HybridProductInput
-                            value={item.description}
-                            onChange={(value) =>
-                              updateManualItem(item.id, "description", value)
-                            }
-                            onProductSelect={(product) =>
-                              handleProductSelect(item.id, product)
-                            }
-                            placeholder="Digite a descrição ou busque no ERP..."
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-1 block">
-                              Unidade *
-                            </label>
-                            <UnitSelect
-                              value={item.unit}
-                              onValueChange={(value) =>
-                                updateManualItem(item.id, "unit", value)
-                              }
-                              className="h-10"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-1 block">
-                              Quantidade *
-                            </label>
-                            <Input
-                              type="number"
-                              value={item.requestedQuantity}
-                              onChange={(e) =>
-                                updateManualItem(
-                                  item.id,
-                                  "requestedQuantity",
-                                  parseInt(e.target.value) || 0,
-                                )
-                              }
-                              min="1"
-                              className="h-10"
-                              placeholder="Qtd"
-                              autoComplete="off"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Especificação Técnica */}
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">
-                          Especificação Técnica
-                        </label>
-                        <Textarea
-                          value={item.technicalSpecification || ""}
-                          onChange={(e) =>
-                            updateManualItem(
-                              item.id,
-                              "technicalSpecification",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="Especificações técnicas detalhadas (marca, modelo, características, normas técnicas, etc.)"
-                          rows={3}
-                          className="resize-none"
-                        />
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Form Actions */}
-          <div className="flex justify-between items-center pt-6 border-t">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {isFormValid ? (
-                <>
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span>Formulário válido e pronto para envio</span>
-                </>
-              ) : (
-                <>
-                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                  <span>Preencha todos os campos obrigatórios</span>
-                </>
-              )}
-            </div>
-            
-            <div className="flex gap-3">
-              {onClose && (
-                <Button 
-                  type="button" 
-                  variant="outline" 
                   onClick={onClose}
-                  disabled={createRequestMutation.isPending || sendToApprovalMutation.isPending}
+                  className="h-7 md:h-8 text-xs"
                 >
                   Cancelar
                 </Button>
-              )}
-              
-              {/* Send to Approval button - only for editing requests in request phase */}
-              {request && request.currentPhase === "solicitacao" && (
-                <Button 
-                  type="button"
-                  variant="default"
-                  onClick={() => sendToApprovalMutation.mutate()}
-                  disabled={sendToApprovalMutation.isPending || createRequestMutation.isPending}
-                  className="min-w-[140px] bg-blue-600 hover:bg-blue-700"
+                <Button
+                  type="submit"
+                  disabled={createRequestMutation.isPending || displayItems.length === 0}
+                  className="h-7 md:h-8 text-xs"
                 >
-                  {sendToApprovalMutation.isPending ? (
-                    "Enviando..."
+                  {createRequestMutation.isPending ? (
+                    "Salvando..."
                   ) : (
-                    "Enviar para Aprovação"
+                    <>
+                      <Check className="h-3 w-3 mr-1" />
+                      Criar Solicitação
+                    </>
                   )}
                 </Button>
-              )}
-              
-              <Button 
-                type="submit" 
-                disabled={createRequestMutation.isPending || sendToApprovalMutation.isPending || !isFormValid}
-                className="min-w-[140px]"
-              >
-                {createRequestMutation.isPending ? (
-                  "Processando..."
-                ) : (
-                  request ? "Salvar Alterações" : "Criar Solicitação"
-                )}
-              </Button>
-            </div>
-          </div>
-        </form>
-      </Form>
-    </div>
+              </div>
+            )}
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

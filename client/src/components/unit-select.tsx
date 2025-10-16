@@ -10,7 +10,8 @@ import { useUnits } from '@/hooks/useUnits';
 
 interface UnitSelectProps {
   value: string;
-  onValueChange: (value: string) => void;
+  onChange?: (value: string) => void;
+  onValueChange?: (value: string) => void;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
@@ -18,6 +19,7 @@ interface UnitSelectProps {
 
 export function UnitSelect({ 
   value, 
+  onChange,
   onValueChange, 
   placeholder = "Selecione a unidade...",
   className,
@@ -25,10 +27,19 @@ export function UnitSelect({
 }: UnitSelectProps) {
   const { allUnits } = useUnits();
 
+  const handleValueChange = React.useCallback((newValue: string) => {
+    if (onChange) {
+      onChange(newValue);
+    }
+    if (onValueChange) {
+      onValueChange(newValue);
+    }
+  }, [onChange, onValueChange]);
+
   return (
     <Select 
       value={value} 
-      onValueChange={onValueChange}
+      onValueChange={handleValueChange}
       disabled={disabled}
     >
       <SelectTrigger className={className}>
