@@ -2,25 +2,16 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    let errorMessage = res.statusText;
-
+    let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
     try {
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const errorData = await res.json();
-        errorMessage = errorData.message || errorMessage;
-      } else {
-        const text = await res.text();
-        errorMessage = text || errorMessage;
+      const errorData = await res.json();
+      if (errorData.message) {
+        errorMessage = errorData.message;
       }
-    } catch {
-      // If parsing fails, use statusText
+    } catch (parseError) {
+      // If we can't parse JSON, use the default message
     }
-
-    const error = new Error(errorMessage);
-    (error as any).status = res.status;
-    (error as any).response = { data: { message: errorMessage } };
-    throw error;
+    throw new Error(errorMessage);
   }
 }
 
@@ -72,11 +63,41 @@ export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
+  async ({ queryKey, signal }) => {
     try {
-      const response = await apiRequest(queryKey[0] as string);
-      return response;
+      const controller = new AbortController();
+      
+      // Link the query's abort signal to our controller
+      if (signal) {
+        signal.addEventListener('abort', () => controller.abort());
+      }
+
+      const response = await fetch(queryKey[0] as string, {
+        credentials: "include",
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        if (unauthorizedBehavior === "returnNull" && response.status === 401) {
+          return null;
+        }
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (parseError) {
+          // If we can't parse JSON, use the default message
+        }
+        throw new Error(errorMessage);
+      }
+      
+      return await response.json();
     } catch (error: any) {
+      if (error.name === 'AbortError') {
+        throw error; // Let React Query handle aborted requests properly
+      }
       if (unauthorizedBehavior === "returnNull" && error.status === 401) {
         return null;
       }
@@ -89,11 +110,17 @@ export const queryClient = new QueryClient({
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: true, // Enable refetch on window focus for better UX
-      staleTime: 0, // Data is immediately stale - forces fresh fetches
-      cacheTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
-      refetchOnMount: true, // Always refetch when component mounts
-      retry: 1, // One retry attempt
+      refetchOnWindowFocus: false, // Disable to prevent unnecessary requests
+      staleTime: 1000 * 60 * 2, // 2 minutes - reduce aggressive refetching
+      gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes (renamed from cacheTime)
+      refetchOnMount: false, // Only refetch if data is stale
+      retry: (failureCount, error: any) => {
+        // Don't retry on abort errors or 401/403
+        if (error?.name === 'AbortError' || error?.status === 401 || error?.status === 403) {
+          return false;
+        }
+        return failureCount < 1; // Only one retry attempt
+      },
     },
     mutations: {
       retry: false,

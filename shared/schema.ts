@@ -313,6 +313,29 @@ export const supplierQuotationItems = pgTable("supplier_quotation_items", {
   // Availability fields for supplier return functionality
   isAvailable: boolean("is_available").default(true),
   unavailabilityReason: text("unavailability_reason"),
+  // Available quantity management fields
+  availableQuantity: decimal("available_quantity", { precision: 10, scale: 3 }),
+  confirmedUnit: text("confirmed_unit"),
+  quantityAdjustmentReason: text("quantity_adjustment_reason"),
+  fulfillmentPercentage: decimal("fulfillment_percentage", { precision: 5, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Quantity Adjustment History table for auditing
+export const quantityAdjustmentHistory = pgTable("quantity_adjustment_history", {
+  id: serial("id").primaryKey(),
+  supplierQuotationItemId: integer("supplier_quotation_item_id").references(() => supplierQuotationItems.id).notNull(),
+  quotationId: integer("quotation_id").references(() => quotations.id).notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id).notNull(),
+  previousQuantity: decimal("previous_quantity", { precision: 10, scale: 3 }),
+  newQuantity: decimal("new_quantity", { precision: 10, scale: 3 }),
+  previousUnit: text("previous_unit"),
+  newUnit: text("new_unit"),
+  adjustmentReason: text("adjustment_reason"),
+  adjustedBy: integer("adjusted_by").references(() => users.id).notNull(),
+  adjustedAt: timestamp("adjusted_at").defaultNow().notNull(),
+  previousTotalValue: decimal("previous_total_value", { precision: 15, scale: 2 }),
+  newTotalValue: decimal("new_total_value", { precision: 15, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -586,7 +609,7 @@ export const supplierQuotationsRelations = relations(supplierQuotations, ({ one,
   items: many(supplierQuotationItems),
 }));
 
-export const supplierQuotationItemsRelations = relations(supplierQuotationItems, ({ one }) => ({
+export const supplierQuotationItemsRelations = relations(supplierQuotationItems, ({ one, many }) => ({
   supplierQuotation: one(supplierQuotations, {
     fields: [supplierQuotationItems.supplierQuotationId],
     references: [supplierQuotations.id],
@@ -594,6 +617,26 @@ export const supplierQuotationItemsRelations = relations(supplierQuotationItems,
   quotationItem: one(quotationItems, {
     fields: [supplierQuotationItems.quotationItemId],
     references: [quotationItems.id],
+  }),
+  quantityAdjustmentHistory: many(quantityAdjustmentHistory),
+}));
+
+export const quantityAdjustmentHistoryRelations = relations(quantityAdjustmentHistory, ({ one }) => ({
+  supplierQuotationItem: one(supplierQuotationItems, {
+    fields: [quantityAdjustmentHistory.supplierQuotationItemId],
+    references: [supplierQuotationItems.id],
+  }),
+  quotation: one(quotations, {
+    fields: [quantityAdjustmentHistory.quotationId],
+    references: [quotations.id],
+  }),
+  supplier: one(suppliers, {
+    fields: [quantityAdjustmentHistory.supplierId],
+    references: [suppliers.id],
+  }),
+  adjustedBy: one(users, {
+    fields: [quantityAdjustmentHistory.adjustedBy],
+    references: [users.id],
   }),
 }));
 

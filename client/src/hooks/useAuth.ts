@@ -38,18 +38,26 @@ export function useAuth() {
 
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/check"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       try {
-        const response = await fetch("/api/auth/check");
+        const response = await fetch("/api/auth/check", {
+          credentials: "include",
+          signal,
+        });
         if (!response.ok) {
           return null;
         }
         return response.json();
-      } catch {
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          throw error;
+        }
         return null;
       }
     },
     retry: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes - auth data doesn't change frequently
+    refetchOnWindowFocus: false, // Don't refetch auth on window focus
   });
 
   // Update debug system when user changes
@@ -72,7 +80,19 @@ export function useAuth() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate auth check to get fresh user data
       queryClient.invalidateQueries({ queryKey: ["/api/auth/check"] });
+      
+      // Wait a bit for auth to be updated, then invalidate other queries
+      setTimeout(() => {
+        queryClient.invalidateQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey[0] as string;
+            return key !== "/api/auth/check" && key.startsWith("/api/");
+          }
+        });
+      }, 100);
+      
       toast({
         title: "Login bem-sucedido",
         description: "Bem-vindo de volta!",
@@ -136,10 +156,11 @@ export function useAuth() {
 
   return {
     user,
-    isLoading,
     isAuthenticated: !!user,
+    isLoading,
     login: loginMutation.mutate,
     logout: logoutMutation.mutate,
-    isLoggingIn: loginMutation.isPending,
+    isLoginLoading: loginMutation.isPending,
+    isLogoutLoading: logoutMutation.isPending,
   };
 }

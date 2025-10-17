@@ -2627,6 +2627,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get quantity comparison between suppliers for a quotation
+  app.get("/api/quotations/:id/quantity-comparison", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.id);
+      
+      // Verify quotation exists
+      const quotation = await storage.getQuotationById(quotationId);
+      if (!quotation) {
+        return res.status(404).json({ message: "Quotation not found" });
+      }
+
+      // Get quotation items (requested quantities)
+      const quotationItems = await storage.getQuotationItems(quotationId);
+      
+      // Get all supplier quotations for this quotation
+      const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+      
+      // Get supplier quotation items with available quantities
+      const comparison = [];
+      
+      for (const quotationItem of quotationItems) {
+        const itemComparison = {
+          quotationItemId: quotationItem.id,
+          itemCode: quotationItem.itemCode,
+          description: quotationItem.description,
+          requestedQuantity: quotationItem.quantity,
+          requestedUnit: quotationItem.unit,
+          suppliers: []
+        };
+
+        for (const supplierQuotation of supplierQuotations) {
+          const supplierItems = await storage.getSupplierQuotationItems(supplierQuotation.id);
+          const supplierItem = supplierItems.find(item => item.quotationItemId === quotationItem.id);
+          
+          if (supplierItem) {
+            const supplier = await storage.getSupplierById(supplierQuotation.supplierId);
+            
+            itemComparison.suppliers.push({
+              supplierId: supplierQuotation.supplierId,
+              supplierName: supplier?.name || 'Unknown',
+              supplierQuotationId: supplierQuotation.id,
+              supplierQuotationItemId: supplierItem.id,
+              availableQuantity: supplierItem.availableQuantity || supplierItem.quantity || 0,
+              confirmedUnit: supplierItem.confirmedUnit || supplierItem.unit,
+              fulfillmentPercentage: supplierItem.fulfillmentPercentage || 0,
+              unitPrice: supplierItem.unitPrice || 0,
+              totalPrice: supplierItem.totalPrice || 0,
+              quantityAdjustmentReason: supplierItem.quantityAdjustmentReason,
+              isAvailable: supplierItem.isAvailable,
+              unavailabilityReason: supplierItem.unavailabilityReason,
+              deliveryDays: supplierItem.deliveryDays,
+              brand: supplierItem.brand,
+              model: supplierItem.model
+            });
+          }
+        }
+
+        comparison.push(itemComparison);
+      }
+
+      res.json({
+        quotationId,
+        quotationNumber: quotation.quotationNumber,
+        comparison
+      });
+    } catch (error) {
+      console.error("Error fetching quantity comparison:", error);
+      res.status(500).json({ message: "Failed to fetch quantity comparison" });
+    }
+  });
+
   app.get(
     "/api/quotations/purchase-request/:purchaseRequestId",
     isAuthenticated,
@@ -3154,6 +3225,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating supplier quotation:", error);
       res.status(400).json({ message: "Failed to update supplier quotation" });
+    }
+  });
+
+  // Update available quantities for supplier quotation items
+  app.put("/api/supplier-quotations/:id/update-quantities", isAuthenticated, async (req, res) => {
+    try {
+      const supplierQuotationId = parseInt(req.params.id);
+      const { items } = req.body;
+
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ message: "Items array is required" });
+      }
+
+      // Get the current user
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify supplier quotation exists
+      const supplierQuotation = await storage.getSupplierQuotationById(supplierQuotationId);
+      if (!supplierQuotation) {
+        return res.status(404).json({ message: "Supplier quotation not found" });
+      }
+
+      // Get existing items to compare quantities
+      const existingItems = await storage.getSupplierQuotationItems(supplierQuotationId);
+      
+      const updatedItems = [];
+      
+      for (const itemUpdate of items) {
+        const { id, availableQuantity, confirmedUnit, quantityAdjustmentReason } = itemUpdate;
+        
+        if (!id) {
+          continue;
+        }
+
+        const existingItem = existingItems.find(item => item.id === id);
+        if (!existingItem) {
+          continue;
+        }
+
+        // Calculate fulfillment percentage
+        const requestedQuantity = existingItem.quantity || 0;
+        const available = availableQuantity || 0;
+        const fulfillmentPercentage = requestedQuantity > 0 ? Math.round((available / requestedQuantity) * 100) : 0;
+
+        // Update the item with new quantity information
+        const updatedItem = await storage.updateSupplierQuotationItem(id, {
+          availableQuantity: available,
+          confirmedUnit: confirmedUnit || existingItem.unit,
+          quantityAdjustmentReason: quantityAdjustmentReason || null,
+          fulfillmentPercentage
+        });
+
+        updatedItems.push(updatedItem);
+
+        // Log the quantity adjustment in history table if there's a change
+        if (available !== (existingItem.availableQuantity || existingItem.quantity)) {
+          await storage.createQuantityAdjustmentHistory({
+            supplierQuotationItemId: id,
+            quotationId: supplierQuotation.quotationId,
+            supplierId: supplierQuotation.supplierId,
+            previousQuantity: existingItem.availableQuantity || existingItem.quantity || 0,
+            newQuantity: available,
+            previousUnit: existingItem.confirmedUnit || existingItem.unit || '',
+            newUnit: confirmedUnit || existingItem.unit || '',
+            adjustmentReason: quantityAdjustmentReason || 'Quantity updated',
+            adjustedBy: currentUser.id,
+            adjustedAt: new Date(),
+            previousTotalValue: (existingItem.availableQuantity || existingItem.quantity || 0) * (existingItem.unitPrice || 0),
+            newTotalValue: available * (existingItem.unitPrice || 0)
+          });
+        }
+      }
+
+      res.json({
+        message: "Quantities updated successfully",
+        updatedItems
+      });
+    } catch (error) {
+      console.error("Error updating quantities:", error);
+      res.status(500).json({ message: "Failed to update quantities" });
     }
   });
 

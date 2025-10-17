@@ -22,6 +22,7 @@ import {
   approvalHistory,
   approvalConfigurations,
   configurationHistory,
+  quantityAdjustmentHistory,
   type User,
   type InsertUser,
   type Company,
@@ -246,6 +247,11 @@ export interface IStorage {
     id: number,
     item: Partial<InsertSupplierQuotationItem>,
   ): Promise<SupplierQuotationItem>;
+
+  // Quantity Adjustment History operations
+  createQuantityAdjustmentHistory(
+    history: any,
+  ): Promise<any>;
 
   // Purchase Order operations
   getPurchaseOrderById(id: number): Promise<PurchaseOrder | undefined>;
@@ -2437,6 +2443,34 @@ export class DatabaseStorage implements IStorage {
       isAdmin: true,
       isCEO: true, // Make admin a CEO for testing dual approval
     });
+  }
+
+  // Quantity Adjustment History operations
+  async createQuantityAdjustmentHistory(history: any): Promise<any> {
+    try {
+      const [result] = await db
+        .insert(quantityAdjustmentHistory)
+        .values({
+          supplierQuotationItemId: history.supplierQuotationItemId,
+          quotationId: history.quotationId,
+          supplierId: history.supplierId,
+          previousQuantity: history.previousQuantity,
+          newQuantity: history.newQuantity,
+          previousUnit: history.previousUnit,
+          newUnit: history.newUnit,
+          adjustmentReason: history.adjustmentReason,
+          adjustedBy: history.adjustedBy,
+          adjustedAt: history.adjustedAt,
+          previousTotalValue: history.previousTotalValue,
+          newTotalValue: history.newTotalValue,
+          createdAt: new Date(),
+        })
+        .returning();
+      return result;
+    } catch (error) {
+      console.error("Error creating quantity adjustment history:", error);
+      throw error;
+    }
   }
 }
 

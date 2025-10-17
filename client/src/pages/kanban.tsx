@@ -33,14 +33,20 @@ export default function KanbanPage() {
 
   const { data: departments } = useQuery({
     queryKey: ["/api/departments"],
+    staleTime: 1000 * 60 * 5, // 5 minutes - departments don't change frequently
+    refetchOnWindowFocus: false,
   });
 
   const { data: users } = useQuery({
     queryKey: ["/api/users"],
+    staleTime: 1000 * 60 * 5, // 5 minutes - users don't change frequently
+    refetchOnWindowFocus: false,
   });
 
   const { data: suppliers } = useQuery({
     queryKey: ["/api/suppliers"],
+    staleTime: 1000 * 60 * 5, // 5 minutes - suppliers don't change frequently
+    refetchOnWindowFocus: false,
   });
 
   // Check for URL parameters to auto-open specific requests and apply search filters

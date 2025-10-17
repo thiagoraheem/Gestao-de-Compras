@@ -57,10 +57,11 @@ export default function KanbanBoard({
 
   const { data: purchaseRequests, isLoading } = useQuery({
     queryKey: ["/api/purchase-requests"],
-    refetchInterval: 60000, // Refetch every 60 seconds to reduce server load
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    staleTime: 30000, // 30 seconds stale time for better performance
+    refetchInterval: false, // Disable automatic refetching
+    refetchOnWindowFocus: false, // Disable refetch on window focus
+    refetchOnMount: "always", // Always refetch when component mounts
+    staleTime: 1000 * 60 * 1, // 1 minute stale time
+    enabled: !!user, // Only fetch when user is authenticated
   });
 
   // Listen for URL-based request opening

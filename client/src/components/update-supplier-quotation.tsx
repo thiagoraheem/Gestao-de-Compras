@@ -73,6 +73,9 @@ const updateSupplierQuotationSchema = z.object({
       discountValue: z.string().optional(),
       isAvailable: z.boolean().default(true),
       unavailabilityReason: z.string().optional(),
+      availableQuantity: z.string().optional(),
+      confirmedUnit: z.string().optional(),
+      quantityAdjustmentReason: z.string().optional(),
     })
     .refine((data) => {
       // Se o produto estiver disponível, o preço unitário é obrigatório
@@ -93,6 +96,19 @@ const updateSupplierQuotationSchema = z.object({
     }, {
       message: "Motivo da indisponibilidade é obrigatório para produtos indisponíveis",
       path: ["unavailabilityReason"],
+    })
+    .refine((data) => {
+      // Se quantidade disponível for diferente da solicitada, motivo é obrigatório
+      if (data.availableQuantity && data.availableQuantity.trim().length > 0) {
+        const availableQty = parseFloat(data.availableQuantity);
+        if (!isNaN(availableQty) && availableQty > 0) {
+          return true; // Quantidade válida
+        }
+      }
+      return true; // Sem quantidade disponível especificada
+    }, {
+      message: "Quantidade disponível deve ser um número válido",
+      path: ["availableQuantity"],
     })
   ),
   paymentTerms: z.string().optional(),
@@ -133,6 +149,10 @@ interface SupplierQuotationItem {
   discountedTotalPrice?: string;
   isAvailable?: boolean;
   unavailabilityReason?: string;
+  availableQuantity?: string;
+  confirmedUnit?: string;
+  quantityAdjustmentReason?: string;
+  fulfillmentPercentage?: number;
 }
 
 interface ExistingSupplierQuotation {
@@ -239,6 +259,9 @@ export default function UpdateSupplierQuotation({
         discountValue: "",
         isAvailable: true,
         unavailabilityReason: "",
+        availableQuantity: "",
+        confirmedUnit: "",
+        quantityAdjustmentReason: "",
       }));
 
       form.setValue("items", formItems);
@@ -271,6 +294,9 @@ export default function UpdateSupplierQuotation({
           discountValue: existingItem?.discountValue || "",
           isAvailable: existingItem?.isAvailable !== false,
           unavailabilityReason: existingItem?.unavailabilityReason || "",
+          availableQuantity: existingItem?.availableQuantity || "",
+          confirmedUnit: existingItem?.confirmedUnit || "",
+          quantityAdjustmentReason: existingItem?.quantityAdjustmentReason || "",
         };
       });
 
@@ -602,7 +628,13 @@ export default function UpdateSupplierQuotation({
     const correspondingQuotationItem = quotationItems.find(
       (qi) => qi.id === item.quotationItemId,
     );
-    const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+    
+    // Use available quantity if specified, otherwise use requested quantity
+    let quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+    if (item.availableQuantity && !isNaN(parseFloat(item.availableQuantity))) {
+      quantity = parseFloat(item.availableQuantity);
+    }
+    
     const unitPrice = parseNumberFromCurrency(item.unitPrice);
     const originalTotal = quantity * unitPrice;
 
@@ -735,6 +767,7 @@ export default function UpdateSupplierQuotation({
                         <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[80px]">Desc. %</th>
                         <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[100px]">Desc. Valor</th>
                         <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[80px]">Prazo (dias)</th>
+                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[140px]">Quantidade Disponível</th>
                         <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[120px]">Disponibilidade</th>
                         <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[120px]">Total Final</th>
                       </tr>
@@ -747,8 +780,27 @@ export default function UpdateSupplierQuotation({
                               <div className="font-medium text-sm break-words">{item.description}</div>
                               <div className="flex items-center gap-2 text-xs text-gray-500">
                                 <Badge variant="secondary" className="text-xs">
-                                  {parseFloat(item.quantity).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} {item.unit}
+                                  Solicitado: {parseFloat(item.quantity).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} {item.unit}
                                 </Badge>
+                                {(() => {
+                                  const availableQty = form.watch(`items.${index}.availableQuantity`);
+                                  const requestedQty = parseFloat(item.quantity);
+                                  
+                                  if (availableQty && !isNaN(parseFloat(availableQty))) {
+                                    const available = parseFloat(availableQty);
+                                    const isDifferent = available !== requestedQty;
+                                    
+                                    return (
+                                      <Badge 
+                                        variant={isDifferent ? "destructive" : "default"} 
+                                        className={`text-xs ${isDifferent ? "bg-orange-100 text-orange-800 border-orange-300" : "bg-green-100 text-green-800 border-green-300"}`}
+                                      >
+                                        Disponível: {available.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} {form.watch(`items.${index}.confirmedUnit`) || item.unit}
+                                      </Badge>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
                               {item.specifications && (
                                 <div className="text-xs text-gray-500 italic bg-gray-50 p-1 rounded">
@@ -986,6 +1038,127 @@ export default function UpdateSupplierQuotation({
                                 </FormItem>
                               )}
                             />
+                          </td>
+                          <td className="p-3 align-top">
+                            <div className="space-y-2">
+                              {/* Quantidade Disponível */}
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.availableQuantity`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder={item.quantity}
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        readOnly={viewMode === 'view'}
+                                        className="text-xs h-7"
+                                        onChange={(e) => {
+                                          if (viewMode === 'view') return;
+                                          field.onChange(e.target.value);
+                                          // Auto-fill confirmed unit if not set
+                                          const confirmedUnit = form.watch(`items.${index}.confirmedUnit`);
+                                          if (!confirmedUnit) {
+                                            form.setValue(`items.${index}.confirmedUnit`, item.unit);
+                                          }
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              {/* Unidade Confirmada */}
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.confirmedUnit`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder={item.unit}
+                                        readOnly={viewMode === 'view'}
+                                        className="text-xs h-7"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              {/* Percentual de Atendimento */}
+                              {(() => {
+                                const availableQty = form.watch(`items.${index}.availableQuantity`);
+                                const requestedQty = parseFloat(item.quantity);
+                                
+                                if (availableQty && !isNaN(parseFloat(availableQty))) {
+                                  const available = parseFloat(availableQty);
+                                  const fulfillmentPercentage = (available / requestedQty) * 100;
+                                  
+                                  let badgeVariant: "default" | "secondary" | "destructive" = "default";
+                                  let badgeColor = "text-green-600";
+                                  
+                                  if (fulfillmentPercentage < 50) {
+                                    badgeVariant = "destructive";
+                                    badgeColor = "text-red-600";
+                                  } else if (fulfillmentPercentage < 100) {
+                                    badgeVariant = "secondary";
+                                    badgeColor = "text-yellow-600";
+                                  }
+                                  
+                                  return (
+                                    <div className="flex items-center gap-1">
+                                      <Badge variant={badgeVariant} className={`text-xs ${badgeColor}`}>
+                                        {fulfillmentPercentage.toFixed(1)}%
+                                      </Badge>
+                                      {fulfillmentPercentage !== 100 && (
+                                        <span className="text-xs text-gray-500">
+                                          ({available.toLocaleString('pt-BR')} de {requestedQty.toLocaleString('pt-BR')})
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
+
+                              {/* Motivo do Ajuste de Quantidade */}
+                              {(() => {
+                                const availableQty = form.watch(`items.${index}.availableQuantity`);
+                                const requestedQty = parseFloat(item.quantity);
+                                
+                                if (availableQty && !isNaN(parseFloat(availableQty))) {
+                                  const available = parseFloat(availableQty);
+                                  if (available !== requestedQty) {
+                                    return (
+                                      <FormField
+                                        control={form.control}
+                                        name={`items.${index}.quantityAdjustmentReason`}
+                                        render={({ field }) => (
+                                          <FormItem>
+                                            <FormControl>
+                                              <Input
+                                                {...field}
+                                                placeholder="Motivo do ajuste de quantidade"
+                                                readOnly={viewMode === 'view'}
+                                                className="text-xs h-7 border-yellow-300 bg-yellow-50"
+                                              />
+                                            </FormControl>
+                                            <FormMessage />
+                                          </FormItem>
+                                        )}
+                                      />
+                                    );
+                                  }
+                                }
+                                return null;
+                              })()}
+                            </div>
                           </td>
                           <td className="p-3 align-top">
                             <div className="space-y-2">

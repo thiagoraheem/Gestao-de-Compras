@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -601,9 +601,8 @@ export default function PurchaseRequestsReport() {
                 </TableHeader>
                 <TableBody>
                   {requests.map((request: PurchaseRequest) => (
-                    <>
+                    <React.Fragment key={request.id}>
                       <TableRow
-                        key={request.id}
                         className="cursor-pointer hover:bg-gray-50"
                       >
                         <TableCell>
@@ -725,10 +724,10 @@ export default function PurchaseRequestsReport() {
                                           <TableCell>{item.quantity}</TableCell>
                                           <TableCell>{item.unit}</TableCell>
                                           <TableCell>
-                                            {formatCurrency(item.unitPrice)}
+                                            {item.unitPrice ? formatCurrency(item.unitPrice) : "N/A"}
                                           </TableCell>
                                           <TableCell>
-                                            {formatCurrency(item.totalPrice)}
+                                            {item.totalPrice ? formatCurrency(item.totalPrice) : "N/A"}
                                           </TableCell>
                                         </TableRow>
                                       ))}
@@ -925,7 +924,7 @@ export default function PurchaseRequestsReport() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
 
                   {/* Totals Row */}
