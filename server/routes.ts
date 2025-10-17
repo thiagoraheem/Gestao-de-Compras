@@ -4044,6 +4044,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
+        // SINCRONIZAÇÃO CRÍTICA: Sincronizar itens da RFQ com a solicitação original
+        // Buscar todos os itens da cotação (RFQ)
+        const quotationItems = await storage.getQuotationItems(quotationId);
+        const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId);
+        
+        // Identificar itens que existem na RFQ mas não na solicitação original
+        for (const quotationItem of quotationItems) {
+          // Se o item não tem purchaseRequestItemId, significa que foi adicionado durante a RFQ
+          if (!quotationItem.purchaseRequestItemId) {
+            console.log(`Sincronizando item adicionado na RFQ: ${quotationItem.description}`);
+            
+            // Criar o item na solicitação original
+            const newPurchaseRequestItem = await storage.createPurchaseRequestItem({
+              purchaseRequestId: quotation.purchaseRequestId,
+              productCode: quotationItem.productCode || '',
+              description: quotationItem.description,
+              technicalSpecification: quotationItem.technicalSpecification || '',
+              requestedQuantity: quotationItem.quantity,
+              approvedQuantity: quotationItem.quantity,
+              unit: quotationItem.unit,
+              estimatedUnitPrice: quotationItem.estimatedUnitPrice || '0',
+              estimatedTotalPrice: quotationItem.estimatedTotalPrice || '0',
+              justification: 'Item adicionado durante a criação da RFQ',
+            });
+            
+            // Atualizar o quotation_item para referenciar o novo purchase_request_item
+            await storage.updateQuotationItem(quotationItem.id, {
+              purchaseRequestItemId: newPurchaseRequestItem.id,
+            });
+            
+            console.log(`Item sincronizado com sucesso: ${quotationItem.description} -> ID: ${newPurchaseRequestItem.id}`);
+          }
+        }
+
         // Avançar a solicitação para aprovação A2
         await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
           currentPhase: "aprovacao_a2",
