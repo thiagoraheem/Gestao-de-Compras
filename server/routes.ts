@@ -2234,6 +2234,302 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Admin endpoint to audit purchase request data integrity
+  app.get(
+    "/api/admin/purchase-requests/:id/audit",
+    isAuthenticated,
+    isAdmin,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        
+        // Get purchase request
+        const request = await storage.getPurchaseRequestById(id);
+        if (!request) {
+          return res.status(404).json({ message: "Solicitação não encontrada" });
+        }
+
+        const auditResults = {
+          requestId: id,
+          requestNumber: request.requestNumber,
+          issues: [] as any[],
+          summary: {
+            totalIssues: 0,
+            orphanedQuotationItems: 0,
+            missingReferences: 0,
+            valueDiscrepancies: 0,
+            quantityDiscrepancies: 0
+          }
+        };
+
+        // Get all related data
+        const [purchaseRequestItems, quotations] = await Promise.all([
+          storage.getPurchaseRequestItems(id),
+          pool.query(
+            `SELECT q.*, qi.id as quotation_item_id, qi.description as qi_description, 
+                    qi.unit as qi_unit, qi.quantity as qi_quantity,
+                    qi.purchase_request_item_id
+             FROM quotations q
+             LEFT JOIN quotation_items qi ON q.id = qi.quotation_id
+             WHERE q.purchase_request_id = $1
+             ORDER BY q.id, qi.id`,
+            [id]
+          )
+        ]);
+
+        const quotationData = quotations.rows;
+
+        // 1. Check for orphaned quotation items (without purchaseRequestItemId)
+        const orphanedItems = quotationData.filter(row => 
+          row.quotation_item_id && !row.purchase_request_item_id
+        );
+
+        orphanedItems.forEach(item => {
+          auditResults.issues.push({
+            type: 'orphaned_quotation_item',
+            severity: 'high',
+            description: `Item de cotação "${item.qi_description}" não está vinculado a nenhum item da solicitação original`,
+            quotationItemId: item.quotation_item_id,
+            quotationId: item.id,
+            data: {
+              description: item.qi_description,
+              unit: item.qi_unit,
+              quantity: item.qi_quantity,
+              unitPrice: item.qi_unit_price,
+              totalPrice: item.qi_total_price
+            }
+          });
+          auditResults.summary.orphanedQuotationItems++;
+        });
+
+        // 2. Check for missing references in quotation items
+        const quotationItemsWithRefs = quotationData.filter(row => 
+          row.quotation_item_id && row.purchase_request_item_id
+        );
+
+        for (const qItem of quotationItemsWithRefs) {
+          const prItem = purchaseRequestItems.find(pri => pri.id === qItem.purchase_request_item_id);
+          if (!prItem) {
+            auditResults.issues.push({
+              type: 'missing_reference',
+              severity: 'high',
+              description: `Item de cotação referencia um item da solicitação que não existe (ID: ${qItem.purchase_request_item_id})`,
+              quotationItemId: qItem.quotation_item_id,
+              quotationId: qItem.id,
+              referencedItemId: qItem.purchase_request_item_id
+            });
+            auditResults.summary.missingReferences++;
+          }
+        }
+
+        // 3. Check for value discrepancies between related items
+        for (const qItem of quotationItemsWithRefs) {
+          const prItem = purchaseRequestItems.find(pri => pri.id === qItem.purchase_request_item_id);
+          if (prItem) {
+            // Check quantity discrepancies
+            if (parseFloat(qItem.qi_quantity) !== parseFloat(prItem.requestedQuantity)) {
+              auditResults.issues.push({
+                type: 'quantity_discrepancy',
+                severity: 'medium',
+                description: `Divergência de quantidade entre item da solicitação e cotação`,
+                quotationItemId: qItem.quotation_item_id,
+                purchaseRequestItemId: prItem.id,
+                data: {
+                  requestQuantity: prItem.requestedQuantity,
+                  quotationQuantity: qItem.qi_quantity,
+                  description: prItem.description
+                }
+              });
+              auditResults.summary.quantityDiscrepancies++;
+            }
+
+            // Check description consistency
+            if (qItem.qi_description.toLowerCase().trim() !== prItem.description.toLowerCase().trim()) {
+              auditResults.issues.push({
+                type: 'description_discrepancy',
+                severity: 'low',
+                description: `Divergência de descrição entre item da solicitação e cotação`,
+                quotationItemId: qItem.quotation_item_id,
+                purchaseRequestItemId: prItem.id,
+                data: {
+                  requestDescription: prItem.description,
+                  quotationDescription: qItem.qi_description
+                }
+              });
+            }
+          }
+        }
+
+        // 4. Check for supplier quotation items integrity
+        const supplierQuotations = await pool.query(
+          `SELECT sq.*, sqi.id as sq_item_id, sqi.quotation_item_id, sqi.unit_price, sqi.total_price
+           FROM supplier_quotations sq
+           LEFT JOIN supplier_quotation_items sqi ON sq.id = sqi.supplier_quotation_id
+           WHERE sq.quotation_id IN (SELECT id FROM quotations WHERE purchase_request_id = $1)`,
+          [id]
+        );
+
+        for (const sqItem of supplierQuotations.rows) {
+          if (sqItem.sq_item_id && sqItem.quotation_item_id) {
+            const quotationItem = quotationData.find(qi => qi.quotation_item_id === sqItem.quotation_item_id);
+            if (!quotationItem) {
+              auditResults.issues.push({
+                type: 'missing_quotation_item_reference',
+                severity: 'high',
+                description: `Item de cotação de fornecedor referencia um item de cotação que não existe`,
+                supplierQuotationItemId: sqItem.sq_item_id,
+                referencedQuotationItemId: sqItem.quotation_item_id
+              });
+              auditResults.summary.missingReferences++;
+            }
+          }
+        }
+
+        auditResults.summary.totalIssues = auditResults.issues.length;
+
+        res.json(auditResults);
+      } catch (error) {
+        console.error("Error auditing purchase request:", error);
+        res.status(500).json({ message: "Falha ao auditar solicitação" });
+      }
+    }
+  );
+
+  // Admin endpoint to fix purchase request data integrity issues
+  app.post(
+    "/api/admin/purchase-requests/:id/fix-data",
+    isAuthenticated,
+    isAdmin,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const { fixTypes = [], dryRun = false } = req.body;
+        
+        // Get purchase request
+        const request = await storage.getPurchaseRequestById(id);
+        if (!request) {
+          return res.status(404).json({ message: "Solicitação não encontrada" });
+        }
+
+        const fixResults = {
+          requestId: id,
+          requestNumber: request.requestNumber,
+          dryRun,
+          fixes: [] as any[],
+          summary: {
+            totalFixes: 0,
+            orphanedItemsFixed: 0,
+            referencesFixed: 0,
+            quantitiesFixed: 0,
+            descriptionsFixed: 0
+          }
+        };
+
+        // Get audit data first by calling the audit endpoint internally
+        const orphanedItems = await pool.query(
+          `SELECT qi.id as quotation_item_id, qi.description, qi.unit, qi.quantity, qi.unit_price, qi.total_price
+           FROM quotations q
+           JOIN quotation_items qi ON q.id = qi.quotation_id
+           WHERE q.purchase_request_id = $1 AND qi.purchase_request_item_id IS NULL`,
+          [id]
+        );
+
+        // Fix orphaned quotation items
+        if (fixTypes.includes('orphaned_quotation_item') || fixTypes.includes('all')) {
+          for (const item of orphanedItems.rows) {
+            if (!dryRun) {
+              // Create corresponding purchase request item
+              const newPrItem = await storage.createPurchaseRequestItem({
+                purchaseRequestId: id,
+                description: item.description,
+                unit: item.unit,
+                requestedQuantity: item.quantity,
+                technicalSpecification: `Item adicionado durante RFQ - sincronizado automaticamente`
+              });
+
+              // Update quotation item to reference the new purchase request item
+              await pool.query(
+                `UPDATE quotation_items SET purchase_request_item_id = $1 WHERE id = $2`,
+                [newPrItem.id, item.quotation_item_id]
+              );
+
+              fixResults.fixes.push({
+                type: 'orphaned_quotation_item',
+                action: 'created_purchase_request_item_and_linked',
+                quotationItemId: item.quotation_item_id,
+                newPurchaseRequestItemId: newPrItem.id,
+                description: `Criado item na solicitação e vinculado ao item de cotação`
+              });
+            } else {
+              fixResults.fixes.push({
+                type: 'orphaned_quotation_item',
+                action: 'would_create_purchase_request_item_and_link',
+                quotationItemId: item.quotation_item_id,
+                description: `Criaria item na solicitação e vincularia ao item de cotação`
+              });
+            }
+            fixResults.summary.orphanedItemsFixed++;
+          }
+        }
+
+        // Update request total value if items were modified
+        if (!dryRun && fixResults.fixes.length > 0) {
+          // Recalculate total value
+          const updatedItems = await storage.getPurchaseRequestItems(id);
+          let totalValue = 0;
+          
+          // Get latest quotation values for calculation
+          const latestQuotation = await pool.query(
+            `SELECT qi.total_price 
+             FROM quotations q
+             JOIN quotation_items qi ON q.id = qi.quotation_id
+             WHERE q.purchase_request_id = $1 AND qi.purchase_request_item_id IS NOT NULL
+             ORDER BY q.created_at DESC`,
+            [id]
+          );
+
+          if (latestQuotation.rows.length > 0) {
+            totalValue = latestQuotation.rows.reduce((sum, item) => sum + parseFloat(item.total_price || 0), 0);
+            
+            await storage.updatePurchaseRequest(id, {
+              totalValue: totalValue
+            });
+
+            fixResults.fixes.push({
+              type: 'total_value_update',
+              action: 'updated_request_total_value',
+              newTotalValue: totalValue,
+              description: `Valor total da solicitação atualizado`
+            });
+          }
+
+          // Log the fix action
+          await pool.query(
+            `INSERT INTO audit_logs (purchase_request_id, user_id, action, details, created_at)
+             VALUES ($1, $2, $3, $4, NOW())`,
+            [
+              id,
+              req.session.userId,
+              'data_integrity_fix',
+              JSON.stringify({
+                fixTypes,
+                fixesApplied: fixResults.fixes.length,
+                summary: fixResults.summary
+              })
+            ]
+          );
+        }
+
+        fixResults.summary.totalFixes = fixResults.fixes.length;
+
+        res.json(fixResults);
+      } catch (error) {
+        console.error("Error fixing purchase request data:", error);
+        res.status(500).json({ message: "Falha ao corrigir dados da solicitação" });
+      }
+    }
+  );
+
   // Endpoint para atualizar a fase do cartão (Kanban) com controle de permissões
   app.patch(
     "/api/purchase-requests/:id/update-phase",

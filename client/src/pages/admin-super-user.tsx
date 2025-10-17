@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Search, Save, RefreshCw, AlertTriangle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar, Search, Save, RefreshCw, AlertTriangle, Shield } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import DataAudit from "@/components/data-audit";
 
 const PHASE_OPTIONS = [
   { value: "solicitacao", label: "Solicitação" },
@@ -233,7 +235,20 @@ export default function AdminSuperUserPage() {
               </div>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent>
+            <Tabs defaultValue="edit" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="edit" className="flex items-center gap-2">
+                  <Save className="h-4 w-4" />
+                  Editar Solicitação
+                </TabsTrigger>
+                <TabsTrigger value="audit" className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Auditoria de Dados
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="edit" className="space-y-6 mt-6">
             {/* Request Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -432,26 +447,35 @@ export default function AdminSuperUserPage() {
 
             <Separator />
 
-            {/* Save Button */}
-            <div className="flex justify-end">
-              <Button 
-                onClick={handleSave} 
-                disabled={updateMutation.isPending}
-                data-testid="button-save"
-              >
-                {updateMutation.isPending ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Salvar Alterações
-                  </>
-                )}
-              </Button>
-            </div>
+                {/* Save Button */}
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={updateMutation.isPending}
+                    data-testid="button-save"
+                  >
+                    {updateMutation.isPending ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Salvar Alterações
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="audit" className="mt-6">
+                <DataAudit 
+                  requestId={currentRequest.id}
+                  requestNumber={currentRequest.requestNumber}
+                />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}
