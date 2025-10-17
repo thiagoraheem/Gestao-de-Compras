@@ -2294,9 +2294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             data: {
               description: item.qi_description,
               unit: item.qi_unit,
-              quantity: item.qi_quantity,
-              unitPrice: item.qi_unit_price,
-              totalPrice: item.qi_total_price
+              quantity: item.qi_quantity
             }
           });
           auditResults.summary.orphanedQuotationItems++;
@@ -2427,7 +2425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Get audit data first by calling the audit endpoint internally
         const orphanedItems = await pool.query(
-          `SELECT qi.id as quotation_item_id, qi.description, qi.unit, qi.quantity, qi.unit_price, qi.total_price
+          `SELECT qi.id as quotation_item_id, qi.description, qi.quantity
            FROM quotations q
            JOIN quotation_items qi ON q.id = qi.quotation_id
            WHERE q.purchase_request_id = $1 AND qi.purchase_request_item_id IS NULL`,
@@ -2442,7 +2440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const newPrItem = await storage.createPurchaseRequestItem({
                 purchaseRequestId: id,
                 description: item.description,
-                unit: item.unit,
+                unit: 'UN', // Default unit since it's not available in quotation_items
                 requestedQuantity: item.quantity,
                 technicalSpecification: `Item adicionado durante RFQ - sincronizado automaticamente`
               });
@@ -2480,9 +2478,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Get latest quotation values for calculation
           const latestQuotation = await pool.query(
-            `SELECT qi.total_price 
+            `SELECT sqi.total_price 
              FROM quotations q
              JOIN quotation_items qi ON q.id = qi.quotation_id
+             JOIN supplier_quotation_items sqi ON sqi.quotation_item_id = qi.id
              WHERE q.purchase_request_id = $1 AND qi.purchase_request_item_id IS NOT NULL
              ORDER BY q.created_at DESC`,
             [id]

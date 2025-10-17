@@ -29,15 +29,16 @@ const PHASE_OPTIONS = [
 ];
 
 const CATEGORY_OPTIONS = [
-  { value: "Produto", label: "Produto" },
-  { value: "Serviço", label: "Serviço" },
-  { value: "Outros", label: "Outros" }
+  { value: "produto", label: "Produto" },
+  { value: "servico", label: "Serviço" },
+  { value: "outros", label: "Outros" }
 ];
 
 const URGENCY_OPTIONS = [
-  { value: "Baixo", label: "Baixo" },
-  { value: "Médio", label: "Médio" },
-  { value: "Alto", label: "Alto" }
+  { value: "baixo", label: "Baixo" },
+  { value: "medio", label: "Médio" },
+  { value: "alto", label: "Alto" },
+  { value: "alta_urgencia", label: "Crítico" }
 ];
 
 export default function AdminSuperUserPage() {
@@ -54,8 +55,15 @@ export default function AdminSuperUserPage() {
       return response;
     },
     onSuccess: (data) => {
+      // Debug: Log dos dados recebidos do backend
+      console.log('AdminSuperUser - Dados recebidos do backend:', {
+        category: data.category,
+        urgency: data.urgency,
+        allData: data
+      });
+      
       setCurrentRequest(data);
-      setFormData({
+      const newFormData = {
         category: data.category || "",
         urgency: data.urgency || "",
         justification: data.justification || "",
@@ -64,7 +72,16 @@ export default function AdminSuperUserPage() {
         additionalInfo: data.additionalInfo || "",
         currentPhase: data.currentPhase || "",
         items: data.items || []
+      };
+      
+      // Debug: Log dos dados que serão definidos no formData
+      console.log('AdminSuperUser - FormData que será definido:', {
+        category: newFormData.category,
+        urgency: newFormData.urgency,
+        formData: newFormData
       });
+      
+      setFormData(newFormData);
       toast({
         title: "Sucesso",
         description: "Solicitação encontrada e carregada para edição",

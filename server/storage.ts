@@ -959,6 +959,18 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(purchaseRequests)
       .where(eq(purchaseRequests.requestNumber, requestNumber));
+    
+    // Debug: Log the request data to verify category and urgency fields
+    if (request) {
+      console.log('getPurchaseRequestByNumber - Request data:', {
+        id: request.id,
+        requestNumber: request.requestNumber,
+        category: request.category,
+        urgency: request.urgency,
+        allFields: Object.keys(request)
+      });
+    }
+    
     return request || undefined;
   }
 
