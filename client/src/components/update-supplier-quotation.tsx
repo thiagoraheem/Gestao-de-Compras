@@ -761,25 +761,25 @@ export default function UpdateSupplierQuotation({
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[200px]">Item</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[150px]">Marca / Modelo</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[120px]">Preço + Original</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[80px]">Desc. %</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[100px]">Desc. Valor</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[80px]">Prazo (dias)</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[140px]">Quantidade Disponível</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[120px]">Disponibilidade</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600 min-w-[120px]">Total Final</th>
+                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[180px]">Item</th>
+                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[120px]">Marca / Modelo</th>
+                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[100px]">Preço + Original</th>
+                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[60px]">Desc. %</th>
+                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[80px]">Desc. Valor</th>
+                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[60px]">Prazo (dias)</th>
+                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[110px]">Quantidade Disponível</th>
+                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[100px]">Disponibilidade</th>
+                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[90px]">Total Final</th>
                       </tr>
                     </thead>
                     <tbody>
                       {quotationItems.map((item, index) => (
                         <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="p-3 align-top">
-                            <div className="space-y-2">
-                              <div className="font-medium text-sm break-words">{item.description}</div>
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <Badge variant="secondary" className="text-xs">
+                          <td className="p-2 align-top">
+                            <div className="space-y-1">
+                              <div className="font-medium text-xs break-words">{item.description}</div>
+                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <Badge variant="secondary" className="text-xs px-1 py-0">
                                   Solicitado: {parseFloat(item.quantity).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} {item.unit}
                                 </Badge>
                                 {(() => {
@@ -793,7 +793,7 @@ export default function UpdateSupplierQuotation({
                                     return (
                                       <Badge 
                                         variant={isDifferent ? "destructive" : "default"} 
-                                        className={`text-xs ${isDifferent ? "bg-orange-100 text-orange-800 border-orange-300" : "bg-green-100 text-green-800 border-green-300"}`}
+                                        className={`text-xs px-1 py-0 ${isDifferent ? "bg-orange-100 text-orange-800 border-orange-300" : "bg-green-100 text-green-800 border-green-300"}`}
                                       >
                                         Disponível: {available.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} {form.watch(`items.${index}.confirmedUnit`) || item.unit}
                                       </Badge>
@@ -818,7 +818,7 @@ export default function UpdateSupplierQuotation({
                                           {...field}
                                           placeholder="Observações"
                                           readOnly={viewMode === 'view'}
-                                          className="text-xs h-7"
+                                          className="text-xs h-6"
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -828,8 +828,8 @@ export default function UpdateSupplierQuotation({
                               </div>
                             </div>
                           </td>
-                          <td className="p-3 align-top">
-                            <div className="space-y-2">
+                          <td className="p-2 align-top">
+                            <div className="space-y-1">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.brand`}
@@ -840,7 +840,7 @@ export default function UpdateSupplierQuotation({
                                         {...field}
                                         placeholder="Marca"
                                         readOnly={viewMode === 'view'}
-                                        className="text-xs h-7"
+                                        className="text-xs h-6"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -857,7 +857,7 @@ export default function UpdateSupplierQuotation({
                                         {...field}
                                         placeholder="Modelo"
                                         readOnly={viewMode === 'view'}
-                                        className="text-xs h-7"
+                                        className="text-xs h-6"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -866,8 +866,8 @@ export default function UpdateSupplierQuotation({
                               />
                             </div>
                           </td>
-                          <td className="p-3 align-top">
-                            <div className="space-y-2">
+                          <td className="p-2 align-top">
+                            <div className="space-y-1">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.unitPrice`}
@@ -878,7 +878,7 @@ export default function UpdateSupplierQuotation({
                                         {...field}
                                         placeholder="1.000,00"
                                         readOnly={viewMode === 'view'}
-                                        className="text-xs h-7"
+                                        className="text-xs h-6"
                                         autoComplete="off"
                                         onChange={(e) => {
                                           if (viewMode === 'view') return;
@@ -933,7 +933,7 @@ export default function UpdateSupplierQuotation({
                               </div>
                             </div>
                           </td>
-                          <td className="p-3 align-top">
+                          <td className="p-2 align-top">
                             <FormField
                               control={form.control}
                               name={`items.${index}.discountPercentage`}
@@ -948,7 +948,7 @@ export default function UpdateSupplierQuotation({
                                       max="100"
                                       step="0.01"
                                       readOnly={viewMode === 'view'}
-                                      className="text-xs h-7"
+                                      className="text-xs h-6"
                                       autoComplete="off"
                                       onChange={(e) => {
                                         if (viewMode === 'view') return;
@@ -964,7 +964,7 @@ export default function UpdateSupplierQuotation({
                               )}
                             />
                           </td>
-                          <td className="p-3 align-top">
+                          <td className="p-2 align-top">
                             <FormField
                               control={form.control}
                               name={`items.${index}.discountValue`}
@@ -975,7 +975,7 @@ export default function UpdateSupplierQuotation({
                                       {...field}
                                       placeholder="0,00"
                                       readOnly={viewMode === 'view'}
-                                      className="text-xs h-7"
+                                      className="text-xs h-6"
                                       autoComplete="off"
                                       onChange={(e) => {
                                         if (viewMode === 'view') return;
@@ -1019,7 +1019,7 @@ export default function UpdateSupplierQuotation({
                               )}
                             />
                           </td>
-                          <td className="p-3 align-top">
+                          <td className="p-2 align-top">
                             <FormField
                               control={form.control}
                               name={`items.${index}.deliveryDays`}
@@ -1031,7 +1031,7 @@ export default function UpdateSupplierQuotation({
                                       placeholder="30"
                                       type="number"
                                       readOnly={viewMode === 'view'}
-                                      className="text-xs h-7"
+                                      className="text-xs h-6"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1039,8 +1039,8 @@ export default function UpdateSupplierQuotation({
                               )}
                             />
                           </td>
-                          <td className="p-3 align-top">
-                            <div className="space-y-2">
+                          <td className="p-2 align-top">
+                            <div className="space-y-1">
                               {/* Quantidade Disponível */}
                               <FormField
                                 control={form.control}
@@ -1055,7 +1055,7 @@ export default function UpdateSupplierQuotation({
                                         min="0"
                                         step="0.01"
                                         readOnly={viewMode === 'view'}
-                                        className="text-xs h-7"
+                                        className="text-xs h-6"
                                         onChange={(e) => {
                                           if (viewMode === 'view') return;
                                           field.onChange(e.target.value);
@@ -1083,7 +1083,7 @@ export default function UpdateSupplierQuotation({
                                         {...field}
                                         placeholder={item.unit}
                                         readOnly={viewMode === 'view'}
-                                        className="text-xs h-7"
+                                        className="text-xs h-6"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -1160,8 +1160,8 @@ export default function UpdateSupplierQuotation({
                               })()}
                             </div>
                           </td>
-                          <td className="p-3 align-top">
-                            <div className="space-y-2">
+                          <td className="p-2 align-top">
+                                <div className="space-y-1">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.isAvailable`}
@@ -1200,7 +1200,7 @@ export default function UpdateSupplierQuotation({
                                           {...field}
                                           placeholder="Motivo da indisponibilidade"
                                           readOnly={viewMode === 'view'}
-                                          className="text-xs h-7"
+                                          className="text-xs h-6"
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -1210,7 +1210,7 @@ export default function UpdateSupplierQuotation({
                               )}
                             </div>
                           </td>
-                          <td className="p-3 align-top">
+                          <td className="p-2 align-top">
                             <div className="font-bold text-green-600">
                               R$ {(() => {
                                 const watchedItem = form.watch(`items.${index}`);
@@ -1436,7 +1436,7 @@ export default function UpdateSupplierQuotation({
                       )}
 
                       <div className="flex flex-col justify-end">
-                        <div className="text-right space-y-2">
+                        <div className="text-right space-y-1">
                           <div>
                             <p className="text-sm text-gray-600">Subtotal</p>
                             <p className="text-lg font-semibold">

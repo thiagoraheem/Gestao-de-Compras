@@ -2848,6 +2848,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Delete attachment route
+  app.delete(
+    "/api/attachments/:id",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const userId = req.session.userId;
+
+        // Import database and schema
+        const { db } = await import("./db");
+        const { attachments, users, supplierQuotations } = await import("../shared/schema");
+        const { eq, and } = await import("drizzle-orm");
+
+        // Get attachment from database with related data
+        const attachment = await db
+          .select({
+            id: attachments.id,
+            fileName: attachments.fileName,
+            filePath: attachments.filePath,
+            supplierQuotationId: attachments.supplierQuotationId,
+            purchaseRequestId: attachments.purchaseRequestId,
+          })
+          .from(attachments)
+          .where(eq(attachments.id, id))
+          .limit(1);
+
+        if (!attachment[0]) {
+          return res.status(404).json({ message: "Anexo não encontrado" });
+        }
+
+        // Get user information to check permissions
+        const user = await db
+          .select({
+            id: users.id,
+            role: users.role,
+          })
+          .from(users)
+          .where(eq(users.id, userId!))
+          .limit(1);
+
+        if (!user[0]) {
+          return res.status(401).json({ message: "Usuário não encontrado" });
+        }
+
+        // Check permissions
+        let hasPermission = false;
+
+        // Admin can delete any attachment
+        if (user[0].role === "admin") {
+          hasPermission = true;
+        }
+        // For supplier quotation attachments, check if user is buyer or admin
+        else if (attachment[0].supplierQuotationId && (user[0].role === "buyer" || user[0].role === "admin")) {
+          hasPermission = true;
+        }
+        // For purchase request attachments, check if user is the requester or has appropriate role
+        else if (attachment[0].purchaseRequestId) {
+          // Get purchase request to check if user is the requester
+          const { purchaseRequests } = await import("../shared/schema");
+          const purchaseRequest = await db
+            .select({
+              requesterId: purchaseRequests.requesterId,
+            })
+            .from(purchaseRequests)
+            .where(eq(purchaseRequests.id, attachment[0].purchaseRequestId))
+            .limit(1);
+
+          if (purchaseRequest[0] && 
+              (purchaseRequest[0].requesterId === userId || 
+               user[0].role === "buyer" || 
+               user[0].role === "admin")) {
+            hasPermission = true;
+          }
+        }
+
+        if (!hasPermission) {
+          return res.status(403).json({ message: "Sem permissão para excluir este anexo" });
+        }
+
+        // Delete physical file if it exists
+        const filePath = attachment[0].filePath;
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch (fileError) {
+            console.error("Error deleting physical file:", fileError);
+            // Continue with database deletion even if file deletion fails
+          }
+        }
+
+        // Delete attachment from database
+        await db.delete(attachments).where(eq(attachments.id, id));
+
+        res.json({ message: "Anexo excluído com sucesso" });
+      } catch (error) {
+        console.error("Error deleting attachment:", error);
+        res.status(500).json({ message: "Erro ao excluir anexo" });
+      }
+    },
+  );
+
   // Quotation routes
   app.post(
     "/api/purchase-requests/:id/quotations",
