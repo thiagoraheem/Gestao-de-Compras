@@ -1,0 +1,74 @@
+Sistema de Exibição de Anexos - Implementação nas Telas Faltantes
+
+CONTEXTO:
+O sistema possui um componente AttachmentsViewer bem estruturado que já está sendo usado nas telas de Aprovação A1 e A2. No entanto, várias outras telas importantes ainda não exibem os anexos, prejudicando a experiência do usuário e a continuidade do processo.
+
+COMPONENTE BASE EXISTENTE:
+- AttachmentsViewer em client/src/components/attachments-viewer.tsx
+- Já implementado e funcionando nas telas de aprovação
+- Suporte a download, visualização e diferentes tipos de arquivo
+- Design consistente com a UI do sistema
+
+TELAS QUE PRECISAM DE ANEXOS:
+
+1. **QuotationPhase** (client/src/components/quotation-phase.tsx)
+   - Linha ~35: Adicionar seção de anexos após as informações da solicitação
+   - Importância: Compradores precisam ver anexos para criar RFQs adequadas
+
+2. **PurchaseOrderPhase** (client/src/components/purchase-order-phase.tsx)
+   - Já tem seção de anexos (linha ~280) mas está comentada ou mal implementada
+   - Corrigir implementação existente para funcionar corretamente
+
+3. **ReceiptPhase** (client/src/components/receipt-phase.tsx)
+   - Linha ~200: Adicionar seção de anexos antes dos botões de ação
+   - Importância: Recebedores precisam ver anexos para conferir materiais
+
+4. **RequestPhase** (client/src/components/request-phase.tsx)
+   - Adicionar seção de anexos para visualização durante edição
+   - Permitir upload de novos anexos se em modo de edição
+
+5. **Enhanced New Request Modal** (client/src/components/enhanced-new-request-modal.tsx)
+   - Já tem upload implementado mas falta visualização dos anexos após upload
+   - Melhorar exibição dos arquivos anexados
+
+IMPLEMENTAÇÃO REQUERIDA:
+
+Para cada componente:
+1. Importar AttachmentsViewer: `import AttachmentsViewer from "./attachments-viewer";`
+2. Adicionar query para buscar anexos:
+```javascript
+const { data: attachments = [] } = useQuery<any[]>({
+  queryKey: [`/api/purchase-requests/${request?.id}/attachments`],
+  enabled: !!request?.id,
+});
+```
+3. Adicionar seção de anexos no JSX:
+{Array.isArray(attachments) && attachments.length > 0 && (
+  <AttachmentsViewer 
+    attachments={attachments} 
+    requestId={request.id}
+    readOnly={true}
+  />
+)}
+POSICIONAMENTO:
+
+QuotationPhase: Após Card de "Informações da Solicitação"
+PurchaseOrderPhase: Corrigir seção existente (linha ~280)
+ReceiptPhase: Antes dos botões de ação final
+RequestPhase: Após seção de itens
+Enhanced New Request Modal: Na aba de anexos, melhorar visualização
+REQUISITOS ESPECÍFICOS:
+
+Manter consistência visual com o resto da aplicação
+Usar o componente AttachmentsViewer existente sem modificações
+Garantir que a query de anexos seja habilitada apenas quando request.id existir
+Adicionar tratamento para quando não há anexos (não exibir seção vazia)
+Manter responsividade em todos os tamanhos de tela
+PRIORIDADE DE IMPLEMENTAÇÃO:
+
+QuotationPhase (alta - crítico para compradores)
+ReceiptPhase (alta - crítico para recebimento)
+PurchaseOrderPhase (média - corrigir implementação)
+RequestPhase (baixa - melhoria de UX)
+Enhanced New Request Modal (baixa - polimento)
+Implemente essas mudanças mantendo o padrão de código existente e garantindo que todos os anexos sejam exibidos corretamente em todas as fases do processo de compra.

@@ -1,0 +1,45 @@
+opção de criar fornecedor a partir da tela de criar solicitação de cotação
+
+criar opção de visualizar comparação entre fornecedores de maneira readonly
+ - botão para abrir tela de visualização
+ 
+ opção de reabrir cotação (zerar escolha do fornecedor ou permitir selecionar outro fornecedor)
+
+
+
+---- 
+visualizar anexos na tela de aprovação 2
+verificar os itens na tela de aprovação 2 pois os valores estão incorretos
+
+cadastrar local de entrega -> selecionar local de entrega na cotação
+no PDF gerado -> departamento não está aparecendo corretamente
+				-> prazo de entrega não está aparecendo corretamente
+				-> buscar da cotação a condição de pagamento e exibir na tela para preenchimento
+				-> retirar o campo "Transportadora"
+				-> nos campos de assinatura, incluir assinatura automaticamente
+	
+-- na rejeição do recebimento, ao voltar para Pedido de Compra, tem que exibir a mensagem cadastrada e uma sinalização visual (tag vermelha)
+
+-> na tela de Conclusão, ocultar o quadro "Economia"
+	-> no Resumo da solicitação não está aparecendo corretamente os dados do solicitante e o centro de custo
+	-> mostrar todos os anexos disponíveis na solicitação
+	
+	
+----
+verificar o reprovar da tela de aprovação A1]
+verificar o botão aprovar da tela de aprovação A1
+
+--> verificar permissão de aprovação em A1 para centro de custo do aprovador
+--> na aprovação A2, informar a etapa da aprovação no histórico
+--> no PDF de Pedido de Compra - retirar o histórico de Aprovação e implementar o conceito de assinatura virtual e informar os assinadores
+	-- colocar a logo da empresa no topo do documento
+na resposta do fornecedor, possibilitar a alteração da data de entrega (que aparece no PDF)
+-- colocar a permissao isadmin na tela de cadastro de usuario
+
+-> gerar contas a pagar
+
+-----
+possibilidade de recebimento parcial
+criar botão para avançar de Pedido de Compra para Conclusão
+a opção de avançar para recebimento só deve estar ativo para comprador
+pensar em cadastro de itens

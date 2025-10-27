@@ -1,0 +1,70 @@
+1) Solicitação
+- Puxar o email do usuário automático, sem necessidade de preenchimento. (Thiago)
+   1.1 - Retirar campo de ''Nome'' e ''Seu email''.
+
+- Documento de Requisição - Ajuste de Colunas:
+ITEM / DESCRIÇÃO / UNID / OBSERVAÇÃO
+
+- Inserir campo ''Grau de Urgência"
+Baixo - Verde
+Médio - Laranja
+Alto - Vermelho
+
+- Colocar todos os campos obrigatórios
+Menos: Prazo ideal de entrega / Orçamento disponível / Mais informações / anexos adicionais 	
+
+- Configurar nova fase para funcionamento
+
+2)Aprovação
+- Gerar conexão de Centro de Custo com Aprovador:
+ - Daene - Logistica/Manutenção/Almoxarifado
+ - Fabrizio - Administrativo/Financeiro/RH/T.I
+ - Marcos - Comercial/Marketing
+
+- Somente o aprovador do Card conseguir aprovar.
+
+- Excluir campo de ''Orçamento informado disponível?"
+
+3) Cotação (RFQ)
+-Layout:
+
+Comprador
+
+Fornecedor 1
+Anexo Cotação
+Obs
+Fornecedor 2
+Anexo Cotação
+Obs
+Fornecedor 3
+Anexo Cotação
+Obs
+
+-Retirar campos ''Valor Total'' e ''Método de Pagamento''.
+
+4)Aprovação de compra (A2)
+Layout:
+
+Fornecedor Escolhido
+Motivo
+Obs
+
+- Somente aprovadores conseguirem alterar - Fabrizio/Bruno.
+
+5)Pedido de Compras
+Layout:
+Data de Realização de Compra
+Previsão de chegada
+Texto Longo
+
+- Paula vai mandar carta de compradora para os fornecedores / Quando precisar de assinatura vai ser repassado ao ZapSing - Paula / Fabrizio / Bruno.
+
+6) Recebimento de Material
+- Almoxarifado (Recebimento)
+Conferencia e destina ao setor responsável quando compras administrativa.
+
+7) Entrada de NF
+- Com locador, entregar direto ao financeiro;
+- Com Totvs, entregar para Paula gerar a entrada.
+
+8)Conclusão.
