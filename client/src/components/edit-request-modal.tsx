@@ -354,7 +354,8 @@ export default function EditRequestModal({ open, onOpenChange, request, phase }:
                   </FormControl>
                   <FormMessage />
                 </FormItem>
-              />
+              )}
+            />
           </div>
         );
 
