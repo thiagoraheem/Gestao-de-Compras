@@ -838,11 +838,24 @@ export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuot
 }).extend({
   unitPrice: z.string().transform((val) => val),
   totalPrice: z.string().transform((val) => val),
+  deliveryDays: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => {
+    if (val === null || val === undefined || val === '') return null;
+    return typeof val === 'string' ? parseInt(val, 10) : val;
+  }),
   isAvailable: z.boolean().optional().default(true),
-  unavailabilityReason: z.string().optional(),
-  availableQuantity: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => val?.toString() || null),
+  unavailabilityReason: z.union([z.string(), z.undefined(), z.null()]).optional().nullable().transform((val) => {
+    if (val === null || val === undefined) return null;
+    return val;
+  }),
+  availableQuantity: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => {
+    if (val === null || val === undefined || val === '') return null;
+    return typeof val === 'string' ? val : val.toString();
+  }),
   confirmedUnit: z.string().optional(),
-  quantityAdjustmentReason: z.string().optional(),
+  quantityAdjustmentReason: z.union([z.string(), z.undefined(), z.null()]).optional().nullable().transform((val) => {
+    if (val === null || val === undefined) return null;
+    return val;
+  }),
 });
 
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({

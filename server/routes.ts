@@ -3010,6 +3010,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get quotation by purchase request ID
+  app.get("/api/purchase-requests/:id/quotations", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const quotation = await storage.getQuotationByPurchaseRequestId(id);
+      if (!quotation) {
+        return res.status(404).json({ message: "Quotation not found" });
+      }
+      res.json(quotation);
+    } catch (error) {
+      console.error("Error fetching quotation:", error);
+      res.status(500).json({ message: "Failed to fetch quotation" });
+    }
+  });
+
   app.get("/api/quotations/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -4010,25 +4025,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
               );
               const quantity = parseFloat(quotationItem?.quantity || "1");
 
-              // Atualizar item existente
-              await storage.updateSupplierQuotationItem(existingItem.id, {
-                unitPrice: item.unitPrice.toString(),
+              // Validar e transformar dados do item usando o schema
+              const validatedItemData = insertSupplierQuotationItemSchema.partial().parse({
+                unitPrice: item.unitPrice?.toString(),
                 totalPrice: (item.unitPrice * quantity).toString(),
                 originalTotalPrice: item.originalTotalPrice?.toString() || null,
                 discountPercentage: item.discountPercentage?.toString() || null,
                 discountValue: item.discountValue?.toString() || null,
-                discountedTotalPrice:
-                  item.discountedTotalPrice?.toString() || null,
+                discountedTotalPrice: item.discountedTotalPrice?.toString() || null,
                 deliveryDays: item.deliveryDays,
                 brand: item.brand,
                 model: item.model,
                 observations: item.observations,
                 isAvailable: item.isAvailable,
                 unavailabilityReason: item.unavailabilityReason,
-                availableQuantity: item.availableQuantity?.toString() || null,
+                availableQuantity: item.availableQuantity,
                 confirmedUnit: item.confirmedUnit,
                 quantityAdjustmentReason: item.quantityAdjustmentReason,
               });
+
+              // Atualizar item existente
+              await storage.updateSupplierQuotationItem(existingItem.id, validatedItemData);
             } else {
               // Buscar quantidade do item de cotação
               const quotationItems =
@@ -4038,27 +4055,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
               );
               const quantity = parseFloat(quotationItem?.quantity || "1");
 
-              // Criar novo item
-              await storage.createSupplierQuotationItem({
+              // Validar e transformar dados do item usando o schema
+              const validatedItemData = insertSupplierQuotationItemSchema.parse({
                 supplierQuotationId: supplierQuotation.id,
                 quotationItemId: item.quotationItemId,
-                unitPrice: item.unitPrice.toString(),
+                unitPrice: item.unitPrice?.toString(),
                 totalPrice: (item.unitPrice * quantity).toString(),
                 originalTotalPrice: item.originalTotalPrice?.toString() || null,
                 discountPercentage: item.discountPercentage?.toString() || null,
                 discountValue: item.discountValue?.toString() || null,
-                discountedTotalPrice:
-                  item.discountedTotalPrice?.toString() || null,
+                discountedTotalPrice: item.discountedTotalPrice?.toString() || null,
                 deliveryDays: item.deliveryDays,
                 brand: item.brand,
                 model: item.model,
                 observations: item.observations,
                 isAvailable: item.isAvailable,
                 unavailabilityReason: item.unavailabilityReason,
-                availableQuantity: item.availableQuantity?.toString() || null,
+                availableQuantity: item.availableQuantity,
                 confirmedUnit: item.confirmedUnit,
                 quantityAdjustmentReason: item.quantityAdjustmentReason,
               });
+
+              // Criar novo item
+              await storage.createSupplierQuotationItem(validatedItemData);
             }
           }
         }
