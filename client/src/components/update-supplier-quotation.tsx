@@ -387,6 +387,9 @@ export default function UpdateSupplierQuotation({
           discountedTotalPrice,
           isAvailable: item.isAvailable,
           unavailabilityReason: item.unavailabilityReason || null,
+          availableQuantity: item.availableQuantity ? parseFloat(item.availableQuantity) : null,
+          confirmedUnit: item.confirmedUnit || null,
+          quantityAdjustmentReason: item.quantityAdjustmentReason || null,
         };
       });
 

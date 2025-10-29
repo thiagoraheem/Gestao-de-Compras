@@ -840,6 +840,9 @@ export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuot
   totalPrice: z.string().transform((val) => val),
   isAvailable: z.boolean().optional().default(true),
   unavailabilityReason: z.string().optional(),
+  availableQuantity: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => val?.toString() || null),
+  confirmedUnit: z.string().optional(),
+  quantityAdjustmentReason: z.string().optional(),
 });
 
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({

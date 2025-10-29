@@ -4025,6 +4025,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 observations: item.observations,
                 isAvailable: item.isAvailable,
                 unavailabilityReason: item.unavailabilityReason,
+                availableQuantity: item.availableQuantity?.toString() || null,
+                confirmedUnit: item.confirmedUnit,
+                quantityAdjustmentReason: item.quantityAdjustmentReason,
               });
             } else {
               // Buscar quantidade do item de cotação
@@ -4052,6 +4055,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 observations: item.observations,
                 isAvailable: item.isAvailable,
                 unavailabilityReason: item.unavailabilityReason,
+                availableQuantity: item.availableQuantity?.toString() || null,
+                confirmedUnit: item.confirmedUnit,
+                quantityAdjustmentReason: item.quantityAdjustmentReason,
               });
             }
           }

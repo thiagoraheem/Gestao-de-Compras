@@ -154,16 +154,34 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
     let totalPrice = 0;
     let originalTotalPrice = 0;
     let itemDiscount = 0;
+    let supplierQuantity = 0;
+    let supplierUnit = '';
+    let quantityDiffers = false;
     
     if (quotationItem) {
       // Encontrar o preço do fornecedor para este item da cotação
       const supplierItem = supplierQuotationItems.find((si: any) => si.quotationItemId === quotationItem.id);
+      
       if (supplierItem) {
         unitPrice = Number(supplierItem.unitPrice) || 0;
-        const quantity = Number(item.requestedQuantity || 0);
         
-        // Calcular preço com desconto se houver
-        originalTotalPrice = unitPrice * quantity;
+        // Usar quantidade disponível do fornecedor se disponível, senão usar quantidade solicitada
+        // Verificar se availableQuantity existe e não é null/undefined
+        if (supplierItem.availableQuantity !== null && supplierItem.availableQuantity !== undefined) {
+          supplierQuantity = Number(supplierItem.availableQuantity);
+        } else {
+          supplierQuantity = Number(item.requestedQuantity || 0);
+        }
+        
+        // Usar unidade confirmada do fornecedor se disponível, senão usar unidade original
+        supplierUnit = supplierItem.confirmedUnit || item.unit;
+        
+        // Verificar se a quantidade do fornecedor difere da solicitada
+        quantityDiffers = (supplierItem.availableQuantity !== null && supplierItem.availableQuantity !== undefined) && 
+          Number(supplierItem.availableQuantity) !== Number(item.requestedQuantity || 0);
+        
+        // Calcular preço com base na quantidade do fornecedor
+        originalTotalPrice = unitPrice * supplierQuantity;
         let discountedTotal = originalTotalPrice;
         
         if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
@@ -182,8 +200,10 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
     return {
       id: item.id,
       description: item.description,
-      unit: item.unit,
+      unit: supplierUnit || item.unit,
       requestedQuantity: parseFloat(item.requestedQuantity || '0'),
+      supplierQuantity: supplierQuantity,
+      quantityDiffers: quantityDiffers,
       unitPrice,
       totalPrice,
       originalTotalPrice,
@@ -613,7 +633,21 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                           {item.description}
                         </TableCell>
                         <TableCell className="text-center">
-                          {item.requestedQuantity}
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="font-medium">
+                              {item.supplierQuantity !== null && item.supplierQuantity !== undefined 
+                                ? item.supplierQuantity 
+                                : item.requestedQuantity}
+                            </span>
+                            {item.quantityDiffers && (
+                              <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
+                                <div className="flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  <span>Solicitado: {item.requestedQuantity}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">
                           {item.unit}
