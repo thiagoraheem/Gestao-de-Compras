@@ -47,9 +47,17 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
 
   
 
-  // Fetch request items
-  const { data: items = [] } = useQuery({
-    queryKey: [`/api/purchase-requests/${request.id}/items`],
+  // Buscar dados relacionados
+  // Primeiro buscar o pedido de compra relacionado à solicitação
+  const { data: purchaseOrder } = useQuery<any>({
+    queryKey: [`/api/purchase-orders/by-request/${request?.id}`],
+    enabled: !!request?.id,
+  });
+
+  // Buscar itens do pedido de compra (não da solicitação)
+  const { data: items = [] } = useQuery<any[]>({
+    queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/items`],
+    enabled: !!purchaseOrder?.id,
   });
 
   // Fetch approval history
@@ -259,88 +267,25 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
   // Get selected supplier from quotations
   const selectedSupplier = selectedSupplierQuotation;
 
-  // Combine items with supplier quotation data and filter out unavailable items
-  const itemsWithPrices = useMemo(() => {
-    if (!Array.isArray(items) || !Array.isArray(supplierQuotationItems) || !Array.isArray(quotationItems)) {
-      return [];
-    }
-
-    return (items as any[]).map((item: any) => {
-      // Find the corresponding quotation item first (same logic as PDF)
-      const quotationItem = (quotationItems as any[]).find((qi: any) => {
-        // First try by purchaseRequestItemId (most reliable)
-        if (qi.purchaseRequestItemId && item.id && qi.purchaseRequestItemId === item.id) {
-          return true;
-        }
-        // Fallback: try by exact description match
-        if (qi.description && item.description && 
-            qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()) {
-          return true;
-        }
-        // Fallback: try by item code
-        if (qi.itemCode && item.itemCode && qi.itemCode === item.itemCode) {
-          return true;
-        }
-        // Fallback: try by partial description match
-        if (qi.description && item.description) {
-          const qiDesc = qi.description.trim().toLowerCase();
-          const itemDesc = item.description.trim().toLowerCase();
-          return qiDesc.includes(itemDesc) || itemDesc.includes(qiDesc);
-        }
-        return false;
-      });
-      
-      if (quotationItem) {
-        // Find the supplier item for this quotation item
-        const supplierItem = (supplierQuotationItems as any[]).find((si: any) => 
-          si.quotationItemId === quotationItem.id
-        );
-        
-        if (supplierItem) {
-          const unitPrice = Number(supplierItem.unitPrice) || 0;
-          const quantity = Number(item.requestedQuantity) || 1;
-          
-          // Calculate price with discount if any (same logic as PDF)
-          const originalTotal = unitPrice * quantity;
-          let discountedTotal = originalTotal;
-          let itemDiscount = 0;
-          
-          if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
-            const discountPercent = Number(supplierItem.discountPercentage);
-            itemDiscount = (originalTotal * discountPercent) / 100;
-            discountedTotal = originalTotal - itemDiscount;
-          } else if (supplierItem.discountValue && Number(supplierItem.discountValue) > 0) {
-            itemDiscount = Number(supplierItem.discountValue);
-            discountedTotal = Math.max(0, originalTotal - itemDiscount);
-          }
-          
-          return {
-            ...item,
-            unitPrice: unitPrice,
-            totalPrice: discountedTotal,
-            originalTotalPrice: originalTotal,
-            itemDiscount: itemDiscount,
-            brand: supplierItem.brand || '',
-            deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
-            supplier: selectedSupplierQuotation?.supplier,
-            isAvailable: supplierItem?.isAvailable !== false
-          };
-        }
-      }
-      
-      return {
-        ...item,
-        unitPrice: 0,
-        totalPrice: 0,
-        originalTotalPrice: 0,
-        itemDiscount: 0,
-        brand: '',
-        deliveryTime: '',
-        supplier: selectedSupplierQuotation?.supplier,
-        isAvailable: false
-      };
-    }).filter((item: any) => item.isAvailable); // Filter out unavailable items
-  }, [items, supplierQuotationItems, quotationItems, selectedSupplierQuotation]);
+  // Para a fase de recebimento, usar diretamente os dados dos itens que já vêm com preços do pedido de compra
+  const itemsWithPrices = Array.isArray(items) ? items.map(item => {
+    // Os itens do pedido de compra já vêm com os preços corretos da API
+    const unitPrice = Number(item.unitPrice) || 0;
+    const quantity = Number(item.quantity) || 0;
+    const totalPrice = Number(item.totalPrice) || 0;
+    
+    return {
+      ...item,
+      unitPrice: unitPrice,
+      originalUnitPrice: unitPrice,
+      itemDiscount: 0, // Para pedidos de compra, não há desconto adicional
+      totalPrice: totalPrice,
+      originalTotalPrice: totalPrice,
+      brand: item.brand || '',
+      deliveryTime: item.deliveryTime || '',
+      isAvailable: true
+    };
+  }) : [];
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -610,7 +555,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                         {item.description}
                       </TableCell>
                       <TableCell className="text-center">
-                        {item.requestedQuantity}
+                        {Number(item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell className="text-center">
                         {item.unit}
@@ -713,35 +658,44 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
       <Separator />
 
       {/* Action Buttons */}
-      <div className="flex justify-end space-x-3">
-        <Button variant="outline" onClick={onClose}>
-          Fechar
-        </Button>
-        {canPerformReceiptActions ? (
-          <>
-            <Button
-              variant="destructive"
-              onClick={() => setIsPendencyModalOpen(true)}
-              disabled={reportIssueMutation.isPending}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Reportar Pendência
-            </Button>
-            <Button
-              onClick={() => confirmReceiptMutation.mutate()}
-              disabled={confirmReceiptMutation.isPending}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Check className="mr-2 h-4 w-4" />
-              Confirmar Recebimento
-            </Button>
-          </>
-        ) : (
-          <div className="text-sm text-gray-500 flex items-center">
-            <User className="mr-2 h-4 w-4" />
-            Apenas usuários com perfil "Recebedor" podem confirmar recebimentos
-          </div>
-        )}
+      <div className="sticky bottom-0 bg-white pt-4 pb-2 border-t border-gray-100 mt-6">
+        <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+          <Button 
+            variant="outline" 
+            onClick={onClose}
+            className="w-full sm:w-auto order-last sm:order-first"
+          >
+            Fechar
+          </Button>
+          {canPerformReceiptActions ? (
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <Button
+                variant="destructive"
+                onClick={() => setIsPendencyModalOpen(true)}
+                disabled={reportIssueMutation.isPending}
+                className="w-full sm:w-auto flex items-center justify-center"
+              >
+                <X className="mr-2 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Reportar Pendência</span>
+              </Button>
+              <Button
+                onClick={() => confirmReceiptMutation.mutate()}
+                disabled={confirmReceiptMutation.isPending}
+                className="bg-green-600 hover:bg-green-700 w-full sm:w-auto flex items-center justify-center"
+              >
+                <Check className="mr-2 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Confirmar Recebimento</span>
+              </Button>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500 flex items-center justify-center sm:justify-start p-3 bg-gray-50 rounded-lg">
+              <User className="mr-2 h-4 w-4 flex-shrink-0" />
+              <span className="text-center sm:text-left">
+                Apenas usuários com perfil "Recebedor" podem confirmar recebimentos
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Pendency Modal */}

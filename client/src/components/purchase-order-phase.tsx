@@ -497,7 +497,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                         )}
                       </td>
                       <td className="border border-gray-200 px-4 py-2 text-center">
-                        {parseInt(item.quantity) || 0}
+                        {Number(item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </td>
                       <td className="border border-gray-200 px-4 py-2 text-center">
                         {item.unit || 'UND'}
