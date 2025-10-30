@@ -1164,7 +1164,7 @@ export default function PurchaseCard({
                     disabled={reportIssueMutation.isPending}
                   >
                     <X className="mr-1 h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">Pendência</span>
+                    <span className="truncate">Pend.</span>
                   </Button>
                 </div>
               ) : (

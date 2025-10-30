@@ -77,6 +77,19 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
     queryKey: [`/api/purchase-requests/${request.id}/items`],
   });
 
+  // Buscar dados relacionados
+  // Primeiro buscar o pedido de compra relacionado à solicitação
+  const { data: purchaseOrder } = useQuery<any>({
+    queryKey: [`/api/purchase-orders/by-request/${request?.id}`],
+    enabled: !!request?.id,
+  });
+
+  // Buscar itens do pedido de compra (não da solicitação)
+  const { data: purchaseOrderItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/items`],
+    enabled: !!purchaseOrder?.id,
+  });
+
   const { data: approvalHistory = [], isLoading: approvalHistoryLoading } = useQuery({
     queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
   });
@@ -723,6 +736,15 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   
   const budgetSavings = request.availableBudget ? request.availableBudget - totalItemsValue : 0;
 
+  // Função para formatar quantidades no padrão brasileiro
+  const formatQuantity = (quantity: number | string) => {
+    const num = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
+    return Number(num || 0).toLocaleString('pt-BR', { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 2 
+    });
+  };
+
   // Get status indicators
   const getItemStatus = (item: any) => {
     // Mock status based on item data - in real app this would come from receipt data
@@ -954,7 +976,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">Centro de Custo</span>
-                  <p>{costCenter ? `${costCenter.code} - ${costCenter.name}` : request.costCenterName || 'Não informado'}</p>
+                  <p>{costCenter?.code} - {costCenter?.name || 'Não informado'}</p>
                 </div>
               </div>
               
@@ -1143,6 +1165,135 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
         {/* Complete Process Timeline */}
         <ProcessTimeline timeline={completeTimeline} isLoading={timelineLoading} />
 
+        {/* Dados do Processo */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Dados do Processo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Informações da Solicitação */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">📋 Solicitação</h4>
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">Número da Solicitação</span>
+                    <p className="font-medium">{request.requestNumber}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">Data de Criação</span>
+                    <p>{format(new Date(request.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">Solicitante</span>
+                    <p>{requester ? `${requester.firstName} ${requester.lastName}` : request.requesterName || 'Não informado'}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">Departamento</span>
+                    <p>{department?.name || request.departmentName || 'Não informado'}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">Centro de Custo</span>
+                    <p>{costCenter?.code} - {costCenter?.name || 'Não informado'}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">Quantidade Total de Itens</span>
+                    <p className="font-medium">{formatQuantity(items.reduce((sum: number, item: any) => sum + (parseFloat(item.requestedQuantity) || 0), 0))}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dados da Cotação */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">💰 Cotação</h4>
+                {quotation ? (
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Número da Cotação</span>
+                      <p className="font-medium">{quotation.quotationNumber}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Data de Criação</span>
+                      <p>{format(new Date(quotation.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Status</span>
+                      <Badge variant="outline">{quotation.status}</Badge>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Fornecedores Participantes</span>
+                      <p className="font-medium">{supplierQuotations.length}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Dados da cotação não disponíveis</p>
+                )}
+              </div>
+
+              {/* Cotação Vencedora */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">🏆 Cotação Vencedora</h4>
+                {selectedSupplierQuotation ? (
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Fornecedor</span>
+                      <p className="font-medium">{selectedSupplierQuotation.supplierName}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Valor Total da Proposta</span>
+                      <p className="font-medium text-green-600">
+                        {parseFloat(selectedSupplierQuotation.totalValue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Data de Submissão</span>
+                      <p>{selectedSupplierQuotation.submissionDate ? format(new Date(selectedSupplierQuotation.submissionDate), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Não informado'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Itens Cotados</span>
+                      <p className="font-medium">{supplierQuotationItems.filter((item: any) => item.isAvailable !== false).length}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Dados da cotação vencedora não disponíveis</p>
+                )}
+              </div>
+
+              {/* Pedido de Compra */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">📄 Pedido de Compra</h4>
+                {purchaseOrder ? (
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Número do Pedido</span>
+                      <p className="font-medium">{purchaseOrder.orderNumber}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Data de Criação</span>
+                      <p>{format(new Date(purchaseOrder.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Valor Total</span>
+                      <p className="font-medium text-green-600">
+                        {parseFloat(purchaseOrder.totalValue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Itens no Pedido</span>
+                      <p className="font-medium">{formatQuantity(purchaseOrderItems.reduce((sum: number, item: any) => sum + (parseFloat(item.quantity) || 0), 0))}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Dados do pedido de compra não disponíveis</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Items Received */}
         <Card>
           <CardHeader>
@@ -1159,6 +1310,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                     <th className="text-left py-2">Item</th>
                     <th className="text-left py-2">Unidade</th>
                     <th className="text-right py-2">Qtd. Solicitada</th>
+                    <th className="text-right py-2">Qtd. do Pedido</th>
                     <th className="text-right py-2">Qtd. Recebida</th>
                     <th className="text-right py-2">Preço Unitário</th>
                     <th className="text-right py-2">Total</th>
@@ -1166,61 +1318,35 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   </tr>
                 </thead>
                 <tbody>
-                  {items.filter((item: any) => {
-                    // Filter out unavailable items
-                    const supplierItem = supplierQuotationItems.find((sqi: any) => {
-                      if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
-                        return true;
-                      }
-                      return sqi.description === item.description || 
-                             sqi.itemCode === item.itemCode ||
-                             sqi.quotationItemId === item.id ||
-                             (sqi.description && item.description && 
-                              sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
-                    });
-                    return !supplierItem || supplierItem.isAvailable !== false;
-                  }).map((item: any) => {
-                    const status = getItemStatus(item);
+                  {purchaseOrderItems.length > 0 ? purchaseOrderItems.map((purchaseItem: any) => {
+                    // Encontrar o item original da solicitação para comparação
+                    const originalItem = items.find((item: any) => 
+                      item.description === purchaseItem.description ||
+                      item.id === purchaseItem.purchaseRequestItemId
+                    );
                     
-                    // Find matching supplier quotation item with multiple criteria
-                    const supplierItem = supplierQuotationItems.find((sqi: any) => {
-                      // First try by purchaseRequestItemId (most reliable)
-                      if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
-                        return true;
-                      }
-                      // Fallback: try by description, item code, quotationItemId, or normalized description
-                      return sqi.description === item.description || 
-                             sqi.itemCode === item.itemCode ||
-                             sqi.quotationItemId === item.id ||
-                             (sqi.description && item.description && 
-                              sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
-                    });
+                    const status = getItemStatus(purchaseItem);
                     
-                    // Get unit price with better fallback logic
-                    let unitPrice = 0;
-                    if (supplierItem) {
-                      unitPrice = parseFloat(supplierItem.unitPrice) || 0;
-                    } else if (selectedSupplierQuotation?.totalValue && items.length === 1) {
-                      // If only one item and we have total value, use it as unit price
-                      unitPrice = parseFloat(selectedSupplierQuotation.totalValue) || 0;
-                    }
-                    
-                    const quantity = parseFloat(item.requestedQuantity) || 0;
-                    const total = quantity * unitPrice;
+                    // Usar dados do pedido de compra
+                    const unitPrice = parseFloat(purchaseItem.unitPrice) || 0;
+                    const purchaseQuantity = parseFloat(purchaseItem.quantity) || 0;
+                    const originalQuantity = originalItem ? parseFloat(originalItem.requestedQuantity) || 0 : purchaseQuantity;
+                    const total = parseFloat(purchaseItem.totalPrice) || (purchaseQuantity * unitPrice);
                     
                     return (
-                      <tr key={item.id} className="border-b">
+                      <tr key={purchaseItem.id} className="border-b">
                         <td className="py-2">
                           <div>
-                            <p className="font-medium">{item.description}</p>
-                            {item.specifications && (
-                              <p className="text-sm text-gray-600">{item.specifications}</p>
+                            <p className="font-medium">{purchaseItem.description}</p>
+                            {purchaseItem.specifications && (
+                              <p className="text-sm text-gray-600">{purchaseItem.specifications}</p>
                             )}
                           </div>
                         </td>
-                        <td className="py-2">{item.unit}</td>
-                        <td className="text-right py-2">{quantity}</td>
-                        <td className="text-right py-2">{quantity}</td>
+                        <td className="py-2">{purchaseItem.unit}</td>
+                        <td className="text-right py-2">{formatQuantity(originalQuantity)}</td>
+                        <td className="text-right py-2 font-medium text-blue-600">{formatQuantity(purchaseQuantity)}</td>
+                        <td className="text-right py-2 font-medium text-green-600">{formatQuantity(purchaseQuantity)}</td>
                         <td className="text-right py-2">
                           {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </td>
@@ -1235,7 +1361,80 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                         </td>
                       </tr>
                     );
-                  })}
+                  }) : (
+                    // Fallback para usar itens da solicitação se não houver itens do pedido de compra
+                    items.filter((item: any) => {
+                      // Filter out unavailable items
+                      const supplierItem = supplierQuotationItems.find((sqi: any) => {
+                        if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+                          return true;
+                        }
+                        return sqi.description === item.description || 
+                               sqi.itemCode === item.itemCode ||
+                               sqi.quotationItemId === item.id ||
+                               (sqi.description && item.description && 
+                                sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
+                      });
+                      return !supplierItem || supplierItem.isAvailable !== false;
+                    }).map((item: any) => {
+                      const status = getItemStatus(item);
+                      
+                      // Find matching supplier quotation item with multiple criteria
+                      const supplierItem = supplierQuotationItems.find((sqi: any) => {
+                        // First try by purchaseRequestItemId (most reliable)
+                        if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+                          return true;
+                        }
+                        // Fallback: try by description, item code, quotationItemId, or normalized description
+                        return sqi.description === item.description || 
+                               sqi.itemCode === item.itemCode ||
+                               sqi.quotationItemId === item.id ||
+                               (sqi.description && item.description && 
+                                sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
+                      });
+                      
+                      // Get unit price with better fallback logic
+                      let unitPrice = 0;
+                      if (supplierItem) {
+                        unitPrice = parseFloat(supplierItem.unitPrice) || 0;
+                      } else if (selectedSupplierQuotation?.totalValue && items.length === 1) {
+                        // If only one item and we have total value, use it as unit price
+                        unitPrice = parseFloat(selectedSupplierQuotation.totalValue) || 0;
+                      }
+                      
+                      const quantity = parseFloat(item.requestedQuantity) || 0;
+                      const total = quantity * unitPrice;
+                      
+                      return (
+                        <tr key={item.id} className="border-b">
+                          <td className="py-2">
+                            <div>
+                              <p className="font-medium">{item.description}</p>
+                              {item.specifications && (
+                                <p className="text-sm text-gray-600">{item.specifications}</p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2">{item.unit}</td>
+                          <td className="text-right py-2">{formatQuantity(quantity)}</td>
+                          <td className="text-right py-2 font-medium text-blue-600">{formatQuantity(quantity)}</td>
+                          <td className="text-right py-2 font-medium text-green-600">{formatQuantity(quantity)}</td>
+                          <td className="text-right py-2">
+                            {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </td>
+                          <td className="text-right py-2 font-medium">
+                            {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </td>
+                          <td className="text-center py-2">
+                            <div className="flex items-center justify-center gap-1">
+                              {getStatusIcon(status)}
+                              {getStatusBadge(status)}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

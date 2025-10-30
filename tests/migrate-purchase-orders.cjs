@@ -191,12 +191,20 @@ async function createPurchaseOrderForRequest(request) {
     // Criar itens do purchase order
     let itemsCreated = 0;
     for (const item of supplierQuotationItems) {
+      // Usar availableQuantity quando disponível, senão usar quantity original
+      const finalQuantity = item.availableQuantity !== null && item.availableQuantity !== undefined 
+        ? item.availableQuantity 
+        : item.quantity;
+      
+      // Usar confirmedUnit quando disponível, senão usar unit original
+      const finalUnit = item.confirmedUnit || item.unit;
+      
       const itemData = {
         purchaseOrderId: purchaseOrder.id,
         itemCode: item.itemCode || `ITEM-${item.id}`,
         description: item.description,
-        quantity: item.quantity,
-        unit: item.unit,
+        quantity: finalQuantity,
+        unit: finalUnit,
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
         costCenterId: request.costCenterId,

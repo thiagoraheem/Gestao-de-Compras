@@ -985,7 +985,7 @@ export class PDFService {
         <tr>
           <td class="text-center">${index + 1}</td>
           <td>${item.description}</td>
-          <td class="text-center">${item.requestedQuantity}</td>
+          <td class="text-center">${parseInt(item.quantity) || 0}</td>
           <td class="text-center">${item.unit || 'UN'}</td>
           <td>${item.brand || 'N/A'}</td>
           <td class="text-right">${formatCurrency(item.unitPrice)}</td>
@@ -1438,14 +1438,14 @@ export class PDFService {
           
           return `
           <tr>
-            <td class="text-center">${item.requestedQuantity}</td>
+            <td class="text-center">${parseInt(item.quantity) || 0}</td>
             <td class="text-center">${item.unit || 'UND'}</td>
             <td>${item.itemCode || ''} ${item.itemCode ? '-' : ''} ${item.description}</td>
             <td class="text-center">${item.brand || 'Não informado'}</td>
             <td class="text-right">
               ${hasDiscount ? 
                 `<span style="text-decoration: line-through; color: #999;">R$ ${originalUnitPrice.toFixed(2).replace('.', ',')}</span><br>
-                 <span style="color: #28a745; font-weight: bold;">R$ ${(finalTotalPrice / Number(item.requestedQuantity || 1)).toFixed(2).replace('.', ',')}</span>` :
+                 <span style="color: #28a745; font-weight: bold;">R$ ${(finalTotalPrice / Number(item.quantity || 1)).toFixed(2).replace('.', ',')}</span>` :
                 `R$ ${originalUnitPrice.toFixed(2).replace('.', ',')}`
               }
             </td>
@@ -1622,7 +1622,7 @@ export class PDFService {
             
             if (supplierItem) {
               const unitPrice = Number(supplierItem.unitPrice) || 0;
-              const quantity = Number(item.requestedQuantity) || 1;
+              const quantity = Number(item.quantity) || 1;
               const originalTotal = unitPrice * quantity;
               let discountedTotal = originalTotal;
               let itemDiscount = 0;
@@ -1695,8 +1695,14 @@ export class PDFService {
       throw new Error('Solicitação de compra não encontrada');
     }
 
-    // Buscar itens da solicitação
-    const items = await storage.getPurchaseRequestItems(purchaseRequestId);
+    // Buscar pedido de compra associado
+    const purchaseOrder = await storage.getPurchaseOrderByRequestId(purchaseRequestId);
+    if (!purchaseOrder) {
+      throw new Error('Pedido de compra não encontrado para esta solicitação');
+    }
+
+    // Buscar itens do pedido de compra (não da solicitação)
+    const items = await storage.getPurchaseOrderItems(purchaseOrder.id);
     
     // Buscar dados da empresa através da solicitação
     let company = null;
@@ -1717,11 +1723,15 @@ export class PDFService {
       }
     }
     
-    // Buscar fornecedor e valores dos itens do fornecedor selecionado
+    // Buscar fornecedor do pedido de compra
     let supplier = null;
     let selectedSupplierQuotation = null;
-    let itemsWithPrices = items;
     let deliveryLocation = null;
+    
+    // Buscar fornecedor diretamente do pedido de compra
+    if (purchaseOrder.supplierId) {
+      supplier = await storage.getSupplierById(purchaseOrder.supplierId);
+    }
     
     const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
     
@@ -1729,163 +1739,25 @@ export class PDFService {
     if (quotation && quotation.deliveryLocationId) {
       deliveryLocation = await storage.getDeliveryLocationById(quotation.deliveryLocationId);
     }
+    
+    // Buscar cotação do fornecedor selecionado para informações adicionais
     if (quotation) {
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
-      // Buscar o fornecedor selecionado (is_chosen = true)
       selectedSupplierQuotation = supplierQuotations.find(sq => sq.isChosen) || supplierQuotations[0];
-      
-      if (selectedSupplierQuotation) {
-        supplier = await storage.getSupplierById(selectedSupplierQuotation.supplierId);
-        
-        // Buscar os itens do fornecedor selecionado com preços
-        const supplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
-        
-        // Primeiro, buscar os itens da cotação
-        const quotationItems = await storage.getQuotationItems(quotation.id);
-        
-        // Função para calcular similaridade entre strings
-        const calculateSimilarity = (str1: string, str2: string): number => {
-          const s1 = str1.toLowerCase().trim();
-          const s2 = str2.toLowerCase().trim();
-          
-          if (s1 === s2) return 1;
-          
-          const longer = s1.length > s2.length ? s1 : s2;
-          const shorter = s1.length > s2.length ? s2 : s1;
-          
-          if (longer.length === 0) return 1;
-          
-          const editDistance = (s1: string, s2: string): number => {
-            const costs = [];
-            for (let i = 0; i <= s2.length; i++) {
-              let lastValue = i;
-              for (let j = 0; j <= s1.length; j++) {
-                if (i === 0) {
-                  costs[j] = j;
-                } else if (j > 0) {
-                  let newValue = costs[j - 1];
-                  if (s2.charAt(i - 1) !== s1.charAt(j - 1)) {
-                    newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-                  }
-                  costs[j - 1] = lastValue;
-                  lastValue = newValue;
-                }
-              }
-              if (i > 0) costs[s1.length] = lastValue;
-            }
-            return costs[s1.length];
-          };
-          
-          return (longer.length - editDistance(longer, shorter)) / longer.length;
-        };
-
-        // Combinar os itens da solicitação com os preços do fornecedor
-        itemsWithPrices = items.map(item => {
-          let quotationItem = null;
-          
-          // 1. Busca por purchaseRequestItemId (mais confiável)
-          if (item.id) {
-            quotationItem = quotationItems.find(qi => 
-              qi.purchaseRequestItemId && qi.purchaseRequestItemId === item.id
-            );
-          }
-          
-          // 2. Se não encontrou, busca por descrição exata
-          if (!quotationItem && item.description) {
-            quotationItem = quotationItems.find(qi => 
-              qi.description && 
-              qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()
-            );
-          }
-          
-          // 3. Se não encontrou, busca por código do item
-          if (!quotationItem && (item as any).productCode) {
-            quotationItem = quotationItems.find(qi => 
-              qi.itemCode && qi.itemCode === (item as any).productCode
-            );
-          }
-          
-          // 4. Se não encontrou, busca por descrição parcial com validação rigorosa
-          if (!quotationItem && item.description) {
-            const candidates = quotationItems.filter(qi => {
-              if (!qi.description) return false;
-              
-              const similarity = calculateSimilarity(qi.description, item.description);
-              return similarity > 0.85;
-            });
-            
-            if (candidates.length > 0) {
-              // Se há múltiplos candidatos, pega o com maior similaridade
-              quotationItem = candidates.reduce((best, current) => {
-                const bestSim = calculateSimilarity(best.description, item.description);
-                const currentSim = calculateSimilarity(current.description, item.description);
-                return currentSim > bestSim ? current : best;
-              });
-              
-              // Validação adicional: evitar correspondências cruzadas
-              const finalSimilarity = calculateSimilarity(quotationItem.description, item.description);
-              
-              // Verificar se não há um item mais similar para este quotationItem
-              const betterMatch = items.find(otherItem => 
-                otherItem.id !== item.id && 
-                otherItem.description &&
-                calculateSimilarity(quotationItem!.description, otherItem.description) > finalSimilarity
-              );
-              
-              if (betterMatch) {
-                quotationItem = null; // Anular a correspondência se há um item mais similar
-              }
-            }
-          }
-          
-          if (quotationItem) {
-            // Encontrar o preço do fornecedor para este item da cotação
-            const supplierItem = supplierItems.find(si => si.quotationItemId === quotationItem.id);
-            
-            if (supplierItem) {
-              const unitPrice = Number(supplierItem.unitPrice) || 0;
-              const quantity = Number(item.requestedQuantity) || 1;
-              
-              // Calcular preço com desconto se houver
-              const originalTotal = unitPrice * quantity;
-              let discountedTotal = originalTotal;
-              let itemDiscount = 0;
-              
-              if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
-                const discountPercent = Number(supplierItem.discountPercentage);
-                itemDiscount = (originalTotal * discountPercent) / 100;
-                discountedTotal = originalTotal - itemDiscount;
-              } else if (supplierItem.discountValue && Number(supplierItem.discountValue) > 0) {
-                itemDiscount = Number(supplierItem.discountValue);
-                discountedTotal = Math.max(0, originalTotal - itemDiscount);
-              }
-              
-              return {
-                ...item,
-                unitPrice: unitPrice, // Manter o preço unitário original
-                originalUnitPrice: unitPrice,
-                itemDiscount: itemDiscount,
-                brand: supplierItem.brand || '',
-                deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
-                totalPrice: discountedTotal, // Usar o total com desconto
-                originalTotalPrice: originalTotal
-              };
-            }
-          }
-          
-          return {
-            ...item,
-            unitPrice: 0,
-            originalUnitPrice: 0,
-            itemDiscount: 0,
-            brand: '',
-            deliveryTime: '',
-            totalPrice: 0,
-            originalTotalPrice: 0
-          };
-        });
-      }
     }
+    
+    // Os itens do pedido de compra já têm os preços corretos, apenas formatá-los
+    const itemsWithPrices = items.map(item => ({
+      ...item,
+      // Garantir que os campos estejam no formato esperado
+      unitPrice: Number(item.unitPrice) || 0,
+      totalPrice: Number(item.totalPrice) || 0,
+      brand: '', // Campo não disponível nos itens do pedido de compra
+      deliveryTime: '', // Campo não disponível nos itens do pedido de compra
+      originalUnitPrice: Number(item.unitPrice) || 0,
+      originalTotalPrice: Number(item.totalPrice) || 0,
+      itemDiscount: 0 // Desconto já aplicado no preço final
+    }));
 
     // Buscar histórico de aprovações
     const approvalHistory = await storage.getApprovalHistory(purchaseRequestId);
@@ -1948,7 +1820,7 @@ export class PDFService {
         qi.itemDescription === item.description
       );
       const unitPrice = quotationItem ? Number(quotationItem.unitPrice) : 0;
-      const totalPrice = Number(item.requestedQuantity) * unitPrice;
+      const totalPrice = Number(item.quantity) * unitPrice;
       totalValue += totalPrice;
       
       return {
@@ -2135,7 +2007,7 @@ export class PDFService {
                 <tr>
                   <td>${item.description}</td>
                   <td>${item.unit}</td>
-                  <td>${item.requestedQuantity}</td>
+                  <td>${parseInt(item.quantity) || 0}</td>
                   <td>${formatCurrency(item.unitPrice)}</td>
                   <td>${formatCurrency(item.totalPrice)}</td>
                 </tr>

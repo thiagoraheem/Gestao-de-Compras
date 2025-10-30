@@ -371,13 +371,12 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
 
   const purchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
 
-  // Get supplier quotation items
+  // Get supplier quotation items and quotation items once
   const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
+  const quotationItems = await storage.getQuotationItems(quotation.id);
 
   // Create purchase order items
   for (const requestItem of purchaseRequestItems) {
-    const quotationItems = await storage.getQuotationItems(quotation.id);
-    
     const quotationItem = quotationItems.find(qi => 
       qi.purchaseRequestItemId === requestItem.id ||
       qi.description?.toLowerCase().trim() === requestItem.description?.toLowerCase().trim()
@@ -392,12 +391,35 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
       continue;
     }
 
+    // Determine the correct quantity to use:
+    // 1. Use available_quantity from supplier quotation if available and > 0
+    // 2. Fallback to approved_quantity from request
+    // 3. Final fallback to requested_quantity
+    let finalQuantity = "0";
+    let finalUnit = requestItem.unit;
+    
+    // Check if supplier has available quantity (prioritize supplier quotation)
+    if (supplierItem?.availableQuantity && 
+        supplierItem.availableQuantity !== "0" && 
+        supplierItem.availableQuantity !== "" && 
+        supplierItem.availableQuantity !== null) {
+      finalQuantity = supplierItem.availableQuantity;
+      // Use confirmed unit from supplier if available
+      if (supplierItem.confirmedUnit) {
+        finalUnit = supplierItem.confirmedUnit;
+      }
+    } else if (requestItem.approvedQuantity && requestItem.approvedQuantity !== "0") {
+      finalQuantity = requestItem.approvedQuantity;
+    } else if (requestItem.requestedQuantity && requestItem.requestedQuantity !== "0") {
+      finalQuantity = requestItem.requestedQuantity;
+    }
+
     const purchaseOrderItemData = {
       purchaseOrderId: purchaseOrder.id,
       itemCode: requestItem.productCode || `ITEM-${requestItem.id}`,
       description: requestItem.description,
-      quantity: requestItem.approvedQuantity || requestItem.requestedQuantity || "0",
-      unit: requestItem.unit,
+      quantity: finalQuantity,
+      unit: finalUnit,
       unitPrice: supplierItem?.unitPrice || "0",
       totalPrice: supplierItem?.totalPrice || "0",
       deliveryDeadline: null,
