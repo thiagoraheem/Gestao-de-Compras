@@ -10,7 +10,6 @@ import {
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
 import {
-  Paperclip,
   Clock,
   TriangleAlert,
   AlertCircle,
@@ -91,11 +90,7 @@ export default function PurchaseCard({
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
 
-  // Buscar anexos da solicitação
-  const { data: attachments = [] } = useQuery<any[]>({
-    queryKey: [`/api/purchase-requests/${request.id}/attachments`],
-    enabled: !!request?.id,
-  });
+
 
   const handleCardClick = () => {
     setIsEditModalOpen(true);
@@ -900,12 +895,6 @@ export default function PurchaseCard({
             <span className="text-xs text-gray-500">
               {formatDate(request.createdAt)}
             </span>
-            <div className="flex items-center space-x-1">
-              <Paperclip className="text-gray-400 text-xs h-3 w-3" />
-              <span className="text-xs text-gray-500">
-                {attachments.length} anexo{attachments.length !== 1 ? "s" : ""}
-              </span>
-            </div>
           </div>
 
           {/* Send to Approval Button for Request Phase */}
