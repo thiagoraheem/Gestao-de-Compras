@@ -878,6 +878,8 @@ export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuot
   totalPrice: z.string().transform((val) => val),
   isAvailable: z.boolean().optional().default(true),
   unavailabilityReason: z.string().optional(),
+  confirmedUnit: z.string().optional(),
+  quantityAdjustmentReason: z.string().optional(),
 });
 
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
