@@ -2387,6 +2387,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
+        // 5. Check for value discrepancies between supplier quotation and purchase order
+        const purchaseOrder = await pool.query(
+          `SELECT po.id, po.total_value as po_total_value
+           FROM purchase_orders po
+           WHERE po.purchase_request_id = $1`,
+          [id]
+        );
+
+        if (purchaseOrder.rows.length > 0) {
+          const po = purchaseOrder.rows[0];
+          
+          // Get purchase order items total
+          const purchaseOrderItems = await pool.query(
+            `SELECT poi.total_price
+             FROM purchase_order_items poi
+             WHERE poi.purchase_order_id = $1`,
+            [po.id]
+          );
+
+          const poItemsTotal = purchaseOrderItems.rows.reduce((sum, item) => 
+            sum + parseFloat(item.total_price || 0), 0
+          );
+
+          // Get selected supplier quotation total
+          const selectedSupplierQuotation = supplierQuotations.rows.find(sq => sq.is_chosen === true);
+          
+          if (selectedSupplierQuotation) {
+            const supplierQuotationTotal = parseFloat(selectedSupplierQuotation.total_value || 0);
+            const purchaseOrderTotal = parseFloat(po.po_total_value || 0);
+            
+            // Check discrepancy between supplier quotation and purchase order items
+            const itemsDiscrepancy = Math.abs(supplierQuotationTotal - poItemsTotal);
+            const orderDiscrepancy = Math.abs(supplierQuotationTotal - purchaseOrderTotal);
+            
+            // Consider significant if difference is more than 1% or R$ 10
+            const significantThreshold = Math.max(supplierQuotationTotal * 0.01, 10);
+            
+            if (itemsDiscrepancy > significantThreshold) {
+              auditResults.issues.push({
+                type: 'quotation_purchase_order_value_discrepancy',
+                severity: 'high',
+                description: `Divergência de valores entre cotação do fornecedor (R$ ${supplierQuotationTotal.toFixed(2)}) e soma dos itens do pedido de compra (R$ ${poItemsTotal.toFixed(2)})`,
+                supplierQuotationId: selectedSupplierQuotation.id,
+                purchaseOrderId: po.id,
+                data: {
+                  supplierQuotationTotal: supplierQuotationTotal,
+                  purchaseOrderItemsTotal: poItemsTotal,
+                  purchaseOrderTotal: purchaseOrderTotal,
+                  discrepancy: itemsDiscrepancy
+                }
+              });
+              auditResults.summary.valueDiscrepancies++;
+            }
+            
+            if (orderDiscrepancy > significantThreshold) {
+              auditResults.issues.push({
+                type: 'quotation_purchase_order_total_discrepancy',
+                severity: 'medium',
+                description: `Divergência entre valor total da cotação (R$ ${supplierQuotationTotal.toFixed(2)}) e valor total do pedido de compra (R$ ${purchaseOrderTotal.toFixed(2)})`,
+                supplierQuotationId: selectedSupplierQuotation.id,
+                purchaseOrderId: po.id,
+                data: {
+                  supplierQuotationTotal: supplierQuotationTotal,
+                  purchaseOrderTotal: purchaseOrderTotal,
+                  discrepancy: orderDiscrepancy
+                }
+              });
+              auditResults.summary.valueDiscrepancies++;
+            }
+          }
+        }
+
         auditResults.summary.totalIssues = auditResults.issues.length;
 
         res.json(auditResults);
@@ -2609,6 +2681,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
+        // Fix value discrepancies between supplier quotation and purchase order
+        if (fixTypes.includes('quotation_purchase_order_value_discrepancy') || 
+            fixTypes.includes('quotation_purchase_order_total_discrepancy') || 
+            fixTypes.includes('all')) {
+          
+          const purchaseOrder = await pool.query(
+            `SELECT po.id, po.total_value as po_total_value
+             FROM purchase_orders po
+             WHERE po.purchase_request_id = $1`,
+            [id]
+          );
+
+          if (purchaseOrder.rows.length > 0) {
+            const po = purchaseOrder.rows[0];
+            
+            // Get purchase order items
+            const purchaseOrderItems = await pool.query(
+              `SELECT poi.id, poi.total_price
+               FROM purchase_order_items poi
+               WHERE poi.purchase_order_id = $1`,
+              [po.id]
+            );
+
+            const poItemsTotal = purchaseOrderItems.rows.reduce((sum, item) => 
+              sum + parseFloat(item.total_price || 0), 0
+            );
+
+            // Get selected supplier quotation
+            const selectedSupplierQuotation = await pool.query(
+              `SELECT sq.id, sq.total_value
+               FROM supplier_quotations sq
+               JOIN quotations q ON sq.quotation_id = q.id
+               WHERE q.purchase_request_id = $1 AND sq.is_chosen = true`,
+              [id]
+            );
+
+            if (selectedSupplierQuotation.rows.length > 0) {
+              const sq = selectedSupplierQuotation.rows[0];
+              const supplierQuotationTotal = parseFloat(sq.total_value || 0);
+              const purchaseOrderTotal = parseFloat(po.po_total_value || 0);
+              
+              const itemsDiscrepancy = Math.abs(supplierQuotationTotal - poItemsTotal);
+              const orderDiscrepancy = Math.abs(supplierQuotationTotal - purchaseOrderTotal);
+              const significantThreshold = Math.max(supplierQuotationTotal * 0.01, 10);
+              
+              // Fix items discrepancy by updating purchase order items proportionally
+              if (itemsDiscrepancy > significantThreshold && 
+                  (fixTypes.includes('quotation_purchase_order_value_discrepancy') || fixTypes.includes('all'))) {
+                
+                if (!dryRun) {
+                  // Calculate proportional adjustment factor
+                  const adjustmentFactor = supplierQuotationTotal / poItemsTotal;
+                  
+                  for (const item of purchaseOrderItems.rows) {
+                    const currentTotal = parseFloat(item.total_price || 0);
+                    const newTotal = currentTotal * adjustmentFactor;
+                    
+                    await pool.query(
+                      `UPDATE purchase_order_items 
+                       SET total_price = $1, unit_price = total_price / quantity
+                       WHERE id = $2`,
+                      [newTotal, item.id]
+                    );
+                  }
+                  
+                  // Update purchase order total
+                  await pool.query(
+                    `UPDATE purchase_orders SET total_value = $1 WHERE id = $2`,
+                    [supplierQuotationTotal, po.id]
+                  );
+
+                  fixResults.fixes.push({
+                    type: 'quotation_purchase_order_value_discrepancy',
+                    action: 'synchronized_purchase_order_values',
+                    supplierQuotationId: sq.id,
+                    purchaseOrderId: po.id,
+                    oldItemsTotal: poItemsTotal,
+                    newItemsTotal: supplierQuotationTotal,
+                    adjustmentFactor: adjustmentFactor,
+                    description: `Valores dos itens do pedido de compra sincronizados com cotação: R$ ${poItemsTotal.toFixed(2)} → R$ ${supplierQuotationTotal.toFixed(2)}`
+                  });
+
+                  // Log detailed value synchronization
+                  await pool.query(
+                    `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at)
+                     VALUES ($1, $2, $3, $4, NOW())`,
+                    [
+                      id,
+                      req.session.userId,
+                      'value_discrepancy_fix_items',
+                      `Sincronização de valores: itens do pedido ajustados de R$ ${poItemsTotal.toFixed(2)} para R$ ${supplierQuotationTotal.toFixed(2)} (fator: ${adjustmentFactor.toFixed(4)})`
+                    ]
+                  );
+                } else {
+                  fixResults.fixes.push({
+                    type: 'quotation_purchase_order_value_discrepancy',
+                    action: 'would_synchronize_purchase_order_values',
+                    supplierQuotationId: sq.id,
+                    purchaseOrderId: po.id,
+                    oldItemsTotal: poItemsTotal,
+                    newItemsTotal: supplierQuotationTotal,
+                    description: `Sincronizaria valores dos itens do pedido: R$ ${poItemsTotal.toFixed(2)} → R$ ${supplierQuotationTotal.toFixed(2)}`
+                  });
+                }
+                fixResults.summary.valueDiscrepancies = (fixResults.summary.valueDiscrepancies || 0) + 1;
+              }
+              
+              // Fix order total discrepancy
+              if (orderDiscrepancy > significantThreshold && 
+                  (fixTypes.includes('quotation_purchase_order_total_discrepancy') || fixTypes.includes('all'))) {
+                
+                if (!dryRun) {
+                  await pool.query(
+                    `UPDATE purchase_orders SET total_value = $1 WHERE id = $2`,
+                    [supplierQuotationTotal, po.id]
+                  );
+
+                  fixResults.fixes.push({
+                    type: 'quotation_purchase_order_total_discrepancy',
+                    action: 'synchronized_purchase_order_total',
+                    supplierQuotationId: sq.id,
+                    purchaseOrderId: po.id,
+                    oldTotal: purchaseOrderTotal,
+                    newTotal: supplierQuotationTotal,
+                    description: `Valor total do pedido sincronizado com cotação: R$ ${purchaseOrderTotal.toFixed(2)} → R$ ${supplierQuotationTotal.toFixed(2)}`
+                  });
+
+                  // Log detailed total synchronization
+                  await pool.query(
+                    `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at)
+                     VALUES ($1, $2, $3, $4, NOW())`,
+                    [
+                      id,
+                      req.session.userId,
+                      'value_discrepancy_fix_total',
+                      `Sincronização de valor total: pedido ajustado de R$ ${purchaseOrderTotal.toFixed(2)} para R$ ${supplierQuotationTotal.toFixed(2)}`
+                    ]
+                  );
+                } else {
+                  fixResults.fixes.push({
+                    type: 'quotation_purchase_order_total_discrepancy',
+                    action: 'would_synchronize_purchase_order_total',
+                    supplierQuotationId: sq.id,
+                    purchaseOrderId: po.id,
+                    oldTotal: purchaseOrderTotal,
+                    newTotal: supplierQuotationTotal,
+                    description: `Sincronizaria valor total do pedido: R$ ${purchaseOrderTotal.toFixed(2)} → R$ ${supplierQuotationTotal.toFixed(2)}`
+                  });
+                }
+                fixResults.summary.valueDiscrepancies = (fixResults.summary.valueDiscrepancies || 0) + 1;
+              }
+            }
+          }
+        }
+
         // Update request total value if items were modified
         if (!dryRun && fixResults.fixes.length > 0) {
           // Recalculate total value
@@ -2649,11 +2876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               id,
               req.session.userId,
               'data_integrity_fix',
-              JSON.stringify({
-                fixTypes,
-                fixesApplied: fixResults.fixes.length,
-                summary: fixResults.summary
-              })
+              `Correção de integridade de dados aplicada: ${fixResults.fixes.length} correções realizadas`
             ]
           );
         }

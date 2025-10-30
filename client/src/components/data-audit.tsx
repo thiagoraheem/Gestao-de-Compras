@@ -74,7 +74,9 @@ const ISSUE_TYPE_LABELS = {
   missing_reference: "Referência Perdida",
   quantity_discrepancy: "Divergência de Quantidade",
   description_discrepancy: "Divergência de Descrição",
-  missing_quotation_item_reference: "Referência de Item Perdida"
+  missing_quotation_item_reference: "Referência de Item Perdida",
+  quotation_purchase_order_value_discrepancy: "Divergência: Valores dos Itens vs Cotação",
+  quotation_purchase_order_total_discrepancy: "Divergência: Total do Pedido vs Cotação"
 };
 
 export default function DataAudit({ requestId, requestNumber }: DataAuditProps) {
@@ -285,7 +287,39 @@ export default function DataAudit({ requestId, requestNumber }: DataAuditProps) 
                               </Badge>
                             </div>
                             <p className="text-sm text-gray-700">{issue.description}</p>
-                            {issue.data && (
+                            
+                            {/* Special display for value discrepancies */}
+                            {(issue.type === 'quotation_purchase_order_value_discrepancy' || 
+                              issue.type === 'quotation_purchase_order_total_discrepancy') && issue.data && (
+                              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="text-sm font-medium text-red-800 mb-2">Detalhes da Divergência:</div>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <span className="font-medium text-red-700">Valor da Cotação:</span>
+                                    <div className="text-green-600 font-mono">
+                                      R$ {issue.data.supplierQuotationTotal?.toFixed(2) || 'N/A'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-red-700">
+                                      {issue.type === 'quotation_purchase_order_value_discrepancy' 
+                                        ? 'Soma dos Itens:' 
+                                        : 'Total do Pedido:'}
+                                    </span>
+                                    <div className="text-red-600 font-mono">
+                                      R$ {(issue.data.purchaseOrderItemsTotal || issue.data.purchaseOrderTotal)?.toFixed(2) || 'N/A'}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="mt-2 text-xs text-red-600">
+                                  <strong>Diferença:</strong> R$ {issue.data.discrepancy?.toFixed(2) || 'N/A'}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {issue.data && 
+                             issue.type !== 'quotation_purchase_order_value_discrepancy' && 
+                             issue.type !== 'quotation_purchase_order_total_discrepancy' && (
                               <div className="mt-2 text-xs text-gray-500">
                                 <details>
                                   <summary className="cursor-pointer">Ver detalhes</summary>
