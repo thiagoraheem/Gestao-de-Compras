@@ -40,21 +40,22 @@ graph TD
 
 ### 1.3 Transformações de Dados por Fase
 
-| Fase | Tabela Principal | Campos de Quantidade | Status/Estado |
-|------|------------------|---------------------|---------------|
-| Solicitação | purchase_requests | requestedQuantity | currentPhase: 'solicitacao' |
-| Aprovação A1 | approval_history | - | currentPhase: 'aprovacao_a1' |
-| Cotação | quotations, quotation_items | quantity (copiada de requestedQuantity) | currentPhase: 'cotacao' |
-| Fornecedores | supplier_quotation_items | availableQuantity, quantity | status: 'pending/received' |
-| Aprovação A2 | approval_history | approvedQuantity | currentPhase: 'aprovacao_a2' |
-| Pedido | purchase_order_items | quantity (da cotação aprovada) | status: 'draft/confirmed' |
-| Recebimento | receipt_items | quantityReceived | currentPhase: 'recebimento' |
+| Fase         | Tabela Principal             | Campos de Quantidade                    | Status/Estado                 |
+| ------------ | ---------------------------- | --------------------------------------- | ----------------------------- |
+| Solicitação  | purchase\_requests           | requestedQuantity                       | currentPhase: 'solicitacao'   |
+| Aprovação A1 | approval\_history            | -                                       | currentPhase: 'aprovacao\_a1' |
+| Cotação      | quotations, quotation\_items | quantity (copiada de requestedQuantity) | currentPhase: 'cotacao'       |
+| Fornecedores | supplier\_quotation\_items   | availableQuantity, quantity             | status: 'pending/received'    |
+| Aprovação A2 | approval\_history            | approvedQuantity                        | currentPhase: 'aprovacao\_a2' |
+| Pedido       | purchase\_order\_items       | quantity (da cotação aprovada)          | status: 'draft/confirmed'     |
+| Recebimento  | receipt\_items               | quantityReceived                        | currentPhase: 'recebimento'   |
 
 ## 2. Análise de Persistência de Dados
 
 ### 2.1 Estrutura das Tabelas Principais
 
-#### purchase_requests
+#### purchase\_requests
+
 ```sql
 - id (PK)
 - requestNumber (único)
@@ -65,7 +66,8 @@ graph TD
 - approvalDateA1, approvalDateA2
 ```
 
-#### purchase_request_items
+#### purchase\_request\_items
+
 ```sql
 - id (PK)
 - purchaseRequestId (FK)
@@ -74,7 +76,8 @@ graph TD
 - unit, description, productCode
 ```
 
-#### quotation_items
+#### quotation\_items
+
 ```sql
 - id (PK)
 - quotationId (FK)
@@ -83,7 +86,8 @@ graph TD
 - unit, description, itemCode
 ```
 
-#### supplier_quotation_items
+#### supplier\_quotation\_items
+
 ```sql
 - id (PK)
 - supplierQuotationId (FK)
@@ -98,6 +102,7 @@ graph TD
 ### 2.2 Gerenciamento de Quantidades
 
 #### Fluxo Normal de Quantidades:
+
 1. **Solicitação**: `requestedQuantity` = 10 unidades
 2. **Cotação**: `quotation_items.quantity` = 10 (copiado)
 3. **Fornecedor**: `supplier_quotation_items.availableQuantity` = 5 (alterado)
@@ -105,13 +110,17 @@ graph TD
 5. **Pedido**: `purchase_order_items.quantity` = 5 (da cotação aprovada)
 
 #### Pontos Críticos de Alteração:
-- **Fase de Cotação**: Fornecedores podem alterar `availableQuantity`
-- **Aprovação A2**: Aprovador pode ajustar `approvedQuantity`
-- **Recebimento**: Registro de `quantityReceived` pode diferir
+
+* **Fase de Cotação**: Fornecedores podem alterar `availableQuantity`
+
+* **Aprovação A2**: Aprovador pode ajustar `approvedQuantity`
+
+* **Recebimento**: Registro de `quantityReceived` pode diferir
 
 ### 2.3 Mecanismos de Versionamento e Auditoria
 
-#### approval_history
+#### approval\_history
+
 ```sql
 - purchaseRequestId (FK)
 - approverType ('A1' | 'A2')
@@ -120,7 +129,8 @@ graph TD
 - createdAt
 ```
 
-#### quantity_adjustment_history
+#### quantity\_adjustment\_history
+
 ```sql
 - purchaseRequestItemId (FK)
 - originalQuantity, newQuantity
@@ -128,10 +138,13 @@ graph TD
 - adjustmentDate
 ```
 
-#### audit_logs (implícito no sistema)
-- Logs de alterações em campos críticos
-- Rastreamento de mudanças de fase
-- Histórico de aprovações/reprovações
+#### audit\_logs (implícito no sistema)
+
+* Logs de alterações em campos críticos
+
+* Rastreamento de mudanças de fase
+
+* Histórico de aprovações/reprovações
 
 ## 3. Rastreabilidade e Auditoria
 
@@ -148,38 +161,53 @@ graph LR
 ### 3.2 Pontos de Modificação de Dados
 
 1. **Criação da Solicitação** (`POST /api/purchase-requests`)
-   - Registro inicial de `requestedQuantity`
-   - Criação de `purchase_request_items`
+
+   * Registro inicial de `requestedQuantity`
+
+   * Criação de `purchase_request_items`
 
 2. **Criação da Cotação** (`POST /api/quotations`)
-   - Cópia de dados para `quotation_items`
-   - Preservação do link `purchaseRequestItemId`
+
+   * Cópia de dados para `quotation_items`
+
+   * Preservação do link `purchaseRequestItemId`
 
 3. **Cotação de Fornecedores** (`PUT /api/supplier-quotations/:id/update-quantities`)
-   - Alteração de `availableQuantity`
-   - Registro de `quantityAdjustmentReason`
-   - Atualização de `fulfillmentPercentage`
+
+   * Alteração de `availableQuantity`
+
+   * Registro de `quantityAdjustmentReason`
+
+   * Atualização de `fulfillmentPercentage`
 
 4. **Aprovação A2** (`POST /api/purchase-requests/:id/approve-a2`)
-   - Definição de `approvedQuantity`
-   - Criação automática de `purchase_order`
+
+   * Definição de `approvedQuantity`
+
+   * Criação automática de `purchase_order`
 
 5. **Recebimento** (`POST /api/purchase-requests/:id/confirm-receipt`)
-   - Registro de `quantityReceived`
-   - Possível divergência com quantidade pedida
+
+   * Registro de `quantityReceived`
+
+   * Possível divergência com quantidade pedida
 
 ### 3.3 Logs de Auditoria Identificados
 
-- **Histórico de Aprovações**: Tabela `approval_history`
-- **Ajustes de Quantidade**: Tabela `quantity_adjustment_history`
-- **Mudanças de Fase**: Campo `currentPhase` com timestamps
-- **Logs de Sistema**: Console logs em operações críticas
+* **Histórico de Aprovações**: Tabela `approval_history`
+
+* **Ajustes de Quantidade**: Tabela `quantity_adjustment_history`
+
+* **Mudanças de Fase**: Campo `currentPhase` com timestamps
+
+* **Logs de Sistema**: Console logs em operações críticas
 
 ## 4. Cenário de Teste Específico: 10 → 5 Unidades
 
 ### 4.1 Análise do Fluxo de Alteração
 
 #### Estado Inicial:
+
 ```json
 {
   "purchase_request_items": {
@@ -190,6 +218,7 @@ graph LR
 ```
 
 #### Após Criação da Cotação:
+
 ```json
 {
   "quotation_items": {
@@ -200,6 +229,7 @@ graph LR
 ```
 
 #### Cotação do Fornecedor (PONTO CRÍTICO):
+
 ```json
 {
   "supplier_quotation_items": {
@@ -213,6 +243,7 @@ graph LR
 ```
 
 #### Aprovação A2:
+
 ```json
 {
   "purchase_request_items": {
@@ -223,6 +254,7 @@ graph LR
 ```
 
 #### Purchase Order:
+
 ```json
 {
   "purchase_order_items": {
@@ -243,6 +275,7 @@ graph LR
 ## 5. Endpoints da API
 
 ### 5.1 Purchase Requests
+
 ```
 GET    /api/purchase-requests
 GET    /api/purchase-requests/:id
@@ -255,6 +288,7 @@ POST   /api/purchase-requests/:id/approve-a2
 ```
 
 ### 5.2 Quotations
+
 ```
 GET    /api/quotations
 GET    /api/quotations/:id
@@ -266,6 +300,7 @@ POST   /api/quotations/:id/send-rfq
 ```
 
 ### 5.3 Supplier Quotations
+
 ```
 GET    /api/quotations/:id/supplier-quotations
 POST   /api/quotations/:id/supplier-quotations
@@ -275,6 +310,7 @@ POST   /api/quotations/:quotationId/select-supplier
 ```
 
 ### 5.4 Purchase Orders
+
 ```
 GET    /api/purchase-orders/:id
 POST   /api/purchase-orders
@@ -283,6 +319,7 @@ GET    /api/purchase-orders/:id/items
 ```
 
 ### 5.5 Items Management
+
 ```
 GET    /api/purchase-requests/:id/items
 POST   /api/purchase-requests/:id/items
@@ -297,6 +334,7 @@ GET    /api/supplier-quotations/:id/items
 ### 6.1 Garantia de Consistência de Dados
 
 #### 1. Implementar Transações Atômicas
+
 ```javascript
 // Exemplo de transação para atualização de quantidades
 async function updateQuantitiesWithTransaction(quotationId, updates) {
@@ -324,6 +362,7 @@ async function updateQuantitiesWithTransaction(quotationId, updates) {
 ```
 
 #### 2. Validações de Integridade
+
 ```javascript
 // Validar consistência entre tabelas
 function validateQuantityConsistency(requestItem, quotationItem, supplierItem) {
@@ -340,6 +379,7 @@ function validateQuantityConsistency(requestItem, quotationItem, supplierItem) {
 ### 6.2 Melhorias no Sistema de Auditoria
 
 #### 1. Auditoria Completa de Alterações
+
 ```sql
 CREATE TABLE detailed_audit_log (
   id SERIAL PRIMARY KEY,
@@ -355,6 +395,7 @@ CREATE TABLE detailed_audit_log (
 ```
 
 #### 2. Triggers para Auditoria Automática
+
 ```sql
 CREATE OR REPLACE FUNCTION audit_quantity_changes()
 RETURNS TRIGGER AS $$
@@ -384,6 +425,7 @@ $$ LANGUAGE plpgsql;
 ### 6.3 Implementação de Validações Adicionais
 
 #### 1. Middleware de Validação de Quantidades
+
 ```javascript
 async function validateQuantityUpdates(req, res, next) {
   const { quotationId, items } = req.body;
@@ -407,6 +449,7 @@ async function validateQuantityUpdates(req, res, next) {
 ```
 
 #### 2. Verificação de Integridade em Tempo Real
+
 ```javascript
 // Endpoint para verificar consistência
 app.get('/api/quotations/:id/integrity-check', async (req, res) => {
@@ -425,6 +468,7 @@ app.get('/api/quotations/:id/integrity-check', async (req, res) => {
 ### 6.4 Estratégias de Prevenção de Inconsistências
 
 #### 1. Versionamento de Cotações
+
 ```javascript
 // Criar nova versão quando houver alterações significativas
 async function createQuotationVersion(quotationId, changes) {
@@ -442,6 +486,7 @@ async function createQuotationVersion(quotationId, changes) {
 ```
 
 #### 2. Estados Intermediários
+
 ```javascript
 // Adicionar estados para controle de fluxo
 const QUOTATION_STATES = {
@@ -455,6 +500,7 @@ const QUOTATION_STATES = {
 ```
 
 #### 3. Notificações de Alterações
+
 ```javascript
 // Sistema de notificações para mudanças críticas
 async function notifyQuantityChange(quotationId, itemId, oldQty, newQty, reason) {
@@ -482,10 +528,13 @@ async function notifyQuantityChange(quotationId, itemId, oldQty, newQty, reason)
 
 ### 7.2 Impacto no Negócio
 
-- **Divergências Financeiras**: Pedidos com quantidades/valores incorretos
-- **Problemas de Estoque**: Expectativas não alinhadas com disponibilidade
-- **Auditoria Comprometida**: Dificuldade para rastrear alterações
-- **Experiência do Usuário**: Informações inconsistentes nas interfaces
+* **Divergências Financeiras**: Pedidos com quantidades/valores incorretos
+
+* **Problemas de Estoque**: Expectativas não alinhadas com disponibilidade
+
+* **Auditoria Comprometida**: Dificuldade para rastrear alterações
+
+* **Experiência do Usuário**: Informações inconsistentes nas interfaces
 
 ### 7.3 Prioridades de Implementação
 
@@ -495,12 +544,15 @@ async function notifyQuantityChange(quotationId, itemId, oldQty, newQty, reason)
 
 ### 7.4 Métricas de Sucesso
 
-- **Consistência de Dados**: 100% de integridade entre tabelas relacionadas
-- **Rastreabilidade**: Capacidade de auditar 100% das alterações de quantidade
-- **Tempo de Resolução**: Redução de 80% no tempo para identificar divergências
-- **Satisfação do Usuário**: Eliminação de reclamações sobre dados inconsistentes
+* **Consistência de Dados**: 100% de integridade entre tabelas relacionadas
 
----
+* **Rastreabilidade**: Capacidade de auditar 100% das alterações de quantidade
+
+* **Tempo de Resolução**: Redução de 80% no tempo para identificar divergências
+
+* **Satisfação do Usuário**: Eliminação de reclamações sobre dados inconsistentes
+
+***
 
 *Documento gerado em: {{ new Date().toISOString() }}*
 *Versão: 1.0*
