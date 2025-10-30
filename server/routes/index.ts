@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { registerAuthRoutes } from "./auth";
 import { registerApprovalRulesRoutes } from "./approval-rules";
+import integrityValidationRoutes from "./integrity-validation";
 import { PDFService } from "../pdf-service";
 import { storage } from "../storage";
 // Import other route modules as they are created
@@ -194,6 +195,9 @@ export function registerAllRoutes(app: Express) {
   
   // Register approval rules routes
   registerApprovalRulesRoutes(app);
+  
+  // Register integrity validation routes
+  app.use(integrityValidationRoutes);
   
   // Register other route modules
   // registerUserRoutes(app);

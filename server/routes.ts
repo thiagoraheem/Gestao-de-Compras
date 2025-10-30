@@ -46,6 +46,10 @@ import {
   isAdminOrBuyer,
 } from "./routes/middleware";
 import { quotationUpload } from "./routes/upload-config";
+import { QuantityValidationMiddleware } from "./middleware/quantity-validation";
+import { quotationSyncService } from './services/quotation-sync';
+import { quotationVersionService } from './services/quotation-versioning';
+import { notificationService } from './services/notification-service';
 
 // ES modules compatibility
 const __filename = fileURLToPath(import.meta.url);
@@ -2470,6 +2474,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
+        // Fix missing references in quotation items
+        if (fixTypes.includes('missing_reference') || fixTypes.includes('all')) {
+          const missingRefs = await pool.query(
+            `SELECT qi.id as quotation_item_id, qi.purchase_request_item_id as invalid_ref_id
+             FROM quotations q
+             JOIN quotation_items qi ON q.id = qi.quotation_id
+             LEFT JOIN purchase_request_items pri ON qi.purchase_request_item_id = pri.id
+             WHERE q.purchase_request_id = $1 
+             AND qi.purchase_request_item_id IS NOT NULL 
+             AND pri.id IS NULL`,
+            [id]
+          );
+
+          for (const item of missingRefs.rows) {
+            if (!dryRun) {
+              // Set reference to NULL for invalid references
+              await pool.query(
+                `UPDATE quotation_items SET purchase_request_item_id = NULL WHERE id = $1`,
+                [item.quotation_item_id]
+              );
+
+              fixResults.fixes.push({
+                type: 'missing_reference',
+                action: 'removed_invalid_reference',
+                quotationItemId: item.quotation_item_id,
+                invalidRefId: item.invalid_ref_id,
+                description: `Removida referência inválida para item inexistente (ID: ${item.invalid_ref_id})`
+              });
+            } else {
+              fixResults.fixes.push({
+                type: 'missing_reference',
+                action: 'would_remove_invalid_reference',
+                quotationItemId: item.quotation_item_id,
+                invalidRefId: item.invalid_ref_id,
+                description: `Removeria referência inválida para item inexistente (ID: ${item.invalid_ref_id})`
+              });
+            }
+            fixResults.summary.referencesFixed++;
+          }
+        }
+
+        // Fix quantity discrepancies
+        if (fixTypes.includes('quantity_discrepancy') || fixTypes.includes('all')) {
+          const quantityDiscrepancies = await pool.query(
+            `SELECT qi.id as quotation_item_id, qi.quantity as qi_quantity, 
+                    pri.requested_quantity as pri_quantity, pri.id as purchase_request_item_id
+             FROM quotations q
+             JOIN quotation_items qi ON q.id = qi.quotation_id
+             JOIN purchase_request_items pri ON qi.purchase_request_item_id = pri.id
+             WHERE q.purchase_request_id = $1 
+             AND qi.quantity::decimal != pri.requested_quantity::decimal`,
+            [id]
+          );
+
+          for (const item of quantityDiscrepancies.rows) {
+            if (!dryRun) {
+              // Update quotation item quantity to match purchase request item
+              await pool.query(
+                `UPDATE quotation_items SET quantity = $1 WHERE id = $2`,
+                [item.pri_quantity, item.quotation_item_id]
+              );
+
+              // Also update related supplier quotation items
+              await pool.query(
+                `UPDATE supplier_quotation_items 
+                 SET available_quantity = $1
+                 WHERE quotation_item_id = $2`,
+                [item.pri_quantity, item.quotation_item_id]
+              );
+
+              fixResults.fixes.push({
+                type: 'quantity_discrepancy',
+                action: 'synchronized_quantities',
+                quotationItemId: item.quotation_item_id,
+                purchaseRequestItemId: item.purchase_request_item_id,
+                oldQuantity: item.qi_quantity,
+                newQuantity: item.pri_quantity,
+                description: `Quantidade sincronizada: ${item.qi_quantity} → ${item.pri_quantity}`
+              });
+            } else {
+              fixResults.fixes.push({
+                type: 'quantity_discrepancy',
+                action: 'would_synchronize_quantities',
+                quotationItemId: item.quotation_item_id,
+                purchaseRequestItemId: item.purchase_request_item_id,
+                oldQuantity: item.qi_quantity,
+                newQuantity: item.pri_quantity,
+                description: `Sincronizaria quantidade: ${item.qi_quantity} → ${item.pri_quantity}`
+              });
+            }
+            fixResults.summary.quantitiesFixed++;
+          }
+        }
+
+        // Fix missing quotation item references in supplier quotations
+        if (fixTypes.includes('missing_quotation_item_reference') || fixTypes.includes('all')) {
+          const missingQuotationRefs = await pool.query(
+            `SELECT sqi.id as supplier_quotation_item_id, sqi.quotation_item_id as invalid_qi_ref
+             FROM supplier_quotations sq
+             JOIN supplier_quotation_items sqi ON sq.id = sqi.supplier_quotation_id
+             LEFT JOIN quotation_items qi ON sqi.quotation_item_id = qi.id
+             WHERE sq.quotation_id IN (SELECT id FROM quotations WHERE purchase_request_id = $1)
+             AND sqi.quotation_item_id IS NOT NULL 
+             AND qi.id IS NULL`,
+            [id]
+          );
+
+          for (const item of missingQuotationRefs.rows) {
+            if (!dryRun) {
+              // Set quotation_item_id to NULL for invalid references
+              await pool.query(
+                `UPDATE supplier_quotation_items SET quotation_item_id = NULL WHERE id = $1`,
+                [item.supplier_quotation_item_id]
+              );
+
+              fixResults.fixes.push({
+                type: 'missing_quotation_item_reference',
+                action: 'removed_invalid_quotation_item_reference',
+                supplierQuotationItemId: item.supplier_quotation_item_id,
+                invalidQuotationItemId: item.invalid_qi_ref,
+                description: `Removida referência inválida para quotation_item inexistente (ID: ${item.invalid_qi_ref})`
+              });
+            } else {
+              fixResults.fixes.push({
+                type: 'missing_quotation_item_reference',
+                action: 'would_remove_invalid_quotation_item_reference',
+                supplierQuotationItemId: item.supplier_quotation_item_id,
+                invalidQuotationItemId: item.invalid_qi_ref,
+                description: `Removeria referência inválida para quotation_item inexistente (ID: ${item.invalid_qi_ref})`
+              });
+            }
+            fixResults.summary.referencesFixed++;
+          }
+        }
+
         // Update request total value if items were modified
         if (!dryRun && fixResults.fixes.length > 0) {
           // Recalculate total value
@@ -2504,7 +2643,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Log the fix action
           await pool.query(
-            `INSERT INTO audit_logs (purchase_request_id, user_id, action, details, created_at)
+            `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at)
              VALUES ($1, $2, $3, $4, NOW())`,
             [
               id,
@@ -3081,7 +3220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               supplierName: supplier?.name || 'Unknown',
               supplierQuotationId: supplierQuotation.id,
               supplierQuotationItemId: supplierItem.id,
-              availableQuantity: supplierItem.availableQuantity || supplierItem.quantity || 0,
+              availableQuantity: supplierItem.availableQuantity || 0,
               confirmedUnit: supplierItem.confirmedUnit || supplierItem.unit,
               fulfillmentPercentage: supplierItem.fulfillmentPercentage || 0,
               unitPrice: supplierItem.unitPrice || 0,
@@ -3379,7 +3518,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Capture changes for notifications and versioning
+      const changes = [];
+      const criticalFields = ['quotationDeadline', 'termsAndConditions', 'technicalSpecs', 'status'];
+      
+      for (const field of criticalFields) {
+        if (quotationData[field] !== undefined && 
+            quotationData[field] !== existingQuotation[field]) {
+          changes.push({
+            field,
+            previousValue: existingQuotation[field],
+            newValue: quotationData[field]
+          });
+        }
+      }
+
       const quotation = await storage.updateQuotation(id, quotationData);
+
+      // Send notifications for critical changes
+      if (changes.length > 0) {
+        try {
+          // Check for deadline changes specifically
+          const deadlineChange = changes.find(c => c.field === 'quotationDeadline');
+          if (deadlineChange) {
+            await notificationService.sendDeadlineChangeNotification(
+              id,
+              new Date(deadlineChange.previousValue),
+              new Date(deadlineChange.newValue),
+              currentUser.id
+            );
+          }
+
+          // Send critical change notifications for other fields
+          const otherChanges = changes.filter(c => c.field !== 'quotationDeadline');
+          if (otherChanges.length > 0) {
+            await notificationService.sendCriticalChangeNotification(
+              id,
+              otherChanges,
+              currentUser.id
+            );
+          }
+
+          // Create version history for significant changes
+          if (changes.some(c => ['quotationDeadline', 'termsAndConditions', 'technicalSpecs'].includes(c.field))) {
+            const changeType = deadlineChange ? 'deadline_extended' : 'terms_changed';
+            const changeDescription = `Alterações em: ${changes.map(c => c.field).join(', ')}`;
+            
+            await quotationVersionService.createVersion({
+              quotationId: id,
+              changeType,
+              changeDescription,
+              changes,
+              reasonForChange: 'Atualização de cotação',
+              impactAssessment: 'Alterações que podem afetar fornecedores',
+              changedBy: currentUser.id
+            });
+          }
+        } catch (notificationError) {
+          console.error("Error sending notifications or creating version:", notificationError);
+          // Don't fail the main operation due to notification errors
+        }
+      }
+
       res.json(quotation);
     } catch (error) {
       console.error("Error updating quotation:", error);
@@ -3629,10 +3829,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Capture changes for notifications
+      const changes = [];
+      const criticalFields = ['totalValue', 'status', 'paymentTerms', 'deliveryTerms'];
+      
+      for (const field of criticalFields) {
+        if (supplierQuotationData[field] !== undefined && 
+            supplierQuotationData[field] !== existingSupplierQuotation[field]) {
+          changes.push({
+            field,
+            previousValue: existingSupplierQuotation[field],
+            newValue: supplierQuotationData[field]
+          });
+        }
+      }
+
       const supplierQuotation = await storage.updateSupplierQuotation(
         id,
         supplierQuotationData,
       );
+
+      // Send notifications for critical changes
+      if (changes.length > 0) {
+        try {
+          await notificationService.sendCriticalChangeNotification(
+            quotation.id,
+            changes,
+            currentUser.id
+          );
+        } catch (notificationError) {
+          console.error("Error sending notifications:", notificationError);
+          // Don't fail the main operation due to notification errors
+        }
+      }
+
       res.json(supplierQuotation);
     } catch (error) {
       console.error("Error updating supplier quotation:", error);
@@ -3640,8 +3870,206 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update available quantities for supplier quotation items
-  app.put("/api/supplier-quotations/:id/update-quantities", isAuthenticated, async (req, res) => {
+  // Endpoint para sincronização de cotações
+  app.post("/api/quotations/:quotationId/sync", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      
+      if (isNaN(quotationId)) {
+        return res.status(400).json({ message: "Invalid quotation ID" });
+      }
+
+      await quotationSyncService.syncQuotationItems(quotationId);
+      res.json({ message: "Sincronização concluída com sucesso" });
+    } catch (error) {
+      console.error("Erro na sincronização:", error);
+      res.status(500).json({ message: "Erro na sincronização" });
+    }
+  });
+
+  // Endpoint para validação de consistência
+  app.get("/api/quotations/:quotationId/validate", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      
+      if (isNaN(quotationId)) {
+        return res.status(400).json({ message: "Invalid quotation ID" });
+      }
+
+      const validationResults = await quotationSyncService.validateQuantityConsistency(quotationId);
+      res.json(validationResults);
+    } catch (error) {
+      console.error("Erro na validação:", error);
+      res.status(500).json({ message: "Erro na validação" });
+    }
+  });
+
+  // Endpoint para corrigir mapeamentos
+  app.post("/api/quotations/:quotationId/fix-mappings", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      
+      if (isNaN(quotationId)) {
+        return res.status(400).json({ message: "Invalid quotation ID" });
+      }
+
+      await quotationSyncService.fixMissingMappings(quotationId);
+      res.json({ message: "Mapeamentos corrigidos com sucesso" });
+    } catch (error) {
+      console.error("Erro ao corrigir mapeamentos:", error);
+      res.status(500).json({ message: "Erro ao corrigir mapeamentos" });
+    }
+  });
+
+  // Quotation Versioning Endpoints
+  
+  // Create new version when quotation is modified
+  app.post("/api/quotations/:quotationId/versions", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const { changeType, changeDescription, changes, itemsAffected, reasonForChange, impactAssessment } = req.body;
+      
+      if (isNaN(quotationId)) {
+        return res.status(400).json({ message: "Invalid quotation ID" });
+      }
+
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Validate the changes before creating version
+      const validation = await quotationVersionService.validateVersionChange(quotationId, changes);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          message: "Invalid changes", 
+          errors: validation.errors 
+        });
+      }
+
+      const versionData = {
+        quotationId,
+        changeType,
+        changeDescription,
+        changes,
+        itemsAffected,
+        reasonForChange,
+        impactAssessment,
+        changedBy: currentUser.id
+      };
+
+      const result = await quotationVersionService.createVersion(versionData);
+      res.json(result);
+    } catch (error) {
+      console.error("Error creating quotation version:", error);
+      res.status(500).json({ message: "Failed to create version" });
+    }
+  });
+
+  // Get version history for a quotation
+  app.get("/api/quotations/:quotationId/versions", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      
+      if (isNaN(quotationId)) {
+        return res.status(400).json({ message: "Invalid quotation ID" });
+      }
+
+      const history = await quotationVersionService.getVersionHistory(quotationId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching version history:", error);
+      res.status(500).json({ message: "Failed to fetch version history" });
+    }
+  });
+
+  // Get specific version details
+  app.get("/api/quotations/versions/:versionId", isAuthenticated, async (req, res) => {
+    try {
+      const versionId = parseInt(req.params.versionId);
+      
+      if (isNaN(versionId)) {
+        return res.status(400).json({ message: "Invalid version ID" });
+      }
+
+      const version = await quotationVersionService.getVersionDetails(versionId);
+      if (!version) {
+        return res.status(404).json({ message: "Version not found" });
+      }
+
+      res.json(version);
+    } catch (error) {
+      console.error("Error fetching version details:", error);
+      res.status(500).json({ message: "Failed to fetch version details" });
+    }
+  });
+
+  // Compare two versions
+  app.get("/api/quotations/:quotationId/versions/compare", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const version1 = parseInt(req.query.version1 as string);
+      const version2 = parseInt(req.query.version2 as string);
+      
+      if (isNaN(quotationId) || isNaN(version1) || isNaN(version2)) {
+        return res.status(400).json({ message: "Invalid parameters" });
+      }
+
+      const comparison = await quotationVersionService.compareVersions(quotationId, version1, version2);
+      res.json(comparison);
+    } catch (error) {
+      console.error("Error comparing versions:", error);
+      res.status(500).json({ message: "Failed to compare versions" });
+    }
+  });
+
+  // Rollback to a specific version
+  app.post("/api/quotations/:quotationId/versions/:targetVersion/rollback", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      const targetVersion = parseInt(req.params.targetVersion);
+      
+      if (isNaN(quotationId) || isNaN(targetVersion)) {
+        return res.status(400).json({ message: "Invalid parameters" });
+      }
+
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Check if user has permission to rollback (admin or manager)
+      if (!currentUser.isAdmin && !currentUser.isManager) {
+        return res.status(403).json({ message: "Insufficient permissions for rollback" });
+      }
+
+      const result = await quotationVersionService.rollbackToVersion(quotationId, targetVersion, currentUser.id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error rolling back version:", error);
+      res.status(500).json({ message: "Failed to rollback version" });
+    }
+  });
+
+  // Get latest version number
+  app.get("/api/quotations/:quotationId/latest-version", isAuthenticated, async (req, res) => {
+    try {
+      const quotationId = parseInt(req.params.quotationId);
+      
+      if (isNaN(quotationId)) {
+        return res.status(400).json({ message: "Invalid quotation ID" });
+      }
+
+      const latestVersion = await quotationVersionService.getLatestVersion(quotationId);
+      res.json({ version: latestVersion });
+    } catch (error) {
+      console.error("Error fetching latest version:", error);
+      res.status(500).json({ message: "Failed to fetch latest version" });
+    }
+  });
+
+  // Update available quantities for supplier quotation items (with atomic transactions)
+  app.put("/api/supplier-quotations/:id/update-quantities", isAuthenticated, QuantityValidationMiddleware.fullValidation, async (req, res) => {
     try {
       const supplierQuotationId = parseInt(req.params.id);
       const { items } = req.body;
@@ -3656,70 +4084,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      // Verify supplier quotation exists
+      // Get supplier quotation to find quotation ID for notifications
       const supplierQuotation = await storage.getSupplierQuotationById(supplierQuotationId);
       if (!supplierQuotation) {
         return res.status(404).json({ message: "Supplier quotation not found" });
       }
 
-      // Get existing items to compare quantities
-      const existingItems = await storage.getSupplierQuotationItems(supplierQuotationId);
-      
-      const updatedItems = [];
-      
-      for (const itemUpdate of items) {
-        const { id, availableQuantity, confirmedUnit, quantityAdjustmentReason } = itemUpdate;
-        
-        if (!id) {
-          continue;
-        }
+      // Get client IP and user agent for audit trail
+      const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+      const userAgent = req.get('User-Agent') || 'unknown';
+      const sessionId = req.sessionID || 'unknown';
 
-        const existingItem = existingItems.find(item => item.id === id);
-        if (!existingItem) {
-          continue;
-        }
-
-        // Calculate fulfillment percentage
-        const requestedQuantity = existingItem.quantity || 0;
-        const available = availableQuantity || 0;
-        const fulfillmentPercentage = requestedQuantity > 0 ? Math.round((available / requestedQuantity) * 100) : 0;
-
-        // Update the item with new quantity information
-        const updatedItem = await storage.updateSupplierQuotationItem(id, {
-          availableQuantity: available,
-          confirmedUnit: confirmedUnit || existingItem.unit,
-          quantityAdjustmentReason: quantityAdjustmentReason || null,
-          fulfillmentPercentage
-        });
-
-        updatedItems.push(updatedItem);
-
-        // Log the quantity adjustment in history table if there's a change
-        if (available !== (existingItem.availableQuantity || existingItem.quantity)) {
-          await storage.createQuantityAdjustmentHistory({
-            supplierQuotationItemId: id,
-            quotationId: supplierQuotation.quotationId,
-            supplierId: supplierQuotation.supplierId,
-            previousQuantity: existingItem.availableQuantity || existingItem.quantity || 0,
-            newQuantity: available,
-            previousUnit: existingItem.confirmedUnit || existingItem.unit || '',
-            newUnit: confirmedUnit || existingItem.unit || '',
-            adjustmentReason: quantityAdjustmentReason || 'Quantity updated',
-            adjustedBy: currentUser.id,
-            adjustedAt: new Date(),
-            previousTotalValue: (existingItem.availableQuantity || existingItem.quantity || 0) * (existingItem.unitPrice || 0),
-            newTotalValue: available * (existingItem.unitPrice || 0)
+      // Capture quantity changes for notifications
+      const quantityChanges = [];
+      for (const item of items) {
+        if (item.previousQuantity !== undefined && item.availableQuantity !== undefined) {
+          quantityChanges.push({
+            field: 'availableQuantity',
+            itemId: item.id,
+            previousValue: item.previousQuantity,
+            newValue: item.availableQuantity
           });
         }
       }
 
+      // Use atomic transaction function for quantity updates
+      const result = await storage.db.query(`
+        SELECT atomic_update_supplier_quotation_quantities($1, $2, $3, $4, $5, $6) as result
+      `, [
+        supplierQuotationId,
+        JSON.stringify(items),
+        currentUser.id,
+        sessionId,
+        clientIp,
+        userAgent
+      ]);
+
+      const atomicResult = result.rows[0].result;
+
+      if (!atomicResult.success) {
+        return res.status(400).json({
+          message: atomicResult.error || "Failed to update quantities",
+          error_code: atomicResult.error_code,
+          errors: atomicResult.errors || [],
+          transaction_id: atomicResult.transaction_id
+        });
+      }
+
+      // Send quantity change notifications
+      if (quantityChanges.length > 0) {
+        try {
+          await notificationService.sendQuantityChangeNotification(
+            supplierQuotation.quotationId,
+            quantityChanges,
+            currentUser.id
+          );
+        } catch (notificationError) {
+          console.error("Error sending quantity change notifications:", notificationError);
+          // Don't fail the main operation due to notification errors
+        }
+      }
+
+      // Return success response with detailed information
       res.json({
-        message: "Quantities updated successfully",
-        updatedItems
+        message: "Quantities updated successfully with atomic transaction",
+        success: true,
+        transaction_id: atomicResult.transaction_id,
+        summary: atomicResult.summary,
+        updated_items: atomicResult.updated_items,
+        errors: atomicResult.errors || []
       });
+
     } catch (error) {
-      console.error("Error updating quantities:", error);
-      res.status(500).json({ message: "Failed to update quantities" });
+      console.error("Error in atomic quantity update:", error);
+      res.status(500).json({ 
+        message: "Failed to update quantities", 
+        error: error.message,
+        success: false
+      });
     }
   });
 

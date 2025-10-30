@@ -252,7 +252,7 @@ export const quotations = pgTable("quotations", {
   // Multiple RFQs support
   isActive: boolean("is_active").default(true),
   rfqVersion: integer("rfq_version").default(1),
-  parentQuotationId: integer("parent_quotation_id").references(() => quotations.id),
+  parentQuotationId: integer("parent_quotation_id").references((): any => quotations.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -336,6 +336,28 @@ export const quantityAdjustmentHistory = pgTable("quantity_adjustment_history", 
   adjustedAt: timestamp("adjusted_at").defaultNow().notNull(),
   previousTotalValue: decimal("previous_total_value", { precision: 15, scale: 2 }),
   newTotalValue: decimal("new_total_value", { precision: 15, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Quotation Version History table for tracking version changes
+export const quotationVersionHistory = pgTable("quotation_version_history", {
+  id: serial("id").primaryKey(),
+  quotationId: integer("quotation_id").references(() => quotations.id).notNull(),
+  previousVersion: integer("previous_version"),
+  newVersion: integer("new_version").notNull(),
+  changeType: text("change_type").notNull(), // 'created', 'updated', 'items_modified', 'deadline_extended', 'terms_changed'
+  changeDescription: text("change_description"),
+  changedFields: jsonb("changed_fields"), // JSON object with field changes
+  previousValues: jsonb("previous_values"), // Previous values of changed fields
+  newValues: jsonb("new_values"), // New values of changed fields
+  itemsAffected: jsonb("items_affected"), // Array of affected quotation item IDs
+  reasonForChange: text("reason_for_change"),
+  impactAssessment: text("impact_assessment"), // Assessment of change impact
+  changedBy: integer("changed_by").references(() => users.id).notNull(),
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  notificationsSent: boolean("notifications_sent").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -583,6 +605,7 @@ export const quotationsRelations = relations(quotations, ({ one, many }) => ({
   supplierQuotations: many(supplierQuotations),
   attachments: many(attachments),
   purchaseOrders: many(purchaseOrders),
+  versionHistory: many(quotationVersionHistory),
 }));
 
 export const quotationItemsRelations = relations(quotationItems, ({ one, many }) => ({
@@ -636,6 +659,21 @@ export const quantityAdjustmentHistoryRelations = relations(quantityAdjustmentHi
   }),
   adjustedBy: one(users, {
     fields: [quantityAdjustmentHistory.adjustedBy],
+    references: [users.id],
+  }),
+}));
+
+export const quotationVersionHistoryRelations = relations(quotationVersionHistory, ({ one }) => ({
+  quotation: one(quotations, {
+    fields: [quotationVersionHistory.quotationId],
+    references: [quotations.id],
+  }),
+  changedBy: one(users, {
+    fields: [quotationVersionHistory.changedBy],
+    references: [users.id],
+  }),
+  approvedBy: one(users, {
+    fields: [quotationVersionHistory.approvedBy],
     references: [users.id],
   }),
 }));
@@ -843,19 +881,9 @@ export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuot
     return typeof val === 'string' ? parseInt(val, 10) : val;
   }),
   isAvailable: z.boolean().optional().default(true),
-  unavailabilityReason: z.union([z.string(), z.undefined(), z.null()]).optional().nullable().transform((val) => {
-    if (val === null || val === undefined) return null;
-    return val;
-  }),
-  availableQuantity: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => {
-    if (val === null || val === undefined || val === '') return null;
-    return typeof val === 'string' ? val : val.toString();
-  }),
+  unavailabilityReason: z.string().optional(),
   confirmedUnit: z.string().optional(),
-  quantityAdjustmentReason: z.union([z.string(), z.undefined(), z.null()]).optional().nullable().transform((val) => {
-    if (val === null || val === undefined) return null;
-    return val;
-  }),
+  quantityAdjustmentReason: z.string().optional(),
 });
 
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
