@@ -671,6 +671,7 @@ export default function EnhancedNewRequestModal({
                           <SelectItem value="M">M - Metro</SelectItem>
                           <SelectItem value="L">L - Litro</SelectItem>
                           <SelectItem value="Par">Par - Par</SelectItem>
+                          <SelectItem value="PCT">PCT - Pacote</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
