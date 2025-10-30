@@ -881,9 +881,16 @@ export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuot
     return typeof val === 'string' ? parseInt(val, 10) : val;
   }),
   isAvailable: z.boolean().optional().default(true),
-  unavailabilityReason: z.string().optional(),
-  confirmedUnit: z.string().optional(),
-  quantityAdjustmentReason: z.string().optional(),
+  unavailabilityReason: z.string().optional().nullable(),
+  confirmedUnit: z.string().optional().nullable(),
+  quantityAdjustmentReason: z.string().optional().nullable(),
+  brand: z.string().optional().nullable(),
+  model: z.string().optional().nullable(),
+  observations: z.string().optional().nullable(),
+  originalTotalPrice: z.string().optional().nullable().transform((val) => val || null),
+  discountedTotalPrice: z.string().optional().nullable().transform((val) => val || null),
+  availableQuantity: z.string().optional().nullable().transform((val) => val || null),
+  fulfillmentPercentage: z.string().optional().nullable().transform((val) => val || null),
 });
 
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
