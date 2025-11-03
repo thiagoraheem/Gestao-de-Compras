@@ -26,6 +26,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import RFQCreation from "./rfq-creation";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { ConnectionStatus } from "@/components/ui/connection-status";
+import { AnimatedTransition, AnimatedCard, AnimatedColumn } from "@/components/ui/animated-transition";
 
 interface KanbanBoardProps {
   departmentFilter?: string;
@@ -47,6 +50,11 @@ export default function KanbanBoard({
   searchFilter = "",
   dateFilter,
 }: KanbanBoardProps) {
+  // Debug logs temporarily commented to avoid errors
+  // console.log('🚀 [KANBAN BOARD] Componente renderizado - timestamp:', new Date().toISOString());
+  
+  // Log detalhado da autenticação - commented for debugging
+  // console.log('🔐 [AUTH DEBUG] Estado da autenticação:', { user });
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -54,14 +62,63 @@ export default function KanbanBoard({
   const [activeRequest, setActiveRequest] = useState<any>(null);
   const [showRFQCreation, setShowRFQCreation] = useState(false);
   const [selectedRequestForRFQ, setSelectedRequestForRFQ] = useState<any>(null);
+  const [selectedRequestForEdit, setSelectedRequestForEdit] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedRequestForView, setSelectedRequestForView] = useState<any>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedRequestForDelete, setSelectedRequestForDelete] = useState<any>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedRequestForDuplicate, setSelectedRequestForDuplicate] = useState<any>(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [selectedRequestForApproval, setSelectedRequestForApproval] = useState<any>(null);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [selectedRequestForRejection, setSelectedRequestForRejection] = useState<any>(null);
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
 
-  const { data: purchaseRequests, isLoading } = useQuery({
+  // Configuração do sistema de sincronização em tempo real
+  const { 
+    connectionStatus, 
+    lastSync, 
+    error: syncError,
+    isAnimationEnabled 
+  } = useRealtimeSync({
     queryKey: ["/api/purchase-requests"],
-    refetchInterval: false, // Disable automatic refetching
-    refetchOnWindowFocus: false, // Disable refetch on window focus
-    refetchOnMount: "always", // Always refetch when component mounts
-    staleTime: 1000 * 60 * 1, // 1 minute stale time
-    enabled: !!user, // Only fetch when user is authenticated
+    enabled: !!user,
+    onUpdate: (data) => {
+      // Mostrar toast de notificação para atualizações
+      if (data.action) {
+        let message = '';
+        switch (data.action) {
+          case 'phase_changed':
+            message = `Solicitação ${data.requestNumber} movida para ${PHASE_LABELS[data.currentPhase] || data.currentPhase}`;
+            break;
+          case 'approved':
+            message = `Solicitação ${data.requestNumber} foi aprovada`;
+            break;
+          case 'receipt_confirmed':
+            message = `Recebimento confirmado para ${data.requestNumber}`;
+            break;
+          default:
+            message = `Solicitação ${data.requestNumber} foi atualizada`;
+        }
+        
+        toast({
+          title: "Atualização em tempo real",
+          description: message,
+        });
+      }
+    }
+  });
+
+  const { data: purchaseRequests, isLoading, refetch } = useQuery({
+    queryKey: ["/api/purchase-requests"],
+    refetchOnWindowFocus: connectionStatus === 'offline', // Only refetch on focus when offline
+    refetchOnMount: true,
+    staleTime: connectionStatus === 'websocket' ? 60000 : 30000, // Longer stale time with WebSocket
+    gcTime: 1000 * 60 * 5,
+    enabled: !!user,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   // Listen for URL-based request opening
@@ -491,6 +548,11 @@ export default function KanbanBoard({
 
         // Search filter is handled separately via highlighting - don't filter out cards here
 
+        // Log final para debug das solicitações específicas
+        if (request.requestNumber === 'SOL-2025-330' || request.requestNumber === 'SOL-2025-329') {
+          console.log(`[FILTER FINAL] ${request.requestNumber}: passesFilters=${passesFilters}`);
+        }
+
         return passesFilters;
       })
     : [];
@@ -521,6 +583,7 @@ export default function KanbanBoard({
   // Group filtered requests by phase and sort each phase
   const requestsByPhase = filteredRequests.reduce((acc: any, request: any) => {
     const phase = request.currentPhase || PURCHASE_PHASES.SOLICITACAO;
+    
     if (!acc[phase]) acc[phase] = [];
     acc[phase].push(request);
     return acc;
@@ -530,6 +593,8 @@ export default function KanbanBoard({
   Object.keys(requestsByPhase).forEach((phase) => {
     requestsByPhase[phase] = sortRequestsByPriority(requestsByPhase[phase]);
   });
+
+
 
   const handleCreateRFQ = (request: any) => {
     setSelectedRequestForRFQ(request);
@@ -568,22 +633,38 @@ export default function KanbanBoard({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
+      {/* Status de Conexão */}
+      <div className="fixed top-4 right-4 z-50">
+        <ConnectionStatus
+          status={connectionStatus}
+          lastSync={lastSync}
+          error={syncError}
+        />
+      </div>
+      
       <div className="h-full overflow-x-auto px-4 md:px-6 py-4 kanban-scroll">
-        <div
-          className="flex space-x-4 md:space-x-6"
-          style={{ minWidth: "max-content", height: "100%" }}
-        >
-          {Object.values(PURCHASE_PHASES).map((phase) => (
-            <KanbanColumn
-              key={phase}
-              phase={phase}
-              title={PHASE_LABELS[phase]}
-              requests={requestsByPhase[phase] || []}
-              onCreateRFQ={handleCreateRFQ}
-              highlightedRequestIds={highlightedRequestIds}
-            />
-          ))}
-        </div>
+        <AnimatedTransition>
+          <div
+            className="flex space-x-4 md:space-x-6"
+            style={{ minWidth: "max-content", height: "100%" }}
+          >
+            {Object.values(PURCHASE_PHASES).map((phase) => (
+              <AnimatedColumn
+                key={phase}
+                isAnimationEnabled={isAnimationEnabled}
+              >
+                <KanbanColumn
+                  key={phase}
+                  phase={phase}
+                  title={PHASE_LABELS[phase]}
+                  requests={requestsByPhase[phase] || []}
+                  onCreateRFQ={handleCreateRFQ}
+                  highlightedRequestIds={highlightedRequestIds}
+                />
+              </AnimatedColumn>
+            ))}
+          </div>
+        </AnimatedTransition>
       </div>
 
       <DragOverlay>

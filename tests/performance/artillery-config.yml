@@ -1,0 +1,273 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    # Warm-up phase
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm-up"
+    
+    # Load testing phase
+    - duration: 120
+      arrivalRate: 20
+      name: "Load test"
+    
+    # Stress testing phase
+    - duration: 60
+      arrivalRate: 50
+      name: "Stress test"
+    
+    # Spike testing phase
+    - duration: 30
+      arrivalRate: 100
+      name: "Spike test"
+
+  # Performance thresholds based on technical requirements
+  ensure:
+    # Response time should be < 500ms for 95% of requests
+    - p95: 500
+    # Response time should be < 200ms for 50% of requests
+    - p50: 200
+    # Error rate should be < 1%
+    - maxErrorRate: 1
+
+  # WebSocket configuration
+  ws:
+    # Enable WebSocket testing
+    subprotocols: []
+
+  # HTTP configuration
+  http:
+    # Connection pooling
+    pool: 50
+    # Request timeout
+    timeout: 10
+
+  # Metrics and reporting
+  plugins:
+    metrics-by-endpoint:
+      # Group metrics by endpoint
+      useOnlyRequestNames: true
+    
+    # Custom metrics plugin
+    expect:
+      outputFormat: json
+      
+  # Environment variables
+  variables:
+    baseUrl: 'http://localhost:3000'
+    apiPath: '/api'
+
+scenarios:
+  # Test API endpoints with caching
+  - name: "API Endpoints with Cache"
+    weight: 40
+    flow:
+      # Test products endpoint (should benefit from cache)
+      - get:
+          url: "{{ baseUrl }}{{ apiPath }}/products"
+          headers:
+            Accept: "application/json"
+            Cache-Control: "max-age=300"
+          capture:
+            - json: "$.length"
+              as: "productCount"
+          expect:
+            - statusCode: 200
+            - hasProperty: "length"
+            - contentType: json
+
+      # Test with ETag validation
+      - get:
+          url: "{{ baseUrl }}{{ apiPath }}/products"
+          headers:
+            Accept: "application/json"
+            If-None-Match: "*"
+          expect:
+            - statusCode: [200, 304]
+
+      # Test suppliers endpoint
+      - get:
+          url: "{{ baseUrl }}{{ apiPath }}/suppliers"
+          headers:
+            Accept: "application/json"
+          expect:
+            - statusCode: 200
+            - contentType: json
+
+      # Test purchase orders endpoint
+      - get:
+          url: "{{ baseUrl }}{{ apiPath }}/purchase-orders"
+          headers:
+            Accept: "application/json"
+          expect:
+            - statusCode: 200
+            - contentType: json
+
+      # Test metrics endpoint (should be fast)
+      - get:
+          url: "{{ baseUrl }}{{ apiPath }}/metrics"
+          headers:
+            Accept: "application/json"
+          expect:
+            - statusCode: 200
+            - hasProperty: "health"
+            - hasProperty: "performance"
+
+  # Test WebSocket connections
+  - name: "WebSocket Connections"
+    weight: 30
+    engine: ws
+    flow:
+      # Connect to WebSocket
+      - connect:
+          url: "ws://localhost:3000"
+          headers:
+            Authorization: "Bearer test-token"
+          
+      # Send authentication message
+      - send:
+          payload: |
+            {
+              "type": "auth",
+              "token": "test-token",
+              "userId": "test-user-{{ $randomNumber(1, 1000) }}"
+            }
+
+      # Subscribe to products updates
+      - send:
+          payload: |
+            {
+              "type": "subscribe",
+              "resource": "products",
+              "events": ["created", "updated", "deleted"]
+            }
+
+      # Wait for messages
+      - think: 5
+
+      # Send heartbeat
+      - send:
+          payload: |
+            {
+              "type": "heartbeat",
+              "timestamp": {{ $timestamp }}
+            }
+
+      # Wait and then disconnect
+      - think: 10
+
+  # Test real-time updates simulation
+  - name: "Real-time Updates Simulation"
+    weight: 20
+    flow:
+      # Create a product (should trigger WebSocket notification)
+      - post:
+          url: "{{ baseUrl }}{{ apiPath }}/products"
+          headers:
+            Content-Type: "application/json"
+            Accept: "application/json"
+          json:
+            name: "Test Product {{ $randomNumber(1, 10000) }}"
+            description: "Performance test product"
+            price: "{{ $randomNumber(10, 1000) }}.99"
+            category: "test"
+          capture:
+            - json: "$.id"
+              as: "productId"
+          expect:
+            - statusCode: [200, 201]
+
+      # Update the product (should trigger cache invalidation)
+      - put:
+          url: "{{ baseUrl }}{{ apiPath }}/products/{{ productId }}"
+          headers:
+            Content-Type: "application/json"
+            Accept: "application/json"
+          json:
+            name: "Updated Test Product {{ productId }}"
+            description: "Updated performance test product"
+            price: "{{ $randomNumber(10, 1000) }}.99"
+          expect:
+            - statusCode: 200
+          ifTrue: "productId"
+
+      # Get updated product (should be served from cache or fresh data)
+      - get:
+          url: "{{ baseUrl }}{{ apiPath }}/products/{{ productId }}"
+          headers:
+            Accept: "application/json"
+          expect:
+            - statusCode: 200
+          ifTrue: "productId"
+
+      # Delete the product (cleanup)
+      - delete:
+          url: "{{ baseUrl }}{{ apiPath }}/products/{{ productId }}"
+          expect:
+            - statusCode: [200, 204]
+          ifTrue: "productId"
+
+  # Test cache performance
+  - name: "Cache Performance Test"
+    weight: 10
+    flow:
+      # First request (cache miss)
+      - get:
+          url: "{{ baseUrl }}{{ apiPath }}/products?page=1&limit=50"
+          headers:
+            Accept: "application/json"
+            X-Test-Cache: "miss"
+          expect:
+            - statusCode: 200
+
+      # Second request (should be cache hit)
+      - get:
+          url: "{{ baseUrl }}{{ apiPath }}/products?page=1&limit=50"
+          headers:
+            Accept: "application/json"
+            X-Test-Cache: "hit"
+          expect:
+            - statusCode: 200
+
+      # Request with different parameters (cache miss)
+      - get:
+          url: "{{ baseUrl }}{{ apiPath }}/products?page=2&limit=50"
+          headers:
+            Accept: "application/json"
+          expect:
+            - statusCode: 200
+
+      # Test cache invalidation endpoint
+      - post:
+          url: "{{ baseUrl }}{{ apiPath }}/cache/invalidate"
+          headers:
+            Content-Type: "application/json"
+          json:
+            pattern: "products:*"
+          expect:
+            - statusCode: [200, 204]
+
+# Custom functions for data generation
+functions:
+  generateProductData:
+    - set:
+        name: "Product {{ $randomString() }}"
+        price: "{{ $randomNumber(10, 1000) }}.{{ $randomNumber(10, 99) }}"
+        category: "{{ $randomPick(['electronics', 'clothing', 'books', 'home', 'sports']) }}"
+
+# Before and after hooks
+before:
+  flow:
+    # Health check before starting tests
+    - get:
+        url: "{{ baseUrl }}{{ apiPath }}/health"
+        expect:
+          - statusCode: 200
+
+after:
+  flow:
+    # Final metrics check
+    - get:
+        url: "{{ baseUrl }}{{ apiPath }}/metrics"
+        expect:
+          - statusCode: 200

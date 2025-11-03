@@ -1,0 +1,5038 @@
+{
+  "startTime": 1761849502424,
+  "currentTime": 1761849802618,
+  "duration": 300194,
+  "metrics": [
+    {
+      "timestamp": 1761849507611,
+      "elapsed": 5187,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "4 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 590,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 308.19102990033224,
+          "hitRate": 2.155887230514096,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849496703,
+          "totalRequests": 607,
+          "requestsPerSecond": 1.8333333333333333,
+          "averageResponseTime": 188.86622090909012,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 0,
+          "memoryUsage": {
+            "rss": 248676352,
+            "heapTotal": 156033024,
+            "heapUsed": 151391544,
+            "external": 13266796,
+            "arrayBuffers": 2072583
+          },
+          "cpuUsage": {
+            "user": 266000,
+            "system": 94000
+          },
+          "uptime": 240026,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 1718,
+          "averageResponseTime": 270.77509021936146,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 196289542,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 4
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          }
+        ],
+        "timestamp": "2025-10-30T18:38:27.621Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "4 warnings",
+        "timestamp": "2025-10-30T18:38:27.628Z",
+        "uptime": 252.9870847,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849507630,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 2.155887230514096%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 57147392,
+          "heapTotal": 13361152,
+          "heapUsed": 9510976,
+          "external": 3745549,
+          "arrayBuffers": 73714
+        },
+        "uptime": 5.3886723
+      }
+    },
+    {
+      "timestamp": 1761849512622,
+      "elapsed": 10198,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "4 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 603,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 305.8780487804878,
+          "hitRate": 2.1103896103896105,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849496703,
+          "totalRequests": 607,
+          "requestsPerSecond": 1.8333333333333333,
+          "averageResponseTime": 188.86622090909012,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 0,
+          "memoryUsage": {
+            "rss": 248676352,
+            "heapTotal": 156033024,
+            "heapUsed": 151391544,
+            "external": 13266796,
+            "arrayBuffers": 2072583
+          },
+          "cpuUsage": {
+            "user": 266000,
+            "system": 94000
+          },
+          "uptime": 240026,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 1718,
+          "averageResponseTime": 270.77509021936146,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 196289542,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 4
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          }
+        ],
+        "timestamp": "2025-10-30T18:38:32.633Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "4 warnings",
+        "timestamp": "2025-10-30T18:38:32.647Z",
+        "uptime": 258.0055022,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849512649,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 2.1103896103896105%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 55013376,
+          "heapTotal": 10477568,
+          "heapUsed": 8946288,
+          "external": 3745549,
+          "arrayBuffers": 73674
+        },
+        "uptime": 10.4077312
+      }
+    },
+    {
+      "timestamp": 1761849517624,
+      "elapsed": 15200,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "4 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 616,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 304.4076433121019,
+          "hitRate": 2.066772655007949,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849496703,
+          "totalRequests": 607,
+          "requestsPerSecond": 1.8333333333333333,
+          "averageResponseTime": 188.86622090909012,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 0,
+          "memoryUsage": {
+            "rss": 248676352,
+            "heapTotal": 156033024,
+            "heapUsed": 151391544,
+            "external": 13266796,
+            "arrayBuffers": 2072583
+          },
+          "cpuUsage": {
+            "user": 266000,
+            "system": 94000
+          },
+          "uptime": 240026,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 1718,
+          "averageResponseTime": 270.77509021936146,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 196289542,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 4
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          }
+        ],
+        "timestamp": "2025-10-30T18:38:37.629Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "4 warnings",
+        "timestamp": "2025-10-30T18:38:37.635Z",
+        "uptime": 262.9943049,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849517637,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 2.066772655007949%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 55398400,
+          "heapTotal": 10477568,
+          "heapUsed": 9304248,
+          "external": 3759325,
+          "arrayBuffers": 87450
+        },
+        "uptime": 15.3956623
+      }
+    },
+    {
+      "timestamp": 1761849522630,
+      "elapsed": 20206,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "4 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 628,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 301.478125,
+          "hitRate": 2.02808112324493,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849496703,
+          "totalRequests": 607,
+          "requestsPerSecond": 1.8333333333333333,
+          "averageResponseTime": 188.86622090909012,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 0,
+          "memoryUsage": {
+            "rss": 248676352,
+            "heapTotal": 156033024,
+            "heapUsed": 151391544,
+            "external": 13266796,
+            "arrayBuffers": 2072583
+          },
+          "cpuUsage": {
+            "user": 266000,
+            "system": 94000
+          },
+          "uptime": 240026,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 1718,
+          "averageResponseTime": 270.77509021936146,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 196289542,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 4
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          }
+        ],
+        "timestamp": "2025-10-30T18:38:42.637Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "4 warnings",
+        "timestamp": "2025-10-30T18:38:42.643Z",
+        "uptime": 268.0019603,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849522646,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 2.02808112324493%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 55934976,
+          "heapTotal": 10739712,
+          "heapUsed": 9879528,
+          "external": 3765023,
+          "arrayBuffers": 93148
+        },
+        "uptime": 20.4048953
+      }
+    },
+    {
+      "timestamp": 1761849527639,
+      "elapsed": 25215,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "4 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 642,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 299.06451612903226,
+          "hitRate": 1.984732824427481,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849496703,
+          "totalRequests": 607,
+          "requestsPerSecond": 1.8333333333333333,
+          "averageResponseTime": 188.86622090909012,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 0,
+          "memoryUsage": {
+            "rss": 248676352,
+            "heapTotal": 156033024,
+            "heapUsed": 151391544,
+            "external": 13266796,
+            "arrayBuffers": 2072583
+          },
+          "cpuUsage": {
+            "user": 266000,
+            "system": 94000
+          },
+          "uptime": 240026,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 1718,
+          "averageResponseTime": 270.77509021936146,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 196289542,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 4
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          }
+        ],
+        "timestamp": "2025-10-30T18:38:47.663Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "4 warnings",
+        "timestamp": "2025-10-30T18:38:47.679Z",
+        "uptime": 273.0383844,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849527680,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 1.984732824427481%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 56561664,
+          "heapTotal": 12050432,
+          "heapUsed": 9572312,
+          "external": 3753741,
+          "arrayBuffers": 81866
+        },
+        "uptime": 25.4394494
+      }
+    },
+    {
+      "timestamp": 1761849532656,
+      "elapsed": 30232,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "4 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 756,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 280.7519582245431,
+          "hitRate": 1.6905071521456438,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849496703,
+          "totalRequests": 607,
+          "requestsPerSecond": 1.8333333333333333,
+          "averageResponseTime": 188.86622090909012,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 0,
+          "memoryUsage": {
+            "rss": 248676352,
+            "heapTotal": 156033024,
+            "heapUsed": 151391544,
+            "external": 13266796,
+            "arrayBuffers": 2072583
+          },
+          "cpuUsage": {
+            "user": 266000,
+            "system": 94000
+          },
+          "uptime": 240026,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 1718,
+          "averageResponseTime": 270.77509021936146,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 196289542,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 4
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          }
+        ],
+        "timestamp": "2025-10-30T18:38:52.661Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "4 warnings",
+        "timestamp": "2025-10-30T18:38:52.667Z",
+        "uptime": 278.0263241,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849532668,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 1.6905071521456438%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 56860672,
+          "heapTotal": 12050432,
+          "heapUsed": 9905424,
+          "external": 3767649,
+          "arrayBuffers": 95774
+        },
+        "uptime": 30.4275434
+      }
+    },
+    {
+      "timestamp": 1761849537658,
+      "elapsed": 35234,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "4 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 758,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 280.0247395833333,
+          "hitRate": 1.6861219195849546,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849496703,
+          "totalRequests": 607,
+          "requestsPerSecond": 1.8333333333333333,
+          "averageResponseTime": 188.86622090909012,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 0,
+          "memoryUsage": {
+            "rss": 248676352,
+            "heapTotal": 156033024,
+            "heapUsed": 151391544,
+            "external": 13266796,
+            "arrayBuffers": 2072583
+          },
+          "cpuUsage": {
+            "user": 266000,
+            "system": 94000
+          },
+          "uptime": 240026,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 1718,
+          "averageResponseTime": 270.77509021936146,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 196289542,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 4
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          }
+        ],
+        "timestamp": "2025-10-30T18:38:57.661Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "4 warnings",
+        "timestamp": "2025-10-30T18:38:57.665Z",
+        "uptime": 283.0241533,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849537666,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 1.6861219195849546%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 57016320,
+          "heapTotal": 11526144,
+          "heapUsed": 9617880,
+          "external": 3753611,
+          "arrayBuffers": 81736
+        },
+        "uptime": 35.4248326
+      }
+    },
+    {
+      "timestamp": 1761849542660,
+      "elapsed": 40236,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "4 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 760,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 279.3,
+          "hitRate": 1.6817593790426906,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849496703,
+          "totalRequests": 607,
+          "requestsPerSecond": 1.8333333333333333,
+          "averageResponseTime": 188.86622090909012,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 0,
+          "memoryUsage": {
+            "rss": 248676352,
+            "heapTotal": 156033024,
+            "heapUsed": 151391544,
+            "external": 13266796,
+            "arrayBuffers": 2072583
+          },
+          "cpuUsage": {
+            "user": 266000,
+            "system": 94000
+          },
+          "uptime": 240026,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 1718,
+          "averageResponseTime": 270.77509021936146,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 196289542,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 4
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          }
+        ],
+        "timestamp": "2025-10-30T18:39:02.663Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "4 warnings",
+        "timestamp": "2025-10-30T18:39:02.665Z",
+        "uptime": 288.0243838,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849542666,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 1.6817593790426906%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 57028608,
+          "heapTotal": 11526144,
+          "heapUsed": 9954112,
+          "external": 3759303,
+          "arrayBuffers": 87428
+        },
+        "uptime": 40.424822
+      }
+    },
+    {
+      "timestamp": 1761849547671,
+      "elapsed": 45247,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "4 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 762,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 278.57901554404145,
+          "hitRate": 1.6774193548387095,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849496703,
+          "totalRequests": 607,
+          "requestsPerSecond": 1.8333333333333333,
+          "averageResponseTime": 188.86622090909012,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 0,
+          "memoryUsage": {
+            "rss": 248676352,
+            "heapTotal": 156033024,
+            "heapUsed": 151391544,
+            "external": 13266796,
+            "arrayBuffers": 2072583
+          },
+          "cpuUsage": {
+            "user": 266000,
+            "system": 94000
+          },
+          "uptime": 240026,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 1718,
+          "averageResponseTime": 270.77509021936146,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 196289542,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 4
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          }
+        ],
+        "timestamp": "2025-10-30T18:39:07.675Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "4 warnings",
+        "timestamp": "2025-10-30T18:39:07.681Z",
+        "uptime": 293.0396028,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849547681,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 1.6774193548387095%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 57516032,
+          "heapTotal": 11788288,
+          "heapUsed": 9790512,
+          "external": 3748535,
+          "arrayBuffers": 76660
+        },
+        "uptime": 45.4405872
+      }
+    },
+    {
+      "timestamp": 1761849552896,
+      "elapsed": 50472,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "4 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 764,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 277.8630490956072,
+          "hitRate": 1.673101673101673,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849496703,
+          "totalRequests": 607,
+          "requestsPerSecond": 1.8333333333333333,
+          "averageResponseTime": 188.86622090909012,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 0,
+          "memoryUsage": {
+            "rss": 248676352,
+            "heapTotal": 156033024,
+            "heapUsed": 151391544,
+            "external": 13266796,
+            "arrayBuffers": 2072583
+          },
+          "cpuUsage": {
+            "user": 266000,
+            "system": 94000
+          },
+          "uptime": 240026,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 1718,
+          "averageResponseTime": 270.77509021936146,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 196289542,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 4
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          }
+        ],
+        "timestamp": "2025-10-30T18:39:12.932Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "4 warnings",
+        "timestamp": "2025-10-30T18:39:13.254Z",
+        "uptime": 298.6129634,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849553533,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 1.673101673101673%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 57327616,
+          "heapTotal": 11788288,
+          "heapUsed": 10197264,
+          "external": 3754265,
+          "arrayBuffers": 82390
+        },
+        "uptime": 51.2921575
+      }
+    },
+    {
+      "timestamp": 1761849557909,
+      "elapsed": 55485,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "5 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 1.673101673101673,
+              "threshold": 50,
+              "message": "Cache hit rate (1.67%) is below threshold (50%)",
+              "timestamp": 1761849556713
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 766,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 277.1533505154639,
+          "hitRate": 1.6688061617458279,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849556713,
+          "totalRequests": 794,
+          "requestsPerSecond": 3.1166666666666667,
+          "averageResponseTime": 174.1671545454553,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 1.673101673101673,
+          "cacheMissRate": 98.32689832689833,
+          "cacheSize": 0,
+          "compressionSavings": 496583,
+          "memoryUsage": {
+            "rss": 218427392,
+            "heapTotal": 128278528,
+            "heapUsed": 122274112,
+            "external": 14842202,
+            "arrayBuffers": 3640294
+          },
+          "cpuUsage": {
+            "user": 4078000,
+            "system": 594000
+          },
+          "uptime": 300036,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 2512,
+          "averageResponseTime": 251.45350308458023,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 181486456,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 1.673101673101673,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 5
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 1.673101673101673,
+            "threshold": 50,
+            "message": "Cache hit rate (1.67%) is below threshold (50%)",
+            "timestamp": 1761849556713
+          }
+        ],
+        "timestamp": "2025-10-30T18:39:17.916Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "5 warnings",
+        "timestamp": "2025-10-30T18:39:17.951Z",
+        "uptime": 303.3103531,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849557953,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 1.6688061617458279%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 57405440,
+          "heapTotal": 11788288,
+          "heapUsed": 10516200,
+          "external": 3760749,
+          "arrayBuffers": 88874
+        },
+        "uptime": 55.7119034
+      }
+    },
+    {
+      "timestamp": 1761849562944,
+      "elapsed": 60520,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "5 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 1.673101673101673,
+              "threshold": 50,
+              "message": "Cache hit rate (1.67%) is below threshold (50%)",
+              "timestamp": 1761849556713
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 768,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 276.4447300771208,
+          "hitRate": 1.6645326504481435,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849556713,
+          "totalRequests": 794,
+          "requestsPerSecond": 3.1166666666666667,
+          "averageResponseTime": 174.1671545454553,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 1.673101673101673,
+          "cacheMissRate": 98.32689832689833,
+          "cacheSize": 0,
+          "compressionSavings": 496583,
+          "memoryUsage": {
+            "rss": 218427392,
+            "heapTotal": 128278528,
+            "heapUsed": 122274112,
+            "external": 14842202,
+            "arrayBuffers": 3640294
+          },
+          "cpuUsage": {
+            "user": 4078000,
+            "system": 594000
+          },
+          "uptime": 300036,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 2512,
+          "averageResponseTime": 251.45350308458023,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 181486456,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 1.673101673101673,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 5
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 1.673101673101673,
+            "threshold": 50,
+            "message": "Cache hit rate (1.67%) is below threshold (50%)",
+            "timestamp": 1761849556713
+          }
+        ],
+        "timestamp": "2025-10-30T18:39:22.962Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "5 warnings",
+        "timestamp": "2025-10-30T18:39:22.980Z",
+        "uptime": 308.3386282,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849562993,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 1.6645326504481435%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 57622528,
+          "heapTotal": 11788288,
+          "heapUsed": 10091848,
+          "external": 3762717,
+          "arrayBuffers": 90842
+        },
+        "uptime": 60.7514163
+      }
+    },
+    {
+      "timestamp": 1761849567955,
+      "elapsed": 65531,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "5 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849316693
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849376695
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849436697
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849496703
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 1.673101673101673,
+              "threshold": 50,
+              "message": "Cache hit rate (1.67%) is below threshold (50%)",
+              "timestamp": 1761849556713
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 13,
+          "misses": 774,
+          "sets": 24,
+          "deletes": 0,
+          "compressionSavings": 496583,
+          "totalSize": 125632,
+          "averageResponseTime": 276.46478873239437,
+          "hitRate": 1.6518424396442184,
+          "totalEntries": 24
+        },
+        "performance": {
+          "timestamp": 1761849556713,
+          "totalRequests": 794,
+          "requestsPerSecond": 3.1166666666666667,
+          "averageResponseTime": 174.1671545454553,
+          "slowQueries": 0,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 1.673101673101673,
+          "cacheMissRate": 98.32689832689833,
+          "cacheSize": 0,
+          "compressionSavings": 496583,
+          "memoryUsage": {
+            "rss": 218427392,
+            "heapTotal": 128278528,
+            "heapUsed": 122274112,
+            "external": 14842202,
+            "arrayBuffers": 3640294
+          },
+          "cpuUsage": {
+            "user": 4078000,
+            "system": 594000
+          },
+          "uptime": 300036,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 2512,
+          "averageResponseTime": 251.45350308458023,
+          "maxResponseTime": 431.1577308016875,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 181486456,
+          "maxMemoryUsage": 341037616,
+          "averageCacheHitRate": 1.673101673101673,
+          "totalSlowQueries": 15,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 5
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849316693
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849376695
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849436697
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849496703
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 1.673101673101673,
+            "threshold": 50,
+            "message": "Cache hit rate (1.67%) is below threshold (50%)",
+            "timestamp": 1761849556713
+          }
+        ],
+        "timestamp": "2025-10-30T18:39:28.250Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "5 warnings",
+        "timestamp": "2025-10-30T18:39:28.260Z",
+        "uptime": 313.6193894,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849568262,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 1.6518424396442184%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 57647104,
+          "heapTotal": 11788288,
+          "heapUsed": 10446392,
+          "external": 3769219,
+          "arrayBuffers": 97344
+        },
+        "uptime": 66.0207277
+      }
+    },
+    {
+      "timestamp": 1761849653111,
+      "elapsed": 150687,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 1,
+          "sets": 0,
+          "deletes": 0,
+          "compressionSavings": 0,
+          "totalSize": 0,
+          "averageResponseTime": 0,
+          "hitRate": 0,
+          "totalEntries": 0
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:40:53.127Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:40:53.140Z",
+        "uptime": 7.4023876,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849653141,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58212352,
+          "heapTotal": 12312576,
+          "heapUsed": 10488016,
+          "external": 3756743,
+          "arrayBuffers": 84868
+        },
+        "uptime": 150.9004695
+      }
+    },
+    {
+      "timestamp": 1761849658154,
+      "elapsed": 155730,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 3,
+          "sets": 0,
+          "deletes": 0,
+          "compressionSavings": 0,
+          "totalSize": 0,
+          "averageResponseTime": 10,
+          "hitRate": 0,
+          "totalEntries": 0
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:40:58.161Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:40:58.240Z",
+        "uptime": 12.501744,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849658241,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58470400,
+          "heapTotal": 12312576,
+          "heapUsed": 10834016,
+          "external": 3758402,
+          "arrayBuffers": 86527
+        },
+        "uptime": 156.0000844
+      }
+    },
+    {
+      "timestamp": 1761849663210,
+      "elapsed": 160786,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 9,
+          "sets": 0,
+          "deletes": 0,
+          "compressionSavings": 0,
+          "totalSize": 0,
+          "averageResponseTime": 141.6,
+          "hitRate": 0,
+          "totalEntries": 0
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:41:04.893Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:41:04.914Z",
+        "uptime": 19.1756906,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849664951,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58482688,
+          "heapTotal": 12312576,
+          "heapUsed": 11183016,
+          "external": 3760069,
+          "arrayBuffers": 88194
+        },
+        "uptime": 162.7101409
+      }
+    },
+    {
+      "timestamp": 1761849668235,
+      "elapsed": 165811,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 17,
+          "sets": 0,
+          "deletes": 0,
+          "compressionSavings": 0,
+          "totalSize": 0,
+          "averageResponseTime": 1269,
+          "hitRate": 0,
+          "totalEntries": 0
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:41:12.887Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:41:12.956Z",
+        "uptime": 27.2179068,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849672958,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58580992,
+          "heapTotal": 12312576,
+          "heapUsed": 10758192,
+          "external": 3757884,
+          "arrayBuffers": 86009
+        },
+        "uptime": 170.7167316
+      }
+    },
+    {
+      "timestamp": 1761849673250,
+      "elapsed": 170826,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 19,
+          "sets": 0,
+          "deletes": 0,
+          "compressionSavings": 0,
+          "totalSize": 0,
+          "averageResponseTime": 1529.9333333333334,
+          "hitRate": 0,
+          "totalEntries": 0
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:41:17.378Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:41:17.649Z",
+        "uptime": 31.9108518,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849677651,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58593280,
+          "heapTotal": 12312576,
+          "heapUsed": 11014240,
+          "external": 3767641,
+          "arrayBuffers": 95766
+        },
+        "uptime": 175.4098017
+      }
+    },
+    {
+      "timestamp": 1761849678256,
+      "elapsed": 175832,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 21,
+          "sets": 0,
+          "deletes": 0,
+          "compressionSavings": 0,
+          "totalSize": 0,
+          "averageResponseTime": 1355.4705882352941,
+          "hitRate": 0,
+          "totalEntries": 0
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:41:19.612Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:41:19.798Z",
+        "uptime": 34.0601395,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849679800,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58667008,
+          "heapTotal": 12312576,
+          "heapUsed": 10653552,
+          "external": 3764937,
+          "arrayBuffers": 93062
+        },
+        "uptime": 177.5588607
+      }
+    },
+    {
+      "timestamp": 1761849683266,
+      "elapsed": 180842,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 43,
+          "sets": 0,
+          "deletes": 0,
+          "compressionSavings": 0,
+          "totalSize": 0,
+          "averageResponseTime": 1941.2307692307693,
+          "hitRate": 0,
+          "totalEntries": 0
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:41:23.405Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:41:23.439Z",
+        "uptime": 37.7006807,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849683461,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58613760,
+          "heapTotal": 12312576,
+          "heapUsed": 10991544,
+          "external": 3766632,
+          "arrayBuffers": 94757
+        },
+        "uptime": 181.2201023
+      }
+    },
+    {
+      "timestamp": 1761849688290,
+      "elapsed": 185866,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 198,
+          "sets": 0,
+          "deletes": 0,
+          "compressionSavings": 0,
+          "totalSize": 0,
+          "averageResponseTime": 509.1275510204082,
+          "hitRate": 0,
+          "totalEntries": 0
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:41:28.301Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:41:28.312Z",
+        "uptime": 42.5740453,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849688313,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58695680,
+          "heapTotal": 12312576,
+          "heapUsed": 11269224,
+          "external": 3768197,
+          "arrayBuffers": 96322
+        },
+        "uptime": 186.0723242
+      }
+    },
+    {
+      "timestamp": 1761849693567,
+      "elapsed": 191143,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 214,
+          "sets": 8,
+          "deletes": 0,
+          "compressionSavings": 488123,
+          "totalSize": 117119,
+          "averageResponseTime": 520.0334928229665,
+          "hitRate": 0,
+          "totalEntries": 8
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:41:34.214Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:41:34.623Z",
+        "uptime": 48.8850053,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849694624,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58843136,
+          "heapTotal": 12312576,
+          "heapUsed": 11017808,
+          "external": 3766254,
+          "arrayBuffers": 94379
+        },
+        "uptime": 192.3833353
+      }
+    },
+    {
+      "timestamp": 1761849698857,
+      "elapsed": 196433,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 223,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 577.7162162162163,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:41:38.958Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:41:39.032Z",
+        "uptime": 53.2941314,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849699034,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58507264,
+          "heapTotal": 12312576,
+          "heapUsed": 11356256,
+          "external": 3767843,
+          "arrayBuffers": 95968
+        },
+        "uptime": 196.7930648
+      }
+    },
+    {
+      "timestamp": 1761849703908,
+      "elapsed": 201484,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 236,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 557.672340425532,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:41:43.921Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:41:43.953Z",
+        "uptime": 58.2147511,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849703954,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58716160,
+          "heapTotal": 13623296,
+          "heapUsed": 10946304,
+          "external": 3765996,
+          "arrayBuffers": 94121
+        },
+        "uptime": 201.7133692
+      }
+    },
+    {
+      "timestamp": 1761849708923,
+      "elapsed": 206499,
+      "server": {
+        "health": {
+          "status": "unknown",
+          "message": "No metrics available"
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 249,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 543.258064516129,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": null,
+        "summary": null,
+        "alerts": [],
+        "timestamp": "2025-10-30T18:41:48.934Z"
+      },
+      "health": {
+        "status": "unknown",
+        "message": "No metrics available",
+        "timestamp": "2025-10-30T18:41:48.957Z",
+        "uptime": 63.2192695,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849708958,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58732544,
+          "heapTotal": 13623296,
+          "heapUsed": 11286448,
+          "external": 3767713,
+          "arrayBuffers": 95838
+        },
+        "uptime": 206.7176684
+      }
+    },
+    {
+      "timestamp": 1761849713944,
+      "elapsed": 211520,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 262,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 541.2441860465116,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:41:53.992Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:41:54.052Z",
+        "uptime": 68.3146901,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849714054,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58834944,
+          "heapTotal": 12836864,
+          "heapUsed": 10948520,
+          "external": 3764917,
+          "arrayBuffers": 93042
+        },
+        "uptime": 211.81346
+      }
+    },
+    {
+      "timestamp": 1761849718991,
+      "elapsed": 216567,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 272,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 530.2659176029963,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:41:59.045Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:41:59.073Z",
+        "uptime": 73.3353976,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849719075,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58884096,
+          "heapTotal": 12836864,
+          "heapUsed": 11331312,
+          "external": 3768793,
+          "arrayBuffers": 96918
+        },
+        "uptime": 216.833822
+      }
+    },
+    {
+      "timestamp": 1761849724014,
+      "elapsed": 221590,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 281,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 514.9892857142858,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:04.051Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:42:04.074Z",
+        "uptime": 78.3363275,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849724075,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 59138048,
+          "heapTotal": 12836864,
+          "heapUsed": 10992320,
+          "external": 3773109,
+          "arrayBuffers": 101234
+        },
+        "uptime": 221.8345797
+      }
+    },
+    {
+      "timestamp": 1761849729042,
+      "elapsed": 226618,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 294,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 502.03071672354946,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:09.082Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:42:09.118Z",
+        "uptime": 83.3800591,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849729119,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 59142144,
+          "heapTotal": 12836864,
+          "heapUsed": 11434640,
+          "external": 3776987,
+          "arrayBuffers": 105112
+        },
+        "uptime": 226.8787027
+      }
+    },
+    {
+      "timestamp": 1761849734060,
+      "elapsed": 231636,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 307,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 491.2549019607843,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:14.067Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:42:14.074Z",
+        "uptime": 88.3368287,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849734076,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58494976,
+          "heapTotal": 12836864,
+          "heapUsed": 11794552,
+          "external": 3780863,
+          "arrayBuffers": 108988
+        },
+        "uptime": 231.8351508
+      }
+    },
+    {
+      "timestamp": 1761849739145,
+      "elapsed": 236721,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 320,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 480.8996865203762,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:19.178Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:42:19.197Z",
+        "uptime": 93.4592888,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849739200,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58998784,
+          "heapTotal": 12836864,
+          "heapUsed": 11361688,
+          "external": 3776865,
+          "arrayBuffers": 104990
+        },
+        "uptime": 236.9594101
+      }
+    },
+    {
+      "timestamp": 1761849744250,
+      "elapsed": 241826,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 333,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 479.3975903614458,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:24.286Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:42:24.343Z",
+        "uptime": 98.6052746,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849744345,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58580992,
+          "heapTotal": 12836864,
+          "heapUsed": 11783600,
+          "external": 3780741,
+          "arrayBuffers": 108866
+        },
+        "uptime": 242.1037925
+      }
+    },
+    {
+      "timestamp": 1761849749451,
+      "elapsed": 247027,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 346,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 472.34302325581393,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:29.585Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:42:29.659Z",
+        "uptime": 103.9210961,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849749661,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58941440,
+          "heapTotal": 12836864,
+          "heapUsed": 11325056,
+          "external": 3784673,
+          "arrayBuffers": 112798
+        },
+        "uptime": 247.4196416
+      }
+    },
+    {
+      "timestamp": 1761849754490,
+      "elapsed": 252066,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 358,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 466.3697478991597,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:34.501Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:42:34.548Z",
+        "uptime": 108.8104349,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849754550,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 59187200,
+          "heapTotal": 12836864,
+          "heapUsed": 11707064,
+          "external": 3788551,
+          "arrayBuffers": 116676
+        },
+        "uptime": 252.3090184
+      }
+    },
+    {
+      "timestamp": 1761849759515,
+      "elapsed": 257091,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 371,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 456.4864864864865,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:39.529Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:42:39.547Z",
+        "uptime": 113.8096364,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849759549,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 59260928,
+          "heapTotal": 12836864,
+          "heapUsed": 11433272,
+          "external": 3784671,
+          "arrayBuffers": 112796
+        },
+        "uptime": 257.3078861
+      }
+    },
+    {
+      "timestamp": 1761849764517,
+      "elapsed": 262093,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 381,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 448.88157894736844,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:44.523Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:42:44.534Z",
+        "uptime": 118.7960182,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849764536,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 59314176,
+          "heapTotal": 12836864,
+          "heapUsed": 11818824,
+          "external": 3788551,
+          "arrayBuffers": 116676
+        },
+        "uptime": 262.2951186
+      }
+    },
+    {
+      "timestamp": 1761849769531,
+      "elapsed": 267107,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "1 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 394,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 439.55979643765903,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849711673,
+          "totalRequests": 254,
+          "requestsPerSecond": 4.233333333333333,
+          "averageResponseTime": 538.2233677165343,
+          "slowQueries": 26,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 230662144,
+            "heapTotal": 145485824,
+            "heapUsed": 138850112,
+            "external": 12415896,
+            "arrayBuffers": 1221627
+          },
+          "cpuUsage": {
+            "user": 19172000,
+            "system": 2750000
+          },
+          "uptime": 60004,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 254,
+          "averageResponseTime": 538.2233677165343,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 138850112,
+          "maxMemoryUsage": 138850112,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 26,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 1
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:49.537Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "1 warnings",
+        "timestamp": "2025-10-30T18:42:49.546Z",
+        "uptime": 123.8078415,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849769548,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 59523072,
+          "heapTotal": 13099008,
+          "heapUsed": 11512536,
+          "external": 3784673,
+          "arrayBuffers": 112798
+        },
+        "uptime": 267.3065155
+      }
+    },
+    {
+      "timestamp": 1761849774539,
+      "elapsed": 272115,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "2 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849771870
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 407,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 431.7389162561576,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849771870,
+          "totalRequests": 399,
+          "requestsPerSecond": 2.4166666666666665,
+          "averageResponseTime": 254.14983310344857,
+          "slowQueries": 1,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 235970560,
+            "heapTotal": 149417984,
+            "heapUsed": 143400464,
+            "external": 12435639,
+            "arrayBuffers": 1241426
+          },
+          "cpuUsage": {
+            "user": 1094000,
+            "system": 63000
+          },
+          "uptime": 120201,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 653,
+          "averageResponseTime": 396.18660040999146,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 141125288,
+          "maxMemoryUsage": 143400464,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 27,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 2
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849771870
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:54.548Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "2 warnings",
+        "timestamp": "2025-10-30T18:42:54.558Z",
+        "uptime": 128.8199474,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849774560,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58810368,
+          "heapTotal": 13099008,
+          "heapUsed": 11905472,
+          "external": 3797347,
+          "arrayBuffers": 125472
+        },
+        "uptime": 272.3190662
+      }
+    },
+    {
+      "timestamp": 1761849779552,
+      "elapsed": 277128,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "2 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849771870
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 420,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 423.6157517899761,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849771870,
+          "totalRequests": 399,
+          "requestsPerSecond": 2.4166666666666665,
+          "averageResponseTime": 254.14983310344857,
+          "slowQueries": 1,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 235970560,
+            "heapTotal": 149417984,
+            "heapUsed": 143400464,
+            "external": 12435639,
+            "arrayBuffers": 1241426
+          },
+          "cpuUsage": {
+            "user": 1094000,
+            "system": 63000
+          },
+          "uptime": 120201,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 653,
+          "averageResponseTime": 396.18660040999146,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 141125288,
+          "maxMemoryUsage": 143400464,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 27,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 2
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849771870
+          }
+        ],
+        "timestamp": "2025-10-30T18:42:59.557Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "2 warnings",
+        "timestamp": "2025-10-30T18:42:59.562Z",
+        "uptime": 133.8237462,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849779563,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 59285504,
+          "heapTotal": 14409728,
+          "heapUsed": 11574968,
+          "external": 3793467,
+          "arrayBuffers": 121592
+        },
+        "uptime": 277.3216298
+      }
+    },
+    {
+      "timestamp": 1761849784558,
+      "elapsed": 282134,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "2 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849771870
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 433,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 417.2083333333333,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849771870,
+          "totalRequests": 399,
+          "requestsPerSecond": 2.4166666666666665,
+          "averageResponseTime": 254.14983310344857,
+          "slowQueries": 1,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 235970560,
+            "heapTotal": 149417984,
+            "heapUsed": 143400464,
+            "external": 12435639,
+            "arrayBuffers": 1241426
+          },
+          "cpuUsage": {
+            "user": 1094000,
+            "system": 63000
+          },
+          "uptime": 120201,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 653,
+          "averageResponseTime": 396.18660040999146,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 141125288,
+          "maxMemoryUsage": 143400464,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 27,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 2
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849771870
+          }
+        ],
+        "timestamp": "2025-10-30T18:43:04.564Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "2 warnings",
+        "timestamp": "2025-10-30T18:43:04.573Z",
+        "uptime": 138.8348949,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849784574,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 58929152,
+          "heapTotal": 14409728,
+          "heapUsed": 11976640,
+          "external": 3797949,
+          "arrayBuffers": 126074
+        },
+        "uptime": 282.3331172
+      }
+    },
+    {
+      "timestamp": 1761849789574,
+      "elapsed": 287150,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "2 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849771870
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 446,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 409.8921348314607,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849771870,
+          "totalRequests": 399,
+          "requestsPerSecond": 2.4166666666666665,
+          "averageResponseTime": 254.14983310344857,
+          "slowQueries": 1,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 235970560,
+            "heapTotal": 149417984,
+            "heapUsed": 143400464,
+            "external": 12435639,
+            "arrayBuffers": 1241426
+          },
+          "cpuUsage": {
+            "user": 1094000,
+            "system": 63000
+          },
+          "uptime": 120201,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 653,
+          "averageResponseTime": 396.18660040999146,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 141125288,
+          "maxMemoryUsage": 143400464,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 27,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 2
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849771870
+          }
+        ],
+        "timestamp": "2025-10-30T18:43:09.579Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "2 warnings",
+        "timestamp": "2025-10-30T18:43:09.584Z",
+        "uptime": 143.8456933,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849789585,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 59248640,
+          "heapTotal": 13361152,
+          "heapUsed": 11570504,
+          "external": 3793337,
+          "arrayBuffers": 121462
+        },
+        "uptime": 287.343895
+      }
+    },
+    {
+      "timestamp": 1761849794573,
+      "elapsed": 292149,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "2 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849771870
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 457,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 403.8201754385965,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849771870,
+          "totalRequests": 399,
+          "requestsPerSecond": 2.4166666666666665,
+          "averageResponseTime": 254.14983310344857,
+          "slowQueries": 1,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 235970560,
+            "heapTotal": 149417984,
+            "heapUsed": 143400464,
+            "external": 12435639,
+            "arrayBuffers": 1241426
+          },
+          "cpuUsage": {
+            "user": 1094000,
+            "system": 63000
+          },
+          "uptime": 120201,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 653,
+          "averageResponseTime": 396.18660040999146,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 141125288,
+          "maxMemoryUsage": 143400464,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 27,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 2
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849771870
+          }
+        ],
+        "timestamp": "2025-10-30T18:43:14.579Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "2 warnings",
+        "timestamp": "2025-10-30T18:43:14.584Z",
+        "uptime": 148.8455177,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849794585,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 59629568,
+          "heapTotal": 13504512,
+          "heapUsed": 11991120,
+          "external": 3806011,
+          "arrayBuffers": 134136
+        },
+        "uptime": 292.343465
+      }
+    },
+    {
+      "timestamp": 1761849799577,
+      "elapsed": 297153,
+      "server": {
+        "health": {
+          "status": "warning",
+          "message": "2 warnings",
+          "alerts": [
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849711673
+            },
+            {
+              "type": "warning",
+              "metric": "cacheHitRate",
+              "value": 0,
+              "threshold": 50,
+              "message": "Cache hit rate (0%) is below threshold (50%)",
+              "timestamp": 1761849771870
+            }
+          ]
+        },
+        "websocket": {
+          "connections": 0,
+          "connectionsByUser": {},
+          "subscriptionStats": {}
+        },
+        "cache": {
+          "hits": 0,
+          "misses": 470,
+          "sets": 11,
+          "deletes": 0,
+          "compressionSavings": 491469,
+          "totalSize": 118758,
+          "averageResponseTime": 398.16274089935763,
+          "hitRate": 0,
+          "totalEntries": 11
+        },
+        "performance": {
+          "timestamp": 1761849771870,
+          "totalRequests": 399,
+          "requestsPerSecond": 2.4166666666666665,
+          "averageResponseTime": 254.14983310344857,
+          "slowQueries": 1,
+          "websocketConnections": 0,
+          "websocketMessages": 0,
+          "websocketErrors": 0,
+          "cacheHitRate": 0,
+          "cacheMissRate": 100,
+          "cacheSize": 0,
+          "compressionSavings": 491469,
+          "memoryUsage": {
+            "rss": 235970560,
+            "heapTotal": 149417984,
+            "heapUsed": 143400464,
+            "external": 12435639,
+            "arrayBuffers": 1241426
+          },
+          "cpuUsage": {
+            "user": 1094000,
+            "system": 63000
+          },
+          "uptime": 120201,
+          "customMetrics": {}
+        },
+        "summary": {
+          "period": "1 hours",
+          "totalRequests": 653,
+          "averageResponseTime": 396.18660040999146,
+          "maxResponseTime": 538.2233677165343,
+          "minResponseTime": 0,
+          "averageMemoryUsage": 141125288,
+          "maxMemoryUsage": 143400464,
+          "averageCacheHitRate": 0,
+          "totalSlowQueries": 27,
+          "totalWebSocketMessages": 0,
+          "totalWebSocketErrors": 0,
+          "alertsCount": 2
+        },
+        "alerts": [
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849711673
+          },
+          {
+            "type": "warning",
+            "metric": "cacheHitRate",
+            "value": 0,
+            "threshold": 50,
+            "message": "Cache hit rate (0%) is below threshold (50%)",
+            "timestamp": 1761849771870
+          }
+        ],
+        "timestamp": "2025-10-30T18:43:19.583Z"
+      },
+      "health": {
+        "status": "warning",
+        "message": "2 warnings",
+        "timestamp": "2025-10-30T18:43:19.590Z",
+        "uptime": 153.8515222,
+        "version": "1.0.0"
+      },
+      "analysis": {
+        "timestamp": 1761849799591,
+        "status": "warning",
+        "issues": [
+          "Low cache hit rate: 0%"
+        ],
+        "recommendations": [
+          "Review cache configuration and TTL settings"
+        ]
+      },
+      "system": {
+        "memory": {
+          "rss": 60411904,
+          "heapTotal": 13651968,
+          "heapUsed": 12406944,
+          "external": 3810495,
+          "arrayBuffers": 138620
+        },
+        "uptime": 297.3498847
+      }
+    }
+  ],
+  "alerts": [],
+  "summary": {
+    "totalSamples": 43,
+    "healthyCount": 0,
+    "warningCount": 43,
+    "criticalCount": 0,
+    "healthPercentage": 0,
+    "averageResponseTime": 335.3142930305281,
+    "maxResponseTime": 538.2233677165343,
+    "averageMemoryUsage": 142172319.48387095,
+    "maxMemoryUsage": 151391544,
+    "averageCacheHitRate": 0.5520919575380449,
+    "totalAlerts": 0
+  }
+}

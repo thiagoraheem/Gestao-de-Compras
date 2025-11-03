@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useOptimizedQuery } from "@/hooks/useOptimizedQuery";
 import {
   Card,
   CardContent,
@@ -50,6 +51,7 @@ import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";
 import debug from "@/lib/debug";
 import { DateInput } from "@/components/ui/date-input";
+import { ConnectionStatus } from "@/components/connection-status";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
@@ -128,10 +130,24 @@ export default function Dashboard() {
     data: dashboardData,
     isLoading,
     refetch,
-  } = useQuery<DashboardData>({
+  } = useOptimizedQuery<DashboardData>({
     queryKey: [
       `/api/dashboard?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}&dateFilterType=${dateFilterType}`,
     ],
+    websocket: {
+      enabled: true,
+      subscriptions: ['dashboard', 'requests', 'suppliers']
+    },
+    polling: {
+      enabled: true,
+      interval: 60000, // 1 minute for dashboard
+      adaptiveInterval: true
+    },
+    cache: {
+      enabled: true,
+      ttl: 120000, // 2 minutes
+      staleWhileRevalidate: true
+    }
   });
 
   const { data: departments } = useQuery<{ id: number; name: string }[]>({
@@ -209,6 +225,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-end sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+            <ConnectionStatus />
             <Button onClick={() => refetch()} variant="outline" size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
               Atualizar

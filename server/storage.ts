@@ -805,100 +805,180 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllPurchaseRequests(companyId?: number): Promise<PurchaseRequest[]> {
-    const requests = await db
-      .select({
-        id: purchaseRequests.id,
-        requestNumber: purchaseRequests.requestNumber,
-        requesterId: purchaseRequests.requesterId,
-        costCenterId: purchaseRequests.costCenterId,
-        category: purchaseRequests.category,
-        urgency: purchaseRequests.urgency,
-        justification: purchaseRequests.justification,
-        idealDeliveryDate: purchaseRequests.idealDeliveryDate,
-        availableBudget: purchaseRequests.availableBudget,
-        additionalInfo: purchaseRequests.additionalInfo,
-        currentPhase: purchaseRequests.currentPhase,
-        approverA1Id: purchaseRequests.approverA1Id,
-        approvedA1: purchaseRequests.approvedA1,
-        rejectionReasonA1: purchaseRequests.rejectionReasonA1,
-        approvalDateA1: purchaseRequests.approvalDateA1,
-        buyerId: purchaseRequests.buyerId,
-        totalValue: purchaseRequests.totalValue,
-        paymentMethodId: purchaseRequests.paymentMethodId,
-        approverA2Id: purchaseRequests.approverA2Id,
-        approvedA2: purchaseRequests.approvedA2,
-        rejectionReasonA2: purchaseRequests.rejectionReasonA2,
-        rejectionActionA2: purchaseRequests.rejectionActionA2,
-        approvalDateA2: purchaseRequests.approvalDateA2,
-        chosenSupplierId: purchaseRequests.chosenSupplierId,
-        choiceReason: purchaseRequests.choiceReason,
-        negotiatedValue: purchaseRequests.negotiatedValue,
-        discountsObtained: purchaseRequests.discountsObtained,
-        deliveryDate: purchaseRequests.deliveryDate,
-        purchaseDate: purchaseRequests.purchaseDate,
-        purchaseObservations: purchaseRequests.purchaseObservations,
-        receivedById: purchaseRequests.receivedById,
-        receivedDate: purchaseRequests.receivedDate,
-        hasPendency: purchaseRequests.hasPendency,
-        pendencyReason: purchaseRequests.pendencyReason,
-        createdAt: purchaseRequests.createdAt,
-        updatedAt: purchaseRequests.updatedAt,
-        // Requester data
-        requester: {
-          id: requesterUser.id,
-          firstName: requesterUser.firstName,
-          lastName: requesterUser.lastName,
-          username: requesterUser.username,
-          email: requesterUser.email,
-        },
-        // Approver A1 data
-        approverA1: {
-          id: approverA1User.id,
-          firstName: approverA1User.firstName,
-          lastName: approverA1User.lastName,
-          username: approverA1User.username,
-          email: approverA1User.email,
-        },
-        // Cost Center and Department data
-        costCenter: {
-          id: costCenters.id,
-          code: costCenters.code,
-          name: costCenters.name,
-          departmentId: costCenters.departmentId,
-        },
-        department: {
-          id: departments.id,
-          name: departments.name,
-          description: departments.description,
-        },
-        // Check if quotation exists
-        hasQuotation: sql<boolean>`EXISTS(SELECT 1 FROM ${quotations} WHERE ${quotations.purchaseRequestId} = ${purchaseRequests.id})`,
-        // Chosen Supplier data
-        chosenSupplier: {
-          id: chosenSupplier.id,
-          name: chosenSupplier.name,
-          email: chosenSupplier.email,
-        },
-      })
-      .from(purchaseRequests)
-      .leftJoin(
-        requesterUser,
-        eq(purchaseRequests.requesterId, requesterUser.id),
-      )
-      .leftJoin(
-        approverA1User,
-        eq(purchaseRequests.approverA1Id, approverA1User.id),
-      )
-      .leftJoin(costCenters, eq(purchaseRequests.costCenterId, costCenters.id))
-      .leftJoin(departments, eq(costCenters.departmentId, departments.id))
-      .leftJoin(
-        chosenSupplier,
-        eq(purchaseRequests.chosenSupplierId, chosenSupplier.id),
-      )
-      .where(companyId ? eq(purchaseRequests.companyId, companyId) : undefined)
-      .orderBy(desc(purchaseRequests.createdAt));
+    try {
+      console.log('🔍 [DEBUG] getAllPurchaseRequests called with companyId:', companyId);
+      
+      // Use the same reliable SQL approach as the report to ensure consistency
+      let sqlQuery = `
+        SELECT 
+          pr.id,
+          pr.request_number as "requestNumber",
+          pr.justification,
+          pr.category,
+          pr.requester_id as "requesterId",
+          pr.cost_center_id as "costCenterId",
+          pr.current_phase as "currentPhase",
+          pr.urgency,
+          pr.created_at as "createdAt",
+          pr.updated_at as "updatedAt",
+          pr.buyer_id as "buyerId",
+          pr.approver_a1_id as "approverA1Id",
+          pr.approved_a1 as "approvedA1",
+          pr.rejection_reason_a1 as "rejectionReasonA1",
+          pr.approval_date_a1 as "approvalDateA1",
+          pr.approver_a2_id as "approverA2Id",
+          pr.approved_a2 as "approvedA2",
+          pr.rejection_reason_a2 as "rejectionReasonA2",
+          pr.rejection_action_a2 as "rejectionActionA2",
+          pr.approval_date_a2 as "approvalDateA2",
+          pr.total_value as "totalValue",
+          pr.chosen_supplier_id as "chosenSupplierId",
+          pr.choice_reason as "choiceReason",
+          pr.negotiated_value as "negotiatedValue",
+          pr.discounts_obtained as "discountsObtained",
+          pr.delivery_date as "deliveryDate",
+          pr.purchase_date as "purchaseDate",
+          pr.purchase_observations as "purchaseObservations",
+          pr.received_by_id as "receivedById",
+          pr.received_date as "receivedDate",
+          pr.has_pendency as "hasPendency",
+          pr.pendency_reason as "pendencyReason",
+          pr.ideal_delivery_date as "idealDeliveryDate",
+          pr.available_budget as "availableBudget",
+          pr.additional_info as "additionalInfo",
+          pr.payment_method_id as "paymentMethodId"
+        FROM purchase_requests pr
+      `;
+      
+      const params: any[] = [];
+      let paramCounter = 1;
+      
+      // Add company filter if provided
+      if (companyId) {
+        sqlQuery += ` WHERE pr.company_id = $${paramCounter}`;
+        params.push(companyId);
+        paramCounter++;
+      }
+      
+      // Add ORDER BY
+      sqlQuery += ' ORDER BY pr.created_at DESC';
+      
+      // Execute raw SQL query
+      const result = await pool.query(sqlQuery, params);
+      const requests = result.rows;
+      
 
-    return requests as any[];
+      
+      // Get related data separately for each request (same approach as report)
+      const requestsWithRelatedData = await Promise.all(
+        requests.map(async (request: any) => {
+          // Get requester data
+          let requester = null;
+          if (request.requesterId) {
+            try {
+              const requesterResult = await pool.query(
+                'SELECT id, first_name as "firstName", last_name as "lastName", username, email FROM users WHERE id = $1 LIMIT 1',
+                [request.requesterId]
+              );
+              if (requesterResult.rows.length > 0) {
+                requester = requesterResult.rows[0];
+              }
+            } catch (error) {
+              // Fallback to null if error
+            }
+          }
+          
+          // Get approver A1 data
+          let approverA1 = null;
+          if (request.approverA1Id) {
+            try {
+              const approverResult = await pool.query(
+                'SELECT id, first_name as "firstName", last_name as "lastName", username, email FROM users WHERE id = $1 LIMIT 1',
+                [request.approverA1Id]
+              );
+              if (approverResult.rows.length > 0) {
+                approverA1 = approverResult.rows[0];
+              }
+            } catch (error) {
+              // Fallback to null if error
+            }
+          }
+          
+          // Get cost center and department data
+          let costCenter = null;
+          let department = null;
+          if (request.costCenterId) {
+            try {
+              const costCenterResult = await pool.query(
+                'SELECT cc.id, cc.code, cc.name, cc.department_id as "departmentId", d.name as "departmentName", d.description as "departmentDescription" FROM cost_centers cc LEFT JOIN departments d ON cc.department_id = d.id WHERE cc.id = $1 LIMIT 1',
+                [request.costCenterId]
+              );
+              if (costCenterResult.rows.length > 0) {
+                const ccData = costCenterResult.rows[0];
+                costCenter = {
+                  id: ccData.id,
+                  code: ccData.code,
+                  name: ccData.name,
+                  departmentId: ccData.departmentId
+                };
+                if (ccData.departmentId) {
+                  department = {
+                    id: ccData.departmentId,
+                    name: ccData.departmentName,
+                    description: ccData.departmentDescription
+                  };
+                }
+              }
+            } catch (error) {
+              // Fallback to null if error
+            }
+          }
+          
+          // Get chosen supplier data
+          let chosenSupplier = null;
+          if (request.chosenSupplierId) {
+            try {
+              const supplierResult = await pool.query(
+                'SELECT id, name, email FROM suppliers WHERE id = $1 LIMIT 1',
+                [request.chosenSupplierId]
+              );
+              if (supplierResult.rows.length > 0) {
+                chosenSupplier = supplierResult.rows[0];
+              }
+            } catch (error) {
+              // Fallback to null if error
+            }
+          }
+          
+          // Check if quotation exists
+          let hasQuotation = false;
+          try {
+            const quotationResult = await pool.query(
+              'SELECT 1 FROM quotations WHERE purchase_request_id = $1 LIMIT 1',
+              [request.id]
+            );
+            hasQuotation = quotationResult.rows.length > 0;
+          } catch (error) {
+            // Fallback to false if error
+          }
+          
+          return {
+            ...request,
+            requester,
+            approverA1,
+            costCenter,
+            department,
+            chosenSupplier,
+            hasQuotation
+          };
+        })
+      );
+      
+      return requestsWithRelatedData as any[];
+    } catch (error) {
+      console.error('Error in getAllPurchaseRequests:', error);
+      throw error;
+    }
   }
 
   async getPurchaseRequestById(

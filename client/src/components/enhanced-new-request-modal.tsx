@@ -250,11 +250,25 @@ export default function EnhancedNewRequestModal({
       queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
 
-      // Force immediate refetch for real data
+      // Force immediate refetch for real data with higher priority
       queryClient.refetchQueries({
         queryKey: ["/api/purchase-requests"],
         type: "active",
       });
+
+      // Also invalidate any cached data that might be stale
+      queryClient.removeQueries({
+        queryKey: ["/api/purchase-requests"],
+        exact: false,
+      });
+
+      // Set a small delay to ensure backend has processed the request
+      setTimeout(() => {
+        queryClient.refetchQueries({
+          queryKey: ["/api/purchase-requests"],
+          type: "all",
+        });
+      }, 500);
 
       toast({
         title: "Sucesso",

@@ -95,7 +95,15 @@ export const CACHE_CONFIG = {
   },
   '/api/auth/check': {
     ttl: 60000, // 1 minute for auth check
-    enabled: true
+    enabled: false // DESABILITADO: Endpoints de autenticação NUNCA devem ser cacheados
+  },
+  '/api/auth/login': {
+    ttl: 0,
+    enabled: false // DESABILITADO: Login nunca deve ser cacheado
+  },
+  '/api/auth/logout': {
+    ttl: 0,
+    enabled: false // DESABILITADO: Logout nunca deve ser cacheado
   },
   '/api/suppliers': {
     ttl: 300000, // 5 minutes for suppliers (less frequent changes)

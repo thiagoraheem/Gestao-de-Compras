@@ -72,6 +72,7 @@ function Router() {
         <Route path="/public/request/:id" component={PublicRequestView} />
         <Route path="/forgot-password" component={ForgotPasswordPage} />
         <Route path="/reset-password" component={ResetPasswordPage} />
+        <Route path="/login" component={LoginPage} />
         <Route component={LoginPage} />
       </Switch>
     );

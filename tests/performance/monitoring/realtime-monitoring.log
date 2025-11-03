@@ -1,0 +1,369 @@
+[2025-10-30T18:38:22.425Z] INFO: Starting real-time performance monitoring...
+[2025-10-30T18:38:22.434Z] INFO: Monitoring interval: 5000ms
+[2025-10-30T18:38:22.436Z] INFO: Duration: 300000ms
+[2025-10-30T18:38:22.436Z] INFO: Output directory: C:\Projetos\Locador\Locador\Gestao-de-Compras\tests\performance\monitoring
+[2025-10-30T18:38:22.554Z] ERROR: WebSocket error
+[2025-10-30T18:38:22.564Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:38:22.597Z] INFO: Server health: warning - 4 warnings
+[2025-10-30T18:38:22.599Z] INFO: Real-time monitoring started
+[2025-10-30T18:38:27.591Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:38:27.615Z] ERROR: WebSocket error
+[2025-10-30T18:38:27.618Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:38:27.630Z] WARN: Status: WARNING | Response: 188.86622090909012ms | Memory: 144MB | Cache: 2.155887230514096%
+[2025-10-30T18:38:27.639Z] WARN: ISSUE: Low cache hit rate: 2.155887230514096%
+[2025-10-30T18:38:27.648Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:38:32.624Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:38:32.639Z] ERROR: WebSocket error
+[2025-10-30T18:38:32.642Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:38:32.649Z] WARN: Status: WARNING | Response: 188.86622090909012ms | Memory: 144MB | Cache: 2.1103896103896105%
+[2025-10-30T18:38:32.650Z] WARN: ISSUE: Low cache hit rate: 2.1103896103896105%
+[2025-10-30T18:38:32.651Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:38:37.637Z] WARN: Status: WARNING | Response: 188.86622090909012ms | Memory: 144MB | Cache: 2.066772655007949%
+[2025-10-30T18:38:37.638Z] WARN: ISSUE: Low cache hit rate: 2.066772655007949%
+[2025-10-30T18:38:37.638Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:38:37.655Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:38:37.660Z] ERROR: WebSocket error
+[2025-10-30T18:38:37.661Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:38:42.646Z] WARN: Status: WARNING | Response: 188.86622090909012ms | Memory: 144MB | Cache: 2.02808112324493%
+[2025-10-30T18:38:42.647Z] WARN: ISSUE: Low cache hit rate: 2.02808112324493%
+[2025-10-30T18:38:42.648Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:38:42.677Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:38:42.683Z] ERROR: WebSocket error
+[2025-10-30T18:38:42.685Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:38:47.680Z] WARN: Status: WARNING | Response: 188.86622090909012ms | Memory: 144MB | Cache: 1.984732824427481%
+[2025-10-30T18:38:47.681Z] WARN: ISSUE: Low cache hit rate: 1.984732824427481%
+[2025-10-30T18:38:47.682Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:38:47.700Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:38:48.159Z] ERROR: WebSocket error
+[2025-10-30T18:38:48.161Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:38:52.669Z] WARN: Status: WARNING | Response: 188.86622090909012ms | Memory: 144MB | Cache: 1.6905071521456438%
+[2025-10-30T18:38:52.670Z] WARN: ISSUE: Low cache hit rate: 1.6905071521456438%
+[2025-10-30T18:38:52.671Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:38:53.170Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:38:53.176Z] ERROR: WebSocket error
+[2025-10-30T18:38:53.178Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:38:57.666Z] WARN: Status: WARNING | Response: 188.86622090909012ms | Memory: 144MB | Cache: 1.6861219195849546%
+[2025-10-30T18:38:57.667Z] WARN: ISSUE: Low cache hit rate: 1.6861219195849546%
+[2025-10-30T18:38:57.667Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:38:58.188Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:38:58.192Z] ERROR: WebSocket error
+[2025-10-30T18:38:58.193Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:02.666Z] WARN: Status: WARNING | Response: 188.86622090909012ms | Memory: 144MB | Cache: 1.6817593790426906%
+[2025-10-30T18:39:02.667Z] WARN: ISSUE: Low cache hit rate: 1.6817593790426906%
+[2025-10-30T18:39:02.667Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:39:03.202Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:03.206Z] ERROR: WebSocket error
+[2025-10-30T18:39:03.208Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:07.682Z] WARN: Status: WARNING | Response: 188.86622090909012ms | Memory: 144MB | Cache: 1.6774193548387095%
+[2025-10-30T18:39:07.683Z] WARN: ISSUE: Low cache hit rate: 1.6774193548387095%
+[2025-10-30T18:39:07.684Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:39:08.215Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:08.293Z] ERROR: WebSocket error
+[2025-10-30T18:39:08.351Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:13.395Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:13.533Z] WARN: Status: WARNING | Response: 188.86622090909012ms | Memory: 144MB | Cache: 1.673101673101673%
+[2025-10-30T18:39:13.738Z] WARN: ISSUE: Low cache hit rate: 1.673101673101673%
+[2025-10-30T18:39:13.891Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:39:13.981Z] ERROR: WebSocket error
+[2025-10-30T18:39:14.134Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:17.953Z] WARN: Status: WARNING | Response: 174.1671545454553ms | Memory: 117MB | Cache: 1.6688061617458279%
+[2025-10-30T18:39:17.976Z] WARN: ISSUE: Low cache hit rate: 1.6688061617458279%
+[2025-10-30T18:39:18.016Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:39:19.373Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:19.905Z] ERROR: WebSocket error
+[2025-10-30T18:39:19.911Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:22.993Z] WARN: Status: WARNING | Response: 174.1671545454553ms | Memory: 117MB | Cache: 1.6645326504481435%
+[2025-10-30T18:39:23.058Z] WARN: ISSUE: Low cache hit rate: 1.6645326504481435%
+[2025-10-30T18:39:23.147Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:39:24.959Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:25.004Z] ERROR: WebSocket error
+[2025-10-30T18:39:25.010Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:28.262Z] WARN: Status: WARNING | Response: 174.1671545454553ms | Memory: 117MB | Cache: 1.6518424396442184%
+[2025-10-30T18:39:28.270Z] WARN: ISSUE: Low cache hit rate: 1.6518424396442184%
+[2025-10-30T18:39:28.275Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:39:30.027Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:31.578Z] ERROR: WebSocket error
+[2025-10-30T18:39:31.650Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:32.969Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:39:32.986Z] ERROR: Health check failed
+[2025-10-30T18:39:32.990Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:39:37.125Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:37.180Z] ERROR: WebSocket error
+[2025-10-30T18:39:37.241Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:38.005Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:39:38.028Z] ERROR: Health check failed
+[2025-10-30T18:39:38.044Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:39:42.270Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:42.274Z] ERROR: WebSocket error
+[2025-10-30T18:39:42.275Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:42.987Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:39:42.992Z] ERROR: Health check failed
+[2025-10-30T18:39:42.994Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:39:47.285Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:47.296Z] ERROR: WebSocket error
+[2025-10-30T18:39:47.342Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:48.004Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:39:48.009Z] ERROR: Health check failed
+[2025-10-30T18:39:48.011Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:39:52.393Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:52.397Z] ERROR: WebSocket error
+[2025-10-30T18:39:52.399Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:53.017Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:39:53.021Z] ERROR: Health check failed
+[2025-10-30T18:39:53.022Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:39:57.415Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:39:57.418Z] ERROR: WebSocket error
+[2025-10-30T18:39:57.419Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:39:58.024Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:39:58.026Z] ERROR: Health check failed
+[2025-10-30T18:39:58.027Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:02.429Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:02.431Z] ERROR: WebSocket error
+[2025-10-30T18:40:02.432Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:03.039Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:40:03.042Z] ERROR: Health check failed
+[2025-10-30T18:40:03.044Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:07.446Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:07.448Z] ERROR: WebSocket error
+[2025-10-30T18:40:07.449Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:08.042Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:40:08.044Z] ERROR: Health check failed
+[2025-10-30T18:40:08.045Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:12.451Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:12.454Z] ERROR: WebSocket error
+[2025-10-30T18:40:12.455Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:13.043Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:40:13.047Z] ERROR: Health check failed
+[2025-10-30T18:40:13.049Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:17.469Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:17.471Z] ERROR: WebSocket error
+[2025-10-30T18:40:17.472Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:18.044Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:40:18.047Z] ERROR: Health check failed
+[2025-10-30T18:40:18.049Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:22.482Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:22.488Z] ERROR: WebSocket error
+[2025-10-30T18:40:22.490Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:23.076Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:40:23.083Z] ERROR: Health check failed
+[2025-10-30T18:40:23.115Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:27.499Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:27.502Z] ERROR: WebSocket error
+[2025-10-30T18:40:27.503Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:28.073Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:40:28.076Z] ERROR: Health check failed
+[2025-10-30T18:40:28.077Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:32.516Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:32.524Z] ERROR: WebSocket error
+[2025-10-30T18:40:32.529Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:33.077Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:40:33.082Z] ERROR: Health check failed
+[2025-10-30T18:40:33.083Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:37.541Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:37.551Z] ERROR: WebSocket error
+[2025-10-30T18:40:37.578Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:38.087Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:40:38.122Z] ERROR: Health check failed
+[2025-10-30T18:40:38.161Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:42.594Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:42.597Z] ERROR: WebSocket error
+[2025-10-30T18:40:42.598Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:43.123Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:40:43.210Z] ERROR: Health check failed
+[2025-10-30T18:40:43.302Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:47.611Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:47.617Z] ERROR: WebSocket error
+[2025-10-30T18:40:47.619Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:48.113Z] ERROR: Failed to fetch metrics
+[2025-10-30T18:40:48.119Z] ERROR: Health check failed
+[2025-10-30T18:40:48.126Z] ERROR: Failed to collect server metrics
+[2025-10-30T18:40:52.631Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:53.048Z] ERROR: WebSocket error
+[2025-10-30T18:40:53.050Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:53.141Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:40:53.142Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:40:53.143Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:40:58.092Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:40:58.160Z] ERROR: WebSocket error
+[2025-10-30T18:40:58.202Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:40:58.241Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:40:58.264Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:40:58.265Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:03.300Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:41:04.909Z] ERROR: WebSocket error
+[2025-10-30T18:41:04.928Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:41:04.951Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:41:04.969Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:04.971Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:09.967Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:41:12.919Z] ERROR: WebSocket error
+[2025-10-30T18:41:12.940Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:41:12.958Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:41:12.981Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:12.995Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:17.651Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:41:17.707Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:17.754Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:17.962Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:41:18.367Z] ERROR: WebSocket error
+[2025-10-30T18:41:18.386Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:41:19.800Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:41:19.804Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:19.805Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:23.409Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:41:23.437Z] ERROR: WebSocket error
+[2025-10-30T18:41:23.459Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:41:23.461Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:41:23.462Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:23.466Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:28.313Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:41:28.319Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:28.321Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:28.462Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:41:28.469Z] ERROR: WebSocket error
+[2025-10-30T18:41:28.473Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:41:33.681Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:41:34.277Z] ERROR: WebSocket error
+[2025-10-30T18:41:34.584Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:41:34.624Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:41:34.640Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:34.642Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:39.034Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:41:39.093Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:39.095Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:39.735Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:41:39.910Z] ERROR: WebSocket error
+[2025-10-30T18:41:39.949Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:41:43.954Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:41:44.007Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:44.096Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:45.201Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:41:45.435Z] ERROR: WebSocket error
+[2025-10-30T18:41:45.560Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:41:48.958Z] WARN: Status: WARNING | Response: N/Ams | Memory: 0MB | Cache: N/A%
+[2025-10-30T18:41:48.997Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:48.999Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:50.711Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:41:50.751Z] ERROR: WebSocket error
+[2025-10-30T18:41:50.859Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:41:54.054Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:41:54.088Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:54.089Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:41:56.278Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:41:56.380Z] ERROR: WebSocket error
+[2025-10-30T18:41:56.532Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:41:59.075Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:41:59.083Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:41:59.096Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:01.591Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:01.666Z] ERROR: WebSocket error
+[2025-10-30T18:42:01.692Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:04.075Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:42:04.099Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:04.135Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:06.731Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:06.830Z] ERROR: WebSocket error
+[2025-10-30T18:42:06.933Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:09.120Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:42:09.140Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:09.163Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:11.982Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:12.021Z] ERROR: WebSocket error
+[2025-10-30T18:42:12.052Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:14.076Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:42:14.079Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:14.083Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:17.100Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:17.137Z] ERROR: WebSocket error
+[2025-10-30T18:42:17.154Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:19.200Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:42:19.228Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:19.249Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:22.175Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:22.219Z] ERROR: WebSocket error
+[2025-10-30T18:42:22.312Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:24.345Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:42:24.380Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:24.380Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:27.437Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:27.750Z] ERROR: WebSocket error
+[2025-10-30T18:42:27.893Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:29.661Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:42:29.708Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:29.709Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:33.023Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:33.233Z] ERROR: WebSocket error
+[2025-10-30T18:42:33.385Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:34.550Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:42:34.581Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:34.583Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:38.514Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:38.554Z] ERROR: WebSocket error
+[2025-10-30T18:42:38.575Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:39.549Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:42:39.561Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:39.568Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:43.594Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:43.600Z] ERROR: WebSocket error
+[2025-10-30T18:42:43.604Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:44.536Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:42:44.540Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:44.545Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:48.617Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:48.629Z] ERROR: WebSocket error
+[2025-10-30T18:42:48.633Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:49.548Z] WARN: Status: WARNING | Response: 538.2233677165343ms | Memory: 132MB | Cache: N/A%
+[2025-10-30T18:42:49.552Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:49.555Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:53.658Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:53.679Z] ERROR: WebSocket error
+[2025-10-30T18:42:53.688Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:54.560Z] WARN: Status: WARNING | Response: 254.14983310344857ms | Memory: 137MB | Cache: N/A%
+[2025-10-30T18:42:54.577Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:54.582Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:42:58.695Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:42:58.701Z] ERROR: WebSocket error
+[2025-10-30T18:42:58.704Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:42:59.563Z] WARN: Status: WARNING | Response: 254.14983310344857ms | Memory: 137MB | Cache: N/A%
+[2025-10-30T18:42:59.564Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:42:59.565Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:43:03.720Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:43:03.726Z] ERROR: WebSocket error
+[2025-10-30T18:43:03.729Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:43:04.574Z] WARN: Status: WARNING | Response: 254.14983310344857ms | Memory: 137MB | Cache: N/A%
+[2025-10-30T18:43:04.576Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:43:04.577Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:43:08.732Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:43:08.738Z] ERROR: WebSocket error
+[2025-10-30T18:43:08.741Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:43:09.585Z] WARN: Status: WARNING | Response: 254.14983310344857ms | Memory: 137MB | Cache: N/A%
+[2025-10-30T18:43:09.586Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:43:09.588Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:43:13.752Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:43:13.758Z] ERROR: WebSocket error
+[2025-10-30T18:43:13.760Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:43:14.585Z] WARN: Status: WARNING | Response: 254.14983310344857ms | Memory: 137MB | Cache: N/A%
+[2025-10-30T18:43:14.585Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:43:14.586Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:43:18.772Z] INFO: Attempting to reconnect WebSocket...
+[2025-10-30T18:43:18.796Z] ERROR: WebSocket error
+[2025-10-30T18:43:18.817Z] WARN: WebSocket connection closed: 1006 
+[2025-10-30T18:43:19.591Z] WARN: Status: WARNING | Response: 254.14983310344857ms | Memory: 137MB | Cache: N/A%
+[2025-10-30T18:43:19.592Z] WARN: ISSUE: Low cache hit rate: 0%
+[2025-10-30T18:43:19.594Z] INFO: RECOMMENDATION: Review cache configuration and TTL settings
+[2025-10-30T18:43:22.610Z] INFO: Monitoring duration completed
+[2025-10-30T18:43:22.615Z] INFO: Stopping real-time monitoring...
+[2025-10-30T18:43:22.622Z] INFO: ==================================================
+[2025-10-30T18:43:22.623Z] INFO: MONITORING SUMMARY
+[2025-10-30T18:43:22.623Z] INFO: ==================================================
+[2025-10-30T18:43:22.624Z] INFO: Duration: 300s
+[2025-10-30T18:43:22.625Z] INFO: Total samples: 43
+[2025-10-30T18:43:22.626Z] INFO: Health percentage: 0.00%
+[2025-10-30T18:43:22.626Z] INFO: Average response time: 335ms
+[2025-10-30T18:43:22.627Z] INFO: Max response time: 538ms
+[2025-10-30T18:43:22.627Z] INFO: Average memory usage: 136MB
+[2025-10-30T18:43:22.629Z] INFO: Max memory usage: 144MB
+[2025-10-30T18:43:22.630Z] INFO: Average cache hit rate: 0.55%
+[2025-10-30T18:43:22.630Z] INFO: Total alerts: 0
+[2025-10-30T18:43:22.631Z] INFO: ==================================================
+[2025-10-30T18:43:22.631Z] INFO: Real-time monitoring stopped

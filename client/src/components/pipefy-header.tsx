@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DropdownMenu as CustomDropdownMenu } from "@/components/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { WebSocketIndicator } from "@/components/websocket-indicator";
 import {
   ShoppingCart,
   Users,
@@ -36,6 +37,8 @@ export default function PipefyHeader() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  console.log("🟠 PipefyHeader rendered, user:", user?.username, "logout function:", typeof logout);
 
   const getNavigation = () => {
     const baseNavigation = [
@@ -89,10 +92,9 @@ export default function PipefyHeader() {
 
   const navigation = getNavigation();
 
-  const handleLogout = async () => {
-    // Provide immediate visual feedback
-    setIsMobileMenuOpen(false);
-    await logout();
+  const handleLogout = () => {
+    console.log("🟡 PipefyHeader handleLogout called - using useAuth logout");
+    logout();
   };
 
   return (
@@ -156,6 +158,11 @@ export default function PipefyHeader() {
 
         {/* Right Side - User Menu Desktop + Mobile Menu Button */}
         <div className="flex items-center space-x-2">
+          {/* WebSocket Status Indicator */}
+          <div className="hidden md:flex">
+            <WebSocketIndicator />
+          </div>
+          
           {/* User Menu Desktop */}
           <div className="hidden md:flex items-center">
             <DropdownMenu>
@@ -202,10 +209,15 @@ export default function PipefyHeader() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sair</span>
-                </DropdownMenuItem>
+                <div className="px-2 py-1.5">
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center text-sm text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </button>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -259,18 +271,23 @@ export default function PipefyHeader() {
 
             {/* User info and logout for mobile */}
             <div className="pt-4 border-t border-border mt-4">
-              <div className="flex items-center px-3 py-2">
-                <Avatar className="h-8 w-8 mr-3">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {user?.firstName?.[0] || user?.username?.[0] || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                  <p className="text-sm font-medium text-foreground">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+              <div className="flex items-center justify-between px-3 py-2">
+                <div className="flex items-center">
+                  <Avatar className="h-8 w-8 mr-3">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                      {user?.firstName?.[0] || user?.username?.[0] || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <p className="text-sm font-medium text-foreground">
+                      {user?.firstName} {user?.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                  </div>
                 </div>
+                
+                {/* WebSocket Status Indicator Mobile */}
+                <WebSocketIndicator />
               </div>
 
               <Link href="/profile">

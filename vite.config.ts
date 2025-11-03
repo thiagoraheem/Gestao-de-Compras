@@ -12,6 +12,7 @@ export default defineConfig({
   ],
   define: {
     'import.meta.env.VITE_BASE_API_URL': JSON.stringify(process.env.BASE_API_URL),
+    'import.meta.env.VITE_HMR_PORT': JSON.stringify('5201'),
   },
   resolve: {
     alias: {
@@ -30,7 +31,9 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
-    host: true,
+    host: 'localhost',
+    port: 5201,
+    hmr: false, // Disable HMR to avoid WebSocket conflicts
     allowedHosts: [
       'localhost',
       '*.replit.dev',

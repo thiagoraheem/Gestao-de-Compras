@@ -91,9 +91,9 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
 
   const { data: quotation, isLoading } = useQuery<Quotation>({
     queryKey: [`/api/quotations/purchase-request/${request.id}`],
-    refetchInterval: 30000, // Refetch every 30 seconds for updates
-    refetchOnWindowFocus: true,
-    staleTime: 15000, // Consider data fresh for 15 seconds
+    refetchOnWindowFocus: false, // Reduce unnecessary refetches
+    staleTime: 60000, // Consider data fresh for 1 minute
+    gcTime: 300000, // Keep in cache for 5 minutes
   });
 
   const { data: quotationItems = [] } = useQuery<QuotationItem[]>({

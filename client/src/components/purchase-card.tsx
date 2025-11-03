@@ -459,16 +459,13 @@ export default function PurchaseCard({
     queryKey: [`quotation-status`, request.id], // Use correct query key format
     enabled: phase === PURCHASE_PHASES.COTACAO,
     retry: 2,
-    staleTime: 0, // No cache to avoid stale data issues
-    gcTime: 0, // No cache time
-    refetchInterval: 5000, // Auto-refetch every 5 seconds
+    staleTime: 30000, // Cache for 30 seconds to reduce requests
+    gcTime: 60000, // Keep in cache for 1 minute
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    // Remove automatic refetch interval to reduce HTTP calls
     queryFn: async () => {
       try {
-        // Use apiRequest but force cache invalidation
-        await queryClient.invalidateQueries({
-          queryKey: [`/api/quotations/purchase-request/${request.id}`],
-        });
-
+        // Fetch quotation data without forcing cache invalidation
         const quotation = await apiRequest(
           `/api/quotations/purchase-request/${request.id}`,
         );
@@ -997,7 +994,7 @@ export default function PurchaseCard({
                 size="sm"
               >
                 <Check className="h-4 w-4 mr-2" />
-                Avançar para Recebimento
+                Avançar para Recebim.
               </Button>
             </div>
           )}

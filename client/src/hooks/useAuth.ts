@@ -119,6 +119,7 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
+      console.log("🟡 logoutMutation.mutationFn called - making API request");
       const response = await fetch("/api/auth/logout", {
         method: "POST",
         headers: {
@@ -126,31 +127,59 @@ export function useAuth() {
         },
         credentials: "include",
       });
+      console.log("🟡 Logout API response status:", response.status);
       if (!response.ok) {
         throw new Error("Logout failed");
       }
-      return response.json();
+      const result = await response.json();
+      console.log("🟡 Logout API response:", result);
+      return result;
     },
     onSuccess: () => {
-      // Immediately set user to null to trigger immediate UI update
-      queryClient.setQueryData(["/api/auth/check"], null);
-      // Clear all cache data
-      queryClient.clear();
-      // Clear any stored redirect path
+      console.log("🟢 Logout onSuccess called - clearing data and redirecting");
+      
+      // Clear all authentication data first
+      localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_token');
       sessionStorage.removeItem('redirectAfterLogin');
       
-      // Force immediate redirect with cache busting
-      // Using replace to avoid back button issues
-      const timestamp = Date.now();
-      window.location.replace(`/?_=${timestamp}`);
-    },
-    onError: () => {
-      // Even if server logout fails, clear local state and redirect
-      queryClient.setQueryData(["/api/auth/check"], null);
+      // Clear all cache data and set user to null immediately
       queryClient.clear();
+      queryClient.setQueryData(["/api/auth/check"], null);
+      queryClient.removeQueries();
+      
+      // Force invalidate all queries to ensure fresh data
+      queryClient.invalidateQueries();
+      
+      toast({
+        title: "Logout realizado",
+        description: "Você foi desconectado com sucesso.",
+      });
+      
+      console.log("🟢 About to redirect to /login");
+      // Immediate redirect without timeout
+      window.location.href = '/login';
+    },
+    onError: (error) => {
+      console.error("🔴 Logout onError called:", error);
+      // Even if server logout fails, clear local state and redirect immediately
+      localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_token');
       sessionStorage.removeItem('redirectAfterLogin');
-      const timestamp = Date.now();
-      window.location.replace(`/?_=${timestamp}`);
+      
+      queryClient.clear();
+      queryClient.setQueryData(["/api/auth/check"], null);
+      queryClient.removeQueries();
+      queryClient.invalidateQueries();
+      
+      toast({
+        title: "Logout realizado",
+        description: "Você foi desconectado.",
+      });
+      
+      console.log("🔴 About to redirect to /login (from error handler)");
+      // Immediate redirect without timeout
+      window.location.href = '/login';
     },
   });
 

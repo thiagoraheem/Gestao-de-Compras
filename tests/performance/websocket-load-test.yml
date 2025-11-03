@@ -1,0 +1,306 @@
+config:
+  target: 'ws://localhost:3000'
+  phases:
+    # WebSocket connection ramp-up
+    - duration: 60
+      arrivalRate: 10
+      name: "WebSocket ramp-up"
+    
+    # Sustained WebSocket load
+    - duration: 180
+      arrivalRate: 25
+      name: "Sustained WebSocket load"
+    
+    # WebSocket stress test
+    - duration: 60
+      arrivalRate: 50
+      name: "WebSocket stress test"
+
+  # WebSocket specific configuration
+  ws:
+    # Subprotocols if needed
+    subprotocols: []
+    # Headers for WebSocket handshake
+    headers:
+      User-Agent: "Artillery WebSocket Load Test"
+
+  # Performance expectations for WebSocket
+  ensure:
+    # Connection establishment should be fast
+    - p95: 1000
+    - p50: 500
+    # Low error rate for WebSocket connections
+    - maxErrorRate: 2
+
+  # Variables for WebSocket testing
+  variables:
+    wsUrl: 'ws://localhost:3000'
+    userId: "load-test-user"
+
+scenarios:
+  # Basic WebSocket connection and messaging
+  - name: "WebSocket Basic Flow"
+    weight: 50
+    engine: ws
+    flow:
+      # Connect to WebSocket server
+      - connect:
+          url: "{{ wsUrl }}"
+          
+      # Send authentication message
+      - send:
+          payload: |
+            {
+              "type": "auth",
+              "token": "test-token-{{ $randomNumber(1, 1000) }}",
+              "userId": "{{ userId }}-{{ $randomNumber(1, 1000) }}"
+            }
+
+      # Wait for auth response
+      - think: 1
+
+      # Subscribe to multiple resources
+      - send:
+          payload: |
+            {
+              "type": "subscribe",
+              "resource": "products",
+              "events": ["created", "updated", "deleted"]
+            }
+
+      - send:
+          payload: |
+            {
+              "type": "subscribe",
+              "resource": "suppliers",
+              "events": ["created", "updated"]
+            }
+
+      - send:
+          payload: |
+            {
+              "type": "subscribe",
+              "resource": "purchase-orders",
+              "events": ["created", "updated", "status-changed"]
+            }
+
+      # Send periodic heartbeats
+      - loop:
+          count: 10
+          over:
+            - send:
+                payload: |
+                  {
+                    "type": "heartbeat",
+                    "timestamp": {{ $timestamp }}
+                  }
+            - think: 5
+
+      # Unsubscribe from some resources
+      - send:
+          payload: |
+            {
+              "type": "unsubscribe",
+              "resource": "suppliers"
+            }
+
+      # Wait before disconnecting
+      - think: 10
+
+  # High-frequency messaging test
+  - name: "High-Frequency WebSocket Messages"
+    weight: 30
+    engine: ws
+    flow:
+      # Connect
+      - connect:
+          url: "{{ wsUrl }}"
+          
+      # Authenticate
+      - send:
+          payload: |
+            {
+              "type": "auth",
+              "token": "high-freq-token-{{ $randomNumber(1, 1000) }}",
+              "userId": "high-freq-{{ $randomNumber(1, 1000) }}"
+            }
+
+      # Subscribe to real-time updates
+      - send:
+          payload: |
+            {
+              "type": "subscribe",
+              "resource": "real-time-data",
+              "events": ["update"]
+            }
+
+      # Send rapid-fire messages
+      - loop:
+          count: 50
+          over:
+            - send:
+                payload: |
+                  {
+                    "type": "data-request",
+                    "resource": "products",
+                    "timestamp": {{ $timestamp }},
+                    "requestId": "{{ $randomString() }}"
+                  }
+            - think: 0.1
+
+      # Send heartbeats during high activity
+      - loop:
+          count: 5
+          over:
+            - send:
+                payload: |
+                  {
+                    "type": "heartbeat",
+                    "timestamp": {{ $timestamp }}
+                  }
+            - think: 2
+
+  # Connection stability test
+  - name: "WebSocket Connection Stability"
+    weight: 20
+    engine: ws
+    flow:
+      # Connect
+      - connect:
+          url: "{{ wsUrl }}"
+          
+      # Authenticate
+      - send:
+          payload: |
+            {
+              "type": "auth",
+              "token": "stability-token-{{ $randomNumber(1, 1000) }}",
+              "userId": "stability-{{ $randomNumber(1, 1000) }}"
+            }
+
+      # Subscribe to notifications
+      - send:
+          payload: |
+            {
+              "type": "subscribe",
+              "resource": "notifications",
+              "events": ["all"]
+            }
+
+      # Long-running connection with periodic activity
+      - loop:
+          count: 30
+          over:
+            # Send heartbeat
+            - send:
+                payload: |
+                  {
+                    "type": "heartbeat",
+                    "timestamp": {{ $timestamp }}
+                  }
+            
+            # Wait
+            - think: 10
+            
+            # Send status request
+            - send:
+                payload: |
+                  {
+                    "type": "status-request",
+                    "timestamp": {{ $timestamp }}
+                  }
+            
+            # Wait again
+            - think: 5
+
+      # Test reconnection scenario
+      - send:
+          payload: |
+            {
+              "type": "disconnect-test",
+              "reason": "testing-reconnection"
+            }
+
+# WebSocket-specific scenarios for different connection patterns
+scenarios:
+  # Burst connection test
+  - name: "WebSocket Burst Connections"
+    weight: 10
+    engine: ws
+    flow:
+      # Rapid connect/disconnect cycle
+      - loop:
+          count: 5
+          over:
+            - connect:
+                url: "{{ wsUrl }}"
+            
+            - send:
+                payload: |
+                  {
+                    "type": "auth",
+                    "token": "burst-{{ $randomNumber(1, 1000) }}",
+                    "userId": "burst-user-{{ $randomNumber(1, 1000) }}"
+                  }
+            
+            - think: 2
+            
+            - send:
+                payload: |
+                  {
+                    "type": "disconnect",
+                    "reason": "burst-test"
+                  }
+            
+            - think: 1
+
+  # Message ordering test
+  - name: "WebSocket Message Ordering"
+    weight: 10
+    engine: ws
+    flow:
+      - connect:
+          url: "{{ wsUrl }}"
+          
+      - send:
+          payload: |
+            {
+              "type": "auth",
+              "token": "ordering-token",
+              "userId": "ordering-user-{{ $randomNumber(1, 1000) }}"
+            }
+
+      # Send numbered messages to test ordering
+      - loop:
+          count: 20
+          over:
+            - send:
+                payload: |
+                  {
+                    "type": "ordered-message",
+                    "sequence": {{ $loopCount }},
+                    "timestamp": {{ $timestamp }},
+                    "data": "Message number {{ $loopCount }}"
+                  }
+            - think: 0.5
+
+      # Wait for all responses
+      - think: 10
+
+# Before hook to ensure WebSocket server is ready
+before:
+  flow:
+    # Check if WebSocket endpoint is available via HTTP health check
+    - get:
+        url: "http://localhost:3000/api/health"
+        expect:
+          - statusCode: 200
+
+# After hook to collect final metrics
+after:
+  flow:
+    # Get final WebSocket metrics
+    - get:
+        url: "http://localhost:3000/api/metrics"
+        expect:
+          - statusCode: 200

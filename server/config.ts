@@ -5,6 +5,7 @@ export const config = {
   
   // Email configuration
   email: {
+    enabled: process.env.ENABLE_EMAIL_SENDING !== "false", // Default to true, only false if explicitly set to "false"
     host: process.env.SMTP_HOST || "smtp.ethereal.email",
     port: parseInt(process.env.SMTP_PORT || "587"),
     secure: false, // true for 465, false for other ports

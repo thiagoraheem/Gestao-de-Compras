@@ -3,6 +3,16 @@ import type { Supplier, User, PurchaseRequest } from "../shared/schema";
 import { storage } from "./storage";
 import { config, buildRequestUrl } from "./config";
 
+// Helper function to check if email sending is enabled
+function isEmailEnabled(): boolean {
+  return config.email.enabled;
+}
+
+// Helper function to log when email is disabled
+function logEmailDisabled(context: string): void {
+  console.log(`[EMAIL DISABLED] ${context} - E-mail não enviado (ENABLE_EMAIL_SENDING=false)`);
+}
+
 // Email configuration
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -32,6 +42,15 @@ export async function sendRFQToSuppliers(
   rfqData: RFQEmailData,
   senderEmail?: string,
 ): Promise<{ success: boolean; errors: string[] }> {
+  // Check if email sending is enabled
+  if (!isEmailEnabled()) {
+    logEmailDisabled(`RFQ para ${suppliers.length} fornecedor(es) - Cotação ${rfqData.quotationNumber}`);
+    return {
+      success: true, // Return success to not break the workflow
+      errors: [`E-mail desabilitado: RFQ não enviada para ${suppliers.length} fornecedor(es)`],
+    };
+  }
+
   const transporter = createTransporter();
   const errors: string[] = [];
   let successCount = 0;
@@ -180,6 +199,12 @@ function generateRFQEmailHTML(
 export async function notifyNewRequest(
   purchaseRequest: PurchaseRequest,
 ): Promise<void> {
+  // Check if email sending is enabled
+  if (!isEmailEnabled()) {
+    logEmailDisabled(`Notificação de nova solicitação - ${purchaseRequest.requestNumber}`);
+    return;
+  }
+
   try {
     const buyers = await storage.getAllUsers();
     const buyerUsers = buyers.filter((user) => user.isBuyer);
@@ -231,6 +256,12 @@ export async function notifyNewRequest(
 export async function notifyApprovalA1(
   purchaseRequest: PurchaseRequest,
 ): Promise<void> {
+  // Check if email sending is enabled
+  if (!isEmailEnabled()) {
+    logEmailDisabled(`Notificação de aprovação A1 - ${purchaseRequest.requestNumber}`);
+    return;
+  }
+
   try {
     const approvers = await storage.getAllUsers();
     let approverA1Users = approvers.filter((user) => user.isApproverA1);
@@ -299,6 +330,12 @@ export async function notifyApprovalA1(
 export async function notifyApprovalA2(
   purchaseRequest: PurchaseRequest,
 ): Promise<void> {
+  // Check if email sending is enabled
+  if (!isEmailEnabled()) {
+    logEmailDisabled(`Notificação de aprovação A2 - ${purchaseRequest.requestNumber}`);
+    return;
+  }
+
   try {
     const approvers = await storage.getAllUsers();
     const approverA2Users = approvers.filter((user) => user.isApproverA2);
@@ -553,6 +590,12 @@ export async function notifyRejection(
   rejectionReason: string,
   approverLevel: "A1" | "A2",
 ): Promise<void> {
+  // Check if email sending is enabled
+  if (!isEmailEnabled()) {
+    logEmailDisabled(`Notificação de rejeição ${approverLevel} - ${purchaseRequest.requestNumber}`);
+    return;
+  }
+
   try {
     // Get requester details
     let requester = null;
@@ -659,6 +702,12 @@ export async function sendPasswordResetEmail(
   user: User,
   resetToken: string,
 ): Promise<void> {
+  // Check if email sending is enabled
+  if (!isEmailEnabled()) {
+    logEmailDisabled(`E-mail de recuperação de senha para ${user.email || user.username}`);
+    throw new Error("Envio de e-mail desabilitado - não é possível enviar e-mail de recuperação");
+  }
+
   const transporter = createTransporter();
 
   const resetUrl = `${config.baseUrl}/reset-password?token=${resetToken}`;
@@ -752,6 +801,12 @@ function generatePasswordResetEmailHTML(user: User, resetUrl: string): string {
 }
 
 export async function testEmailConfiguration(): Promise<boolean> {
+  // Check if email sending is enabled
+  if (!isEmailEnabled()) {
+    console.log("[EMAIL DISABLED] Teste de configuração de e-mail - E-mail desabilitado (ENABLE_EMAIL_SENDING=false)");
+    return false; // Return false when disabled to indicate email is not available
+  }
+
   try {
     const transporter = createTransporter();
     await transporter.verify();

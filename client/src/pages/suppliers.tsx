@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,6 +16,7 @@ import { Plus, Edit } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminOrBuyerRoute from "@/components/admin-or-buyer-route";
+import { useOptimizedQuery } from "@/hooks/useOptimizedQuery";
 
 const supplierSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -48,8 +49,22 @@ export default function SuppliersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: suppliers = [], isLoading } = useQuery<any[]>({
+  const { data: suppliers = [], isLoading } = useOptimizedQuery<any[]>({
     queryKey: ["/api/suppliers"],
+    websocket: {
+      enabled: true,
+      subscriptions: ['suppliers']
+    },
+    polling: {
+      enabled: true,
+      interval: 30000, // 30 seconds
+      adaptiveInterval: true
+    },
+    cache: {
+      enabled: true,
+      ttl: 300000, // 5 minutes
+      staleWhileRevalidate: true
+    }
   });
 
   const form = useForm<SupplierFormData>({

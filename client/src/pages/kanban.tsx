@@ -8,18 +8,34 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 export default function KanbanPage() {
+  const queryClient = useQueryClient();
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [selectedUrgency, setSelectedUrgency] = useState<string>("all");
   const [selectedRequester, setSelectedRequester] = useState<string>("all");
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
   const [searchFilter, setSearchFilter] = useState<string>("");
   const [location, setLocation] = useLocation();
+
+  // Force refresh function to clear all cache
+  const handleForceRefresh = () => {
+    console.log('🔄 [FORCE REFRESH] Iniciando force refresh completo...');
+    
+    // Invalidate all queries to force fresh data
+    queryClient.invalidateQueries();
+    
+    // Clear all cached data
+    queryClient.clear();
+    
+    console.log('🔄 [FORCE REFRESH] Cache limpo, dados serão recarregados...');
+  };
 
   // Date filter state - default to current month
   const currentDate = new Date();
@@ -360,6 +376,19 @@ export default function KanbanPage() {
                 }
                 className="w-36 h-8 text-xs"
               />
+            </div>
+
+            {/* Force Refresh Button */}
+            <div className="flex items-center">
+              <Button
+                onClick={handleForceRefresh}
+                variant="outline"
+                size="sm"
+                className="h-8 px-3 text-xs font-medium border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300"
+              >
+                <RefreshCw className="w-3 h-3 mr-1.5" />
+                Force Refresh
+              </Button>
             </div>
           </div>
         </div>

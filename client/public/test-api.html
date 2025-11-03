@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Response</title>
+</head>
+<body>
+    <h1>Teste da API de Purchase Requests</h1>
+    <button onclick="testAPI()">Testar API</button>
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Carregando...</p>';
+            
+            try {
+                const response = await fetch('/api/purchase-requests');
+                const data = await response.json();
+                
+                console.log('📊 Resposta completa da API:', data);
+                
+                // Filtrar as solicitações específicas
+                const sol330 = data.find(r => r.requestNumber === 'SOL-2025-330');
+                const sol329 = data.find(r => r.requestNumber === 'SOL-2025-329');
+                
+                let html = `<h2>Total de solicitações: ${data.length}</h2>`;
+                
+                if (sol330) {
+                    html += `
+                        <h3>SOL-2025-330:</h3>
+                        <ul>
+                            <li>ID: ${sol330.id}</li>
+                            <li>Current Phase: ${sol330.currentPhase}</li>
+                            <li>Category: ${sol330.category}</li>
+                            <li>Urgency: ${sol330.urgency}</li>
+                        </ul>
+                    `;
+                } else {
+                    html += '<h3>SOL-2025-330: ❌ Não encontrada</h3>';
+                }
+                
+                if (sol329) {
+                    html += `
+                        <h3>SOL-2025-329:</h3>
+                        <ul>
+                            <li>ID: ${sol329.id}</li>
+                            <li>Current Phase: ${sol329.currentPhase}</li>
+                            <li>Category: ${sol329.category}</li>
+                            <li>Urgency: ${sol329.urgency}</li>
+                        </ul>
+                    `;
+                } else {
+                    html += '<h3>SOL-2025-329: ❌ Não encontrada</h3>';
+                }
+                
+                // Mostrar todas em aprovacao_a1
+                const aprovacaoA1 = data.filter(r => r.currentPhase === 'aprovacao_a1');
+                html += `<h3>Solicitações em aprovacao_a1 (${aprovacaoA1.length}):</h3><ul>`;
+                aprovacaoA1.forEach(req => {
+                    html += `<li>${req.requestNumber}: ${req.currentPhase} (${req.category}, ${req.urgency})</li>`;
+                });
+                html += '</ul>';
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('❌ Erro ao testar API:', error);
+                resultsDiv.innerHTML = `<p style="color: red;">Erro: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

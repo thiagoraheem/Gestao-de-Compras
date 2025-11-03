@@ -1201,6 +1201,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedRequestData,
       );
 
+      // Send WebSocket notification
+      const wsManager = app.get('wsManager');
+      console.log('WebSocket Manager found:', !!wsManager);
+      if (wsManager) {
+        console.log('Sending WebSocket notification for purchase request:', request.id);
+        wsManager.notifyClients('purchase_requests', 'updated', {
+          id: request.id,
+          currentPhase: request.currentPhase,
+          requestNumber: request.requestNumber,
+          updatedAt: request.updatedAt
+        });
+      }
+
       // Invalidate cache for purchase requests
       invalidateCache(["/api/purchase-requests"]);
 
@@ -1346,6 +1359,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updateData,
         );
 
+        // Send WebSocket notification for real-time updates
+        const wsManager = app.get('wsManager');
+        if (wsManager) {
+          wsManager.notifyClients('purchase_requests', 'updated', {
+            id: updatedRequest.id,
+            currentPhase: updatedRequest.currentPhase,
+            requestNumber: updatedRequest.requestNumber,
+            updatedAt: updatedRequest.updatedAt
+          });
+        }
+
         // Send notification to approvers A1
         try {
           await notifyApprovalA1(updatedRequest);
@@ -1353,6 +1377,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("Error sending approval notification:", emailError);
           // Continue with the update even if email fails
         }
+
+        // Invalidate cache for purchase requests
+        invalidateCache(["/api/purchase-requests"]);
 
         res.json(updatedRequest);
       } catch (error) {
@@ -1452,10 +1479,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updateData,
         );
 
+        // Send WebSocket notification for real-time updates
+        const wsManager = app.get('wsManager');
+        if (wsManager) {
+          wsManager.notifyClients('purchase_requests', 'updated', {
+            id: updatedRequest.id,
+            currentPhase: updatedRequest.currentPhase,
+            requestNumber: updatedRequest.requestNumber,
+            updatedAt: updatedRequest.updatedAt,
+            approved: approved,
+            approvalLevel: 'A1'
+          });
+        }
+
         // Send rejection notification email if request was rejected
         if (!approved && rejectionReason) {
           await notifyRejection(updatedRequest, rejectionReason, "A1");
         }
+
+        // Invalidate cache for purchase requests
+        invalidateCache(["/api/purchase-requests"]);
 
         res.json(updatedRequest);
       } catch (error) {
@@ -1491,6 +1534,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
 
         const request = await storage.updatePurchaseRequest(id, updates);
+        
+        // Invalidate cache for purchase requests
+        invalidateCache(["/api/purchase-requests"]);
+        
         res.json(request);
       } catch (error) {
         console.error("Error updating quotation:", error);
@@ -1549,6 +1596,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id,
           updateData,
         );
+
+        // Send WebSocket notification for real-time updates
+        const wsManager = app.get('wsManager');
+        if (wsManager) {
+          wsManager.notifyClients('purchase_requests', 'updated', {
+            id: updatedRequest.id,
+            currentPhase: updatedRequest.currentPhase,
+            requestNumber: updatedRequest.requestNumber,
+            updatedAt: updatedRequest.updatedAt,
+            approved: approved,
+            approvalLevel: 'A2'
+          });
+        }
 
         // Se aprovado, criar automaticamente o purchase order
         if (approved) {
@@ -1674,6 +1734,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await notifyRejection(updatedRequest, rejectionReason, "A2");
         }
 
+        // Invalidate cache for purchase requests
+        invalidateCache(["/api/purchase-requests"]);
+
         res.json(updatedRequest);
       } catch (error) {
         console.error("Error approving A2:", error);
@@ -1795,6 +1858,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id,
           updateData,
         );
+
+        // Send WebSocket notification for real-time updates
+        const wsManager = app.get('wsManager');
+        if (wsManager) {
+          wsManager.notifyClients('purchase_requests', 'updated', {
+            id: updatedRequest.id,
+            currentPhase: updatedRequest.currentPhase,
+            requestNumber: updatedRequest.requestNumber,
+            updatedAt: updatedRequest.updatedAt,
+            action: 'receipt_confirmed'
+          });
+        }
+
         res.json(updatedRequest);
       } catch (error) {
         console.error("Error confirming receipt:", error);
@@ -3075,6 +3151,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const updatedRequest = await storage.updatePurchaseRequest(id, updates);
 
+        // Send WebSocket notification for real-time updates
+        const wsManager = app.get('wsManager');
+        if (wsManager) {
+          wsManager.notifyClients('purchase_requests', 'updated', {
+            id: updatedRequest.id,
+            currentPhase: updatedRequest.currentPhase,
+            requestNumber: updatedRequest.requestNumber,
+            updatedAt: updatedRequest.updatedAt
+          });
+        }
+
         // Send email notifications based on the new phase
         if (newPhase === "aprovacao_a1") {
           notifyApprovalA1(updatedRequest).catch((error) => {
@@ -3091,6 +3178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
           });
         }
+
+        // Invalidate cache to ensure frontend gets updated data
+        invalidateCache(["/api/purchase-requests"]);
 
         res.json(updatedRequest);
       } catch (error) {
@@ -3146,6 +3236,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           approved: true,
           rejectionReason: null,
         });
+
+        // Send WebSocket notification for real-time updates
+        const wsManager = app.get('wsManager');
+        if (wsManager) {
+          wsManager.notifyClients('purchase_requests', 'updated', {
+            id: updatedRequest.id,
+            currentPhase: updatedRequest.currentPhase,
+            requestNumber: updatedRequest.requestNumber,
+            updatedAt: updatedRequest.updatedAt
+          });
+        }
 
         res.json(updatedRequest);
       } catch (error) {
@@ -4560,6 +4661,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updatePurchaseRequest(requestId, {
           currentPhase: "arquivado",
         });
+
+        // Invalidate cache for purchase requests
+        invalidateCache(["/api/purchase-requests"]);
 
         const updatedRequest = await storage.getPurchaseRequestById(requestId);
         res.json(updatedRequest);
@@ -6229,6 +6333,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
 
         const request = await storage.updatePurchaseRequest(id, updates);
+        
+        // Invalidate cache for purchase requests
+        invalidateCache(["/api/purchase-requests"]);
+        
         res.json(request);
       } catch (error) {
         console.error("Error archiving request:", error);

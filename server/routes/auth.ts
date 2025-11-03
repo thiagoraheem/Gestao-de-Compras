@@ -3,10 +3,35 @@ import bcrypt from "bcryptjs";
 import { storage } from "../storage";
 
 // Authentication middleware
-export function isAuthenticated(req: Request, res: Response, next: Function) {
-  if (req.session.userId) {
+export async function isAuthenticated(req: Request, res: Response, next: Function) {
+  try {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    // Validação rigorosa: verificar se a sessão realmente existe no banco
+    const { validateSession } = await import('../db');
+    const sessionId = req.sessionID;
+    
+    if (!sessionId) {
+      console.log('❌ Middleware auth: No session ID found');
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    const sessionValidation = await validateSession(sessionId);
+    if (!sessionValidation || sessionValidation.userId !== req.session.userId) {
+      console.log('❌ Middleware auth: Session validation failed for sessionId:', sessionId.substring(0, 20) + '...');
+      // Limpar sessão inválida
+      req.session.destroy((err) => {
+        if (err) console.error('Error destroying invalid session:', err);
+      });
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    console.log('✅ Middleware auth: Session validated for userId:', sessionValidation.userId);
     next();
-  } else {
+  } catch (error) {
+    console.error('❌ Middleware auth error:', error);
     res.status(401).json({ message: "Authentication required" });
   }
 }
@@ -64,9 +89,24 @@ export function registerAuthRoutes(app: Express) {
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy((err) => {
       if (err) {
+        console.error("Session destroy error:", err);
         return res.status(500).json({ message: "Could not log out" });
       }
-      res.clearCookie('sessionId');
+      
+      // Clear the session cookie with the correct name and options
+      res.clearCookie('sessionId', {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax'
+      });
+      
+      // Also try to clear any other potential session cookies
+      res.clearCookie('connect.sid', {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax'
+      });
+      
       res.json({ message: "Logged out successfully" });
     });
   });
@@ -109,33 +149,58 @@ export function registerAuthRoutes(app: Express) {
   });
 
   app.get("/api/auth/check", async (req, res) => {
-    if (req.session.userId) {
-      const user = await storage.getUser(req.session.userId);
-      if (user) {
-        const department = user.departmentId ? await storage.getDepartmentById(user.departmentId) : null;
-        const company = user.companyId ? await storage.getCompanyById(user.companyId) : null;
-        res.json({ 
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          departmentId: user.departmentId,
-          companyId: user.companyId,
-          department,
-          company,
-          isBuyer: user.isBuyer,
-          isApproverA1: user.isApproverA1,
-          isApproverA2: user.isApproverA2,
-          isAdmin: user.isAdmin,
-          isManager: user.isManager,
-          isReceiver: user.isReceiver
-        });
-      } else {
-        res.status(401).json({ message: "Unauthorized" });
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-    } else {
-      res.status(401).json({ message: "Unauthorized" });
+
+      // Validação adicional: verificar se a sessão realmente existe no banco
+      const { validateSession } = await import('../db');
+      const sessionId = req.sessionID;
+      
+      if (!sessionId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const sessionValidation = await validateSession(sessionId);
+      if (!sessionValidation || sessionValidation.userId !== req.session.userId) {
+        // Limpar sessão inválida
+        req.session.destroy((err) => {
+          if (err) console.error('Error destroying invalid session:', err);
+        });
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const [department, company] = await Promise.all([
+        user.departmentId ? storage.getDepartmentById(user.departmentId) : null,
+        user.companyId ? storage.getCompanyById(user.companyId) : null
+      ]);
+
+      res.json({ 
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        departmentId: user.departmentId,
+        companyId: user.companyId,
+        department,
+        company,
+        isBuyer: user.isBuyer,
+        isApproverA1: user.isApproverA1,
+        isApproverA2: user.isApproverA2,
+        isAdmin: user.isAdmin,
+        isManager: user.isManager,
+        isReceiver: user.isReceiver
+      });
+    } catch (error) {
+      console.error("Auth check error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
