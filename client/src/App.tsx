@@ -29,6 +29,7 @@ import UserManualPage from "@/pages/user-manual";
 import PurchaseRequestsReportPage from "@/pages/purchase-requests-report";
 import ManagerRoute from "@/components/manager-route";
 import AdminRoute from "@/components/admin-route";
+import { RealtimeSyncProvider } from "@/components/realtime-sync";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -79,6 +80,7 @@ function Router() {
 
   return (
     <AuthenticatedLayout>
+      <RealtimeSyncProvider />
       <Switch>
         <Route path="/" component={KanbanPage} />
         <Route path="/kanban" component={KanbanPage} />

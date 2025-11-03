@@ -51,6 +51,8 @@ import { QuantityValidationMiddleware } from "./middleware/quantity-validation";
 import { quotationSyncService } from './services/quotation-sync';
 import { quotationVersionService } from './services/quotation-versioning';
 import { notificationService } from './services/notification-service';
+import { initRealtime, realtime } from "./realtime";
+import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "@shared/realtime-events";
 
 // ES modules compatibility
 const __filename = fileURLToPath(import.meta.url);
@@ -1108,6 +1110,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Invalidate cache for purchase requests
       invalidateCache(["/api/purchase-requests"]);
 
+      realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+        event: PURCHASE_REQUEST_EVENTS.CREATED,
+        payload: { id: request.id },
+      });
+
       res.status(201).json(request);
     } catch (error) {
       console.error("Error creating purchase request:", error);
@@ -1166,6 +1173,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Invalidate cache for purchase requests
       invalidateCache(["/api/purchase-requests"]);
 
+      realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+        event: PURCHASE_REQUEST_EVENTS.UPDATED,
+        payload: { id },
+      });
+
       res.json(request);
     } catch (error) {
       console.error("Error updating purchase request:", error);
@@ -1204,6 +1216,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Invalidate cache for purchase requests
       invalidateCache(["/api/purchase-requests"]);
+
+      realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+        event: PURCHASE_REQUEST_EVENTS.UPDATED,
+        payload: { id },
+      });
 
       res.json(request);
     } catch (error) {
@@ -1354,6 +1371,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("Error sending approval notification:", emailError);
           // Continue with the update even if email fails
         }
+
+        realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+          event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+          payload: { id, phase: updateData.currentPhase },
+        });
 
         res.json(updatedRequest);
       } catch (error) {
@@ -3093,6 +3115,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
+        realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+          event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+          payload: { id, phase: newPhase },
+        });
+
         res.json(updatedRequest);
       } catch (error) {
         console.error("Error updating request phase:", error);
@@ -3146,6 +3173,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           approverId: userId,
           approved: true,
           rejectionReason: null,
+        });
+
+        realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+          event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+          payload: { id, phase: "recebimento" },
         });
 
         res.json(updatedRequest);
@@ -6526,5 +6558,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   const httpServer = createServer(app);
+  initRealtime(httpServer);
   return httpServer;
 }
