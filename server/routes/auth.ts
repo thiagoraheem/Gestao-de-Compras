@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { storage } from "../storage";
+import { isEmailEnabled } from "../config";
 
 // Authentication middleware
 export function isAuthenticated(req: Request, res: Response, next: Function) {
@@ -148,6 +149,14 @@ export function registerAuthRoutes(app: Express) {
         return res.status(400).json({ message: "E-mail é obrigatório" });
       }
 
+      // Verificar se o envio de e-mails está habilitado
+      if (!isEmailEnabled()) {
+        console.log(`📧 [EMAIL DISABLED] Tentativa de recuperação de senha para ${email} foi bloqueada - envio de e-mails desabilitado`);
+        return res.status(503).json({ 
+          message: "Serviço de recuperação de senha temporariamente indisponível. Entre em contato com o administrador do sistema." 
+        });
+      }
+
       const token = await storage.generatePasswordResetToken(email);
 
       if (token) {
@@ -163,6 +172,14 @@ export function registerAuthRoutes(app: Express) {
       res.json({ message: "Se o e-mail existir em nossa base, você receberá instruções de recuperação" });
     } catch (error) {
       console.error("Forgot password error:", error);
+      
+      // Se o erro for devido ao envio de e-mail desabilitado, retornar mensagem específica
+      if (error instanceof Error && error.message.includes("desabilitado globalmente")) {
+        return res.status(503).json({ 
+          message: "Serviço de recuperação de senha temporariamente indisponível. Entre em contato com o administrador do sistema." 
+        });
+      }
+      
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });

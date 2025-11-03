@@ -13,6 +13,10 @@ export const config = {
       pass: process.env.SMTP_PASS || "test123",
     },
     from: process.env.FROM_EMAIL || "sistema@blomaq.com.br",
+    // Global email sending control
+    // Set ENABLE_EMAIL_SENDING=true in .env or environment variables to enable email sending
+    // Any other value (including undefined) will disable email sending for security
+    enabled: (process.env.ENABLE_EMAIL_SENDING || 'false').toLowerCase() === 'true',
   },
   
   // Application settings
@@ -44,4 +48,22 @@ export function buildRequestUrl(requestId: number, phase?: string): string {
     path += `&phase=${phase}`;
   }
   return buildAppUrl(path);
+}
+
+/**
+ * Verifica se o envio de e-mails está habilitado globalmente
+ * 
+ * Esta função verifica a variável de ambiente ENABLE_EMAIL_SENDING para determinar
+ * se o sistema deve enviar e-mails. Por segurança, o padrão é 'false'.
+ * 
+ * @returns {boolean} true se o envio de e-mails estiver habilitado, false caso contrário
+ */
+export function isEmailEnabled(): boolean {
+  const enabled = config.email.enabled;
+  
+  if (!enabled) {
+    console.log('📧 [EMAIL DISABLED] Envio de e-mails está desabilitado globalmente. Configure ENABLE_EMAIL_SENDING=true para habilitar.');
+  }
+  
+  return enabled;
 }

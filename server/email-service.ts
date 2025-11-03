@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import type { Supplier, User, PurchaseRequest } from "../shared/schema";
 import { storage } from "./storage";
-import { config, buildRequestUrl } from "./config";
+import { config, buildRequestUrl, isEmailEnabled } from "./config";
 
 // Email configuration
 const createTransporter = () => {
@@ -32,6 +32,15 @@ export async function sendRFQToSuppliers(
   rfqData: RFQEmailData,
   senderEmail?: string,
 ): Promise<{ success: boolean; errors: string[] }> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Tentativa de envio de RFQ para ${suppliers.length} fornecedores foi bloqueada - envio de e-mails desabilitado`);
+    return {
+      success: false,
+      errors: ['Envio de e-mails está desabilitado globalmente. Configure ENABLE_EMAIL_SENDING=true para habilitar.']
+    };
+  }
+
   const transporter = createTransporter();
   const errors: string[] = [];
   let successCount = 0;
@@ -180,6 +189,12 @@ function generateRFQEmailHTML(
 export async function notifyNewRequest(
   purchaseRequest: PurchaseRequest,
 ): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de nova solicitação ${purchaseRequest.requestNumber} não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
   try {
     const buyers = await storage.getAllUsers();
     const buyerUsers = buyers.filter((user) => user.isBuyer);
@@ -231,6 +246,12 @@ export async function notifyNewRequest(
 export async function notifyApprovalA1(
   purchaseRequest: PurchaseRequest,
 ): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de aprovação A1 para solicitação ${purchaseRequest.requestNumber} não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
   try {
     const approvers = await storage.getAllUsers();
     let approverA1Users = approvers.filter((user) => user.isApproverA1);
@@ -299,6 +320,12 @@ export async function notifyApprovalA1(
 export async function notifyApprovalA2(
   purchaseRequest: PurchaseRequest,
 ): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de aprovação A2 para solicitação ${purchaseRequest.requestNumber} não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
   try {
     const approvers = await storage.getAllUsers();
     const approverA2Users = approvers.filter((user) => user.isApproverA2);
@@ -553,6 +580,12 @@ export async function notifyRejection(
   rejectionReason: string,
   approverLevel: "A1" | "A2",
 ): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de rejeição ${approverLevel} para solicitação ${purchaseRequest.requestNumber} não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
   try {
     // Get requester details
     let requester = null;
@@ -659,6 +692,12 @@ export async function sendPasswordResetEmail(
   user: User,
   resetToken: string,
 ): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] E-mail de recuperação de senha para ${user.email} não foi enviado - envio de e-mails desabilitado`);
+    throw new Error("Envio de e-mails está desabilitado globalmente");
+  }
+
   const transporter = createTransporter();
 
   const resetUrl = `${config.baseUrl}/reset-password?token=${resetToken}`;
@@ -752,6 +791,12 @@ function generatePasswordResetEmailHTML(user: User, resetUrl: string): string {
 }
 
 export async function testEmailConfiguration(): Promise<boolean> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log('📧 [EMAIL DISABLED] Teste de configuração de e-mail não executado - envio de e-mails desabilitado');
+    return false;
+  }
+
   try {
     const transporter = createTransporter();
     await transporter.verify();

@@ -9,6 +9,7 @@ import {
   notifyRejection,
   testEmailConfiguration,
 } from "./email-service";
+import { isEmailEnabled } from "./config";
 import { invalidateCache } from "./cache";
 import { PDFService } from "./pdf-service";
 import bcrypt from "bcryptjs";
@@ -6252,8 +6253,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ message: "Purchase request not found" });
         }
 
+        // Verificar se o envio de e-mails está habilitado
+        if (!isEmailEnabled()) {
+          console.log(`📧 [EMAIL DISABLED] Tentativa de envio de e-mail de conclusão para solicitação ${request.requestNumber} foi bloqueada - envio de e-mails desabilitado`);
+          return res.status(503).json({ 
+            message: "Serviço de envio de e-mails temporariamente indisponível. Entre em contato com o administrador do sistema." 
+          });
+        }
+
         // Here you would implement the email sending logic
         // For now, return success response
+        console.log(`📧 [EMAIL ENABLED] Enviando e-mail de conclusão para solicitação ${request.requestNumber}`);
         res.json({ message: "Conclusion email sent successfully" });
       } catch (error) {
         console.error("Error sending conclusion email:", error);

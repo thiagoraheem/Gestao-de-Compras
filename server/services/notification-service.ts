@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { users, quotations, quotationVersionHistory, purchaseRequests } from '../../shared/schema';
 import { eq, and, inArray } from 'drizzle-orm';
+import { isEmailEnabled } from '../config';
 
 export interface NotificationData {
   type: 'quantity_change' | 'version_update' | 'deadline_change' | 'approval_required' | 'critical_change';
@@ -288,8 +289,13 @@ export class NotificationServiceImpl implements NotificationService {
       // Store in database (implement notification table)
       // await this.storeNotification(data);
       
-      // Send email notifications
-      // await this.sendEmailNotifications(data);
+      // Send email notifications - verificar se está habilitado
+      if (isEmailEnabled()) {
+        // await this.sendEmailNotifications(data);
+        console.log(`📧 [EMAIL ENABLED] Notificações por e-mail seriam enviadas para ${data.recipients.length} destinatários`);
+      } else {
+        console.log(`📧 [EMAIL DISABLED] Notificações por e-mail para cotação ${data.quotationId} não foram enviadas - envio de e-mails desabilitado`);
+      }
       
       // Send in-app notifications
       // await this.sendInAppNotifications(data);
