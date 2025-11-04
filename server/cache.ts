@@ -1,3 +1,6 @@
+import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "@shared/realtime-events";
+import { realtime } from "./realtime";
+
 // Simple in-memory cache with TTL (Time To Live)
 interface CacheEntry {
   data: any;
@@ -49,11 +52,11 @@ class SimpleCache {
   // Remove expired entries
   private cleanup(): void {
     const now = Date.now();
-    for (const [key, entry] of this.cache.entries()) {
+    this.cache.forEach((entry, key) => {
       if (now - entry.timestamp > entry.ttl) {
         this.cache.delete(key);
       }
-    }
+    });
   }
 
   // Get cache statistics
@@ -67,12 +70,12 @@ class SimpleCache {
   // Invalidate cache entries by pattern
   invalidatePattern(pattern: string): number {
     let count = 0;
-    for (const key of this.cache.keys()) {
+    this.cache.forEach((_entry, key) => {
       if (key.includes(pattern)) {
         this.cache.delete(key);
         count++;
       }
-    }
+    });
     return count;
   }
 
@@ -163,5 +166,11 @@ export function invalidateCache(patterns: string[]): void {
   patterns.forEach(pattern => {
     const count = apiCache.invalidatePattern(pattern);
     // Cache invalidation completed
+    if (pattern.includes("/api/purchase-requests") && count > 0) {
+      realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+        event: PURCHASE_REQUEST_EVENTS.UPDATED,
+        payload: { reason: "cache-invalidation" },
+      });
+    }
   });
 }

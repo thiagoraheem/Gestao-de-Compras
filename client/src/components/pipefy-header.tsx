@@ -31,11 +31,42 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useState } from "react";
+import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
+import type { RealtimeStatus } from "@/lib/realtimeClient";
+
+const REALTIME_STATUS_STYLES: Record<RealtimeStatus, {
+  label: string;
+  dotClass: string;
+  textClass: string;
+}> = {
+  connecting: {
+    label: "Conectando...",
+    dotClass: "bg-blue-500 animate-pulse",
+    textClass: "text-blue-600",
+  },
+  connected: {
+    label: "Tempo real ativo",
+    dotClass: "bg-emerald-500 animate-pulse",
+    textClass: "text-emerald-600",
+  },
+  reconnecting: {
+    label: "Reconectando...",
+    dotClass: "bg-amber-500 animate-pulse",
+    textClass: "text-amber-600",
+  },
+  offline: {
+    label: "Tempo real indisponível",
+    dotClass: "bg-red-500",
+    textClass: "text-red-600",
+  },
+};
 
 export default function PipefyHeader() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const realtimeStatus = useRealtimeStatus();
+  const statusStyle = REALTIME_STATUS_STYLES[realtimeStatus];
 
   const getNavigation = () => {
     const baseNavigation = [
@@ -156,6 +187,23 @@ export default function PipefyHeader() {
 
         {/* Right Side - User Menu Desktop + Mobile Menu Button */}
         <div className="flex items-center space-x-2">
+          <div className="hidden md:flex items-center pr-4">
+            <span
+              className={cn(
+                "h-2.5 w-2.5 rounded-full",
+                statusStyle.dotClass,
+              )}
+            />
+            <span
+              className={cn(
+                "ml-2 text-xs font-medium",
+                statusStyle.textClass,
+              )}
+            >
+              {statusStyle.label}
+            </span>
+          </div>
+
           {/* User Menu Desktop */}
           <div className="hidden md:flex items-center">
             <DropdownMenu>
@@ -235,6 +283,22 @@ export default function PipefyHeader() {
             {/* Campo de Pesquisa Mobile */}
             <div className="px-2 py-2">
               <GlobalSearch />
+            </div>
+            <div className="flex items-center space-x-2 px-3 py-2">
+              <span
+                className={cn(
+                  "h-2.5 w-2.5 rounded-full",
+                  statusStyle.dotClass,
+                )}
+              />
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  statusStyle.textClass,
+                )}
+              >
+                {statusStyle.label}
+              </span>
             </div>
             {navigation.map((item) => {
               const Icon = item.icon;
