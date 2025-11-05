@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Plus, Edit, Search, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -351,7 +353,8 @@ export default function SuppliersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[180px]">Nome</TableHead>
+                  <TableHead className="min-w-[80px] text-center">ERP</TableHead>
+                  <TableHead className="min-w-[250px]">Nome</TableHead>
                   <TableHead className="min-w-[140px]">Tipo</TableHead>
                   <TableHead className="min-w-[160px]">CNPJ</TableHead>
                   <TableHead className="min-w-[160px]">Contato</TableHead>
@@ -364,13 +367,32 @@ export default function SuppliersPage() {
               <TableBody>
                 {filteredSuppliers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       {searchTerm ? "Nenhum fornecedor corresponde à busca" : "Nenhum fornecedor encontrado"}
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredSuppliers.map((supplier) => (
                     <TableRow key={supplier.id}>
+                      <TableCell className="text-center">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="inline-flex items-center justify-center">
+                              <Checkbox
+                                checked={supplier.idSupplierERP != null}
+                                disabled
+                                className={supplier.idSupplierERP != null
+                                  ? "border-green-600 data-[state=checked]:bg-green-600 data-[state=checked]:text-white"
+                                  : "border-gray-400"}
+                                aria-label={supplier.idSupplierERP != null ? "Integrado com ERP" : "Não integrado com ERP"}
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {supplier.idSupplierERP != null ? "Integrado com ERP" : "Não integrado com ERP"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableCell>
                       <TableCell className="font-medium whitespace-normal break-words">{supplier.name}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         {(() => {
