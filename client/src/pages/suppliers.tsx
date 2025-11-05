@@ -16,29 +16,48 @@ import { Plus, Edit } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminOrBuyerRoute from "@/components/admin-or-buyer-route";
+import { CPFInput } from "@/components/cpf-input";
+import { CNPJInput } from "@/components/cnpj-input";
 
-const supplierSchema = z.object({
-  name: z.string().min(1, "Nome é obrigatório"),
-  type: z.number().default(0),
-  cnpj: z.string().optional(),
-  contact: z.string().optional(),
-  email: z.string().optional(),
-  phone: z.string().optional(),
-  website: z.string().optional(),
-  address: z.string().optional(),
-  paymentTerms: z.string().optional(),
-}).refine((data) => {
-  if (data.type === 0) {
-    // Tipo 0 (Tradicional): CNPJ, Contato, Email e Telefone são obrigatórios
-    return data.cnpj && data.contact && data.email && data.phone;
-  } else if (data.type === 1) {
-    // Tipo 1 (Online): Website é obrigatório
-    return data.website;
-  }
-  return true;
-}, {
-  message: "Campos obrigatórios não preenchidos para o tipo de fornecedor selecionado",
-});
+const supplierSchema = z
+  .object({
+    name: z.string().min(1, "Nome é obrigatório"),
+    type: z.number().default(0),
+    cnpj: z.string().optional(),
+    cpf: z.string().optional(),
+    contact: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    website: z.string().optional(),
+    address: z.string().optional(),
+    paymentTerms: z.string().optional(),
+    idSupplierERP: z
+      .union([z.string(), z.number(), z.null()])
+      .optional()
+      .transform((val) => {
+        if (val === null || val === undefined || val === "") return null;
+        return typeof val === "string" ? parseInt(val, 10) : val;
+      }),
+  })
+  .refine(
+    (data) => {
+      if (data.type === 0) {
+        // Pessoa Jurídica: CNPJ, Contato, Email e Telefone obrigatórios
+        return data.cnpj && data.contact && data.email && data.phone;
+      } else if (data.type === 1) {
+        // Online: Website obrigatório
+        return !!data.website;
+      } else if (data.type === 2) {
+        // Pessoa Física: CPF, Contato, Email e Telefone obrigatórios
+        return data.cpf && data.contact && data.email && data.phone;
+      }
+      return true;
+    },
+    {
+      message:
+        "Campos obrigatórios não preenchidos para o tipo de fornecedor selecionado",
+    },
+  );
 
 type SupplierFormData = z.infer<typeof supplierSchema>;
 
@@ -58,12 +77,14 @@ export default function SuppliersPage() {
       name: "",
       type: 0,
       cnpj: "",
+      cpf: "",
       contact: "",
       email: "",
       phone: "",
       website: "",
       address: "",
       paymentTerms: "",
+      idSupplierERP: null,
     },
   });
 
@@ -79,20 +100,23 @@ export default function SuppliersPage() {
       name: supplier.name || "",
       type: supplier.type || 0,
       cnpj: supplier.cnpj || "",
+      cpf: supplier.cpf || "",
       contact: supplier.contact || "",
       email: supplier.email || "",
       phone: supplier.phone || "",
       website: supplier.website || "",
       address: supplier.address || "",
       paymentTerms: supplier.paymentTerms || "",
+      idSupplierERP: supplier.idSupplierERP ?? null,
     });
     setIsModalOpen(true);
   };
 
-  // Check for URL parameters to auto-open supplier edit modal
+  // Check for URL parameters to auto-open supplier modal (new or edit)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const editSupplierId = urlParams.get("edit");
+    const createNew = urlParams.get("new");
 
     if (editSupplierId && suppliers.length > 0) {
       const supplierToEdit = suppliers.find(
@@ -105,6 +129,27 @@ export default function SuppliersPage() {
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
       }
+    }
+
+    if (createNew === "1") {
+      // Garantir formulário limpo ao abrir via parâmetro de URL
+      setEditingSupplier(null);
+      form.reset({
+        name: "",
+        type: 0,
+        cnpj: "",
+        cpf: "",
+        contact: "",
+        email: "",
+        phone: "",
+        website: "",
+        address: "",
+        paymentTerms: "",
+        idSupplierERP: null,
+      });
+      setIsModalOpen(true);
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
     }
   }, [suppliers]);
 
@@ -200,7 +245,26 @@ export default function SuppliersPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Fornecedores</CardTitle>
-            <Button onClick={() => setIsModalOpen(true)}>
+            <Button
+              onClick={() => {
+                // Entrar em modo criação com formulário limpo
+                setEditingSupplier(null);
+                form.reset({
+                  name: "",
+                  type: 0,
+                  cnpj: "",
+                  cpf: "",
+                  contact: "",
+                  email: "",
+                  phone: "",
+                  website: "",
+                  address: "",
+                  paymentTerms: "",
+                  idSupplierERP: null,
+                });
+                setIsModalOpen(true);
+              }}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Novo Fornecedor
             </Button>
@@ -214,17 +278,18 @@ export default function SuppliersPage() {
               <Skeleton className="h-12 w-full" />
             </div>
           ) : (
+            <div className="relative overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>CNPJ</TableHead>
-                  <TableHead>Contato</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Website</TableHead>
-                  <TableHead>Ações</TableHead>
+                  <TableHead className="min-w-[180px]">Nome</TableHead>
+                  <TableHead className="min-w-[140px]">Tipo</TableHead>
+                  <TableHead className="min-w-[160px]">CNPJ</TableHead>
+                  <TableHead className="min-w-[160px]">Contato</TableHead>
+                  <TableHead className="min-w-[220px]">Email</TableHead>
+                  <TableHead className="min-w-[140px]">Telefone</TableHead>
+                  <TableHead className="min-w-[200px]">Website</TableHead>
+                  <TableHead className="sticky right-0 bg-white z-10 border-l min-w-[80px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -237,21 +302,27 @@ export default function SuppliersPage() {
                 ) : (
                   suppliers.map((supplier) => (
                     <TableRow key={supplier.id}>
-                      <TableCell className="font-medium">{supplier.name}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          supplier.type === 1 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {supplier.type === 1 ? 'Online' : 'Tradicional'}
-                        </span>
+                      <TableCell className="font-medium whitespace-normal break-words">{supplier.name}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {(() => {
+                          const map = {
+                            0: { label: 'Pessoa Jurídica', classes: 'bg-blue-100 text-blue-800' },
+                            1: { label: 'Online', classes: 'bg-green-100 text-green-800' },
+                            2: { label: 'Pessoa Física', classes: 'bg-purple-100 text-purple-800' },
+                          } as const;
+                          const m = map[(supplier.type ?? 0) as 0 | 1 | 2] || map[0];
+                          return (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${m.classes}`}>
+                              {m.label}
+                            </span>
+                          );
+                        })()}
                       </TableCell>
-                      <TableCell>{supplier.cnpj || "Não informado"}</TableCell>
-                      <TableCell>{supplier.contact || "Não informado"}</TableCell>
-                      <TableCell>{supplier.email || "Não informado"}</TableCell>
-                      <TableCell>{supplier.phone || "Não informado"}</TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-normal break-words">{supplier.cnpj || "Não informado"}</TableCell>
+                      <TableCell className="whitespace-normal break-words">{supplier.contact || "Não informado"}</TableCell>
+                      <TableCell className="whitespace-normal break-words max-w-[280px]">{supplier.email || "Não informado"}</TableCell>
+                      <TableCell className="whitespace-normal break-words">{supplier.phone || "Não informado"}</TableCell>
+                      <TableCell className="whitespace-normal break-words max-w-[280px]">
                         {supplier.website ? (
                           <a 
                             href={supplier.website} 
@@ -265,7 +336,7 @@ export default function SuppliersPage() {
                           "Não informado"
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="sticky right-0 bg-white z-10 border-l">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -279,6 +350,7 @@ export default function SuppliersPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -321,7 +393,8 @@ export default function SuppliersPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="0">Tradicional</SelectItem>
+                        <SelectItem value="0">Pessoa Jurídica</SelectItem>
+                        <SelectItem value="2">Pessoa Física</SelectItem>
                         <SelectItem value="1">Online</SelectItem>
                       </SelectContent>
                     </Select>
@@ -330,19 +403,35 @@ export default function SuppliersPage() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="cnpj"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>CNPJ{form.watch("type") === 0 ? " *" : ""}</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {form.watch("type") === 0 && (
+                <FormField
+                  control={form.control}
+                  name="cnpj"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <CNPJInput value={field.value || ""} onChange={field.onChange} required />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {form.watch("type") === 2 && (
+                <FormField
+                  control={form.control}
+                  name="cpf"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <CPFInput value={field.value || ""} onChange={field.onChange} required />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
@@ -394,6 +483,34 @@ export default function SuppliersPage() {
                     <FormLabel>Website do Fornecedor{form.watch("type") === 1 ? " *" : ""}</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="https://exemplo.com" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="idSupplierERP"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center justify-between">
+                      <span>ID Fornecedor ERP</span>
+                      {field.value ? (
+                        <span className="text-xs text-green-600">
+                          Vinculado ao ERP (ID: {field.value})
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Não vinculado ao ERP</span>
+                      )}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        value={field.value?.toString() || ""}
+                        readOnly
+                        disabled
+                        placeholder="Não editável"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

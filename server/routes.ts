@@ -834,11 +834,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const supplierData = insertSupplierSchema.parse(req.body);
+
+        // Validar CNPJ se for fornecedor Pessoa Jurídica (type 0)
+        if (supplierData.type === 0 && supplierData.cnpj) {
+          const { validateCNPJ } = await import("./cnpj-validator");
+          if (!validateCNPJ(supplierData.cnpj)) {
+            return res.status(400).json({ message: "CNPJ inválido" });
+          }
+        }
+
+        // Validar CPF se for fornecedor Pessoa Física (type 2)
+        if (supplierData.type === 2 && supplierData.cpf) {
+          const { validateCPF } = await import("./cpf-validator");
+          if (!validateCPF(supplierData.cpf)) {
+            return res.status(400).json({ message: "CPF inválido" });
+          }
+        }
+
         const supplier = await storage.createSupplier(supplierData);
         res.status(201).json(supplier);
       } catch (error) {
         console.error("Error creating supplier:", error);
-        res.status(400).json({ message: "Invalid supplier data" });
+        if (
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === "23505"
+        ) {
+          res
+            .status(400)
+            .json({ message: "CNPJ ou CPF já está sendo usado por outro fornecedor" });
+        } else {
+          res.status(400).json({ message: "Erro ao criar fornecedor" });
+        }
       }
     },
   );
@@ -852,11 +880,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const id = parseInt(req.params.id);
         const supplierData = updateSupplierSchema.parse(req.body);
 
-        // Validar CNPJ se fornecido
-        if (supplierData.cnpj) {
+        // Validar CNPJ se for fornecedor Pessoa Jurídica (type 0)
+        if (supplierData.type === 0 && supplierData.cnpj) {
           const { validateCNPJ } = await import("./cnpj-validator");
           if (!validateCNPJ(supplierData.cnpj)) {
             return res.status(400).json({ message: "CNPJ inválido" });
+          }
+        }
+
+        // Validar CPF se for fornecedor Pessoa Física (type 2)
+        if (supplierData.type === 2 && supplierData.cpf) {
+          const { validateCPF } = await import("./cpf-validator");
+          if (!validateCPF(supplierData.cpf)) {
+            return res.status(400).json({ message: "CPF inválido" });
           }
         }
 
@@ -872,7 +908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ) {
           res
             .status(400)
-            .json({ message: "CNPJ já está sendo usado por outro fornecedor" });
+            .json({ message: "CNPJ ou CPF já está sendo usado por outro fornecedor" });
         } else {
           res.status(400).json({ message: "Erro ao atualizar fornecedor" });
         }

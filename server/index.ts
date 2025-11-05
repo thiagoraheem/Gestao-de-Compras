@@ -2,6 +2,10 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { createCacheMiddleware } from "./cache";
+import dotenv from "dotenv";
+
+// Load environment variables from .env and override existing ones
+dotenv.config({ override: true });
 
 const app = express();
 app.use(express.json());
@@ -127,11 +131,11 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use PORT from environment variables, fallback to 5000 if not set
+  // Use PORT from environment variables, fallback to 3000 if not set
   // this serves both the API and the client.
   const port = process.env.PORT 
     ? parseInt(process.env.PORT, 10) 
-    : 5000;
+    : 3000;
   server.listen({
     port,
     host: "0.0.0.0",

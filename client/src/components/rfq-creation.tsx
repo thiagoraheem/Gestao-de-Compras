@@ -34,7 +34,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
-import SupplierCreationModal from "./supplier-creation-modal";
+// supplier-creation-modal removido; cadastro será feito na página de fornecedores
 import { SupplierSelector } from "./supplier-selector";
 import { UnitSelect } from "./unit-select";
 import { useUnits } from "@/hooks/useUnits";
@@ -75,7 +75,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
   const queryClient = useQueryClient();
   const { processERPUnit } = useUnits();
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [showSupplierCreationModal, setShowSupplierCreationModal] = useState(false);
+  // Removido estado de modal de fornecedor
 
   const { data: suppliers = [] } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
@@ -795,7 +795,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                     type="button" 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setShowSupplierCreationModal(true)}
+                    onClick={() => {
+                      window.open('/suppliers?new=1', '_blank');
+                    }}
                     className="flex items-center gap-2"
                   >
                     <UserPlus className="h-4 w-4" />
@@ -876,23 +878,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       </div>
     </div>
     
-    {/* Supplier Creation Modal */}
-    <SupplierCreationModal
-      isOpen={showSupplierCreationModal}
-      onClose={() => setShowSupplierCreationModal(false)}
-      onSuccess={(newSupplier) => {
-        // Invalidate and refetch suppliers to ensure the list is updated
-        queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
-        
-        // Automatically select the newly created supplier
-        const currentSelected = form.getValues("selectedSuppliers");
-        form.setValue("selectedSuppliers", [...currentSelected, newSupplier.id]);
-        toast({
-          title: "Fornecedor criado",
-          description: `${newSupplier.name} foi criado e selecionado automaticamente para cotação.`,
-        });
-      }}
-    />
+    {/* Cadastro de fornecedor agora abre em /suppliers em nova aba */}
     </>
   );
 }

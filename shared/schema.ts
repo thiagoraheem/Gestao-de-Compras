@@ -89,8 +89,9 @@ export const userCostCenters = pgTable("user_cost_centers", {
 export const suppliers = pgTable("suppliers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  type: integer("type").notNull().default(0), // 0: Traditional, 1: Online
+  type: integer("type").notNull().default(0), // 0: Pessoa Jurídica, 1: Online, 2: Pessoa Física
   cnpj: text("cnpj"),
+  cpf: text("cpf"), // Novo campo para Pessoa Física
   contact: text("contact"),
   email: text("email"),
   phone: text("phone"),
@@ -99,6 +100,7 @@ export const suppliers = pgTable("suppliers", {
   paymentTerms: text("payment_terms"),
   productsServices: text("products_services"),
   companyId: integer("company_id").references(() => companies.id),
+  idSupplierERP: integer("idsuppliererp").default(null), // Corrigido para lowercase conforme Postgres
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -774,7 +776,7 @@ export const insertSupplierSchema = createInsertSchema(suppliers).omit({
   id: true,
   createdAt: true,
 }).refine((data) => {
-  // Type 0 (Traditional): CNPJ, Contact, Email, Phone are required
+  // Type 0 (Pessoa Jurídica): CNPJ, Contact, Email, Phone are required
   if (data.type === 0) {
     return data.cnpj && data.contact && data.email && data.phone;
   }
@@ -782,9 +784,13 @@ export const insertSupplierSchema = createInsertSchema(suppliers).omit({
   if (data.type === 1) {
     return data.website;
   }
+  // Type 2 (Pessoa Física): CPF, Contact, Email, Phone are required
+  if (data.type === 2) {
+    return data.cpf && data.contact && data.email && data.phone;
+  }
   return true;
 }, {
-  message: "Para fornecedores tradicionais (Tipo 0): CNPJ, Contato, E-mail e Telefone são obrigatórios. Para fornecedores online (Tipo 1): Site é obrigatório.",
+  message: "Para fornecedores Pessoa Jurídica (Tipo 0): CNPJ, Contato, E-mail e Telefone são obrigatórios. Para fornecedores Online (Tipo 1): Site é obrigatório. Para fornecedores Pessoa Física (Tipo 2): CPF, Contato, E-mail e Telefone são obrigatórios.",
   path: ["type"],
 });
 
