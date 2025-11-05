@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit } from "lucide-react";
+import { Plus, Edit, Search, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminOrBuyerRoute from "@/components/admin-or-buyer-route";
@@ -64,6 +64,8 @@ type SupplierFormData = z.infer<typeof supplierSchema>;
 export default function SuppliersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedTerm, setDebouncedTerm] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -238,6 +240,46 @@ export default function SuppliersPage() {
     createSupplierMutation.mutate(data);
   };
 
+  // Debounce da busca para performance
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedTerm(searchTerm), 200);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  // Filtragem e ordenação por nome (A-Z)
+  const filteredSuppliers = useMemo(() => {
+    const collator = new Intl.Collator("pt", { sensitivity: "base", numeric: true });
+    const source = Array.isArray(suppliers) ? suppliers : [];
+
+    const term = debouncedTerm?.toLowerCase() ?? "";
+    const list = term
+      ? source.filter((s: any) => {
+          const fields = [
+            s.name,
+            s.cnpj,
+            s.cpf,
+            s.contact,
+            s.email,
+            s.phone,
+            s.website,
+            s.address,
+          ];
+          return fields.some((v: any) =>
+            typeof v === "string" ? v.toLowerCase().includes(term) : false
+          );
+        })
+      : [...source];
+
+    // Ordena por nome ascendente, preservando ordem estável quando nomes forem iguais
+    return list
+      .map((s: any, i: number) => ({ s, i }))
+      .sort((a: any, b: any) => {
+        const cmp = collator.compare(a.s?.name ?? "", b.s?.name ?? "");
+        return cmp !== 0 ? cmp : a.i - b.i;
+      })
+      .map(({ s }: any) => s);
+  }, [suppliers, debouncedTerm]);
+
   return (
     <AdminOrBuyerRoute>
       <div className="max-w-7xl mx-auto p-6">
@@ -278,6 +320,33 @@ export default function SuppliersPage() {
               <Skeleton className="h-12 w-full" />
             </div>
           ) : (
+            <>
+            {/* Barra de busca acima do grid */}
+            <div className="mb-4 flex items-center">
+              <div className="relative w-full sm:w-1/2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por nome, CNPJ, contato, email, telefone, website, endereço"
+                  className="pl-9 pr-9"
+                  aria-label="Buscar fornecedores"
+                />
+                {searchTerm && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2"
+                    onClick={() => setSearchTerm("")}
+                    aria-label="Limpar busca"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <div className="relative overflow-x-auto">
             <Table>
               <TableHeader>
@@ -293,14 +362,14 @@ export default function SuppliersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {suppliers.length === 0 ? (
+                {filteredSuppliers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8">
-                      Nenhum fornecedor encontrado
+                      {searchTerm ? "Nenhum fornecedor corresponde à busca" : "Nenhum fornecedor encontrado"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  suppliers.map((supplier) => (
+                  filteredSuppliers.map((supplier) => (
                     <TableRow key={supplier.id}>
                       <TableCell className="font-medium whitespace-normal break-words">{supplier.name}</TableCell>
                       <TableCell className="whitespace-nowrap">
@@ -351,6 +420,7 @@ export default function SuppliersPage() {
               </TableBody>
             </Table>
             </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -511,20 +581,6 @@ export default function SuppliersPage() {
                         disabled
                         placeholder="Não editável"
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Endereço</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
