@@ -29,8 +29,17 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true, // ou true se quiser permitir todos os hosts
   };
 
+  // Resolve a configuração do Vite: o arquivo vite.config.ts exporta uma função (defineConfig)
+  // que depende do modo. Precisamos invocá-la para obter o objeto de configuração.
+  const mode = process.env.NODE_ENV || "development";
+  const resolvedConfig = typeof viteConfig === "function"
+    // @ts-expect-error - viteConfig pode ser função; invocamos com objeto contendo 'mode'
+    ? viteConfig({ mode })
+    : viteConfig;
+
   const vite = await createViteServer({
-    ...viteConfig,
+    // Usa a configuração resolvida do projeto (inclui root=client, aliases e define)
+    ...(resolvedConfig as any),
     configFile: false,
     customLogger: {
       ...viteLogger,

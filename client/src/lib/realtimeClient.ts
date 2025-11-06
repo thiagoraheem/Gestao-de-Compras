@@ -62,10 +62,22 @@ export class RealtimeClient {
     }
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const configuredUrl = (import.meta as any).env?.VITE_WEBSOCKET_URL as string | undefined;
+    const configuredUrl = import.meta.env.VITE_WEBSOCKET_URL as string | undefined;
     const url = configuredUrl && configuredUrl.trim().length > 0
       ? configuredUrl
       : `${protocol}://${window.location.host}/ws`;
+
+    // Debug logs to help diagnose connection target in production
+    const logEnv = import.meta.env ?? {} as any;
+    try {
+      // eslint-disable-next-line no-console
+      console.info('[RealtimeClient] Attempting WS connect', {
+        VITE_WEBSOCKET_URL: logEnv.VITE_WEBSOCKET_URL,
+        resolvedUrl: url,
+        host: window.location.host,
+        protocol,
+      });
+    } catch {}
 
     try {
       this.socket = new WebSocket(url);
@@ -90,7 +102,11 @@ export class RealtimeClient {
       this.handleMessage(event.data);
     });
 
-    this.socket.addEventListener("close", () => {
+    this.socket.addEventListener("close", (ev) => {
+      try {
+        // eslint-disable-next-line no-console
+        console.warn('[RealtimeClient] WS closed', { code: ev.code, reason: ev.reason });
+      } catch {}
       this.socket = null;
       if (this.shouldRemainConnected()) {
         this.scheduleReconnect();
@@ -99,7 +115,11 @@ export class RealtimeClient {
       }
     });
 
-    this.socket.addEventListener("error", () => {
+    this.socket.addEventListener("error", (err) => {
+      try {
+        // eslint-disable-next-line no-console
+        console.error('[RealtimeClient] WS error', err);
+      } catch {}
       this.updateStatus("reconnecting");
       this.socket?.close();
     });
