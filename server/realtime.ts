@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { Server as HttpServer } from "http";
+import type { Server as HttpServer, IncomingMessage, AddressInfo } from "http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { REALTIME_CHANNELS } from "@shared/realtime-events";
 
@@ -31,9 +31,55 @@ class RealtimeService {
       return;
     }
 
-    this.wss = new WebSocketServer({ server, path: "/ws" });
+    const wsPath = "/ws";
+    this.wss = new WebSocketServer({ server, path: wsPath });
 
-    this.wss.on("connection", (socket) => {
+    // Log initial configuration
+    const envPort = process.env.PORT || "3000";
+    const envWsUrl = process.env.WEBSOCKET_URL;
+    console.info(
+      `[Realtime] Initializing WebSocketServer at path: ${wsPath} (env PORT=${envPort})`
+    );
+    if (envWsUrl) {
+      console.info(`[Realtime] WEBSOCKET_URL is set: ${envWsUrl}`);
+    } else {
+      console.info(
+        `[Realtime] WEBSOCKET_URL not set. Clients will use host fallback: ws(s)://<host>/ws`
+      );
+    }
+
+    // Log when HTTP server is listening with its bound address
+    const logServerAddress = () => {
+      const addr = server.address() as string | AddressInfo | null;
+      if (addr && typeof addr !== "string") {
+        console.info(
+          `[Realtime] HTTP server listening: ${addr.address}:${addr.port}`
+        );
+        console.info(
+          `[Realtime] Suggested WS endpoint: ${envWsUrl ?? `ws://${addr.address}:${addr.port}${wsPath}`}`
+        );
+      } else if (typeof addr === "string") {
+        console.info(`[Realtime] HTTP server listening on: ${addr}`);
+      } else {
+        console.info(`[Realtime] HTTP server not listening yet (address unavailable).`);
+      }
+    };
+
+    // If already listening, log now; otherwise wait for listening event
+    if (server.listening) {
+      logServerAddress();
+    } else {
+      server.once("listening", logServerAddress);
+    }
+
+    // Log incoming upgrade requests
+    server.on("upgrade", (req) => {
+      console.info(
+        `[Realtime] HTTP upgrade request: url=${req.url} connection=${req.headers["connection"]} upgrade=${req.headers["upgrade"]}`
+      );
+    });
+
+    this.wss.on("connection", (socket, req: IncomingMessage) => {
       const clientId = randomUUID();
       const connection: ClientConnection = {
         id: clientId,
@@ -44,12 +90,18 @@ class RealtimeService {
 
       this.clients.set(clientId, connection);
 
+      const remote = req?.socket?.remoteAddress ?? "unknown";
+      console.info(
+        `[Realtime] Client connected: id=${clientId} from=${remote} path=${req?.url}`
+      );
+
       socket.on("message", (raw) => {
         this.handleMessage(connection, raw.toString());
       });
 
       socket.on("close", () => {
         this.clients.delete(clientId);
+        console.info(`[Realtime] Client disconnected: id=${clientId}`);
       });
 
       socket.on("pong", () => {
@@ -72,6 +124,7 @@ class RealtimeService {
       }
       this.clients.clear();
       this.wss = null;
+      console.info(`[Realtime] WebSocketServer closed at path: ${wsPath}`);
     });
   }
 
