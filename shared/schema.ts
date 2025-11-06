@@ -895,7 +895,13 @@ export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuot
   observations: z.string().optional().nullable(),
   originalTotalPrice: z.string().optional().nullable().transform((val) => val || null),
   discountedTotalPrice: z.string().optional().nullable().transform((val) => val || null),
-  availableQuantity: z.string().optional().nullable().transform((val) => val || null),
+  availableQuantity: z.union([z.string(), z.number(), z.undefined(), z.null()])
+    .optional()
+    .nullable()
+    .transform((val) => {
+      if (val === null || val === undefined || val === '') return null;
+      return typeof val === 'string' ? val : val.toString();
+    }),
   fulfillmentPercentage: z.string().optional().nullable().transform((val) => val || null),
 });
 
