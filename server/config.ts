@@ -29,7 +29,10 @@ export const config = {
   erp: {
     baseUrl: process.env.BASE_API_URL || "http://54.232.194.197:5001/api",
     productsEndpoint: "/Produtos",
+    suppliersEndpoint: "/Fornecedor",
+    suppliersCountEndpoint: "/Fornecedor/GetCount",
     timeout: 10000, // 10 seconds timeout
+    supplierPageSize: parseInt(process.env.ERP_SUPPLIER_PAGE_SIZE || "200", 10),
     enabled: process.env.ERP_INTEGRATION_ENABLED === "true" || false,
   }
 };

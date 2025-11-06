@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { supplierIntegrationService } from "./services/supplier-integration";
 import {
   sendRFQToSuppliers,
   notifyNewRequest,
@@ -912,6 +913,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           res.status(400).json({ message: "Erro ao atualizar fornecedor" });
         }
+      }
+    },
+  );
+
+  app.post(
+    "/api/suppliers/integration/start",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      const user = req.session.user;
+      if (!user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      try {
+        const { search, limit } = req.body ?? {};
+        const numericLimit =
+          typeof limit === "number"
+            ? limit
+            : typeof limit === "string" && limit.trim()
+            ? parseInt(limit, 10)
+            : undefined;
+
+        const result = await supplierIntegrationService.startIntegration({
+          userId: user.id,
+          search: typeof search === "string" && search.trim().length > 0 ? search : undefined,
+          limit:
+            typeof numericLimit === "number" && Number.isFinite(numericLimit) && numericLimit > 0
+              ? Math.min(numericLimit, 1000)
+              : undefined,
+        });
+
+        res.json(result);
+      } catch (error) {
+        console.error("Error starting supplier integration:", error);
+        res.status(500).json({
+          message:
+            error instanceof Error
+              ? error.message
+              : "Erro ao iniciar integração de fornecedores",
+        });
+      }
+    },
+  );
+
+  app.get(
+    "/api/suppliers/integration/runs",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      try {
+        const limit = req.query.limit
+          ? Math.min(
+              100,
+              Math.max(1, parseInt(String(req.query.limit), 10) || 20),
+            )
+          : 20;
+        const runs = await supplierIntegrationService.listHistory(limit);
+        res.json(runs);
+      } catch (error) {
+        console.error("Error fetching supplier integration history:", error);
+        res.status(500).json({
+          message:
+            error instanceof Error
+              ? error.message
+              : "Erro ao buscar histórico de integrações de fornecedores",
+        });
+      }
+    },
+  );
+
+  app.get(
+    "/api/suppliers/integration/runs/:id",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      try {
+        const runId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(runId)) {
+          return res.status(400).json({ message: "Identificador da integração inválido" });
+        }
+        const run = await supplierIntegrationService.getRunDetails(runId);
+        res.json(run);
+      } catch (error) {
+        console.error("Error fetching supplier integration run:", error);
+        res.status(500).json({
+          message:
+            error instanceof Error
+              ? error.message
+              : "Erro ao buscar dados da integração de fornecedores",
+        });
+      }
+    },
+  );
+
+  app.post(
+    "/api/suppliers/integration/runs/:id/apply",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      const user = req.session.user;
+      if (!user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      try {
+        const runId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(runId)) {
+          return res.status(400).json({ message: "Identificador da integração inválido" });
+        }
+
+        const rawItemIds = Array.isArray(req.body?.itemIds)
+          ? req.body.itemIds
+          : undefined;
+        const itemIds = rawItemIds
+          ?.map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value > 0);
+
+        const result = await supplierIntegrationService.applyIntegration({
+          runId,
+          userId: user.id,
+          itemIds: itemIds && itemIds.length > 0 ? itemIds : undefined,
+        });
+
+        res.json(result);
+      } catch (error) {
+        console.error("Error applying supplier integration:", error);
+        res.status(400).json({
+          message:
+            error instanceof Error
+              ? error.message
+              : "Erro ao aplicar integração de fornecedores",
+        });
+      }
+    },
+  );
+
+  app.post(
+    "/api/suppliers/integration/runs/:id/cancel",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      const user = req.session.user;
+      if (!user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      try {
+        const runId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(runId)) {
+          return res.status(400).json({ message: "Identificador da integração inválido" });
+        }
+
+        const result = await supplierIntegrationService.cancelIntegration({
+          runId,
+          userId: user.id,
+        });
+
+        res.json(result);
+      } catch (error) {
+        console.error("Error cancelling supplier integration:", error);
+        res.status(400).json({
+          message:
+            error instanceof Error
+              ? error.message
+              : "Erro ao cancelar integração de fornecedores",
+        });
       }
     },
   );
