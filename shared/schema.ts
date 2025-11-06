@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, jsonb, index, uuid } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -100,7 +100,7 @@ export const suppliers = pgTable("suppliers", {
   paymentTerms: text("payment_terms"),
   productsServices: text("products_services"),
   companyId: integer("company_id").references(() => companies.id),
-  idSupplierERP: integer("idsuppliererp").default(null), // Corrigido para lowercase conforme Postgres
+  idsuppliererp: varchar("idsuppliererp", { length: 100 }).unique(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -933,6 +933,51 @@ export const insertReceiptItemSchema = createInsertSchema(receiptItems).omit({
 }).extend({
   quantityReceived: z.string().transform((val) => val),
   quantityApproved: z.string().optional().transform((val) => val || null),
+});
+
+// ERP Supplier Integration tables
+export const supplierIntegrationHistory = pgTable("supplier_integration_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  integration_id: uuid("integration_id").notNull(),
+  operation_type: varchar("operation_type", { length: 50 }).notNull(),
+  supplier_id: integer("supplier_id").references(() => suppliers.id),
+  erp_supplier_id: varchar("erp_supplier_id", { length: 100 }),
+  supplier_name: varchar("supplier_name", { length: 255 }),
+  action_taken: varchar("action_taken", { length: 50 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull(),
+  error_message: text("error_message"),
+  processed_data: jsonb("processed_data"),
+  created_at: timestamp("created_at").defaultNow(),
+  created_by: integer("created_by").references(() => users.id),
+});
+
+export const supplierIntegrationQueue = pgTable("supplier_integration_queue", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  integration_id: uuid("integration_id").notNull(),
+  erp_supplier_id: varchar("erp_supplier_id", { length: 100 }).notNull(),
+  supplier_data: jsonb("supplier_data").notNull(),
+  comparison_result: varchar("comparison_result", { length: 50 }).notNull(),
+  action_required: varchar("action_required", { length: 50 }).notNull(),
+  local_supplier_id: integer("local_supplier_id").references(() => suppliers.id),
+  status: varchar("status", { length: 20 }).default("pending"),
+  processed_at: timestamp("processed_at"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const supplierIntegrationControl = pgTable("supplier_integration_control", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  integration_type: varchar("integration_type", { length: 50 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+  total_suppliers: integer("total_suppliers").default(0),
+  processed_suppliers: integer("processed_suppliers").default(0),
+  created_suppliers: integer("created_suppliers").default(0),
+  updated_suppliers: integer("updated_suppliers").default(0),
+  error_count: integer("error_count").default(0),
+  started_at: timestamp("started_at").defaultNow(),
+  completed_at: timestamp("completed_at"),
+  created_by: integer("created_by").references(() => users.id),
+  error_log: text("error_log"),
 });
 
 // Types

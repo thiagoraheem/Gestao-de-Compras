@@ -11,6 +11,7 @@ import PublicRequestView from "@/pages/public-request-view";
 import NotFound from "@/pages/not-found";
 import KanbanPage from "@/pages/kanban";
 import SuppliersPage from "@/pages/suppliers";
+import SupplierIntegrationPage from "@/pages/supplier-integration";
 import UsersPage from "@/pages/users";
 import DepartmentsPage from "@/pages/departments";
 import DeliveryLocationsPage from "@/pages/delivery-locations";
@@ -96,6 +97,7 @@ function Router() {
           </AdminRoute>
         </Route>
         <Route path="/suppliers" component={SuppliersPage} />
+        <Route path="/suppliers/integration" component={SupplierIntegrationPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/departments" component={DepartmentsPage} />
         <Route path="/delivery-locations" component={DeliveryLocationsPage} />

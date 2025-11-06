@@ -23,9 +23,12 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Ensure HMR client uses the same port as the Express server
+  const clientPort = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    // Explicitly set HMR ports to avoid undefined port issues in preview
+    hmr: { server, clientPort, port: clientPort },
     allowedHosts: true, // ou true se quiser permitir todos os hosts
   };
 

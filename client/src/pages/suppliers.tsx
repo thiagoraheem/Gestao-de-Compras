@@ -14,12 +14,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Edit, Search, X } from "lucide-react";
+import { Plus, Edit, Search, X, Database } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminOrBuyerRoute from "@/components/admin-or-buyer-route";
 import { CPFInput } from "@/components/cpf-input";
 import { CNPJInput } from "@/components/cnpj-input";
+import { useLocation } from "wouter";
 
 const supplierSchema = z
   .object({
@@ -70,6 +71,7 @@ export default function SuppliersPage() {
   const [debouncedTerm, setDebouncedTerm] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   const { data: suppliers = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
@@ -289,29 +291,39 @@ export default function SuppliersPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Fornecedores</CardTitle>
-            <Button
-              onClick={() => {
-                // Entrar em modo criação com formulário limpo
-                setEditingSupplier(null);
-                form.reset({
-                  name: "",
-                  type: 0,
-                  cnpj: "",
-                  cpf: "",
-                  contact: "",
-                  email: "",
-                  phone: "",
-                  website: "",
-                  address: "",
-                  paymentTerms: "",
-                  idSupplierERP: null,
-                });
-                setIsModalOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Fornecedor
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => navigate("/suppliers/integration")}
+                variant="outline"
+                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+              >
+                <Database className="mr-2 h-4 w-4" />
+                Integrar com ERP
+              </Button>
+              <Button
+                onClick={() => {
+                  // Entrar em modo criação com formulário limpo
+                  setEditingSupplier(null);
+                  form.reset({
+                    name: "",
+                    type: 0,
+                    cnpj: "",
+                    cpf: "",
+                    contact: "",
+                    email: "",
+                    phone: "",
+                    website: "",
+                    address: "",
+                    paymentTerms: "",
+                    idSupplierERP: null,
+                  });
+                  setIsModalOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Fornecedor
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

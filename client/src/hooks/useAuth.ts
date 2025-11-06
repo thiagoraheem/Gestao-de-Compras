@@ -49,8 +49,10 @@ export function useAuth() {
         }
         return response.json();
       } catch (error: any) {
+        // If the request was aborted (navigation, route change), use cached user to avoid flicker
         if (error.name === 'AbortError') {
-          throw error;
+          const cached = queryClient.getQueryData(["/api/auth/check"]) as User | null | undefined;
+          return cached ?? null;
         }
         return null;
       }
@@ -58,6 +60,7 @@ export function useAuth() {
     retry: false,
     staleTime: 1000 * 60 * 5, // 5 minutes - auth data doesn't change frequently
     refetchOnWindowFocus: false, // Don't refetch auth on window focus
+    initialData: () => queryClient.getQueryData(["/api/auth/check"]) as User | null | undefined,
   });
 
   // Update debug system when user changes

@@ -96,7 +96,13 @@ export const getQueryFn: <T>(options: {
       return await response.json();
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        throw error; // Let React Query handle aborted requests properly
+        // Treat aborted fetches as non-fatal to reduce UI flicker
+        // Let react-query consider current cached data
+        const cached = queryClient.getQueryData(queryKey);
+        if (cached !== undefined) {
+          return cached as any;
+        }
+        throw error; // Fallback to propagate abort when no cache exists
       }
       if (unauthorizedBehavior === "returnNull" && error.status === 401) {
         return null;
