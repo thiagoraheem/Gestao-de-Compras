@@ -8,3 +8,4 @@ vite.config.ts.*
 /.idea/modules.xml
 /.idea/vcs.xml
 .env
+.env.backup

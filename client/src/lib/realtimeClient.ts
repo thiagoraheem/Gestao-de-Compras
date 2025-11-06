@@ -62,7 +62,10 @@ export class RealtimeClient {
     }
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const url = `${protocol}://${window.location.host}/ws`;
+    const configuredUrl = (import.meta as any).env?.VITE_WEBSOCKET_URL as string | undefined;
+    const url = configuredUrl && configuredUrl.trim().length > 0
+      ? configuredUrl
+      : `${protocol}://${window.location.host}/ws`;
 
     try {
       this.socket = new WebSocket(url);

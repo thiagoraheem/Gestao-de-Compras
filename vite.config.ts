@@ -12,6 +12,9 @@ export default defineConfig({
   ],
   define: {
     'import.meta.env.VITE_BASE_API_URL': JSON.stringify(process.env.BASE_API_URL),
+    // Allow overriding the WebSocket URL for production deployments where
+    // the app is served on one port and the Node server listens on another.
+    'import.meta.env.VITE_WEBSOCKET_URL': JSON.stringify(process.env.WEBSOCKET_URL || ''),
   },
   resolve: {
     alias: {
