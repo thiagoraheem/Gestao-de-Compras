@@ -114,6 +114,7 @@ class ERPService {
   private suppliersEndpoint: string;
   private suppliersCountEndpoint: string;
   private supplierPageSize: number;
+  private mockFallbackEnabled: boolean;
 
   constructor() {
     this.baseUrl = config.erp.baseUrl;
@@ -124,6 +125,7 @@ class ERPService {
     this.suppliersCountEndpoint =
       config.erp.suppliersCountEndpoint ?? '/Fornecedor/GetCount';
     this.supplierPageSize = Math.max(config.erp.supplierPageSize ?? 200, 50);
+    this.mockFallbackEnabled = config.erp.useMockFallback ?? true;
   }
 
   /**
@@ -131,7 +133,10 @@ class ERPService {
    */
   async searchProducts(params: ProductSearchParams): Promise<ERPProduct[]> {
     if (!this.enabled) {
-      return this.getMockProducts(params.q, params.limit);
+      if (this.mockFallbackEnabled) {
+        return this.getMockProducts(params.q, params.limit);
+      }
+      throw new Error('ERP integration is disabled');
     }
 
     try {
@@ -163,9 +168,15 @@ class ERPService {
 
     } catch (error) {
       console.error('Error fetching products from ERP:', error);
-      
-      // Em caso de erro, retornar dados mock como fallback
-      return this.getMockProducts(params.q, params.limit);
+
+      // Em caso de erro, retornar dados mock como fallback quando habilitado
+      if (this.mockFallbackEnabled) {
+        return this.getMockProducts(params.q, params.limit);
+      }
+
+      throw error instanceof Error
+        ? error
+        : new Error('Failed to fetch products from ERP');
     }
   }
 
@@ -193,7 +204,10 @@ class ERPService {
 
   async fetchSuppliers(params: SupplierFetchParams = {}): Promise<SupplierFetchResult> {
     if (!this.enabled) {
-      return this.getMockSuppliers(params.search, params.limit);
+      if (this.mockFallbackEnabled) {
+        return this.getMockSuppliers(params.search, params.limit);
+      }
+      throw new Error('ERP integration is disabled');
     }
 
     const limit = params.limit && params.limit > 0 ? params.limit : Number.MAX_SAFE_INTEGER;
@@ -253,7 +267,13 @@ class ERPService {
       };
     } catch (error) {
       console.error('Error fetching suppliers from ERP:', error);
-      return this.getMockSuppliers(params.search, params.limit);
+      if (this.mockFallbackEnabled) {
+        return this.getMockSuppliers(params.search, params.limit);
+      }
+
+      throw error instanceof Error
+        ? error
+        : new Error('Failed to fetch suppliers from ERP');
     }
   }
 

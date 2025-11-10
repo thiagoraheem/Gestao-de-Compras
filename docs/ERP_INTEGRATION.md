@@ -142,6 +142,7 @@ O sistema reconhece automaticamente os seguintes campos:
 ### 1. Modo Desenvolvimento
 
 Para desenvolvimento, mantenha `ERP_INTEGRATION_ENABLED=false` para usar dados mock.
+Quando quiser forçar o uso exclusivo da API (sem fallback), defina `ERP_USE_MOCK_FALLBACK=false`.
 
 ### 2. Dados Mock
 
@@ -168,9 +169,10 @@ O sistema registra logs detalhados:
 
 **Soluções:**
 1. Verificar se `ERP_INTEGRATION_ENABLED=true`
-2. Testar conectividade: `GET /api/erp/test-connection`
-3. Verificar URL do ERP em `BASE_API_URL`
-4. Verificar logs do servidor
+2. Confirmar se `ERP_USE_MOCK_FALLBACK=false` quando quiser bloquear dados mock
+3. Testar conectividade: `GET /api/erp/test-connection`
+4. Verificar URL do ERP em `BASE_API_URL`
+5. Verificar logs do servidor
 
 ### 2. Produtos não aparecem
 
@@ -199,6 +201,7 @@ O sistema registra logs detalhados:
 ```bash
 # .env
 ERP_INTEGRATION_ENABLED=true
+ERP_USE_MOCK_FALLBACK=false
 BASE_API_URL=https://seu-erp.com/api
 ```
 

@@ -34,6 +34,10 @@ export const config = {
     timeout: 10000, // 10 seconds timeout
     supplierPageSize: parseInt(process.env.ERP_SUPPLIER_PAGE_SIZE || "200", 10),
     enabled: process.env.ERP_INTEGRATION_ENABLED === "true" || false,
+    useMockFallback:
+      process.env.ERP_USE_MOCK_FALLBACK === undefined
+        ? true
+        : process.env.ERP_USE_MOCK_FALLBACK.toLowerCase() !== "false",
   }
 };
 
