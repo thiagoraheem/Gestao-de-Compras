@@ -740,11 +740,15 @@ export class SupplierIntegrationService {
     const sanitizedCpf = supplier.cpf;
 
     if (sanitizedCnpj && !validateCNPJ(sanitizedCnpj)) {
-      issues.push("CNPJ inválido informado pelo ERP");
+      issues.push(
+        `Validação falhou: CNPJ — Valor atual: ${sanitizedCnpj} — Regra: CNPJ deve conter 14 dígitos válidos — Sugestão: Informe apenas números e verifique o dígito verificador`,
+      );
     }
 
     if (sanitizedCpf && !validateCPF(sanitizedCpf)) {
-      issues.push("CPF inválido informado pelo ERP");
+      issues.push(
+        `Validação falhou: CPF — Valor atual: ${sanitizedCpf} — Regra: CPF deve conter 11 dígitos válidos — Sugestão: Informe apenas números e verifique o dígito verificador`,
+      );
     }
 
     const type = sanitizedCnpj ? 0 : sanitizedCpf ? 2 : 0;
@@ -766,10 +770,127 @@ export class SupplierIntegrationService {
       const parsed = insertSupplierSafeSchema.parse(candidate);
       return { success: true, data: parsed };
     } catch (error) {
-      if (error instanceof z.ZodError) {
+      // Gerar mensagens detalhadas por campo e regra não atendida
+      const label = (field: string): string => {
+        switch (field) {
+          case "cnpj":
+            return "CNPJ";
+          case "cpf":
+            return "CPF";
+          case "contact":
+            return "Contato";
+          case "email":
+            return "E-mail";
+          case "phone":
+            return "Telefone";
+          case "website":
+            return "Website";
+          case "name":
+            return "Nome";
+          default:
+            return field;
+        }
+      };
+
+      const formatVal = (val: unknown): string => {
+        if (val === null || val === undefined || val === "") return "<vazio>";
+        return String(val);
+      };
+
+      // Regras obrigatórias por tipo
+      const requiredByType: Record<number, Array<keyof InsertSupplier | "website">> = {
+        0: ["cnpj", "contact", "email", "phone"],
+        1: ["website"],
+        2: ["cpf", "contact", "email", "phone"],
+      };
+
+      // Validar campos obrigatórios conforme o tipo
+      const requiredFields = requiredByType[type] ?? [];
+      for (const field of requiredFields) {
+        const value = (candidate as any)[field];
+        const has = value !== undefined && value !== null && String(value).trim() !== "";
+        if (!has) {
+          const rule =
+            field === "cnpj"
+              ? "Pessoa Jurídica requer CNPJ"
+              : field === "cpf"
+              ? "Pessoa Física requer CPF"
+              : field === "website"
+              ? "Fornecedores Online requerem Website"
+              : "Campo obrigatório para o tipo selecionado";
+          const suggestion =
+            field === "cnpj"
+              ? "Informe um CNPJ válido com 14 dígitos (apenas números)."
+              : field === "cpf"
+              ? "Informe um CPF válido com 11 dígitos (apenas números)."
+              : field === "email"
+              ? "Informe um e-mail válido (ex: nome@dominio.com)."
+              : field === "phone"
+              ? "Informe telefone com DDD (ex: 11999999999)."
+              : field === "contact"
+              ? "Informe o nome do contato responsável."
+              : field === "website"
+              ? "Informe uma URL (ex: https://exemplo.com)."
+              : "Preencha o campo obrigatório.";
+
+          issues.push(
+            `Campo obrigatório ausente: ${label(String(field))} — Valor atual: ${formatVal(
+              value,
+            )} — Regra: ${rule} — Sugestão: ${suggestion}`,
+          );
+        }
+      }
+
+      // Validar nome sempre
+      if (!candidate.name || String(candidate.name).trim() === "") {
         issues.push(
-          error.issues[0]?.message ?? "Dados obrigatórios do fornecedor ausentes",
+          `Campo obrigatório ausente: Nome — Valor atual: ${formatVal(
+            candidate.name,
+          )} — Regra: Nome é obrigatório — Sugestão: Informe o nome do fornecedor.`,
         );
+      }
+
+      // Mapear erros do Zod para detalhes adicionais
+      if (error instanceof z.ZodError) {
+        for (const issue of error.issues) {
+          const pathField = issue.path?.[0] as string | undefined;
+          const currentVal = pathField ? (candidate as any)[pathField] : undefined;
+          const base = pathField
+            ? `${label(pathField)} — Valor atual: ${formatVal(currentVal)}`
+            : `Validação — Valor atual: ${formatVal(null)}`;
+
+          let rule = issue.message || "Regra de validação não atendida";
+          // Ajustar regras comuns
+          if (issue.code === z.ZodIssueCode.invalid_type) {
+            rule = "Tipo inválido ou campo ausente";
+          } else if (issue.code === z.ZodIssueCode.too_small) {
+            rule = "Campo com tamanho abaixo do mínimo";
+          } else if (issue.code === z.ZodIssueCode.custom) {
+            // Pode ser a mensagem do refine()
+            // Quando for refine do tipo, já adicionamos por campo acima. Mantemos contexto agregado.
+            rule = issue.message || "Regra personalizada não atendida";
+          }
+
+          const suggestion = pathField === "name"
+            ? "Informe o nome do fornecedor."
+            : pathField === "cnpj"
+            ? "Informe um CNPJ válido com 14 dígitos (apenas números)."
+            : pathField === "cpf"
+            ? "Informe um CPF válido com 11 dígitos (apenas números)."
+            : pathField === "email"
+            ? "Informe um e-mail válido (ex: nome@dominio.com)."
+            : pathField === "phone"
+            ? "Informe telefone com DDD (ex: 11999999999)."
+            : pathField === "website"
+            ? "Informe uma URL (ex: https://exemplo.com)."
+            : "Corrija o valor conforme a regra.";
+
+          const detailed = `Validação falhou: ${base} — Regra: ${rule} — Sugestão: ${suggestion}`;
+          // Evitar duplicatas muito semelhantes
+          if (!issues.some((i) => i === detailed)) {
+            issues.push(detailed);
+          }
+        }
       } else {
         issues.push("Erro inesperado ao validar dados do fornecedor");
       }
