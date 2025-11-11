@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import AdminOrBuyerRoute from "@/components/admin-or-buyer-route";
 import { CPFInput } from "@/components/cpf-input";
 import { CNPJInput } from "@/components/cnpj-input";
+import { SupplierIntegrationPanel } from "@/components/supplier-integration-panel";
 
 const supplierSchema = z
   .object({
@@ -285,7 +286,12 @@ export default function SuppliersPage() {
   return (
     <AdminOrBuyerRoute>
       <div className="max-w-7xl mx-auto p-6">
-      <Card>
+        <SupplierIntegrationPanel
+          onRefreshSuppliers={() =>
+            queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] })
+          }
+        />
+        <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Fornecedores</CardTitle>

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { config } from './config';
 
 interface ERPProduct {
@@ -14,15 +15,120 @@ interface ProductSearchParams {
   limit?: number;
 }
 
+interface SupplierFetchParams {
+  search?: string;
+  limit?: number;
+  pageSize?: number;
+  signal?: AbortSignal;
+}
+
+interface SupplierFetchResult {
+  suppliers: ERPSupplier[];
+  total: number;
+}
+
+interface ERPSupplier {
+  id: number;
+  name: string;
+  tradeName?: string;
+  cnpj?: string;
+  cpf?: string;
+  document?: string;
+  email?: string;
+  phone?: string;
+  contact?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  paymentTerms?: string;
+  website?: string;
+  raw: Record<string, unknown>;
+}
+
+const erpSupplierSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).nullable().optional(),
+    ids: z.union([z.string(), z.number()]).nullable().optional(),
+    idsuppliererp: z.union([z.string(), z.number()]).nullable().optional(),
+    supplierId: z.union([z.string(), z.number()]).nullable().optional(),
+    codigo: z.union([z.string(), z.number()]).nullable().optional(),
+    razaoSocial: z.string().nullable().optional(),
+    nome: z.string().nullable().optional(),
+    name: z.string().nullable().optional(),
+    companyName: z.string().nullable().optional(),
+    fantasia: z.string().nullable().optional(),
+    nomeFantasia: z.string().nullable().optional(),
+    description: z.string().nullable().optional(),
+    tradeName: z.string().nullable().optional(),
+    cnpj: z.string().nullable().optional(),
+    cpf: z.string().nullable().optional(),
+    documento: z.string().nullable().optional(),
+    cpfCnpj: z.string().nullable().optional(),
+    cnpjCpf: z.string().nullable().optional(),
+    document: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+    eMail: z.string().nullable().optional(),
+    website: z.string().nullable().optional(),
+    emailContato: z.string().nullable().optional(),
+    telefone: z.string().nullable().optional(),
+    celular: z.string().nullable().optional(),
+    phone: z.string().nullable().optional(),
+    telefoneContato: z.string().nullable().optional(),
+    contato: z.string().nullable().optional(),
+    responsavel: z.string().nullable().optional(),
+    contact: z.string().nullable().optional(),
+    endereco: z.string().nullable().optional(),
+    logradouro: z.string().nullable().optional(),
+    address: z.string().nullable().optional(),
+    numero: z.union([z.string(), z.number()]).nullable().optional(),
+    bairro: z.string().nullable().optional(),
+    cidade: z.string().nullable().optional(),
+    city: z.string().nullable().optional(),
+    estado: z.string().nullable().optional(),
+    uf: z.string().nullable().optional(),
+    state: z.string().nullable().optional(),
+    cep: z.string().nullable().optional(),
+    zipcode: z.string().nullable().optional(),
+    paymentTerms: z.string().nullable().optional(),
+    prazoPagamento: z.string().nullable().optional(),
+    condicaoPagamento: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+const sanitizeDocument = (value?: string | number | null): string | undefined => {
+  if (value === null || value === undefined) return undefined;
+  const digits = String(value).replace(/\D+/g, '');
+  if (!digits.length) return undefined;
+  return digits;
+};
+
+const normalizeWhitespace = (value?: string | null): string | undefined => {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed.replace(/\s+/g, ' ') : undefined;
+};
+
 class ERPService {
   private baseUrl: string;
   private timeout: number;
   private enabled: boolean;
+  private productsEndpoint: string;
+  private suppliersEndpoint: string;
+  private suppliersCountEndpoint: string;
+  private supplierPageSize: number;
+  private mockFallbackEnabled: boolean;
 
   constructor() {
     this.baseUrl = config.erp.baseUrl;
     this.timeout = config.erp.timeout;
     this.enabled = config.erp.enabled;
+    this.productsEndpoint = config.erp.productsEndpoint;
+    this.suppliersEndpoint = config.erp.suppliersEndpoint ?? '/Fornecedor';
+    this.suppliersCountEndpoint =
+      config.erp.suppliersCountEndpoint ?? '/Fornecedor/GetCount';
+    this.supplierPageSize = Math.max(config.erp.supplierPageSize ?? 200, 50);
+    this.mockFallbackEnabled = config.erp.useMockFallback ?? true;
   }
 
   /**
@@ -30,29 +136,29 @@ class ERPService {
    */
   async searchProducts(params: ProductSearchParams): Promise<ERPProduct[]> {
     if (!this.enabled) {
-      return this.getMockProducts(params.q, params.limit);
+      if (this.mockFallbackEnabled) {
+        return this.getMockProducts(params.q, params.limit);
+      }
+      throw new Error('ERP integration is disabled');
     }
 
     try {
-      const searchUrl = `${this.baseUrl}${config.erp.productsEndpoint}`;
+      const searchUrl = `${this.baseUrl}${this.productsEndpoint}`;
       const queryParams = new URLSearchParams({
         search: params.q,
-        ...(params.limit && { limit: params.limit.toString() })
+        ...(params.limit && { limit: params.limit.toString() }),
       });
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-      const response = await fetch(`${searchUrl}?${queryParams}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+      const response = await this.fetchWithTimeout(
+        `${searchUrl}?${queryParams.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
         },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
+      );
 
       if (!response.ok) {
         throw new Error(`ERP API responded with status: ${response.status}`);
@@ -65,9 +171,15 @@ class ERPService {
 
     } catch (error) {
       console.error('Error fetching products from ERP:', error);
-      
-      // Em caso de erro, retornar dados mock como fallback
-      return this.getMockProducts(params.q, params.limit);
+
+      // Em caso de erro, retornar dados mock como fallback quando habilitado
+      if (this.mockFallbackEnabled) {
+        return this.getMockProducts(params.q, params.limit);
+      }
+
+      throw error instanceof Error
+        ? error
+        : new Error('Failed to fetch products from ERP');
     }
   }
 
@@ -91,6 +203,411 @@ class ERPService {
       categoria: item.categoria || item.category || undefined,
       ativo: item.ativo !== undefined ? item.ativo : (item.active !== undefined ? item.active : true),
     })).filter((product: ERPProduct) => product.codigo && product.descricao);
+  }
+
+  async fetchSuppliers(params: SupplierFetchParams = {}): Promise<SupplierFetchResult> {
+    if (!this.enabled) {
+      if (this.mockFallbackEnabled) {
+        return this.getMockSuppliers(params.search, params.limit);
+      }
+      throw new Error('ERP integration is disabled');
+    }
+
+    const limit = params.limit && params.limit > 0 ? params.limit : Number.MAX_SAFE_INTEGER;
+    const pageSize = Math.min(
+      Math.max(params.pageSize ?? this.supplierPageSize, 50),
+      1000,
+    );
+
+    let total = limit;
+
+    try {
+      const count = await this.fetchSupplierCount(params.search, params.signal);
+      if (typeof count === 'number' && count >= 0) {
+        total = params.limit ? Math.min(params.limit, count) : count;
+      }
+    } catch (error) {
+      console.warn('Failed to retrieve ERP supplier count:', error);
+    }
+
+    const aggregated: ERPSupplier[] = [];
+    let page = 0;
+
+    try {
+      while (aggregated.length < limit) {
+        const remaining = limit - aggregated.length;
+        const currentPageSize = Math.min(pageSize, remaining);
+        const batch = await this.fetchSupplierPage({
+          page,
+          pageSize: currentPageSize,
+          search: params.search,
+          signal: params.signal,
+        });
+
+        if (!batch.length) {
+          break;
+        }
+
+        aggregated.push(...batch);
+
+        if (batch.length < currentPageSize) {
+          break;
+        }
+
+        page += 1;
+      }
+
+      const uniqueSuppliers = this.deduplicateSuppliers(aggregated);
+      return {
+        suppliers:
+          limit === Number.MAX_SAFE_INTEGER
+            ? uniqueSuppliers
+            : uniqueSuppliers.slice(0, limit),
+        total:
+          total === Number.MAX_SAFE_INTEGER
+            ? uniqueSuppliers.length
+            : total,
+      };
+    } catch (error) {
+      console.error('Error fetching suppliers from ERP:', error);
+      if (this.mockFallbackEnabled) {
+        return this.getMockSuppliers(params.search, params.limit);
+      }
+
+      throw error instanceof Error
+        ? error
+        : new Error('Failed to fetch suppliers from ERP');
+    }
+  }
+
+  private async fetchSupplierCount(
+    search?: string,
+    signal?: AbortSignal,
+  ): Promise<number | null> {
+    const url = new URL(`${this.baseUrl}${this.suppliersCountEndpoint}`);
+    if (search) {
+      url.searchParams.set('search', search);
+    }
+
+    const response = await this.fetchWithTimeout(
+      url.toString(),
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      },
+      this.timeout,
+      signal,
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `ERP supplier count endpoint responded with status: ${response.status}`,
+      );
+    }
+
+    const payload = await response.json();
+
+    if (typeof payload === 'number') {
+      return payload;
+    }
+
+    if (payload && typeof payload === 'object') {
+      if ('count' in payload && typeof payload.count === 'number') {
+        return payload.count;
+      }
+      if ('total' in payload && typeof payload.total === 'number') {
+        return payload.total;
+      }
+      if ('totalCount' in payload && typeof payload.totalCount === 'number') {
+        return payload.totalCount;
+      }
+    }
+
+    return null;
+  }
+
+  private async fetchSupplierPage({
+    page,
+    pageSize,
+    search,
+    signal,
+  }: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    signal?: AbortSignal;
+  }): Promise<ERPSupplier[]> {
+    const queryParams = new URLSearchParams({
+      limit: pageSize.toString(),
+    });
+
+    if (search) {
+      queryParams.set('search', search);
+    }
+
+    if (page > 0) {
+      queryParams.set('page', (page + 1).toString());
+      queryParams.set('offset', String(page * pageSize));
+      queryParams.set('skip', String(page * pageSize));
+    }
+
+    const response = await this.fetchWithTimeout(
+      `${this.baseUrl}${this.suppliersEndpoint}?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      },
+      this.timeout,
+      signal,
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `ERP supplier endpoint responded with status: ${response.status}`,
+      );
+    }
+
+    const payload = await response.json();
+    const records: unknown[] = Array.isArray(payload)
+      ? payload
+      : (payload?.items as unknown[]) ||
+        (payload?.data as unknown[]) ||
+        (payload?.results as unknown[]) ||
+        (payload?.content as unknown[]) ||
+        [];
+
+    if (!Array.isArray(records)) {
+      return [];
+    }
+
+    return this.normalizeSuppliers(records);
+  }
+
+  private normalizeSuppliers(records: unknown[]): ERPSupplier[] {
+    const normalized: ERPSupplier[] = [];
+    for (const record of records) {
+      const supplier = this.mapToSupplier(record);
+      
+      if (supplier) {
+        normalized.push(supplier);
+      }
+    }
+
+    return normalized;
+  }
+
+  private mapToSupplier(record: unknown): ERPSupplier | null {
+    const parsed = erpSupplierSchema.safeParse(record);
+    if (!parsed.success) {
+      return null;
+    }
+
+    const data = parsed.data;
+
+    const idCandidate =
+      data.id ??
+      data.ids ??
+      data.idsuppliererp ??
+      data.supplierId ??
+      data.codigo ??
+      (typeof (record as Record<string, unknown>).Id === 'number'
+        ? (record as Record<string, unknown>).Id
+        : undefined) ??
+      (typeof (record as Record<string, unknown>).ID === 'number'
+        ? (record as Record<string, unknown>).ID
+        : undefined);
+
+    const numericId = Number.parseInt(String(idCandidate ?? ''), 10);
+    if (!Number.isFinite(numericId)) {
+      return null;
+    }
+
+    const nameCandidate =
+      normalizeWhitespace(data.description) ;
+
+    const tradeName = normalizeWhitespace(data.name ?? `Fornecedor ${numericId}`);
+
+    const contact = normalizeWhitespace(
+      data.contato ?? data.responsavel ?? data.contact,
+    );
+
+    const email = normalizeWhitespace(
+      data.email ?? data.eMail ?? data.emailContato,
+    );
+
+    const phone = normalizeWhitespace(
+      data.telefone ?? data.telefoneContato ?? data.celular ?? data.phone,
+    );
+
+    const docCandidates = [
+      data.cnpj,
+      data.cpf,
+      data.documento,
+      data.cpfCnpj,
+      data.cnpjCpf,
+      data.document,
+    ];
+
+    const cleanedDocs = docCandidates
+      .map((value) => sanitizeDocument(value ?? null))
+      .filter((value): value is string => Boolean(value));
+
+    const primaryDocument = cleanedDocs[0];
+    const cnpj = primaryDocument && primaryDocument.length === 14 ? primaryDocument : undefined;
+    const cpf = primaryDocument && primaryDocument.length === 11 ? primaryDocument : undefined;
+
+    const addressLine = normalizeWhitespace(
+      data.endereco ?? data.logradouro ?? data.address,
+    );
+    const numberLine = normalizeWhitespace(
+      typeof data.numero === 'number' ? data.numero.toString() : data.numero,
+    );
+    const district = normalizeWhitespace(data.bairro);
+    const city = normalizeWhitespace(data.cidade ?? data.city);
+    const addressParts = [addressLine, numberLine, district, city].filter(
+      (part): part is string => Boolean(part),
+    );
+    const address = addressParts.length ? addressParts.join(', ') : undefined;
+
+    const state = normalizeWhitespace(data.estado ?? data.state ?? data.uf);
+    const zipCode = sanitizeDocument(data.cep ?? data.zipcode);
+
+    const paymentTerms = normalizeWhitespace(
+      data.paymentTerms ?? data.prazoPagamento ?? data.condicaoPagamento,
+    );
+
+    const website = normalizeWhitespace(data.website);
+
+    const supplier: ERPSupplier = {
+      id: numericId,
+      name: nameCandidate,
+      tradeName,
+      cnpj,
+      cpf,
+      document: primaryDocument,
+      email,
+      phone,
+      contact,
+      address,
+      city,
+      state,
+      zipCode,
+      paymentTerms,
+      website,
+      raw: parsed.data,
+    };
+    return supplier;
+  }    
+
+  private deduplicateSuppliers(suppliers: ERPSupplier[]): ERPSupplier[] {
+    const unique = new Map<number, ERPSupplier>();
+    for (const supplier of suppliers) {
+      if (!unique.has(supplier.id)) {
+        unique.set(supplier.id, supplier);
+      }
+    }
+    return Array.from(unique.values());
+  }
+
+  /**
+   * Dados mock de fornecedores para desenvolvimento e fallback
+   */
+  private getMockSuppliers(
+    searchTerm?: string,
+    limit?: number,
+  ): SupplierFetchResult {
+    const mockSuppliers: ERPSupplier[] = [
+      {
+        id: 1001,
+        name: 'Papelaria Central LTDA',
+        tradeName: 'Papelaria Central',
+        cnpj: '12345678000190',
+        document: '12345678000190',
+        email: 'contato@papelaria.com',
+        phone: '1130004000',
+        contact: 'Maria Silva',
+        address: 'Rua das Flores, 123, Centro, São Paulo',
+        city: 'São Paulo',
+        state: 'SP',
+        zipCode: '01001000',
+        paymentTerms: '30 dias',
+        raw: {},
+      },
+      {
+        id: 1002,
+        name: 'Construtora Horizonte',
+        tradeName: 'Horizonte Engenharia',
+        cnpj: '20987654000155',
+        document: '20987654000155',
+        email: 'financeiro@horizonte.com.br',
+        phone: '1122223333',
+        contact: 'João Pereira',
+        address: 'Av. Paulista, 1500, Bela Vista, São Paulo',
+        city: 'São Paulo',
+        state: 'SP',
+        zipCode: '01310000',
+        paymentTerms: '45 dias',
+        raw: {},
+      },
+      {
+        id: 1003,
+        name: 'Serviços de Limpeza Brilho',
+        tradeName: 'Brilho Serviços',
+        cpf: '98765432100',
+        document: '98765432100',
+        email: 'contato@brilhoservicos.com',
+        phone: '11988887777',
+        contact: 'Ana Costa',
+        address: 'Rua Verde, 45, Centro, Campinas',
+        city: 'Campinas',
+        state: 'SP',
+        zipCode: '13010010',
+        paymentTerms: '15 dias',
+        raw: {},
+      },
+      {
+        id: 1004,
+        name: 'TecnoDigital Equipamentos',
+        tradeName: 'TecnoDigital',
+        cnpj: '30456789000122',
+        document: '30456789000122',
+        email: 'vendas@tecnodigital.com',
+        phone: '1144445555',
+        contact: 'Marcos Vieira',
+        address: 'Rua da Tecnologia, 200, Parque Tecnológico, Sorocaba',
+        city: 'Sorocaba',
+        state: 'SP',
+        zipCode: '18050000',
+        paymentTerms: '60 dias',
+        raw: {},
+      },
+    ];
+
+    let filtered = mockSuppliers;
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      filtered = mockSuppliers.filter((supplier) => {
+        const candidates = [
+          supplier.name,
+          supplier.tradeName,
+          supplier.contact,
+          supplier.document,
+        ];
+        return candidates.some((value) =>
+          value ? value.toLowerCase().includes(lower) : false,
+        );
+      });
+    }
+
+    const total = filtered.length;
+    const suppliers = limit ? filtered.slice(0, limit) : filtered;
+    return { suppliers, total };
   }
 
   /**
@@ -136,19 +653,17 @@ class ERPService {
     }
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds for test
-
-      const response = await fetch(`${this.baseUrl}${config.erp.productsEndpoint}?limit=1`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+      const response = await this.fetchWithTimeout(
+        `${this.baseUrl}${this.productsEndpoint}?limit=1`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
         },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
+        5000,
+      );
 
       if (response.ok) {
         return { success: true, message: 'ERP connection successful' };
@@ -156,13 +671,47 @@ class ERPService {
         return { success: false, message: `ERP responded with status: ${response.status}` };
       }
     } catch (error) {
-      return { 
-        success: false, 
-        message: `ERP connection failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      return {
+        success: false,
+        message: `ERP connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
+    }
+  }
+
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit = {},
+    timeout = this.timeout,
+    externalSignal?: AbortSignal,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    const abortListener = () => controller.abort();
+
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort();
+      } else {
+        externalSignal.addEventListener('abort', abortListener, { once: true });
+      }
+    }
+
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', abortListener);
+      }
     }
   }
 }
 
 export const erpService = new ERPService();
-export type { ERPProduct, ProductSearchParams };
+export type {
+  ERPProduct,
+  ProductSearchParams,
+  ERPSupplier,
+  SupplierFetchParams,
+  SupplierFetchResult,
+};

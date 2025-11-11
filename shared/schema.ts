@@ -1,4 +1,15 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, jsonb, index } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  integer,
+  boolean,
+  timestamp,
+  decimal,
+  varchar,
+  jsonb,
+  index,
+} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -101,6 +112,42 @@ export const suppliers = pgTable("suppliers", {
   productsServices: text("products_services"),
   companyId: integer("company_id").references(() => companies.id),
   idSupplierERP: integer("idsuppliererp").default(null), // Corrigido para lowercase conforme Postgres
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const supplierIntegrationRuns = pgTable("supplier_integration_runs", {
+  id: serial("id").primaryKey(),
+  status: text("status").notNull().default("running"),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+  totalSuppliers: integer("total_suppliers").notNull().default(0),
+  processedSuppliers: integer("processed_suppliers").notNull().default(0),
+  createdSuppliers: integer("created_suppliers").notNull().default(0),
+  updatedSuppliers: integer("updated_suppliers").notNull().default(0),
+  ignoredSuppliers: integer("ignored_suppliers").notNull().default(0),
+  invalidSuppliers: integer("invalid_suppliers").notNull().default(0),
+  message: text("message"),
+  createdBy: integer("created_by").references(() => users.id),
+  cancelledBy: integer("cancelled_by").references(() => users.id),
+  metadata: jsonb("metadata"),
+});
+
+export const supplierIntegrationItems = pgTable("supplier_integration_items", {
+  id: serial("id").primaryKey(),
+  runId: integer("run_id")
+    .notNull()
+    .references(() => supplierIntegrationRuns.id, { onDelete: "cascade" }),
+  erpId: text("erp_id").notNull(),
+  erpDocument: text("erp_document"),
+  erpName: text("erp_name").notNull(),
+  action: text("action").notNull(),
+  matchType: text("match_type").notNull(),
+  status: text("status").notNull().default("pending"),
+  selected: boolean("selected").notNull().default(true),
+  localSupplierId: integer("local_supplier_id").references(() => suppliers.id),
+  payload: jsonb("payload").notNull(),
+  differences: jsonb("differences"),
+  issues: jsonb("issues"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -952,6 +999,10 @@ export type CostCenter = typeof costCenters.$inferSelect;
 export type InsertCostCenter = z.infer<typeof insertCostCenterSchema>;
 export type Supplier = typeof suppliers.$inferSelect;
 export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+export type SupplierIntegrationRun = typeof supplierIntegrationRuns.$inferSelect;
+export type InsertSupplierIntegrationRun = typeof supplierIntegrationRuns.$inferInsert;
+export type SupplierIntegrationItem = typeof supplierIntegrationItems.$inferSelect;
+export type InsertSupplierIntegrationItem = typeof supplierIntegrationItems.$inferInsert;
 export type PurchaseRequest = typeof purchaseRequests.$inferSelect;
 export type InsertPurchaseRequest = z.infer<typeof insertPurchaseRequestSchema>;
 export type PaymentMethod = typeof paymentMethods.$inferSelect;
