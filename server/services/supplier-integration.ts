@@ -123,6 +123,8 @@ const insertSupplierSafeSchema = insertSupplierSchema;
 
 const sanitizeDocument = (value?: string | null): string | undefined => {
   if (!value) return undefined;
+  if (value == "00.000.000/0000-00") return undefined;
+  if (value == "000.000.000-00") return undefined;
   const digits = value.replace(/\D+/g, "");
   return digits.length ? digits : undefined;
 };

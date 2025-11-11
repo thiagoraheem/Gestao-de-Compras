@@ -922,7 +922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     isAdminOrBuyer,
     async (req, res) => {
-      const user = req.session.user;
+      const user = req.session.userId;
       if (!user) {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
@@ -937,7 +937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             : undefined;
 
         const result = await supplierIntegrationService.startIntegration({
-          userId: user.id,
+          userId: user,
           search: typeof search === "string" && search.trim().length > 0 ? search : undefined,
           limit:
             typeof numericLimit === "number" && Number.isFinite(numericLimit) && numericLimit > 0
@@ -1013,7 +1013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     isAdminOrBuyer,
     async (req, res) => {
-      const user = req.session.user;
+      const user = req.session.userId;
       if (!user) {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
@@ -1033,7 +1033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const result = await supplierIntegrationService.applyIntegration({
           runId,
-          userId: user.id,
+          userId: user,
           itemIds: itemIds && itemIds.length > 0 ? itemIds : undefined,
         });
 
@@ -1055,7 +1055,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     isAdminOrBuyer,
     async (req, res) => {
-      const user = req.session.user;
+      const user = req.session.userId;
       if (!user) {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
@@ -1068,7 +1068,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const result = await supplierIntegrationService.cancelIntegration({
           runId,
-          userId: user.id,
+          userId: user,
         });
 
         res.json(result);

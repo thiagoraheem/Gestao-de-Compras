@@ -99,6 +99,7 @@ type SupplierSnapshot = {
   phone?: string | null;
   address?: string | null;
   paymentTerms?: string | null;
+  website?: string | null;
   idSupplierERP?: number | null;
 };
 
@@ -117,6 +118,7 @@ type ErpSupplierPayload = {
   state?: string;
   zipCode?: string;
   paymentTerms?: string;
+  website?: string;
   raw?: Record<string, unknown>;
 };
 

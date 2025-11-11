@@ -42,54 +42,57 @@ interface ERPSupplier {
   state?: string;
   zipCode?: string;
   paymentTerms?: string;
+  website?: string;
   raw: Record<string, unknown>;
 }
 
 const erpSupplierSchema = z
   .object({
-    id: z.union([z.string(), z.number()]).optional(),
-    ids: z.union([z.string(), z.number()]).optional(),
-    idsuppliererp: z.union([z.string(), z.number()]).optional(),
-    supplierId: z.union([z.string(), z.number()]).optional(),
-    codigo: z.union([z.string(), z.number()]).optional(),
-    razaoSocial: z.string().optional(),
-    nome: z.string().optional(),
-    name: z.string().optional(),
-    companyName: z.string().optional(),
-    fantasia: z.string().optional(),
-    nomeFantasia: z.string().optional(),
-    tradeName: z.string().optional(),
-    cnpj: z.string().optional(),
-    cpf: z.string().optional(),
-    documento: z.string().optional(),
-    cpfCnpj: z.string().optional(),
-    cnpjCpf: z.string().optional(),
-    document: z.string().optional(),
-    email: z.string().optional(),
-    eMail: z.string().optional(),
-    emailContato: z.string().optional(),
-    telefone: z.string().optional(),
-    celular: z.string().optional(),
-    phone: z.string().optional(),
-    telefoneContato: z.string().optional(),
-    contato: z.string().optional(),
-    responsavel: z.string().optional(),
-    contact: z.string().optional(),
-    endereco: z.string().optional(),
-    logradouro: z.string().optional(),
-    address: z.string().optional(),
-    numero: z.union([z.string(), z.number()]).optional(),
-    bairro: z.string().optional(),
-    cidade: z.string().optional(),
-    city: z.string().optional(),
-    estado: z.string().optional(),
-    uf: z.string().optional(),
-    state: z.string().optional(),
-    cep: z.string().optional(),
-    zipcode: z.string().optional(),
-    paymentTerms: z.string().optional(),
-    prazoPagamento: z.string().optional(),
-    condicaoPagamento: z.string().optional(),
+    id: z.union([z.string(), z.number()]).nullable().optional(),
+    ids: z.union([z.string(), z.number()]).nullable().optional(),
+    idsuppliererp: z.union([z.string(), z.number()]).nullable().optional(),
+    supplierId: z.union([z.string(), z.number()]).nullable().optional(),
+    codigo: z.union([z.string(), z.number()]).nullable().optional(),
+    razaoSocial: z.string().nullable().optional(),
+    nome: z.string().nullable().optional(),
+    name: z.string().nullable().optional(),
+    companyName: z.string().nullable().optional(),
+    fantasia: z.string().nullable().optional(),
+    nomeFantasia: z.string().nullable().optional(),
+    description: z.string().nullable().optional(),
+    tradeName: z.string().nullable().optional(),
+    cnpj: z.string().nullable().optional(),
+    cpf: z.string().nullable().optional(),
+    documento: z.string().nullable().optional(),
+    cpfCnpj: z.string().nullable().optional(),
+    cnpjCpf: z.string().nullable().optional(),
+    document: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+    eMail: z.string().nullable().optional(),
+    website: z.string().nullable().optional(),
+    emailContato: z.string().nullable().optional(),
+    telefone: z.string().nullable().optional(),
+    celular: z.string().nullable().optional(),
+    phone: z.string().nullable().optional(),
+    telefoneContato: z.string().nullable().optional(),
+    contato: z.string().nullable().optional(),
+    responsavel: z.string().nullable().optional(),
+    contact: z.string().nullable().optional(),
+    endereco: z.string().nullable().optional(),
+    logradouro: z.string().nullable().optional(),
+    address: z.string().nullable().optional(),
+    numero: z.union([z.string(), z.number()]).nullable().optional(),
+    bairro: z.string().nullable().optional(),
+    cidade: z.string().nullable().optional(),
+    city: z.string().nullable().optional(),
+    estado: z.string().nullable().optional(),
+    uf: z.string().nullable().optional(),
+    state: z.string().nullable().optional(),
+    cep: z.string().nullable().optional(),
+    zipcode: z.string().nullable().optional(),
+    paymentTerms: z.string().nullable().optional(),
+    prazoPagamento: z.string().nullable().optional(),
+    condicaoPagamento: z.string().nullable().optional(),
   })
   .passthrough();
 
@@ -390,10 +393,12 @@ class ERPService {
     const normalized: ERPSupplier[] = [];
     for (const record of records) {
       const supplier = this.mapToSupplier(record);
+      
       if (supplier) {
         normalized.push(supplier);
       }
     }
+
     return normalized;
   }
 
@@ -424,19 +429,9 @@ class ERPService {
     }
 
     const nameCandidate =
-      normalizeWhitespace(
-        data.razaoSocial ??
-          data.nome ??
-          data.name ??
-          data.companyName ??
-          data.tradeName ??
-          data.fantasia ??
-          data.nomeFantasia,
-      ) ?? `Fornecedor ${numericId}`;
+      normalizeWhitespace(data.description) ;
 
-    const tradeName = normalizeWhitespace(
-      data.nomeFantasia ?? data.fantasia ?? data.tradeName,
-    );
+    const tradeName = normalizeWhitespace(data.name ?? `Fornecedor ${numericId}`);
 
     const contact = normalizeWhitespace(
       data.contato ?? data.responsavel ?? data.contact,
@@ -487,7 +482,9 @@ class ERPService {
       data.paymentTerms ?? data.prazoPagamento ?? data.condicaoPagamento,
     );
 
-    return {
+    const website = normalizeWhitespace(data.website);
+
+    const supplier: ERPSupplier = {
       id: numericId,
       name: nameCandidate,
       tradeName,
@@ -502,9 +499,11 @@ class ERPService {
       state,
       zipCode,
       paymentTerms,
+      website,
       raw: parsed.data,
     };
-  }
+    return supplier;
+  }    
 
   private deduplicateSuppliers(suppliers: ERPSupplier[]): ERPSupplier[] {
     const unique = new Map<number, ERPSupplier>();
