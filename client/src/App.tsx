@@ -10,6 +10,7 @@ import ResetPasswordPage from "@/pages/reset-password";
 import PublicRequestView from "@/pages/public-request-view";
 import NotFound from "@/pages/not-found";
 import KanbanPage from "@/pages/kanban";
+import ListPage from "@/pages/list";
 import SuppliersPage from "@/pages/suppliers";
 import UsersPage from "@/pages/users";
 import DepartmentsPage from "@/pages/departments";
@@ -84,6 +85,7 @@ function Router() {
       <Switch>
         <Route path="/" component={KanbanPage} />
         <Route path="/kanban" component={KanbanPage} />
+        <Route path="/list" component={ListPage} />
         <Route path="/dashboard">
           <ManagerRoute>
             <DashboardPage />

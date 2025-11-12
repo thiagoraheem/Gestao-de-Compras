@@ -1,4 +1,5 @@
 import KanbanBoard from "@/components/kanban-board";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -97,13 +98,15 @@ export default function KanbanPage() {
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 md:px-6 py-3 shadow-sm">
         {/* Mobile Layout */}
         <div className="flex flex-col space-y-3 md:hidden">
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900">
-              Processo de Compras
-            </h1>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Gerencie suas solicitações através do workflow Kanban
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">Processo de Compras</h1>
+              <p className="text-xs text-gray-500 mt-0.5">Gerencie suas solicitações através do workflow Kanban</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="bg-primary text-primary-foreground">Kanban</Button>
+              <Button variant="outline" size="sm" onClick={() => setLocation("/list")}>Lista</Button>
+            </div>
           </div>
           <div className="flex flex-col space-y-1.5">
             <Select
@@ -226,13 +229,15 @@ export default function KanbanPage() {
         {/* Desktop Layout */}
         <div className="hidden md:block">
           {/* Title Section */}
-          <div className="mb-3">
-            <h1 className="text-xl font-semibold text-gray-900">
-              Processo de Compras
-            </h1>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Gerencie suas solicitações de compra através do workflow Kanban
-            </p>
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">Processo de Compras</h1>
+              <p className="text-xs text-gray-500 mt-0.5">Gerencie suas solicitações de compra através do workflow Kanban</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="bg-primary text-primary-foreground">Kanban</Button>
+              <Button variant="outline" size="sm" onClick={() => setLocation("/list")}>Lista</Button>
+            </div>
           </div>
 
           {/* Filters Section */}
