@@ -54,6 +54,7 @@ export default function KanbanColumn({
           }`}
         >
           <SortableContext 
+            id={phase}
             items={itemIds}
             strategy={verticalListSortingStrategy}
           >

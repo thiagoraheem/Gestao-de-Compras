@@ -370,7 +370,12 @@ export default function KanbanBoard({
         return;
       }
 
-      const newPhase = over.id.toString();
+      const newPhase = (
+        // When hovering over an item inside a column, use its containerId (the column phase)
+        (over as any)?.data?.current?.sortable?.containerId ||
+        // When hovering the column itself, over.id is already the phase
+        over.id.toString()
+      );
 
       // Check permissions before allowing the move
       if (!canUserDragCard(request.currentPhase, newPhase)) {
