@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { PURCHASE_PHASES } from "@/lib/types";
 
 export default function ListPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
@@ -21,6 +22,7 @@ export default function ListPage() {
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
   const [searchFilter, setSearchFilter] = useState<string>("");
   const [location, setLocation] = useLocation();
+  const [openPhases, setOpenPhases] = useState<string[]>(Object.values(PURCHASE_PHASES));
 
   const currentDate = new Date();
   const [dateFilter, setDateFilter] = useState<{ startDate: string; endDate: string }>({
@@ -145,6 +147,11 @@ export default function ListPage() {
             <span className="text-gray-500 text-xs whitespace-nowrap">até</span>
             <Input id="endDateDesktop" type="date" value={dateFilter.endDate} onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))} className="w-36 h-8 text-xs" />
           </div>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={() => setOpenPhases(Object.values(PURCHASE_PHASES))}>Expandir todos</Button>
+            <Button variant="outline" size="sm" onClick={() => setOpenPhases([])}>Recolher todos</Button>
+          </div>
         </div>
 
         {searchFilter && (
@@ -163,9 +170,10 @@ export default function ListPage() {
           supplierFilter={selectedSupplier}
           searchFilter={searchFilter}
           dateFilter={dateFilter}
+          openPhases={openPhases}
+          onOpenPhasesChange={setOpenPhases}
         />
       </div>
     </div>
   );
 }
-

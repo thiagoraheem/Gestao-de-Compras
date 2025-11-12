@@ -28,6 +28,8 @@ interface RequestListProps {
   supplierFilter?: string;
   searchFilter?: string;
   dateFilter?: { startDate: string; endDate: string };
+  openPhases?: string[];
+  onOpenPhasesChange?: (value: string[]) => void;
 }
 
 export default function RequestList({
@@ -37,6 +39,8 @@ export default function RequestList({
   supplierFilter = "all",
   searchFilter = "",
   dateFilter,
+  openPhases,
+  onOpenPhasesChange,
 }: RequestListProps) {
   const { user } = useAuth();
   const [activeRequest, setActiveRequest] = useState<any | null>(null);
@@ -118,10 +122,66 @@ export default function RequestList({
     .filter(([_, items]) => items.length > 0)
     .map(([phase]) => phase);
 
+  const accordionControlProps = openPhases
+    ? { value: openPhases, onValueChange: onOpenPhasesChange }
+    : { defaultValue: defaultOpen };
+
   return (
     <div className="h-full px-4 md:px-6 py-4 overflow-auto">
+      <div className="mb-3 grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-muted/50 border rounded-md p-3">
+          <div className="text-[11px] text-muted-foreground">Total de Solicitações do Período</div>
+          <div className="text-lg font-semibold">{sortedRequests.length}</div>
+        </div>
+        <div className="bg-muted/50 border rounded-md p-3">
+          <div className="text-[11px] text-muted-foreground">% em Aprovação</div>
+          <div className="text-lg font-semibold">
+            {(() => {
+              const total = sortedRequests.length || 0;
+              const approval = sortedRequests.filter((r) => r.currentPhase === PURCHASE_PHASES.APROVACAO_A1 || r.currentPhase === PURCHASE_PHASES.APROVACAO_A2).length;
+              const pct = total ? Math.round((approval / total) * 100) : 0;
+              return `${pct}%`;
+            })()}
+          </div>
+        </div>
+        <div className="bg-muted/50 border rounded-md p-3">
+          <div className="text-[11px] text-muted-foreground">% em Cotação</div>
+          <div className="text-lg font-semibold">
+            {(() => {
+              const total = sortedRequests.length || 0;
+              const cnt = sortedRequests.filter((r) => r.currentPhase === PURCHASE_PHASES.COTACAO).length;
+              const pct = total ? Math.round((cnt / total) * 100) : 0;
+              return `${pct}%`;
+            })()}
+          </div>
+        </div>
+        <div className="bg-muted/50 border rounded-md p-3">
+          <div className="text-[11px] text-muted-foreground">% cotação com RFQ criada</div>
+          <div className="text-lg font-semibold">
+            {(() => {
+              const cotacoes = sortedRequests.filter((r) => r.currentPhase === PURCHASE_PHASES.COTACAO);
+              const total = cotacoes.length || 0;
+              const withRfq = cotacoes.filter((r) => r.hasQuotation).length;
+              const pct = total ? Math.round((withRfq / total) * 100) : 0;
+              return `${pct}%`;
+            })()}
+          </div>
+        </div>
+        <div className="bg-muted/50 border rounded-md p-3">
+          <div className="text-[11px] text-muted-foreground">% Concluído</div>
+          <div className="text-lg font-semibold">
+            {(() => {
+              const total = sortedRequests.length || 0;
+              const done = sortedRequests.filter((r) => r.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA).length;
+              const pct = total ? Math.round((done / total) * 100) : 0;
+              return `${pct}%`;
+            })()}
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow-md">
-        <Accordion type="multiple" defaultValue={defaultOpen}>
+        <Accordion type="multiple" {...accordionControlProps}>
           {Object.values(PURCHASE_PHASES).map((phase) => (
             <AccordionItem key={phase} value={phase}>
               <AccordionTrigger className="px-4">
