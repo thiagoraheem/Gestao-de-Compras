@@ -370,12 +370,24 @@ export default function KanbanBoard({
         return;
       }
 
-      const newPhase = (
-        // When hovering over an item inside a column, use its containerId (the column phase)
+      let newPhase = (
+        // Quando sobre um item dentro da coluna, usar o containerId (fase da coluna)
         (over as any)?.data?.current?.sortable?.containerId ||
-        // When hovering the column itself, over.id is already the phase
+        // Quando sobre a própria coluna, over.id já é a fase
         over.id.toString()
       );
+
+      // Fallback robusto: se cair sobre um card (ex.: "request-123") e containerId não estiver disponível,
+      // inferir a fase pela própria posição do card alvo
+      if (!Object.values(PURCHASE_PHASES).includes(newPhase as any) && newPhase.startsWith('request-')) {
+        const overRequestId = parseInt(newPhase.split('-')[1]);
+        const overRequest = Array.isArray(purchaseRequests)
+          ? purchaseRequests.find((req: any) => req.id === overRequestId)
+          : undefined;
+        if (overRequest?.currentPhase) {
+          newPhase = overRequest.currentPhase;
+        }
+      }
 
       // Check permissions before allowing the move
       if (!canUserDragCard(request.currentPhase, newPhase)) {

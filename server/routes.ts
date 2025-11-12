@@ -4962,23 +4962,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const quotationItem = quotationItems.find(
                 (qi) => qi.id === item.quotationItemId,
               );
-              const quantity = parseFloat(quotationItem?.quantity || "1");
+              const quantity = Number(quotationItem?.quantity || 1);
+              const unitPriceNum = Number(item.unitPrice ?? 0);
+              const totalNum = unitPriceNum * quantity;
 
               // Validar e transformar dados do item usando o schema
               const validatedItemData = insertSupplierQuotationItemSchema.partial().parse({
-                unitPrice: item.unitPrice?.toString(),
-                totalPrice: (item.unitPrice * quantity).toString(),
-                originalTotalPrice: item.originalTotalPrice?.toString() || null,
-                discountPercentage: item.discountPercentage?.toString() || null,
-                discountValue: item.discountValue?.toString() || null,
-                discountedTotalPrice: item.discountedTotalPrice?.toString() || null,
+                unitPrice: unitPriceNum.toFixed(4),
+                totalPrice: totalNum.toFixed(2),
+                originalTotalPrice: (item.originalTotalPrice ?? totalNum).toString(),
+                discountPercentage: item.discountPercentage !== null && item.discountPercentage !== undefined 
+                  ? String(item.discountPercentage) 
+                  : null,
+                discountValue: item.discountValue !== null && item.discountValue !== undefined 
+                  ? String(item.discountValue) 
+                  : null,
+                discountedTotalPrice: item.discountedTotalPrice !== null && item.discountedTotalPrice !== undefined 
+                  ? String(item.discountedTotalPrice) 
+                  : null,
                 deliveryDays: item.deliveryDays,
                 brand: item.brand,
                 model: item.model,
                 observations: item.observations,
                 isAvailable: item.isAvailable,
                 unavailabilityReason: item.unavailabilityReason,
-                availableQuantity: item.availableQuantity,
+                availableQuantity: item.availableQuantity ?? null,
                 confirmedUnit: item.confirmedUnit,
                 quantityAdjustmentReason: item.quantityAdjustmentReason,
               });
@@ -4992,25 +5000,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const quotationItem = quotationItems.find(
                 (qi) => qi.id === item.quotationItemId,
               );
-              const quantity = parseFloat(quotationItem?.quantity || "1");
+              const quantity = Number(quotationItem?.quantity || 1);
+              const unitPriceNum = Number(item.unitPrice ?? 0);
+              const totalNum = unitPriceNum * quantity;
 
               // Validar e transformar dados do item usando o schema
               const validatedItemData = insertSupplierQuotationItemSchema.parse({
                 supplierQuotationId: supplierQuotation.id,
                 quotationItemId: item.quotationItemId,
-                unitPrice: item.unitPrice?.toString(),
-                totalPrice: (item.unitPrice * quantity).toString(),
-                originalTotalPrice: item.originalTotalPrice?.toString() || null,
-                discountPercentage: item.discountPercentage?.toString() || null,
-                discountValue: item.discountValue?.toString() || null,
-                discountedTotalPrice: item.discountedTotalPrice?.toString() || null,
+                unitPrice: unitPriceNum.toFixed(4),
+                totalPrice: totalNum.toFixed(2),
+                originalTotalPrice: (item.originalTotalPrice ?? totalNum).toString(),
+                discountPercentage: item.discountPercentage !== null && item.discountPercentage !== undefined 
+                  ? String(item.discountPercentage) 
+                  : null,
+                discountValue: item.discountValue !== null && item.discountValue !== undefined 
+                  ? String(item.discountValue) 
+                  : null,
+                discountedTotalPrice: item.discountedTotalPrice !== null && item.discountedTotalPrice !== undefined 
+                  ? String(item.discountedTotalPrice) 
+                  : null,
                 deliveryDays: item.deliveryDays,
                 brand: item.brand,
                 model: item.model,
                 observations: item.observations,
                 isAvailable: item.isAvailable,
                 unavailabilityReason: item.unavailabilityReason,
-                availableQuantity: item.availableQuantity,
+                availableQuantity: item.availableQuantity ?? null,
                 confirmedUnit: item.confirmedUnit,
                 quantityAdjustmentReason: item.quantityAdjustmentReason,
               });
