@@ -139,80 +139,45 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
     enabled: !!quotation?.id,
   });
 
-  // Transform items to match ApprovalItemData interface with prices
-  const transformedItems = requestItems.map(item => {
-    // Encontrar o item correspondente na cotação usando purchaseRequestItemId
-    const quotationItem = quotationItems.find((qi: any) => {
-      // Primeiro tenta por purchaseRequestItemId (método mais confiável)
-      if (qi.purchaseRequestItemId && item.id && qi.purchaseRequestItemId === item.id) {
-        return true;
-      }
-      // Fallback: tenta por descrição
-      return qi.description === item.description;
-    });
-    let unitPrice = 0;
-    let totalPrice = 0;
-    let originalTotalPrice = 0;
-    let itemDiscount = 0;
-    let supplierQuantity = 0;
-    let supplierUnit = '';
-    let quantityDiffers = false;
-    
-    if (quotationItem) {
-      // Encontrar o preço do fornecedor para este item da cotação
-      const supplierItem = supplierQuotationItems.find((si: any) => si.quotationItemId === quotationItem.id);
-      
-      if (supplierItem) {
-        unitPrice = Number(supplierItem.unitPrice) || 0;
-        
-        // Usar quantidade disponível do fornecedor se disponível, senão usar quantidade solicitada
-        // Verificar se availableQuantity existe e não é null/undefined
-        if (supplierItem.availableQuantity !== null && supplierItem.availableQuantity !== undefined) {
-          supplierQuantity = Number(supplierItem.availableQuantity);
-        } else {
-          supplierQuantity = Number(item.requestedQuantity || 0);
-        }
-        
-        // Usar unidade confirmada do fornecedor se disponível, senão usar unidade original
-        supplierUnit = supplierItem.confirmedUnit || item.unit;
-        
-        // Verificar se a quantidade do fornecedor difere da solicitada
-        quantityDiffers = (supplierItem.availableQuantity !== null && supplierItem.availableQuantity !== undefined) && 
-          Number(supplierItem.availableQuantity) !== Number(item.requestedQuantity || 0);
-        
-        // Calcular preço com base na quantidade do fornecedor
-        originalTotalPrice = unitPrice * supplierQuantity;
-        let discountedTotal = originalTotalPrice;
-        
-        if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
-          const discountPercent = Number(supplierItem.discountPercentage);
-          itemDiscount = (originalTotalPrice * discountPercent) / 100;
-          discountedTotal = originalTotalPrice - itemDiscount;
-        } else if (supplierItem.discountValue && Number(supplierItem.discountValue) > 0) {
-          itemDiscount = Number(supplierItem.discountValue);
-          discountedTotal = Math.max(0, originalTotalPrice - itemDiscount);
-        }
-        
-        totalPrice = discountedTotal;
-      }
-    }
+  const originalItems = requestItems.map(item => ({
+    id: item.id,
+    description: item.description,
+    unit: item.unit,
+    requestedQuantity: Number(item.requestedQuantity || 0)
+  }));
 
+  const winningItems = supplierQuotationItems.map(si => {
+    const qi = quotationItems.find((q: any) => q.id === si.quotationItemId);
+    const description = si.description || qi?.description || '';
+    const unit = si.confirmedUnit || qi?.unit || '';
+    const quantity = si.availableQuantity !== null && si.availableQuantity !== undefined 
+      ? Number(si.availableQuantity) 
+      : Number(qi?.quantity || 0);
+    const unitPrice = Number(si.unitPrice) || 0;
+    const originalTotalPrice = unitPrice * quantity;
+    let itemDiscount = 0;
+    let totalPrice = originalTotalPrice;
+    if (si.discountPercentage && Number(si.discountPercentage) > 0) {
+      const d = Number(si.discountPercentage);
+      itemDiscount = (originalTotalPrice * d) / 100;
+      totalPrice = originalTotalPrice - itemDiscount;
+    } else if (si.discountValue && Number(si.discountValue) > 0) {
+      itemDiscount = Number(si.discountValue);
+      totalPrice = Math.max(0, originalTotalPrice - itemDiscount);
+    }
     return {
-      id: item.id,
-      description: item.description,
-      unit: supplierUnit || item.unit,
-      requestedQuantity: parseFloat(item.requestedQuantity || '0'),
-      supplierQuantity: supplierQuantity,
-      quantityDiffers: quantityDiffers,
+      id: si.id,
+      description,
+      unit,
+      quantity,
       unitPrice,
-      totalPrice,
+      itemDiscount,
       originalTotalPrice,
-      itemDiscount
+      totalPrice
     };
   });
 
-  // Calcular valor total da solicitação
-  const totalValue = transformedItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  const totalValue = selectedSupplierQuotation?.totalValue ?? winningItems.reduce((sum, it) => sum + (it.totalPrice || 0), 0);
 
   // Usar hook para determinar tipo de aprovação
   const { data: approvalType, approvalInfo } = useApprovalType(totalValue, request.id);
@@ -601,19 +566,59 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
           </Card>
         )}
 
-        {/* Items Table with Supplier Pricing */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Itens da Solicitação
+              Itens conforme Solicitação Original
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              {transformedItems.length} {transformedItems.length === 1 ? 'item cadastrado' : 'itens cadastrados'}
+              {originalItems.length} {originalItems.length === 1 ? 'item cadastrado' : 'itens cadastrados'}
             </p>
           </CardHeader>
           <CardContent>
-            {transformedItems.length > 0 ? (
+            {originalItems.length > 0 ? (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="text-center">Qtd</TableHead>
+                      <TableHead className="text-center">Unidade</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {originalItems.map((item: any, index: number) => (
+                      <TableRow key={item.id || index}>
+                        <TableCell className="font-medium">{item.description}</TableCell>
+                        <TableCell className="text-center">{item.requestedQuantity}</TableCell>
+                        <TableCell className="text-center">{item.unit}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Nenhum item encontrado</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Itens conforme Cotação Vencedora
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              {winningItems.length} {winningItems.length === 1 ? 'item cotado' : 'itens cotados'}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {winningItems.length > 0 ? (
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -627,84 +632,35 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transformedItems.map((item: any, index: number) => (
+                    {winningItems.map((item: any, index: number) => (
                       <TableRow key={item.id || index}>
-                        <TableCell className="font-medium">
-                          {item.description}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="font-medium">
-                              {item.supplierQuantity !== null && item.supplierQuantity !== undefined 
-                                ? item.supplierQuantity 
-                                : item.requestedQuantity}
-                            </span>
-                            {item.quantityDiffers && (
-                              <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
-                                <div className="flex items-center gap-1">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  <span>Solicitado: {item.requestedQuantity}</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.unit}
+                        <TableCell className="font-medium">{item.description}</TableCell>
+                        <TableCell className="text-center">{item.quantity}</TableCell>
+                        <TableCell className="text-center">{item.unit}</TableCell>
+                        <TableCell className="text-right">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitPrice)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {item.unitPrice > 0 ? (
-                            <span className="font-medium text-green-600">
-                              {new Intl.NumberFormat('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL',
-                              }).format(item.unitPrice)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
+                          {item.itemDiscount > 0 
+                            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.itemDiscount)
+                            : <span className="text-gray-400">-</span>
+                          }
                         </TableCell>
                         <TableCell className="text-right">
-                          {item.itemDiscount > 0 ? (
-                            <span className="font-medium text-orange-600">
-                              {new Intl.NumberFormat('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL',
-                              }).format(item.itemDiscount)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.totalPrice > 0 ? (
-                            <span className="font-semibold text-green-600">
-                              {new Intl.NumberFormat('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL',
-                              }).format(item.totalPrice)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.totalPrice)}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-                
-                {/* Financial Summary */}
                 {selectedSupplierQuotation && (
                   <div className="border-t bg-blue-50 p-4">
                     <h4 className="font-semibold text-blue-800 mb-3">Resumo Financeiro</h4>
                     <div className="space-y-2">
                       {(() => {
-                        const subtotal = transformedItems.reduce((sum, item) => sum + (item.originalTotalPrice || item.totalPrice), 0);
+                        const subtotal = winningItems.reduce((sum, item) => sum + (item.originalTotalPrice || 0), 0);
                         const totalDiscount = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
                         const finalValue = Number(selectedSupplierQuotation.totalValue || 0);
-                        
-
-                        
                         return (
                           <>
                             <div className="flex justify-between items-center">
@@ -713,20 +669,16 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                                 R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </span>
                             </div>
-                            
                             {totalDiscount > 0 && (
                               <div className="flex justify-between items-center">
                                 <span className="text-sm text-orange-600">Desconto da proposta:</span>
                                 <span className="font-medium text-orange-600">
                                   {selectedSupplierQuotation.discountType === 'percentage' 
                                     ? `- ${totalDiscount}%`
-                                    : `- R$ ${totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                  }
+                                    : `- R$ ${totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                                 </span>
                               </div>
                             )}
-                            
-                            {/* Freight Information */}
                             <div className="flex justify-between items-center">
                               <span className="text-sm text-gray-700 flex items-center gap-1">
                                 <Truck className="h-4 w-4" />
@@ -742,7 +694,6 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                                 )}
                               </span>
                             </div>
-                            
                             <div className="border-t border-blue-300 pt-2 mt-2">
                               <div className="flex justify-between items-center">
                                 <span className="text-base font-semibold text-blue-800">Valor Final:</span>
@@ -753,27 +704,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                             </div>
                           </>
                         );
-                      })()
-                    }
-                    </div>
-                  </div>
-                )}
-                
-                {/* Total Summary - Fallback when no supplier quotation */}
-                {!selectedSupplierQuotation && (
-                  <div className="border-t bg-gray-50 p-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-600">
-                        Total Geral ({transformedItems.length} {transformedItems.length === 1 ? 'item' : 'itens'})
-                      </span>
-                      <span className="text-lg font-bold text-green-600">
-                        {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL',
-                        }).format(
-                          transformedItems.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
-                        )}
-                      </span>
+                      })()}
                     </div>
                   </div>
                 )}
@@ -781,7 +712,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Nenhum item encontrado</p>
+                <p>Nenhum item de cotação vencedor encontrado</p>
               </div>
             )}
           </CardContent>
