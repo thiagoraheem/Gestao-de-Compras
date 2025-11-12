@@ -417,7 +417,7 @@ $$;
 -- Índices para otimização das novas funções
 CREATE INDEX IF NOT EXISTS idx_detailed_audit_log_transaction_id ON detailed_audit_log(transaction_id);
 CREATE INDEX IF NOT EXISTS idx_detailed_audit_log_table_operation ON detailed_audit_log(table_name, operation_type);
-CREATE INDEX IF NOT EXISTS idx_quantity_adjustment_history_severity ON quantity_adjustment_history(severity_level);
+--CREATE INDEX IF NOT EXISTS idx_quantity_adjustment_history_severity ON quantity_adjustment_history(severity_level);
 
 -- Comentários para documentação
 COMMENT ON FUNCTION atomic_update_supplier_quotation_quantities IS 'Função para atualização atômica de quantidades com rollback automático e auditoria completa';
