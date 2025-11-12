@@ -412,16 +412,8 @@ export default function KanbanBoard({
         }
       }
 
-      // Verificar se o destino é uma fase válida
-      const validPhases = [
-        "solicitacao",
-        "aprovacao_a1",
-        "cotacao",
-        "aprovacao_a2",
-        "pedido_compra",
-        "recebimento",
-        "arquivado",
-      ];
+      // Verificar se o destino é uma fase válida (usa enum centralizado)
+      const validPhases = Object.values(PURCHASE_PHASES);
       if (!validPhases.includes(newPhase)) {
         toast({
           title: "Erro",

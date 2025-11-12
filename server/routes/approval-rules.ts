@@ -343,9 +343,8 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
   const existingPurchaseOrder = await storage.getPurchaseOrderByRequestId(requestId);
   if (existingPurchaseOrder) return;
 
-  // Get purchase request items
-  const purchaseRequestItems = await storage.getPurchaseRequestItems(requestId);
-  if (purchaseRequestItems.length === 0) return;
+  const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
+  if (supplierQuotationItems.length === 0) return;
 
   // Generate order number
   const orderNumber = `PO-${new Date().getFullYear()}-${String(requestId).padStart(3, "0")}`;
@@ -371,62 +370,55 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
 
   const purchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
 
-  // Get supplier quotation items and quotation items once
-  const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
   const quotationItems = await storage.getQuotationItems(quotation.id);
 
-  // Create purchase order items
-  for (const requestItem of purchaseRequestItems) {
-    const quotationItem = quotationItems.find(qi => 
-      qi.purchaseRequestItemId === requestItem.id ||
-      qi.description?.toLowerCase().trim() === requestItem.description?.toLowerCase().trim()
-    );
-
-    const supplierItem = quotationItem 
-      ? supplierQuotationItems.find(si => si.quotationItemId === quotationItem.id)
-      : null;
-
-    // Skip unavailable items
-    if (supplierItem && supplierItem.isAvailable === false) {
-      continue;
+  let itemsTotal = 0;
+  for (const si of supplierQuotationItems) {
+    if (si.isAvailable === false) continue;
+    const qi = quotationItems.find(q => q.id === si.quotationItemId);
+    const description = si.description || qi?.description || "";
+    const unit = si.confirmedUnit || qi?.unit || "UN";
+    const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
+    const unitPrice = si.unitPrice || "0";
+    const baseTotal = (parseFloat(unitPrice) || 0) * (parseFloat(quantity as any) || 0);
+    let itemDiscount = 0;
+    let totalPrice = baseTotal;
+    if (si.discountPercentage && parseFloat(si.discountPercentage as any) > 0) {
+      itemDiscount = (baseTotal * parseFloat(si.discountPercentage as any)) / 100;
+    } else if (si.discountValue && parseFloat(si.discountValue as any) > 0) {
+      itemDiscount = parseFloat(si.discountValue as any);
     }
-
-    // Determine the correct quantity to use:
-    // 1. Use available_quantity from supplier quotation if available and > 0
-    // 2. Fallback to approved_quantity from request
-    // 3. Final fallback to requested_quantity
-    let finalQuantity = "0";
-    let finalUnit = requestItem.unit;
-    
-    // Check if supplier has available quantity (prioritize supplier quotation)
-    if (supplierItem?.availableQuantity && 
-        supplierItem.availableQuantity !== "0" && 
-        supplierItem.availableQuantity !== "" && 
-        supplierItem.availableQuantity !== null) {
-      finalQuantity = supplierItem.availableQuantity;
-      // Use confirmed unit from supplier if available
-      if (supplierItem.confirmedUnit) {
-        finalUnit = supplierItem.confirmedUnit;
-      }
-    } else if (requestItem.approvedQuantity && requestItem.approvedQuantity !== "0") {
-      finalQuantity = requestItem.approvedQuantity;
-    } else if (requestItem.requestedQuantity && requestItem.requestedQuantity !== "0") {
-      finalQuantity = requestItem.requestedQuantity;
-    }
-
+    totalPrice = Math.max(0, baseTotal - itemDiscount);
+    itemsTotal += totalPrice;
     const purchaseOrderItemData = {
       purchaseOrderId: purchaseOrder.id,
-      itemCode: requestItem.productCode || `ITEM-${requestItem.id}`,
-      description: requestItem.description,
-      quantity: finalQuantity,
-      unit: finalUnit,
-      unitPrice: supplierItem?.unitPrice || "0",
-      totalPrice: supplierItem?.totalPrice || "0",
+      itemCode: qi?.itemCode || `ITEM-${si.id}`,
+      description,
+      quantity,
+      unit,
+      unitPrice,
+      totalPrice: totalPrice.toFixed(2),
       deliveryDeadline: null,
-      costCenterId: requestItem.costCenterId || null,
+      costCenterId: null,
       accountCode: null,
     };
 
     await storage.createPurchaseOrderItem(purchaseOrderItemData);
   }
+  try {
+    const supplierTotal = parseFloat(chosenSupplierQuotation.totalValue || "0");
+    const discrepancy = Math.abs(supplierTotal - itemsTotal);
+    await pool.query(
+      `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at, before_data, after_data)
+       VALUES ($1, $2, $3, $4, NOW(), $5, $6)`,
+      [
+        requestId,
+        approverId,
+        'po_created_a2',
+        `PO criado na A2 a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(2)} | Total cotação: R$ ${supplierTotal.toFixed(2)} | Diferença: R$ ${discrepancy.toFixed(2)}`,
+        JSON.stringify({ supplierTotal }),
+        JSON.stringify({ itemsTotal })
+      ]
+    );
+  } catch {}
 }

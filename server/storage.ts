@@ -1853,6 +1853,14 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async deletePurchaseOrderByRequestId(purchaseRequestId: number): Promise<number> {
+    const po = await this.getPurchaseOrderByRequestId(purchaseRequestId);
+    if (!po) return 0;
+    await db.delete(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, po.id));
+    await db.delete(purchaseOrders).where(eq(purchaseOrders.id, po.id));
+    return 1;
+  }
+
   async updatePurchaseOrderItem(
     id: number,
     item: Partial<InsertPurchaseOrderItem>,
