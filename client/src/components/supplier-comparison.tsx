@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle, DollarSign, Clock, Building2, Package, X, AlertCircle, XCircle, Truck } from "lucide-react";
+import { CheckCircle, DollarSign, Clock, Building2, Package, X, AlertCircle, XCircle, Truck, ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { Slider } from "@/components/ui/slider";
 
 interface SupplierComparisonProps {
   quotationId: number;
@@ -69,6 +71,8 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
   const [nonSelectedItemsOption, setNonSelectedItemsOption] = useState<'none' | 'separate-quotation' | 'info-only'>('none');
   const [showItemSelection, setShowItemSelection] = useState(false);
   const [showRecommendedDetails, setShowRecommendedDetails] = useState(false);
+  const [weights, setWeights] = useState({ price: 60, delivery: 20, discount: 10, freight: 5, payment: 5 });
+  const [paramsOpen, setParamsOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -230,17 +234,55 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
     const maxValue = Math.max(...values);
     const minDays = Math.min(...days);
     const maxDays = Math.max(...days);
+    const effectiveDiscountFractions = receivedQuotations.map(sq => {
+      if (!sq.discountType || !sq.discountValue) return 0;
+      const val = Number(sq.discountValue);
+      if (sq.discountType === 'percentage') return Math.min(Math.max(val / 100, 0), 1);
+      const total = Number(sq.totalValue || 0) || 1;
+      return Math.min(Math.max(val / total, 0), 1);
+    });
+    const maxDiscountFrac = Math.max(...effectiveDiscountFractions, 0);
+    const paymentDaysArray = receivedQuotations.map(sq => {
+      const match = String(sq.paymentTerms || '').match(/\d+/);
+      return match ? Number(match[0]) : 0;
+    });
+    const maxPaymentDays = Math.max(...paymentDaysArray, 0);
     const normalize = (val: number, min: number, max: number) => {
       if (!isFinite(val) || !isFinite(min) || !isFinite(max) || max === min) return 0.5;
       return (val - min) / (max - min);
     };
+    const normalizedWeights = (() => {
+      const sum = weights.price + weights.delivery + weights.discount + weights.freight + weights.payment;
+      const safeSum = sum > 0 ? sum : 1;
+      return {
+        price: weights.price / safeSum,
+        delivery: weights.delivery / safeSum,
+        discount: weights.discount / safeSum,
+        freight: weights.freight / safeSum,
+        payment: weights.payment / safeSum,
+      };
+    })();
     const scoreFor = (sq: SupplierQuotationData) => {
       const priceNorm = normalize(Number(sq.totalValue || 0), minValue, maxValue);
       const deliveryNorm = normalize(Number(sq.deliveryDays || 0), minDays, maxDays);
-      const discountScore = sq.discountValue ? 0.1 : 0;
-      const freightScore = sq.includesFreight ? 0.08 : 0;
-      const paymentScore = /\b(45|60|90)\b/.test(String(sq.paymentTerms || '')) ? 0.08 : /\b30\b/.test(String(sq.paymentTerms || '')) ? 0.05 : 0.02;
-      const total = (1 - priceNorm) * 0.6 + (1 - deliveryNorm) * 0.2 + discountScore + freightScore + paymentScore;
+      const discountFrac = (() => {
+        if (!sq.discountType || !sq.discountValue) return 0;
+        const val = Number(sq.discountValue);
+        const frac = sq.discountType === 'percentage' ? Math.min(Math.max(val / 100, 0), 1) : Math.min(Math.max(val / (Number(sq.totalValue || 0) || 1), 0), 1);
+        if (maxDiscountFrac <= 0) return 0.5;
+        return frac / maxDiscountFrac;
+      })();
+      const freightNorm = sq.includesFreight ? 1 : 0;
+      const paymentDays = (() => {
+        const match = String(sq.paymentTerms || '').match(/\d+/);
+        return match ? Number(match[0]) : 0;
+      })();
+      const paymentNorm = maxPaymentDays > 0 ? paymentDays / maxPaymentDays : 0.5;
+      const total = (1 - priceNorm) * normalizedWeights.price
+        + (1 - deliveryNorm) * normalizedWeights.delivery
+        + discountFrac * normalizedWeights.discount
+        + freightNorm * normalizedWeights.freight
+        + paymentNorm * normalizedWeights.payment;
       return total;
     };
     const scored = receivedQuotations.map(sq => ({ sq, score: scoreFor(sq) }));
@@ -278,7 +320,54 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                   </AlertDescription>
                 </Alert>
               )}
-              
+              {/* Parametrização de Pesos (colapsável) */}
+              <Collapsible open={paramsOpen} onOpenChange={setParamsOpen}>
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span>Parâmetros de Recomendação</span>
+                        <span className="text-xs text-gray-500">(opcional)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setWeights({ price: 60, delivery: 20, discount: 10, freight: 5, payment: 5 })}>Restaurar padrão</Button>
+                        <CollapsibleTrigger className="flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-gray-50">
+                          {paramsOpen ? 'Ocultar' : 'Mostrar'}
+                          <ChevronDown className={`h-3 w-3 transition-transform ${paramsOpen ? 'rotate-180' : ''}`} />
+                        </CollapsibleTrigger>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CollapsibleContent>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs">Preço (peso {weights.price}%)</Label>
+                          <Slider value={[weights.price]} min={0} max={100} step={1} onValueChange={(v) => setWeights(w => ({ ...w, price: v[0] }))} className="mt-2" aria-label="Peso Preço" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Prazo (peso {weights.delivery}%)</Label>
+                          <Slider value={[weights.delivery]} min={0} max={100} step={1} onValueChange={(v) => setWeights(w => ({ ...w, delivery: v[0] }))} className="mt-2" aria-label="Peso Prazo" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Desconto (peso {weights.discount}%)</Label>
+                          <Slider value={[weights.discount]} min={0} max={100} step={1} onValueChange={(v) => setWeights(w => ({ ...w, discount: v[0] }))} className="mt-2" aria-label="Peso Desconto" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Frete (peso {weights.freight}%)</Label>
+                          <Slider value={[weights.freight]} min={0} max={100} step={1} onValueChange={(v) => setWeights(w => ({ ...w, freight: v[0] }))} className="mt-2" aria-label="Peso Frete" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Pagamento (peso {weights.payment}%)</Label>
+                          <Slider value={[weights.payment]} min={0} max={100} step={1} onValueChange={(v) => setWeights(w => ({ ...w, payment: v[0] }))} className="mt-2" aria-label="Peso Pagamento" />
+                        </div>
+                      </div>
+                      <div className="mt-3 text-xs text-gray-600">Os pesos são normalizados automaticamente para a recomendação.</div>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
                 {receivedQuotations.map((supplierData) => (
                   <Card 
