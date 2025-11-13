@@ -20,6 +20,13 @@ interface SupplierQuotationItem {
   brand?: string;
   model?: string;
   observations?: string;
+  discountPercentage?: number;
+  discountValue?: number;
+  discountedTotalPrice?: number;
+  isAvailable?: boolean;
+  unavailabilityReason?: string;
+  availableQuantity?: number;
+  confirmedUnit?: string;
 }
 
 interface SupplierQuotationData {
@@ -287,57 +294,89 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                                 return quotationItem ? quotationItem.description : `Item #${quotationItemId}`;
                               })()}
                             </td>
-                            {receivedQuotations.map((supplier) => {
-                              const item = supplier.items.find(
-                                item => item.quotationItemId === quotationItemId
-                              );
-                              return (
-                                <td key={supplier.id} className={`p-3 border-l text-center ${
-                                  supplier.isChosen ? 'bg-green-50' : ''
-                                }`}>
-                                  {item ? (
-                                    <div className="space-y-1">
-                                      <div className="font-bold text-green-600">
-                                        R$ {Number(item.unitPrice).toLocaleString('pt-BR', { 
-                                          minimumFractionDigits: 2 
-                                        })}
-                                      </div>
-                                      <div className="text-sm text-gray-600">
-                                        Total: R$ {Number(item.totalPrice).toLocaleString('pt-BR', { 
-                                          minimumFractionDigits: 2 
-                                        })}
-                                      </div>
-                                      {/* Desconto do Item */}
-                                      {(item.discountPercentage || item.discountValue) && (
-                                        <div className="text-xs text-orange-600">
-                                          Desconto: {item.discountPercentage 
-                                            ? `${item.discountPercentage}%`
-                                            : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                            {(() => {
+                              const bestFinalPrice = (() => {
+                                const values = receivedQuotations.map((supplier) => {
+                                  const it = supplier.items.find(i => i.quotationItemId === quotationItemId);
+                                  if (!it) return Infinity;
+                                  return Number(it.discountedTotalPrice || it.totalPrice);
+                                });
+                                const min = Math.min(...values);
+                                return isFinite(min) ? min : null;
+                              })();
+                              return receivedQuotations.map((supplier) => {
+                                const item = supplier.items.find(
+                                  item => item.quotationItemId === quotationItemId
+                                );
+                                const finalValue = item ? Number(item.discountedTotalPrice || item.totalPrice) : null;
+                                const isBest = item && bestFinalPrice !== null && finalValue === bestFinalPrice;
+                                return (
+                                  <td key={supplier.id} className={`p-3 border-l text-center ${
+                                    supplier.isChosen ? 'bg-green-50' : ''
+                                  } ${isBest ? 'bg-green-50 ring-2 ring-green-300' : ''}`}>
+                                    {item ? (
+                                      <div className="space-y-1">
+                                        {isBest && (
+                                          <div className="flex justify-center">
+                                            <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-800 border-green-300">Melhor valor</Badge>
+                                          </div>
+                                        )}
+                                        {(() => {
+                                          const qi = quotationItems.find(q => q.id === item.quotationItemId);
+                                          const requestedQty = qi?.quantity ? parseFloat(qi.quantity) : undefined;
+                                          const qty = item.availableQuantity ?? requestedQty ?? (item.unitPrice ? Math.round(Number(item.discountedTotalPrice || item.totalPrice) / Number(item.unitPrice)) : undefined);
+                                          const unit = item.confirmedUnit || qi?.unit;
+                                          if (qty && unit) {
+                                            return (
+                                              <div className="text-xs text-gray-700">Quantidade: {qty.toLocaleString('pt-BR')} {unit}</div>
+                                            );
                                           }
+                                          if (qty) {
+                                            return (
+                                              <div className="text-xs text-gray-700">Quantidade: {qty.toLocaleString('pt-BR')}</div>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
+                                        <div className="text-xs text-gray-700">
+                                          Vlr. Unit.: R$ {Number(item.unitPrice).toLocaleString('pt-BR', { 
+                                            minimumFractionDigits: 2 
+                                          })}
                                         </div>
-                                      )}
-                                      {item.deliveryDays && (
-                                        <div className="text-xs text-blue-600">
-                                          {item.deliveryDays} dias
+                                        {(item.discountPercentage || item.discountValue) && (
+                                          <div className="text-xs text-orange-600">
+                                            Vlr. Desconto: {item.discountPercentage 
+                                              ? `${item.discountPercentage}%`
+                                              : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                            }
+                                          </div>
+                                        )}
+                                        <div className="text-sm font-bold text-green-700">
+                                          Vlr Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', { 
+                                            minimumFractionDigits: 2 
+                                          })}
                                         </div>
-                                      )}
-                                      {item.brand && (
-                                        <div className="text-xs text-gray-500">
-                                          {item.brand} {item.model}
-                                        </div>
-                                      )}
-                                      {item.observations && (
-                                        <div className="text-xs text-gray-400 italic">
-                                          {item.observations}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-gray-400 text-sm">Não cotado</span>
-                                  )}
-                                </td>
-                              );
-                            })}
+                                        {item.deliveryDays && (
+                                          <div className="text-xs text-blue-600">Prazo: {item.deliveryDays} dias</div>
+                                        )}
+                                        {item.brand && (
+                                          <div className="text-xs text-gray-500">
+                                            {item.brand} {item.model}
+                                          </div>
+                                        )}
+                                        {item.observations && (
+                                          <div className="text-xs text-gray-400 italic">
+                                            {item.observations}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-400 text-sm">Não cotado</span>
+                                    )}
+                                  </td>
+                                );
+                              });
+                            })()}
                           </tr>
                         ))}
                       </tbody>
