@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -398,24 +399,30 @@ export default function EnhancedNewRequestModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-4xl max-h-[90vh] overflow-y-auto"
+        className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg"
         aria-describedby="new-request-description"
       >
-        <DialogHeader>
-          <DialogTitle>Nova Solicitação de Compra</DialogTitle>
-        </DialogHeader>
+        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <h1 className="text-base font-semibold text-slate-800 dark:text-slate-100">Nova Solicitação de Compra</h1>
+            <DialogClose asChild>
+              <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400" aria-label="Fechar">
+                <X className="h-4 w-4" />
+              </button>
+            </DialogClose>
+          </div>
+        </div>
         <p id="new-request-description" className="sr-only">
           Formulário para criar uma nova solicitação de compra no sistema
         </p>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Informações Básicas */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Informações Básicas</CardTitle>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 px-6 pt-2 pb-0">
+            <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <CardHeader className="p-4">
+                <CardTitle className="text-sm font-semibold text-slate-800 dark:text-slate-100">Informações Básicas</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4 space-y-4">
                 {/* Company Selection - now available for all users */}
                 {companies && companies.length > 0 && (
                   <FormField
@@ -432,9 +439,9 @@ export default function EnhancedNewRequestModal({
                             }}
                             value={field.value?.toString()}
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione uma empresa..." />
-                            </SelectTrigger>
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Selecione uma empresa..." />
+                              </SelectTrigger>
                             <SelectContent>
                               {companies.map((company: any) => (
                                 <SelectItem
@@ -453,7 +460,7 @@ export default function EnhancedNewRequestModal({
                   />
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
                   <FormField
                     control={form.control}
                     name="costCenterId"
@@ -465,7 +472,7 @@ export default function EnhancedNewRequestModal({
                             onValueChange={field.onChange}
                             value={field.value?.toString()}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="h-9">
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -526,7 +533,7 @@ export default function EnhancedNewRequestModal({
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
                   <FormField
                     control={form.control}
                     name="urgency"
@@ -538,7 +545,7 @@ export default function EnhancedNewRequestModal({
                             onValueChange={field.onChange}
                             value={field.value}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="h-9">
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -569,6 +576,7 @@ export default function EnhancedNewRequestModal({
                             onChange={field.onChange}
                             onBlur={field.onBlur}
                             placeholder="DD/MM/AAAA"
+                            className="h-9 text-sm"
                           />
                         </FormControl>
                         <FormMessage />
@@ -588,6 +596,7 @@ export default function EnhancedNewRequestModal({
                           {...field}
                           rows={3}
                           placeholder="Descreva a necessidade e justificativa para esta compra..."
+                          className="text-sm min-h-[64px]"
                         />
                       </FormControl>
                       <FormMessage />
@@ -606,6 +615,7 @@ export default function EnhancedNewRequestModal({
                           {...field}
                           rows={2}
                           placeholder="Informações complementares sobre a solicitação..."
+                          className="text-sm min-h-[64px]"
                         />
                       </FormControl>
                       <FormMessage />
@@ -615,24 +625,21 @@ export default function EnhancedNewRequestModal({
               </CardContent>
             </Card>
 
-            {/* Itens da Solicitação */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Itens da Solicitação</CardTitle>
-                <CardDescription>
-                  Adicione os itens necessários. Você pode buscar produtos do ERP ou cadastrar itens avulsos.
-                </CardDescription>
+            <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <CardHeader className="p-4">
+                <CardTitle className="text-sm font-semibold text-slate-800 dark:text-slate-100">Itens da Solicitação</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400 mt-1">Adicione os itens necessários. Você pode buscar produtos do ERP ou cadastrar itens avulsos.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Itens Cadastrados</h4>
                 </div>
 
                 {/* Formulário para adicionar novo item */}
-                <Card className="p-4 bg-gray-50">
-                  <h4 className="font-medium mb-3">Adicionar Novo Item</h4>
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-                    <div className="lg:col-span-2">
+                <Card className="p-4">
+                  <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Adicionar Novo Item</h4>
+                  <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-12">
+                    <div className="sm:col-span-7">
                       <HybridProductInput
                         value={newItemForm.description}
                         onChange={(value) => setNewItemForm(prev => ({ ...prev, description: value }))}
@@ -648,7 +655,7 @@ export default function EnhancedNewRequestModal({
                           setMaintainSearchMode(true);
                         }}
                         placeholder="Digite a descrição ou busque no ERP..."
-                        className="h-10"
+                        className="h-9 text-sm"
                         resetTrigger={resetTrigger}
                         maintainSearchMode={maintainSearchMode}
                       />
@@ -660,9 +667,9 @@ export default function EnhancedNewRequestModal({
                         </div>
                       )}
                     </div>
-                    <div>
+                    <div className="sm:col-span-3">
                       <Select value={newItemForm.unit} onValueChange={(value) => setNewItemForm(prev => ({ ...prev, unit: value }))}>
-                        <SelectTrigger className="h-10">
+                        <SelectTrigger className="h-9">
                           <SelectValue placeholder="Unidade" />
                         </SelectTrigger>
                         <SelectContent>
@@ -675,11 +682,11 @@ export default function EnhancedNewRequestModal({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                    <div className="sm:col-span-2">
                       <Input
                         type="number"
                         placeholder="0"
-                        className="h-10"
+                        className="h-9 text-sm"
                         min="1"
                         autoComplete="off"
                         value={newItemForm.requestedQuantity}
@@ -687,16 +694,16 @@ export default function EnhancedNewRequestModal({
                       />
                     </div>
                   </div>
-                  <div className="mt-3">
+                  <div className="sm:col-span-12 mt-2">
                     <Textarea
                       placeholder="Especificação técnica (opcional)"
                       rows={2}
-                      className="resize-none"
+                      className="resize-none text-sm min-h-[64px]"
                       value={newItemForm.technicalSpecification}
                       onChange={(e) => setNewItemForm(prev => ({ ...prev, technicalSpecification: e.target.value }))}
                     />
                   </div>
-                  <div className="flex justify-end mt-3">
+                  <div className="sm:col-span-12 flex justify-end mt-3">
                     <Button
                       type="button"
                       onClick={addManualItem}
@@ -709,15 +716,13 @@ export default function EnhancedNewRequestModal({
                 </Card>
 
                 {manualItems.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Edit3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>Nenhum item cadastrado ainda.</p>
-                    <p className="text-sm">
-                      Use o formulário acima para adicionar itens.
-                    </p>
+                  <div className="text-center py-10 px-4">
+                    <Edit3 className="w-12 h-12 mx-auto mb-4 text-slate-300 dark:text-slate-500" />
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Nenhum item cadastrado ainda.</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">Use o formulário acima para adicionar itens.</p>
                   </div>
                 ) : (
-                  <div className="rounded-md border overflow-x-auto">
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-800 overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -878,21 +883,19 @@ export default function EnhancedNewRequestModal({
               </CardContent>
             </Card>
 
-            {/* Seção de anexos será adicionada após criar solicitação */}
-            {/* Botões */}
-            <div className="flex justify-end space-x-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={createRequestMutation.isPending}>
-                {createRequestMutation.isPending
-                  ? "Criando..."
-                  : "Criar Solicitação"}
-              </Button>
+            <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
+              <div className="flex justify-end items-center space-x-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={createRequestMutation.isPending}>
+                  {createRequestMutation.isPending ? "Criando..." : "Criar Solicitação"}
+                </Button>
+              </div>
             </div>
           </form>
         </Form>
