@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface SupplierComparisonProps {
   quotationId: number;
@@ -67,6 +68,7 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
   const [selectedItems, setSelectedItems] = useState<{[key: number]: boolean}>({});
   const [nonSelectedItemsOption, setNonSelectedItemsOption] = useState<'none' | 'separate-quotation' | 'info-only'>('none');
   const [showItemSelection, setShowItemSelection] = useState(false);
+  const [showRecommendedDetails, setShowRecommendedDetails] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -220,6 +222,32 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
   const receivedQuotations = suppliersData.filter(sq => sq.status === 'received');
   const noResponseQuotations = suppliersData.filter(sq => sq.status === 'no_response');
 
+  const recommendedSupplier = (() => {
+    if (receivedQuotations.length === 0) return null;
+    const values = receivedQuotations.map(sq => Number(sq.totalValue || 0));
+    const days = receivedQuotations.map(sq => Number(sq.deliveryDays || 0));
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+    const minDays = Math.min(...days);
+    const maxDays = Math.max(...days);
+    const normalize = (val: number, min: number, max: number) => {
+      if (!isFinite(val) || !isFinite(min) || !isFinite(max) || max === min) return 0.5;
+      return (val - min) / (max - min);
+    };
+    const scoreFor = (sq: SupplierQuotationData) => {
+      const priceNorm = normalize(Number(sq.totalValue || 0), minValue, maxValue);
+      const deliveryNorm = normalize(Number(sq.deliveryDays || 0), minDays, maxDays);
+      const discountScore = sq.discountValue ? 0.1 : 0;
+      const freightScore = sq.includesFreight ? 0.08 : 0;
+      const paymentScore = /\b(45|60|90)\b/.test(String(sq.paymentTerms || '')) ? 0.08 : /\b30\b/.test(String(sq.paymentTerms || '')) ? 0.05 : 0.02;
+      const total = (1 - priceNorm) * 0.6 + (1 - deliveryNorm) * 0.2 + discountScore + freightScore + paymentScore;
+      return total;
+    };
+    const scored = receivedQuotations.map(sq => ({ sq, score: scoreFor(sq) }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0].sq;
+  })();
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -268,9 +296,14 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                           <Building2 className="h-5 w-5" />
                           {supplierData.supplier.name}
                         </div>
-                        {selectedSupplierId === supplierData.supplier.id && (
-                          <CheckCircle className="h-5 w-5 text-blue-600" />
-                        )}
+                        <div className="flex items-center gap-2">
+                          {recommendedSupplier && recommendedSupplier.supplier.id === supplierData.supplier.id && (
+                            <Badge variant="default" className="bg-green-600">Recomendado</Badge>
+                          )}
+                          {selectedSupplierId === supplierData.supplier.id && (
+                            <CheckCircle className="h-5 w-5 text-blue-600" />
+                          )}
+                        </div>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -405,6 +438,133 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                   </Card>
                 ))}
               </div>
+
+              {recommendedSupplier && (
+                <Card className="mb-6 border-green-300 bg-green-50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        Fornecedor Recomendado
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => setShowRecommendedDetails(true)}>Ver detalhes completos</Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="font-semibold">{recommendedSupplier.supplier.name}</div>
+                        <div className="text-sm">Valor Total: R$ {Number(recommendedSupplier.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        <div className="text-sm">Prazo: {recommendedSupplier.deliveryDays} dias</div>
+                        <div className="text-sm">Pagamento: {recommendedSupplier.paymentTerms || 'Não informado'}</div>
+                        {recommendedSupplier.discountType && recommendedSupplier.discountValue && (
+                          <div className="text-sm">Desconto: {recommendedSupplier.discountType === 'percentage' ? `${recommendedSupplier.discountValue}%` : `R$ ${Number(recommendedSupplier.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</div>
+                        )}
+                        <div className="text-sm">Frete: {recommendedSupplier.includesFreight ? `R$ ${Number(recommendedSupplier.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não incluso'}</div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium">Vantagens competitivas</div>
+                        <ul className="text-sm list-disc list-inside space-y-1">
+                          <li>Melhor relação entre preço e prazo</li>
+                          {recommendedSupplier.includesFreight && <li>Frete incluído</li>}
+                          {recommendedSupplier.discountValue && <li>Desconto aplicado</li>}
+                          <li>Condições de pagamento favoráveis</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium">Comparativo</div>
+                        <div className="text-xs">Preço: recomendado vs. média dos demais</div>
+                        <div className="text-xs">Prazo: recomendado vs. média dos demais</div>
+                        <div className="text-xs">Pagamento: recomendado vs. demais</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium">Avaliação</div>
+                        <div className="text-xs">Qualidade e histórico: sem dados disponíveis</div>
+                        <div className="text-xs">Benefícios adicionais: conforme informado acima</div>
+                      </div>
+                    </div>
+                    <div className="mt-4 text-sm">
+                      Justificativa: melhor custo-benefício, condições comerciais adequadas e prazo competitivo com atendimento consistente.
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {recommendedSupplier && (
+                <Dialog open={showRecommendedDetails} onOpenChange={setShowRecommendedDetails}>
+                  <DialogContent className="max-w-4xl">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        Detalhes do Fornecedor Recomendado
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <div className="font-semibold">{recommendedSupplier.supplier.name}</div>
+                          <div className="text-sm">Valor Total: R$ {Number(recommendedSupplier.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                          <div className="text-sm">Prazo: {recommendedSupplier.deliveryDays} dias</div>
+                          <div className="text-sm">Pagamento: {recommendedSupplier.paymentTerms || 'Não informado'}</div>
+                          <div className="text-sm">Garantia: {recommendedSupplier.warrantyPeriod || recommendedSupplier.warranty || 'Não informado'}</div>
+                          <div className="text-sm">Frete: {recommendedSupplier.includesFreight ? `R$ ${Number(recommendedSupplier.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não incluso'}</div>
+                        </div>
+                        <div className="space-y-1">
+                          {recommendedSupplier.discountType && recommendedSupplier.discountValue && (
+                            <div className="text-sm">Desconto: {recommendedSupplier.discountType === 'percentage' ? `${recommendedSupplier.discountValue}%` : `R$ ${Number(recommendedSupplier.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</div>
+                          )}
+                          {recommendedSupplier.observations && (
+                            <div className="text-sm">Observações: {recommendedSupplier.observations}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left p-2 text-xs">Item</th>
+                              <th className="text-center p-2 text-xs">Disponibilidade</th>
+                              <th className="text-right p-2 text-xs">Vlr. Unit.</th>
+                              <th className="text-right p-2 text-xs">Vlr. Desconto</th>
+                              <th className="text-right p-2 text-xs">Vlr Final</th>
+                              <th className="text-center p-2 text-xs">Prazo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {recommendedSupplier.items.map((item, idx) => (
+                              <tr key={idx} className="border-b hover:bg-gray-50">
+                                <td className="p-2 text-xs">
+                                  {(() => {
+                                    const qi = quotationItems.find(q => q.id === item.quotationItemId);
+                                    return qi ? qi.description : `Item #${item.quotationItemId}`;
+                                  })()}
+                                </td>
+                                <td className="p-2 text-center text-xs">
+                                  {item.isAvailable === false ? 'Indisponível' : 'Disponível'}
+                                </td>
+                                <td className="p-2 text-right text-xs">
+                                  R$ {Number(item.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="p-2 text-right text-xs">
+                                  {(item.discountPercentage || item.discountValue) ? (
+                                    item.discountPercentage ? `${item.discountPercentage}%` : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                  ) : '-'}
+                                </td>
+                                <td className="p-2 text-right text-xs font-semibold">
+                                  R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="p-2 text-center text-xs">{item.deliveryDays ? `${item.deliveryDays} dias` : '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
 
               {/* Detailed Items Comparison */}
               <Card className="mb-6">
@@ -811,8 +971,8 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
               </div>
             </>
           )}
-        </div>
       </div>
     </div>
-  );
+  </div>
+);
 }
