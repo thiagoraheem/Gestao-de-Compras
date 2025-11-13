@@ -13,6 +13,7 @@ import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { DateInput } from "@/components/ui/date-input";
 
 interface Supplier {
   id: number;
@@ -64,13 +65,26 @@ const toPercent = (value: number) => `${(value * 100).toFixed(0)}%`;
 
 export default function SuppliersReportPage() {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>("none");
+  const [periodType, setPeriodType] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   const { data: suppliers = [] } = useQuery<Supplier[]>({
     queryKey: ["/api/suppliers"],
   });
+  const sortedSuppliers = useMemo(() => {
+    return suppliers.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+  }, [suppliers]);
 
   const { data: report, isLoading, refetch } = useQuery<SupplierReportResponse | null>({
-    queryKey: [selectedSupplierId !== "none" ? `/api/reports/suppliers?supplierId=${selectedSupplierId}` : ""],
+    queryKey: [
+      selectedSupplierId !== "none"
+        ? `/api/reports/suppliers?supplierId=${selectedSupplierId}` +
+          (periodType === "range" && startDate && endDate
+            ? `&startDate=${startDate}&endDate=${endDate}`
+            : "")
+        : "",
+    ],
     enabled: selectedSupplierId !== "none",
     queryFn: async ({ queryKey }) => {
       if (!queryKey[0]) return null;
@@ -123,9 +137,21 @@ export default function SuppliersReportPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Selecione</SelectItem>
-                  {suppliers.map((s) => (
+                  {sortedSuppliers.map((s) => (
                     <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Período</Label>
+              <Select value={periodType} onValueChange={setPeriodType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todo o histórico</SelectItem>
+                  <SelectItem value="range">Período específico</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -139,6 +165,18 @@ export default function SuppliersReportPage() {
               </div>
             )}
           </div>
+          {periodType === "range" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label>Data inicial</Label>
+                <DateInput value={startDate} onChange={setStartDate} placeholder="DD/MM/AAAA" />
+              </div>
+              <div className="space-y-2">
+                <Label>Data final</Label>
+                <DateInput value={endDate} onChange={setEndDate} placeholder="DD/MM/AAAA" />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -293,4 +331,3 @@ export default function SuppliersReportPage() {
     </div>
   );
 }
-

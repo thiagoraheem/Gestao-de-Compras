@@ -6819,14 +6819,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/reports/suppliers",
     async (req: Request, res: Response) => {
       try {
-        const { supplierId } = req.query as { supplierId?: string };
-
+        const { supplierId, startDate, endDate } = req.query as { supplierId?: string; startDate?: string; endDate?: string };
         const id = supplierId ? parseInt(supplierId) : NaN;
         if (!supplierId || isNaN(id)) {
           return res.status(400).json({ message: "Parâmetro supplierId é obrigatório e deve ser numérico" });
         }
 
-        // Supplier details
+        const start = startDate && endDate ? new Date(startDate) : null;
+        const end = startDate && endDate ? new Date(endDate) : null;
+        if (end) {
+          end.setHours(23, 59, 59, 999);
+        }
+
         const supplierResult = await pool.query(
           'SELECT id, name, email, phone, cnpj, cpf, contact, website, address FROM suppliers WHERE id = $1 LIMIT 1',
           [id]
@@ -6836,8 +6840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         const supplier = supplierResult.rows[0];
 
-        // Quotations summary for this supplier
-        const quotationsResult = await pool.query(
+        const quotationsQuery =
           `SELECT 
              sq.id,
              sq.quotation_id as "quotationId",
@@ -6858,13 +6861,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
              sq.created_at as "createdAt"
            FROM supplier_quotations sq
            JOIN quotations q ON q.id = sq.quotation_id
-           WHERE sq.supplier_id = $1
-           ORDER BY sq.created_at DESC`,
-          [id]
-        );
+           WHERE sq.supplier_id = $1` +
+           (start && end ? ` AND COALESCE(sq.sent_at, sq.created_at) BETWEEN $2 AND $3` : ``) +
+           ` ORDER BY sq.created_at DESC`;
+        const quotationsParams = start && end ? [id, start, end] : [id];
+        const quotationsResult = await pool.query(quotationsQuery, quotationsParams);
 
         const quotations = quotationsResult.rows.map((row: any) => {
-          // Ensure total includes freight when applicable
           const base = parseFloat(row.finalValue || row.subtotalValue || row.totalValue || '0');
           const freight = row.includesFreight && row.freightValue ? parseFloat(row.freightValue) : 0;
           const adjustedTotal = base + freight;
@@ -6878,7 +6881,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const responseRate = totalSent > 0 ? responded / totalSent : 0;
         const winRate = totalSent > 0 ? wins / totalSent : 0;
 
-        // Average response time in hours
         const responseTimesHours = quotations
           .filter((q: any) => q.sentAt && q.receivedAt)
           .map((q: any) => {
@@ -6890,14 +6892,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? responseTimesHours.reduce((a: number, b: number) => a + b, 0) / responseTimesHours.length
           : null;
 
-        // Monetary aggregates
         const monetaryValues = quotations
           .map((q: any) => parseFloat(q.finalValue || q.totalValue || '0'))
           .filter((v: number) => !isNaN(v) && v > 0);
         const totalQuotedValue = monetaryValues.reduce((a: number, b: number) => a + b, 0);
         const averageTicket = monetaryValues.length ? totalQuotedValue / monetaryValues.length : 0;
 
-        // Discount rate
         const discountRates = quotations
           .map((q: any) => {
             const subtotal = q.subtotalValue ? parseFloat(q.subtotalValue) : null;
@@ -6912,40 +6912,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? discountRates.reduce((a: number, b: number) => a + b, 0) / discountRates.length
           : 0;
 
-        // Availability and delivery days from items
-        const itemsAggResult = await pool.query(
+        const itemsAggQuery =
           `SELECT 
              COUNT(*)::int as total_items,
              SUM(CASE WHEN sqi.is_available = true THEN 1 ELSE 0 END)::int as available_items,
              AVG(NULLIF(sqi.delivery_days, 0))::float as avg_delivery_days
            FROM supplier_quotation_items sqi
            JOIN supplier_quotations sq ON sqi.supplier_quotation_id = sq.id
-           WHERE sq.supplier_id = $1`,
-          [id]
-        );
+           WHERE sq.supplier_id = $1` +
+           (start && end ? ` AND ((COALESCE(sq.sent_at, sq.created_at) BETWEEN $2 AND $3) OR (sq.received_at BETWEEN $2 AND $3))` : ``);
+        const itemsAggParams = start && end ? [id, start, end] : [id];
+        const itemsAggResult = await pool.query(itemsAggQuery, itemsAggParams);
 
         const itemsAgg = itemsAggResult.rows[0] || { total_items: 0, available_items: 0, avg_delivery_days: null };
         const availabilityRate = itemsAgg.total_items > 0 ? itemsAgg.available_items / itemsAgg.total_items : 0;
         const averageDeliveryDays = itemsAgg.avg_delivery_days || null;
 
-        // Monthly quotations count for small chart
-        const monthlyResult = await pool.query(
-          `SELECT to_char(date_trunc('month', COALESCE(sq.sent_at, sq.created_at)),'YYYY-MM') as month,
+        const monthlyQuery =
+          `SELECT to_char(date_trunc('month', COALESCE(sq.received_at, sq.sent_at, sq.created_at)),'YYYY-MM') as month,
                   COUNT(*)::int as count
            FROM supplier_quotations sq
-           WHERE sq.supplier_id = $1
-           GROUP BY 1
+           WHERE sq.supplier_id = $1` +
+           (start && end ? ` AND ((COALESCE(sq.sent_at, sq.created_at) BETWEEN $2 AND $3) OR (sq.received_at BETWEEN $2 AND $3))` : ``) +
+           ` GROUP BY 1
            ORDER BY 1 DESC
-           LIMIT 12`,
-          [id]
-        );
-
+           LIMIT 12`;
+        const monthlyParams = start && end ? [id, start, end] : [id];
+        const monthlyResult = await pool.query(monthlyQuery, monthlyParams);
         const monthlyActivity = monthlyResult.rows;
 
-        // Score calculation
         const responseTimeScore = avgResponseTimeHours !== null
           ? Math.max(0, 1 - Math.min(avgResponseTimeHours / 72, 1))
-          : 0.5; // neutral if no data
+          : 0.5;
         const score = (
           responseRate * 0.25 +
           winRate * 0.3 +
@@ -6981,7 +6979,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           quotations,
         });
       } catch (error) {
-        console.error("Error fetching suppliers report:", error);
         res.status(500).json({ message: "Failed to fetch suppliers report" });
       }
     },
