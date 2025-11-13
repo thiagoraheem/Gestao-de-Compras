@@ -29,6 +29,7 @@ import {
   HelpCircle,
   FolderOpen,
   ClipboardList,
+  Truck,
 } from "lucide-react";
 import { useState } from "react";
 import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
@@ -114,6 +115,10 @@ export default function PipefyHeader() {
     items.push(
         { label: "Solicitações de Compra", href: "/reports/purchase-requests", icon: <ClipboardList className="w-4 h-4" /> }
       );
+
+    items.push(
+      { label: "Relatório de Fornecedores", href: "/reports/suppliers", icon: <Truck className="w-4 h-4" /> }
+    );
 
     return items;
   };

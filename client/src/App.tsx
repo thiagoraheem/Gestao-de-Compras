@@ -28,6 +28,7 @@ import ApprovalConfigPage from "@/pages/approval-config";
 import DashboardPage from "@/pages/dashboard";
 import UserManualPage from "@/pages/user-manual";
 import PurchaseRequestsReportPage from "@/pages/purchase-requests-report";
+import SuppliersReportPage from "@/pages/suppliers-report";
 import ManagerRoute from "@/components/manager-route";
 import AdminRoute from "@/components/admin-route";
 import { RealtimeSyncProvider } from "@/components/realtime-sync";
@@ -116,6 +117,7 @@ function Router() {
         <Route path="/change-password" component={ChangePasswordPage} />
         <Route path="/manual" component={UserManualPage} />
         <Route path="/reports/purchase-requests" component={PurchaseRequestsReportPage} />
+        <Route path="/reports/suppliers" component={SuppliersReportPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
