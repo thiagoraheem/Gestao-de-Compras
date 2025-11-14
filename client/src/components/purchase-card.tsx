@@ -1195,16 +1195,12 @@ export default function PurchaseCard({
           </div>
         </div>
       )}
-      {isEditModalOpen && phase === PURCHASE_PHASES.COTACAO && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <QuotationPhase
-              request={request}
-              onClose={() => setIsEditModalOpen(false)}
-              className="p-6"
-            />
-          </div>
-        </div>
+      {phase === PURCHASE_PHASES.COTACAO && (
+        <QuotationPhase
+          request={request}
+          open={isEditModalOpen}
+          onOpenChange={(open) => setIsEditModalOpen(open)}
+        />
       )}
       {isEditModalOpen && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

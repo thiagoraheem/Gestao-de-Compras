@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -49,11 +49,11 @@ interface SupplierQuotation {
 
 interface QuotationPhaseProps {
   request: any;
-  onClose?: () => void;
-  className?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export default function QuotationPhase({ request, onClose, className }: QuotationPhaseProps) {
+export default function QuotationPhase({ request, open, onOpenChange }: QuotationPhaseProps) {
   const [showRFQCreation, setShowRFQCreation] = useState(false);
   const [showRFQAnalysis, setShowRFQAnalysis] = useState(false);
   const [showSupplierComparison, setShowSupplierComparison] = useState(false);
@@ -128,27 +128,30 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
   }
 
   return (
-    <div className={className}>
-      {/* Header with close button */}
-      {onClose && (
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Gestão de Cotações</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="quotation-phase-desc">
+        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-base font-semibold">Gestão de Cotações</DialogTitle>
+            <DialogClose asChild>
+              <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400" aria-label="Fechar">
+                <X className="h-4 w-4" />
+              </button>
+            </DialogClose>
+          </div>
         </div>
-      )}
+        <p id="quotation-phase-desc" className="sr-only">Tela de gestão de cotações da solicitação</p>
       
-      <div className="space-y-6">
+      <div className="space-y-6 px-6 pt-0 pb-2">
         {/* Request Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+          <CardHeader className="p-4">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <FileText className="h-5 w-5" />
               Informações da Solicitação
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <span className="text-sm font-medium text-gray-500">Número</span>
@@ -186,14 +189,14 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
 
         {/* RFQ Status */}
         {!hasQuotation ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+            <CardHeader className="p-4">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                 <Package className="h-5 w-5" />
                 Solicitação de Cotação (RFQ)
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
               <Alert>
                 <FileText className="h-4 w-4" />
                 <AlertDescription>
@@ -224,14 +227,14 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
         ) : (
           <>
             {/* Existing RFQ Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+            <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <CardHeader className="p-4">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                   <CheckCircle className="h-5 w-5 text-green-600" />
                   RFQ Ativa - {quotation.quotationNumber}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <span className="text-sm font-medium text-gray-500">Status</span>
@@ -287,14 +290,14 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
             </Card>
 
             {/* Items List */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+            <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <CardHeader className="p-4">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                   <Package className="h-5 w-5" />
                   Itens Solicitados
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
@@ -342,14 +345,14 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
             </Card>
 
             {/* Supplier Responses */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+            <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <CardHeader className="p-4">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                   <Building2 className="h-5 w-5" />
                   Respostas dos Fornecedores
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
                 <div className="space-y-4">
                   {supplierQuotations.map((sq) => (
                     <div key={sq.id} className="border rounded-lg p-4">
@@ -477,7 +480,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
           </>
         )}
 
-        {/* Modals */}
+        {/* Modais auxiliares */}
         {showRFQCreation && (
           <RFQCreation
             purchaseRequest={request}
@@ -599,6 +602,7 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
           </DialogContent>
         </Dialog>
       </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
