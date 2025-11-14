@@ -4,12 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -78,12 +73,12 @@ interface Item {
 }
 
 interface RequestPhaseProps {
-  onClose?: () => void;
-  className?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   request?: any;
 }
 
-export default function RequestPhase({ onClose, className, request }: RequestPhaseProps) {
+export default function RequestPhase({ open, onOpenChange, request }: RequestPhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -270,7 +265,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
         form.reset();
         setManualItems([]);
       }
-      onClose?.();
+      onOpenChange(false);
     },
   });
 
@@ -315,7 +310,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
         title: "Sucesso",
         description: "Solicitação enviada para aprovação A1",
       });
-      onClose?.();
+      onOpenChange(false);
     },
     onError: (err, variables, context) => {
       // Roll back on error
@@ -389,33 +384,32 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
   const isFormValid = form.formState.isValid && manualItems.length > 0;
 
   return (
-    <div className={cn("w-full max-w-4xl", className)}>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <FileText className="h-6 w-6" />
-          {request ? 'Editar Solicitação de Compra' : 'Nova Solicitação de Compra'}
-        </h2>
-        {onClose && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="h-8 w-8 p-0"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Fechar</span>
-          </Button>
-        )}
-      </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="request-phase-desc">
+        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-base font-semibold flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {request ? 'Editar Solicitação de Compra' : 'Nova Solicitação de Compra'}
+            </DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Fechar</span>
+              </Button>
+            </DialogClose>
+          </div>
+        </div>
+        <p id="request-phase-desc" className="sr-only">Formulário para criação ou edição de solicitação de compra</p>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 px-6 pt-0 pb-0">
           {/* Informações Básicas */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Informações Básicas</CardTitle>
+          <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+            <CardHeader className="p-4">
+              <CardTitle className="text-sm font-semibold">Informações Básicas</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -428,7 +422,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                           onValueChange={field.onChange}
                           value={field.value?.toString()}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="h-9">
                             <SelectValue placeholder="Selecione..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -460,9 +454,9 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                           onValueChange={field.onChange}
                           value={field.value}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
                           <SelectContent>
                             {Object.entries(CATEGORY_OPTIONS).map(
                               ([key, value]) => (
@@ -492,9 +486,9 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                           onValueChange={field.onChange}
                           value={field.value}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
                           <SelectContent>
                             {Object.entries(URGENCY_LEVELS).map(
                               ([key, value]) => (
@@ -523,6 +517,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                           onChange={field.onChange}
                           onBlur={field.onBlur}
                           placeholder="DD/MM/AAAA"
+                          className="h-9 text-sm"
                         />
                       </FormControl>
                       <FormMessage />
@@ -542,6 +537,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                         {...field}
                         rows={3}
                         placeholder="Descreva a necessidade e justificativa para esta compra..."
+                        className="text-sm min-h-[64px]"
                       />
                     </FormControl>
                     <FormMessage />
@@ -560,6 +556,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                         {...field}
                         rows={2}
                         placeholder="Informações complementares sobre a solicitação..."
+                        className="text-sm min-h-[64px]"
                       />
                     </FormControl>
                     <FormMessage />
@@ -570,14 +567,14 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
           </Card>
 
           {/* Itens da Solicitação */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Itens da Solicitação</CardTitle>
-              <CardDescription>
+          <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+            <CardHeader className="p-4">
+              <CardTitle className="text-sm font-semibold">Itens da Solicitação</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Adicione os itens necessários. Você pode buscar produtos do ERP ou cadastrar itens avulsos.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">Itens Cadastrados</h4>
                 <Button
@@ -643,13 +640,13 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                             <label className="text-sm font-medium text-gray-700 mb-1 block">
                               Unidade *
                             </label>
-                            <UnitSelect
-                              value={item.unit}
-                              onValueChange={(value) =>
-                                updateManualItem(item.id, "unit", value)
-                              }
-                              className="h-10"
-                            />
+                        <UnitSelect
+                          value={item.unit}
+                          onValueChange={(value) =>
+                            updateManualItem(item.id, "unit", value)
+                          }
+                          className="h-9"
+                        />
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-700 mb-1 block">
@@ -666,7 +663,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                                 )
                               }
                               min="1"
-                              className="h-10"
+                              className="h-9 text-sm"
                               placeholder="Qtd"
                               autoComplete="off"
                             />
@@ -690,7 +687,7 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                           }
                           placeholder="Especificações técnicas detalhadas (marca, modelo, características, normas técnicas, etc.)"
                           rows={3}
-                          className="resize-none"
+                          className="resize-none text-sm"
                         />
                       </div>
                     </Card>
@@ -700,8 +697,8 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
             </CardContent>
           </Card>
 
-          {/* Form Actions */}
-          <div className="flex justify-between items-center pt-6 border-t">
+          {/* Form status (sem ações; ações ficam no rodapé sticky) */}
+          <div className="pt-6 border-t">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               {isFormValid ? (
                 <>
@@ -715,51 +712,50 @@ export default function RequestPhase({ onClose, className, request }: RequestPha
                 </>
               )}
             </div>
-            
-            <div className="flex gap-3">
-              {onClose && (
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={onClose}
-                  disabled={createRequestMutation.isPending || sendToApprovalMutation.isPending}
-                >
-                  Cancelar
-                </Button>
-              )}
-              
-              {/* Send to Approval button - only for editing requests in request phase */}
-              {request && request.currentPhase === "solicitacao" && (
-                <Button 
-                  type="button"
-                  variant="default"
-                  onClick={() => sendToApprovalMutation.mutate()}
-                  disabled={sendToApprovalMutation.isPending || createRequestMutation.isPending}
-                  className="min-w-[140px] bg-blue-600 hover:bg-blue-700"
-                >
-                  {sendToApprovalMutation.isPending ? (
-                    "Enviando..."
-                  ) : (
-                    "Enviar para Aprovação"
-                  )}
-                </Button>
-              )}
-              
-              <Button 
-                type="submit" 
-                disabled={createRequestMutation.isPending || sendToApprovalMutation.isPending || !isFormValid}
-                className="min-w-[140px]"
-              >
-                {createRequestMutation.isPending ? (
-                  "Processando..."
-                ) : (
-                  request ? "Salvar Alterações" : "Criar Solicitação"
-                )}
-              </Button>
-            </div>
           </div>
         </form>
       </Form>
-    </div>
+        <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
+          <div className="flex justify-end gap-3">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              disabled={createRequestMutation.isPending || sendToApprovalMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            {request && request.currentPhase === "solicitacao" && (
+              <Button 
+                type="button"
+                variant="default"
+                onClick={() => sendToApprovalMutation.mutate()}
+                disabled={sendToApprovalMutation.isPending || createRequestMutation.isPending}
+                className="min-w-[140px] bg-blue-600 hover:bg-blue-700"
+              >
+                {sendToApprovalMutation.isPending ? (
+                  "Enviando..."
+                ) : (
+                  "Enviar para Aprovação"
+                )}
+              </Button>
+            )}
+            <Button 
+              type="submit" 
+              form=""
+              disabled={createRequestMutation.isPending || sendToApprovalMutation.isPending || !isFormValid}
+              className="min-w-[140px]"
+              onClick={() => form.handleSubmit(onSubmit)()}
+            >
+              {createRequestMutation.isPending ? (
+                "Processando..."
+              ) : (
+                request ? "Salvar Alterações" : "Criar Solicitação"
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

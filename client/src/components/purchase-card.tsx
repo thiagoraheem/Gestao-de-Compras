@@ -1166,16 +1166,12 @@ export default function PurchaseCard({
         </CardContent>
       </Card>
       {/* Phase-specific Edit Modals */}
-      {isEditModalOpen && phase === PURCHASE_PHASES.SOLICITACAO && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <RequestPhase
-              request={request}
-              onClose={() => setIsEditModalOpen(false)}
-              className="p-6"
-            />
-          </div>
-        </div>
+      {phase === PURCHASE_PHASES.SOLICITACAO && (
+        <RequestPhase
+          request={request}
+          open={isEditModalOpen}
+          onOpenChange={(open) => setIsEditModalOpen(open)}
+        />
       )}
       {phase === PURCHASE_PHASES.APROVACAO_A1 && (
         <ApprovalA1Phase
