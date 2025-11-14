@@ -327,8 +327,8 @@ export class PDFService {
         timeout: 60000 
       });
       
-      // Aguardar um pouco para garantir que CSS foi processado
-      await page.waitForTimeout(1000);
+      // Aguardar um pouco para garantir que CSS foi processado (compatível com todas as versões)
+      await new Promise(resolve => setTimeout(resolve, 800));
       
       const pdfBuffer = await page.pdf({
         format: 'A4',
@@ -754,18 +754,16 @@ export class PDFService {
       margin-bottom: 20px;
       border-bottom: 2px solid #333;
       padding-bottom: 15px;
-      position: relative;
     }
     .qr-code-container {
-      position: absolute;
-      top: 0;
-      right: 0;
+      position: static;
+      margin-left: 20px;
       text-align: center;
       font-size: 10px;
     }
     .qr-code-container img {
-      width: 100px;
-      height: 100px;
+      width: 90px;
+      height: 90px;
       display: block;
       margin-bottom: 5px;
     }
@@ -786,6 +784,7 @@ export class PDFService {
     .header-info {
       flex: 1;
       text-align: center;
+      padding: 0 10px;
     }
     .header-info h1 {
       font-size: 16px;
