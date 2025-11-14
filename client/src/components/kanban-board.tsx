@@ -608,31 +608,26 @@ export default function KanbanBoard({
       </DragOverlay>
 
       {/* RFQ Creation Modal */}
-      {showRFQCreation && selectedRequestForRFQ && (
-        <RFQCreation
-          purchaseRequest={selectedRequestForRFQ}
-          onClose={() => {
-            setShowRFQCreation(false);
-            setSelectedRequestForRFQ(null);
-          }}
-          onComplete={() => {
-            setShowRFQCreation(false);
-            setSelectedRequestForRFQ(null);
-            // Comprehensive cache invalidation
-            queryClient.invalidateQueries({
-              queryKey: ["/api/purchase-requests"],
-            });
-            queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-            queryClient.invalidateQueries({
-              predicate: (query) =>
-                !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-                query.queryKey[0]
-                  ?.toString()
-                  .includes(`/api/purchase-requests`)),
-            });
-          }}
-        />
-      )}
+      <RFQCreation
+        purchaseRequest={selectedRequestForRFQ}
+        existingQuotation={null}
+        isOpen={showRFQCreation && !!selectedRequestForRFQ}
+        onOpenChange={(open) => {
+          setShowRFQCreation(open)
+          if (!open) setSelectedRequestForRFQ(null)
+        }}
+        onComplete={() => {
+          setShowRFQCreation(false)
+          setSelectedRequestForRFQ(null)
+          queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] })
+          queryClient.invalidateQueries({ queryKey: ["/api/quotations"] })
+          queryClient.invalidateQueries({
+            predicate: (query) =>
+              !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+              query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
+          })
+        }}
+      />
     </DndContext>
   );
 }

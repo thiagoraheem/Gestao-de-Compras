@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,11 +66,12 @@ type RFQCreationData = z.infer<typeof rfqCreationSchema>;
 interface RFQCreationProps {
   purchaseRequest: any;
   existingQuotation?: any;
-  onClose: () => void;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
   onComplete: () => void;
 }
 
-export default function RFQCreation({ purchaseRequest, existingQuotation, onClose, onComplete }: RFQCreationProps) {
+export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen, onOpenChange, onComplete }: RFQCreationProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -79,38 +81,42 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
 
   const { data: suppliers = [] } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
+    enabled: !!isOpen,
   });
 
   const { data: deliveryLocations = [] } = useQuery<any[]>({
     queryKey: ["/api/delivery-locations"],
+    enabled: !!isOpen,
   });
 
   // Fetch existing purchase request items
   const { data: purchaseRequestItems = [], isLoading: itemsLoading } = useQuery<any[]>({
-    queryKey: [`/api/purchase-requests/${purchaseRequest.id}/items`],
+    queryKey: [`/api/purchase-requests/${purchaseRequest?.id}/items`],
+    enabled: !!isOpen && !!purchaseRequest?.id,
   });
 
   // Fetch complete purchase request data with requester info
   const { data: completeRequestData, isLoading: requestLoading } = useQuery<any>({
-    queryKey: [`/api/purchase-requests/${purchaseRequest.id}`],
+    queryKey: [`/api/purchase-requests/${purchaseRequest?.id}`],
+    enabled: !!isOpen && !!purchaseRequest?.id,
   });
 
   // Fetch existing quotation items if editing
   const { data: existingQuotationItems = [], isLoading: quotationItemsLoading } = useQuery<any[]>({
     queryKey: [`/api/quotations/${existingQuotation?.id}/items`],
-    enabled: !!existingQuotation?.id,
+    enabled: !!isOpen && !!existingQuotation?.id,
   });
 
   // Fetch existing supplier quotations if editing
   const { data: existingSupplierQuotations = [], isLoading: supplierQuotationsLoading } = useQuery<any[]>({
     queryKey: [`/api/quotations/${existingQuotation?.id}/supplier-quotations`],
-    enabled: !!existingQuotation?.id,
+    enabled: !!isOpen && !!existingQuotation?.id,
   });
 
   const form = useForm<RFQCreationData>({
     resolver: zodResolver(rfqCreationSchema),
     defaultValues: {
-      purchaseRequestId: purchaseRequest.id,
+      purchaseRequestId: purchaseRequest?.id ?? 0,
       quotationDeadline: format(addDays(new Date(), 7), "yyyy-MM-dd"),
       deliveryLocationId: 0,
       selectedSuppliers: [],
@@ -181,10 +187,10 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       // Fallback to default item if no items exist
       const defaultItem = {
         itemCode: "",
-        description: purchaseRequest.justification || "",
+        description: purchaseRequest?.justification || "",
         quantity: "1",
         unit: "UN",
-        specifications: purchaseRequest.additionalInfo || "", // Load from additional info if available
+        specifications: purchaseRequest?.additionalInfo || "", // Load from additional info if available
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
       };
       
@@ -209,11 +215,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       form.setValue("quotationDeadline", existingQuotation.quotationDeadline ? format(new Date(existingQuotation.quotationDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 7), "yyyy-MM-dd"));
       form.setValue("termsAndConditions", existingQuotation.termsAndConditions || "");
       form.setValue("technicalSpecs", existingQuotation.technicalSpecs || "");
-    } else if (purchaseRequest.additionalInfo && !form.getValues("technicalSpecs")) {
+    } else if (purchaseRequest?.additionalInfo && !form.getValues("technicalSpecs")) {
       // Load technical specs from original request when creating new quotation, only if not already set
       form.setValue("technicalSpecs", purchaseRequest.additionalInfo);
     }
-  }, [existingQuotation?.id, purchaseRequest.additionalInfo]);
+  }, [existingQuotation?.id, purchaseRequest?.additionalInfo]);
 
   // Set selected suppliers when existing supplier quotations are loaded
   useEffect(() => {
@@ -310,11 +316,13 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       // Invalidate all quotation-related queries
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}/status`] });
+      if (purchaseRequest?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}/status`] });
+      }
       queryClient.invalidateQueries({ 
         predicate: (query) => 
-          !!(query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
+          !!(purchaseRequest?.id && query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
           query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
           query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
       });
@@ -406,11 +414,13 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
       // Invalidate all quotation-related queries
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}/status`] });
+      if (purchaseRequest?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${purchaseRequest.id}/status`] });
+      }
       queryClient.invalidateQueries({ 
         predicate: (query) => 
-          !!(query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
+          !!(purchaseRequest?.id && query.queryKey[0]?.toString().includes(`/api/quotations/purchase-request/${purchaseRequest.id}`) ||
           query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
           query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
       });
@@ -464,46 +474,52 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
   // Show loading state while data is being fetched
   if (isLoadingData) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-md w-full p-6 text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <h3 className="text-lg font-semibold mb-2">Carregando dados da solicitação...</h3>
-          <p className="text-gray-600">Aguarde enquanto os dados são carregados.</p>
-        </div>
-      </div>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg z-[60]">
+          <div className="p-6 text-center">
+            <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <h3 className="text-lg font-semibold mb-2">Carregando dados da solicitação...</h3>
+            <p className="text-gray-600">Aguarde enquanto os dados são carregados.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     );
   }
 
+  if (!isOpen || !purchaseRequest) {
+    return null;
+  }
+
   return (
-    <>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {existingQuotation ? 'Editar' : 'Criar'} Solicitação de Cotação (RFQ)
-              </h2>
-              <p className="text-gray-600 mt-1">Solicitação: {purchaseRequest.requestNumber}</p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg z-[60]" aria-describedby="rfq-creation-desc">
+        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-base font-semibold">{existingQuotation ? 'Editar' : 'Criar'} Solicitação de Cotação (RFQ)</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Fechar</span>
+              </Button>
+            </DialogClose>
           </div>
+          <p className="text-xs text-slate-500 mt-1">Solicitação: {purchaseRequest?.requestNumber || ""}</p>
+        </div>
 
         <Form {...form}>
-          <div className="p-6 space-y-6">
+          <div className="space-y-6 px-6 pt-0 pb-2">
             {/* Header Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+            <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <CardHeader className="p-4">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                   <FileText className="h-5 w-5" />
                   Informações da Solicitação
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Número da Solicitação</Label>
-                  <p className="text-lg font-semibold">{purchaseRequest.requestNumber}</p>
+                  <p className="text-lg font-semibold">{purchaseRequest?.requestNumber || ""}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Solicitante</Label>
@@ -511,75 +527,78 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                     {completeRequestData?.requester 
                       ? `${completeRequestData.requester.firstName} ${completeRequestData.requester.lastName}`.trim() || completeRequestData.requester.username
                       : completeRequestData?.requesterName 
-                      || purchaseRequest.requesterName 
-                      || purchaseRequest.requesterUsername 
+                      || purchaseRequest?.requesterName 
+                      || purchaseRequest?.requesterUsername 
                       || 'Carregando...'}
                   </p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Data de Criação</Label>
-                  <p className="text-lg">{format(new Date(purchaseRequest.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
+                  <p className="text-lg">{purchaseRequest?.createdAt ? format(new Date(purchaseRequest.createdAt), "dd/MM/yyyy", { locale: ptBR }) : ""}</p>
                 </div>
               </CardContent>
             </Card>
 
             {/* Quotation Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+            <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <CardHeader className="p-4">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                   <Calendar className="h-5 w-5" />
                   Configurações da Cotação
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="quotationDeadline"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Prazo para Envio de Cotações</FormLabel>
-                      <FormControl>
-                        <DateInput
-                          value={field.value}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                          placeholder="DD/MM/AAAA"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="quotationDeadline"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prazo para Envio de Cotações</FormLabel>
+                        <FormControl>
+                          <DateInput
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            placeholder="DD/MM/AAAA"
+                            className="h-9 text-sm"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="deliveryLocationId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Local de Entrega *</FormLabel>
-                      <FormControl>
-                        <Select 
-                          value={field.value.toString()} 
-                          onValueChange={(value) => field.onChange(parseInt(value))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o local de entrega" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {deliveryLocations
-                              .sort((a, b) => a.id - b.id)
-                              .map((location) => (
-                                <SelectItem key={location.id} value={location.id.toString()}>
-                                  {location.name}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="deliveryLocationId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Local de Entrega *</FormLabel>
+                        <FormControl>
+                          <Select 
+                            value={field.value.toString()} 
+                            onValueChange={(value) => field.onChange(parseInt(value))}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Selecione o local de entrega" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {deliveryLocations
+                                .sort((a, b) => a.id - b.id)
+                                .map((location) => (
+                                  <SelectItem key={location.id} value={location.id.toString()}>
+                                    {location.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 
                 <FormField
                   control={form.control}
@@ -621,9 +640,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
             </Card>
 
             {/* Items List */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
+            <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <CardHeader className="p-4 flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                   <Package className="h-5 w-5" />
                   Itens da Solicitação
                 </CardTitle>
@@ -639,7 +658,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4 space-y-4">
                 {purchaseRequestItems.length > 0 && (
                   <div className="bg-blue-50 p-3 rounded-lg mb-4">
                     <p className="text-sm text-blue-700">
@@ -683,13 +702,13 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                             <FormItem>
                               <FormLabel className="text-gray-700 font-medium">Quantidade</FormLabel>
                               <FormControl>
-                                <Input 
-                                  type="number" 
-                                  min="1" 
-                                  {...field} 
-                                  className="bg-white border-blue-300 focus:border-blue-500"
-                                  autoComplete="off"
-                                />
+                            <Input 
+                              type="number" 
+                              min="1" 
+                              {...field} 
+                              className="h-9 text-sm"
+                              autoComplete="off"
+                            />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -706,7 +725,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                                 <UnitSelect
                                   value={field.value}
                                   onValueChange={field.onChange}
-                                  className="bg-white border-blue-300 focus:border-blue-500"
+                                  className="h-9"
                                 />
                               </FormControl>
                               <FormMessage />
@@ -726,7 +745,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                                   onChange={field.onChange}
                                   onBlur={field.onBlur}
                                   placeholder="DD/MM/AAAA"
-                                  className="bg-white border-blue-300 focus:border-blue-500"
+                                  className="h-9 text-sm"
                                 />
                               </FormControl>
                               <FormMessage />
@@ -749,7 +768,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                                 placeholder="Descrição detalhada do item (carregada da solicitação original)"
                                 rows={2}
                                 {...field}
-                                className="bg-white border-gray-300 focus:border-blue-500"
+                                className="text-sm"
                               />
                             </FormControl>
                             <FormMessage />
@@ -770,7 +789,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                                 placeholder="Especificações técnicas detalhadas que serão enviadas aos fornecedores para cotação (marca, modelo, características técnicas, normas, etc.)"
                                 rows={3}
                                 {...field}
-                                className="bg-white border-blue-300 focus:border-blue-500"
+                                className="text-sm"
                               />
                             </FormControl>
                             <FormMessage />
@@ -784,9 +803,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
             </Card>
 
             {/* Supplier Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+            <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <CardHeader className="p-4">
+                <CardTitle className="flex items-center justify-between text-sm font-semibold">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-5 w-5" />
                     Seleção de Fornecedores
@@ -805,7 +824,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                   </Button>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
                 <FormField
                   control={form.control}
                   name="selectedSuppliers"
@@ -826,9 +845,10 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
 
 
 
-            {/* Actions */}
-            <div className="flex justify-end space-x-4 pt-6 border-t">
-              <Button type="button" variant="outline" onClick={onClose}>
+            {/* Rodapé */}
+            <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 -mx-6 px-6 py-3">
+              <div className="flex justify-end space-x-4">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
               <Button type="button" variant="outline" onClick={saveDraft}>
@@ -872,13 +892,11 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, onClos
                   </>
                 )}
               </Button>
+              </div>
             </div>
           </div>
         </Form>
-      </div>
-    </div>
-    
-    {/* Cadastro de fornecedor agora abre em /suppliers em nova aba */}
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -481,17 +481,15 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
         )}
 
         {/* Modais auxiliares */}
-        {showRFQCreation && (
-          <RFQCreation
-            purchaseRequest={request}
-            existingQuotation={quotation}
-            onClose={() => setShowRFQCreation(false)}
-            onComplete={() => {
-              setShowRFQCreation(false);
-              // TODO: Refresh data
-            }}
-          />
-        )}
+        <RFQCreation
+          purchaseRequest={request}
+          existingQuotation={quotation}
+          isOpen={showRFQCreation}
+          onOpenChange={setShowRFQCreation}
+          onComplete={() => {
+            setShowRFQCreation(false);
+          }}
+        />
 
         {showRFQAnalysis && (
           <RFQAnalysis
