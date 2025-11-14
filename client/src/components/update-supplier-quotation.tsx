@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -712,21 +713,28 @@ export default function UpdateSupplierQuotation({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {viewMode === 'view' ? (
-              <>
-                <Eye className="h-5 w-5" />
-                Visualizar Cotação - {supplierName}
-              </>
-            ) : (
-              <>
-                <DollarSign className="h-5 w-5" />
-                Atualizar Cotação - {supplierName}
-              </>
-            )}
-          </DialogTitle>
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg">
+        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+              {viewMode === 'view' ? (
+                <>
+                  <Eye className="h-5 w-5" />
+                  Visualizar Cotação - {supplierName}
+                </>
+              ) : (
+                <>
+                  <DollarSign className="h-5 w-5" />
+                  Atualizar Cotação - {supplierName}
+                </>
+              )}
+            </DialogTitle>
+            <DialogClose asChild>
+              <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400" aria-label="Fechar">
+                <X className="h-4 w-4" />
+              </button>
+            </DialogClose>
+          </div>
           {existingSupplierQuotation && (
             <div className="flex items-center gap-4 mt-2">
               <Badge variant={existingSupplierQuotation.status === 'received' ? 'default' : 'secondary'}>
@@ -744,12 +752,12 @@ export default function UpdateSupplierQuotation({
               )}
             </div>
           )}
-        </DialogHeader>
+        </div>
 
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(handleSubmit)}
-            className="space-y-6"
+            className="space-y-6 px-6 pt-6 pb-24"
           >
             {/* Items Section */}
             <Card>
@@ -1751,38 +1759,40 @@ export default function UpdateSupplierQuotation({
               </Card>
             )}
 
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={onClose} type="button">
-                {viewMode === 'view' ? 'Fechar' : 'Cancelar'}
-              </Button>
-              {viewMode === 'edit' && (
-                <Button
-                  type="submit"
-                  disabled={updateMutation.isPending || isUploading}
-                  className="min-w-32"
-                >
-                  {updateMutation.isPending ? (
-                    <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 animate-spin" />
-                      Salvando...
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4" />
-                      Salvar Cotação
-                    </div>
-                  )}
+            <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={onClose} type="button">
+                  {viewMode === 'view' ? 'Fechar' : 'Cancelar'}
                 </Button>
-              )}
-              {viewMode === 'view' && (
-                <Button
-                  onClick={() => setViewMode('edit')}
-                  className="min-w-32"
-                >
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Editar Cotação
-                </Button>
-              )}
+                {viewMode === 'edit' && (
+                  <Button
+                    type="submit"
+                    disabled={updateMutation.isPending || isUploading}
+                    className="min-w-32"
+                  >
+                    {updateMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 animate-spin" />
+                        Salvando...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Salvar Cotação
+                      </div>
+                    )}
+                  </Button>
+                )}
+                {viewMode === 'view' && (
+                  <Button
+                    onClick={() => setViewMode('edit')}
+                    className="min-w-32"
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Editar Cotação
+                  </Button>
+                )}
+              </div>
             </div>
           </form>
         </Form>

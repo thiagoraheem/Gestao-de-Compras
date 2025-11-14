@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -533,14 +533,21 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
 
         {/* RFQ History Dialog */}
         <Dialog open={showRFQHistory} onOpenChange={setShowRFQHistory}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Histórico de RFQs</DialogTitle>
-              <DialogDescription>
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg">
+            <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-6 py-3">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-base font-semibold">Histórico de RFQs</DialogTitle>
+                <DialogClose asChild>
+                  <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400" aria-label="Fechar">
+                    <X className="h-4 w-4" />
+                  </button>
+                </DialogClose>
+              </div>
+              <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Histórico completo de todas as RFQs criadas para esta solicitação
               </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
+            </div>
+            <div className="space-y-4 px-6 pt-6 pb-24">
               {rfqHistory.length === 0 ? (
                 <p className="text-gray-500">Nenhuma RFQ encontrada no histórico.</p>
               ) : (
@@ -583,6 +590,11 @@ export default function QuotationPhase({ request, onClose, className }: Quotatio
                   </Card>
                 ))
               )}
+            </div>
+            <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setShowRFQHistory(false)}>Fechar</Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -67,14 +68,14 @@ type ApprovalFormData = z.infer<typeof approvalSchema>;
 
 interface ApprovalA1PhaseProps {
   request: any;
-  onClose?: () => void;
-  className?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export default function ApprovalA1Phase({
   request,
-  onClose,
-  className,
+  open,
+  onOpenChange,
 }: ApprovalA1PhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -152,9 +153,7 @@ export default function ApprovalA1Phase({
           : "Solicitação reprovada e movida para Arquivado ",
       });
 
-      if (onClose) {
-        onClose();
-      }
+      onOpenChange(false);
     },
     onError: (error: any) => {
       toast({
@@ -178,6 +177,29 @@ export default function ApprovalA1Phase({
   const handleReject = () => {
     setSelectedAction("reject");
     form.setValue("approved", false);
+  };
+
+  const confirmApprove = () => {
+    if (!canApprove) return;
+    form.setValue("approved", true);
+    form.setValue("rejectionReason", "");
+    approvalMutation.mutate(form.getValues());
+  };
+
+  const confirmReject = () => {
+    if (!canApprove) return;
+    const reason = form.getValues().rejectionReason || "";
+    if (reason.trim().length < 10) {
+      setSelectedAction("reject");
+      toast({
+        title: "Justificativa necessária",
+        description: "Informe ao menos 10 caracteres para reprovar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    form.setValue("approved", false);
+    approvalMutation.mutate(form.getValues());
   };
 
   // Alert component for users without permission (will show above the form)
@@ -209,45 +231,42 @@ export default function ApprovalA1Phase({
 
   // Render normal approval form
   return (
-    <Card className={cn("w-full max-w-6xl", className)}>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-blue-600" />
-            Aprovação A1 - Solicitação #{request.requestNumber}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="approval-a1-description">
+        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-base font-semibold flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-blue-600" />
+              Aprovação A1 - Solicitação #{request.requestNumber}
+            </DialogTitle>
+            <div className="flex items-center gap-2">
+              <Badge variant={request.urgency === "alto" ? "destructive" : "secondary"}>
+                {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS] || request.urgency}
+              </Badge>
+              <DialogClose asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <XCircle className="h-4 w-4" />
+                  <span className="sr-only">Fechar</span>
+                </Button>
+              </DialogClose>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant={request.urgency === "alto" ? "destructive" : "secondary"}
-            >
-              {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS] ||
-                request.urgency}
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="h-8 w-8 p-0"
-            >
-              <XCircle className="h-4 w-4" />
-              <span className="sr-only">Fechar</span>
-            </Button>
-          </div>
-        </CardTitle>
-      </CardHeader>
+        </div>
 
-      <CardContent className="space-y-6">
+        <p id="approval-a1-description" className="sr-only">Tela de detalhes de aprovação A1 da solicitação</p>
+
+        <div className="space-y-4 px-6 pt-0 pb-0">
         {/* Request Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Basic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+          <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+            <CardHeader className="p-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 Informações da Solicitação
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4 space-y-3">
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
@@ -334,15 +353,15 @@ export default function ApprovalA1Phase({
           </Card>
 
           {/* Justification */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+          <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+            <CardHeader className="p-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
                 Justificativa
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-32">
+            <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
+              <ScrollArea className="h-28">
                 <p className="text-sm leading-relaxed">
                   {request.justification}
                 </p>
@@ -371,18 +390,16 @@ export default function ApprovalA1Phase({
           requestNumber={request.requestNumber}
         />
 
-        {/* Attachments section removed - no longer showing purchase request attachments */}
-
         {/* Approval History */}
         {approvalHistory && approvalHistory.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+          <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+            <CardHeader className="p-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <History className="h-4 w-4" />
                 Histórico de Aprovações
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
               <div className="space-y-2">
                 {approvalHistory.map((item: any, index: number) => (
                   <div
@@ -422,47 +439,18 @@ export default function ApprovalA1Phase({
         <Separator />
 
         {/* Approval Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Decisão de Aprovação</CardTitle>
+        <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+          <CardHeader className="p-4">
+            <CardTitle className="text-sm font-semibold">Decisão de Aprovação</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-4"
               >
-                {/* Action Buttons */}
-                <div className="flex gap-4">
-                  <Button
-                    type="button"
-                    onClick={handleApprove}
-                    variant={
-                      selectedAction === "approve" ? "default" : "outline"
-                    }
-                    className="flex items-center gap-2"
-                    disabled={!canApprove}
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                    Aprovar Solicitação
-                  </Button>
-
-                  <Button
-                    type="button"
-                    onClick={handleReject}
-                    variant={
-                      selectedAction === "reject" ? "destructive" : "outline"
-                    }
-                    className="flex items-center gap-2"
-                    disabled={!canApprove}
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Reprovar Solicitação
-                  </Button>
-                </div>
-
                 {/* Rejection Reason Field */}
-                {selectedAction === "reject" && (
+                {(
                   <FormField
                     control={form.control}
                     name="rejectionReason"
@@ -474,7 +462,7 @@ export default function ApprovalA1Phase({
                             {...field}
                             rows={4}
                             placeholder="Descreva detalhadamente os motivos da reprovação..."
-                            className="resize-none"
+                            className="resize-none text-sm"
                           />
                         </FormControl>
                         <FormMessage />
@@ -482,42 +470,45 @@ export default function ApprovalA1Phase({
                     )}
                   />
                 )}
-
-                {/* Submit Button */}
-                {selectedAction && (
-                  <div className="flex justify-end gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedAction(null);
-                        form.reset();
-                      }}
-                      disabled={approvalMutation.isPending}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={approvalMutation.isPending || !canApprove}
-                      variant={
-                        selectedAction === "approve" ? "default" : "destructive"
-                      }
-                      className="min-w-[120px]"
-                    >
-                      {approvalMutation.isPending
-                        ? "Processando..."
-                        : selectedAction === "approve"
-                          ? "Confirmar Aprovação"
-                          : "Confirmar Reprovação"}
-                    </Button>
-                  </div>
-                )}
               </form>
             </Form>
           </CardContent>
         </Card>
-      </CardContent>
-    </Card>
+        </div>
+
+        <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={approvalMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmReject}
+              variant="destructive"
+              className="flex items-center gap-2"
+              disabled={!canApprove || approvalMutation.isPending}
+            >
+              <XCircle className="h-4 w-4" />
+              Reprovar Solicitação
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmApprove}
+              variant="default"
+              className="flex items-center gap-2 bg-green-500"
+              disabled={!canApprove || approvalMutation.isPending}
+            >
+              <CheckCircle className="h-4 w-4" />
+              Aprovar Solicitação
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

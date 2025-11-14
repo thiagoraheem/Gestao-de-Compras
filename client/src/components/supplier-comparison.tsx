@@ -291,15 +291,17 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
   })();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Comparação de Fornecedores</h2>
-            <Button variant="ghost" onClick={onClose}>
+        <div className="flex-shrink-0 bg-white border-b sticky top-0 z-30 px-6 py-3 rounded-t-lg">
+          <div className="flex justify-between items-center">
+            <h2 className="text-base font-semibold">Comparação de Fornecedores</h2>
+            <Button variant="ghost" size="icon" onClick={onClose} className="p-2">
               <X className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+        <div className="px-6 pt-6 pb-24">
 
           {receivedQuotations.length === 0 ? (
             <Alert>
@@ -1057,6 +1059,25 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                     </>
                   )}
                 </Button>
+              </div>
+              <div className="flex-shrink-0 bg-white/80 border-t sticky bottom-0 z-30 -mx-6 px-6 py-3">
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={onClose}>Cancelar</Button>
+                  <Button 
+                    onClick={handleSelectSupplier}
+                    disabled={!selectedSupplierId || selectSupplierMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {selectSupplierMutation.isPending ? (
+                      "Processando..."
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Selecionar Fornecedor e Avançar
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </>
           )}
