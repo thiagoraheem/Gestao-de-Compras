@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import RFQCreation from "./rfq-creation";
 import RFQAnalysis from "./rfq-analysis";
+import { useLocation } from "wouter";
 import SupplierComparison from "./supplier-comparison";
 import UpdateSupplierQuotation from "./update-supplier-quotation";
 import RequestItemsList from "./request-items-list";
@@ -54,6 +55,7 @@ interface QuotationPhaseProps {
 }
 
 export default function QuotationPhase({ request, open, onOpenChange }: QuotationPhaseProps) {
+  const [, setLocation] = useLocation();
   const [showRFQCreation, setShowRFQCreation] = useState(false);
   const [showRFQAnalysis, setShowRFQAnalysis] = useState(false);
   const [showSupplierComparison, setShowSupplierComparison] = useState(false);
@@ -491,16 +493,14 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
           }}
         />
 
-        {showRFQAnalysis && (
+        {showRFQAnalysis && quotation && (
           <RFQAnalysis
             quotation={quotation}
             quotationItems={quotationItems}
             supplierQuotations={supplierQuotations}
+            isOpen={showRFQAnalysis}
+            onOpenChange={setShowRFQAnalysis}
             onClose={() => setShowRFQAnalysis(false)}
-            onComplete={() => {
-              setShowRFQAnalysis(false);
-              // TODO: Refresh data
-            }}
           />
         )}
 

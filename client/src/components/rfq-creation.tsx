@@ -124,7 +124,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "items",
   });
@@ -136,78 +136,54 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
 
   // Set form items when all data is loaded
   useEffect(() => {
-    // Don't proceed if data is still loading
-    if (isLoadingData) {
+    if (isLoadingData) return;
+
+    if (existingQuotation) {
+      const targetLen = existingQuotationItems.length;
+      if (fields.length !== targetLen && targetLen > 0) {
+        const mappedItems = existingQuotationItems.map(item => ({
+          itemCode: item.itemCode || "",
+          description: item.description || "",
+          quantity: item.quantity?.toString() || "1",
+          unit: item.unit || "UN",
+          specifications: item.specifications || "",
+          deliveryDeadline: item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 15), "yyyy-MM-dd"),
+          purchaseRequestItemId: item.purchaseRequestItemId,
+        }));
+        replace(mappedItems);
+      }
       return;
     }
 
-    // If we already have items loaded and this is not a data change, don't re-load
-    if (fields.length > 0 && isDataLoaded) {
+    const targetLen = purchaseRequestItems.length;
+    if (targetLen > 0) {
+      if (fields.length !== targetLen) {
+        const mappedItems = purchaseRequestItems.map(item => ({
+          itemCode: "",
+          description: item.description || "",
+          quantity: item.requestedQuantity?.toString() || "1",
+          unit: item.unit || "UN",
+          specifications: item.technicalSpecification || "",
+          deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
+          purchaseRequestItemId: item.id,
+        }));
+        replace(mappedItems);
+      }
       return;
     }
 
-    if (existingQuotation && existingQuotationItems.length > 0) {
-      // Load existing quotation items for editing
-      const mappedItems = existingQuotationItems.map(item => ({
-        itemCode: item.itemCode || "",
-        description: item.description || "",
-        quantity: item.quantity?.toString() || "1",
-        unit: item.unit || "UN",
-        specifications: item.specifications || "",
-        deliveryDeadline: item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 15), "yyyy-MM-dd"),
-        purchaseRequestItemId: item.purchaseRequestItemId,
-      }));
-      
-      // Clear existing fields and append new items
-      form.setValue("items", []);
-      mappedItems.forEach(item => append(item));
-      setIsDataLoaded(true);
-    } else if (purchaseRequestItems.length > 0) {
-      // Load purchase request items for new quotation
-      const mappedItems = purchaseRequestItems.map(item => ({
-        itemCode: "",
-        description: item.description || "",
-        quantity: item.requestedQuantity?.toString() || "1",
-        unit: item.unit || "UN",
-        specifications: item.technicalSpecification || "", // Load technical specifications from original request
-        deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
-        purchaseRequestItemId: item.id,
-      }));
-      
-      // Replace all fields at once
-      form.setValue("items", mappedItems);
-      
-      // Force trigger re-render to ensure fields are properly populated
-      setTimeout(() => {
-        form.trigger("items");
-      }, 50);
-      
-      setIsDataLoaded(true);
-    } else if (!existingQuotation && purchaseRequestItems.length === 0) {
-      // Fallback to default item if no items exist
+    if (fields.length === 0 && targetLen === 0) {
       const defaultItem = {
         itemCode: "",
         description: purchaseRequest?.justification || "",
         quantity: "1",
         unit: "UN",
-        specifications: purchaseRequest?.additionalInfo || "", // Load from additional info if available
+        specifications: purchaseRequest?.additionalInfo || "",
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
       };
-      
-      // Set the default item directly
-      form.setValue("items", [defaultItem]);
-      setIsDataLoaded(true);
+      replace([defaultItem]);
     }
-  }, [
-    purchaseRequestItems, 
-    existingQuotationItems, 
-    existingQuotation, 
-    fields.length, 
-    form, 
-    isLoadingData, 
-    isDataLoaded,
-    append
-  ]);
+  }, [isLoadingData, existingQuotation, existingQuotationItems, purchaseRequestItems, purchaseRequest, fields.length, replace]);
 
   // Set form values when existing quotation data is loaded
   useEffect(() => {
@@ -475,11 +451,13 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
   if (isLoadingData) {
     return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg z-[60]">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg z-[60]" aria-describedby="rfq-loading-desc">
           <div className="p-6 text-center">
+            <DialogTitle className="sr-only">Carregando RFQ</DialogTitle>
             <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
             <h3 className="text-lg font-semibold mb-2">Carregando dados da solicitação...</h3>
             <p className="text-gray-600">Aguarde enquanto os dados são carregados.</p>
+            <p id="rfq-loading-desc" className="sr-only">Carregando dados necessários para criar a RFQ</p>
           </div>
         </DialogContent>
       </Dialog>
