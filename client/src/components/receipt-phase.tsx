@@ -155,25 +155,35 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
     setIsLoadingPreview(true);
     try {
       const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/pdf',
-        },
+        method: 'GET'
       });
 
       if (!response.ok) {
         throw new Error('Falha ao gerar PDF');
       }
 
+      const contentType = response.headers.get('Content-Type') || '';
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       setPdfPreviewUrl(url);
       setShowPreviewModal(true);
 
-      toast({
-        title: "Sucesso",
-        description: "Pré-visualização do PDF carregada com sucesso!",
-      });
+      if (contentType.includes('application/pdf')) {
+        toast({
+          title: "Sucesso",
+          description: "Pré-visualização do PDF carregada com sucesso!",
+        });
+      } else if (contentType.includes('text/html')) {
+        toast({
+          title: "Aviso",
+          description: "PDF não pôde ser gerado. Exibindo documento em HTML.",
+        });
+      } else {
+        toast({
+          title: "Aviso",
+          description: "Formato de arquivo inesperado na pré-visualização.",
+        });
+      }
     } catch (error) {
       toast({
         title: "Erro",
@@ -190,23 +200,20 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
     setIsDownloading(true);
     try {
       const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/pdf',
-        },
+        method: 'GET'
       });
 
       if (!response.ok) {
         throw new Error('Falha ao gerar PDF');
       }
 
-      // Criar blob e fazer download
+      const contentType = response.headers.get('Content-Type') || '';
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = `Pedido_Compra_${request.requestNumber}.pdf`;
+      a.download = `Pedido_Compra_${request.requestNumber}.${contentType.includes('application/pdf') ? 'pdf' : contentType.includes('text/html') ? 'html' : 'bin'}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -214,7 +221,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
 
       toast({
         title: "Sucesso",
-        description: "PDF do pedido de compra baixado com sucesso!",
+        description: contentType.includes('application/pdf') ? "PDF do pedido de compra baixado com sucesso!" : "Documento alternativo baixado com sucesso!",
       });
     } catch (error) {
       toast({

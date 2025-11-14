@@ -10,12 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Slider } from "@/components/ui/slider";
 
 interface SupplierComparisonProps {
   quotationId: number;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
   onClose: () => void;
   onComplete: () => void;
 }
@@ -62,7 +64,7 @@ interface SupplierQuotationData {
   freightValue?: number;
 }
 
-export default function SupplierComparison({ quotationId, onClose, onComplete }: SupplierComparisonProps) {
+export default function SupplierComparison({ quotationId, isOpen, onOpenChange, onClose, onComplete }: SupplierComparisonProps) {
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [observations, setObservations] = useState("");
   const [createNewRequestForUnavailable, setCreateNewRequestForUnavailable] = useState(false);
@@ -215,11 +217,14 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6">
-          <p>Carregando dados das cotações...</p>
-        </div>
-      </div>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-5xl p-0">
+          <div className="p-6">
+            <DialogTitle className="sr-only">Carregando comparação</DialogTitle>
+            <p>Carregando dados das cotações...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     );
   }
 
@@ -291,17 +296,20 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
   })();
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="supplier-comparison-desc">
         <div className="flex-shrink-0 bg-white border-b sticky top-0 z-30 px-6 py-3 rounded-t-lg">
           <div className="flex justify-between items-center">
-            <h2 className="text-base font-semibold">Comparação de Fornecedores</h2>
-            <Button variant="ghost" size="icon" onClick={onClose} className="p-2">
-              <X className="h-4 w-4" />
-            </Button>
+            <DialogTitle className="text-base font-semibold">Comparação de Fornecedores</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" onClick={onClose} className="p-2" aria-label="Fechar">
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
           </div>
+          <p id="supplier-comparison-desc" className="sr-only">Comparativo de cotações por fornecedor com seleção e confirmação</p>
         </div>
-        <div className="px-6 pt-6 pb-24">
+        <div className="px-6 pt-0 pb-2">
 
           {receivedQuotations.length === 0 ? (
             <Alert>
@@ -327,7 +335,7 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                 <Card className="mb-6">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <span>Parâmetros de Recomendação</span>
                         <span className="text-xs text-gray-500">(opcional)</span>
                       </div>
@@ -1040,26 +1048,7 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
                 </Card>
               )}
 
-              {/* Ações */}
-              <div className="flex justify-end gap-4">
-                <Button variant="outline" onClick={onClose}>
-                  Cancelar
-                </Button>
-                <Button 
-                  onClick={handleSelectSupplier}
-                  disabled={!selectedSupplierId || selectSupplierMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {selectSupplierMutation.isPending ? (
-                    "Processando..."
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Selecionar Fornecedor e Avançar
-                    </>
-                  )}
-                </Button>
-              </div>
+              
               <div className="flex-shrink-0 bg-white/80 border-t sticky bottom-0 z-30 -mx-6 px-6 py-3">
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={onClose}>Cancelar</Button>
@@ -1081,8 +1070,8 @@ export default function SupplierComparison({ quotationId, onClose, onComplete }:
               </div>
             </>
           )}
-      </div>
-    </div>
-  </div>
-);
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }

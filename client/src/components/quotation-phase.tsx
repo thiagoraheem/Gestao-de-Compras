@@ -507,10 +507,12 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
         {showSupplierComparison && quotation && (
           <SupplierComparison
             quotationId={quotation.id}
+            isOpen={showSupplierComparison}
+            onOpenChange={setShowSupplierComparison}
             onClose={() => setShowSupplierComparison(false)}
             onComplete={() => {
               setShowSupplierComparison(false);
-              onClose?.(); // Close the entire quotation modal
+              onClose?.();
             }}
           />
         )}

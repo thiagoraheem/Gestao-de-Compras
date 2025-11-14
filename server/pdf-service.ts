@@ -1166,6 +1166,8 @@ export class PDFService {
       border-bottom: 2px solid #333;
       padding-bottom: 15px;
       position: relative;
+      padding-right: 120px;
+      min-height: 120px;
     }
     .qr-code-container {
       position: absolute;
