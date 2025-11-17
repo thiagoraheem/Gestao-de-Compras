@@ -177,8 +177,25 @@ export class PDFService {
     // Detectar caminho do browser automaticamente
     const detectedBrowserPath = await this.findBrowserPath();
 
+    const bundledPath = (() => {
+      try {
+        const p = puppeteer.executablePath();
+        return p && fs.existsSync(p) ? p : undefined;
+      } catch {
+        return undefined;
+      }
+    })();
+
     const configurations = [
-      // Configuração 1: Browser detectado automaticamente
+      // 1) Usar Chromium/Chrome empacotado pelo Puppeteer
+      ...(bundledPath ? [{
+        executablePath: bundledPath,
+        args: baseArgs,
+        headless: true,
+        timeout: 60000,
+        ignoreDefaultArgs: false
+      }] : []),
+      // 2) Browser detectado automaticamente no sistema
       ...(detectedBrowserPath ? [{
         executablePath: detectedBrowserPath,
         args: baseArgs,
@@ -186,21 +203,26 @@ export class PDFService {
         timeout: 60000,
         ignoreDefaultArgs: false
       }] : []),
-      // Configuração 2: Sem path específico (usa browser padrão do sistema)
+      // 3) Canal do Chrome/Edge, quando disponível
+      ...(this.isWindows() ? [{
+        channel: 'chrome',
+        args: baseArgs,
+        headless: true,
+        timeout: 60000
+      }] : []),
+      // 4) Sem path específico (deixa Puppeteer escolher)
       {
         args: baseArgs,
         headless: true,
         timeout: 60000,
         ignoreDefaultArgs: false
       },
-      // Configuração 3: Windows Server minimal
+      // 5) Minimal no Windows
       ...(this.isWindows() ? [{
         args: [
           '--no-sandbox',
           '--disable-dev-shm-usage',
           '--disable-gpu',
-          '--disable-extensions',
-          '--disable-plugins',
           `--user-data-dir=${tempDir}`,
           `--data-path=${tempDir}`,
           `--temp-dir=${tempDir}`
@@ -209,24 +231,13 @@ export class PDFService {
         timeout: 60000,
         ignoreDefaultArgs: true
       }] : []),
-      // Configuração 4: Minimal fallback com menos argumentos
+      // 6) Ultra minimal
       {
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--single-process',
           '--disable-gpu',
-          `--user-data-dir=${tempDir}`
-        ],
-        headless: true,
-        timeout: 60000
-      },
-      // Configuração 5: Ultra minimal para ambientes muito restritivos
-      {
-        args: [
-          '--no-sandbox', 
-          '--disable-setuid-sandbox',
           `--user-data-dir=${tempDir}`
         ],
         headless: true,
@@ -315,22 +326,34 @@ export class PDFService {
 
   // Geração de PDF usando Puppeteer (método original melhorado)
   private static async generatePDFWithPuppeteer(html: string): Promise<Buffer> {
+    const isValidPdf = (buffer: Buffer) => {
+      try {
+        const start = buffer.toString('latin1', 0, 8);
+        const tail = buffer.toString('latin1', Math.max(0, buffer.length - 20));
+        return start.startsWith('%PDF-') && tail.includes('%%EOF');
+      } catch {
+        return false;
+      }
+    };
+
     const browser = await this.launchBrowserWithRetry();
     let page = null;
     
     try {
       page = await browser.newPage();
-      await page.setDefaultTimeout(30000);
-      
-      await page.setContent(html, { 
-        waitUntil: 'domcontentloaded',
-        timeout: 60000 
-      });
+      await page.setDefaultTimeout(45000);
+      await page.emulateMediaType('print');
+      await page.setViewport({ width: 1240, height: 1754, deviceScaleFactor: 1 });
+
+      const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+      await page.goto(dataUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+      await page.waitForSelector('body');
+      try { await page.evaluate(() => (document as any).fonts?.ready); } catch {}
       
       // Aguardar um pouco para garantir que CSS foi processado (compatível com todas as versões)
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      const pdfBuffer = await page.pdf({
+      let pdfBuffer = await page.pdf({
         format: 'A4',
         margin: {
           top: '20mm',
@@ -340,8 +363,24 @@ export class PDFService {
         },
         printBackground: true,
         timeout: 60000,
-        preferCSSPageSize: false
+        preferCSSPageSize: true
       });
+      if (!isValidPdf(pdfBuffer)) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await page.reload({ waitUntil: 'networkidle0' });
+        pdfBuffer = await page.pdf({
+          format: 'A4',
+          margin: {
+            top: '20mm', right: '15mm', bottom: '20mm', left: '15mm'
+          },
+          printBackground: true,
+          timeout: 60000,
+          preferCSSPageSize: true
+        });
+        if (!isValidPdf(pdfBuffer)) {
+          throw new Error('PDF gerado inválido (integridade ausente)');
+        }
+      }
 
       return pdfBuffer;
     } finally {

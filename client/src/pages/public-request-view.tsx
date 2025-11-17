@@ -84,12 +84,13 @@ export default function PublicRequestView() {
       const response = await fetch(`/api/public/purchase-request/${requestId}/pdf`);
       if (!response.ok) throw new Error('PDF não disponível');
       
+      const contentType = response.headers.get('Content-Type') || '';
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = `Pedido_Compra_${data?.purchaseRequest?.requestNumber || requestId}.pdf`;
+      a.download = `Pedido_Compra_${data?.purchaseRequest?.requestNumber || requestId}.${contentType.includes('application/pdf') ? 'pdf' : 'html'}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

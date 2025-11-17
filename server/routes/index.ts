@@ -125,10 +125,29 @@ function registerPublicRoutes(app: Express) {
 
       // Generate PDF
       const pdfBuffer = await PDFService.generatePurchaseOrderPDF(requestId);
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="Pedido_Compra_${purchaseRequest.requestNumber}.pdf"`);
-      res.send(pdfBuffer);
+
+      const bufferStart = pdfBuffer.toString(
+        'utf8',
+        0,
+        Math.min(1000, pdfBuffer.length),
+      );
+      const isHtmlContent =
+        bufferStart.includes('HTML_FALLBACK_MARKER') ||
+        bufferStart.includes('<!DOCTYPE html>') ||
+        bufferStart.includes('<html>') ||
+        bufferStart.includes('<HTML>') ||
+        bufferStart.trim().startsWith('<');
+
+      if (isHtmlContent) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="Pedido_Compra_${purchaseRequest.requestNumber}.html"`);
+        res.send(pdfBuffer);
+      } else {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Pedido_Compra_${purchaseRequest.requestNumber}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
+      }
     } catch (error) {
       console.error("Error generating public PDF:", error);
       res.status(500).json({ message: "Error generating PDF" });
