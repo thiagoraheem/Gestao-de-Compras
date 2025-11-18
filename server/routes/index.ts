@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { registerAuthRoutes } from "./auth";
 import { registerApprovalRulesRoutes } from "./approval-rules";
+import { registerApprovalsRoutes } from "./approvals";
+import { registerNotificationRoutes } from "./notifications";
 import integrityValidationRoutes from "./integrity-validation";
 import { PDFService } from "../pdf-service";
 import { storage } from "../storage";
@@ -214,6 +216,9 @@ export function registerAllRoutes(app: Express) {
   
   // Register approval rules routes
   registerApprovalRulesRoutes(app);
+  
+  registerApprovalsRoutes(app);
+  registerNotificationRoutes(app);
   
   // Register integrity validation routes
   app.use(integrityValidationRoutes);

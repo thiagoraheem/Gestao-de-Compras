@@ -997,7 +997,7 @@ export default function PurchaseCard({
                 size="sm"
               >
                 <Check className="h-4 w-4 mr-2" />
-                Avançar para Recebimento
+                Avançar para Recebim.
               </Button>
             </div>
           )}

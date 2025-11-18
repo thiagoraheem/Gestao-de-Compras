@@ -34,6 +34,7 @@ import {
 import { useState } from "react";
 import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 import type { RealtimeStatus } from "@/lib/realtimeClient";
+import ApprovalsInlineBadge from "./approvals-inline-badge";
 
 const REALTIME_STATUS_STYLES: Record<RealtimeStatus, {
   label: string;
@@ -141,9 +142,8 @@ export default function PipefyHeader() {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <ShoppingCart className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-semibold text-foreground hidden sm:inline">
-                Compras
-              </span>
+              <span className="text-xl font-semibold text-foreground hidden sm:inline">Compras</span>
+              <ApprovalsInlineBadge />
             </div>
           </Link>
 

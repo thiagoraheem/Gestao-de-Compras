@@ -33,11 +33,20 @@ import RFQAnalysisPage from "@/pages/rfq-analysis";
 import ManagerRoute from "@/components/manager-route";
 import AdminRoute from "@/components/admin-route";
 import { RealtimeSyncProvider } from "@/components/realtime-sync";
+import { useApprovalsBadge } from "@/hooks/useApprovalsBadge";
+import NotificationsPermission from "@/components/NotificationsPermission";
+import ApprovalsInlineBadge from "@/components/approvals-inline-badge";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  useApprovalsBadge();
   return (
     <div className="min-h-screen bg-gray-50">
-      <PipefyHeader />
+      <div className="flex items-center justify-between">
+        <PipefyHeader />
+        <div className="hidden md:flex items-center gap-2 pr-4">
+          <NotificationsPermission />
+        </div>
+      </div>
       <main className="pt-16 h-screen">
         {children}
       </main>
