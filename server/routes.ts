@@ -1316,7 +1316,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
         event: PURCHASE_REQUEST_EVENTS.CREATED,
-        payload: { id: request.id },
+        payload: {
+          request: {
+            id: request.id,
+            requestNumber: request.requestNumber,
+            currentPhase: request.currentPhase,
+            totalValue: request.totalValue,
+            updatedAt: request.updatedAt,
+          },
+        },
       });
 
       res.status(201).json(request);
@@ -1379,7 +1387,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
         event: PURCHASE_REQUEST_EVENTS.UPDATED,
-        payload: { id },
+        payload: {
+          id,
+          updatedAt: request.updatedAt,
+          changes: validatedRequestData,
+        },
       });
 
       res.json(request);
@@ -1423,7 +1435,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
         event: PURCHASE_REQUEST_EVENTS.UPDATED,
-        payload: { id },
+        payload: {
+          id,
+          updatedAt: request.updatedAt,
+          changes: validatedRequestData,
+        },
       });
 
       res.json(request);
@@ -1578,7 +1594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
           event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
-          payload: { id, phase: updateData.currentPhase },
+          payload: { id, currentPhase: updateData.currentPhase, updatedAt: updatedRequest.updatedAt },
         });
 
         res.json(updatedRequest);
@@ -3358,7 +3374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
           event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
-          payload: { id, phase: newPhase },
+          payload: { id, currentPhase: newPhase, updatedAt: updatedRequest.updatedAt },
         });
 
         res.json(updatedRequest);
@@ -3418,7 +3434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
           event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
-          payload: { id, phase: "recebimento" },
+          payload: { id, currentPhase: "recebimento", updatedAt: updatedRequest.updatedAt },
         });
 
         res.json(updatedRequest);

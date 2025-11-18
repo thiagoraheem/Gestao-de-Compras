@@ -1,10 +1,12 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import {
   REALTIME_CONSTANTS,
   type RealtimeEventMessage,
 } from "@/lib/realtimeClient";
+import { updateManager } from "@/lib/updateManager";
+import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 
 const RELEVANT_PURCHASE_REQUEST_EVENTS = new Set([
   REALTIME_CONSTANTS.EVENTS.CREATED,
@@ -14,6 +16,7 @@ const RELEVANT_PURCHASE_REQUEST_EVENTS = new Set([
 
 export function RealtimeSyncProvider() {
   const queryClient = useQueryClient();
+  const status = useRealtimeStatus();
 
   const handlePurchaseRequestEvent = useCallback(
     (event: RealtimeEventMessage) => {
@@ -28,16 +31,8 @@ export function RealtimeSyncProvider() {
       if (!RELEVANT_PURCHASE_REQUEST_EVENTS.has(event.event)) {
         return;
       }
-
-        queryClient.invalidateQueries({
-          predicate: (query) => {
-            const key = query.queryKey[0];
-            if (typeof key !== "string") {
-              return false;
-            }
-            return key.startsWith("/api/purchase-requests");
-          },
-        });
+      updateManager.start();
+      updateManager.process(event);
     },
     [queryClient],
   );
@@ -46,6 +41,11 @@ export function RealtimeSyncProvider() {
     REALTIME_CONSTANTS.CHANNELS.PURCHASE_REQUESTS,
     handlePurchaseRequestEvent,
   );
+
+  useEffect(() => {
+    const active = status === "offline" || status === "reconnecting";
+    updateManager.setFallback(active);
+  }, [status]);
 
   return null;
 }

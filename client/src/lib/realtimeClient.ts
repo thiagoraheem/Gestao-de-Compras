@@ -180,6 +180,11 @@ export class RealtimeClient {
       if (message.type !== "event") {
         return;
       }
+      try {
+        const w: any = window as any;
+        w.__traffic = w.__traffic || { http: 0, ws: 0 };
+        w.__traffic.ws += 1;
+      } catch {}
 
       const listeners = this.channelListeners.get(message.channel);
       if (!listeners || listeners.size === 0) {

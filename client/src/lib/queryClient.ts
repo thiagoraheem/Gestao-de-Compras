@@ -35,7 +35,11 @@ export async function apiRequest(
 ): Promise<any> {
   const { method, body } = options;
   const isFormData = body instanceof FormData;
-
+  try {
+    const w: any = window as any;
+    w.__traffic = w.__traffic || { http: 0, ws: 0 };
+    w.__traffic.http += 1;
+  } catch {}
   const res = await fetch(url, {
     method,
     headers: isFormData ? {} : body ? { "Content-Type": "application/json" } : {},
@@ -76,6 +80,11 @@ export const getQueryFn: <T>(options: {
         credentials: "include",
         signal: controller.signal,
       });
+      try {
+        const w: any = window as any;
+        w.__traffic = w.__traffic || { http: 0, ws: 0 };
+        w.__traffic.http += 1;
+      } catch {}
 
       if (!response.ok) {
         if (unauthorizedBehavior === "returnNull" && response.status === 401) {

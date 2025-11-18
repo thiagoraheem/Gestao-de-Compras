@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { realtimeClient, REALTIME_CONSTANTS } from '@/lib/realtimeClient';
 import { setAppBadge, clearAppBadge } from '@/utils/badging';
 
 async function fetchPending() {
@@ -96,7 +97,7 @@ export function useApprovalsBadge() {
       window.addEventListener('visibilitychange', onVis);
       window.addEventListener('focus', onFocus);
 
-      timer = setInterval(() => { if (document.visibilityState === 'visible') update(); }, 60000);
+      timer = setInterval(() => { if (document.visibilityState === 'visible') update(); }, 300000);
 
       return () => {
         window.removeEventListener('visibilitychange', onVis);
@@ -106,5 +107,21 @@ export function useApprovalsBadge() {
     };
 
     start();
+  }, []);
+
+  useEffect(() => {
+    const handler = async () => {
+      await fetchPending().then(({ total }) => {
+        lastTotalRef.current = total;
+        localStorage.setItem('lastApprovalsTotal', String(total));
+        window.dispatchEvent(new CustomEvent('approvals-badge:update', { detail: total } as any));
+      }).catch(() => {});
+    };
+    const unsubscribe = realtimeClient.subscribe(REALTIME_CONSTANTS.CHANNELS.PURCHASE_REQUESTS, handler as any);
+    window.addEventListener('approvals-badge:refresh', handler as any);
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+      window.removeEventListener('approvals-badge:refresh', handler as any);
+    };
   }, []);
 }
