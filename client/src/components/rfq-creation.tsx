@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -77,6 +77,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
   const queryClient = useQueryClient();
   const { processERPUnit } = useUnits();
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const itemsInitializedRef = useRef(false);
   // Removido estado de modal de fornecedor
 
   const { data: suppliers = [] } = useQuery<any[]>({
@@ -134,13 +135,14 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
     ? quotationItemsLoading || supplierQuotationsLoading
     : itemsLoading || requestLoading;
 
-  // Set form items when all data is loaded
+  // Set form items when all data is loaded, only once per open
   useEffect(() => {
     if (isLoadingData) return;
+    if (itemsInitializedRef.current) return;
 
     if (existingQuotation) {
       const targetLen = existingQuotationItems.length;
-      if (fields.length !== targetLen && targetLen > 0) {
+      if (targetLen > 0) {
         const mappedItems = existingQuotationItems.map(item => ({
           itemCode: item.itemCode || "",
           description: item.description || "",
@@ -151,39 +153,48 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
           purchaseRequestItemId: item.purchaseRequestItemId,
         }));
         replace(mappedItems);
+        itemsInitializedRef.current = true;
+        debug.log("RFQCreation: itens inicializados da cotação existente", mappedItems.length);
       }
       return;
     }
 
     const targetLen = purchaseRequestItems.length;
     if (targetLen > 0) {
-      if (fields.length !== targetLen) {
-        const mappedItems = purchaseRequestItems.map(item => ({
-          itemCode: "",
-          description: item.description || "",
-          quantity: item.requestedQuantity?.toString() || "1",
-          unit: item.unit || "UN",
-          specifications: item.technicalSpecification || "",
-          deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
-          purchaseRequestItemId: item.id,
-        }));
-        replace(mappedItems);
-      }
+      const mappedItems = purchaseRequestItems.map(item => ({
+        itemCode: "",
+        description: item.description || "",
+        quantity: item.requestedQuantity?.toString() || "1",
+        unit: item.unit || "UN",
+        specifications: item.technicalSpecification || "",
+        deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
+        purchaseRequestItemId: item.id,
+      }));
+      replace(mappedItems);
+      itemsInitializedRef.current = true;
+      debug.log("RFQCreation: itens inicializados da solicitação", mappedItems.length);
       return;
     }
 
-    if (fields.length === 0 && targetLen === 0) {
-      const defaultItem = {
-        itemCode: "",
-        description: purchaseRequest?.justification || "",
-        quantity: "1",
-        unit: "UN",
-        specifications: purchaseRequest?.additionalInfo || "",
-        deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
-      };
-      replace([defaultItem]);
+    const defaultItem = {
+      itemCode: "",
+      description: purchaseRequest?.justification || "",
+      quantity: "1",
+      unit: "UN",
+      specifications: purchaseRequest?.additionalInfo || "",
+      deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
+    };
+    replace([defaultItem]);
+    itemsInitializedRef.current = true;
+    debug.log("RFQCreation: item padrão inicializado");
+  }, [isLoadingData, existingQuotation?.id, existingQuotationItems, purchaseRequestItems, purchaseRequest, replace]);
+
+  // Reset initialization when modal opens for a new request/quotation
+  useEffect(() => {
+    if (isOpen) {
+      itemsInitializedRef.current = false;
     }
-  }, [isLoadingData, existingQuotation, existingQuotationItems, purchaseRequestItems, purchaseRequest, fields.length, replace]);
+  }, [isOpen, existingQuotation?.id, purchaseRequest?.id]);
 
   // Set form values when existing quotation data is loaded
   useEffect(() => {
@@ -413,14 +424,24 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
   });
 
   const addItem = () => {
-    append({
-      itemCode: "",
-      description: "",
-      quantity: "1",
-      unit: "UN",
-      specifications: "",
-      deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
-    });
+    try {
+      append({
+        itemCode: "",
+        description: "",
+        quantity: "1",
+        unit: "UN",
+        specifications: "",
+        deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
+      });
+      debug.log("RFQCreation: novo item adicionado", fields.length + 1);
+    } catch (err) {
+      toast({
+        title: "Erro ao adicionar item",
+        description: err instanceof Error ? err.message : "Não foi possível adicionar o item.",
+        variant: "destructive",
+      });
+      debug.error("RFQCreation: falha ao adicionar item", err);
+    }
   };
 
   const removeItem = (index: number) => {
