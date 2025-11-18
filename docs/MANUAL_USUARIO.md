@@ -22,6 +22,9 @@
 18. [Dicas e Boas Práticas](#-dicas-e-boas-práticas)
 19. [Métricas e Indicadores](#-métricas-e-indicadores)
 20. [Fluxo Completo - Exemplo Prático](#-fluxo-completo---exemplo-prático)
+21. [Configuração de Aprovação por Valor](#-configuração-de-aprovação-por-valor)
+22. [Visualização Pública da Solicitação](#-visualização-pública-da-solicitação)
+23. [Relatórios](#-relatórios)
 
 ## 🎯 Bem-vindo ao Sistema de Gestão de Compras
 
@@ -38,6 +41,41 @@ Este manual irá guiá-lo através de todas as funcionalidades do sistema, desde
 
 ![Tela de Login](screenshots/01-login/01-login.png "Tela inicial do sistema")
 *Figura 1: Tela de login do Sistema de Gestão de Compras*
+
+---
+
+## 📄 Relatórios
+
+### Relatório de Solicitações de Compra
+- Acesso: **Menu** → **Relatório de Solicitações**
+- Filtros: período, departamento, solicitante, fornecedor, fase, urgência e busca
+- Ações: atualizar dados e exportar CSV com totais
+- Visualização: itens, aprovações, cotações e pedidos relacionados
+
+### Relatório de Fornecedores
+- Acesso: **Menu** → **Relatório de Fornecedores**
+- Objetivo: análise de fornecedores mais utilizados e performance
+- Filtros e ações similares ao relatório de solicitações
+
+---
+
+## 🔓 Visualização Pública da Solicitação
+
+### Acesso via QR Code
+- Disponível para visualização pública de solicitações específicas
+- Exibe dados da empresa, itens, fornecedor selecionado e histórico
+- Permite download do `Pedido de Compra (PDF)` quando disponível
+
+### Como acessar
+- Abra o link público fornecido (QR Code ou URL compartilhada)
+- Visualize o status atual e detalhes da solicitação
+- Baixe o PDF quando o pedido estiver gerado
+
+### Conteúdo apresentado
+- Dados da empresa, departamento e centro de custo
+- Itens com valores e especificações
+- Timeline do processo com fases e responsáveis
+- Informações do fornecedor (quando aplicável)
 
 ---
 
@@ -66,17 +104,22 @@ A Blomaq Locação de Equipamentos e Imóveis Ltda. estabelece diretrizes, crit�
 
 ### 🏛️ Estrutura de Aprovações e Alçadas
 
-#### Níveis de Aprovação por Valor
+#### Níveis de Aprovação por Valor (Configurável)
 
-**📊 Nível 1 (N1) - Até R$ 2.500,00:**
-- **Aprovador**: CFO (Chief Financial Officer)
-- **Critério**: Validação da necessidade e adequação da solicitação
-- **Processo**: Aprovação única para valores até R$ 2.500,00
+**📊 Limite configurável:**
+- O limite de valor para dupla aprovação é configurável pelo Administrador
+- Valor padrão inicial: R$ 2.500,00
+- Página: Menu → Configuração de Aprovação
 
-**📊 Nível 2 (N2) - Acima de R$ 2.500,00:**
-- **Aprovadores**: CFO + CEO (Chief Executive Officer)
-- **Critério**: Dupla aprovação obrigatória para valores superiores
-- **Processo**: Aprovação sequencial - primeiro CFO, depois CEO
+**🟢 Aprovação simples (≤ limite):**
+- **Aprovador**: qualquer usuário com permissão A2
+- **Critério**: revisão de cotação, fornecedor e condições comerciais
+- **Processo**: aprovação única em A2
+
+**🟠 Dupla aprovação (> limite):**
+- **Aprovadores**: primeiro um Diretor; depois o CEO
+- **Regra**: o CEO realiza a aprovação final quando a primeira aprovação não for do CEO
+- **Processo**: aprovação sequencial em A2 (Diretor → CEO)
 
 #### Aprovação A1 (Primeira Aprovação)
 - **Responsabilidade**: Aprovadores A1 designados por centro de custo
@@ -96,12 +139,12 @@ A Blomaq Locação de Equipamentos e Imóveis Ltda. estabelece diretrizes, crit�
 
 **👨‍💼 CEO - Chief Executive Officer:**
 - **Nome**: Bruno Derzi
-- **Alçada**: Aprovação obrigatória para valores acima de R$ 2.500,00 (N2)
-- **Responsabilidade**: Aprovação final em conjunto com CFO
+- **Alçada**: Aprovação final em fluxos de dupla aprovação
+- **Responsabilidade**: Decisão final em conjunto com Diretores
 
-**👨‍💼 CFO - Chief Financial Officer:**
+**👨‍💼 Diretor Financeiro (CFO):**
 - **Nome**: Fabrizio Toyoda
-- **Alçada**: Aprovação para todos os valores (N1 e N2)
+- **Alçada**: Participa como Diretor na primeira etapa da dupla aprovação
 - **Responsabilidade**: Validação financeira e orçamentária
 
 **👨‍💼 Suporte Compras:**
@@ -109,6 +152,16 @@ A Blomaq Locação de Equipamentos e Imóveis Ltda. estabelece diretrizes, crit�
 - **Responsabilidade**: Apoio operacional ao processo de compras
 
 > **⚠️ Importante**: Em caso de mudanças nos signatários, a atualização deve ser formalizada na política de compras.
+
+### ⚙️ Configuração de Aprovação por Valor
+
+- Acesse: **Menu** → **Configuração de Aprovação**
+- Defina o **valor limite** para exigir dupla aprovação
+- Informe uma **justificativa** para auditoria e histórico
+- Regra aplicada:
+  - Solicitações com valor **até o limite**: aprovação simples (A2)
+  - Solicitações com valor **acima do limite**: dupla aprovação (Diretor → CEO)
+- Histórico de alterações disponível para consulta
 
 ### 💰 Diretrizes de Valores e Cotações
 
@@ -164,7 +217,7 @@ A Blomaq Locação de Equipamentos e Imóveis Ltda. estabelece diretrizes, crit�
 - **À vista**: Para obtenção de descontos comerciais
 - **Parcelado**: Conforme capacidade de fluxo de caixa
 - **Faturamento**: Para fornecedores com relacionamento estabelecido
-- **Cartão corporativo**: Para compras de menor valor e urgentes
+- **Cartão de Crédito**: Para compras de menor valor e urgentes
 
 #### Documentação Obrigatória
 - **Nota fiscal**: Emissão obrigatória para todos os pagamentos
@@ -638,6 +691,11 @@ Esta é a aprovação final antes da geração do pedido de compra.
 
 ![Reprovação A2](screenshots/05-aprovacoes/15-aprovacao-a2-reprovar-form.png "Modal de reprovação A2")
 *Figura 22: Modal de reprovação A2 com opções de arquivar ou nova cotação*
+
+**📏 Regras de dupla aprovação:**
+- A primeira aprovação deve ser realizada por um Diretor
+- A aprovação final deve ser realizada pelo CEO quando a primeira não for do CEO
+- O mesmo usuário não pode realizar as duas aprovações
 
 #### Dicas para aprovadores A2:
 - ✅ Avalie se o fornecedor escolhido é adequado
