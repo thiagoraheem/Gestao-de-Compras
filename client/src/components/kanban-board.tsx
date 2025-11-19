@@ -162,7 +162,7 @@ export default function KanbanBoard({
       queryClient.invalidateQueries({
         predicate: (query) =>
           !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
+            query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
       });
 
       // Force immediate refetch for absolute certainty
@@ -178,10 +178,10 @@ export default function KanbanBoard({
   // Calculate which requests should be highlighted based on search filter
   const highlightedRequestIds = useMemo(() => {
     const ids = new Set<number>();
-    
+
     if (searchFilter && searchFilter.trim()) {
       const query = searchFilter.toLowerCase().trim();
-      
+
       // Find all requests that match the search filter
       const allRequests = Array.isArray(purchaseRequests) ? purchaseRequests : [];
       allRequests.forEach((request: any) => {
@@ -200,18 +200,18 @@ export default function KanbanBoard({
           request.chosenSupplier?.name?.toLowerCase(),
           request.chosenSupplier?.cnpj?.toLowerCase(),
           // Items search
-          ...(request.items || []).map((item: any) => 
+          ...(request.items || []).map((item: any) =>
             `${item.description} ${item.technicalSpecification} ${item.model} ${item.brand}`.toLowerCase()
           ),
         ].filter(Boolean);
 
-        const matchesSearch = searchFields.some(field => 
+        const matchesSearch = searchFields.some(field =>
           field && field.includes(query)
         );
 
         // Also check for request number patterns (R123, SOL-2025-045, etc)
         const numbers = query.replace(/[^\d]/g, "");
-        const matchesRequestNumber = numbers && 
+        const matchesRequestNumber = numbers &&
           request.requestNumber?.replace(/[^\d]/g, "").includes(numbers);
 
         if (matchesSearch || matchesRequestNumber) {
@@ -219,7 +219,7 @@ export default function KanbanBoard({
         }
       });
     }
-    
+
     return ids;
   }, [searchFilter, purchaseRequests]);
 
@@ -228,10 +228,10 @@ export default function KanbanBoard({
     if (searchFilter && searchFilter.trim() && highlightedRequestIds.size > 0 && Array.isArray(purchaseRequests)) {
       // Get the first highlighted request ID
       const firstHighlightedId = Array.from(highlightedRequestIds)[0];
-      
+
       // Find the corresponding request
       const firstHighlightedRequest = purchaseRequests.find((req: any) => req.id === firstHighlightedId);
-      
+
       if (firstHighlightedRequest) {
         // Trigger opening the card in its current phase
         setTimeout(() => {
@@ -253,27 +253,27 @@ export default function KanbanBoard({
       // Allow dragging from any phase - the target validation will happen in handleDragEnd
       return true;
     }
-    
+
     // Special permission: Admin/Manager can move from "arquivado" to "aprovacao_a1"
     if (phase === "arquivado" && targetPhase === "aprovacao_a1") {
       return user?.isAdmin || user?.isManager;
     }
-    
+
     // Allow moving from Aprovação A1 back to Solicitação (for corrections)
     if (phase === "aprovacao_a1" && targetPhase === "solicitacao") {
       return true;
     }
-    
+
     // Allow moving from Aprovação A2 back to earlier phases (for corrections)
     if (phase === "aprovacao_a2" && (targetPhase === "solicitacao" || targetPhase === "aprovacao_a1" || targetPhase === "cotacao")) {
       return true;
     }
-    
+
     // Allow moving from any phase to solicitacao (return to start)
     if (targetPhase === "solicitacao") {
       return true;
     }
-    
+
     // Normal permission checks for moving OUT of approval phases
     if (phase === "aprovacao_a1" && targetPhase !== "solicitacao" && !user?.isApproverA1) {
       return false;
@@ -281,12 +281,12 @@ export default function KanbanBoard({
     if (phase === "aprovacao_a2" && targetPhase !== "solicitacao" && !user?.isApproverA2) {
       return false;
     }
-    
+
     // Permission check for moving OUT of Recebimento phase
     if (phase === "recebimento" && targetPhase !== "solicitacao" && !user?.isReceiver) {
       return false;
     }
-    
+
     return true;
   };
 
@@ -332,7 +332,7 @@ export default function KanbanBoard({
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    
+
     // Drag end processing
 
     if (over && active.id !== over.id) {
@@ -455,53 +455,53 @@ export default function KanbanBoard({
   // NOTE: Search filter is NOT applied here - it's handled separately via highlighting
   const filteredRequests = Array.isArray(purchaseRequests)
     ? purchaseRequests.filter((request: any) => {
-        let passesFilters = true;
+      let passesFilters = true;
 
-        // Department filter - use nested department object
-        if (departmentFilter !== "all") {
-          passesFilters =
-            passesFilters &&
-            request.department?.id?.toString() === departmentFilter;
-        }
+      // Department filter - use nested department object
+      if (departmentFilter !== "all") {
+        passesFilters =
+          passesFilters &&
+          request.department?.id?.toString() === departmentFilter;
+      }
 
-        // Urgency filter - exact match
-        if (urgencyFilter !== "all") {
-          passesFilters = passesFilters && request.urgency === urgencyFilter;
-        }
+      // Urgency filter - exact match
+      if (urgencyFilter !== "all") {
+        passesFilters = passesFilters && request.urgency === urgencyFilter;
+      }
 
-        // Requester filter - filter by requester user
-        if (requesterFilter !== "all") {
-          passesFilters =
-            passesFilters &&
-            request.requester?.id?.toString() === requesterFilter;
-        }
+      // Requester filter - filter by requester user
+      if (requesterFilter !== "all") {
+        passesFilters =
+          passesFilters &&
+          request.requester?.id?.toString() === requesterFilter;
+      }
 
-        // Supplier filter - filter by chosen supplier
-        if (supplierFilter !== "all") {
-          passesFilters =
-            passesFilters &&
-            request.chosenSupplier?.id?.toString() === supplierFilter;
-        }
+      // Supplier filter - filter by chosen supplier
+      if (supplierFilter !== "all") {
+        passesFilters =
+          passesFilters &&
+          request.chosenSupplier?.id?.toString() === supplierFilter;
+      }
 
-        // Date filter - apply to conclusion and archived items
-        if (
-          dateFilter &&
-          (request.currentPhase === PURCHASE_PHASES.ARQUIVADO ||
-            request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA)
-        ) {
-          const requestDate = new Date(request.updatedAt || request.createdAt);
-          const startDate = new Date(dateFilter.startDate);
-          const endDate = new Date(dateFilter.endDate);
-          endDate.setHours(23, 59, 59, 999); // Include the full end date
+      // Date filter - apply to conclusion and archived items
+      if (
+        dateFilter &&
+        (request.currentPhase === PURCHASE_PHASES.ARQUIVADO ||
+          request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA)
+      ) {
+        const requestDate = new Date(request.updatedAt || request.createdAt);
+        const startDate = new Date(dateFilter.startDate);
+        const endDate = new Date(dateFilter.endDate);
+        endDate.setHours(23, 59, 59, 999); // Include the full end date
 
-          passesFilters =
-            passesFilters && requestDate >= startDate && requestDate <= endDate;
-        }
+        passesFilters =
+          passesFilters && requestDate >= startDate && requestDate <= endDate;
+      }
 
-        // Search filter is handled separately via highlighting - don't filter out cards here
+      // Search filter is handled separately via highlighting - don't filter out cards here
 
-        return passesFilters;
-      })
+      return passesFilters;
+    })
     : [];
 
   // Sort function: First by urgency (Alto > Médio > Baixo), then by date
@@ -555,8 +555,8 @@ export default function KanbanBoard({
         >
           {Object.values(PURCHASE_PHASES).map((phase) => (
             <div key={phase} className="flex-shrink-0 w-80">
-              <div className="bg-white rounded-lg shadow-md h-full flex flex-col">
-                <div className="p-4 border-b border-gray-200">
+              <div className="bg-card rounded-lg shadow-md h-full flex flex-col">
+                <div className="p-4 border-b border-border">
                   <Skeleton className="h-6 w-32" />
                 </div>
                 <div className="flex-1 p-4 space-y-3">
@@ -624,7 +624,7 @@ export default function KanbanBoard({
           queryClient.invalidateQueries({
             predicate: (query) =>
               !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-              query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
+                query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
           })
         }}
       />

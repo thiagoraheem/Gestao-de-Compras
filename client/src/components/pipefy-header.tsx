@@ -35,6 +35,7 @@ import { useState } from "react";
 import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 import type { RealtimeStatus } from "@/lib/realtimeClient";
 import ApprovalsInlineBadge from "./approvals-inline-badge";
+import { ModeToggle } from "./mode-toggle";
 
 const REALTIME_STATUS_STYLES: Record<RealtimeStatus, {
   label: string;
@@ -114,8 +115,8 @@ export default function PipefyHeader() {
       );
     }
     items.push(
-        { label: "Solicitações de Compra", href: "/reports/purchase-requests", icon: <ClipboardList className="w-4 h-4" /> }
-      );
+      { label: "Solicitações de Compra", href: "/reports/purchase-requests", icon: <ClipboardList className="w-4 h-4" /> }
+    );
 
     items.push(
       { label: "Relatório de Fornecedores", href: "/reports/suppliers", icon: <Truck className="w-4 h-4" /> }
@@ -168,20 +169,20 @@ export default function PipefyHeader() {
                 </Link>
               );
             })}
-            
+
             {/* Menu Dropdown Cadastros */}
-            <CustomDropdownMenu 
-              trigger="Cadastros" 
+            <CustomDropdownMenu
+              trigger="Cadastros"
               items={getCadastrosItems()}
               className="text-muted-foreground hover:text-foreground"
             />
-            
+
             {/* Menu Dropdown Relatórios */}
-              <CustomDropdownMenu 
-                trigger="Relatórios" 
-                items={getRelatoriosItems()}
-                className="text-muted-foreground hover:text-foreground"
-              />            
+            <CustomDropdownMenu
+              trigger="Relatórios"
+              items={getRelatoriosItems()}
+              className="text-muted-foreground hover:text-foreground"
+            />
           </nav>
 
           {/* Campo de Pesquisa Global - Centralizado */}
@@ -210,7 +211,8 @@ export default function PipefyHeader() {
           </div>
 
           {/* User Menu Desktop */}
-          <div className="hidden md:flex items-center">
+          <div className="hidden md:flex items-center gap-2">
+            <ModeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -328,18 +330,21 @@ export default function PipefyHeader() {
 
             {/* User info and logout for mobile */}
             <div className="pt-4 border-t border-border mt-4">
-              <div className="flex items-center px-3 py-2">
-                <Avatar className="h-8 w-8 mr-3">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {user?.firstName?.[0] || user?.username?.[0] || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                  <p className="text-sm font-medium text-foreground">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+              <div className="flex items-center justify-between px-3 py-2">
+                <div className="flex items-center">
+                  <Avatar className="h-8 w-8 mr-3">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                      {user?.firstName?.[0] || user?.username?.[0] || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <p className="text-sm font-medium text-foreground">
+                      {user?.firstName} {user?.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                  </div>
                 </div>
+                <ModeToggle />
               </div>
 
               <Link href="/profile">

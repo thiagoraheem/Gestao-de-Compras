@@ -95,13 +95,13 @@ export default function KanbanPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Board Header - estilo Pipefy */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 md:px-6 py-3 shadow-sm">
+      <div className="flex-shrink-0 bg-background border-b border-border px-4 md:px-6 py-3 shadow-sm">
         {/* Mobile Layout */}
         <div className="flex flex-col space-y-3 md:hidden">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">Processo de Compras</h1>
-              <p className="text-xs text-gray-500 mt-0.5">Gerencie suas solicitações através do workflow Kanban</p>
+              <h1 className="text-lg font-semibold text-foreground">Processo de Compras</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Gerencie suas solicitações através do workflow Kanban</p>
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" className="bg-primary text-primary-foreground">Kanban</Button>
@@ -149,17 +149,17 @@ export default function KanbanPage() {
                 {Array.isArray(users) &&
                   users
                     .sort((a: any, b: any) => {
-                      const nameA = a.firstName && a.lastName 
+                      const nameA = a.firstName && a.lastName
                         ? `${a.firstName} ${a.lastName}`
                         : a.username;
-                      const nameB = b.firstName && b.lastName 
+                      const nameB = b.firstName && b.lastName
                         ? `${b.firstName} ${b.lastName}`
                         : b.username;
                       return nameA.localeCompare(nameB, 'pt-BR', { sensitivity: 'base' });
                     })
                     .map((user: any) => (
                       <SelectItem key={user.id} value={user.id.toString()}>
-                        {user.firstName && user.lastName 
+                        {user.firstName && user.lastName
                           ? `${user.firstName} ${user.lastName}`
                           : user.username}
                       </SelectItem>
@@ -175,7 +175,7 @@ export default function KanbanPage() {
                 <SelectItem value="all">Todos os Fornecedores</SelectItem>
                 {Array.isArray(suppliers) &&
                   suppliers
-                    .sort((a: any, b: any) => 
+                    .sort((a: any, b: any) =>
                       a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
                     )
                     .map((supplier: any) => (
@@ -189,7 +189,7 @@ export default function KanbanPage() {
             {/* Date Filter for Archived Items */}
             <div className="grid grid-cols-2 gap-1.5">
               <div>
-                <Label htmlFor="startDate" className="text-xs text-gray-600">
+                <Label htmlFor="startDate" className="text-xs text-muted-foreground">
                   Data Inicial
                 </Label>
                 <Input
@@ -206,7 +206,7 @@ export default function KanbanPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="endDate" className="text-xs text-gray-600">
+                <Label htmlFor="endDate" className="text-xs text-muted-foreground">
                   Data Final
                 </Label>
                 <Input
@@ -231,8 +231,8 @@ export default function KanbanPage() {
           {/* Title Section */}
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">Processo de Compras</h1>
-              <p className="text-xs text-gray-500 mt-0.5">Gerencie suas solicitações de compra através do workflow Kanban</p>
+              <h1 className="text-xl font-semibold text-foreground">Processo de Compras</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Gerencie suas solicitações de compra através do workflow Kanban</p>
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" className="bg-primary text-primary-foreground">Kanban</Button>
@@ -289,17 +289,17 @@ export default function KanbanPage() {
                   {Array.isArray(users) &&
                     users
                       .sort((a: any, b: any) => {
-                        const nameA = a.firstName && a.lastName 
+                        const nameA = a.firstName && a.lastName
                           ? `${a.firstName} ${a.lastName}`
                           : a.username;
-                        const nameB = b.firstName && b.lastName 
+                        const nameB = b.firstName && b.lastName
                           ? `${b.firstName} ${b.lastName}`
                           : b.username;
                         return nameA.localeCompare(nameB, 'pt-BR', { sensitivity: 'base' });
                       })
                       .map((user: any) => (
                         <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.firstName && user.lastName 
+                          {user.firstName && user.lastName
                             ? `${user.firstName} ${user.lastName}`
                             : user.username}
                         </SelectItem>
@@ -318,7 +318,7 @@ export default function KanbanPage() {
                   <SelectItem value="all">Fornecedores</SelectItem>
                   {Array.isArray(suppliers) &&
                     suppliers
-                      .sort((a: any, b: any) => 
+                      .sort((a: any, b: any) =>
                         a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
                       )
                       .map((supplier: any) => (
@@ -334,7 +334,7 @@ export default function KanbanPage() {
             <div className="flex items-center gap-2">
               <Label
                 htmlFor="startDateDesktop"
-                className="text-xs text-gray-600 whitespace-nowrap font-medium"
+                className="text-xs text-muted-foreground whitespace-nowrap font-medium"
               >
                 Período:
               </Label>
@@ -350,7 +350,7 @@ export default function KanbanPage() {
                 }
                 className="w-36 h-8 text-xs"
               />
-              <span className="text-gray-500 text-xs whitespace-nowrap">
+              <span className="text-muted-foreground text-xs whitespace-nowrap">
                 até
               </span>
               <Input
@@ -377,7 +377,7 @@ export default function KanbanPage() {
                 🔍 Filtrado por: "{searchFilter}"
               </span>
             </div>
-            <button 
+            <button
               onClick={() => {
                 setSearchFilter("");
                 setLocation("/");
@@ -392,7 +392,7 @@ export default function KanbanPage() {
       </div>
 
       {/* Kanban Board Full Width */}
-      <div className="flex-1 bg-gray-50 overflow-hidden">
+      <div className="flex-1 bg-muted/40 dark:bg-background overflow-hidden">
         <KanbanBoard
           departmentFilter={selectedDepartment}
           urgencyFilter={selectedUrgency}

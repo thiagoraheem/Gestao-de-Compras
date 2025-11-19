@@ -1,6 +1,7 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,7 +41,7 @@ import ApprovalsInlineBadge from "@/components/approvals-inline-badge";
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   useApprovalsBadge();
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="flex items-center justify-between">
         <PipefyHeader />
         <div className="hidden md:flex items-center gap-2 pr-4">
@@ -78,7 +79,7 @@ function Router() {
         sessionStorage.setItem('redirectAfterLogin', currentPath);
       }
     }
-    
+
     // Public routes (no authentication required)
     return (
       <Switch>
@@ -138,10 +139,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

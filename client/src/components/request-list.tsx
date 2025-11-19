@@ -83,20 +83,20 @@ export default function RequestList({
 
   const filteredRequests = Array.isArray(purchaseRequests)
     ? purchaseRequests.filter((request: any) => {
-        let passes = true;
-        if (departmentFilter !== "all") passes = passes && request.department?.id?.toString() === departmentFilter;
-        if (urgencyFilter !== "all") passes = passes && request.urgency === urgencyFilter;
-        if (requesterFilter !== "all") passes = passes && request.requester?.id?.toString() === requesterFilter;
-        if (supplierFilter !== "all") passes = passes && request.chosenSupplier?.id?.toString() === supplierFilter;
-        if (dateFilter && (request.currentPhase === PURCHASE_PHASES.ARQUIVADO || request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA)) {
-          const requestDate = new Date(request.updatedAt || request.createdAt);
-          const startDate = new Date(dateFilter.startDate);
-          const endDate = new Date(dateFilter.endDate);
-          endDate.setHours(23, 59, 59, 999);
-          passes = passes && requestDate >= startDate && requestDate <= endDate;
-        }
-        return passes;
-      })
+      let passes = true;
+      if (departmentFilter !== "all") passes = passes && request.department?.id?.toString() === departmentFilter;
+      if (urgencyFilter !== "all") passes = passes && request.urgency === urgencyFilter;
+      if (requesterFilter !== "all") passes = passes && request.requester?.id?.toString() === requesterFilter;
+      if (supplierFilter !== "all") passes = passes && request.chosenSupplier?.id?.toString() === supplierFilter;
+      if (dateFilter && (request.currentPhase === PURCHASE_PHASES.ARQUIVADO || request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA)) {
+        const requestDate = new Date(request.updatedAt || request.createdAt);
+        const startDate = new Date(dateFilter.startDate);
+        const endDate = new Date(dateFilter.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        passes = passes && requestDate >= startDate && requestDate <= endDate;
+      }
+      return passes;
+    })
     : [];
 
   const urgencyOrder = { alto: 1, medio: 2, baixo: 3 } as Record<string, number>;
@@ -180,7 +180,7 @@ export default function RequestList({
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md">
+      <div className="bg-card rounded-lg shadow-md">
         <Accordion type="multiple" {...accordionControlProps}>
           {Object.values(PURCHASE_PHASES).map((phase) => (
             <AccordionItem key={phase} value={phase}>
@@ -266,7 +266,7 @@ export default function RequestList({
                             <div className="flex items-center gap-2">
                               <ApprovalTypeBadge approvalType={request.approvalType || 'single'} />
                               {request.approvalProgress && (
-                                <ApprovalProgressBadge 
+                                <ApprovalProgressBadge
                                   approvalType={request.approvalType || 'single'}
                                   currentStep={request.approvalProgress.currentStep}
                                   totalSteps={request.approvalProgress.totalSteps}
@@ -297,7 +297,7 @@ export default function RequestList({
 
       {activeRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setActiveRequest(null)}>
-          <div className="bg-white rounded-lg w-full mx-4 max-w-6xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card rounded-lg w-full mx-4 max-w-6xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             {activeRequest.currentPhase === PURCHASE_PHASES.SOLICITACAO && (
               <RequestPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
             )}

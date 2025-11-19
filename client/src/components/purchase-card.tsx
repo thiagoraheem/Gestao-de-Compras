@@ -190,7 +190,7 @@ export default function PurchaseCard({
       queryClient.invalidateQueries({
         predicate: (query) =>
           !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
+            query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
       });
 
       toast({
@@ -222,7 +222,7 @@ export default function PurchaseCard({
       queryClient.invalidateQueries({
         predicate: (query) =>
           !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
+            query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
       });
       toast({
         title: "Sucesso",
@@ -253,7 +253,7 @@ export default function PurchaseCard({
       queryClient.invalidateQueries({
         predicate: (query) =>
           !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-          query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
+            query.queryKey[0]?.toString().includes(`/api/purchase-requests`)),
       });
       toast({
         title: "Sucesso",
@@ -316,10 +316,10 @@ export default function PurchaseCard({
         return old.map((item) =>
           item.id === request.id
             ? {
-                ...item,
-                currentPhase: "aprovacao_a1",
-                updatedAt: new Date().toISOString(),
-              }
+              ...item,
+              currentPhase: "aprovacao_a1",
+              updatedAt: new Date().toISOString(),
+            }
             : item,
         );
       });
@@ -616,7 +616,7 @@ export default function PurchaseCard({
     }
 
     const { requiresDualApproval, approvalStatus, firstApprover } = approvalRules;
-    
+
     // For single approval, any A2 approver can approve
     if (!requiresDualApproval) {
       return true;
@@ -631,12 +631,12 @@ export default function PurchaseCard({
       if (firstApprover && firstApprover.approverId === user?.id) {
         return false; // Same user cannot provide both approvals
       }
-      
+
       // If first approver was not CEO, final approval must be from CEO
       if (firstApprover && !firstApprover.isCEO && !user?.isCEO) {
         return false;
       }
-      
+
       return user?.isDirector || user?.isCEO;
     }
 
@@ -646,11 +646,11 @@ export default function PurchaseCard({
   // Check if user can drag this card
   const canDragCard = useMemo(() => {
     return (canDrag && phase === PURCHASE_PHASES.SOLICITACAO) || // Always allow dragging from request phase
-    phase === PURCHASE_PHASES.COTACAO || // Always allow dragging from quotation phase
-    phase === PURCHASE_PHASES.APROVACAO_A1 || // Allow dragging from A1 (permission check happens in kanban-board)
-    phase === PURCHASE_PHASES.APROVACAO_A2 || // Allow dragging from A2 (permission check happens in kanban-board)
-    phase === PURCHASE_PHASES.PEDIDO_COMPRA || // Allow dragging from purchase order phase
-    phase === PURCHASE_PHASES.RECEBIMENTO;
+      phase === PURCHASE_PHASES.COTACAO || // Always allow dragging from quotation phase
+      phase === PURCHASE_PHASES.APROVACAO_A1 || // Allow dragging from A1 (permission check happens in kanban-board)
+      phase === PURCHASE_PHASES.APROVACAO_A2 || // Allow dragging from A2 (permission check happens in kanban-board)
+      phase === PURCHASE_PHASES.PEDIDO_COMPRA || // Allow dragging from purchase order phase
+      phase === PURCHASE_PHASES.RECEBIMENTO;
   }, [canDrag, phase]); // Allow dragging from receipt phase
 
   const canEditInApprovalPhase =
@@ -672,9 +672,9 @@ export default function PurchaseCard({
           "mb-2 cursor-pointer select-none",
           isDragging && "opacity-50",
           sortableIsDragging && "opacity-50",
-          isFinalPhase && "bg-gray-100 text-gray-600 border-gray-300",
-          !canDragCard && "cursor-not-allowed border-gray-300 bg-gray-50",
-          isSearchHighlighted && "ring-2 ring-blue-500 ring-offset-2 bg-blue-50 border-blue-300 shadow-lg",
+          isFinalPhase && "bg-muted text-muted-foreground border-border",
+          !canDragCard && "cursor-not-allowed border-border bg-muted/50",
+          isSearchHighlighted && "ring-2 ring-blue-500 ring-offset-2 bg-blue-500/10 border-blue-500/30 shadow-lg",
         )}
       >
         <CardContent className="p-2 md:p-3 lg:p-2">
@@ -686,7 +686,7 @@ export default function PurchaseCard({
                 className={cn(
                   "p-0.5 rounded",
                   canDragCard
-                    ? "cursor-grab active:cursor-grabbing hover:bg-gray-100"
+                    ? "cursor-grab active:cursor-grabbing hover:bg-muted"
                     : "cursor-not-allowed opacity-50",
                 )}
                 title={
@@ -698,7 +698,7 @@ export default function PurchaseCard({
                 <GripVertical
                   className={cn(
                     "h-3 w-3 md:h-4 md:w-4 lg:h-3 lg:w-3",
-                    canDragCard ? "text-gray-400" : "text-gray-300",
+                    canDragCard ? "text-muted-foreground" : "text-muted-foreground/50",
                   )}
                 />
               </div>
@@ -751,7 +751,7 @@ export default function PurchaseCard({
           <h4
             className={cn(
               "font-medium mb-1 md:mb-1 lg:mb-1 truncate text-sm",
-              isArchived ? "text-gray-700" : "text-gray-900",
+              isArchived ? "text-muted-foreground" : "text-foreground",
             )}
             title={request.justification}
           >
@@ -774,7 +774,7 @@ export default function PurchaseCard({
             <Badge variant="outline" className="text-xs px-1.5 py-0.5">
               {
                 CATEGORY_LABELS[
-                  request.category as keyof typeof CATEGORY_LABELS
+                request.category as keyof typeof CATEGORY_LABELS
                 ]
               }
             </Badge>
@@ -784,7 +784,7 @@ export default function PurchaseCard({
             )}
             {/* Show approval progress for A2 phase */}
             {phase === PURCHASE_PHASES.APROVACAO_A2 && request.approvalProgress && (
-              <ApprovalProgressBadge 
+              <ApprovalProgressBadge
                 approvalType={approvalType || 'single'}
                 currentStep={request.approvalProgress.currentStep}
                 totalSteps={request.approvalProgress.totalSteps}
@@ -807,23 +807,23 @@ export default function PurchaseCard({
               </div>
             )}
             {/* Show red tag for items rejected from A2 and returned to quotation */}
-            {request.approvedA2 === false && 
-             request.rejectionActionA2 === "recotacao" && 
-             phase === PURCHASE_PHASES.COTACAO && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-500 text-white border border-red-600 cursor-help">
-                      <X className="mr-1 h-3 w-3" />
-                      Nec.Cotação
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{request.rejectionReasonA2 || "Reprovada em Aprovação A2 - necessária nova cotação"}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+            {request.approvedA2 === false &&
+              request.rejectionActionA2 === "recotacao" &&
+              phase === PURCHASE_PHASES.COTACAO && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-500 text-white border border-red-600 cursor-help">
+                        <X className="mr-1 h-3 w-3" />
+                        Nec.Cotação
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{request.rejectionReasonA2 || "Reprovada em Aprovação A2 - necessária nova cotação"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
           </div>
 
           {/* Additional info */}
@@ -956,13 +956,12 @@ export default function PurchaseCard({
           {phase === PURCHASE_PHASES.COTACAO && (
             <div className="mt-3 md:mt-2 lg:mt-2 pt-3 md:pt-2 lg:pt-2 border-t border-gray-100">
               <div
-                className={`flex items-center gap-2 md:gap-1 lg:gap-1 p-2 md:p-1.5 lg:p-1.5 rounded-md ${
-                  quotationStatusError
+                className={`flex items-center gap-2 md:gap-1 lg:gap-1 p-2 md:p-1.5 lg:p-1.5 rounded-md ${quotationStatusError
                     ? "text-red-600 bg-red-50"
                     : quotationStatus?.isReady
                       ? "text-green-700 bg-green-50"
                       : "text-orange-600 bg-orange-50"
-                }`}
+                  }`}
               >
                 {quotationStatusError ? (
                   <X className="h-4 w-4 md:h-3 md:w-3 lg:h-3 lg:w-3" />
@@ -1062,7 +1061,7 @@ export default function PurchaseCard({
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="flex space-x-2">
                     <Button
                       size="sm"
@@ -1094,7 +1093,7 @@ export default function PurchaseCard({
                   </div>
                 </div>
               )}
-              
+
               {/* Show message when user cannot approve A2 */}
               {canApproveA2 && !canUserApproveA2 && approvalRules && (
                 <div className="mt-3 pt-3 border-t border-gray-100">
@@ -1103,7 +1102,7 @@ export default function PurchaseCard({
                     <span className="text-sm">
                       {approvalRules.requiresDualApproval ? (
                         approvalRules.approvalStatus === "awaiting_final" ? (
-                          approvalRules.firstApprover?.approverId === user?.id ? 
+                          approvalRules.firstApprover?.approverId === user?.id ?
                             "Você já forneceu a primeira aprovação. Aguardando aprovação final de outro usuário." :
                             !approvalRules.firstApprover?.isCEO && !user?.isCEO ?
                               "Aprovação final deve ser realizada pelo CEO." :
