@@ -28,13 +28,22 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
 
   // Filter suppliers based on search term
   const filteredSuppliers = useMemo(() => {
-    if (!searchTerm) return suppliers;
-    const term = searchTerm.toLowerCase();
-    return suppliers.filter(supplier => 
-      supplier.name.toLowerCase().includes(term) ||
-      supplier.email.toLowerCase().includes(term) ||
-      supplier.contact?.toLowerCase().includes(term)
-    );
+    const normalize = (v: unknown) => typeof v === 'string' ? v.toLowerCase() : '';
+    const term = normalize(searchTerm.trim());
+    if (!term) return suppliers;
+    return suppliers.filter(supplier => {
+      if (!supplier) return false;
+      const name = normalize((supplier as any).name);
+      const email = normalize((supplier as any).email);
+      const contact = normalize((supplier as any).contact);
+      const phone = normalize((supplier as any).phone);
+      return (
+        name.includes(term) ||
+        email.includes(term) ||
+        contact.includes(term) ||
+        phone.includes(term)
+      );
+    });
   }, [suppliers, searchTerm]);
 
   // Get selected suppliers for display
