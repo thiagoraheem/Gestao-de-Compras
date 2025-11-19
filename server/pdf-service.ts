@@ -67,8 +67,6 @@ export class PDFService {
       
       return puppeteerTempDir;
     } catch (error) {
-      console.error('❌ Erro ao criar diretórios temporários:', error instanceof Error ? error.message : String(error));
-      // Fallback para diretório padrão
       return tempBase;
     }
   }
@@ -110,11 +108,9 @@ export class PDFService {
 
     for (const browserPath of possiblePaths) {
       if (browserPath && fs.existsSync(browserPath)) {
-        console.log("Encontrou o path do browser:", browserPath);
         return browserPath;
       }
     }
-    console.log("Não foi encontrado browser");
 
     return undefined;
   }
@@ -261,14 +257,10 @@ export class PDFService {
       for (let retry = 0; retry < retries; retry++) {
         try {
           const cfg = configurations[i] as any;
-          console.log('[PDFService] Launch attempt', { index: i, retry: retry + 1, executablePath: cfg.executablePath, channel: cfg.channel, headless: cfg.headless });
           const browser = await puppeteer.launch(cfg);
-          const version = await browser.version();
-          console.log('[PDFService] Browser launched', { index: i, retry: retry + 1, version });
           return browser;
         } catch (error) {
           lastError = error;
-          console.error(`  ✗ Erro na tentativa ${retry + 1}:`, error instanceof Error ? error.message : String(error));
           if (retry < retries - 1) {
             const delay = 1000 * (retry + 1);
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -277,7 +269,6 @@ export class PDFService {
       }
     }
     
-    console.error('❌ Todas as configurações e tentativas falharam');
     throw new Error(`Falha ao lançar browser após todas as tentativas. Último erro: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
   }
 
@@ -287,22 +278,14 @@ export class PDFService {
       const pdfBuffer = await this.generatePDFWithPuppeteer(html);
       return pdfBuffer;
     } catch (puppeteerError) {
-      console.error(`❌ Puppeteer falhou para ${pdfType}:`, puppeteerError instanceof Error ? puppeteerError.message : String(puppeteerError));
-      
-      // Segunda tentativa com novo headless
       try {
         const pdfBuffer = await this.generatePDFWithPuppeteer(html);
         return pdfBuffer;
       } catch (secondError) {
-        console.error(`❌ Segunda tentativa com Puppeteer falhou para ${pdfType}:`, secondError instanceof Error ? secondError.message : String(secondError));
-
         try {
           const wkhtmlBuffer = await this.generatePDFWithWkhtml(html);
-          console.log('✔ wkhtmltopdf gerou PDF com sucesso');
           return wkhtmlBuffer;
-        } catch (wkError) {
-          console.error('❌ wkhtmltopdf falhou:', wkError instanceof Error ? wkError.message : String(wkError));
-        }
+        } catch (wkError) {}
 
         const htmlDocument = `<!-- HTML_FALLBACK_MARKER -->\n<!DOCTYPE html>\n<html>\n<head>\n    <meta charset="UTF-8">\n    <title>Pedido de Compra</title>\n    <style>\n        @media print {\n            body { margin: 0; }\n            .no-print { display: none; }\n        }\n        body { font-family: Arial, sans-serif; margin: 20px; }\n    </style>\n</head>\n<body>\n    <div class="no-print" style="background: #f0f0f0; padding: 10px; margin-bottom: 20px; border-radius: 5px;">\n        <strong>Documento HTML</strong><br>\n        Use Ctrl+P para imprimir ou salvar como PDF\n    </div>\n    ${html}\n</body>\n</html>`;
         return Buffer.from(htmlDocument, 'utf8');
@@ -384,21 +367,17 @@ export class PDFService {
       }
     };
 
-    console.log('[PDFService] generatePDFWithPuppeteer start');
     const browser = await this.launchBrowserWithRetry();
     let page = null;
     
     try {
       page = await browser.newPage();
-      console.log('[PDFService] Page created');
       await page.setDefaultTimeout(45000);
       await page.emulateMediaType('print');
       await page.setViewport({ width: 1240, height: 1754, deviceScaleFactor: 1 });
 
       const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
-      console.log('[PDFService] Navigating to data URL');
       await page.goto(dataUrl, { waitUntil: 'networkidle0', timeout: 60000 });
-      console.log('[PDFService] Page loaded');
       await page.waitForSelector('body');
       try { await page.evaluate(() => (document as any).fonts?.ready); } catch {}
       
@@ -417,12 +396,7 @@ export class PDFService {
         preferCSSPageSize: true
       });
       try {
-        const headAscii = pdfBuffer.slice(0, 64).toString('latin1');
-        const eofIndex = pdfBuffer.toString('latin1').indexOf('%%EOF');
-        console.log('[PDFService] Attempt 1 head ascii:', headAscii.replace(/\n/g, ' '));
-        console.log('[PDFService] Attempt 1 EOF index:', eofIndex);
       } catch {}
-      console.log('[PDFService] Attempt 1 buffer size', pdfBuffer.length, 'valid', isValidPdf(pdfBuffer));
       if (!isValidPdf(pdfBuffer)) {
         await new Promise(resolve => setTimeout(resolve, 500));
         await page.reload({ waitUntil: 'networkidle0' });
@@ -435,15 +409,9 @@ export class PDFService {
           preferCSSPageSize: true
         });
         try {
-          const headAscii2 = pdfBuffer.slice(0, 64).toString('latin1');
-          const eofIndex2 = pdfBuffer.toString('latin1').indexOf('%%EOF');
-          console.log('[PDFService] Attempt 2 head ascii:', headAscii2.replace(/\n/g, ' '));
-          console.log('[PDFService] Attempt 2 EOF index:', eofIndex2);
         } catch {}
-        console.log('[PDFService] Attempt 2 buffer size', pdfBuffer.length, 'valid', isValidPdf(pdfBuffer));
         if (!isValidPdf(pdfBuffer)) {
           try {
-            console.log('[PDFService] Trying PDF stream');
             const stream = await (page as any).createPDFStream({
               format: 'A4',
               margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
@@ -456,7 +424,6 @@ export class PDFService {
               stream.on('end', () => resolve(Buffer.concat(chunks)));
               stream.on('error', reject);
             });
-            console.log('[PDFService] Stream buffer size', pdfBuffer.length, 'valid', isValidPdf(pdfBuffer));
             if (!isValidPdf(pdfBuffer)) {
               throw new Error('PDF gerado inválido (integridade ausente)');
             }
@@ -472,13 +439,11 @@ export class PDFService {
         try {
           await page.close();
         } catch (err) {
-          console.error('Error closing page:', err);
         }
       }
       try {
         await browser.close();
       } catch (err) {
-        console.error('Error closing browser:', err);
       }
     }
   }
@@ -548,7 +513,6 @@ export class PDFService {
 
       return await this.generatePDFWithFallback(html, 'completion-summary');
     } catch (error) {
-      console.error('Error in generateCompletionSummaryPDF:', error);
       throw error;
     }
   }
@@ -557,7 +521,6 @@ export class PDFService {
     try {
       return await this.generatePDFWithFallback(this.generateDashboardHTML(dashboardData), 'dashboard');
     } catch (error) {
-      console.error('Error in generateDashboardPDF:', error);
       throw error;
     }
   }
