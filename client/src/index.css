@@ -36,25 +36,34 @@
 }
 
 .dark {
-  --background: hsl(240, 10%, 3.9%);
-  --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(240, 3.7%, 15.9%);
-  --muted-foreground: hsl(240, 5%, 64.9%);
-  --popover: hsl(240, 10%, 3.9%);
-  --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 10%, 3.9%);
-  --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(240, 3.7%, 15.9%);
-  --input: hsl(240, 3.7%, 15.9%);
-  --primary: hsl(24, 95%, 53%);
+  --background: hsl(217, 28%, 8%);
+  /* #0F1419 - Deep blue-gray */
+  --foreground: hsl(220, 9%, 92%);
+  /* #E8EAED - Light gray text */
+  --muted: hsl(217, 24%, 21%);
+  /* #2A3544 - Medium blue for muted areas */
+  --muted-foreground: hsl(220, 9%, 65%);
+  /* #9CA3AF - Gray text */
+  --popover: hsl(217, 32%, 13%);
+  --popover-foreground: hsl(220, 9%, 92%);
+  --card: hsl(217, 32%, 13%);
+  /* #1A2332 - Darker blue for cards */
+  --card-foreground: hsl(220, 9%, 92%);
+  --border: hsl(217, 24%, 21%);
+  /* #2A3544 - Subtle borders */
+  --input: hsl(217, 24%, 21%);
+  --primary: hsl(16, 100%, 66%);
+  /* #FF6B35 - Vibrant orange */
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(240, 3.7%, 15.9%);
-  --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(240, 3.7%, 15.9%);
-  --accent-foreground: hsl(0, 0%, 98%);
-  --destructive: hsl(0, 62.8%, 30.6%);
-  --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(240, 4.9%, 83.9%);
+  --secondary: hsl(217, 24%, 21%);
+  --secondary-foreground: hsl(220, 9%, 92%);
+  --accent: hsl(217, 24%, 21%);
+  --accent-foreground: hsl(220, 9%, 92%);
+  --destructive: hsl(0, 84%, 60%);
+  /* #EF4444 - Red for errors */
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --ring: hsl(16, 100%, 66%);
+  /* #FF6B35 - Orange ring */
   --radius: 0.5rem;
 }
 
