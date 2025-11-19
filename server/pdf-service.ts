@@ -4,6 +4,7 @@ import { storage } from './storage';
 import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
+import { execFile } from 'child_process';
 
 interface PurchaseOrderData {
   purchaseRequest: any;
@@ -102,14 +103,18 @@ export class PDFService {
       // Variáveis de ambiente
       process.env.CHROMIUM_PATH,
       process.env.CHROME_PATH,
-      process.env.GOOGLE_CHROME_BIN
+      process.env.GOOGLE_CHROME_BIN,
+      process.env.GOOGLE_CHROME_SHIM,
+      process.env.MSEDGE_PATH
     ];
 
     for (const browserPath of possiblePaths) {
       if (browserPath && fs.existsSync(browserPath)) {
+        console.log("Encontrou o path do browser:", browserPath);
         return browserPath;
       }
     }
+    console.log("Não foi encontrado browser");
 
     return undefined;
   }
@@ -140,6 +145,7 @@ export class PDFService {
       '--disable-notifications',
       '--disable-permissions-api',
       '--disable-background-mode',
+      '--disable-print-preview',
       '--memory-pressure-off',
       '--max_old_space_size=4096',
       // Configurações de diretórios temporários
@@ -191,7 +197,7 @@ export class PDFService {
       ...(bundledPath ? [{
         executablePath: bundledPath,
         args: baseArgs,
-        headless: true,
+        headless: 'new',
         timeout: 60000,
         ignoreDefaultArgs: false
       }] : []),
@@ -199,7 +205,7 @@ export class PDFService {
       ...(detectedBrowserPath ? [{
         executablePath: detectedBrowserPath,
         args: baseArgs,
-        headless: true,
+        headless: 'new',
         timeout: 60000,
         ignoreDefaultArgs: false
       }] : []),
@@ -207,13 +213,18 @@ export class PDFService {
       ...(this.isWindows() ? [{
         channel: 'chrome',
         args: baseArgs,
-        headless: true,
+        headless: 'new',
+        timeout: 60000
+      },{
+        channel: 'msedge',
+        args: baseArgs,
+        headless: 'new',
         timeout: 60000
       }] : []),
       // 4) Sem path específico (deixa Puppeteer escolher)
       {
         args: baseArgs,
-        headless: true,
+        headless: 'new',
         timeout: 60000,
         ignoreDefaultArgs: false
       },
@@ -249,7 +260,11 @@ export class PDFService {
     for (let i = 0; i < configurations.length; i++) {
       for (let retry = 0; retry < retries; retry++) {
         try {
-          const browser = await puppeteer.launch(configurations[i]);
+          const cfg = configurations[i] as any;
+          console.log('[PDFService] Launch attempt', { index: i, retry: retry + 1, executablePath: cfg.executablePath, channel: cfg.channel, headless: cfg.headless });
+          const browser = await puppeteer.launch(cfg);
+          const version = await browser.version();
+          console.log('[PDFService] Browser launched', { index: i, retry: retry + 1, version });
           return browser;
         } catch (error) {
           lastError = error;
@@ -274,79 +289,116 @@ export class PDFService {
     } catch (puppeteerError) {
       console.error(`❌ Puppeteer falhou para ${pdfType}:`, puppeteerError instanceof Error ? puppeteerError.message : String(puppeteerError));
       
+      // Segunda tentativa com novo headless
       try {
-        const options = {
-          format: 'A4',
-          margin: {
-            top: '20mm',
-            right: '15mm',
-            bottom: '20mm', 
-            left: '15mm'
-          },
-          printBackground: true,
-          timeout: 30000
-        };
-
-        const file = { content: html };
-        const pdfBuffer = await htmlPdf.generatePdf(file, options);
-        // PDF generated successfully
+        const pdfBuffer = await this.generatePDFWithPuppeteer(html);
         return pdfBuffer;
-      } catch (fallbackError) {
-        console.error(`❌ html-pdf-node também falhou para ${pdfType}:`, fallbackError instanceof Error ? fallbackError.message : String(fallbackError));
-        // Returning HTML as fallback
-        
-        // Como último recurso, retorna o HTML como um "PDF" (o browser pode imprimir/salvar como PDF)
-        const htmlDocument = `<!-- HTML_FALLBACK_MARKER -->
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Pedido de Compra</title>
-    <style>
-        @media print {
-            body { margin: 0; }
-            .no-print { display: none; }
+      } catch (secondError) {
+        console.error(`❌ Segunda tentativa com Puppeteer falhou para ${pdfType}:`, secondError instanceof Error ? secondError.message : String(secondError));
+
+        try {
+          const wkhtmlBuffer = await this.generatePDFWithWkhtml(html);
+          console.log('✔ wkhtmltopdf gerou PDF com sucesso');
+          return wkhtmlBuffer;
+        } catch (wkError) {
+          console.error('❌ wkhtmltopdf falhou:', wkError instanceof Error ? wkError.message : String(wkError));
         }
-        body { font-family: Arial, sans-serif; margin: 20px; }
-    </style>
-</head>
-<body>
-    <div class="no-print" style="background: #f0f0f0; padding: 10px; margin-bottom: 20px; border-radius: 5px;">
-        <strong>📄 Documento HTML</strong><br>
-        Use Ctrl+P (Cmd+P no Mac) para imprimir ou salvar como PDF
-    </div>
-    ${html}
-</body>
-</html>`;
-        
+
+        const htmlDocument = `<!-- HTML_FALLBACK_MARKER -->\n<!DOCTYPE html>\n<html>\n<head>\n    <meta charset="UTF-8">\n    <title>Pedido de Compra</title>\n    <style>\n        @media print {\n            body { margin: 0; }\n            .no-print { display: none; }\n        }\n        body { font-family: Arial, sans-serif; margin: 20px; }\n    </style>\n</head>\n<body>\n    <div class="no-print" style="background: #f0f0f0; padding: 10px; margin-bottom: 20px; border-radius: 5px;">\n        <strong>Documento HTML</strong><br>\n        Use Ctrl+P para imprimir ou salvar como PDF\n    </div>\n    ${html}\n</body>\n</html>`;
         return Buffer.from(htmlDocument, 'utf8');
       }
     }
+  }
+
+  private static async generatePDFWithWkhtml(html: string): Promise<Buffer> {
+    const tempDir = await this.ensureTempDirectories();
+    const htmlPath = path.join(tempDir, `wk_${Date.now()}.html`);
+    const pdfPath = path.join(tempDir, `wk_${Date.now()}.pdf`);
+
+    const adjustedHtml = this.injectWkhtmlStyles(html);
+    fs.writeFileSync(htmlPath, adjustedHtml, 'utf8');
+
+    const possiblePaths = [
+      process.env.WKHTMLTOPDF_PATH,
+      'C\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe',
+      'C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe',
+      'C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe',
+      '/usr/bin/wkhtmltopdf',
+      '/usr/local/bin/wkhtmltopdf'
+    ].filter(Boolean) as string[];
+
+    let binaryPath: string | undefined;
+    for (const p of possiblePaths) {
+      if (p && fs.existsSync(p)) { binaryPath = p; break; }
+    }
+    if (!binaryPath) throw new Error('wkhtmltopdf não encontrado');
+
+    await new Promise<void>((resolve, reject) => {
+      const args = [
+        '--quiet',
+        '--print-media-type',
+        '--encoding', 'utf-8',
+        '--dpi', '96',
+        '--zoom', '1.0',
+        '-s', 'A4',
+        '-B', '20mm',
+        '-L', '15mm',
+        '-R', '15mm',
+        '-T', '20mm',
+        htmlPath,
+        pdfPath
+      ];
+      execFile(binaryPath!, args, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    if (!fs.existsSync(pdfPath)) throw new Error('wkhtmltopdf não gerou o arquivo');
+    const buf = fs.readFileSync(pdfPath);
+    try { fs.unlinkSync(htmlPath); } catch {}
+    try { fs.unlinkSync(pdfPath); } catch {}
+    return buf;
+  }
+
+  private static injectWkhtmlStyles(html: string): string {
+    const wkStyles = `\n<style>\n  .header{display:table;width:100%;table-layout:fixed;padding-right:120px;min-height:120px}\n  .header-logo{display:table-cell;width:150px;vertical-align:middle;padding-right:20px}\n  .header-info{display:table-cell;text-align:center}\n  .info-grid{display:table;width:100%;table-layout:fixed}\n  .info-grid>div{display:table-cell;width:50%;vertical-align:top;padding-right:20px}\n  .electronic-signature-grid{display:table;width:100%}\n  .electronic-signature-grid .signature-electronic{display:table-cell;width:50%;vertical-align:top}\n  .electronic-signature-grid-three{display:table;width:100%}\n  .electronic-signature-grid-three .signature-electronic{display:table-cell;width:33%;vertical-align:top}\n</style>\n`;
+    if (html.includes('</head>')) {
+      return html.replace('</head>', wkStyles + '</head>');
+    }
+    return wkStyles + html;
   }
 
   // Geração de PDF usando Puppeteer (método original melhorado)
   private static async generatePDFWithPuppeteer(html: string): Promise<Buffer> {
     const isValidPdf = (buffer: Buffer) => {
       try {
-        const start = buffer.toString('latin1', 0, 8);
-        const tail = buffer.toString('latin1', Math.max(0, buffer.length - 20));
-        return start.startsWith('%PDF-') && tail.includes('%%EOF');
+        const headSlice = buffer.slice(0, 16).toString('latin1');
+        const hasHeader = headSlice.includes('%PDF-');
+        const tailSlice = buffer.slice(Math.max(0, buffer.length - 2048)).toString('latin1');
+        const hasEofNearEnd = tailSlice.includes('%%EOF');
+        const hasEofAnywhere = hasEofNearEnd || buffer.toString('latin1').includes('%%EOF');
+        return hasHeader && hasEofAnywhere;
       } catch {
         return false;
       }
     };
 
+    console.log('[PDFService] generatePDFWithPuppeteer start');
     const browser = await this.launchBrowserWithRetry();
     let page = null;
     
     try {
       page = await browser.newPage();
+      console.log('[PDFService] Page created');
       await page.setDefaultTimeout(45000);
       await page.emulateMediaType('print');
       await page.setViewport({ width: 1240, height: 1754, deviceScaleFactor: 1 });
 
       const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+      console.log('[PDFService] Navigating to data URL');
       await page.goto(dataUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+      console.log('[PDFService] Page loaded');
       await page.waitForSelector('body');
       try { await page.evaluate(() => (document as any).fonts?.ready); } catch {}
       
@@ -362,9 +414,15 @@ export class PDFService {
           left: '15mm'
         },
         printBackground: true,
-        timeout: 60000,
         preferCSSPageSize: true
       });
+      try {
+        const headAscii = pdfBuffer.slice(0, 64).toString('latin1');
+        const eofIndex = pdfBuffer.toString('latin1').indexOf('%%EOF');
+        console.log('[PDFService] Attempt 1 head ascii:', headAscii.replace(/\n/g, ' '));
+        console.log('[PDFService] Attempt 1 EOF index:', eofIndex);
+      } catch {}
+      console.log('[PDFService] Attempt 1 buffer size', pdfBuffer.length, 'valid', isValidPdf(pdfBuffer));
       if (!isValidPdf(pdfBuffer)) {
         await new Promise(resolve => setTimeout(resolve, 500));
         await page.reload({ waitUntil: 'networkidle0' });
@@ -374,11 +432,37 @@ export class PDFService {
             top: '20mm', right: '15mm', bottom: '20mm', left: '15mm'
           },
           printBackground: true,
-          timeout: 60000,
           preferCSSPageSize: true
         });
+        try {
+          const headAscii2 = pdfBuffer.slice(0, 64).toString('latin1');
+          const eofIndex2 = pdfBuffer.toString('latin1').indexOf('%%EOF');
+          console.log('[PDFService] Attempt 2 head ascii:', headAscii2.replace(/\n/g, ' '));
+          console.log('[PDFService] Attempt 2 EOF index:', eofIndex2);
+        } catch {}
+        console.log('[PDFService] Attempt 2 buffer size', pdfBuffer.length, 'valid', isValidPdf(pdfBuffer));
         if (!isValidPdf(pdfBuffer)) {
-          throw new Error('PDF gerado inválido (integridade ausente)');
+          try {
+            console.log('[PDFService] Trying PDF stream');
+            const stream = await (page as any).createPDFStream({
+              format: 'A4',
+              margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
+              printBackground: true,
+              preferCSSPageSize: true
+            });
+            pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
+              const chunks: Buffer[] = [];
+              stream.on('data', (c: Buffer) => chunks.push(c));
+              stream.on('end', () => resolve(Buffer.concat(chunks)));
+              stream.on('error', reject);
+            });
+            console.log('[PDFService] Stream buffer size', pdfBuffer.length, 'valid', isValidPdf(pdfBuffer));
+            if (!isValidPdf(pdfBuffer)) {
+              throw new Error('PDF gerado inválido (integridade ausente)');
+            }
+          } catch {
+            throw new Error('PDF gerado inválido (integridade ausente)');
+          }
         }
       }
 
