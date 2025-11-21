@@ -88,11 +88,11 @@ export default function ListPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 md:px-6 py-3 shadow-sm">
+      <div className="flex-shrink-0 bg-background border-b border-border px-4 md:px-6 py-3 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Lista de Solicitações</h1>
-            <p className="text-xs text-gray-500 mt-0.5">Visualização compacta e elegante das solicitações de compra</p>
+            <h1 className="text-xl font-semibold text-foreground">Lista de Solicitações</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Visualização compacta e elegante das solicitações de compra</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setLocation("/kanban")}>Kanban</Button>
@@ -105,18 +105,18 @@ export default function ListPage() {
           className={`filters-collapsible ${isFiltersOpen ? 'filters-open' : 'filters-closed'}`}
           aria-hidden={!isFiltersOpen}
         >
-        <div className="flex items-center gap-3 flex-wrap">
-          <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-            <SelectTrigger className="w-44 h-8 text-sm">
-              <SelectValue placeholder="Departamentos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Departamentos</SelectItem>
-              {Array.isArray(departments) && departments.map((dept: any) => (
-                <SelectItem key={dept.id} value={dept.id.toString()}>{dept.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+              <SelectTrigger className="w-44 h-8 text-sm">
+                <SelectValue placeholder="Departamentos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Departamentos</SelectItem>
+                {Array.isArray(departments) && departments.map((dept: any) => (
+                  <SelectItem key={dept.id} value={dept.id.toString()}>{dept.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
           <Select value={selectedUrgency} onValueChange={setSelectedUrgency}>
             <SelectTrigger className="w-36 h-8 text-sm">
@@ -166,9 +166,9 @@ export default function ListPage() {
           </Select>
 
           <div className="flex items-center gap-2">
-            <Label htmlFor="startDateDesktop" className="text-xs text-gray-600 whitespace-nowrap font-medium">Período:</Label>
+            <Label htmlFor="startDateDesktop" className="text-xs text-muted-foreground whitespace-nowrap font-medium">Período:</Label>
             <Input id="startDateDesktop" type="date" value={dateFilter.startDate} onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))} className="w-36 h-8 text-xs" />
-            <span className="text-gray-500 text-xs whitespace-nowrap">até</span>
+            <span className="text-xs whitespace-nowrap text-muted-foreground">até</span>
             <Input id="endDateDesktop" type="date" value={dateFilter.endDate} onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))} className="w-36 h-8 text-xs" />
           </div>
 
@@ -180,14 +180,14 @@ export default function ListPage() {
         </div>
 
         {searchFilter && (
-          <div className="mt-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
-            <span className="text-sm text-blue-700 font-medium">🔍 Filtrado por: "{searchFilter}"</span>
-            <button onClick={() => { setSearchFilter(""); setLocation("/list"); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium underline" data-testid="button-clear-search-filter">Limpar filtro</button>
+          <div className="mt-3 px-4 py-2 bg-accent text-accent-foreground border border-border rounded-md flex items-center justify-between">
+            <span className="text-sm font-medium">🔍 Filtrado por: "{searchFilter}"</span>
+            <button onClick={() => { setSearchFilter(""); setLocation("/list"); }} className="text-sm font-medium underline">Limpar filtro</button>
           </div>
         )}
       </div>
 
-      <div className="flex-1 bg-gray-50 overflow-hidden">
+      <div className="flex-1 bg-background overflow-hidden">
         <RequestList
           departmentFilter={selectedDepartment}
           urgencyFilter={selectedUrgency}

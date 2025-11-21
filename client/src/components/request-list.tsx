@@ -129,13 +129,13 @@ export default function RequestList({
   return (
     <div className="h-full px-4 md:px-6 py-4 overflow-auto">
       <div className="mb-3 grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="bg-muted/50 border rounded-md p-3">
+        <div className="bg-card/60 border border-border rounded-md p-3">
           <div className="text-[11px] text-muted-foreground">Total de Solicitações do Período</div>
-          <div className="text-lg font-semibold">{sortedRequests.length}</div>
+          <div className="text-lg font-semibold text-foreground">{sortedRequests.length}</div>
         </div>
-        <div className="bg-muted/50 border rounded-md p-3">
+        <div className="bg-card/60 border border-border rounded-md p-3">
           <div className="text-[11px] text-muted-foreground">% em Aprovação</div>
-          <div className="text-lg font-semibold">
+          <div className="text-lg font-semibold text-foreground">
             {(() => {
               const total = sortedRequests.length || 0;
               const approval = sortedRequests.filter((r) => r.currentPhase === PURCHASE_PHASES.APROVACAO_A1 || r.currentPhase === PURCHASE_PHASES.APROVACAO_A2).length;
@@ -144,9 +144,9 @@ export default function RequestList({
             })()}
           </div>
         </div>
-        <div className="bg-muted/50 border rounded-md p-3">
+        <div className="bg-card/60 border border-border rounded-md p-3">
           <div className="text-[11px] text-muted-foreground">% em Cotação</div>
-          <div className="text-lg font-semibold">
+          <div className="text-lg font-semibold text-foreground">
             {(() => {
               const total = sortedRequests.length || 0;
               const cnt = sortedRequests.filter((r) => r.currentPhase === PURCHASE_PHASES.COTACAO).length;
@@ -155,9 +155,9 @@ export default function RequestList({
             })()}
           </div>
         </div>
-        <div className="bg-muted/50 border rounded-md p-3">
+        <div className="bg-card/60 border border-border rounded-md p-3">
           <div className="text-[11px] text-muted-foreground">% cotação com RFQ criada</div>
-          <div className="text-lg font-semibold">
+          <div className="text-lg font-semibold text-foreground">
             {(() => {
               const cotacoes = sortedRequests.filter((r) => r.currentPhase === PURCHASE_PHASES.COTACAO);
               const total = cotacoes.length || 0;
@@ -167,9 +167,9 @@ export default function RequestList({
             })()}
           </div>
         </div>
-        <div className="bg-muted/50 border rounded-md p-3">
+        <div className="bg-card/60 border border-border rounded-md p-3">
           <div className="text-[11px] text-muted-foreground">% Concluído</div>
-          <div className="text-lg font-semibold">
+          <div className="text-lg font-semibold text-foreground">
             {(() => {
               const total = sortedRequests.length || 0;
               const done = sortedRequests.filter((r) => r.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA).length;
@@ -180,11 +180,11 @@ export default function RequestList({
         </div>
       </div>
 
-      <div className="bg-card rounded-lg shadow-md">
+      <div className="bg-card rounded-lg shadow-md border border-border">
         <Accordion type="multiple" {...accordionControlProps}>
           {Object.values(PURCHASE_PHASES).map((phase) => (
             <AccordionItem key={phase} value={phase}>
-              <AccordionTrigger className="px-4">
+              <AccordionTrigger className="px-4 text-foreground">
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     "h-3 w-1 rounded",
@@ -203,18 +203,18 @@ export default function RequestList({
               </AccordionTrigger>
               <AccordionContent>
                 <Table className="text-xs table-fixed">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-24">Nº</TableHead>
-                      <TableHead className="w-[520px]">Descrição</TableHead>
-                      <TableHead className="w-44">Departamento</TableHead>
-                      <TableHead className="w-44">Solicitante</TableHead>
-                      <TableHead className="w-44">Fornecedor</TableHead>
-                      <TableHead className="w-28">Urgência</TableHead>
-                      <TableHead className="w-28">Categoria</TableHead>
-                      <TableHead className="w-32">Valor</TableHead>
-                      <TableHead className="w-40">Aprovação</TableHead>
-                      <TableHead className="w-24 text-right">Ações</TableHead>
+                  <TableHeader className="bg-muted/40">
+                    <TableRow className="border-b border-border">
+                      <TableHead className="w-24 text-muted-foreground">Nº</TableHead>
+                      <TableHead className="w-[520px] text-muted-foreground">Descrição</TableHead>
+                      <TableHead className="w-44 text-muted-foreground">Departamento</TableHead>
+                      <TableHead className="w-44 text-muted-foreground">Solicitante</TableHead>
+                      <TableHead className="w-44 text-muted-foreground">Fornecedor</TableHead>
+                      <TableHead className="w-28 text-muted-foreground">Urgência</TableHead>
+                      <TableHead className="w-28 text-muted-foreground">Categoria</TableHead>
+                      <TableHead className="w-32 text-muted-foreground">Valor</TableHead>
+                      <TableHead className="w-40 text-muted-foreground">Aprovação</TableHead>
+                      <TableHead className="w-24 text-right text-muted-foreground">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -230,8 +230,8 @@ export default function RequestList({
                     )}
                     {(groupedByPhase[phase] || []).map((request: any) => (
                       <TableRow key={request.id} className={cn(
-                        "cursor-pointer",
-                        highlightedRequestIds.has(request.id) && "ring-1 ring-blue-500 bg-blue-50"
+                        "cursor-pointer border-b border-border hover:bg-muted/30",
+                        highlightedRequestIds.has(request.id) && "ring-1 ring-blue-500 dark:ring-blue-400 bg-blue-50 dark:bg-blue-900/20"
                       )} onClick={() => setActiveRequest(request)}>
                         <TableCell className="whitespace-nowrap">
                           <Badge variant="outline" className="text-[11px] px-2 py-0.5">{request.requestNumber}</Badge>
