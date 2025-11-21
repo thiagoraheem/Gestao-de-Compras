@@ -681,10 +681,10 @@ export default function PurchaseCard({
         data-request-id={request.id}
         onClick={() => setIsEditModalOpen(true)}
         className={cn(
-          "mb-2 cursor-pointer select-none bg-background-light dark:bg-slate-900 rounded-lg shadow-sm border-slate-200 dark:border-slate-700/50",
+          "mb-2 cursor-pointer select-none rounded-lg shadow-sm border-border",
           isDragging && "opacity-50",
           sortableIsDragging && "opacity-50",
-          isFinalPhase && "bg-slate-50 dark:bg-slate-800/50 text-muted-foreground",
+          isFinalPhase && "bg-muted text-muted-foreground",
           !canDragCard && "cursor-not-allowed",
           isSearchHighlighted && "ring-2 ring-blue-500 ring-offset-2 bg-blue-500/10 border-blue-500/30 shadow-lg",
         )
@@ -844,7 +844,7 @@ export default function PurchaseCard({
           {/* Additional info */}
           <div
             className={cn(
-              "text-sm text-slate-600 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-700 pt-2 mt-2",
+              "text-sm text-slate-600 dark:text-slate-400 space-y-1 border-t border-border pt-2 mt-2",
               isArchived && "text-slate-500",
             )}
           >
@@ -907,7 +907,7 @@ export default function PurchaseCard({
           )}
 
           {/* Footer with Date and Actions */}
-          <div className="border-t border-slate-200 dark:border-slate-700 pt-3 mt-3 flex items-center justify-between gap-2">
+          <div className="border-t border-border pt-3 mt-3 flex items-center justify-between gap-2">
             <p className="text-xs text-slate-500 dark:text-slate-500">
               {formatDate(request.createdAt)}
             </p>

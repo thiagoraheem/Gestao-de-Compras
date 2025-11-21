@@ -32,8 +32,8 @@ export default function KanbanColumn({
 
   return (
     <div className="flex-shrink-0 w-full md:w-80">
-      <div className={`rounded-lg shadow-md h-full flex flex-col ${isFinalPhase ? 'bg-slate-700/30' : 'bg-slate-800/40'}`}>
-        <div className={`p-3 border-b ${isFinalPhase ? 'border-slate-700 bg-slate-700/30' : 'border-slate-700/50 bg-slate-800/50'}`}>
+      <div className={"rounded-lg shadow-md h-full flex flex-col bg-card border border-border"}>
+        <div className={"p-3 border-b border-border bg-card"}>
           <div className="flex items-center justify-between">
             <h3 className={`font-semibold flex items-center text-sm md:text-base lg:text-sm ${isFinalPhase ? 'text-muted-foreground' : 'text-foreground'}`}>
               <div
@@ -42,15 +42,14 @@ export default function KanbanColumn({
               />
               {title}
             </h3>
-            <Badge variant="secondary" className={`text-xs ${isFinalPhase ? 'bg-muted text-muted-foreground' : ''}`}>
+            <Badge variant="secondary" className={"text-xs"}>
               {requests.length}
             </Badge>
           </div>
         </div>
         <div
           ref={setNodeRef}
-          className={`flex-1 p-2 md:p-3 lg:p-2 overflow-y-auto space-y-1 md:space-y-2 lg:space-y-1 transition-colors ${isOver ? "bg-accent/50" : ""
-            }`}
+          className={`flex-1 p-2 md:p-3 lg:p-2 overflow-y-auto space-y-1 md:space-y-2 lg:space-y-1 transition-colors ${isOver ? "bg-accent/50" : ""}`}
         >
           <SortableContext
             id={phase}
