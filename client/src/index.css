@@ -24,6 +24,10 @@
   --ring: #E95B2D;
   --radius: 0.5rem;
 
+  --scrollbar-thumb: hsl(210, 12%, 83%);
+  --scrollbar-track: hsl(60, 4.8%, 95.9%);
+  --scrollbar-width: 8px;
+
   --kanban-solicitacao: #E95B2D;
   --kanban-aprovacao-a1: #F59E0B;
   --kanban-cotacao: #7C3AED;
@@ -64,6 +68,9 @@
   --ring: hsl(16, 100%, 66%);
   /* #FF6B35 - Orange ring */
   --radius: 0.5rem;
+
+  --scrollbar-thumb: hsl(217, 24%, 40%);
+  --scrollbar-track: hsl(217, 24%, 18%);
 }
 
 @layer base {
@@ -73,6 +80,25 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar {
+    width: var(--scrollbar-width);
+    height: var(--scrollbar-width);
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 8px;
   }
 }
 
