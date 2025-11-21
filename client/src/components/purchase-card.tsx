@@ -21,6 +21,7 @@ import {
   Trash2,
   Plus,
   Info,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -934,7 +935,12 @@ export default function PurchaseCard({
               {phase === PURCHASE_PHASES.COTACAO && user?.isBuyer && onCreateRFQ && (
                 <Button
                   size="sm"
-                  className="px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 rounded-md hover:bg-orange-600 h-auto"
+                  className={
+                    `px-3 py-1.5 text-xs font-semibold text-white rounded-md h-auto ` +
+                    (request.hasQuotation
+                      ? `bg-orange-500 hover:bg-orange-600`
+                      : `bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600`)
+                  }
                   onClick={(e) => {
                     e.stopPropagation();
                     if (request.hasQuotation) {
@@ -944,7 +950,11 @@ export default function PurchaseCard({
                     }
                   }}
                 >
-                  <Plus className="mr-1 h-3 w-3" />
+                  {request.hasQuotation ? (
+                    <Eye className="mr-1 h-3 w-3" />
+                  ) : (
+                    <Plus className="mr-1 h-3 w-3" />
+                  )}
                   {request.hasQuotation ? "Ver RFQ" : "Criar RFQ"}
                 </Button>
               )}
