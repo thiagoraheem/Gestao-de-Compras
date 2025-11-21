@@ -72,6 +72,7 @@ interface ApprovalRules {
 }
 import { ApprovalTypeBadge, ApprovalProgressBadge } from "@/components/ApprovalTypeBadge";
 import { ApprovalTimeline } from "@/components/ApprovalTimeline";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog";
 
 interface PurchaseCardProps {
   request: any;
@@ -1115,15 +1116,38 @@ export default function PurchaseCard({
       }
       {
         isEditModalOpen && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <PurchaseOrderPhase
-                request={request}
-                onClose={() => setIsEditModalOpen(false)}
-                className="p-6"
-              />
-            </div>
-          </div>
+          <Dialog open={isEditModalOpen} onOpenChange={(open) => setIsEditModalOpen(open)}>
+            <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="purchase-order-phase-desc">
+              <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
+                <div className="flex justify-between items-center">
+                  <DialogTitle className="text-base font-semibold flex items-center gap-2">
+                    Pedido de Compra - Solicitação #{request.requestNumber}
+                  </DialogTitle>
+                  <div className="flex items-center gap-2">
+                    {request.urgency && (
+                      <Badge variant={request.urgency === "alto" ? "destructive" : "secondary"}>
+                        {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS] || request.urgency}
+                      </Badge>
+                    )}
+                    
+                    <DialogClose asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <X className="h-4 w-4" />
+                        <span className="sr-only">Fechar</span>
+                      </Button>
+                    </DialogClose>
+                  </div>
+                </div>
+                <p id="purchase-order-phase-desc" className="sr-only">Tela de pedido de compra da solicitação</p>
+              </div>
+              <div className="px-6 pt-0 pb-2">
+                <PurchaseOrderPhase
+                  request={request}
+                  onClose={() => setIsEditModalOpen(false)}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
         )
       }
 

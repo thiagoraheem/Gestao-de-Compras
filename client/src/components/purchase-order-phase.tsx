@@ -351,71 +351,23 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* Header com título e botão de fechar */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold">Pedido de Compra</h2>
-            {request.hasPendency && (
-              <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-300">
-                <X className="w-3 h-3 mr-1" />
-                PENDÊNCIA
-              </Badge>
-            )}
-          </div>
-          <p className="text-muted-foreground">
-            Solicitação {request.requestNumber} - Resumo completo do processo
+      {request.hasPendency && (
+        <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-md">
+          <p className="text-sm text-red-800 dark:text-red-300">
+            <strong>Motivo da Pendência:</strong> {request.pendencyReason}
           </p>
-          {request.hasPendency && request.pendencyReason && (
-            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-800">
-                <strong>Motivo da Pendência:</strong> {request.pendencyReason}
-              </p>
-            </div>
-          )}
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={handleAdvanceToReceipt}
-            disabled={advanceToReceiptMutation.isPending}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Truck className="w-4 h-4 mr-2" />
-            {advanceToReceiptMutation.isPending ? "Avançando..." : "Avançar para Recebimento"}
-          </Button>
-          <Button
-            onClick={handlePreviewPDF}
-            disabled={isLoadingPreview}
-            variant="outline"
-            className="border-green-600 text-green-600 hover:bg-green-50"
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
-          </Button>
-          <Button
-            onClick={handleDownloadPDF}
-            disabled={isDownloading}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            {isDownloading ? "Gerando PDF..." : "Baixar PDF"}
-          </Button>
-          <Button variant="outline" onClick={onClose}>
-            <X className="w-4 h-4 mr-2" />
-            Fechar
-          </Button>
-        </div>
-      </div>
+      )}
 
       {/* Resumo da Solicitação */}
-      <Card>
+      <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
             <FileText className="w-5 h-5" />
             Informações da Solicitação
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 border-t border-slate-200 dark:border-slate-700">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -474,31 +426,31 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       </Card>
 
       {/* Itens da Solicitação */}
-      <Card>
+      <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
         <CardHeader>
-          <CardTitle>Itens Solicitados</CardTitle>
+          <CardTitle className="text-sm font-semibold">Itens Solicitados</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="border-t border-slate-200 dark:border-slate-700">
           {isLoadingSupplierItems ? (
             <div className="text-center py-4">Carregando itens...</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-200">
+              <table className="w-full border-collapse border border-border">
                 <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-200 px-4 py-2 text-left">Item</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Qtd.</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Unidade</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Valor Unit.</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Valor Total</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Marca</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Prazo</th>
+                  <tr className="bg-slate-100 dark:bg-slate-800">
+                    <th className="border border-border px-4 py-2 text-left">Item</th>
+                    <th className="border border-border px-4 py-2 text-center">Qtd.</th>
+                    <th className="border border-border px-4 py-2 text-center">Unidade</th>
+                    <th className="border border-border px-4 py-2 text-center">Valor Unit.</th>
+                    <th className="border border-border px-4 py-2 text-center">Valor Total</th>
+                    <th className="border border-border px-4 py-2 text-center">Marca</th>
+                    <th className="border border-border px-4 py-2 text-center">Prazo</th>
                   </tr>
                 </thead>
                 <tbody>
                   {itemsWithPrices.map((item: any, index: number) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="border border-gray-200 px-4 py-2">
+                    <tr key={index} className="hover:bg-slate-100 dark:hover:bg-slate-800">
+                      <td className="border border-border px-4 py-2">
                         <div className="font-medium">{item.description}</div>
                         {item.specifications && (
                           <div className="text-sm text-muted-foreground">
@@ -506,22 +458,22 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                           </div>
                         )}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
+                      <td className="border border-border px-4 py-2 text-center">
                         {Number(item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
+                      <td className="border border-border px-4 py-2 text-center">
                         {item.unit || 'UND'}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
+                      <td className="border border-border px-4 py-2 text-center">
                         R$ {typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center font-medium">
+                      <td className="border border-border px-4 py-2 text-center font-medium">
                         {item.itemDiscount > 0 ? (
                           <div>
-                            <div className="text-sm text-gray-500 line-through">
+                            <div className="text-sm text-slate-500 dark:text-slate-400 line-through">
                               R$ {typeof item.originalTotalPrice === 'number' ? item.originalTotalPrice.toFixed(2).replace('.', ',') : '0,00'}
                             </div>
-                            <div className="text-green-600">
+                            <div className="text-green-600 dark:text-green-300">
                               R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}
                             </div>
                           </div>
@@ -529,62 +481,62 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                           <span>R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}</span>
                         )}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
+                      <td className="border border-border px-4 py-2 text-center">
                         {item.brand || '-'}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
+                      <td className="border border-border px-4 py-2 text-center">
                         {item.deliveryTime || '-'}
                       </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-gray-50 font-bold">
-                    <td className="border border-gray-200 px-4 py-2" colSpan={4}>
+                  <tr className="bg-slate-100 dark:bg-slate-800 font-bold">
+                    <td className="border border-border px-4 py-2" colSpan={4}>
                       Subtotal:
                     </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center">
+                    <td className="border border-border px-4 py-2 text-center">
                       R$ {subtotal.toFixed(2).replace('.', ',')}
                     </td>
-                    <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
+                    <td className="border border-border px-4 py-2" colSpan={2}></td>
                   </tr>
                   {totalDiscount > 0 && (
                     <tr>
-                      <td className="border border-gray-200 px-4 py-2" colSpan={4}>
+                      <td className="border border-border px-4 py-2" colSpan={4}>
                         Desconto Total:
                       </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center text-red-600">
+                      <td className="border border-border px-4 py-2 text-center text-red-600 dark:text-red-400">
                         - R$ {totalDiscount.toFixed(2).replace('.', ',')}
                       </td>
-                      <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
+                      <td className="border border-border px-4 py-2" colSpan={2}></td>
                     </tr>
                   )}
                   <tr>
-                    <td className="border border-gray-200 px-4 py-2" colSpan={4}>
+                    <td className="border border-border px-4 py-2" colSpan={4}>
                       <div className="flex items-center gap-1">
                         <Truck className="h-4 w-4" />
                         Frete:
                       </div>
                     </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center">
+                    <td className="border border-border px-4 py-2 text-center">
                       {freightValue > 0 ? (
-                        <span className="text-blue-600">
+                        <span className="text-blue-600 dark:text-blue-300">
                           R$ {freightValue.toFixed(2).replace('.', ',')}
                         </span>
                       ) : (
-                        <span className="text-gray-500">Não incluso</span>
+                        <span className="text-slate-500 dark:text-slate-400">Não incluso</span>
                       )}
                     </td>
-                    <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
+                    <td className="border border-border px-4 py-2" colSpan={2}></td>
                   </tr>
-                  <tr className="bg-gray-100 font-bold">
-                    <td className="border border-gray-200 px-4 py-2" colSpan={4}>
+                  <tr className="bg-slate-100 dark:bg-slate-800 font-bold">
+                    <td className="border border-border px-4 py-2" colSpan={4}>
                       Total Geral:
                     </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center">
+                    <td className="border border-border px-4 py-2 text-center">
                       R$ {finalTotal.toFixed(2).replace('.', ',')}
                     </td>
-                    <td className="border border-gray-200 px-4 py-2" colSpan={2}></td>
+                    <td className="border border-border px-4 py-2" colSpan={2}></td>
                   </tr>
                 </tfoot>
               </table>
@@ -595,14 +547,14 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
 
       {/* Fornecedor Vencedor */}
       {selectedSupplierQuotation && (
-        <Card>
+        <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <Building className="w-5 h-5" />
               Fornecedor Vencedor
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="border-t border-slate-200 dark:border-slate-700">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <div className="text-sm">
@@ -625,14 +577,14 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
               <div className="space-y-3">
                 <div className="text-sm">
                   <span className="font-medium text-gray-600">Valor Total da Proposta:</span>
-                  <p className="text-lg font-semibold text-green-600">
+                  <p className="text-lg font-semibold text-green-600 dark:text-green-300">
                     R$ {finalTotal.toFixed(2).replace('.', ',')}
                   </p>
                 </div>
                 {totalDiscount > 0 && (
                   <div className="text-sm">
                     <span className="font-medium text-gray-600">Desconto Total Aplicado:</span>
-                    <p className="text-lg font-semibold text-red-600">
+                    <p className="text-lg font-semibold text-red-600 dark:text-red-400">
                       - R$ {totalDiscount.toFixed(2).replace('.', ',')}
                     </p>
                   </div>
@@ -652,11 +604,11 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                   </span>
                   <p className="text-lg font-semibold">
                     {freightValue > 0 ? (
-                      <span className="text-blue-600">
+                      <span className="text-blue-600 dark:text-blue-300">
                         R$ {freightValue.toFixed(2).replace('.', ',')}
                       </span>
                     ) : (
-                      <span className="text-gray-500">Não incluso</span>
+                      <span className="text-slate-500 dark:text-slate-400">Não incluso</span>
                     )}
                   </p>
                 </div>
@@ -686,11 +638,11 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       )}
 
       {/* Histórico de Aprovações */}
-      <Card>
+      <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
         <CardHeader>
-          <CardTitle>Histórico de Aprovações</CardTitle>
+          <CardTitle className="text-sm font-semibold">Histórico de Aprovações</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="border-t border-slate-200 dark:border-slate-700">
           <div className="space-y-4">
             {aprovacaoA1 && (
               <div className="flex items-center gap-3 p-3 border rounded-lg">
@@ -736,11 +688,11 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       </Card>
 
       {/* Observações do Pedido */}
-      <Card>
+      <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
         <CardHeader>
-          <CardTitle>Observações do Pedido de Compra</CardTitle>
+          <CardTitle className="text-sm font-semibold">Observações do Pedido de Compra</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="border-t border-slate-200 dark:border-slate-700">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -770,11 +722,11 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
 
       {/* Anexos */}
       {Array.isArray(attachments) && attachments.length > 0 && (
-        <Card>
+        <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle>Anexos</CardTitle>
+          <CardTitle className="text-sm font-semibold">Anexos</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="border-t border-slate-200 dark:border-slate-700">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {attachments.map((attachment: any) => (
                 <div key={attachment.id} className="flex items-center gap-2 p-2 border rounded">
@@ -797,7 +749,7 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                 <Button
                   onClick={handleDownloadFromPreview}
                   size="sm"
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Baixar PDF
@@ -822,16 +774,51 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                 title="Pré-visualização do PDF"
               />
             ) : (
-              <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-center h-[75vh] bg-slate-100 dark:bg-slate-800 rounded-lg">
                 <div className="text-center">
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Carregando pré-visualização...</p>
+                  <FileText className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+                  <p className="text-slate-600 dark:text-slate-300">Carregando pré-visualização...</p>
                 </div>
               </div>
             )}
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Rodapé fixo com ações */}
+      <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
+        <div className="flex justify-end gap-3">
+          <Button
+            onClick={handleAdvanceToReceipt}
+            disabled={advanceToReceiptMutation.isPending}
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+          >
+            <Truck className="w-4 h-4 mr-2" />
+            {advanceToReceiptMutation.isPending ? "Avançando..." : "Avançar para Recebimento"}
+          </Button>
+          <Button
+            onClick={handlePreviewPDF}
+            disabled={isLoadingPreview}
+            variant="outline"
+            className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
+          </Button>
+          <Button
+            onClick={handleDownloadPDF}
+            disabled={isDownloading}
+            className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {isDownloading ? "Gerando PDF..." : "Baixar PDF"}
+          </Button>
+          <Button variant="outline" onClick={onClose}>
+            <X className="w-4 h-4 mr-2" />
+            Fechar
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

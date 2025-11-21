@@ -24,7 +24,7 @@ export default function RequestItemsList({ requestId }: RequestItemsListProps) {
     return (
       <div className="flex items-center justify-center p-4">
         <Clock className="h-5 w-5 animate-spin mr-2" />
-        <span className="text-sm text-gray-600">Carregando itens...</span>
+        <span className="text-sm text-muted-foreground">Carregando itens...</span>
       </div>
     );
   }
@@ -58,34 +58,34 @@ export default function RequestItemsList({ requestId }: RequestItemsListProps) {
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto">
-        <table className="min-w-full border border-gray-200 rounded-lg">
-          <thead className="bg-gray-50">
+        <table className="min-w-full border border-border rounded-lg">
+          <thead className="bg-slate-100 dark:bg-slate-800">
             <tr>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-b">
+              <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-300 border-b border-border">
                 Descrição
               </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-b">
+              <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-300 border-b border-border">
                 Quantidade
               </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-b">
+              <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-300 border-b border-border">
                 Especificação Técnica
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="divide-y divide-border">
             {items.map((item, index) => (
-              <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                <td className="px-4 py-3 text-sm text-gray-900">
+              <tr key={item.id} className={index % 2 === 0 ? 'bg-white dark:bg-slate-900/30' : 'bg-slate-50 dark:bg-slate-800/40'}>
+                <td className="px-4 py-3 text-sm text-slate-900 dark:text-slate-200">
                   {item.description}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-900">
+                <td className="px-4 py-3 text-sm text-slate-900 dark:text-slate-200">
                   <span className="font-semibold">
                     {formatNumber(item.requestedQuantity)} {item.unit}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
+                <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
                   {item.technicalSpecification || (
-                    <span className="text-gray-400 italic">Não informado</span>
+                    <span className="text-slate-400 dark:text-slate-500 italic">Não informado</span>
                   )}
                 </td>
               </tr>
@@ -95,9 +95,9 @@ export default function RequestItemsList({ requestId }: RequestItemsListProps) {
       </div>
       
       {/* Summary */}
-      <div className="border-t pt-3 mt-4">
+      <div className="border-t border-border pt-3 mt-4">
         <div className="flex justify-between items-center text-sm">
-          <span className="font-medium text-gray-600">Total de itens:</span>
+          <span className="font-medium text-slate-600 dark:text-slate-300">Total de itens:</span>
           <span className="font-semibold">{items.length} item(s)</span>
         </div>
       </div>
