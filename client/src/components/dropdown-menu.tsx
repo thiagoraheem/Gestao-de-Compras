@@ -35,7 +35,7 @@ export function DropdownMenu({ trigger, items, className }: DropdownMenuProps) {
     <div className={cn('relative', className)} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors duration-200"
+        className="flex items-center space-x-1 px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 text-muted-foreground hover:text-foreground hover:bg-muted"
       >
         <span>{trigger}</span>
         <ChevronDown 
@@ -47,17 +47,17 @@ export function DropdownMenu({ trigger, items, className }: DropdownMenuProps) {
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+        <div className="absolute left-0 mt-2 w-56 rounded-md shadow-lg z-50 border border-border bg-popover text-popover-foreground">
           <div className="py-1">
             {items.map((item, index) => (
               <a
                 key={index}
                 href={item.href}
-                className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150"
+                className="group flex items-center px-4 py-2 text-sm transition-colors duration-150 rounded-sm hover:bg-accent hover:text-accent-foreground"
                 onClick={() => setIsOpen(false)}
               >
                 {item.icon && (
-                  <span className="mr-3 text-gray-400">
+                  <span className="mr-3 text-muted-foreground group-hover:text-accent-foreground">
                     {item.icon}
                   </span>
                 )}

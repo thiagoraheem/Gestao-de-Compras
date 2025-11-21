@@ -42,26 +42,26 @@ const REALTIME_STATUS_STYLES: Record<RealtimeStatus, {
   label: string;
   dotClass: string;
   textClass: string;
-}> = {
+}>= {
   connecting: {
     label: "Conectando...",
     dotClass: "bg-blue-500 animate-pulse",
-    textClass: "text-blue-600",
+    textClass: "text-blue-600 dark:text-blue-400",
   },
   connected: {
     label: "Tempo real ativo",
     dotClass: "bg-emerald-500 animate-pulse",
-    textClass: "text-emerald-600",
+    textClass: "text-emerald-600 dark:text-emerald-400",
   },
   reconnecting: {
     label: "Reconectando...",
     dotClass: "bg-amber-500 animate-pulse",
-    textClass: "text-amber-600",
+    textClass: "text-amber-600 dark:text-amber-400",
   },
   offline: {
     label: "Tempo real indisponível",
     dotClass: "bg-red-500",
-    textClass: "text-red-600",
+    textClass: "text-red-600 dark:text-red-400",
   },
 };
 

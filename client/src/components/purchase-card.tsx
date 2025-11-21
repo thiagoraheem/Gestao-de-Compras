@@ -930,7 +930,7 @@ export default function PurchaseCard({
                   disabled={sendToApprovalMutation.isPending}
                 >
                   <Check className="mr-1 h-3 w-3" />
-                  {sendToApprovalMutation.isPending ? "Enviando..." : "Enviar"}
+                  {sendToApprovalMutation.isPending ? "Avançando..." : "Avançar"}
                 </Button>
               )}
 
