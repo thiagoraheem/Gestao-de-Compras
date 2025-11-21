@@ -169,9 +169,9 @@ export default function Dashboard() {
     value: number,
     thresholds: { green: number; yellow: number },
   ) => {
-    if (value >= thresholds.green) return "bg-green-100 text-green-800";
-    if (value >= thresholds.yellow) return "bg-yellow-100 text-yellow-800";
-    return "bg-red-100 text-red-800";
+    if (value >= thresholds.green) return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300";
+    if (value >= thresholds.yellow) return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300";
+    return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300";
   };
 
   if (isLoading) {
@@ -765,10 +765,10 @@ export default function Dashboard() {
                       <Badge
                         className={
                           dashboardData?.riskAnalysis?.riskScore === "Alto"
-                            ? "bg-red-100 text-red-800"
+                            ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
                             : dashboardData?.riskAnalysis?.riskScore === "Médio"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-green-100 text-green-800"
+                              ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
+                              : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
                         }
                       >
                         {dashboardData?.riskAnalysis?.riskScore || "Baixo"}
@@ -794,7 +794,7 @@ export default function Dashboard() {
                     {dashboardData?.delayedRequests?.map((request) => (
                       <div
                         key={request.id}
-                        className="flex items-center justify-between p-3 bg-red-50 rounded-lg"
+                        className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-lg"
                       >
                         <div>
                           <div className="font-medium">
@@ -811,10 +811,10 @@ export default function Dashboard() {
                     ))}
                     {(!dashboardData?.delayedRequests ||
                       dashboardData.delayedRequests.length === 0) && (
-                      <div className="text-center py-8 text-gray-500">
-                        Nenhuma solicitação em atraso
-                      </div>
-                    )}
+                        <div className="text-center py-8 text-gray-500">
+                          Nenhuma solicitação em atraso
+                        </div>
+                      )}
                   </div>
                 </CardContent>
               </Card>

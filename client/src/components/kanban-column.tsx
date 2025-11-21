@@ -31,14 +31,14 @@ export default function KanbanColumn({
   const isFinalPhase = phase === PURCHASE_PHASES.ARQUIVADO || phase === PURCHASE_PHASES.CONCLUSAO_COMPRA;
 
   return (
-    <div className="flex-shrink-0 w-64 md:w-72 lg:w-64">
-      <div className={`rounded-lg shadow-md h-full flex flex-col ${isFinalPhase ? 'bg-muted/50' : 'bg-card'}`}>
-        <div className={`p-2 md:p-3 lg:p-2 border-b ${isFinalPhase ? 'border-border bg-muted' : 'border-border'}`}>
+    <div className="flex-shrink-0 w-full md:w-80">
+      <div className={`rounded-lg shadow-md h-full flex flex-col ${isFinalPhase ? 'bg-slate-700/30' : 'bg-slate-800/40'}`}>
+        <div className={`p-3 border-b ${isFinalPhase ? 'border-slate-700 bg-slate-700/30' : 'border-slate-700/50 bg-slate-800/50'}`}>
           <div className="flex items-center justify-between">
             <h3 className={`font-semibold flex items-center text-sm md:text-base lg:text-sm ${isFinalPhase ? 'text-muted-foreground' : 'text-foreground'}`}>
               <div
-                className="w-2 h-2 md:w-3 md:h-3 lg:w-2 lg:h-2 rounded-full mr-1 md:mr-2 lg:mr-1"
-                style={{ backgroundColor: isFinalPhase ? '#9CA3AF' : phaseColor }}
+                className={`w-2 h-2 md:w-3 md:h-3 lg:w-2 lg:h-2 rounded-full mr-1 md:mr-2 lg:mr-1 ${isFinalPhase ? 'bg-gray-400 dark:bg-gray-600' : ''}`}
+                style={{ backgroundColor: isFinalPhase ? undefined : phaseColor }}
               />
               {title}
             </h3>

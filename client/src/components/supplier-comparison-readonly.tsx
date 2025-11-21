@@ -29,6 +29,13 @@ interface SupplierQuotationItem {
   confirmedUnit?: string;
 }
 
+interface QuotationItem {
+  id: number;
+  description: string;
+  quantity: number;
+  unit: string;
+}
+
 interface SupplierQuotationData {
   id: number;
   supplier: {
@@ -48,6 +55,8 @@ interface SupplierQuotationData {
   isChosen?: boolean;
   includesFreight?: boolean;
   freightValue?: number;
+  discountType?: 'percentage' | 'fixed' | 'none';
+  discountValue?: number;
 }
 
 export default function SupplierComparisonReadonly({ quotationId, onClose }: SupplierComparisonReadonlyProps) {
@@ -56,7 +65,7 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
   });
 
   // Fetch quotation items to get descriptions
-  const { data: quotationItems = [] } = useQuery({
+  const { data: quotationItems = [] } = useQuery<QuotationItem[]>({
     queryKey: [`/api/quotations/${quotationId}/items`],
     enabled: !!quotationId,
   });
@@ -112,16 +121,15 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                   </AlertDescription>
                 </Alert>
               )}
-              
+
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
                 {receivedQuotations.map((supplierData) => (
-                  <Card 
-                    key={supplierData.id} 
-                    className={`${
-                      supplierData.isChosen 
-                        ? 'ring-2 ring-green-500 bg-green-50' 
-                        : 'border-gray-200'
-                    }`}
+                  <Card
+                    key={supplierData.id}
+                    className={`${supplierData.isChosen
+                      ? 'ring-2 ring-green-500 bg-green-50'
+                      : 'border-gray-200'
+                      }`}
                   >
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
@@ -176,7 +184,7 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                           <div>
                             <span className="text-sm font-medium text-gray-600">Desconto da Proposta:</span>
                             <p className="text-sm mt-1 text-green-600 font-medium">
-                              {supplierData.discountType === 'percentage' 
+                              {supplierData.discountType === 'percentage'
                                 ? `${supplierData.discountValue}%`
                                 : `R$ ${Number(supplierData.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                               }
@@ -264,9 +272,8 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                         <tr className="border-b">
                           <th className="text-left p-3 font-medium">Item</th>
                           {receivedQuotations.map((supplier) => (
-                            <th key={supplier.id} className={`text-center p-3 font-medium border-l ${
-                              supplier.isChosen ? 'bg-green-50 text-green-700' : ''
-                            }`}>
+                            <th key={supplier.id} className={`text-center p-3 font-medium border-l ${supplier.isChosen ? 'bg-green-50 text-green-700' : ''
+                              }`}>
                               {supplier.supplier.name}
                               {supplier.isChosen && (
                                 <div className="text-xs text-green-600 mt-1">
@@ -282,7 +289,7 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                         {/* Get all unique items from all suppliers */}
                         {Array.from(
                           new Set(
-                            receivedQuotations.flatMap(sq => 
+                            receivedQuotations.flatMap(sq =>
                               sq.items.map(item => item.quotationItemId)
                             )
                           )
@@ -311,9 +318,8 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                                 const finalValue = item ? Number(item.discountedTotalPrice || item.totalPrice) : null;
                                 const isBest = item && bestFinalPrice !== null && finalValue === bestFinalPrice;
                                 return (
-                                  <td key={supplier.id} className={`p-3 border-l text-center ${
-                                    supplier.isChosen ? 'bg-green-50' : ''
-                                  } ${isBest ? 'bg-green-50 ring-2 ring-green-300' : ''}`}>
+                                  <td key={supplier.id} className={`p-3 border-l text-center ${supplier.isChosen ? 'bg-green-50' : ''
+                                    } ${isBest ? 'bg-green-50 ring-2 ring-green-300' : ''}`}>
                                     {item ? (
                                       <div className="space-y-1">
                                         {isBest && (
@@ -323,7 +329,7 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                                         )}
                                         {(() => {
                                           const qi = quotationItems.find(q => q.id === item.quotationItemId);
-                                          const requestedQty = qi?.quantity ? parseFloat(qi.quantity) : undefined;
+                                          const requestedQty = qi?.quantity;
                                           const qty = item.availableQuantity ?? requestedQty ?? (item.unitPrice ? Math.round(Number(item.discountedTotalPrice || item.totalPrice) / Number(item.unitPrice)) : undefined);
                                           const unit = item.confirmedUnit || qi?.unit;
                                           if (qty && unit) {
@@ -339,21 +345,21 @@ export default function SupplierComparisonReadonly({ quotationId, onClose }: Sup
                                           return null;
                                         })()}
                                         <div className="text-xs text-gray-700">
-                                          Vlr. Unit.: R$ {Number(item.unitPrice).toLocaleString('pt-BR', { 
-                                            minimumFractionDigits: 2 
+                                          Vlr. Unit.: R$ {Number(item.unitPrice).toLocaleString('pt-BR', {
+                                            minimumFractionDigits: 2
                                           })}
                                         </div>
                                         {(item.discountPercentage || item.discountValue) && (
                                           <div className="text-xs text-orange-600">
-                                            Vlr. Desconto: {item.discountPercentage 
+                                            Vlr. Desconto: {item.discountPercentage
                                               ? `${item.discountPercentage}%`
                                               : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                                             }
                                           </div>
                                         )}
                                         <div className="text-sm font-bold text-green-700">
-                                          Vlr Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', { 
-                                            minimumFractionDigits: 2 
+                                          Vlr Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', {
+                                            minimumFractionDigits: 2
                                           })}
                                         </div>
                                         {item.deliveryDays && (

@@ -95,6 +95,31 @@ export default function KanbanBoard({
     };
   }, [purchaseRequests]);
 
+  // Mobile navigation dots update on scroll
+  useEffect(() => {
+    const container = document.getElementById('kanban-mobile-container');
+    const dotsContainer = document.getElementById('kanban-dots-container');
+    if (!container || !dotsContainer) return;
+    const handleScroll = () => {
+      const scrollLeft = container.scrollLeft;
+      const total = Object.values(PURCHASE_PHASES).length;
+      const columnWidth = container.scrollWidth / (total || 1);
+      const currentIndex = Math.round(scrollLeft / (columnWidth || 1));
+      const dots = dotsContainer.querySelectorAll('button');
+      dots.forEach((dot, index) => {
+        if (index === currentIndex) {
+          dot.classList.remove('w-2', 'bg-muted-foreground/30');
+          dot.classList.add('w-4', 'bg-primary');
+        } else {
+          dot.classList.remove('w-4', 'bg-primary');
+          dot.classList.add('w-2', 'bg-muted-foreground/30');
+        }
+      });
+    };
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const moveRequestMutation = useMutation({
     mutationFn: async ({ id, newPhase }: { id: number; newPhase: string }) => {
       await apiRequest(`/api/purchase-requests/${id}/update-phase`, {
@@ -572,62 +597,110 @@ export default function KanbanBoard({
   }
 
   return (
-    <DndContext
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="h-full overflow-x-auto px-4 md:px-6 py-4 kanban-scroll">
-        <div
-          className="flex space-x-4 md:space-x-6"
-          style={{ minWidth: "max-content", height: "100%" }}
-        >
-          {Object.values(PURCHASE_PHASES).map((phase) => (
-            <KanbanColumn
-              key={phase}
-              phase={phase}
-              title={PHASE_LABELS[phase]}
-              requests={requestsByPhase[phase] || []}
-              onCreateRFQ={handleCreateRFQ}
-              highlightedRequestIds={highlightedRequestIds}
-            />
-          ))}
-        </div>
-      </div>
-
-      <DragOverlay>
-        {activeRequest && (
-          <div className="rotate-6 transform">
-            <PurchaseCard
-              request={activeRequest}
-              phase={activeRequest.currentPhase}
-              isDragging={true}
-            />
+    <>
+      <DndContext
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="md:hidden h-full flex flex-col">
+          <div
+            id="kanban-mobile-container"
+            className="flex-1 flex overflow-x-auto snap-x snap-mandatory"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
+            {Object.values(PURCHASE_PHASES).map((phase) => (
+              <div
+                key={phase}
+                className="w-full flex-shrink-0 snap-start p-4"
+              >
+                <KanbanColumn
+                  phase={phase}
+                  title={PHASE_LABELS[phase]}
+                  requests={requestsByPhase[phase] || []}
+                  onCreateRFQ={handleCreateRFQ}
+                  highlightedRequestIds={highlightedRequestIds}
+                />
+              </div>
+            ))}
           </div>
-        )}
-      </DragOverlay>
 
-      {/* RFQ Creation Modal */}
-      <RFQCreation
-        purchaseRequest={selectedRequestForRFQ}
-        existingQuotation={null}
-        isOpen={showRFQCreation && !!selectedRequestForRFQ}
-        onOpenChange={(open) => {
-          setShowRFQCreation(open)
-          if (!open) setSelectedRequestForRFQ(null)
-        }}
-        onComplete={() => {
-          setShowRFQCreation(false)
-          setSelectedRequestForRFQ(null)
-          queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] })
-          queryClient.invalidateQueries({ queryKey: ["/api/quotations"] })
-          queryClient.invalidateQueries({
-            predicate: (query) =>
-              !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-                query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
-          })
-        }}
-      />
-    </DndContext>
+          <div className="sticky bottom-0 bg-background py-4 flex justify-center items-center gap-2" id="kanban-dots-container">
+            {Object.values(PURCHASE_PHASES).map((phase, index) => (
+              <button
+                key={phase}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  index === 0 ? 'w-4 bg-primary' : 'w-2 bg-muted-foreground/30'
+                }`}
+                data-phase-index={index}
+                onClick={() => {
+                  const container = document.getElementById('kanban-mobile-container');
+                  if (container) {
+                    const columnWidth = container.scrollWidth / Object.values(PURCHASE_PHASES).length;
+                    container.scrollTo({ left: columnWidth * index, behavior: 'smooth' });
+                  }
+                }}
+                aria-label={`Navegar para ${PHASE_LABELS[phase]}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="hidden md:block h-full overflow-x-auto px-4 md:px-6 py-4 kanban-scroll">
+          <div
+            className="flex space-x-4 md:space-x-6"
+            style={{ minWidth: 'max-content', height: '100%' }}
+          >
+            {Object.values(PURCHASE_PHASES).map((phase) => (
+              <KanbanColumn
+                key={phase}
+                phase={phase}
+                title={PHASE_LABELS[phase]}
+                requests={requestsByPhase[phase] || []}
+                onCreateRFQ={handleCreateRFQ}
+                highlightedRequestIds={highlightedRequestIds}
+              />
+            ))}
+          </div>
+        </div>
+
+        <DragOverlay>
+          {activeRequest && (
+            <div className="rotate-6 transform">
+              <PurchaseCard
+                request={activeRequest}
+                phase={activeRequest.currentPhase}
+                isDragging={true}
+              />
+            </div>
+          )}
+        </DragOverlay>
+
+        <RFQCreation
+          purchaseRequest={selectedRequestForRFQ}
+          existingQuotation={null}
+          isOpen={showRFQCreation && !!selectedRequestForRFQ}
+          onOpenChange={(open) => {
+            setShowRFQCreation(open);
+            if (!open) setSelectedRequestForRFQ(null);
+          }}
+          onComplete={() => {
+            setShowRFQCreation(false);
+            setSelectedRequestForRFQ(null);
+            queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+            queryClient.invalidateQueries({
+              predicate: (query) =>
+                !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+                  query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
+            });
+          }}
+        />
+      </DndContext>
+    </>
   );
 }

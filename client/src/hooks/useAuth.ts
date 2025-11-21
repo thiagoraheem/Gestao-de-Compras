@@ -30,6 +30,8 @@ interface User {
   isAdmin: boolean;
   isManager: boolean;
   isReceiver: boolean;
+  isDirector: boolean;
+  isCEO: boolean;
 }
 
 export function useAuth() {
@@ -82,22 +84,22 @@ export function useAuth() {
     onSuccess: () => {
       // Invalidate auth check to get fresh user data
       queryClient.invalidateQueries({ queryKey: ["/api/auth/check"] });
-      
+
       // Wait a bit for auth to be updated, then invalidate other queries
       setTimeout(() => {
-        queryClient.invalidateQueries({ 
+        queryClient.invalidateQueries({
           predicate: (query) => {
             const key = query.queryKey[0] as string;
             return key !== "/api/auth/check" && key.startsWith("/api/");
           }
         });
       }, 100);
-      
+
       toast({
         title: "Login bem-sucedido",
         description: "Bem-vindo de volta!",
       });
-      
+
       // Check for stored redirect path
       const redirectPath = sessionStorage.getItem('redirectAfterLogin');
       if (redirectPath) {
@@ -138,7 +140,7 @@ export function useAuth() {
       queryClient.clear();
       // Clear any stored redirect path
       sessionStorage.removeItem('redirectAfterLogin');
-      
+
       // Force immediate redirect with cache busting
       // Using replace to avoid back button issues
       const timestamp = Date.now();

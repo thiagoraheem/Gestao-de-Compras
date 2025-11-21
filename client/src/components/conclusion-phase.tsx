@@ -14,14 +14,14 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS, PURCHASE_PHASES } from "@/lib/types";
 import ProcessTimeline from "@/components/process-timeline";
-import { 
-  Download, 
-  FileText, 
-  User, 
-  Calendar, 
-  Building, 
-  Clock, 
-  CheckCircle, 
+import {
+  Download,
+  FileText,
+  User,
+  Calendar,
+  Building,
+  Clock,
+  CheckCircle,
   Package,
   Truck,
   X,
@@ -134,7 +134,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
   // Find selected supplier quotation
   const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0];
-  
+
   // Fetch supplier quotation items to get pricing
   const { data: supplierQuotationItems = [], isLoading: supplierQuotationItemsLoading } = useQuery({
     queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
@@ -178,11 +178,11 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
       const response = await fetch(`/api/purchase-requests/${request.id}/completion-summary-pdf`, {
         method: "GET",
       });
-      
+
       if (!response.ok) {
         throw new Error("Erro ao gerar PDF");
       }
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -217,11 +217,11 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
           'Content-Type': 'application/pdf',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error("Erro ao baixar PDF do Pedido de Compra");
       }
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -260,13 +260,13 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   const handlePrint = () => {
     // Create print-optimized HTML content
     const printContent = generatePrintableHTML();
-    
+
     // Open new window for printing
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (printWindow) {
       printWindow.document.write(printContent);
       printWindow.document.close();
-      
+
       // Wait for content to load, then trigger print
       printWindow.onload = () => {
         printWindow.print();
@@ -285,9 +285,9 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
     };
 
     const formatDate = (date: string | Date) => {
-      return new Intl.DateTimeFormat('pt-BR', { 
-        day: '2-digit', 
-        month: '2-digit', 
+      return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
@@ -540,10 +540,10 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               <div class="field">
                 <div class="field-label">Valor da Cotação</div>
                 <div class="field-value" style="color: #059669; font-weight: bold;">
-                  ${selectedSupplier.totalValue ? 
-                    formatCurrency(selectedSupplier.totalValue) :
-                    (request.totalValue ? formatCurrency(request.totalValue) : 'Não informado')
-                  }
+                  ${selectedSupplier.totalValue ?
+          formatCurrency(selectedSupplier.totalValue) :
+          (request.totalValue ? formatCurrency(request.totalValue) : 'Não informado')
+        }
                 </div>
               </div>
               <div class="field">
@@ -580,34 +580,34 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             </thead>
             <tbody>
               ${items.filter((item: any) => {
-                // Filter out unavailable items
-                const supplierItem = supplierQuotationItems.find((sqi: any) => {
-                  if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
-                    return true;
-                  }
-                  return sqi.description === item.description || 
-                         sqi.itemCode === item.itemCode ||
-                         sqi.quotationItemId === item.id;
-                });
-                return !supplierItem || supplierItem.isAvailable !== false;
-              }).map((item: any) => {
-                const supplierItem = supplierQuotationItems.find((sqi: any) => {
-                  // First try by purchaseRequestItemId (most reliable)
-                  if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
-                    return true;
-                  }
-                  // Fallback: try by description, item code, or quotationItemId
-                  return sqi.description === item.description || 
-                         sqi.itemCode === item.itemCode ||
-                         sqi.quotationItemId === item.id;
-                });
-                
-                const unitPrice = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
-                const quantity = parseFloat(item.requestedQuantity) || 0;
-                const total = quantity * unitPrice;
-                const status = getItemStatus(item);
-                
-                return `
+          // Filter out unavailable items
+          const supplierItem = supplierQuotationItems.find((sqi: any) => {
+            if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+              return true;
+            }
+            return sqi.description === item.description ||
+              sqi.itemCode === item.itemCode ||
+              sqi.quotationItemId === item.id;
+          });
+          return !supplierItem || supplierItem.isAvailable !== false;
+        }).map((item: any) => {
+          const supplierItem = supplierQuotationItems.find((sqi: any) => {
+            // First try by purchaseRequestItemId (most reliable)
+            if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+              return true;
+            }
+            // Fallback: try by description, item code, or quotationItemId
+            return sqi.description === item.description ||
+              sqi.itemCode === item.itemCode ||
+              sqi.quotationItemId === item.id;
+          });
+
+          const unitPrice = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
+          const quantity = parseFloat(item.requestedQuantity) || 0;
+          const total = quantity * unitPrice;
+          const status = getItemStatus(item);
+
+          return `
                   <tr>
                     <td>${item.description}</td>
                     <td>${item.unit}</td>
@@ -622,7 +622,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                     </td>
                   </tr>
                 `;
-              }).join('')}
+        }).join('')}
             </tbody>
           </table>
         </div>
@@ -668,8 +668,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   const handleSendEmail = async () => {
     try {
       await apiRequest(`/api/purchase-requests/${request.id}/send-conclusion-email`, {
-          method: "POST",
-        });
+        method: "POST",
+      });
       toast({
         title: "Sucesso",
         description: "Resumo enviado por e-mail",
@@ -686,19 +686,19 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   // Calculate metrics
   const selectedSupplier = selectedSupplierQuotation;
   const totalProcessTime = request.createdAt ? differenceInDays(new Date(), new Date(request.createdAt)) : 0;
-  
+
   // Calculate total items value - prioritize request.totalValue for consistency
   const totalItemsValue = useMemo(() => {
     // Priority 1: Use request's total value to maintain consistency with Kanban card
     if (request.totalValue && parseFloat(request.totalValue) > 0) {
       return parseFloat(request.totalValue);
     }
-    
+
     // Priority 2: Use selected supplier quotation's total value if available
     if (selectedSupplierQuotation?.totalValue && parseFloat(selectedSupplierQuotation.totalValue) > 0) {
       return parseFloat(selectedSupplierQuotation.totalValue);
     }
-    
+
     // Priority 3: Calculate from supplier quotation items (excluding unavailable items)
     if (supplierQuotationItems && supplierQuotationItems.length > 0 && items && items.length > 0) {
       return items.reduce((sum: number, item: any) => {
@@ -709,39 +709,39 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             return true;
           }
           // Fallback: try by description, item code, or quotationItemId
-          return sqi.description === item.description || 
-                 sqi.itemCode === item.itemCode ||
-                 sqi.quotationItemId === item.id;
+          return sqi.description === item.description ||
+            sqi.itemCode === item.itemCode ||
+            sqi.quotationItemId === item.id;
         });
-        
+
         // Only include available items in the total
         if (supplierItem && supplierItem.isAvailable !== false) {
           const unitPrice = parseFloat(supplierItem.unitPrice) || 0;
           const quantity = parseFloat(item.requestedQuantity) || 0;
           return sum + (quantity * unitPrice);
         }
-        
+
         return sum;
       }, 0);
     }
-    
+
     // Priority 4: Use available budget as fallback
     if (request.availableBudget && parseFloat(request.availableBudget) > 0) {
       return parseFloat(request.availableBudget);
     }
-    
+
     // Default: 0
     return 0;
   }, [request, selectedSupplierQuotation, supplierQuotationItems, items]);
-  
+
   const budgetSavings = request.availableBudget ? request.availableBudget - totalItemsValue : 0;
 
   // Função para formatar quantidades no padrão brasileiro
   const formatQuantity = (quantity: number | string) => {
     const num = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
-    return Number(num || 0).toLocaleString('pt-BR', { 
-      minimumFractionDigits: 0, 
-      maximumFractionDigits: 2 
+    return Number(num || 0).toLocaleString('pt-BR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
     });
   };
 
@@ -767,9 +767,9 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'received':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Recebido</Badge>;
+        return <Badge variant="default" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Recebido</Badge>;
       case 'pending':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Pendente</Badge>;
+        return <Badge variant="secondary" className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">Pendente</Badge>;
       case 'divergent':
         return <Badge variant="destructive">Divergente</Badge>;
       default:
@@ -793,8 +793,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Conclusão da Compra</h2>
-          <p className="text-gray-600">Solicitação {request.requestNumber}</p>
+          <h2 className="text-2xl font-bold text-foreground">Conclusão da Compra</h2>
+          <p className="text-muted-foreground">Solicitação {request.requestNumber}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -832,6 +832,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             <Mail className="h-4 w-4 mr-2" />
             Enviar E-mail
           </Button>
+
           {request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
             <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
               <DialogTrigger asChild>
@@ -885,6 +886,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               </DialogContent>
             </Dialog>
           )}
+
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-5 w-5" />
           </Button>
@@ -904,8 +906,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                 <Clock className="h-8 w-8 text-blue-500" />
               </div>
             </CardContent>
-          </Card>
-          
+          </Card >
+
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -919,7 +921,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -931,10 +933,10 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               </div>
             </CardContent>
           </Card>
-        </div>
+        </div >
 
         {/* Request Summary */}
-        <Card>
+        < Card >
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
@@ -959,7 +961,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   </Badge>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <span className="text-sm font-medium text-gray-500">Solicitante</span>
@@ -979,7 +981,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   <p>{costCenter?.code} - {costCenter?.name || 'Não informado'}</p>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <span className="text-sm font-medium text-gray-500">Categoria</span>
@@ -997,88 +999,90 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                 </div>
               </div>
             </div>
-            
+
             <Separator className="my-4" />
-            
+
             <div>
               <span className="text-sm font-medium text-gray-500">Justificativa</span>
               <p className="mt-1 text-gray-900">{request.justification}</p>
             </div>
           </CardContent>
-        </Card>
+        </Card >
 
         {/* Selected Supplier */}
-        {selectedSupplier && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="h-5 w-5" />
-                Fornecedor Selecionado
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Nome do Fornecedor</span>
-                    <p className="text-lg font-semibold">{selectedSupplier.supplier?.name || 'Não informado'}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Contato</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Phone className="h-4 w-4 text-gray-400" />
-                      <p>{selectedSupplier.supplier?.phone || 'Não informado'}</p>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Mail className="h-4 w-4 text-gray-400" />
-                      <p>{selectedSupplier.supplier?.email || 'Não informado'}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Valor da Cotação</span>
-                    <p className="text-lg font-semibold text-green-600">
-                      {selectedSupplier.totalValue ? 
-                        parseFloat(selectedSupplier.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
-                        (request.totalValue ? 
-                          parseFloat(request.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
-                          'Não informado'
-                        )
-                      }
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Prazo de Entrega</span>
-                    <p>{selectedSupplier.deliveryTerms || selectedSupplier.deliveryTime || 'Não informado'}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Status</span>
-                    <Badge variant="default" className="bg-green-100 text-green-800">
-                      Selecionado
-                    </Badge>
-                  </div>
-                  
-                  {/* Desconto da Proposta */}
-                  {(selectedSupplier.discountType && selectedSupplier.discountType !== 'none' && selectedSupplier.discountValue) && (
+        {
+          selectedSupplier && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building className="h-5 w-5" />
+                  Fornecedor Selecionado
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Desconto da Proposta</span>
+                      <span className="text-sm font-medium text-gray-500">Nome do Fornecedor</span>
+                      <p className="text-lg font-semibold">{selectedSupplier.supplier?.name || 'Não informado'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Contato</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Phone className="h-4 w-4 text-gray-400" />
+                        <p>{selectedSupplier.supplier?.phone || 'Não informado'}</p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Mail className="h-4 w-4 text-gray-400" />
+                        <p>{selectedSupplier.supplier?.email || 'Não informado'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Valor da Cotação</span>
                       <p className="text-lg font-semibold text-green-600">
-                        {selectedSupplier.discountType === 'percentage' 
-                          ? `${selectedSupplier.discountValue}%`
-                          : `R$ ${Number(selectedSupplier.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                        {selectedSupplier.totalValue ?
+                          parseFloat(selectedSupplier.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
+                          (request.totalValue ?
+                            parseFloat(request.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
+                            'Não informado'
+                          )
                         }
                       </p>
                     </div>
-                  )}
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Prazo de Entrega</span>
+                      <p>{selectedSupplier.deliveryTerms || selectedSupplier.deliveryTime || 'Não informado'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Status</span>
+                      <Badge variant="default" className="bg-green-100 text-green-800">
+                        Selecionado
+                      </Badge>
+                    </div>
+
+                    {/* Desconto da Proposta */}
+                    {(selectedSupplier.discountType && selectedSupplier.discountType !== 'none' && selectedSupplier.discountValue) && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Desconto da Proposta</span>
+                        <p className="text-lg font-semibold text-green-600">
+                          {selectedSupplier.discountType === 'percentage'
+                            ? `${selectedSupplier.discountValue}%`
+                            : `R$ ${Number(selectedSupplier.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                          }
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-              
-              
-            </CardContent>
-          </Card>
-        )}
+
+
+              </CardContent>
+            </Card>
+          )
+        }
 
         {/* Purchase Order Data */}
         <Card>
@@ -1106,7 +1110,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   </Badge>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <span className="text-sm font-medium text-gray-500">Condições de Pagamento</span>
@@ -1144,7 +1148,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                   <p>{request.receivedBy || 'Sistema Automático'}</p>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <span className="text-sm font-medium text-gray-500">Status da Conferência</span>
@@ -1320,19 +1324,19 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                 <tbody>
                   {purchaseOrderItems.length > 0 ? purchaseOrderItems.map((purchaseItem: any) => {
                     // Encontrar o item original da solicitação para comparação
-                    const originalItem = items.find((item: any) => 
+                    const originalItem = items.find((item: any) =>
                       item.description === purchaseItem.description ||
                       item.id === purchaseItem.purchaseRequestItemId
                     );
-                    
+
                     const status = getItemStatus(purchaseItem);
-                    
+
                     // Usar dados do pedido de compra
                     const unitPrice = parseFloat(purchaseItem.unitPrice) || 0;
                     const purchaseQuantity = parseFloat(purchaseItem.quantity) || 0;
                     const originalQuantity = originalItem ? parseFloat(originalItem.requestedQuantity) || 0 : purchaseQuantity;
                     const total = parseFloat(purchaseItem.totalPrice) || (purchaseQuantity * unitPrice);
-                    
+
                     return (
                       <tr key={purchaseItem.id} className="border-b">
                         <td className="py-2">
@@ -1369,16 +1373,16 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                         if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
                           return true;
                         }
-                        return sqi.description === item.description || 
-                               sqi.itemCode === item.itemCode ||
-                               sqi.quotationItemId === item.id ||
-                               (sqi.description && item.description && 
-                                sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
+                        return sqi.description === item.description ||
+                          sqi.itemCode === item.itemCode ||
+                          sqi.quotationItemId === item.id ||
+                          (sqi.description && item.description &&
+                            sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
                       });
                       return !supplierItem || supplierItem.isAvailable !== false;
                     }).map((item: any) => {
                       const status = getItemStatus(item);
-                      
+
                       // Find matching supplier quotation item with multiple criteria
                       const supplierItem = supplierQuotationItems.find((sqi: any) => {
                         // First try by purchaseRequestItemId (most reliable)
@@ -1386,13 +1390,13 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                           return true;
                         }
                         // Fallback: try by description, item code, quotationItemId, or normalized description
-                        return sqi.description === item.description || 
-                               sqi.itemCode === item.itemCode ||
-                               sqi.quotationItemId === item.id ||
-                               (sqi.description && item.description && 
-                                sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
+                        return sqi.description === item.description ||
+                          sqi.itemCode === item.itemCode ||
+                          sqi.quotationItemId === item.id ||
+                          (sqi.description && item.description &&
+                            sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
                       });
-                      
+
                       // Get unit price with better fallback logic
                       let unitPrice = 0;
                       if (supplierItem) {
@@ -1401,10 +1405,10 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                         // If only one item and we have total value, use it as unit price
                         unitPrice = parseFloat(selectedSupplierQuotation.totalValue) || 0;
                       }
-                      
+
                       const quantity = parseFloat(item.requestedQuantity) || 0;
                       const total = quantity * unitPrice;
-                      
+
                       return (
                         <tr key={item.id} className="border-b">
                           <td className="py-2">
@@ -1534,7 +1538,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             </div>
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

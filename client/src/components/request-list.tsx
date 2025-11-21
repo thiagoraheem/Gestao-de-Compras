@@ -296,34 +296,61 @@ export default function RequestList({
       </div>
 
       {activeRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setActiveRequest(null)}>
-          <div className="bg-card rounded-lg w-full mx-4 max-w-6xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            {activeRequest.currentPhase === PURCHASE_PHASES.SOLICITACAO && (
-              <RequestPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
+        <>
+          {/* Dialog-based components (handle their own modal state) */}
+          {activeRequest.currentPhase === PURCHASE_PHASES.SOLICITACAO && (
+            <RequestPhase
+              request={activeRequest}
+              open={true}
+              onOpenChange={(open) => !open && setActiveRequest(null)}
+            />
+          )}
+
+          {activeRequest.currentPhase === PURCHASE_PHASES.APROVACAO_A1 && (
+            <ApprovalA1Phase
+              request={activeRequest}
+              open={true}
+              onOpenChange={(open) => !open && setActiveRequest(null)}
+            />
+          )}
+
+          {activeRequest.currentPhase === PURCHASE_PHASES.COTACAO && (
+            <QuotationPhase
+              request={activeRequest}
+              open={true}
+              onOpenChange={(open) => !open && setActiveRequest(null)}
+            />
+          )}
+
+          {/* Card-based components (need modal wrapper) */}
+          {[
+            PURCHASE_PHASES.APROVACAO_A2,
+            PURCHASE_PHASES.PEDIDO_COMPRA,
+            PURCHASE_PHASES.RECEBIMENTO,
+            PURCHASE_PHASES.CONCLUSAO_COMPRA,
+            PURCHASE_PHASES.ARQUIVADO
+          ].includes(activeRequest.currentPhase) && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setActiveRequest(null)}>
+                <div className="bg-background dark:bg-slate-900 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
+                  {activeRequest.currentPhase === PURCHASE_PHASES.APROVACAO_A2 && (
+                    <ApprovalA2Phase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
+                  )}
+                  {activeRequest.currentPhase === PURCHASE_PHASES.PEDIDO_COMPRA && (
+                    <PurchaseOrderPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
+                  )}
+                  {activeRequest.currentPhase === PURCHASE_PHASES.RECEBIMENTO && (
+                    <ReceiptPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
+                  )}
+                  {activeRequest.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
+                    <ConclusionPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
+                  )}
+                  {activeRequest.currentPhase === PURCHASE_PHASES.ARQUIVADO && (
+                    <RequestView request={activeRequest} onClose={() => setActiveRequest(null)} />
+                  )}
+                </div>
+              </div>
             )}
-            {activeRequest.currentPhase === PURCHASE_PHASES.APROVACAO_A1 && (
-              <ApprovalA1Phase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
-            )}
-            {activeRequest.currentPhase === PURCHASE_PHASES.COTACAO && (
-              <QuotationPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
-            )}
-            {activeRequest.currentPhase === PURCHASE_PHASES.APROVACAO_A2 && (
-              <ApprovalA2Phase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
-            )}
-            {activeRequest.currentPhase === PURCHASE_PHASES.PEDIDO_COMPRA && (
-              <PurchaseOrderPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
-            )}
-            {activeRequest.currentPhase === PURCHASE_PHASES.RECEBIMENTO && (
-              <ReceiptPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
-            )}
-            {activeRequest.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
-              <ConclusionPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
-            )}
-            {activeRequest.currentPhase === PURCHASE_PHASES.ARQUIVADO && (
-              <RequestView request={activeRequest} onClose={() => setActiveRequest(null)} />
-            )}
-          </div>
-        </div>
+        </>
       )}
     </div>
   );

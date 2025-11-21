@@ -58,6 +58,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useApprovalType } from "@/hooks/useApprovalType";
+
+interface ApprovalRules {
+  requiresDualApproval: boolean;
+  approvalStatus: string;
+  firstApprover: {
+    approverId: number;
+    isCEO: boolean;
+    firstName: string;
+    lastName: string;
+  } | null;
+}
 import { ApprovalTypeBadge, ApprovalProgressBadge } from "@/components/ApprovalTypeBadge";
 import { ApprovalTimeline } from "@/components/ApprovalTimeline";
 
@@ -596,7 +607,8 @@ export default function PurchaseCard({
   const canApproveA2 = user?.isApproverA2 || false;
 
   // Get approval rules and status for A2 phase
-  const { data: approvalRules } = useQuery({
+  // Get approval rules and status for A2 phase
+  const { data: approvalRules } = useQuery<ApprovalRules>({
     queryKey: [`/api/approval-rules/${request.id}`],
     enabled: !!(phase === PURCHASE_PHASES.APROVACAO_A2 && request?.id),
     staleTime: 30000, // Cache for 30 seconds
@@ -669,15 +681,16 @@ export default function PurchaseCard({
         data-request-id={request.id}
         onClick={() => setIsEditModalOpen(true)}
         className={cn(
-          "mb-2 cursor-pointer select-none",
+          "mb-2 cursor-pointer select-none bg-background-light dark:bg-slate-900 rounded-lg shadow-sm border-slate-200 dark:border-slate-700/50",
           isDragging && "opacity-50",
           sortableIsDragging && "opacity-50",
-          isFinalPhase && "bg-muted text-muted-foreground border-border",
-          !canDragCard && "cursor-not-allowed border-border bg-muted/50",
+          isFinalPhase && "bg-slate-50 dark:bg-slate-800/50 text-muted-foreground",
+          !canDragCard && "cursor-not-allowed",
           isSearchHighlighted && "ring-2 ring-blue-500 ring-offset-2 bg-blue-500/10 border-blue-500/30 shadow-lg",
-        )}
+        )
+        }
       >
-        <CardContent className="p-2 md:p-3 lg:p-2">
+        <CardContent className="p-3 space-y-3">
           {/* Header with drag handle and request number */}
           <div className="flex items-center justify-between mb-2 md:mb-2 lg:mb-1">
             <div className="flex items-center gap-1 md:gap-1 lg:gap-1">
@@ -702,7 +715,7 @@ export default function PurchaseCard({
                   )}
                 />
               </div>
-              <Badge className="text-xs px-1.5 py-0.5">{request.requestNumber}</Badge>
+              <Badge className="font-mono text-sm bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 font-semibold px-2 py-1 rounded hover:bg-orange-200 dark:hover:bg-orange-900/70 border-none">{request.requestNumber}</Badge>
             </div>
             <div className="flex gap-0.5">
               {phase === "solicitacao" && !request.approvedA1 && (
@@ -747,11 +760,11 @@ export default function PurchaseCard({
             </div>
           </div>
 
-          {/* Title in one line */}
+          {/* Title */}
           <h4
             className={cn(
-              "font-medium mb-1 md:mb-1 lg:mb-1 truncate text-sm",
-              isArchived ? "text-muted-foreground" : "text-foreground",
+              "font-semibold text-slate-800 dark:text-slate-100",
+              isArchived && "text-muted-foreground",
             )}
             title={request.justification}
           >
@@ -759,13 +772,15 @@ export default function PurchaseCard({
           </h4>
 
           {/* Urgency and category info */}
-          <div className="flex items-center gap-1 md:gap-1 lg:gap-1 mb-2 md:mb-2 lg:mb-1 flex-wrap">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             {request.urgency && (
               <Badge
-                variant={
-                  request.urgency === "alta_urgencia" || request.urgency === "alto" ? "destructive" : "secondary"
-                }
-                className="text-xs px-1.5 py-0.5"
+                className={cn(
+                  "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border-none",
+                  (request.urgency === "alta_urgencia" || request.urgency === "alto")
+                    ? "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/50"
+                    : "text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/50"
+                )}
               >
                 {getUrgencyIcon(request.urgency)}
                 {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
@@ -829,20 +844,20 @@ export default function PurchaseCard({
           {/* Additional info */}
           <div
             className={cn(
-              "text-sm space-y-0.5 md:space-y-0.5 lg:space-y-0.5",
-              isArchived ? "text-gray-500" : "text-gray-600",
+              "text-sm text-slate-600 dark:text-slate-400 space-y-1 border-t border-slate-200 dark:border-slate-700 pt-2 mt-2",
+              isArchived && "text-slate-500",
             )}
           >
             {request.totalValue && (
-              <p className="text-xs md:text-xs lg:text-xs">
-                <strong>Valor:</strong> {formatCurrency(request.totalValue)}
+              <p>
+                <span className="font-medium text-slate-700 dark:text-slate-300">Valor:</span> {formatCurrency(request.totalValue)}
               </p>
             )}
 
             {/* Show requester on all cards */}
             {request.requester && (
-              <p className="text-xs md:text-xs lg:text-xs">
-                <strong>Solicitante:</strong> {request.requester.firstName}{" "}
+              <p>
+                <span className="font-medium text-slate-700 dark:text-slate-300">Solicitante:</span> {request.requester.firstName}{" "}
                 {request.requester.lastName}
               </p>
             )}
@@ -854,8 +869,8 @@ export default function PurchaseCard({
               phase === PURCHASE_PHASES.RECEBIMENTO ||
               phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) &&
               request.approverA1 && (
-                <p className="text-xs md:text-xs lg:text-xs">
-                  <strong>Aprovador:</strong> {request.approverA1.firstName}{" "}
+                <p>
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Aprovador:</span> {request.approverA1.firstName}{" "}
                   {request.approverA1.lastName}
                 </p>
               )}
@@ -867,13 +882,13 @@ export default function PurchaseCard({
               phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) &&
               request.chosenSupplier && (
                 <p className="text-xs md:text-xs lg:text-xs">
-                  <strong>Fornecedor:</strong> {request.chosenSupplier.name}
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Fornecedor:</span> {request.chosenSupplier.name}
                 </p>
               )}
 
             {phase === PURCHASE_PHASES.APROVACAO_A1 && (
               <p className="text-xs md:text-xs lg:text-xs">
-                <strong>Aprovador:</strong> Pendente
+                <span className="font-medium text-slate-700 dark:text-slate-300">Aprovador:</span> Pendente
               </p>
             )}
           </div>
@@ -881,205 +896,100 @@ export default function PurchaseCard({
           {/* Approval Timeline for A2 phase */}
           {phase === PURCHASE_PHASES.APROVACAO_A2 && request.approvalProgress && (
             <div className="mt-2 md:mt-2 lg:mt-1">
-              <ApprovalTimeline progress={request.approvalProgress} />
+              <ApprovalTimeline
+                steps={request.approvalProgress.steps || []}
+                currentStep={request.approvalProgress.currentStep}
+                totalSteps={request.approvalProgress.totalSteps}
+                approvalType={approvalType || 'single'}
+                compact={true}
+              />
             </div>
           )}
 
-          {/* Footer */}
-          <div className="flex items-center justify-between mt-2 md:mt-2 lg:mt-1 pt-2 md:pt-2 lg:pt-1 border-t border-gray-100">
-            <span className="text-xs text-gray-500">
+          {/* Footer with Date and Actions */}
+          <div className="border-t border-slate-200 dark:border-slate-700 pt-3 mt-3 flex items-center justify-between gap-2">
+            <p className="text-xs text-slate-500 dark:text-slate-500">
               {formatDate(request.createdAt)}
-            </span>
-          </div>
+            </p>
 
-          {/* Send to Approval Button for Request Phase */}
-          {phase === PURCHASE_PHASES.SOLICITACAO && (
-            <div className="mt-3 md:mt-2 lg:mt-2 pt-3 md:pt-2 lg:pt-2 border-t border-gray-100">
-              <Button
-                size="sm"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  sendToApprovalMutation.mutate();
-                }}
-                disabled={sendToApprovalMutation.isPending}
-              >
-                <Check className="mr-1 h-3 w-3" />
-                {sendToApprovalMutation.isPending
-                  ? "Enviando..."
-                  : "Enviar para Aprovação"}
-              </Button>
-            </div>
-          )}
-
-          {/* RFQ Creation/Edit Button for Quotation Phase */}
-          {phase === PURCHASE_PHASES.COTACAO &&
-            user?.isBuyer &&
-            onCreateRFQ && (
-              <div className="mt-3 md:mt-2 lg:mt-2 pt-3 md:pt-2 lg:pt-2 border-t border-gray-100">
+            {/* Actions Container */}
+            <div className="flex items-center gap-2">
+              {/* Send to Approval Button for Request Phase */}
+              {phase === PURCHASE_PHASES.SOLICITACAO && (
                 <Button
                   size="sm"
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs"
+                  className="px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 rounded-md hover:bg-orange-600 h-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sendToApprovalMutation.mutate();
+                  }}
+                  disabled={sendToApprovalMutation.isPending}
+                >
+                  <Check className="mr-1 h-3 w-3" />
+                  {sendToApprovalMutation.isPending ? "Enviando..." : "Enviar"}
+                </Button>
+              )}
+
+              {/* RFQ Creation/Edit Button for Quotation Phase */}
+              {phase === PURCHASE_PHASES.COTACAO && user?.isBuyer && onCreateRFQ && (
+                <Button
+                  size="sm"
+                  className="px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 rounded-md hover:bg-orange-600 h-auto"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (request.hasQuotation) {
-                      // Open edit modal for existing RFQ
                       setIsEditModalOpen(true);
                     } else {
-                      // Create new RFQ
                       onCreateRFQ(request);
                     }
                   }}
                 >
                   <Plus className="mr-1 h-3 w-3" />
-                  {request.hasQuotation ? "Visualizar RFQ" : "Criar RFQ"}
+                  {request.hasQuotation ? "Ver RFQ" : "Criar RFQ"}
                 </Button>
-              </div>
-            )}
-
-          {/* Permission Warning for Restricted Cards */}
-          {((phase === PURCHASE_PHASES.APROVACAO_A1 && !canApproveA1) ||
-            (phase === PURCHASE_PHASES.APROVACAO_A2 && !canApproveA2)) && (
-              <div className="mt-3 md:mt-2 lg:mt-2 pt-3 md:pt-2 lg:pt-2 border-t border-gray-100">
-                <div className="flex items-center gap-2 md:gap-1 lg:gap-1 text-amber-600 bg-amber-50 p-2 md:p-1.5 lg:p-1.5 rounded-md">
-                  <TriangleAlert className="h-4 w-4 md:h-3 md:w-3 lg:h-3 lg:w-3" />
-                  <span className="text-sm md:text-xs lg:text-xs">
-                    {phase === PURCHASE_PHASES.APROVACAO_A1
-                      ? "Permissão de Aprovação A1 necessária"
-                      : "Permissão de Aprovação A2 necessária"}
-                  </span>
-                </div>
-              </div>
-            )}
-
-          {/* Quotation Status Indicator for Cotação phase */}
-          {phase === PURCHASE_PHASES.COTACAO && (
-            <div className="mt-3 md:mt-2 lg:mt-2 pt-3 md:pt-2 lg:pt-2 border-t border-gray-100">
-              <div
-                className={`flex items-center gap-2 md:gap-1 lg:gap-1 p-2 md:p-1.5 lg:p-1.5 rounded-md ${quotationStatusError
-                    ? "text-red-600 bg-red-50"
-                    : quotationStatus?.isReady
-                      ? "text-green-700 bg-green-50"
-                      : "text-orange-600 bg-orange-50"
-                  }`}
-              >
-                {quotationStatusError ? (
-                  <X className="h-4 w-4 md:h-3 md:w-3 lg:h-3 lg:w-3" />
-                ) : quotationStatus?.isReady ? (
-                  <Check className="h-4 w-4 md:h-3 md:w-3 lg:h-3 lg:w-3" />
-                ) : (
-                  <Clock className="h-4 w-4 md:h-3 md:w-3 lg:h-3 lg:w-3" />
-                )}
-                <span className="text-sm md:text-xs lg:text-xs font-medium">
-                  {quotationStatusError
-                    ? "Nenhuma cotação criada"
-                    : quotationStatus?.reason || "Carregando status..."}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Phase-specific actions */}
-          {phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAdvanceToReceipt(request.id);
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                size="sm"
-              >
-                <Check className="h-4 w-4 mr-2" />
-                Avançar para Recebim.
-              </Button>
-            </div>
-          )}
-
-          {phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1 && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              {(canApproveThisRequest as any)?.canApprove ? (
-                <div className="flex space-x-2">
-                  <Button
-                    size="sm"
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      approveA1Mutation.mutate({ approved: true });
-                    }}
-                    disabled={approveA1Mutation.isPending}
-                  >
-                    <Check className="mr-1 h-3 w-3" />
-                    Aprovar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="flex-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      approveA1Mutation.mutate({
-                        approved: false,
-                        rejectionReason: "Reprovado via ação rápida",
-                      });
-                    }}
-                    disabled={approveA1Mutation.isPending}
-                  >
-                    <X className="mr-1 h-3 w-3" />
-                    Rejeitar
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-md">
-                  <TriangleAlert className="h-4 w-4" />
-                  <span className="text-sm">
-                    Você não tem permissão para aprovar este centro de custo
-                  </span>
-                </div>
               )}
-            </div>
-          )}
 
-          {phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2 && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              {canUserApproveA2 && (
-                <div>
-                  {/* Show approval status information for dual approval */}
-                  {approvalRules?.requiresDualApproval && (
-                    <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                      <div className="text-xs text-blue-700">
-                        {approvalRules.approvalStatus === "awaiting_first" && (
-                          <span>🔄 Aguardando primeira aprovação (Diretor ou CEO)</span>
-                        )}
-                        {approvalRules.approvalStatus === "awaiting_final" && (
-                          <span>
-                            ✅ Primeira aprovação concluída por {approvalRules.firstApprover?.firstName} {approvalRules.firstApprover?.lastName}
-                            <br />
-                            🔄 Aguardando aprovação final {!approvalRules.firstApprover?.isCEO ? "(CEO)" : "(Diretor/CEO)"}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+              {/* Approval A1 Actions */}
+              {phase === PURCHASE_PHASES.APROVACAO_A1 && canApproveA1 && (
+                (canApproveThisRequest as any)?.canApprove ? (
+                  <>
+                    <button
+                      className="px-3 py-1.5 text-xs font-semibold text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/40 rounded-md hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setInitialA2Action('approve');
-                        setIsEditModalOpen(true);
+                        approveA1Mutation.mutate({
+                          approved: false,
+                          rejectionReason: "Reprovado via ação rápida",
+                        });
                       }}
-                      disabled={approveA2Mutation.isPending}
+                      disabled={approveA1Mutation.isPending}
                     >
-                      <Check className="mr-1 h-3 w-3" />
+                      Rejeitar
+                    </button>
+                    <button
+                      className="px-3 py-1.5 text-xs font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 rounded-md hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        approveA1Mutation.mutate({ approved: true });
+                      }}
+                      disabled={approveA1Mutation.isPending}
+                    >
                       Aprovar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="flex-1"
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                    Sem permissão
+                  </span>
+                )
+              )}
+
+              {/* Approval A2 Actions */}
+              {phase === PURCHASE_PHASES.APROVACAO_A2 && canApproveA2 && (
+                canUserApproveA2 ? (
+                  <>
+                    <button
+                      className="px-3 py-1.5 text-xs font-semibold text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/40 rounded-md hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         setInitialA2Action('reject');
@@ -1087,171 +997,181 @@ export default function PurchaseCard({
                       }}
                       disabled={approveA2Mutation.isPending}
                     >
-                      <X className="mr-1 h-3 w-3" />
                       Rejeitar
-                    </Button>
-                  </div>
-                </div>
+                    </button>
+                    <button
+                      className="px-3 py-1.5 text-xs font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 rounded-md hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setInitialA2Action('approve');
+                        setIsEditModalOpen(true);
+                      }}
+                      disabled={approveA2Mutation.isPending}
+                    >
+                      Aprovar
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                    Aguardando
+                  </span>
+                )
               )}
 
-              {/* Show message when user cannot approve A2 */}
-              {canApproveA2 && !canUserApproveA2 && approvalRules && (
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-md">
-                    <TriangleAlert className="h-4 w-4" />
-                    <span className="text-sm">
-                      {approvalRules.requiresDualApproval ? (
-                        approvalRules.approvalStatus === "awaiting_final" ? (
-                          approvalRules.firstApprover?.approverId === user?.id ?
-                            "Você já forneceu a primeira aprovação. Aguardando aprovação final de outro usuário." :
-                            !approvalRules.firstApprover?.isCEO && !user?.isCEO ?
-                              "Aprovação final deve ser realizada pelo CEO." :
-                              "Aguardando sua aprovação final."
-                        ) : (
-                          "Aguardando primeira aprovação por Diretor."
-                        )
-                      ) : (
-                        "Permissão de Aprovação A2 necessária"
-                      )}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {phase === PURCHASE_PHASES.RECEBIMENTO && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              {canPerformReceiptActions ? (
-                <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-                  <Button
-                    size="sm"
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      confirmReceiptMutation.mutate();
-                    }}
-                    disabled={confirmReceiptMutation.isPending}
-                  >
-                    <Check className="mr-1 h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">Confirmar</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="flex-1 text-xs sm:text-sm"
+              {/* Receipt Actions */}
+              {phase === PURCHASE_PHASES.RECEBIMENTO && canPerformReceiptActions && (
+                <>
+                  <button
+                    className="px-3 py-1.5 text-xs font-semibold text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/40 rounded-md hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       reportIssueMutation.mutate();
                     }}
                     disabled={reportIssueMutation.isPending}
                   >
-                    <X className="mr-1 h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">Pend.</span>
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-xs text-gray-500 text-center py-2">
-                  Apenas usuários com perfil "Recebedor" podem confirmar recebimentos
-                </div>
+                    Pendência
+                  </button>
+                  <button
+                    className="px-3 py-1.5 text-xs font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 rounded-md hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      confirmReceiptMutation.mutate();
+                    }}
+                    disabled={confirmReceiptMutation.isPending}
+                  >
+                    Confirmar
+                  </button>
+                </>
+              )}
+
+              {/* Purchase Order Actions */}
+              {phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
+                <Button
+                  size="sm"
+                  className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 h-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAdvanceToReceipt(request.id);
+                  }}
+                >
+                  <Check className="h-3 w-3 mr-1" />
+                  Recebimento
+                </Button>
               )}
             </div>
-          )}
+          </div>
         </CardContent>
-      </Card>
+      </Card >
       {/* Phase-specific Edit Modals */}
-      {phase === PURCHASE_PHASES.SOLICITACAO && (
-        <RequestPhase
-          request={request}
-          open={isEditModalOpen}
-          onOpenChange={(open) => setIsEditModalOpen(open)}
-        />
-      )}
-      {phase === PURCHASE_PHASES.APROVACAO_A1 && (
-        <ApprovalA1Phase
-          request={request}
-          open={isEditModalOpen}
-          onOpenChange={(open) => setIsEditModalOpen(open)}
-        />
-      )}
-      {isEditModalOpen && phase === PURCHASE_PHASES.APROVACAO_A2 && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <ApprovalA2Phase
-              request={request}
-              onClose={() => {
-                setIsEditModalOpen(false);
-                setInitialA2Action(null);
-              }}
-              className="p-6"
-              initialAction={initialA2Action}
-            />
+      {
+        phase === PURCHASE_PHASES.SOLICITACAO && (
+          <RequestPhase
+            request={request}
+            open={isEditModalOpen}
+            onOpenChange={(open) => setIsEditModalOpen(open)}
+          />
+        )
+      }
+      {
+        phase === PURCHASE_PHASES.APROVACAO_A1 && (
+          <ApprovalA1Phase
+            request={request}
+            open={isEditModalOpen}
+            onOpenChange={(open) => setIsEditModalOpen(open)}
+          />
+        )
+      }
+      {
+        isEditModalOpen && phase === PURCHASE_PHASES.APROVACAO_A2 && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <ApprovalA2Phase
+                request={request}
+                onClose={() => {
+                  setIsEditModalOpen(false);
+                  setInitialA2Action(null);
+                }}
+                className="p-6"
+                initialAction={initialA2Action}
+              />
+            </div>
           </div>
-        </div>
-      )}
-      {phase === PURCHASE_PHASES.COTACAO && (
-        <QuotationPhase
-          request={request}
-          open={isEditModalOpen}
-          onOpenChange={(open) => setIsEditModalOpen(open)}
-        />
-      )}
-      {isEditModalOpen && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <PurchaseOrderPhase
-              request={request}
-              onClose={() => setIsEditModalOpen(false)}
-              className="p-6"
-            />
+        )
+      }
+      {
+        phase === PURCHASE_PHASES.COTACAO && (
+          <QuotationPhase
+            request={request}
+            open={isEditModalOpen}
+            onOpenChange={(open) => setIsEditModalOpen(open)}
+          />
+        )
+      }
+      {
+        isEditModalOpen && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <PurchaseOrderPhase
+                request={request}
+                onClose={() => setIsEditModalOpen(false)}
+                className="p-6"
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {isEditModalOpen && phase === PURCHASE_PHASES.RECEBIMENTO && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <ReceiptPhase
-              request={request}
-              onClose={() => setIsEditModalOpen(false)}
-              className="p-6"
-            />
+      {
+        isEditModalOpen && phase === PURCHASE_PHASES.RECEBIMENTO && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <ReceiptPhase
+                request={request}
+                onClose={() => setIsEditModalOpen(false)}
+                className="p-6"
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {isEditModalOpen && phase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-7xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <ConclusionPhase
-              request={request}
-              onClose={() => setIsEditModalOpen(false)}
-              className="p-6"
-            />
+      {
+        isEditModalOpen && phase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg max-w-7xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <ConclusionPhase
+                request={request}
+                onClose={() => setIsEditModalOpen(false)}
+                className="p-6"
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Request View for Archived Phase */}
-      {isEditModalOpen && phase === PURCHASE_PHASES.ARQUIVADO && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={() => setIsEditModalOpen(false)}
-        >
+      {
+        isEditModalOpen && phase === PURCHASE_PHASES.ARQUIVADO && (
           <div
-            className="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-y-auto w-full mx-4"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            onClick={() => setIsEditModalOpen(false)}
           >
-            <RequestView
-              request={request}
-              onClose={() => setIsEditModalOpen(false)}
-            />
+            <div
+              className="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-y-auto w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <RequestView
+                request={request}
+                onClose={() => setIsEditModalOpen(false)}
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Default Edit Dialog for other phases */}
-      {isEditModalOpen &&
+      {
+        isEditModalOpen &&
         phase !== PURCHASE_PHASES.SOLICITACAO &&
         phase !== PURCHASE_PHASES.APROVACAO_A1 &&
         phase !== PURCHASE_PHASES.APROVACAO_A2 &&
@@ -1288,7 +1208,8 @@ export default function PurchaseCard({
               </div>
             </div>
           </div>
-        )}
+        )
+      }
       {/* Diálogo de confirmação para excluir */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

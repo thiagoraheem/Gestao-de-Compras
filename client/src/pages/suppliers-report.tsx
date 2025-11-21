@@ -80,9 +80,9 @@ export default function SuppliersReportPage() {
     queryKey: [
       selectedSupplierId !== "none"
         ? `/api/reports/suppliers?supplierId=${selectedSupplierId}` +
-          (periodType === "range" && startDate && endDate
-            ? `&startDate=${startDate}&endDate=${endDate}`
-            : "")
+        (periodType === "range" && startDate && endDate
+          ? `&startDate=${startDate}&endDate=${endDate}`
+          : "")
         : "",
     ],
     enabled: selectedSupplierId !== "none",
@@ -159,7 +159,7 @@ export default function SuppliersReportPage() {
               <div className="space-y-2">
                 <Label>Score</Label>
                 <div className="flex items-center gap-3">
-                  <Badge className="bg-blue-100 text-blue-800">{report.metrics.recommendationIndex}</Badge>
+                  <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">{report.metrics.recommendationIndex}</Badge>
                   <span className="text-2xl font-semibold">{Math.round(report.metrics.score)}</span>
                 </div>
               </div>
@@ -234,7 +234,7 @@ export default function SuppliersReportPage() {
                   <div className="rounded-lg border p-4">
                     <p className="text-sm text-gray-500 flex items-center gap-2"><CheckCircle className="w-4 h-4" />Índice Recomendido</p>
                     <div className="flex items-center gap-3">
-                      <Badge className="bg-green-100 text-green-800">{report.metrics.recommendationIndex}</Badge>
+                      <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">{report.metrics.recommendationIndex}</Badge>
                       <span className="text-2xl font-semibold">{Math.round(report.metrics.score)}</span>
                     </div>
                   </div>
@@ -298,7 +298,7 @@ export default function SuppliersReportPage() {
                           <TableRow key={q.id}>
                             <TableCell className="font-medium">{q.quotationNumber || q.quotationId}</TableCell>
                             <TableCell>
-                              <Badge className={q.status === 'received' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                              <Badge className={q.status === 'received' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'}>
                                 {q.status || '—'}
                               </Badge>
                             </TableCell>
@@ -310,7 +310,7 @@ export default function SuppliersReportPage() {
                             </TableCell>
                             <TableCell>{formatCurrency(q.adjustedTotal)}</TableCell>
                             <TableCell>
-                              <Badge className={q.isChosen ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}>
+                              <Badge className={q.isChosen ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300'}>
                                 {q.isChosen ? 'Sim' : 'Não'}
                               </Badge>
                             </TableCell>
