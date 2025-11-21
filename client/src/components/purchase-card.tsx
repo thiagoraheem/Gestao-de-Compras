@@ -23,6 +23,9 @@ import {
   Info,
   Eye,
   Download,
+  FileText,
+  Printer,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -39,7 +42,7 @@ import ApprovalA2Phase from "./approval-a2-phase";
 import QuotationPhase from "./quotation-phase";
 import PurchaseOrderPhase from "./purchase-order-phase";
 import ReceiptPhase, { ReceiptPhaseHandle } from "./receipt-phase";
-import ConclusionPhase from "./conclusion-phase";
+import ConclusionPhase, { ConclusionPhaseHandle } from "./conclusion-phase";
 import RequestView from "./request-view";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -104,6 +107,7 @@ export default function PurchaseCard({
 
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
+  const conclusionRef = useRef<ConclusionPhaseHandle | null>(null);
 
 
 
@@ -1202,15 +1206,54 @@ export default function PurchaseCard({
 
       {
         isEditModalOpen && phase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg max-w-7xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <ConclusionPhase
-                request={request}
-                onClose={() => setIsEditModalOpen(false)}
-                className="p-6"
-              />
-            </div>
-          </div>
+          <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+            <DialogContent hideClose className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="conclusion-phase-desc">
+              <div className="flex justify-between items-center px-6 py-3 border-b bg-card text-card-foreground">
+                <DialogTitle className="text-base font-semibold">Conclusão da Compra - Solicitação #{request.requestNumber}</DialogTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => conclusionRef.current?.downloadPurchaseOrderPDF()}
+                    size="sm"
+                    variant="outline"
+                    className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    PDF Pedido de Compra
+                  </Button>
+                  <Button onClick={() => conclusionRef.current?.exportPDF()} size="sm" variant="outline">
+                    <Download className="w-4 h-4 mr-2" />
+                    Exportar PDF
+                  </Button>
+                  <Button onClick={() => conclusionRef.current?.printSummary()} size="sm" variant="outline">
+                    <Printer className="w-4 h-4 mr-2" />
+                    Imprimir
+                  </Button>
+                  <Button onClick={() => conclusionRef.current?.sendEmail()} size="sm" variant="outline">
+                    <Mail className="w-4 h-4 mr-2" />
+                    Enviar E-mail
+                  </Button>
+                  <Button onClick={() => conclusionRef.current?.openArchiveDialog()} size="sm" variant="outline">
+                    <Archive className="w-4 h-4 mr-2" />
+                    Arquivar
+                  </Button>
+                  <DialogClose asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Fechar</span>
+                    </Button>
+                  </DialogClose>
+                </div>
+              </div>
+              <p id="conclusion-phase-desc" className="sr-only">Tela de conclusão de compra da solicitação</p>
+              <div className="px-6 pt-0 pb-2">
+                <ConclusionPhase
+                  request={request}
+                  onClose={() => setIsEditModalOpen(false)}
+                  ref={conclusionRef}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
         )
       }
 

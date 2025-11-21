@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,7 +58,15 @@ interface ConclusionPhaseProps {
   className?: string;
 }
 
-export default function ConclusionPhase({ request, onClose, className }: ConclusionPhaseProps) {
+export interface ConclusionPhaseHandle {
+  downloadPurchaseOrderPDF: () => void;
+  exportPDF: () => void;
+  printSummary: () => void;
+  sendEmail: () => void;
+  openArchiveDialog: () => void;
+}
+
+const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(function ConclusionPhase({ request, onClose, className }: ConclusionPhaseProps, ref) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isArchiving, setIsArchiving] = useState(false);
@@ -779,120 +787,25 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
   const isLoading = itemsLoading || approvalHistoryLoading || attachmentsLoading || quotationLoading || supplierQuotationItemsLoading || requesterLoading || costCentersLoading || departmentsLoading || quotationAttachmentsLoading || timelineLoading;
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Clock className="h-6 w-6 animate-spin mr-2" />
-        <span>Carregando informações da conclusão...</span>
-      </div>
-    );
-  }
+  
+
+  useImperativeHandle(ref, () => ({
+    downloadPurchaseOrderPDF: () => downloadPurchaseOrderPDFMutation.mutate(),
+    exportPDF: () => exportPDFMutation.mutate(),
+    printSummary: () => handlePrint(),
+    sendEmail: () => handleSendEmail(),
+    openArchiveDialog: () => setShowArchiveDialog(true),
+  }))
 
   return (
     <div className={className}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Conclusão da Compra</h2>
-          <p className="text-muted-foreground">Solicitação {request.requestNumber}</p>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center p-8">
+          <Clock className="h-6 w-6 animate-spin mr-2" />
+          <span>Carregando informações da conclusão...</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => downloadPurchaseOrderPDFMutation.mutate()}
-            disabled={downloadPurchaseOrderPDFMutation.isPending}
-            className="border-blue-600 text-blue-600 hover:bg-blue-50"
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            {downloadPurchaseOrderPDFMutation.isPending ? "Baixando..." : "PDF Pedido de Compra"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => exportPDFMutation.mutate()}
-            disabled={exportPDFMutation.isPending}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Exportar PDF
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-          >
-            <Printer className="h-4 w-4 mr-2" />
-            Imprimir
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSendEmail}
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            Enviar E-mail
-          </Button>
-
-          {request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
-            <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                >
-                  <Archive className="h-4 w-4 mr-2" />
-                  Arquivar
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Arquivar Solicitação</DialogTitle>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleArchive)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="conclusionObservations"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Observações de Conclusão (Opcional)</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Adicione observações sobre a conclusão do processo..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowArchiveDialog(false)}
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={isArchiving}
-                      >
-                        {isArchiving ? "Arquivando..." : "Arquivar"}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          )}
-
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
-
+      ) : (
       <div className="space-y-6">
         {/* Process Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -900,8 +813,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Tempo Total</p>
-                  <p className="text-2xl font-bold text-gray-900">{totalProcessTime} dias</p>
+                  <p className="text-sm font-medium text-muted-foreground">Tempo Total</p>
+                  <p className="text-2xl font-bold text-foreground">{totalProcessTime} dias</p>
                 </div>
                 <Clock className="h-8 w-8 text-blue-500" />
               </div>
@@ -912,8 +825,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Valor Total</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-muted-foreground">Valor Total</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {totalItemsValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </p>
                 </div>
@@ -926,8 +839,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Status</p>
-                  <p className="text-2xl font-bold text-green-600">Concluído</p>
+                  <p className="text-sm font-medium text-muted-foreground">Status</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">Concluído</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-500" />
               </div>
@@ -947,15 +860,15 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="space-y-4">
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Número da Solicitação</span>
+                  <span className="text-sm font-medium text-muted-foreground">Número da Solicitação</span>
                   <p className="text-lg font-semibold">{request.requestNumber}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Data de Criação</span>
+                  <span className="text-sm font-medium text-muted-foreground">Data de Criação</span>
                   <p>{format(new Date(request.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Status Final</span>
+                  <span className="text-sm font-medium text-muted-foreground">Status Final</span>
                   <Badge variant="default" className="bg-green-100 text-green-800">
                     {PHASE_LABELS[request.currentPhase]}
                   </Badge>
@@ -964,35 +877,35 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
               <div className="space-y-4">
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Solicitante</span>
+                  <span className="text-sm font-medium text-muted-foreground">Solicitante</span>
                   <p className="font-medium">
                     {requester ? `${requester.firstName} ${requester.lastName}` : request.requesterName || 'Não informado'}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     {requester?.email || request.requesterEmail || 'Não informado'}
                   </p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Departamento</span>
+                  <span className="text-sm font-medium text-muted-foreground">Departamento</span>
                   <p>{department?.name || request.departmentName || 'Não informado'}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Centro de Custo</span>
+                  <span className="text-sm font-medium text-muted-foreground">Centro de Custo</span>
                   <p>{costCenter?.code} - {costCenter?.name || 'Não informado'}</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Categoria</span>
+                  <span className="text-sm font-medium text-muted-foreground">Categoria</span>
                   <Badge variant="outline">{CATEGORY_LABELS[request.category]}</Badge>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Urgência</span>
+                  <span className="text-sm font-medium text-muted-foreground">Urgência</span>
                   <Badge variant="outline">{URGENCY_LABELS[request.urgency]}</Badge>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Orçamento Disponível</span>
+                  <span className="text-sm font-medium text-muted-foreground">Orçamento Disponível</span>
                   <p className="font-medium">
                     {request.availableBudget?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'Não informado'}
                   </p>
@@ -1003,8 +916,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             <Separator className="my-4" />
 
             <div>
-              <span className="text-sm font-medium text-gray-500">Justificativa</span>
-              <p className="mt-1 text-gray-900">{request.justification}</p>
+              <span className="text-sm font-medium text-muted-foreground">Justificativa</span>
+              <p className="mt-1 text-foreground">{request.justification}</p>
             </div>
           </CardContent>
         </Card >
@@ -1023,17 +936,17 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Nome do Fornecedor</span>
-                      <p className="text-lg font-semibold">{selectedSupplier.supplier?.name || 'Não informado'}</p>
+                      <span className="text-sm font-medium text-muted-foreground">Nome do Fornecedor</span>
+                      <p className="text-lg font-semibold text-foreground">{selectedSupplier.supplier?.name || 'Não informado'}</p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Contato</span>
+                      <span className="text-sm font-medium text-muted-foreground">Contato</span>
                       <div className="flex items-center gap-2 mt-1">
-                        <Phone className="h-4 w-4 text-gray-400" />
+                        <Phone className="h-4 w-4 text-muted-foreground" />
                         <p>{selectedSupplier.supplier?.phone || 'Não informado'}</p>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
-                        <Mail className="h-4 w-4 text-gray-400" />
+                        <Mail className="h-4 w-4 text-muted-foreground" />
                         <p>{selectedSupplier.supplier?.email || 'Não informado'}</p>
                       </div>
                     </div>
@@ -1041,8 +954,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
                   <div className="space-y-4">
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Valor da Cotação</span>
-                      <p className="text-lg font-semibold text-green-600">
+                      <span className="text-sm font-medium text-muted-foreground">Valor da Cotação</span>
+                      <p className="text-lg font-semibold text-green-600 dark:text-green-400">
                         {selectedSupplier.totalValue ?
                           parseFloat(selectedSupplier.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
                           (request.totalValue ?
@@ -1053,11 +966,11 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                       </p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Prazo de Entrega</span>
+                      <span className="text-sm font-medium text-muted-foreground">Prazo de Entrega</span>
                       <p>{selectedSupplier.deliveryTerms || selectedSupplier.deliveryTime || 'Não informado'}</p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Status</span>
+                      <span className="text-sm font-medium text-muted-foreground">Status</span>
                       <Badge variant="default" className="bg-green-100 text-green-800">
                         Selecionado
                       </Badge>
@@ -1066,8 +979,8 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                     {/* Desconto da Proposta */}
                     {(selectedSupplier.discountType && selectedSupplier.discountType !== 'none' && selectedSupplier.discountValue) && (
                       <div>
-                        <span className="text-sm font-medium text-gray-500">Desconto da Proposta</span>
-                        <p className="text-lg font-semibold text-green-600">
+                        <span className="text-sm font-medium text-muted-foreground">Desconto da Proposta</span>
+                        <p className="text-lg font-semibold text-green-600 dark:text-green-400">
                           {selectedSupplier.discountType === 'percentage'
                             ? `${selectedSupplier.discountValue}%`
                             : `R$ ${Number(selectedSupplier.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -1096,15 +1009,15 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Número do Pedido</span>
+                  <span className="text-sm font-medium text-muted-foreground">Número do Pedido</span>
                   <p className="text-lg font-semibold">{request.requestNumber}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Data de Emissão</span>
+                  <span className="text-sm font-medium text-muted-foreground">Data de Emissão</span>
                   <p>{format(new Date(request.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Status do Pedido</span>
+                  <span className="text-sm font-medium text-muted-foreground">Status do Pedido</span>
                   <Badge variant="default" className="bg-green-100 text-green-800">
                     Entregue
                   </Badge>
@@ -1113,13 +1026,13 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
               <div className="space-y-4">
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Condições de Pagamento</span>
+                  <span className="text-sm font-medium text-muted-foreground">Condições de Pagamento</span>
                   <p>{request.paymentConditions || 'Conforme contrato'}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Local de Entrega</span>
+                  <span className="text-sm font-medium text-muted-foreground">Local de Entrega</span>
                   <div className="flex items-center gap-2 mt-1">
-                    <MapPin className="h-4 w-4 text-gray-400" />
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
                     <p>{request.deliveryLocation || 'Sede da empresa'}</p>
                   </div>
                 </div>
@@ -1140,25 +1053,25 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Data do Recebimento</span>
+                  <span className="text-sm font-medium text-muted-foreground">Data do Recebimento</span>
                   <p>{format(new Date(request.updatedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Responsável pelo Recebimento</span>
+                  <span className="text-sm font-medium text-muted-foreground">Responsável pelo Recebimento</span>
                   <p>{request.receivedBy || 'Sistema Automático'}</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Status da Conferência</span>
+                  <span className="text-sm font-medium text-muted-foreground">Status da Conferência</span>
                   <Badge variant="default" className="bg-green-100 text-green-800">
                     <CheckCircle className="h-4 w-4 mr-1" />
                     Conforme
                   </Badge>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Observações</span>
+                  <span className="text-sm font-medium text-muted-foreground">Observações</span>
                   <p>{request.receiptObservations || 'Recebimento sem observações'}</p>
                 </div>
               </div>
@@ -1172,7 +1085,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
         {/* Dados do Processo */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <History className="h-5 w-5" />
               Dados do Processo
             </CardTitle>
@@ -1181,30 +1094,30 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Informações da Solicitação */}
               <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">📋 Solicitação</h4>
+                <h4 className="text-lg font-semibold text-foreground border-b border-border pb-2">📋 Solicitação</h4>
                 <div className="space-y-3">
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Número da Solicitação</span>
+                    <span className="text-sm font-medium text-muted-foreground">Número da Solicitação</span>
                     <p className="font-medium">{request.requestNumber}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Data de Criação</span>
+                    <span className="text-sm font-medium text-muted-foreground">Data de Criação</span>
                     <p>{format(new Date(request.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Solicitante</span>
+                    <span className="text-sm font-medium text-muted-foreground">Solicitante</span>
                     <p>{requester ? `${requester.firstName} ${requester.lastName}` : request.requesterName || 'Não informado'}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Departamento</span>
+                    <span className="text-sm font-medium text-muted-foreground">Departamento</span>
                     <p>{department?.name || request.departmentName || 'Não informado'}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Centro de Custo</span>
+                    <span className="text-sm font-medium text-muted-foreground">Centro de Custo</span>
                     <p>{costCenter?.code} - {costCenter?.name || 'Não informado'}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Quantidade Total de Itens</span>
+                    <span className="text-sm font-medium text-muted-foreground">Quantidade Total de Itens</span>
                     <p className="font-medium">{formatQuantity(items.reduce((sum: number, item: any) => sum + (parseFloat(item.requestedQuantity) || 0), 0))}</p>
                   </div>
                 </div>
@@ -1212,86 +1125,86 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
               {/* Dados da Cotação */}
               <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">💰 Cotação</h4>
+                <h4 className="text-lg font-semibold text-foreground border-b border-border pb-2">💰 Cotação</h4>
                 {quotation ? (
                   <div className="space-y-3">
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Número da Cotação</span>
+                      <span className="text-sm font-medium text-muted-foreground">Número da Cotação</span>
                       <p className="font-medium">{quotation.quotationNumber}</p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Data de Criação</span>
+                      <span className="text-sm font-medium text-muted-foreground">Data de Criação</span>
                       <p>{format(new Date(quotation.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Status</span>
+                      <span className="text-sm font-medium text-muted-foreground">Status</span>
                       <Badge variant="outline">{quotation.status}</Badge>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Fornecedores Participantes</span>
+                      <span className="text-sm font-medium text-muted-foreground">Fornecedores Participantes</span>
                       <p className="font-medium">{supplierQuotations.length}</p>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-500">Dados da cotação não disponíveis</p>
+                  <p className="text-muted-foreground">Dados da cotação não disponíveis</p>
                 )}
               </div>
 
               {/* Cotação Vencedora */}
               <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">🏆 Cotação Vencedora</h4>
+                <h4 className="text-lg font-semibold text-foreground border-b border-border pb-2">🏆 Cotação Vencedora</h4>
                 {selectedSupplierQuotation ? (
                   <div className="space-y-3">
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Fornecedor</span>
+                      <span className="text-sm font-medium text-muted-foreground">Fornecedor</span>
                       <p className="font-medium">{selectedSupplierQuotation.supplierName}</p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Valor Total da Proposta</span>
+                      <span className="text-sm font-medium text-muted-foreground">Valor Total da Proposta</span>
                       <p className="font-medium text-green-600">
                         {parseFloat(selectedSupplierQuotation.totalValue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Data de Submissão</span>
+                      <span className="text-sm font-medium text-muted-foreground">Data de Submissão</span>
                       <p>{selectedSupplierQuotation.submissionDate ? format(new Date(selectedSupplierQuotation.submissionDate), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Não informado'}</p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Itens Cotados</span>
+                      <span className="text-sm font-medium text-muted-foreground">Itens Cotados</span>
                       <p className="font-medium">{supplierQuotationItems.filter((item: any) => item.isAvailable !== false).length}</p>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-500">Dados da cotação vencedora não disponíveis</p>
+                  <p className="text-muted-foreground">Dados da cotação vencedora não disponíveis</p>
                 )}
               </div>
 
               {/* Pedido de Compra */}
               <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">📄 Pedido de Compra</h4>
+                <h4 className="text-lg font-semibold text-foreground border-b border-border pb-2">📄 Pedido de Compra</h4>
                 {purchaseOrder ? (
                   <div className="space-y-3">
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Número do Pedido</span>
+                      <span className="text-sm font-medium text-muted-foreground">Número do Pedido</span>
                       <p className="font-medium">{purchaseOrder.orderNumber}</p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Data de Criação</span>
+                      <span className="text-sm font-medium text-muted-foreground">Data de Criação</span>
                       <p>{format(new Date(purchaseOrder.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Valor Total</span>
+                      <span className="text-sm font-medium text-muted-foreground">Valor Total</span>
                       <p className="font-medium text-green-600">
                         {parseFloat(purchaseOrder.totalValue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-500">Itens no Pedido</span>
+                      <span className="text-sm font-medium text-muted-foreground">Itens no Pedido</span>
                       <p className="font-medium">{formatQuantity(purchaseOrderItems.reduce((sum: number, item: any) => sum + (parseFloat(item.quantity) || 0), 0))}</p>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-500">Dados do pedido de compra não disponíveis</p>
+                  <p className="text-muted-foreground">Dados do pedido de compra não disponíveis</p>
                 )}
               </div>
             </div>
@@ -1338,19 +1251,19 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                     const total = parseFloat(purchaseItem.totalPrice) || (purchaseQuantity * unitPrice);
 
                     return (
-                      <tr key={purchaseItem.id} className="border-b">
+                      <tr key={purchaseItem.id} className="border-b border-border">
                         <td className="py-2">
                           <div>
                             <p className="font-medium">{purchaseItem.description}</p>
                             {purchaseItem.specifications && (
-                              <p className="text-sm text-gray-600">{purchaseItem.specifications}</p>
+                              <p className="text-sm text-muted-foreground">{purchaseItem.specifications}</p>
                             )}
                           </div>
                         </td>
                         <td className="py-2">{purchaseItem.unit}</td>
                         <td className="text-right py-2">{formatQuantity(originalQuantity)}</td>
-                        <td className="text-right py-2 font-medium text-blue-600">{formatQuantity(purchaseQuantity)}</td>
-                        <td className="text-right py-2 font-medium text-green-600">{formatQuantity(purchaseQuantity)}</td>
+                        <td className="text-right py-2 font-medium text-blue-600 dark:text-blue-400">{formatQuantity(purchaseQuantity)}</td>
+                        <td className="text-right py-2 font-medium text-green-600 dark:text-green-400">{formatQuantity(purchaseQuantity)}</td>
                         <td className="text-right py-2">
                           {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </td>
@@ -1410,19 +1323,19 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
                       const total = quantity * unitPrice;
 
                       return (
-                        <tr key={item.id} className="border-b">
+                        <tr key={item.id} className="border-b border-border">
                           <td className="py-2">
                             <div>
                               <p className="font-medium">{item.description}</p>
                               {item.specifications && (
-                                <p className="text-sm text-gray-600">{item.specifications}</p>
+                                <p className="text-sm text-muted-foreground">{item.specifications}</p>
                               )}
                             </div>
                           </td>
                           <td className="py-2">{item.unit}</td>
                           <td className="text-right py-2">{formatQuantity(quantity)}</td>
-                          <td className="text-right py-2 font-medium text-blue-600">{formatQuantity(quantity)}</td>
-                          <td className="text-right py-2 font-medium text-green-600">{formatQuantity(quantity)}</td>
+                          <td className="text-right py-2 font-medium text-blue-600 dark:text-blue-400">{formatQuantity(quantity)}</td>
+                          <td className="text-right py-2 font-medium text-green-600 dark:text-green-400">{formatQuantity(quantity)}</td>
                           <td className="text-right py-2">
                             {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </td>
@@ -1458,14 +1371,14 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               {/* Anexos da Solicitação Original */}
               {attachments.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Anexos da Solicitação</h4>
+                  <h4 className="text-sm font-medium text-foreground mb-3">Anexos da Solicitação</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {attachments.map((attachment: any) => (
-                      <div key={attachment.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div key={attachment.id} className="flex items-center gap-3 p-3 border border-border rounded-lg">
                         <FileText className="h-8 w-8 text-blue-500" />
                         <div className="flex-1">
                           <p className="font-medium">{attachment.fileName || attachment.filename}</p>
-                          <p className="text-sm text-gray-600">{attachment.fileType}</p>
+                          <p className="text-sm text-muted-foreground">{attachment.fileType}</p>
                           <p className="text-xs text-gray-500">
                             {attachment.attachmentType === 'requisition' ? 'Anexo de Solicitação' : attachment.attachmentType}
                           </p>
@@ -1484,14 +1397,14 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
               {/* Anexos de Cotações de Fornecedores */}
               {quotationAttachments.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Anexos de Cotações</h4>
+                  <h4 className="text-sm font-medium text-foreground mb-3">Anexos de Cotações</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {quotationAttachments.map((attachment: any) => (
-                      <div key={attachment.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div key={attachment.id} className="flex items-center gap-3 p-3 border border-border rounded-lg">
                         <FileText className="h-8 w-8 text-green-500" />
                         <div className="flex-1">
                           <p className="font-medium">{attachment.fileName || attachment.filename}</p>
-                          <p className="text-sm text-gray-600">{attachment.fileType}</p>
+                          <p className="text-sm text-muted-foreground">{attachment.fileType}</p>
                           <p className="text-xs text-gray-500">
                             Proposta de {attachment.supplierName || 'Fornecedor'}
                           </p>
@@ -1509,7 +1422,7 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
 
               {/* Mensagem quando não há anexos */}
               {attachments.length === 0 && quotationAttachments.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
                   <p>Nenhum anexo encontrado para esta solicitação</p>
                 </div>
@@ -1527,18 +1440,66 @@ export default function ConclusionPhase({ request, onClose, className }: Conclus
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
+            <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
               <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
               <div>
-                <p className="font-medium text-green-900">Processo Concluído</p>
-                <p className="text-sm text-green-700">
+                <p className="font-medium text-green-900 dark:text-green-300">Processo Concluído</p>
+                <p className="text-sm text-green-700 dark:text-green-300">
                   Todas as etapas foram executadas com sucesso. O processo está finalizado.
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
+          <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Arquivar Solicitação</DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleArchive)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="conclusionObservations"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Observações de Conclusão (Opcional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Adicione observações sobre a conclusão do processo..."
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowArchiveDialog(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isArchiving}
+                    >
+                      {isArchiving ? "Arquivando..." : "Arquivar"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div >
+      )}
     </div >
   );
-}
+})
+
+export default ConclusionPhase

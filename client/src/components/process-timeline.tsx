@@ -52,15 +52,15 @@ const getIconComponent = (iconName: string) => {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'completed':
-      return 'bg-green-100 text-green-600 border-green-200';
+      return 'bg-green-100 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
     case 'approved':
-      return 'bg-green-100 text-green-600 border-green-200';
+      return 'bg-green-100 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
     case 'rejected':
-      return 'bg-red-100 text-red-600 border-red-200';
+      return 'bg-red-100 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
     case 'pending':
-      return 'bg-yellow-100 text-yellow-600 border-yellow-200';
+      return 'bg-yellow-100 text-yellow-600 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800';
     default:
-      return 'bg-gray-100 text-gray-600 border-gray-200';
+      return 'bg-muted text-muted-foreground border-border';
   }
 };
 
@@ -84,7 +84,7 @@ export default function ProcessTimeline({ timeline, isLoading }: ProcessTimeline
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-foreground">
             <History className="h-5 w-5" />
             Linha do Tempo Completa
           </CardTitle>
@@ -103,7 +103,7 @@ export default function ProcessTimeline({ timeline, isLoading }: ProcessTimeline
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-foreground">
             <History className="h-5 w-5" />
             Linha do Tempo Completa
           </CardTitle>
@@ -121,7 +121,7 @@ export default function ProcessTimeline({ timeline, isLoading }: ProcessTimeline
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-foreground">
           <History className="h-5 w-5" />
           Linha do Tempo Completa do Processo
         </CardTitle>
@@ -129,7 +129,7 @@ export default function ProcessTimeline({ timeline, isLoading }: ProcessTimeline
       <CardContent>
         <div className="relative">
           {/* Timeline line */}
-          <div className="absolute left-6 top-0 bottom-0 w-px bg-gray-200"></div>
+          <div className="absolute left-6 top-0 bottom-0 w-px bg-border"></div>
           
           <div className="space-y-6">
             {timeline.map((event, index) => (
@@ -147,14 +147,14 @@ export default function ProcessTimeline({ timeline, isLoading }: ProcessTimeline
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-sm font-semibold text-gray-900">
+                        <h4 className="text-sm font-semibold text-foreground">
                           {event.action}
                         </h4>
                         <Badge variant="outline" className="text-xs">
                           {getPhaseLabel(event.phase)}
                         </Badge>
                         {event.status === 'approved' && (
-                          <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                          <Badge variant="default" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                             Aprovado
                           </Badge>
                         )}
@@ -164,12 +164,12 @@ export default function ProcessTimeline({ timeline, isLoading }: ProcessTimeline
                           </Badge>
                         )}
                       </div>
-                      
-                      <p className="text-sm text-gray-600 mb-2">
+                       
+                      <p className="text-sm text-muted-foreground mb-2">
                         {event.description}
                       </p>
-                      
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                       
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           👤 {event.userName}
                         </span>
@@ -177,10 +177,10 @@ export default function ProcessTimeline({ timeline, isLoading }: ProcessTimeline
                           📅 {format(new Date(event.timestamp), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                         </span>
                       </div>
-                      
+                       
                       {event.reason && (
-                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
-                          <p className="text-sm text-red-600">
+                        <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                          <p className="text-sm text-red-600 dark:text-red-300">
                             <strong>Motivo:</strong> {event.reason}
                           </p>
                         </div>
