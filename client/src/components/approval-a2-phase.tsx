@@ -25,6 +25,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -69,8 +70,8 @@ type ApprovalFormData = z.infer<typeof approvalSchema>;
 
 interface ApprovalA2PhaseProps {
   request: any;
-  onClose?: () => void;
-  className?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   initialAction?: 'approve' | 'reject' | null;
 }
 
@@ -86,7 +87,7 @@ const getPhaseDescription = (approverType: string): string => {
   }
 };
 
-export default function ApprovalA2Phase({ request, onClose, className, initialAction = null }: ApprovalA2PhaseProps) {
+export default function ApprovalA2Phase({ request, open, onOpenChange, initialAction = null }: ApprovalA2PhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -233,7 +234,7 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
         title: "Sucesso",
         description: message,
       });
-      onClose?.();
+      onOpenChange(false);
     },
     onError: (error: any) => {
       debug.error("Erro na aprovação A2:", error);
@@ -346,142 +347,150 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
 
   return (
     <>
-    <Card className={cn("w-full max-w-4xl", className)}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <CheckCircle className="h-5 w-5" />
-            Aprovação A2 - {request.requestNumber}
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            {/* Botões de PDF e Impressão */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadPDF}
-              disabled={isDownloading}
-              className="flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              {isDownloading ? 'Gerando...' : 'Gerar PDF'}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="flex items-center gap-2"
-            >
-              <Printer className="h-4 w-4" />
-              Imprimir
-            </Button>
-            {onClose && (
-              <Button variant="ghost" size="sm" onClick={onClose}>
-                ✕
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="approval-a2-description">
+        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-base font-semibold flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-blue-600" />
+              Aprovação A2 - Solicitação #{request.requestNumber}
+            </DialogTitle>
+            <div className="flex items-center gap-2">
+              {request.urgency && (
+                <Badge variant={request.urgency === "alto" ? "destructive" : "secondary"}>
+                  {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS] || request.urgency}
+                </Badge>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPDF}
+                disabled={isDownloading}
+                className="h-8 flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {isDownloading ? 'Gerando...' : 'Gerar PDF'}
               </Button>
-            )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                className="h-8 flex items-center gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir
+              </Button>
+              <DialogClose asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <XCircle className="h-4 w-4" />
+                  <span className="sr-only">Fechar</span>
+                </Button>
+              </DialogClose>
+            </div>
           </div>
         </div>
-      </CardHeader>
-      
-      <CardContent className="p-6 space-y-6">
-        {/* Request Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Informações da Solicitação
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Solicitante:</span>
-                <span className="font-medium">
-                  {request.requester?.firstName && request.requester?.lastName 
-                    ? `${request.requester.firstName} ${request.requester.lastName}`
-                    : request.requester?.username || 'N/A'
-                  }
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Building className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Centro de Custo:</span>
-                <span className="font-medium">
-                  {request.costCenter?.code} - {request.costCenter?.name}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Categoria:</span>
-                <Badge variant="outline">
-                  {request.category in CATEGORY_LABELS ? CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS] : request.category}
-                </Badge>
-              </div>
-              
-              {request.idealDeliveryDate && (
+
+        <p id="approval-a2-description" className="sr-only">Tela de detalhes de aprovação A2 da solicitação</p>
+
+        <div className="space-y-6 px-6 pt-0 pb-0">
+          {/* Request Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Informações da Solicitação
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Data Ideal:</span>
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Solicitante:</span>
                   <span className="font-medium">
-                    {format(new Date(request.idealDeliveryDate), 'dd/MM/yyyy', { locale: ptBR })}
+                    {request.requester?.firstName && request.requester?.lastName 
+                      ? `${request.requester.firstName} ${request.requester.lastName}`
+                      : request.requester?.username || 'N/A'
+                    }
                   </span>
                 </div>
-              )}
-              
-              {request.urgency && (
+                
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Urgência:</span>
-                  <Badge variant={request.urgency === "alta_urgencia" || request.urgency === "alto" ? "destructive" : "secondary"}>
-                    {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
+                  <Building className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Centro de Custo:</span>
+                  <span className="font-medium">
+                    {request.costCenter?.code} - {request.costCenter?.name}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Categoria:</span>
+                  <Badge variant="outline">
+                    {request.category in CATEGORY_LABELS ? CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS] : request.category}
                   </Badge>
                 </div>
-              )}
-              
-              {request.totalValue && (
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Valor Total:</span>
-                  <span className="font-medium text-green-600">
-                    {new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                    }).format(Number(request.totalValue))}
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                
+                {request.idealDeliveryDate && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Data Ideal:</span>
+                    <span className="font-medium">
+                      {format(new Date(request.idealDeliveryDate), 'dd/MM/yyyy', { locale: ptBR })}
+                    </span>
+                  </div>
+                )}
+                
+                {request.urgency && (
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Urgência:</span>
+                    <Badge variant={request.urgency === "alta_urgencia" || request.urgency === "alto" ? "destructive" : "secondary"}>
+                      {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
+                    </Badge>
+                  </div>
+                )}
+                
+                {request.totalValue && (
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Valor Total:</span>
+                    <span className="font-medium text-green-600">
+                      {new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                      }).format(Number(request.totalValue))}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          {/* Justification */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Justificativa
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-32">
-                <p className="text-sm leading-relaxed">{request.justification}</p>
-              </ScrollArea>
-              
-              {request.additionalInfo && (
-                <div className="mt-4 pt-4 border-t">
-                  <h4 className="text-sm font-medium mb-2">Informações Adicionais:</h4>
-                  <ScrollArea className="h-20">
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {request.additionalInfo}
-                    </p>
-                  </ScrollArea>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+            {/* Justification */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Justificativa
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-32">
+                  <p className="text-sm leading-relaxed">{request.justification}</p>
+                </ScrollArea>
+                
+                {request.additionalInfo && (
+                  <div className="mt-4 pt-4 border-t">
+                    <h4 className="text-sm font-medium mb-2">Informações Adicionais:</h4>
+                    <ScrollArea className="h-20">
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {request.additionalInfo}
+                      </p>
+                    </ScrollArea>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
         {/* Winning Supplier Information */}
         {selectedSupplierQuotation && (
@@ -654,8 +663,8 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                   </TableBody>
                 </Table>
                 {selectedSupplierQuotation && (
-                  <div className="border-t bg-blue-50 p-4">
-                    <h4 className="font-semibold text-blue-800 mb-3">Resumo Financeiro</h4>
+                  <div className="border-t border-blue-300 dark:border-slate-700 bg-blue-50 dark:bg-slate-800/50 p-4">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-3">Resumo Financeiro</h4>
                     <div className="space-y-2">
                       {(() => {
                         const subtotal = winningItems.reduce((sum, item) => sum + (item.originalTotalPrice || 0), 0);
@@ -664,15 +673,15 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                         return (
                           <>
                             <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-700">Subtotal (sem desconto):</span>
-                              <span className="font-medium text-gray-900">
+                              <span className="text-sm text-gray-700 dark:text-gray-300">Subtotal (sem desconto):</span>
+                              <span className="font-medium text-gray-900 dark:text-gray-100">
                                 R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </span>
                             </div>
                             {totalDiscount > 0 && (
                               <div className="flex justify-between items-center">
-                                <span className="text-sm text-orange-600">Desconto da proposta:</span>
-                                <span className="font-medium text-orange-600">
+                                <span className="text-sm text-orange-600 dark:text-orange-300">Desconto da proposta:</span>
+                                <span className="font-medium text-orange-600 dark:text-orange-300">
                                   {selectedSupplierQuotation.discountType === 'percentage' 
                                     ? `- ${totalDiscount}%`
                                     : `- R$ ${totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
@@ -680,24 +689,24 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                               </div>
                             )}
                             <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-700 flex items-center gap-1">
+                              <span className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1">
                                 <Truck className="h-4 w-4" />
                                 Frete:
                               </span>
                               <span className="font-medium">
                                 {selectedSupplierQuotation.includesFreight ? (
-                                  <span className="text-blue-600">
+                                  <span className="text-blue-600 dark:text-blue-300">
                                     R$ {Number(selectedSupplierQuotation.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-500">Não incluso</span>
+                                  <span className="text-gray-500 dark:text-gray-400">Não incluso</span>
                                 )}
                               </span>
                             </div>
-                            <div className="border-t border-blue-300 pt-2 mt-2">
+                            <div className="border-t border-blue-300 dark:border-slate-700 pt-2 mt-2">
                               <div className="flex justify-between items-center">
-                                <span className="text-base font-semibold text-blue-800">Valor Final:</span>
-                                <span className="text-lg font-bold text-green-700">
+                                <span className="text-base font-semibold text-blue-800 dark:text-blue-200">Valor Final:</span>
+                                <span className="text-lg font-bold text-green-700 dark:text-green-300">
                                   R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </span>
                               </div>
@@ -852,21 +861,21 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
               <CardTitle className="text-lg">Ação de Aprovação A2</CardTitle>
               {/* Mostrar informações sobre o tipo de aprovação */}
               {approvalType && (
-                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mt-2 p-3 bg-blue-50 dark:bg-slate-800/50 border border-blue-200 dark:border-slate-700 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800">
+                    <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
                       {approvalType === 'dual' ? 'Dupla Aprovação Necessária' : 'Aprovação Simples'}
                     </span>
                   </div>
-                  <p className="text-xs text-blue-700 mt-1">
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                     {approvalType === 'dual' 
                       ? `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer aprovação sequencial de dois aprovadores A2.`
                       : `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer apenas uma aprovação A2.`
                     }
                   </p>
                   {approvalInfo && approvalInfo.nextApprover && (
-                    <p className="text-xs text-blue-700 mt-1">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                       Próximo aprovador: {approvalInfo.nextApprover.firstName} {approvalInfo.nextApprover.lastName}
                       {approvalInfo.nextApprover.isCEO && ' (CEO)'}
                     </p>
@@ -970,19 +979,60 @@ export default function ApprovalA2Phase({ request, onClose, className, initialAc
                 </form>
               </Form>
             </CardContent>
-          </Card>
+        </Card>
         )}
-        
-      </CardContent>
-    </Card>
-    
-    {/* Supplier Comparison Modal */}
-    {showComparison && quotation?.id && (
-      <SupplierComparisonReadonly 
+        </div>
+
+        <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={approvalMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                handleReject();
+                form.handleSubmit(onSubmit)();
+              }}
+              variant="destructive"
+              className="flex items-center gap-2"
+              disabled={!canApprove || approvalMutation.isPending}
+            >
+              <XCircle className="h-4 w-4" />
+              Reprovar Solicitação
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                handleApprove();
+                form.handleSubmit(onSubmit)();
+              }}
+              variant="default"
+              className="flex items-center gap-2 bg-green-500"
+              disabled={!canApprove || approvalMutation.isPending}
+            >
+              <CheckCircle className="h-4 w-4" />
+              Aprovar Solicitação
+            </Button>
+          </div>
+        </div>
+
+      </DialogContent>
+    </Dialog>
+
+    {quotation?.id && (
+      <SupplierComparisonReadonly
         quotationId={quotation.id}
+        isOpen={showComparison}
+        onOpenChange={setShowComparison}
         onClose={() => setShowComparison(false)}
       />
     )}
-    </>
+  </>
   );
 }

@@ -1082,20 +1082,16 @@ export default function PurchaseCard({
         )
       }
       {
-        isEditModalOpen && phase === PURCHASE_PHASES.APROVACAO_A2 && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <ApprovalA2Phase
-                request={request}
-                onClose={() => {
-                  setIsEditModalOpen(false);
-                  setInitialA2Action(null);
-                }}
-                className="p-6"
-                initialAction={initialA2Action}
-              />
-            </div>
-          </div>
+        phase === PURCHASE_PHASES.APROVACAO_A2 && (
+          <ApprovalA2Phase
+            request={request}
+            open={isEditModalOpen}
+            onOpenChange={(open) => {
+              setIsEditModalOpen(open);
+              if (!open) setInitialA2Action(null);
+            }}
+            initialAction={initialA2Action}
+          />
         )
       }
       {
