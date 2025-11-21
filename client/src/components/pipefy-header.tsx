@@ -196,9 +196,9 @@ export default function PipefyHeader() {
             />
           </nav>
 
-          {/* Campo de Pesquisa Global - Centralizado */}
-          <div className="hidden md:flex flex-1 justify-center max-w-2xl mx-4">
-            <GlobalSearch />
+          {/* Campo de Pesquisa Global - Responsivo e sem sobreposição */}
+          <div className="hidden md:flex flex-[0_1_420px] justify-center min-w-0 mx-2 sm:mx-3 md:mx-4 sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-2xl">
+            <GlobalSearch className="w-full" />
           </div>
         </div>
 

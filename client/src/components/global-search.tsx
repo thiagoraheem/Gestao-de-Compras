@@ -309,7 +309,7 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
               setIsOpen(false);
             }, 150);
           }}
-          className="pl-10 pr-4 w-full md:w-80 bg-background/60 border-border/60 focus:bg-background focus:border-border"
+          className="pl-10 pr-4 w-full bg-background/60 border-border/60 focus:bg-background focus:border-border"
         />
       </div>
 
@@ -324,7 +324,7 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
           />
           
           {/* Dropdown content */}
-          <div className="absolute top-full left-0 right-0 mt-1 z-50 w-96 max-w-full bg-white rounded-md border border-gray-200 shadow-lg">
+          <div className="absolute top-full left-0 right-0 mt-1 z-50 w-full max-w-[36rem] bg-popover text-popover-foreground rounded-md border border-border shadow-lg">
             <div className="px-3 py-2 text-xs text-muted-foreground border-b">
               {getSearchTypeHint(searchValue)}
             </div>
