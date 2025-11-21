@@ -22,6 +22,7 @@ import {
   Plus,
   Info,
   Eye,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -31,13 +32,13 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import RequestPhase from "./request-phase";
 import ApprovalA1Phase from "./approval-a1-phase";
 import ApprovalA2Phase from "./approval-a2-phase";
 import QuotationPhase from "./quotation-phase";
 import PurchaseOrderPhase from "./purchase-order-phase";
-import ReceiptPhase from "./receipt-phase";
+import ReceiptPhase, { ReceiptPhaseHandle } from "./receipt-phase";
 import ConclusionPhase from "./conclusion-phase";
 import RequestView from "./request-view";
 import { useAuth } from "@/hooks/useAuth";
@@ -96,6 +97,7 @@ export default function PurchaseCard({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [initialA2Action, setInitialA2Action] = useState<'approve' | 'reject' | null>(null);
+  const receiptRef = useRef<ReceiptPhaseHandle | null>(null);
 
   // Get approval type for A2 phase
   const { data: approvalType } = useApprovalType(request.totalValue);
@@ -1153,15 +1155,48 @@ export default function PurchaseCard({
 
       {
         isEditModalOpen && phase === PURCHASE_PHASES.RECEBIMENTO && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <ReceiptPhase
-                request={request}
-                onClose={() => setIsEditModalOpen(false)}
-                className="p-6"
-              />
-            </div>
-          </div>
+          <Dialog open={isEditModalOpen} onOpenChange={(open) => setIsEditModalOpen(open)}>
+            <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="receipt-phase-desc">
+              <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
+                <div className="flex justify-between items-center">
+                  <DialogTitle className="text-base font-semibold">Recebimento de Material - Solicitação #{request.requestNumber}</DialogTitle>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => receiptRef.current?.previewPDF()}
+                      size="sm"
+                      variant="outline"
+                      className="border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Visualizar PDF
+                    </Button>
+                    <Button
+                      onClick={() => receiptRef.current?.downloadPDF()}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Baixar PDF
+                    </Button>
+                    <DialogClose asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <X className="h-4 w-4" />
+                        <span className="sr-only">Fechar</span>
+                      </Button>
+                    </DialogClose>
+                  </div>
+                </div>
+                <p id="receipt-phase-desc" className="sr-only">Tela de recebimento de material da solicitação</p>
+              </div>
+              <div className="px-6 pt-0 pb-2">
+                <ReceiptPhase
+                  request={request}
+                  onClose={() => setIsEditModalOpen(false)}
+                  ref={receiptRef}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
         )
       }
 

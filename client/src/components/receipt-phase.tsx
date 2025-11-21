@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -32,7 +32,14 @@ interface ReceiptPhaseProps {
   className?: string;
 }
 
-export default function ReceiptPhase({ request, onClose, className }: ReceiptPhaseProps) {
+export interface ReceiptPhaseHandle {
+  previewPDF: () => void;
+  downloadPDF: () => void;
+}
+
+import { forwardRef, useImperativeHandle } from "react";
+
+const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function ReceiptPhase({ request, onClose, className }: ReceiptPhaseProps, ref) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -261,6 +268,11 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
     }
   };
 
+  useImperativeHandle(ref, () => ({
+    previewPDF: handlePreviewPDF,
+    downloadPDF: handleDownloadPDF,
+  }));
+
 
 
   const formatDate = (date: any) => {
@@ -296,35 +308,10 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Recebimento de Material</h2>
-          <p className="text-sm text-gray-500">
-            Confirme o recebimento ou reporte pendências
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={handlePreviewPDF}
-            disabled={isLoadingPreview}
-            variant="outline"
-            className="border-green-600 text-green-600 hover:bg-green-50"
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
-          </Button>
-          <Button
-            onClick={handleDownloadPDF}
-            disabled={isDownloading}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            {isDownloading ? "Gerando PDF..." : "Baixar PDF"}
-          </Button>
-          <Button variant="ghost" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
+          <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Recebimento de Material</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Confirme o recebimento ou reporte pendências</p>
         </div>
       </div>
 
@@ -340,25 +327,25 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-500">Número</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Número</p>
                 <Badge variant="outline" className="mt-1">
                   {request.requestNumber}
                 </Badge>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Categoria</p>
-                <p className="text-sm">{CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Categoria</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300">{CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}</p>
               </div>
             </div>
 
             <div>
-              <p className="text-sm font-medium text-gray-500">Justificativa</p>
-              <p className="text-sm mt-1">{request.justification}</p>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Justificativa</p>
+              <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">{request.justification}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-500">Urgência</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Urgência</p>
                 <Badge 
                   variant={request.urgency === "alto" ? "destructive" : "secondary"} 
                   className="mt-1"
@@ -367,14 +354,14 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                 </Badge>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Valor Total</p>
-                <p className="text-sm font-medium mt-1">{formatCurrency(request.totalValue)}</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Valor Total</p>
+                <p className="text-sm font-medium mt-1 text-slate-700 dark:text-slate-300">{formatCurrency(request.totalValue)}</p>
               </div>
             </div>
 
             <div>
-              <p className="text-sm font-medium text-gray-500">Data de Criação</p>
-              <p className="text-sm mt-1">{formatDate(request.createdAt)}</p>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Data de Criação</p>
+              <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">{formatDate(request.createdAt)}</p>
             </div>
           </CardContent>
         </Card>
@@ -389,41 +376,41 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-gray-500">Solicitante</p>
-              <p className="text-sm mt-1">
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Solicitante</p>
+              <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
                 {request.requester ? 
                   `${request.requester.firstName} ${request.requester.lastName}` : 
                   "N/A"
                 }
               </p>
-              <p className="text-xs text-gray-400">{request.requester?.email}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{request.requester?.email}</p>
             </div>
 
             {request.approverA1 && (
               <div>
-                <p className="text-sm font-medium text-gray-500">Aprovador A1</p>
-                <p className="text-sm mt-1">
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Aprovador A1</p>
+                <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
                   {`${request.approverA1.firstName} ${request.approverA1.lastName}`}
                 </p>
-                <p className="text-xs text-gray-400">{request.approverA1.email}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{request.approverA1.email}</p>
               </div>
             )}
 
             {request.approverA2 && (
               <div>
-                <p className="text-sm font-medium text-gray-500">Aprovador A2</p>
-                <p className="text-sm mt-1">
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Aprovador A2</p>
+                <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
                   {`${request.approverA2.firstName} ${request.approverA2.lastName}`}
                 </p>
-                <p className="text-xs text-gray-400">{request.approverA2.email}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{request.approverA2.email}</p>
               </div>
             )}
 
             {request.costCenter && (
               <div>
-                <p className="text-sm font-medium text-gray-500">Centro de Custo</p>
-                <p className="text-sm mt-1">{request.costCenter.name}</p>
-                <p className="text-xs text-gray-400">Código: {request.costCenter.code}</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Centro de Custo</p>
+                <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">{request.costCenter.name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Código: {request.costCenter.code}</p>
               </div>
             )}
           </CardContent>
@@ -466,21 +453,21 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
               
               {/* Freight Information - Highlighted */}
               <div className="col-span-full">
-                <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
-                    <Truck className="h-5 w-5 text-blue-600" />
-                    <p className="text-sm font-semibold text-blue-800">Informações de Frete</p>
+                    <Truck className="h-5 w-5 text-blue-600 dark:text-blue-300" />
+                    <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Informações de Frete</p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium text-blue-700">Frete Incluso</p>
-                      <p className="text-sm mt-1">
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Frete Incluso</p>
+                      <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
                         {selectedSupplierQuotation.includesFreight ? 'Sim' : 'Não'}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-blue-700">Valor do Frete</p>
-                      <p className="text-lg font-bold text-blue-800 mt-1">
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Valor do Frete</p>
+                      <p className="text-lg font-bold text-blue-800 dark:text-blue-300 mt-1">
                         {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
                       </p>
                     </div>
@@ -526,8 +513,8 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 whitespace-pre-wrap">
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-300 whitespace-pre-wrap">
                 {request.purchaseOrderObservations || request.purchaseObservations || 'Nenhuma observação encontrada'}
               </p>
             </div>
@@ -544,7 +531,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
         </CardHeader>
         <CardContent>
           {itemsWithPrices.length > 0 ? (
-            <div className="rounded-md border">
+            <div className="rounded-md border border-border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -579,12 +566,12 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
               </Table>
               
               {/* Total Summary */}
-              <div className="border-t bg-gray-50 p-4 space-y-3">
+              <div className="border-t border-border bg-slate-50 dark:bg-slate-900 p-4 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
                     Subtotal ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
                   </span>
-                  <span className="text-base font-semibold text-gray-800">
+                  <span className="text-base font-semibold text-slate-800 dark:text-slate-200">
                     {formatCurrency(
                       itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
                     )}
@@ -593,11 +580,11 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                 
                 {/* Freight Display */}
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-blue-600 flex items-center gap-1">
+                  <span className="text-sm font-medium text-blue-600 dark:text-blue-300 flex items-center gap-1">
                     <Truck className="h-4 w-4" />
                     Frete
                   </span>
-                  <span className="text-base font-semibold text-blue-600">
+                  <span className="text-base font-semibold text-blue-600 dark:text-blue-300">
                     {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
                   </span>
                 </div>
@@ -605,10 +592,10 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                 {/* Total with Freight */}
                 <div className="border-t pt-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-base font-bold text-gray-800">
+                    <span className="text-base font-bold text-slate-800 dark:text-slate-200">
                       Total Geral
                     </span>
-                    <span className="text-xl font-bold text-green-600">
+                    <span className="text-xl font-bold text-green-600 dark:text-green-400">
                       {formatCurrency(
                         (itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0) || 0) + (freightValue || 0)
                       )}
@@ -618,10 +605,10 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
               </div>
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
               <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
               <p>Nenhum item encontrado</p>
-              <p className="text-sm">Os dados dos itens serão carregados automaticamente</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Os dados dos itens serão carregados automaticamente</p>
             </div>
           )}
         </CardContent>
@@ -636,7 +623,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
           <CardContent>
             <div className="space-y-3">
               {(approvalHistory as any[]).map((history: any, index: number) => (
-                <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                <div key={index} className="flex items-start space-x-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-border">
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium">
@@ -646,11 +633,11 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
                         {history.approved ? "Aprovado" : "Rejeitado"}
                       </Badge>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                       {formatDate(history.createdAt)}
                     </p>
                     {history.rejectionReason && (
-                      <p className="text-sm text-red-600 mt-2">
+                      <p className="text-sm text-red-600 dark:text-red-400 mt-2">
                         <strong>Motivo:</strong> {history.rejectionReason}
                       </p>
                     )}
@@ -665,7 +652,7 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
       <Separator />
 
       {/* Action Buttons */}
-      <div className="sticky bottom-0 bg-white pt-4 pb-2 border-t border-gray-100 mt-6">
+      <div className="sticky bottom-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-6">
         <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
           <Button 
             variant="outline" 
@@ -688,14 +675,14 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
               <Button
                 onClick={() => confirmReceiptMutation.mutate()}
                 disabled={confirmReceiptMutation.isPending}
-                className="bg-green-600 hover:bg-green-700 w-full sm:w-auto flex items-center justify-center"
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 w-full sm:w-auto flex items-center justify-center"
               >
                 <Check className="mr-2 h-4 w-4 flex-shrink-0" />
                 <span className="truncate">Confirmar Recebimento</span>
               </Button>
             </div>
           ) : (
-            <div className="text-sm text-gray-500 flex items-center justify-center sm:justify-start p-3 bg-gray-50 rounded-lg">
+            <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center justify-center sm:justify-start p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-border">
               <User className="mr-2 h-4 w-4 flex-shrink-0" />
               <span className="text-center sm:text-left">
                 Apenas usuários com perfil "Recebedor" podem confirmar recebimentos
@@ -715,49 +702,65 @@ export default function ReceiptPhase({ request, onClose, className }: ReceiptPha
 
       {/* Modal de Pré-visualização do PDF */}
       <Dialog open={showPreviewModal} onOpenChange={handleClosePreview}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Pré-visualização - Pedido de Compra {request.requestNumber}</span>
+        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-hidden p-0 sm:rounded-lg" aria-describedby="receipt-pdf-preview-desc">
+          <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base font-semibold">Pré-visualização - Pedido de Compra {request.requestNumber}</DialogTitle>
               <div className="flex gap-2">
                 <Button
                   onClick={handleDownloadFromPreview}
                   size="sm"
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Baixar PDF
                 </Button>
-                <Button
-                  onClick={handleClosePreview}
-                  size="sm"
-                  variant="outline"
-                >
+                <Button onClick={handleClosePreview} size="sm" variant="outline">
                   <X className="w-4 h-4 mr-2" />
                   Fechar
                 </Button>
               </div>
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-hidden">
-            {pdfPreviewUrl ? (
-              <iframe
-                src={pdfPreviewUrl}
-                className="w-full h-[75vh] border rounded-lg"
-                title="Pré-visualização do PDF"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Carregando pré-visualização...</p>
+            </div>
+            <p id="receipt-pdf-preview-desc" className="sr-only">Pré-visualização do documento em PDF do pedido de compra</p>
+          </div>
+          <div className="px-6 pt-0 pb-2">
+            <div className="flex-1 overflow-hidden">
+              {pdfPreviewUrl ? (
+                <iframe
+                  src={pdfPreviewUrl}
+                  className="w-full h-[72vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900"
+                  title="Pré-visualização do PDF"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-[72vh] bg-slate-100 dark:bg-slate-800 rounded-lg border border-border">
+                  <div className="text-center">
+                    <FileText className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+                    <p className="text-slate-600 dark:text-slate-300">Carregando pré-visualização...</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          </div>
+          <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
+            <div className="flex justify-end gap-3">
+              <Button
+                onClick={handleDownloadFromPreview}
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Baixar PDF
+              </Button>
+              <Button onClick={handleClosePreview} size="sm" variant="outline">
+                <X className="w-4 h-4 mr-2" />
+                Fechar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
     </div>
   );
-}
+});
+
+export default ReceiptPhase;
