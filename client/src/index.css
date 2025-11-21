@@ -185,3 +185,29 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Collapsible filters (mobile) */
+@layer components {
+  .filters-collapsible {
+    overflow: hidden;
+    transition: max-height 250ms ease, opacity 250ms ease, transform 250ms ease;
+  }
+  .filters-open {
+    max-height: 1000px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .filters-closed {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filters-collapsible {
+    transition: none;
+  }
+}

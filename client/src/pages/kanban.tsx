@@ -21,6 +21,7 @@ export default function KanbanPage() {
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
   const [searchFilter, setSearchFilter] = useState<string>("");
   const [location, setLocation] = useLocation();
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   // Date filter state - default to current month
   const currentDate = new Date();
@@ -92,12 +93,30 @@ export default function KanbanPage() {
     };
   }, []);
 
+  // Mobile filters visibility control
+  useEffect(() => {
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    setIsFiltersOpen(!isMobile ? true : false);
+
+    const handleToggle = () => {
+      setIsFiltersOpen((prev) => {
+        const next = !prev;
+        const syncEvt = new CustomEvent("filtersStateSync", { detail: { open: next } });
+        window.dispatchEvent(syncEvt);
+        return next;
+      });
+    };
+
+    window.addEventListener("toggleFiltersPanel", handleToggle);
+    return () => window.removeEventListener("toggleFiltersPanel", handleToggle);
+  }, []);
+
   return (
     <div className="flex flex-col h-full">
       {/* Board Header - estilo Pipefy */}
       <div className="flex-shrink-0 bg-background border-b border-border px-4 md:px-6 py-3 shadow-sm">
         {/* Mobile Layout */}
-        <div className="flex flex-col space-y-3 md:hidden">
+        <div className="md:hidden">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-semibold text-foreground">Processo de Compras</h1>
@@ -108,7 +127,14 @@ export default function KanbanPage() {
               <Button variant="outline" size="sm" onClick={() => setLocation("/list")}>Lista</Button>
             </div>
           </div>
-          <div className="flex flex-col space-y-1.5">
+          <div
+            id="filters-panel"
+            className={
+              `filters-collapsible ${isFiltersOpen ? 'filters-open' : 'filters-closed'}`
+            }
+            aria-hidden={!isFiltersOpen}
+          >
+            <div className="flex flex-col space-y-1.5">
             <Select
               value={selectedDepartment}
               onValueChange={setSelectedDepartment}
@@ -222,6 +248,7 @@ export default function KanbanPage() {
                   className="text-xs h-8"
                 />
               </div>
+            </div>
             </div>
           </div>
         </div>

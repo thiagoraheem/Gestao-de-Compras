@@ -23,6 +23,7 @@ export default function ListPage() {
   const [searchFilter, setSearchFilter] = useState<string>("");
   const [location, setLocation] = useLocation();
   const [openPhases, setOpenPhases] = useState<string[]>(Object.values(PURCHASE_PHASES));
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const currentDate = new Date();
   const [dateFilter, setDateFilter] = useState<{ startDate: string; endDate: string }>({
@@ -67,6 +68,24 @@ export default function ListPage() {
     return () => window.removeEventListener("globalSearchApplied", handleGlobalSearch);
   }, []);
 
+  // Mobile filters visibility control
+  useEffect(() => {
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    setIsFiltersOpen(!isMobile ? true : false);
+
+    const handleToggle = () => {
+      setIsFiltersOpen((prev) => {
+        const next = !prev;
+        const syncEvt = new CustomEvent("filtersStateSync", { detail: { open: next } });
+        window.dispatchEvent(syncEvt);
+        return next;
+      });
+    };
+
+    window.addEventListener("toggleFiltersPanel", handleToggle);
+    return () => window.removeEventListener("toggleFiltersPanel", handleToggle);
+  }, []);
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 md:px-6 py-3 shadow-sm">
@@ -81,6 +100,11 @@ export default function ListPage() {
           </div>
         </div>
 
+        <div
+          id="filters-panel"
+          className={`filters-collapsible ${isFiltersOpen ? 'filters-open' : 'filters-closed'}`}
+          aria-hidden={!isFiltersOpen}
+        >
         <div className="flex items-center gap-3 flex-wrap">
           <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
             <SelectTrigger className="w-44 h-8 text-sm">
@@ -152,6 +176,7 @@ export default function ListPage() {
             <Button variant="outline" size="sm" onClick={() => setOpenPhases(Object.values(PURCHASE_PHASES))}>Expandir todos</Button>
             <Button variant="outline" size="sm" onClick={() => setOpenPhases([])}>Recolher todos</Button>
           </div>
+        </div>
         </div>
 
         {searchFilter && (

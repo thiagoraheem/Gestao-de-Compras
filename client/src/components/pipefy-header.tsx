@@ -31,7 +31,8 @@ import {
   ClipboardList,
   Truck,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Filter } from "lucide-react";
 import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 import type { RealtimeStatus } from "@/lib/realtimeClient";
 import ApprovalsInlineBadge from "./approvals-inline-badge";
@@ -68,8 +69,18 @@ export default function PipefyHeader() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const realtimeStatus = useRealtimeStatus();
   const statusStyle = REALTIME_STATUS_STYLES[realtimeStatus];
+
+  useEffect(() => {
+    const handleFiltersSync = (event: any) => {
+      const { open } = event.detail || {};
+      setIsFiltersOpen(!!open);
+    };
+    window.addEventListener("filtersStateSync", handleFiltersSync);
+    return () => window.removeEventListener("filtersStateSync", handleFiltersSync);
+  }, []);
 
   const getNavigation = () => {
     const baseNavigation = [
@@ -278,6 +289,23 @@ export default function PipefyHeader() {
               ) : (
                 <Menu className="h-5 w-5" />
               )}
+            </Button>
+          </div>
+          {/* Mobile Filters Toggle Button */}
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={isFiltersOpen ? "Ocultar filtros" : "Exibir filtros"}
+              aria-controls="filters-panel"
+              aria-expanded={isFiltersOpen}
+              onClick={() => {
+                const evt = new CustomEvent("toggleFiltersPanel");
+                window.dispatchEvent(evt);
+              }}
+              className="h-9 w-9 mobile-filters-button"
+            >
+              <Filter className="h-5 w-5" />
             </Button>
           </div>
         </div>
