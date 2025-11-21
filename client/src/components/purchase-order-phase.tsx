@@ -741,10 +741,10 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
 
       {/* Modal de Pré-visualização do PDF */}
       <Dialog open={showPreviewModal} onOpenChange={handleClosePreview}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Pré-visualização - Pedido de Compra {request.requestNumber}</span>
+        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-hidden p-0 sm:rounded-lg" aria-describedby="po-pdf-preview-desc">
+          <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base font-semibold">Pré-visualização - Pedido de Compra {request.requestNumber}</DialogTitle>
               <div className="flex gap-2">
                 <Button
                   onClick={handleDownloadFromPreview}
@@ -763,24 +763,44 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
                   Fechar
                 </Button>
               </div>
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-hidden">
-            {pdfPreviewUrl ? (
-              <iframe
-                src={pdfPreviewUrl}
-                className="w-full h-[75vh] border rounded-lg"
-                title="Pré-visualização do PDF"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-[75vh] bg-slate-100 dark:bg-slate-800 rounded-lg">
-                <div className="text-center">
-                  <FileText className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
-                  <p className="text-slate-600 dark:text-slate-300">Carregando pré-visualização...</p>
+            </div>
+            <p id="po-pdf-preview-desc" className="sr-only">Pré-visualização do documento em PDF do pedido de compra</p>
+          </div>
+
+          <div className="px-6 pt-0 pb-2">
+            <div className="flex-1 overflow-hidden">
+              {pdfPreviewUrl ? (
+                <iframe
+                  src={pdfPreviewUrl}
+                  className="w-full h-[72vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900"
+                  title="Pré-visualização do PDF"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-[72vh] bg-slate-100 dark:bg-slate-800 rounded-lg border border-border">
+                  <div className="text-center">
+                    <FileText className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+                    <p className="text-slate-600 dark:text-slate-300">Carregando pré-visualização...</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
+            <div className="flex justify-end gap-3">
+              <Button
+                onClick={handleDownloadFromPreview}
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Baixar PDF
+              </Button>
+              <Button onClick={handleClosePreview} size="sm" variant="outline">
+                <X className="w-4 h-4 mr-2" />
+                Fechar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
