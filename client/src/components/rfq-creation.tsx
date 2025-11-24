@@ -90,6 +90,51 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
     enabled: !!isOpen,
   });
 
+  async function ensureRequestPersisted(): Promise<number> {
+    try {
+      const currentId = purchaseRequest?.id;
+      if (typeof currentId === 'number' && currentId > 0) return currentId;
+      const isTemp = typeof currentId === 'string' && currentId.startsWith('temp_');
+      if (!currentId || isTemp) {
+        const payload: any = {
+          requesterId: purchaseRequest?.requesterId || user?.id || undefined,
+          companyId: purchaseRequest?.companyId || undefined,
+          costCenterId: purchaseRequest?.costCenterId || undefined,
+          category: purchaseRequest?.category || 'Outros',
+          urgency: purchaseRequest?.urgency || 'Médio',
+          justification: purchaseRequest?.justification || 'Solicitação gerada automaticamente para RFQ',
+          idealDeliveryDate: purchaseRequest?.idealDeliveryDate || undefined,
+          availableBudget: purchaseRequest?.availableBudget || undefined,
+          additionalInfo: purchaseRequest?.additionalInfo || undefined,
+          currentPhase: 'cotacao',
+        };
+        const resp = await fetch('/api/purchase-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!resp.ok) {
+          const detail = await resp.text().catch(() => '');
+          throw new Error(`POST /api/purchase-requests ${resp.status} - ${detail || 'Falha ao persistir solicitação'}`);
+        }
+        const saved = await resp.json();
+        // Atualiza form para usar o novo ID
+        form.setValue('purchaseRequestId', saved.id);
+        // Recarrega consultas associadas
+        queryClient.invalidateQueries({ queryKey: [
+          `/api/purchase-requests/${saved.id}`,
+          `/api/purchase-requests/${saved.id}/items`,
+          '/api/purchase-requests',
+        ]});
+        return saved.id;
+      }
+      return 0;
+    } catch (e) {
+      debug.error('RFQCreation: erro ao persistir solicitação automaticamente', e);
+      throw e;
+    }
+  }
+
   // Fetch existing purchase request items
   const { data: purchaseRequestItems = [], isLoading: itemsLoading } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${purchaseRequest?.id}/items`],
@@ -226,12 +271,15 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
   // Mutation para criar RFQ e enviar por e-mail
   const createRFQWithEmailMutation = useMutation({
     mutationFn: async (data: RFQCreationData) => {
+      const prId = (!data.purchaseRequestId || data.purchaseRequestId <= 0) 
+        ? await ensureRequestPersisted() 
+        : data.purchaseRequestId;
       // Create quotation
       const quotationResponse = await fetch("/api/quotations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          purchaseRequestId: data.purchaseRequestId,
+          purchaseRequestId: prId,
           quotationDeadline: data.quotationDeadline,
           deliveryLocationId: data.deliveryLocationId,
           termsAndConditions: data.termsAndConditions,
@@ -240,7 +288,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
       });
 
       if (!quotationResponse.ok) {
-        throw new Error('Erro ao criar cotação');
+        let serverDetail = '';
+        try { serverDetail = await quotationResponse.text(); } catch {}
+        throw new Error(`POST /api/quotations ${quotationResponse.status} - ${serverDetail || 'Erro ao criar cotação'}`);
       }
 
       const quotation = await quotationResponse.json();
@@ -328,24 +378,34 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
   // Mutation para criar RFQ e liberar sem e-mail
   const createRFQWithoutEmailMutation = useMutation({
     mutationFn: async (data: RFQCreationData) => {
-      // Create quotation
-      const quotationResponse = await fetch("/api/quotations", {
+      const prId = (!data.purchaseRequestId || data.purchaseRequestId <= 0) 
+        ? await ensureRequestPersisted() 
+        : data.purchaseRequestId;
+      let quotation: any = null;
+      const createResp = await fetch("/api/quotations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          purchaseRequestId: data.purchaseRequestId,
+          purchaseRequestId: prId,
           quotationDeadline: data.quotationDeadline,
           deliveryLocationId: data.deliveryLocationId,
           termsAndConditions: data.termsAndConditions,
           technicalSpecs: data.technicalSpecs,
         }),
       });
-
-      if (!quotationResponse.ok) {
-        throw new Error('Erro ao criar cotação');
+      if (createResp.ok) {
+        quotation = await createResp.json();
+      } else {
+        let serverDetail = '';
+        try { serverDetail = await createResp.text(); } catch {}
+        const existingResp = await fetch(`/api/quotations/purchase-request/${data.purchaseRequestId}`);
+        if (existingResp.ok) {
+          quotation = await existingResp.json();
+        }
+        if (!quotation) {
+          throw new Error(`POST /api/quotations ${createResp.status} - ${serverDetail || 'Erro ao criar cotação'}`);
+        }
       }
-
-      const quotation = await quotationResponse.json();
 
       // Create quotation items
       for (const item of data.items) {
@@ -859,7 +919,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
                 onClick={form.handleSubmit(onSubmitWithoutEmail)}
                 disabled={createRFQWithoutEmailMutation.isPending || createRFQWithEmailMutation.isPending}
                 variant="outline"
-                className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                className="border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-600 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-400/10 dark:hover:text-orange-400"
               >
                 {createRFQWithoutEmailMutation.isPending ? (
                   <>

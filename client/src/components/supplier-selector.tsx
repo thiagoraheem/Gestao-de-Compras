@@ -78,10 +78,10 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
   return (
     <div className="space-y-4">
       {/* Selected Suppliers Summary */}
-      <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-blue-600" />
-          <span className="text-sm font-medium text-blue-800">
+          <Users className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">
             {selectedSuppliers.length} fornecedor(es) selecionado(s)
           </span>
         </div>
@@ -91,7 +91,7 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
             variant="ghost"
             size="sm"
             onClick={handleClearSelection}
-            className="text-blue-600 hover:text-blue-800 h-auto p-1"
+            className="text-primary hover:text-primary h-auto p-1"
           >
             Limpar seleção
           </Button>
@@ -111,7 +111,7 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
               <button
                 type="button"
                 onClick={() => handleSupplierToggle(supplier.id)}
-                className="ml-1 hover:bg-gray-300 rounded-full p-0.5"
+                className="ml-1 hover:bg-accent rounded-full p-0.5"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -124,7 +124,7 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
       <div className="space-y-2">
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Buscar fornecedores por nome, email ou contato..."
@@ -182,16 +182,16 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
       <Collapsible open={isExpanded || searchTerm.length > 0} onOpenChange={setIsExpanded}>
         <CollapsibleContent className="space-y-2">
           {filteredSuppliers.length === 0 ? (
-            <Card className="p-4 text-center text-gray-500">
+            <Card className="p-4 text-center text-muted-foreground bg-card border-border">
               {searchTerm ? 'Nenhum fornecedor encontrado para a busca' : 'Nenhum fornecedor cadastrado'}
             </Card>
           ) : (
-            <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg">
+            <div className="max-h-64 overflow-y-auto space-y-2 border border-border rounded-lg">
               {filteredSuppliers.map((supplier) => (
                 <div
                   key={supplier.id}
-                  className={`flex items-center space-x-3 p-3 hover:bg-gray-50 border-b last:border-b-0 cursor-pointer transition-colors ${
-                    selectedSuppliers.includes(supplier.id) ? 'bg-blue-50 border-blue-200' : ''
+                  className={`flex items-center space-x-3 p-3 hover:bg-accent hover:text-accent-foreground border-b last:border-b-0 cursor-pointer transition-colors ${
+                    selectedSuppliers.includes(supplier.id) ? 'bg-primary/10 border-primary/30' : ''
                   }`}
                   onClick={() => handleSupplierToggle(supplier.id)}
                 >
@@ -202,19 +202,19 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium text-sm text-gray-900 truncate">
+                      <p className="font-medium text-sm text-foreground truncate">
                         {supplier.name}
                       </p>
                       {selectedSuppliers.includes(supplier.id) && (
-                        <Check className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                        <Check className="h-4 w-4 text-primary flex-shrink-0" />
                       )}
                     </div>
-                    <p className="text-xs text-gray-600 truncate">{supplier.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">{supplier.email}</p>
                     {supplier.contact && (
-                      <p className="text-xs text-gray-500 truncate">Contato: {supplier.contact}</p>
+                      <p className="text-xs text-muted-foreground truncate">Contato: {supplier.contact}</p>
                     )}
                     {supplier.phone && (
-                      <p className="text-xs text-gray-500 truncate">Tel: {supplier.phone}</p>
+                      <p className="text-xs text-muted-foreground truncate">Tel: {supplier.phone}</p>
                     )}
                   </div>
                 </div>
@@ -225,7 +225,7 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
       </Collapsible>
 
       {/* Quick Stats */}
-      <div className="text-xs text-gray-500 text-center">
+      <div className="text-xs text-muted-foreground text-center">
         {searchTerm ? (
           <>Mostrando {filteredSuppliers.length} de {suppliers.length} fornecedores</>
         ) : (

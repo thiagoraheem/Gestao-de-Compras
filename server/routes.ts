@@ -2076,7 +2076,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     async (req, res) => {
       try {
-        const id = parseInt(req.params.id);
+        const idParam = req.params.id;
+        if (idParam.startsWith("temp_")) {
+          return res.json([]);
+        }
+        const id = parseInt(idParam);
+        if (isNaN(id)) {
+          return res.status(400).json({ message: "ID inválido" });
+        }
         const history = await storage.getApprovalHistory(id);
         res.json(history);
       } catch (error) {
@@ -2092,7 +2099,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     async (req, res) => {
       try {
-        const id = parseInt(req.params.id);
+        const idParam = req.params.id;
+        if (idParam.startsWith("temp_")) {
+          return res.json([]);
+        }
+        const id = parseInt(idParam);
+        if (isNaN(id)) {
+          return res.status(400).json({ message: "ID inválido" });
+        }
         const timeline = await storage.getCompleteTimeline(id);
         res.json(timeline);
       } catch (error) {
