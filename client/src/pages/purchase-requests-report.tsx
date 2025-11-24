@@ -119,21 +119,21 @@ interface User {
 }
 
 const phaseColors = {
-  "Aguardando Aprovação A1": "bg-yellow-100 text-yellow-800",
-  "Aguardando Aprovação A2": "bg-orange-100 text-orange-800",
-  "Aprovado - Aguardando Cotação": "bg-blue-100 text-blue-800",
-  "Em Cotação": "bg-purple-100 text-purple-800",
-  "Cotação Recebida": "bg-indigo-100 text-indigo-800",
-  "Pedido Gerado": "bg-green-100 text-green-800",
-  Concluído: "bg-emerald-100 text-emerald-800",
-  Rejeitado: "bg-red-100 text-red-800",
+  "Aguardando Aprovação A1": "bg-yellow-500/15 text-yellow-700 dark:bg-yellow-400/20 dark:text-yellow-200",
+  "Aguardando Aprovação A2": "bg-orange-500/15 text-orange-700 dark:bg-orange-400/20 dark:text-orange-200",
+  "Aprovado - Aguardando Cotação": "bg-blue-500/15 text-blue-700 dark:bg-blue-400/20 dark:text-blue-200",
+  "Em Cotação": "bg-purple-500/15 text-purple-700 dark:bg-purple-400/20 dark:text-purple-200",
+  "Cotação Recebida": "bg-indigo-500/15 text-indigo-700 dark:bg-indigo-400/20 dark:text-indigo-200",
+  "Pedido Gerado": "bg-green-500/15 text-green-700 dark:bg-green-400/20 dark:text-green-200",
+  Concluído: "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-200",
+  Rejeitado: "bg-red-500/15 text-red-700 dark:bg-red-400/20 dark:text-red-200",
 };
 
 const urgencyColors = {
-  baixa: "bg-gray-100 text-gray-800",
-  medio: "bg-yellow-100 text-yellow-800",
-  alto: "bg-orange-100 text-orange-800",
-  alta_urgencia: "bg-red-100 text-red-800",
+  baixa: "bg-muted text-muted-foreground",
+  medio: "bg-yellow-500/15 text-yellow-700 dark:bg-yellow-400/20 dark:text-yellow-200",
+  alto: "bg-orange-500/15 text-orange-700 dark:bg-orange-400/20 dark:text-orange-200",
+  alta_urgencia: "bg-red-500/15 text-red-700 dark:bg-red-400/20 dark:text-red-200",
 };
 
 const urgencyLabels = {
@@ -350,10 +350,10 @@ export default function PurchaseRequestsReport() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-foreground">
             Relatório de Solicitações de Compra
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-muted-foreground mt-1">
             Visualize e analise todas as solicitações de compra do sistema
           </p>
         </div>
@@ -386,7 +386,7 @@ export default function PurchaseRequestsReport() {
             <div className="space-y-2">
               <Label htmlFor="search">Buscar</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
                   placeholder="Número, descrição..."
@@ -431,7 +431,7 @@ export default function PurchaseRequestsReport() {
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-gray-400" />
+                    <Building2 className="w-4 h-4 text-muted-foreground" />
                     <SelectValue placeholder="Todos os departamentos" />
                   </div>
                 </SelectTrigger>
@@ -457,7 +457,7 @@ export default function PurchaseRequestsReport() {
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-gray-400" />
+                    <User className="w-4 h-4 text-muted-foreground" />
                     <SelectValue placeholder="Todos os solicitantes" />
                   </div>
                 </SelectTrigger>
@@ -483,7 +483,7 @@ export default function PurchaseRequestsReport() {
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-gray-400" />
+                    <Truck className="w-4 h-4 text-muted-foreground" />
                     <SelectValue placeholder="Todos os fornecedores" />
                   </div>
                 </SelectTrigger>
@@ -509,7 +509,7 @@ export default function PurchaseRequestsReport() {
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-gray-400" />
+                    <FileText className="w-4 h-4 text-muted-foreground" />
                     <SelectValue placeholder="Todas as fases" />
                   </div>
                 </SelectTrigger>
@@ -603,7 +603,7 @@ export default function PurchaseRequestsReport() {
                   {requests.map((request: PurchaseRequest) => (
                     <React.Fragment key={request.id}>
                       <TableRow
-                        className="cursor-pointer hover:bg-gray-50"
+                        className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
                       >
                         <TableCell>
                           <Button
@@ -668,7 +668,7 @@ export default function PurchaseRequestsReport() {
                       {/* Expanded Row Content */}
                       {expandedRows.has(request.id) && (
                         <TableRow>
-                          <TableCell colSpan={12} className="bg-gray-50 p-6">
+                          <TableCell colSpan={12} className="bg-muted p-6">
                             <div className="space-y-6">
                               {/* Approval Information */}
                               <div>
@@ -676,10 +676,10 @@ export default function PurchaseRequestsReport() {
                                   <User className="w-4 h-4" />
                                   Aprovação
                                 </h4>
-                                <div className="bg-white rounded-lg border p-4">
+                                <div className="bg-card rounded-lg border border-border p-4">
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                      <p className="text-sm font-medium text-gray-500 mb-1">
+                                      <p className="text-sm font-medium text-muted-foreground mb-1">
                                         Aprovador A1
                                       </p>
                                       <p className="text-sm font-semibold">
@@ -687,7 +687,7 @@ export default function PurchaseRequestsReport() {
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-sm font-medium text-gray-500 mb-1">
+                                      <p className="text-sm font-medium text-muted-foreground mb-1">
                                         Aprovador A2
                                       </p>
                                       <p className="text-sm font-semibold">
@@ -704,7 +704,7 @@ export default function PurchaseRequestsReport() {
                                   <FileText className="w-4 h-4" />
                                   Itens da Solicitação
                                 </h4>
-                                <div className="bg-white rounded-lg border">
+                                <div className="bg-card rounded-lg border border-border">
                                   <Table>
                                     <TableHeader>
                                       <TableRow>
@@ -744,7 +744,7 @@ export default function PurchaseRequestsReport() {
                                       <Eye className="w-4 h-4" />
                                       Aprovações
                                     </h4>
-                                    <div className="bg-white rounded-lg border">
+                                    <div className="bg-card rounded-lg border border-border">
                                       <Table>
                                         <TableHeader>
                                           <TableRow>
@@ -766,8 +766,8 @@ export default function PurchaseRequestsReport() {
                                                   className={
                                                     approval.status ===
                                                     "Aprovado"
-                                                      ? "bg-green-100 text-green-800"
-                                                      : "bg-red-100 text-red-800"
+                                                      ? "bg-green-500/15 text-green-700 dark:bg-green-400/20 dark:text-green-200"
+                                                      : "bg-red-500/15 text-red-700 dark:bg-red-400/20 dark:text-red-200"
                                                   }
                                                 >
                                                   {approval.status}
@@ -804,7 +804,7 @@ export default function PurchaseRequestsReport() {
                                       <FileText className="w-4 h-4" />
                                       Cotações
                                     </h4>
-                                    <div className="bg-white rounded-lg border">
+                                    <div className="bg-card rounded-lg border border-border">
                                       <Table>
                                         <TableHeader>
                                           <TableRow>
@@ -827,12 +827,12 @@ export default function PurchaseRequestsReport() {
                                                   )}
                                                 </TableCell>
                                                 <TableCell>
-                                                  <Badge
+                                                <Badge
                                                     className={
                                                       quotation.status ===
                                                       "Enviada"
-                                                        ? "bg-green-100 text-green-800"
-                                                        : "bg-yellow-100 text-yellow-800"
+                                                        ? "bg-green-500/15 text-green-700 dark:bg-green-400/20 dark:text-green-200"
+                                                        : "bg-yellow-500/15 text-yellow-700 dark:bg-yellow-400/20 dark:text-yellow-200"
                                                     }
                                                   >
                                                     {quotation.status}
@@ -864,7 +864,7 @@ export default function PurchaseRequestsReport() {
                                       <FileText className="w-4 h-4" />
                                       Pedidos de Compra
                                     </h4>
-                                    <div className="bg-white rounded-lg border">
+                                    <div className="bg-card rounded-lg border border-border">
                                       <Table>
                                         <TableHeader>
                                           <TableRow>
@@ -895,11 +895,11 @@ export default function PurchaseRequestsReport() {
                                                   )}
                                                 </TableCell>
                                                 <TableCell>
-                                                  <Badge
+                                                <Badge
                                                     className={
                                                       order.status === "Enviado"
-                                                        ? "bg-green-100 text-green-800"
-                                                        : "bg-yellow-100 text-yellow-800"
+                                                        ? "bg-green-500/15 text-green-700 dark:bg-green-400/20 dark:text-green-200"
+                                                        : "bg-yellow-500/15 text-yellow-700 dark:bg-yellow-400/20 dark:text-yellow-200"
                                                     }
                                                   >
                                                     {order.status}
@@ -929,7 +929,7 @@ export default function PurchaseRequestsReport() {
 
                   {/* Totals Row */}
                   {requests.length > 0 && (
-                    <TableRow className="bg-blue-50 font-semibold border-t-2 border-blue-200">
+                    <TableRow className="bg-muted font-semibold border-t border-border">
                       <TableCell></TableCell>
                       <TableCell className="font-bold">TOTAL</TableCell>
                       <TableCell></TableCell>
@@ -954,8 +954,8 @@ export default function PurchaseRequestsReport() {
               </Table>
 
               {requests.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground/60" />
                   <p>
                     Nenhuma solicitação encontrada com os filtros aplicados.
                   </p>
