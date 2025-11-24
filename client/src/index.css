@@ -24,6 +24,10 @@
   --ring: #E95B2D;
   --radius: 0.5rem;
 
+  --login-bg-start: #FFF4EA;
+  --login-bg-middle: #FFFFFF;
+  --login-bg-end: #FFE6D5;
+
   --scrollbar-thumb: hsl(210, 12%, 83%);
   --scrollbar-track: hsl(60, 4.8%, 95.9%);
   --scrollbar-width: 8px;
@@ -68,6 +72,10 @@
   --ring: hsl(16, 100%, 66%);
   /* #FF6B35 - Orange ring */
   --radius: 0.5rem;
+
+  --login-bg-start: hsl(217, 28%, 10%);
+  --login-bg-middle: hsl(217, 28%, 8%);
+  --login-bg-end: hsl(217, 28%, 10%);
 
   --scrollbar-thumb: hsl(217, 24%, 40%);
   --scrollbar-track: hsl(217, 24%, 18%);
