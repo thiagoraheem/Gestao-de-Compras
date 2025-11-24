@@ -1225,74 +1225,89 @@ export class DatabaseStorage implements IStorage {
             }
           }
           
-          // Calculate original value and discount based on chosen supplier quotations
           let originalValue = null;
           let discount = null;
-          
           try {
             let foundQuotationData = false;
-            
-            // Only calculate values if we have a chosen supplier
             if (request.chosenSupplierId) {
-              // Get the quotation value from the chosen supplier
               const chosenSupplierQuotationResult = await pool.query(
-                `SELECT sq.total_value, sq.subtotal_value, sq.final_value
+                `SELECT sq.id, sq.subtotal_value, sq.final_value, sq.discount_type, sq.discount_value
                  FROM supplier_quotations sq
                  JOIN quotations q ON sq.quotation_id = q.id
                  WHERE q.purchase_request_id = $1 
                  AND sq.supplier_id = $2
-                 AND sq.total_value > 0
                  ORDER BY sq.created_at DESC
                  LIMIT 1`,
                 [request.id, request.chosenSupplierId]
               );
-              
               if (chosenSupplierQuotationResult.rows.length > 0) {
                 const quotation = chosenSupplierQuotationResult.rows[0];
                 foundQuotationData = true;
-                
-                // Use subtotal_value if available, otherwise use total_value as original
-                originalValue = quotation.subtotal_value 
-                  ? parseFloat(quotation.subtotal_value)
-                  : parseFloat(quotation.total_value);
-                
-                // Final value is the final_value if available, otherwise total_value from the quotation
-                const finalValue = quotation.final_value 
-                  ? parseFloat(quotation.final_value)
-                  : parseFloat(quotation.total_value);
-                
-                // Calculate discount: Original Value - Final Value = Discount
-                if (originalValue && finalValue && originalValue > finalValue) {
-                  discount = originalValue - finalValue;
-                } else {
-                  discount = 0; // No discount if final value >= original value
+                let itemsOriginalSum = 0;
+                let itemsDiscountedSum = 0;
+                try {
+                  const itemsRes = await pool.query(
+                    `SELECT original_total_price, discounted_total_price, total_price, discount_percentage, discount_value
+                     FROM supplier_quotation_items
+                     WHERE supplier_quotation_id = $1`,
+                    [quotation.id]
+                  );
+                  itemsRes.rows.forEach((row: any) => {
+                    const orig = parseFloat(row.original_total_price || row.total_price || '0') || 0;
+                    const discTotalCandidate = parseFloat(row.discounted_total_price || row.total_price || '0') || 0;
+                    const pct = parseFloat(row.discount_percentage || '0') || 0;
+                    const fixed = parseFloat(row.discount_value || '0') || 0;
+                    let discTotal = discTotalCandidate;
+                    if (!row.discounted_total_price && (pct > 0 || fixed > 0)) {
+                      const pctValue = pct > 0 ? (orig * pct) / 100 : 0;
+                      const totalDisc = Math.max(0, pctValue + fixed);
+                      discTotal = Math.max(0, orig - totalDisc);
+                    }
+                    itemsOriginalSum += orig;
+                    itemsDiscountedSum += Math.min(orig, Math.max(0, discTotal));
+                  });
+                } catch {}
+                const subtotalAfterItems = itemsDiscountedSum > 0
+                  ? itemsDiscountedSum
+                  : (quotation.subtotal_value ? parseFloat(quotation.subtotal_value) : 0);
+                const itemDiscountTotal = Math.max(0, itemsOriginalSum - subtotalAfterItems);
+                let proposalDiscount = 0;
+                const discountType = String(quotation.discount_type || 'none');
+                const discountValue = parseFloat(quotation.discount_value || '0') || 0;
+                if (subtotalAfterItems > 0) {
+                  if (discountType === 'percentage' && discountValue > 0) {
+                    proposalDiscount = (subtotalAfterItems * discountValue) / 100;
+                  } else if (discountType === 'fixed' && discountValue > 0) {
+                    proposalDiscount = discountValue;
+                  } else if (quotation.final_value && quotation.subtotal_value) {
+                    const sub = parseFloat(quotation.subtotal_value) || 0;
+                    const fin = parseFloat(quotation.final_value) || 0;
+                    proposalDiscount = Math.max(0, sub - fin);
+                  }
                 }
-                
-                // Update the request total value to match the chosen supplier's final value
-                // This ensures consistency: Original Value - Discount = Total Value
+                const finalValue = quotation.final_value
+                  ? parseFloat(quotation.final_value)
+                  : Math.max(0, subtotalAfterItems - proposalDiscount);
+                const computedOriginal = itemsOriginalSum > 0
+                  ? itemsOriginalSum
+                  : Math.max(0, subtotalAfterItems + proposalDiscount);
+                originalValue = computedOriginal > 0 ? computedOriginal : null;
+                discount = Math.max(0, computedOriginal - finalValue);
                 request.totalValue = finalValue;
               }
             }
-            
-            // FALLBACK: If no quotation data found but we have totalValue from purchase_request
             if (!foundQuotationData && request.totalValue) {
-              const requestTotalValue = parseFloat(request.totalValue);
-              if (requestTotalValue > 0) {
-                // Assume no discount if we don't have quotation data
-                originalValue = requestTotalValue;
+              const v = parseFloat(request.totalValue);
+              if (v > 0) {
+                originalValue = v;
                 discount = 0;
               }
             }
-            
           } catch (error) {
-            // Error calculating original value and discount - will use fallback if possible
-            console.error('Error calculating values for chosen supplier:', error);
-            
-            // Even on error, try to use fallback if we have totalValue
             if (request.totalValue) {
-              const requestTotalValue = parseFloat(request.totalValue);
-              if (requestTotalValue > 0) {
-                originalValue = requestTotalValue;
+              const v = parseFloat(request.totalValue);
+              if (v > 0) {
+                originalValue = v;
                 discount = 0;
               }
             }
