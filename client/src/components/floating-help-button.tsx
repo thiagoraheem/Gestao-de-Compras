@@ -66,7 +66,7 @@ export default function FloatingHelpButton() {
 
   return (
     <TooltipProvider>
-      <div className="fixed bottom-6 right-6 z-40">
+      <div className="fixed bottom-14 md:bottom-6 right-6 z-40">
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
           <Tooltip>
             <TooltipTrigger asChild>

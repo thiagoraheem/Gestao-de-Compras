@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { PURCHASE_PHASES, PHASE_LABELS } from "@/lib/types";
+import { PURCHASE_PHASES, PHASE_LABELS, type PurchasePhase } from "@/lib/types";
 import KanbanColumn from "./kanban-column";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import debug from "@/lib/debug";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, FileText, CheckCircle, CheckCircle2, ShoppingCart, Package, Truck, Archive } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +54,18 @@ export default function KanbanBoard({
   const [activeRequest, setActiveRequest] = useState<any>(null);
   const [showRFQCreation, setShowRFQCreation] = useState(false);
   const [selectedRequestForRFQ, setSelectedRequestForRFQ] = useState<any>(null);
+  const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
+
+  const phaseIcons: Record<PurchasePhase, any> = {
+    [PURCHASE_PHASES.SOLICITACAO]: FileText,
+    [PURCHASE_PHASES.APROVACAO_A1]: CheckCircle,
+    [PURCHASE_PHASES.COTACAO]: FileText,
+    [PURCHASE_PHASES.APROVACAO_A2]: CheckCircle2,
+    [PURCHASE_PHASES.PEDIDO_COMPRA]: ShoppingCart,
+    [PURCHASE_PHASES.RECEBIMENTO]: Truck,
+    [PURCHASE_PHASES.CONCLUSAO_COMPRA]: Package,
+    [PURCHASE_PHASES.ARQUIVADO]: Archive,
+  };
 
   const { data: purchaseRequests, isLoading } = useQuery({
     queryKey: ["/api/purchase-requests"],
@@ -95,26 +107,33 @@ export default function KanbanBoard({
     };
   }, [purchaseRequests]);
 
-  // Mobile navigation dots update on scroll
   useEffect(() => {
     const container = document.getElementById('kanban-mobile-container');
-    const dotsContainer = document.getElementById('kanban-dots-container');
-    if (!container || !dotsContainer) return;
+    if (!container) return;
     const handleScroll = () => {
       const scrollLeft = container.scrollLeft;
       const total = Object.values(PURCHASE_PHASES).length;
       const columnWidth = container.scrollWidth / (total || 1);
-      const currentIndex = Math.round(scrollLeft / (columnWidth || 1));
-      const dots = dotsContainer.querySelectorAll('button');
-      dots.forEach((dot, index) => {
-        if (index === currentIndex) {
-          dot.classList.remove('w-2', 'bg-muted-foreground/30');
-          dot.classList.add('w-4', 'bg-primary');
-        } else {
-          dot.classList.remove('w-4', 'bg-primary');
-          dot.classList.add('w-2', 'bg-muted-foreground/30');
-        }
-      });
+      const idx = Math.round(scrollLeft / (columnWidth || 1));
+      setCurrentPhaseIndex(idx);
+    };
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const container = document.getElementById('kanban-desktop-container');
+    if (!container) return;
+    const handleScroll = () => {
+      const children = Array.from(container.querySelectorAll('[data-kanban-phase]')) as HTMLElement[];
+      const scrollLeft = container.scrollLeft;
+      let idx = 0;
+      let accWidth = 0;
+      for (let i = 0; i < children.length; i++) {
+        accWidth += children[i].offsetWidth + parseInt(getComputedStyle(children[i]).marginRight || '0');
+        if (accWidth > scrollLeft) { idx = i; break; }
+      }
+      setCurrentPhaseIndex(idx);
     };
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
@@ -628,25 +647,39 @@ export default function KanbanBoard({
               </div>
             ))}
           </div>
-
-          <div className="sticky bottom-0 bg-background py-4 flex justify-center items-center gap-2" id="kanban-dots-container">
-            {Object.values(PURCHASE_PHASES).map((phase, index) => (
-              <button
-                key={phase}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  index === 0 ? 'w-4 bg-primary' : 'w-2 bg-muted-foreground/30'
-                }`}
-                data-phase-index={index}
-                onClick={() => {
-                  const container = document.getElementById('kanban-mobile-container');
-                  if (container) {
-                    const columnWidth = container.scrollWidth / Object.values(PURCHASE_PHASES).length;
-                    container.scrollTo({ left: columnWidth * index, behavior: 'smooth' });
-                  }
-                }}
-                aria-label={`Navegar para ${PHASE_LABELS[phase]}`}
-              />
-            ))}
+          <div className="sticky bottom-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-3 py-2">
+            <nav className="flex items-center justify-between gap-2" aria-label="Navegação Kanban">
+              {Object.values(PURCHASE_PHASES).map((phase, index) => {
+                const Icon = phaseIcons[phase as PurchasePhase];
+                const count = (requestsByPhase[phase] || []).length;
+                const isActive = index === currentPhaseIndex;
+                return (
+                  <button
+                    key={phase}
+                    type="button"
+                    className={`relative flex-1 flex items-center justify-center rounded-md px-2 py-2 transition-colors ${
+                      isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                    aria-label={`Ir para ${PHASE_LABELS[phase]}`}
+                    aria-current={isActive ? 'page' : undefined}
+                    onClick={() => {
+                      const container = document.getElementById('kanban-mobile-container');
+                      if (container) {
+                        const columnWidth = container.scrollWidth / Object.values(PURCHASE_PHASES).length;
+                        container.scrollTo({ left: columnWidth * index, behavior: 'smooth' });
+                      }
+                    }}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {count > 0 && (
+                      <Badge variant={isActive ? 'default' : 'secondary'} className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0">
+                        {count}
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
           </div>
         </div>
 

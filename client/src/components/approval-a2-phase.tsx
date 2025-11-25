@@ -55,7 +55,7 @@ import debug from "@/lib/debug";
 const approvalSchema = z.object({
   approved: z.boolean(),
   rejectionReason: z.string().optional(),
-  rejectionAction: z.enum(['archive', 'recotacao']).optional(),
+  rejectionAction: z.enum(['arquivar', 'recotacao']).optional(),
 }).refine((data) => {
   if (!data.approved && (!data.rejectionReason || data.rejectionReason.trim().length < 10)) {
     return false;
@@ -923,8 +923,8 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                               >
                                 {(user?.isAdmin || user?.isBuyer) && (
                                   <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="archive" id="archive" />
-                                    <Label htmlFor="archive">Arquivar definitivamente</Label>
+                                    <RadioGroupItem value="arquivar" id="arquivar" />
+                                    <Label htmlFor="arquivar">Arquivar definitivamente</Label>
                                   </div>
                                 )}
                                 <div className="flex items-center space-x-2">
