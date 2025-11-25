@@ -44,6 +44,62 @@ export default function RequestList({
 }: RequestListProps) {
   const { user } = useAuth();
   const [activeRequest, setActiveRequest] = useState<any | null>(null);
+  
+  const exportToExcel = () => {
+    const escapeCsvField = (field: any): string => {
+      if (field === null || field === undefined) return "";
+      let stringField = String(field);
+      stringField = stringField.replace(/[\r\n]+/g, ' ');
+      stringField = stringField.replace(/\s+/g, ' ').trim();
+      if (stringField.includes(';') || stringField.includes('"')) {
+        stringField = stringField.replace(/"/g, '""');
+        return `"${stringField}"`;
+      }
+      return stringField;
+    };
+
+    const urgencyLabel = (u: string | undefined) => u ? (URGENCY_LABELS as any)[u] || u : '';
+
+    const rows: string[] = [];
+    rows.push([
+      'Número',
+      'Descrição',
+      'Departamento',
+      'Solicitante',
+      'Fornecedor',
+      'Urgência',
+      'Categoria',
+      'Valor',
+      'Fase'
+    ].join(';'));
+
+    sortedRequests.forEach((r: any) => {
+      const row = [
+        escapeCsvField(r.requestNumber),
+        escapeCsvField(r.justification || r.description || ''),
+        escapeCsvField(r.department?.name || ''),
+        escapeCsvField(r.requester ? `${r.requester.firstName} ${r.requester.lastName}` : ''),
+        escapeCsvField(r.chosenSupplier?.name || ''),
+        escapeCsvField(urgencyLabel(r.urgency)),
+        escapeCsvField(r.category ? r.category[0]?.toUpperCase() + r.category.slice(1) : ''),
+        escapeCsvField(formatCurrency(r.totalValue)),
+        escapeCsvField((PHASE_LABELS as any)[r.currentPhase] || r.currentPhase)
+      ].join(';');
+      rows.push(row);
+    });
+
+    const BOM = "\uFEFF";
+    const csvContent = rows.join("\n");
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lista-solicitacoes_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const { data: purchaseRequests, isLoading } = useQuery({
     queryKey: ["/api/purchase-requests"],
@@ -128,6 +184,9 @@ export default function RequestList({
 
   return (
     <div className="h-full px-4 md:px-6 py-4 overflow-auto">
+      <div className="flex items-center justify-end mb-3">
+        <Button variant="outline" size="sm" onClick={exportToExcel}>Exportar Excel</Button>
+      </div>
       <div className="mb-3 grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-card/60 border border-border rounded-md p-3">
           <div className="text-[11px] text-muted-foreground">Total de Solicitações do Período</div>
