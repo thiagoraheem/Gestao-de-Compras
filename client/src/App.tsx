@@ -11,6 +11,8 @@ import ResetPasswordPage from "@/pages/reset-password";
 import PublicRequestView from "@/pages/public-request-view";
 import NotFound from "@/pages/not-found";
 import KanbanPage from "@/pages/kanban";
+import KanbanIOSPage from "@/pages/kanban-ios";
+import { isIPhone } from "@/lib/device";
 import ListPage from "@/pages/list";
 import SuppliersPage from "@/pages/suppliers";
 import UsersPage from "@/pages/users";
@@ -95,8 +97,8 @@ function Router() {
     <AuthenticatedLayout>
       <RealtimeSyncProvider />
       <Switch>
-        <Route path="/" component={KanbanPage} />
-        <Route path="/kanban" component={KanbanPage} />
+        <Route path="/" component={() => (isIPhone() ? <KanbanIOSPage /> : <KanbanPage />)} />
+        <Route path="/kanban" component={() => (isIPhone() ? <KanbanIOSPage /> : <KanbanPage />)} />
         <Route path="/list" component={ListPage} />
         <Route path="/dashboard">
           <ManagerRoute>
