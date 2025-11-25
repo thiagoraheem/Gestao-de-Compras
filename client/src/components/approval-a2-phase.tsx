@@ -392,7 +392,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
 
         <p id="approval-a2-description" className="sr-only">Tela de detalhes de aprovação A2 da solicitação</p>
 
-        <div className="space-y-6 px-6 pt-0 pb-0">
+        <div className="space-y-6 px-6 pt-0 pb-24">
           {/* Request Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
@@ -959,22 +959,23 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                   )}
 
                   {selectedAction && (
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setSelectedAction(null)}
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={approvalMutation.isPending}
-                        className={selectedAction === 'approve' ? 'bg-green-500 hover:bg-green-600' : ''}
-                      >
-                        {approvalMutation.isPending ? 'Processando...' : 'Confirmar'}
-                      </Button>
-                    </div>
+                <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSelectedAction(null)}
+                    className="w-full sm:w-auto order-last sm:order-first"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={approvalMutation.isPending}
+                    className={`${selectedAction === 'approve' ? 'bg-green-500 hover:bg-green-600' : ''} w-full sm:w-auto`}
+                  >
+                    {approvalMutation.isPending ? 'Processando...' : 'Confirmar'}
+                  </Button>
+                </div>
                   )}
                 </form>
               </Form>
@@ -984,12 +985,13 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
         </div>
 
         <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={approvalMutation.isPending}
+              className="w-full sm:w-auto order-last sm:order-first"
             >
               Cancelar
             </Button>
@@ -1000,7 +1002,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                 form.handleSubmit(onSubmit)();
               }}
               variant="destructive"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-full sm:w-auto"
               disabled={!canApprove || approvalMutation.isPending}
             >
               <XCircle className="h-4 w-4" />
@@ -1013,7 +1015,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                 form.handleSubmit(onSubmit)();
               }}
               variant="default"
-              className="flex items-center gap-2 bg-green-500"
+              className="flex items-center gap-2 bg-green-500 w-full sm:w-auto"
               disabled={!canApprove || approvalMutation.isPending}
             >
               <CheckCircle className="h-4 w-4" />
