@@ -403,7 +403,7 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
         <p id="request-phase-desc" className="sr-only">Formulário para criação ou edição de solicitação de compra</p>
 
         <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 px-6 pt-0 pb-0">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 px-6 pt-0 pb-24">
           {/* Informações Básicas */}
           <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
             <CardHeader className="p-4">
@@ -716,12 +716,13 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
         </form>
       </Form>
         <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
             <Button 
               type="button" 
               variant="outline" 
               onClick={() => onOpenChange(false)}
               disabled={createRequestMutation.isPending || sendToApprovalMutation.isPending}
+              className="w-full sm:w-auto"
             >
               Cancelar
             </Button>
@@ -731,7 +732,7 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
                 variant="default"
                 onClick={() => sendToApprovalMutation.mutate()}
                 disabled={sendToApprovalMutation.isPending || createRequestMutation.isPending}
-                className="min-w-[140px] bg-blue-600 hover:bg-blue-700"
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
               >
                 {sendToApprovalMutation.isPending ? (
                   "Enviando..."
@@ -744,7 +745,7 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
               type="submit" 
               form=""
               disabled={createRequestMutation.isPending || sendToApprovalMutation.isPending || !isFormValid}
-              className="min-w-[140px]"
+              className="w-full sm:w-auto"
               onClick={() => form.handleSubmit(onSubmit)()}
             >
               {createRequestMutation.isPending ? (
