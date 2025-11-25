@@ -255,7 +255,7 @@ export default function ApprovalA1Phase({
 
         <p id="approval-a1-description" className="sr-only">Tela de detalhes de aprovação A1 da solicitação</p>
 
-        <div className="space-y-4 px-6 pt-0 pb-0">
+        <div className="space-y-4 px-6 pt-0 pb-24">
         {/* Request Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Basic Information */}
@@ -477,12 +477,13 @@ export default function ApprovalA1Phase({
         </div>
 
         <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={approvalMutation.isPending}
+              className="w-full sm:w-auto order-last sm:order-first"
             >
               Cancelar
             </Button>
@@ -490,7 +491,7 @@ export default function ApprovalA1Phase({
               type="button"
               onClick={confirmReject}
               variant="destructive"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-full sm:w-auto"
               disabled={!canApprove || approvalMutation.isPending}
             >
               <XCircle className="h-4 w-4" />
@@ -500,7 +501,7 @@ export default function ApprovalA1Phase({
               type="button"
               onClick={confirmApprove}
               variant="default"
-              className="flex items-center gap-2 bg-green-500"
+              className="flex items-center gap-2 bg-green-500 w-full sm:w-auto"
               disabled={!canApprove || approvalMutation.isPending}
             >
               <CheckCircle className="h-4 w-4" />
