@@ -625,7 +625,7 @@ export default function KanbanBoard({
         <div className="md:hidden h-full flex flex-col">
           <div
             id="kanban-mobile-container"
-            className="flex-1 flex overflow-x-auto snap-x snap-mandatory"
+            className="flex-1 flex overflow-x-auto snap-x snap-mandatory pb-20"
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
@@ -647,7 +647,7 @@ export default function KanbanBoard({
               </div>
             ))}
           </div>
-          <div className="sticky bottom-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-3 py-2">
+          <div className="fixed md:hidden bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border px-3 py-2 w-full">
             <nav className="flex items-center justify-between gap-2" aria-label="Navegação Kanban">
               {Object.values(PURCHASE_PHASES).map((phase, index) => {
                 const Icon = phaseIcons[phase as PurchasePhase];
@@ -683,7 +683,7 @@ export default function KanbanBoard({
           </div>
         </div>
 
-        <div className="hidden md:block h-full overflow-x-auto px-4 md:px-6 py-4 kanban-scroll">
+        <div className="hidden md:block h-full overflow-x-auto overflow-y-auto px-4 md:px-6 py-4 kanban-scroll">
           <div
             className="flex space-x-4 md:space-x-6"
             style={{ minWidth: 'max-content', height: '100%' }}

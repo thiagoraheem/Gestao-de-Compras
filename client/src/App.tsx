@@ -41,14 +41,14 @@ import ApprovalsInlineBadge from "@/components/approvals-inline-badge";
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   useApprovalsBadge();
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100svh] bg-background">
       <div className="flex items-center justify-between">
         <PipefyHeader />
         <div className="hidden md:flex items-center gap-2 pr-4">
           <NotificationsPermission />
         </div>
       </div>
-      <main className="pt-16 h-screen">
+      <main className="pt-16 min-h-[100svh] md:h-[100vh] md:overflow-y-hidden">
         {children}
       </main>
       <FloatingNewRequestButton />
