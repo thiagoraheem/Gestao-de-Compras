@@ -391,7 +391,7 @@ export default function DepartmentsPage() {
 
   return (
     <AdminRoute>
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="max-w-7xl mx-auto p-6 space-y-6 bg-background">
       {/* Departments */}
       <Card>
         <CardHeader>
@@ -447,7 +447,7 @@ export default function DepartmentsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700"
+                                className="text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -463,7 +463,7 @@ export default function DepartmentsPage() {
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                 <AlertDialogAction
                                   onClick={() => handleDeleteDepartment(dept)}
-                                  className="bg-red-600 hover:bg-red-700"
+                                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                                 >
                                   Excluir
                                 </AlertDialogAction>
@@ -537,7 +537,7 @@ export default function DepartmentsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700"
+                                className="text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -553,7 +553,7 @@ export default function DepartmentsPage() {
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                 <AlertDialogAction
                                   onClick={() => handleDeleteCostCenter(cc)}
-                                  className="bg-red-600 hover:bg-red-700"
+                                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                                 >
                                   Excluir
                                 </AlertDialogAction>

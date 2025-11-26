@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Company, InsertCompany } from "@shared/schema";
@@ -164,37 +165,28 @@ export default function Companies() {
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-6 bg-background">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Empresas</h1>
-            <p className="text-gray-600">Gerencie as empresas do sistema</p>
+            <h1 className="text-2xl font-bold text-foreground">Empresas</h1>
+            <p className="text-muted-foreground">Gerencie as empresas do sistema</p>
           </div>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <div className="flex">
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">
-                Erro ao carregar empresas
-              </h3>
-              <div className="mt-2 text-sm text-red-700">
-                <p>
-                  {error instanceof Error ? error.message : "Você não tem permissão para acessar esta funcionalidade. Apenas administradores podem gerenciar empresas."}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            <strong>Erro ao carregar empresas:</strong> {error instanceof Error ? error.message : "Você não tem permissão para acessar esta funcionalidade. Apenas administradores podem gerenciar empresas."}
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-background">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Empresas</h1>
-          <p className="text-gray-600">Gerencie as empresas do sistema</p>
+          <h1 className="text-2xl font-bold text-foreground">Empresas</h1>
+          <p className="text-muted-foreground">Gerencie as empresas do sistema</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center space-x-2">
@@ -285,8 +277,8 @@ export default function Companies() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {companies && companies.length === 0 ? (
           <div className="col-span-full text-center py-8">
-            <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">Nenhuma empresa cadastrada</p>
+            <Building className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Nenhuma empresa cadastrada</p>
           </div>
         ) : (
           companies?.map((company: Company) => (
@@ -301,12 +293,12 @@ export default function Companies() {
                       className="h-8 w-8 object-contain rounded"
                     />
                   ) : (
-                    <Building className="h-5 w-5 text-blue-600" />
+                    <Building className="h-5 w-5 text-primary" />
                   )}
                   <div>
                     <CardTitle className="text-lg">{company.name}</CardTitle>
                     {company.tradingName && (
-                      <p className="text-sm text-gray-500">{company.tradingName}</p>
+                      <p className="text-sm text-muted-foreground">{company.tradingName}</p>
                     )}
                   </div>
                 </div>

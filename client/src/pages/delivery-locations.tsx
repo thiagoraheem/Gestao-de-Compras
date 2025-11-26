@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Edit, Trash2, MapPin, Phone, Mail, User, FileText, CheckCircle } from "lucide-react";
@@ -169,44 +170,35 @@ export default function DeliveryLocationsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-6 bg-background">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Locais de Entrega</h1>
-            <p className="text-gray-600">Gerencie os locais de entrega do sistema</p>
+            <h1 className="text-2xl font-bold text-foreground">Locais de Entrega</h1>
+            <p className="text-muted-foreground">Gerencie os locais de entrega do sistema</p>
           </div>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <div className="flex">
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">
-                Erro ao carregar locais de entrega
-              </h3>
-              <div className="mt-2 text-sm text-red-700">
-                <p>
-                  {error instanceof Error ? error.message : "Você não tem permissão para acessar esta funcionalidade. Apenas administradores podem gerenciar locais de entrega."}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            <strong>Erro ao carregar locais de entrega:</strong> {error instanceof Error ? error.message : "Você não tem permissão para acessar esta funcionalidade. Apenas administradores podem gerenciar locais de entrega."}
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-background">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Locais de Entrega</h1>
-          <p className="text-gray-600">Gerencie os locais de entrega do sistema</p>
+          <h1 className="text-2xl font-bold text-foreground">Locais de Entrega</h1>
+          <p className="text-muted-foreground">Gerencie os locais de entrega do sistema</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center space-x-2">
@@ -301,58 +293,58 @@ export default function DeliveryLocationsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {deliveryLocations && deliveryLocations.length === 0 ? (
           <div className="col-span-full text-center py-8">
-            <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">Nenhum local de entrega cadastrado</p>
+            <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Nenhum local de entrega cadastrado</p>
           </div>
         ) : (
           deliveryLocations?.map((location: DeliveryLocation) => (
-            <Card key={location.id} className="relative">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <CardTitle className="text-lg">{location.name}</CardTitle>
-                    </div>
-                  </div>
-                  <Badge variant={location.active ? "default" : "secondary"}>
-                    {location.active ? "Ativo" : "Inativo"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
+          <Card key={location.id} className="relative">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                    <MapPin className="h-5 w-5 text-primary" />
                   <div>
-                    <span className="font-medium">Endereço:</span> {location.address}
+                    <CardTitle className="text-lg">{location.name}</CardTitle>
                   </div>
-                  {location.contactPerson && (
-                    <div className="flex items-center space-x-1">
-                      <User className="h-3 w-3" />
-                      <span className="font-medium">Contato:</span> {location.contactPerson}
-                    </div>
-                  )}
-                  {location.phone && (
-                    <div className="flex items-center space-x-1">
-                      <Phone className="h-3 w-3" />
-                      <span className="font-medium">Telefone:</span> {location.phone}
-                    </div>
-                  )}
-                  {location.email && (
-                    <div className="flex items-center space-x-1">
-                      <Mail className="h-3 w-3" />
-                      <span className="font-medium">Email:</span> {location.email}
-                    </div>
-                  )}
-                  {location.observations && (
-                    <div className="flex items-start space-x-1">
-                      <FileText className="h-3 w-3 mt-0.5" />
-                      <div>
-                        <span className="font-medium">Observações:</span>
-                        <p className="text-gray-600 mt-1">{location.observations}</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
+                <Badge variant={location.active ? "default" : "secondary"}>
+                  {location.active ? "Ativo" : "Inativo"}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-medium">Endereço:</span> {location.address}
+                </div>
+                {location.contactPerson && (
+                  <div className="flex items-center space-x-1">
+                    <User className="h-3 w-3" />
+                    <span className="font-medium">Contato:</span> {location.contactPerson}
+                  </div>
+                )}
+                {location.phone && (
+                  <div className="flex items-center space-x-1">
+                    <Phone className="h-3 w-3" />
+                    <span className="font-medium">Telefone:</span> {location.phone}
+                  </div>
+                )}
+                {location.email && (
+                  <div className="flex items-center space-x-1">
+                    <Mail className="h-3 w-3" />
+                    <span className="font-medium">Email:</span> {location.email}
+                  </div>
+                )}
+                {location.observations && (
+                  <div className="flex items-start space-x-1">
+                    <FileText className="h-3 w-3 mt-0.5" />
+                    <div>
+                      <span className="font-medium">Observações:</span>
+                      <p className="text-muted-foreground mt-1">{location.observations}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
                 <div className="flex space-x-2 mt-4">
                   <Button
                     variant="outline"
