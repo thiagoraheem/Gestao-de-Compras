@@ -9,3 +9,4 @@ vite.config.ts.*
 /.idea/vcs.xml
 .env
 .env.backup
+.env.production
