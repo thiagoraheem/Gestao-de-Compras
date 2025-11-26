@@ -6118,41 +6118,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter((item) => item.totalValue > 0)
         .sort((a, b) => b.totalValue - a.totalValue);
 
-      // Calculate Value Saved (Valor Economizado)
       let valueSaved = 0;
       try {
-        // Get all quotations for requests with chosen suppliers
         const quotations = await storage.getAllQuotations();
         for (const quotation of quotations) {
           const relatedRequest = filteredRequests.find(
             (req) => req.id === quotation.purchaseRequestId,
           );
-          if (relatedRequest && relatedRequest.chosenSupplierId) {
-            const supplierQuotations = await storage.getSupplierQuotations(
-              quotation.id,
-            );
-            const chosenSupplierQuotation = supplierQuotations.find(
-              (sq) =>
-                sq.isChosen &&
-                sq.supplierId === relatedRequest.chosenSupplierId,
-            );
-
-            if (chosenSupplierQuotation) {
-              // Use the same logic as the report: prioritize subtotal_value for originalValue
-              const originalValue = chosenSupplierQuotation.subtotalValue 
-                ? Number(chosenSupplierQuotation.subtotalValue)
-                : Number(chosenSupplierQuotation.totalValue);
-              
-              const finalValue = chosenSupplierQuotation.finalValue 
-                ? Number(chosenSupplierQuotation.finalValue)
-                : Number(chosenSupplierQuotation.totalValue);
-              
-              // Only add to savings if we have valid values and there's actually a discount
-              if (originalValue && finalValue && originalValue > finalValue) {
-                valueSaved += originalValue - finalValue;
+          if (!relatedRequest || !relatedRequest.chosenSupplierId) continue;
+          const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+          const chosenSupplierQuotation = supplierQuotations.find(
+            (sq) => sq.isChosen && sq.supplierId === relatedRequest.chosenSupplierId,
+          );
+          if (!chosenSupplierQuotation) continue;
+          let itemsOriginalSum = 0;
+          let itemsDiscountedSum = 0;
+          try {
+            const items = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
+            for (const it of items || []) {
+              const orig = Number((it as any).originalTotalPrice ?? (it as any).totalPrice ?? 0) || 0;
+              const discCand = Number((it as any).discountedTotalPrice ?? (it as any).totalPrice ?? 0) || 0;
+              const pct = Number((it as any).discountPercentage ?? 0) || 0;
+              const fixed = Number((it as any).discountValue ?? 0) || 0;
+              let discTotal = discCand;
+              if ((it as any).discountedTotalPrice == null && (pct > 0 || fixed > 0)) {
+                const pctValue = pct > 0 ? (orig * pct) / 100 : 0;
+                const totalDisc = Math.max(0, pctValue + fixed);
+                discTotal = Math.max(0, orig - totalDisc);
               }
+              itemsOriginalSum += orig;
+              itemsDiscountedSum += Math.min(orig, Math.max(0, discTotal));
+            }
+          } catch {}
+          const subtotalAfterItems = itemsDiscountedSum > 0
+            ? itemsDiscountedSum
+            : (chosenSupplierQuotation.subtotalValue ? Number(chosenSupplierQuotation.subtotalValue) : 0);
+          let proposalDiscount = 0;
+          const type = String(chosenSupplierQuotation.discountType || 'none');
+          const value = Number(chosenSupplierQuotation.discountValue || 0) || 0;
+          if (subtotalAfterItems > 0) {
+            if (type === 'percentage' && value > 0) {
+              proposalDiscount = (subtotalAfterItems * value) / 100;
+            } else if (type === 'fixed' && value > 0) {
+              proposalDiscount = value;
+            } else if (chosenSupplierQuotation.finalValue && chosenSupplierQuotation.subtotalValue) {
+              const sub = Number(chosenSupplierQuotation.subtotalValue) || 0;
+              const fin = Number(chosenSupplierQuotation.finalValue) || 0;
+              proposalDiscount = Math.max(0, sub - fin);
             }
           }
+          const finalValue = chosenSupplierQuotation.finalValue
+            ? Number(chosenSupplierQuotation.finalValue) || 0
+            : Math.max(0, subtotalAfterItems - proposalDiscount);
+          const computedOriginal = itemsOriginalSum > 0
+            ? itemsOriginalSum
+            : Math.max(0, subtotalAfterItems + proposalDiscount);
+          const savings = Math.max(0, computedOriginal - finalValue);
+          valueSaved += savings;
         }
       } catch (error) {
         console.error("Error calculating value saved:", error);

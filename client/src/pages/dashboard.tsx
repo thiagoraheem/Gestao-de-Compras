@@ -23,13 +23,13 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   LineChart,
   Line,
   PieChart,
   Pie,
   Cell,
 } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import {
   TrendingUp,
   DollarSign,
@@ -199,15 +199,15 @@ export default function Dashboard() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Dashboard Executivo
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Visão gerencial completa do processo de compras
-            </p>
-          </div>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">
+            Dashboard Executivo
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Visão gerencial completa do processo de compras
+          </p>
+        </div>
           <div className="flex flex-col sm:flex-row items-end sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
             <Button onClick={() => refetch()} variant="outline" size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -345,7 +345,7 @@ export default function Dashboard() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {formatCurrency(dashboardData?.valueSaved || 0)}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -466,15 +466,23 @@ export default function Dashboard() {
                   <CardTitle>Solicitações por Departamento</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ChartContainer
+                    config={{
+                      value: {
+                        label: "Solicitações",
+                        theme: { light: "#0088FE", dark: "#4EA0FF" },
+                      },
+                    }}
+                    className="h-[300px]"
+                  >
                     <BarChart data={dashboardData?.requestsByDepartment || []}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#0088FE" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="value" fill="var(--color-value)" />
                     </BarChart>
-                  </ResponsiveContainer>
+                  </ChartContainer>
                 </CardContent>
               </Card>
 
@@ -483,7 +491,12 @@ export default function Dashboard() {
                   <CardTitle>Distribuição por Urgência</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ChartContainer
+                    config={{
+                      urgente: { theme: { light: "#FF8042", dark: "#FF9C66" } },
+                    }}
+                    className="h-[300px]"
+                  >
                     <PieChart>
                       <Pie
                         data={dashboardData?.urgencyDistribution || []}
@@ -494,7 +507,6 @@ export default function Dashboard() {
                           `${name} ${(percent * 100).toFixed(0)}%`
                         }
                         outerRadius={80}
-                        fill="#8884d8"
                         dataKey="value"
                       >
                         {(dashboardData?.urgencyDistribution || []).map(
@@ -506,9 +518,9 @@ export default function Dashboard() {
                           ),
                         )}
                       </Pie>
-                      <Tooltip />
+                      <ChartTooltip content={<ChartTooltipContent />} />
                     </PieChart>
-                  </ResponsiveContainer>
+                  </ChartContainer>
                 </CardContent>
               </Card>
             </div>
@@ -521,20 +533,28 @@ export default function Dashboard() {
                   <CardTitle>Evolução Temporal (6 meses)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ChartContainer
+                    config={{
+                      requests: {
+                        label: "Solicitações",
+                        theme: { light: "#0088FE", dark: "#4EA0FF" },
+                      },
+                    }}
+                    className="h-[300px]"
+                  >
                     <LineChart data={dashboardData?.monthlyTrend || []}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis />
-                      <Tooltip />
+                      <ChartTooltip content={<ChartTooltipContent />} />
                       <Line
                         type="monotone"
                         dataKey="requests"
-                        stroke="#0088FE"
+                        stroke="var(--color-requests)"
                         strokeWidth={2}
                       />
                     </LineChart>
-                  </ResponsiveContainer>
+                  </ChartContainer>
                 </CardContent>
               </Card>
 
@@ -543,7 +563,15 @@ export default function Dashboard() {
                   <CardTitle>Funil de Conversão por Fase</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ChartContainer
+                    config={{
+                      value: {
+                        label: "Qtde",
+                        theme: { light: "#00C49F", dark: "#22C55E" },
+                      },
+                    }}
+                    className="h-[300px]"
+                  >
                     <BarChart
                       data={dashboardData?.phaseConversion || []}
                       layout="horizontal"
@@ -551,10 +579,10 @@ export default function Dashboard() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis type="number" />
                       <YAxis dataKey="name" type="category" width={100} />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#00C49F" />
+                      <ChartTooltip content={<></>} />
+                      <Bar dataKey="value" fill="var(--color-value)" />
                     </BarChart>
-                  </ResponsiveContainer>
+                  </ChartContainer>
                 </CardContent>
               </Card>
             </div>

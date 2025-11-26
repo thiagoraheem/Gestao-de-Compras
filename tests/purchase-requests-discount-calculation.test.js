@@ -78,7 +78,7 @@ test('descontos combinados (item + proposta fixa)', () => {
   expect(r.itemDiscountTotal).toBe(15);
   expect(r.proposalDiscount).toBe(10);
   expect(r.discount).toBe(25);
-  expect(r.finalValue).toBe(170);
+  expect(r.finalValue).toBe(175);
 });
 
 test('fallback por percentual/valor quando discounted_total_price ausente', () => {
@@ -103,4 +103,3 @@ test('usa final/subtotal da proposta quando presentes', () => {
   expect(r.discount).toBe(10);
   expect(r.finalValue).toBe(90);
 });
-
