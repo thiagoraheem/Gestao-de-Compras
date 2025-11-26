@@ -285,7 +285,7 @@ export default function SuppliersPage() {
 
   return (
     <AdminOrBuyerRoute>
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6 bg-background">
         <SupplierIntegrationPanel
           onRefreshSuppliers={() =>
             queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] })
@@ -332,7 +332,7 @@ export default function SuppliersPage() {
             {/* Barra de busca acima do grid */}
             <div className="mb-4 flex items-center">
               <div className="relative w-full sm:w-1/2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -367,7 +367,7 @@ export default function SuppliersPage() {
                   <TableHead className="min-w-[220px]">Email</TableHead>
                   <TableHead className="min-w-[140px]">Telefone</TableHead>
                   <TableHead className="min-w-[200px]">Website</TableHead>
-                  <TableHead className="sticky right-0 bg-white z-10 border-l min-w-[80px]">Ações</TableHead>
+                  <TableHead className="sticky right-0 bg-background z-10 border-l min-w-[80px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -388,8 +388,8 @@ export default function SuppliersPage() {
                                 checked={supplier.idSupplierERP != null}
                                 disabled
                                 className={supplier.idSupplierERP != null
-                                  ? "border-green-600 data-[state=checked]:bg-green-600 data-[state=checked]:text-white"
-                                  : "border-gray-400"}
+                                  ? "border-green-600 dark:border-green-400 data-[state=checked]:bg-green-600 dark:data-[state=checked]:bg-green-400 data-[state=checked]:text-white"
+                                  : ""}
                                 aria-label={supplier.idSupplierERP != null ? "Integrado com ERP" : "Não integrado com ERP"}
                               />
                             </div>
@@ -425,7 +425,7 @@ export default function SuppliersPage() {
                             href={supplier.website} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 underline"
+                            className="text-primary hover:text-primary underline"
                           >
                             {supplier.website}
                           </a>
@@ -433,7 +433,7 @@ export default function SuppliersPage() {
                           "Não informado"
                         )}
                       </TableCell>
-                      <TableCell className="sticky right-0 bg-white z-10 border-l">
+                      <TableCell className="sticky right-0 bg-background z-10 border-l">
                         <Button
                           variant="ghost"
                           size="sm"
