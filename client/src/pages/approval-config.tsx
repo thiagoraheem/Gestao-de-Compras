@@ -124,13 +124,13 @@ export default function ApprovalConfigPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
+    <div className="container mx-auto py-8 space-y-6 bg-background">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Settings className="h-8 w-8 text-blue-600" />
+          <Settings className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Configuração de Aprovação</h1>
-            <p className="text-gray-600">Gerenciar limites de valor para aprovação A2</p>
+            <h1 className="text-3xl font-bold text-foreground">Configuração de Aprovação</h1>
+            <p className="text-muted-foreground">Gerenciar limites de valor para aprovação A2</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -171,30 +171,30 @@ export default function ApprovalConfigPage() {
             <div className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Valor Limite</label>
-                  <p className="text-2xl font-bold text-green-600">
+                  <label className="text-sm font-medium text-muted-foreground">Valor Limite</label>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {formatCurrency(parseFloat(currentConfig.valueThreshold))}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Status</label>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge variant={currentConfig.isActive ? "default" : "secondary"}>
                       {currentConfig.isActive ? "Ativa" : "Inativa"}
                     </Badge>
                     {currentConfig.isActive && (
-                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                     )}
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-600">Justificativa</label>
-                <p className="text-gray-800 mt-1">{currentConfig.reason}</p>
+                <label className="text-sm font-medium text-muted-foreground">Justificativa</label>
+                <p className="text-foreground mt-1">{currentConfig.reason}</p>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-600">
+              <div className="grid md:grid-cols-2 gap-4 text-sm text-muted-foreground">
                 <div>
                   <span className="font-medium">Criado por:</span>{" "}
                   {currentConfig.creator 
@@ -216,9 +216,9 @@ export default function ApprovalConfigPage() {
                 <AlertDescription>
                   <strong>Regra atual:</strong> Solicitações com valor{" "}
                   <strong>até {formatCurrency(parseFloat(currentConfig.valueThreshold))}</strong>{" "}
-                  requerem <span className="text-green-600 font-medium">aprovação simples</span>.
+                  requerem <span className="text-green-600 dark:text-green-400 font-medium">aprovação simples</span>.
                   Valores <strong>acima</strong> requerem{" "}
-                  <span className="text-orange-600 font-medium">dupla aprovação</span> (Diretor + CEO).
+                  <span className="text-orange-600 dark:text-orange-400 font-medium">dupla aprovação</span> (Diretor + CEO).
                 </AlertDescription>
               </Alert>
             </div>
@@ -260,7 +260,7 @@ export default function ApprovalConfigPage() {
                       />
                     </FormControl>
                     <FormMessage />
-                    <p className="text-xs text-gray-600">
+                    <p className="text-xs text-muted-foreground">
                       Solicitações acima deste valor requerão dupla aprovação
                     </p>
                   </FormItem>

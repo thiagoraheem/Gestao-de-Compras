@@ -167,19 +167,19 @@ export default function AdminSuperUserPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6" data-testid="admin-super-user-page">
+    <div className="container mx-auto p-6 space-y-6 min-h-screen overflow-y-auto bg-background" data-testid="admin-super-user-page">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900" data-testid="page-title">
+          <h1 className="text-3xl font-bold text-foreground" data-testid="page-title">
             Super Usuário - Edição de Solicitações
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-muted-foreground mt-2">
             Ferramenta administrativa para edição completa de solicitações de compra
           </p>
         </div>
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-amber-500" />
-          <span className="text-sm text-amber-600 font-medium">Acesso Restrito</span>
+          <span className="text-sm text-amber-600 dark:text-amber-400 font-medium">Acesso Restrito</span>
         </div>
       </div>
 

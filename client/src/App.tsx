@@ -50,7 +50,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           <NotificationsPermission />
         </div>
       </div>
-      <main className="pt-16 min-h-[100svh] md:h-[100vh] md:overflow-y-hidden">
+      <main className="pt-16 min-h-[100svh] md:min-h-[100vh] md:overflow-y-auto">
         {children}
       </main>
       <FloatingNewRequestButton />
