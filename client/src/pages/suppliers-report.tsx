@@ -103,11 +103,12 @@ export default function SuppliersReportPage() {
   }, [report]);
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Relatório de Fornecedores</h1>
-          <p className="text-gray-600 mt-1">Selecione um fornecedor para visualizar seu desempenho nas cotações</p>
+          <h1 className="text-3xl font-bold text-foreground">Relatório de Fornecedores</h1>
+          <p className="text-muted-foreground mt-1">Selecione um fornecedor para visualizar seu desempenho nas cotações</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => refetch()} variant="outline" size="sm" disabled={selectedSupplierId === "none"}>
@@ -199,47 +200,47 @@ export default function SuppliersReportPage() {
                 </div>
               ) : report ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="rounded-lg border p-4">
-                    <p className="text-sm text-gray-500">Cotações Enviadas</p>
+                  <div className="bg-card rounded-lg border border-border p-4">
+                    <p className="text-sm text-muted-foreground">Cotações Enviadas</p>
                     <p className="text-2xl font-semibold">{report.metrics.totalSent}</p>
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <p className="text-sm text-gray-500">Cotações Respondidas</p>
+                  <div className="bg-card rounded-lg border border-border p-4">
+                    <p className="text-sm text-muted-foreground">Cotações Respondidas</p>
                     <p className="text-2xl font-semibold">{report.metrics.responded}</p>
-                    <p className="text-xs text-gray-500">Taxa: {toPercent(report.metrics.responseRate)}</p>
+                    <p className="text-xs text-muted-foreground">Taxa: {toPercent(report.metrics.responseRate)}</p>
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <p className="text-sm text-gray-500">Vitórias</p>
+                  <div className="bg-card rounded-lg border border-border p-4">
+                    <p className="text-sm text-muted-foreground">Vitórias</p>
                     <p className="text-2xl font-semibold">{report.metrics.wins}</p>
-                    <p className="text-xs text-gray-500">Taxa: {toPercent(report.metrics.winRate)}</p>
+                    <p className="text-xs text-muted-foreground">Taxa: {toPercent(report.metrics.winRate)}</p>
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <p className="text-sm text-gray-500 flex items-center gap-2"><Clock className="w-4 h-4" />Tempo Médio de Resposta</p>
+                  <div className="bg-card rounded-lg border border-border p-4">
+                    <p className="text-sm text-muted-foreground flex items-center gap-2"><Clock className="w-4 h-4" />Tempo Médio de Resposta</p>
                     <p className="text-2xl font-semibold">{report.metrics.avgResponseTimeHours ? `${report.metrics.avgResponseTimeHours.toFixed(1)} h` : "N/A"}</p>
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <p className="text-sm text-gray-500 flex items-center gap-2"><DollarSign className="w-4 h-4" />Valor Total Cotado</p>
+                  <div className="bg-card rounded-lg border border-border p-4">
+                    <p className="text-sm text-muted-foreground flex items-center gap-2"><DollarSign className="w-4 h-4" />Valor Total Cotado</p>
                     <p className="text-2xl font-semibold">{formatCurrency(report.metrics.totalQuotedValue)}</p>
-                    <p className="text-xs text-gray-500">Ticket médio: {formatCurrency(report.metrics.averageTicket)}</p>
+                    <p className="text-xs text-muted-foreground">Ticket médio: {formatCurrency(report.metrics.averageTicket)}</p>
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <p className="text-sm text-gray-500 flex items-center gap-2"><Percent className="w-4 h-4" />Desconto Médio</p>
+                  <div className="bg-card rounded-lg border border-border p-4">
+                    <p className="text-sm text-muted-foreground flex items-center gap-2"><Percent className="w-4 h-4" />Desconto Médio</p>
                     <p className="text-2xl font-semibold">{toPercent(report.metrics.averageDiscountRate)}</p>
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <p className="text-sm text-gray-500">Disponibilidade dos Itens</p>
+                  <div className="bg-card rounded-lg border border-border p-4">
+                    <p className="text-sm text-muted-foreground">Disponibilidade dos Itens</p>
                     <p className="text-2xl font-semibold">{toPercent(report.metrics.availabilityRate)}</p>
-                    <p className="text-xs text-gray-500">Prazo médio: {report.metrics.averageDeliveryDays ? `${report.metrics.averageDeliveryDays.toFixed(0)} dias` : "N/A"}</p>
+                    <p className="text-xs text-muted-foreground">Prazo médio: {report.metrics.averageDeliveryDays ? `${report.metrics.averageDeliveryDays.toFixed(0)} dias` : "N/A"}</p>
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <p className="text-sm text-gray-500 flex items-center gap-2"><CheckCircle className="w-4 h-4" />Índice Recomendido</p>
+                  <div className="bg-card rounded-lg border border-border p-4">
+                    <p className="text-sm text-muted-foreground flex items-center gap-2"><CheckCircle className="w-4 h-4" />Índice Recomendido</p>
                     <div className="flex items-center gap-3">
                       <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">{report.metrics.recommendationIndex}</Badge>
                       <span className="text-2xl font-semibold">{Math.round(report.metrics.score)}</span>
                     </div>
                   </div>
-                  <div className="rounded-lg border p-4 col-span-1 md:col-span-2 lg:col-span-3">
-                    <p className="text-sm text-gray-500 mb-2">Atividade Mensal</p>
+                  <div className="bg-card rounded-lg border border-border p-4 col-span-1 md:col-span-2 lg:col-span-3">
+                    <p className="text-sm text-muted-foreground mb-2">Atividade Mensal</p>
                     <ChartContainer
                       config={{ activity: { label: "Cotações" } }}
                       className="w-full h-64"
@@ -256,7 +257,7 @@ export default function SuppliersReportPage() {
                   </div>
                 </div>
               ) : (
-                <div className="text-sm text-gray-500">Selecione um fornecedor para visualizar os indicadores</div>
+                <div className="text-sm text-muted-foreground">Selecione um fornecedor para visualizar os indicadores</div>
               )}
             </CardContent>
           </Card>
@@ -310,10 +311,10 @@ export default function SuppliersReportPage() {
                             </TableCell>
                             <TableCell>{formatCurrency(q.adjustedTotal)}</TableCell>
                             <TableCell>
-                              <Badge className={q.isChosen ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300'}>
-                                {q.isChosen ? 'Sim' : 'Não'}
-                              </Badge>
-                            </TableCell>
+                            <Badge className={q.isChosen ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' : 'bg-muted text-muted-foreground'}>
+                              {q.isChosen ? 'Sim' : 'Não'}
+                            </Badge>
+                          </TableCell>
                             <TableCell>{discountRate !== null ? toPercent(discountRate) : '—'}</TableCell>
                           </TableRow>
                         );
@@ -322,12 +323,13 @@ export default function SuppliersReportPage() {
                   </Table>
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">Nenhuma cotação encontrada para este fornecedor.</div>
+                <div className="text-center py-8 text-muted-foreground">Nenhuma cotação encontrada para este fornecedor.</div>
               )}
             </CardContent>
           </Card>
         </>
       )}
+    </div>
     </div>
   );
 }
