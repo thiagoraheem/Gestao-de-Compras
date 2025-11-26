@@ -167,6 +167,7 @@ export default function AdminSuperUserPage() {
   };
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="container mx-auto p-6 space-y-6 min-h-screen overflow-y-auto bg-background" data-testid="admin-super-user-page">
       <div className="flex items-center justify-between">
         <div>
@@ -496,6 +497,7 @@ export default function AdminSuperUserPage() {
           </CardContent>
         </Card>
       )}
+    </div>
     </div>
   );
 }
