@@ -201,12 +201,17 @@ export default function UpdateSupplierQuotation({
   supplierName,
   onSuccess,
 }: UpdateSupplierQuotationProps) {
+  const [internalOpen, setInternalOpen] = useState<boolean>(isOpen);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [viewMode, setViewMode] = useState<'edit' | 'view'>('edit');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    setInternalOpen(isOpen);
+  }, [isOpen]);
 
   // Fetch quotation items
   const { data: quotationItems = [], isLoading: isLoadingItems } = useQuery<
@@ -223,6 +228,10 @@ export default function UpdateSupplierQuotation({
         `/api/quotations/${quotationId}/supplier-quotations/${supplierId}`,
       ],
       enabled: !!quotationId && !!supplierId && isOpen,
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchOnReconnect: true,
+      refetchOnWindowFocus: false,
     });
 
   // Fetch existing attachments
@@ -554,13 +563,17 @@ export default function UpdateSupplierQuotation({
         }
         queryClient.setQueryData(detailKey, response);
       }
-      await queryClient.refetchQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-quotations`], type: "active" });
-      await queryClient.refetchQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-comparison`], type: "active" });
-
-      form.reset();
-      setSelectedFiles([]);
-      onClose();
-      onSuccess?.();
+      try {
+        setInternalOpen(false);
+        await queryClient.refetchQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-quotations`], type: "active" });
+        await queryClient.refetchQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-quotations/${supplierId}`], type: "active" });
+        await queryClient.refetchQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-comparison`], type: "active" });
+      } finally {
+        form.reset();
+        setSelectedFiles([]);
+        onClose();
+        onSuccess?.();
+      }
     },
     onError: (error: any, _variables, context: any) => {
       if (context?.previousList) {
@@ -706,29 +719,28 @@ export default function UpdateSupplierQuotation({
     });
   };
 
-  const parseNumberFromCurrency = (value: string) => {
-    if (!value) return 0;
+  const parseNumberFromCurrency = (value: unknown) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return isNaN(value) ? 0 : value;
+    const str = String(value);
+    if (!str) return 0;
 
     // Remove all non-numeric characters except comma and period
-    let cleanValue = value.replace(/[^\d.,]/g, "");
+    let cleanValue = str.replace(/[^\d.,]/g, "");
 
     // Handle Brazilian format (e.g., "2.500,00" or "1.000,50")
     if (cleanValue.includes(".") && cleanValue.includes(",")) {
-      // This is likely Brazilian format with thousands separator (.) and decimal (,)
-      // Remove the thousands separators (all dots except the last one before comma)
       const parts = cleanValue.split(",");
       if (parts.length === 2) {
-        // Remove all dots from the integer part
         const integerPart = parts[0].replace(/\./g, "");
         cleanValue = integerPart + "." + parts[1];
       }
     } else if (cleanValue.includes(",") && !cleanValue.includes(".")) {
-      // This is likely just decimal separator as comma (e.g., "1000,50")
       cleanValue = cleanValue.replace(",", ".");
     }
-    // If only contains dots or only numbers, assume it's already in correct format
 
-    return parseFloat(cleanValue) || 0;
+    const parsed = parseFloat(cleanValue);
+    return isNaN(parsed) ? 0 : parsed;
   };
 
   const calculateItemTotal = (item: any, index: number) => {
@@ -803,7 +815,7 @@ export default function UpdateSupplierQuotation({
 
   if (isLoadingItems) {
     return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={internalOpen} modal={false} onOpenChange={(open) => { setInternalOpen(open); if (!open) onClose(); }}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-center p-8">
             <div className="text-center">
@@ -817,7 +829,7 @@ export default function UpdateSupplierQuotation({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog open={internalOpen} modal={false} onOpenChange={(open) => { setInternalOpen(open); if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg">
         <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-border sticky top-0 z-30 px-6 py-3">
           <div className="flex items-center justify-between">

@@ -528,8 +528,10 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
             supplierId={selectedSupplierForUpdate.id}
             supplierName={selectedSupplierForUpdate.name}
             onSuccess={() => {
-              // Refresh supplier quotations data
-              // The component will automatically refetch due to query invalidation
+              const key1 = [`/api/quotations/${quotation.id}/supplier-quotations`];
+              const key2 = [`/api/quotations/${quotation.id}/items`];
+              queryClient.invalidateQueries({ queryKey: key1 });
+              queryClient.invalidateQueries({ queryKey: key2 });
             }}
           />
         )}
