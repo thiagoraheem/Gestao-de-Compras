@@ -597,7 +597,7 @@ export default function UpdateSupplierQuotation({
 
     return numberValue.toLocaleString("pt-BR", {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 4,
     });
   };
 
@@ -714,7 +714,7 @@ export default function UpdateSupplierQuotation({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg">
-        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-6 py-3">
+        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-border sticky top-0 z-30 px-6 py-3">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2 text-base font-semibold">
               {viewMode === 'view' ? (
@@ -741,13 +741,13 @@ export default function UpdateSupplierQuotation({
                 {existingSupplierQuotation.status === 'received' ? 'Recebida' : 'Pendente'}
               </Badge>
               {existingSupplierQuotation.receivedAt && (
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-muted-foreground">
                   Recebida em: {format(new Date(existingSupplierQuotation.receivedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                 </span>
               )}
               {existingSupplierQuotation.totalValue && (
                 <span className="text-sm font-semibold text-green-600">
-                  Total: R$ {parseFloat(existingSupplierQuotation.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  Total: R$ {parseFloat(existingSupplierQuotation.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                 </span>
               )}
             </div>
@@ -771,25 +771,25 @@ export default function UpdateSupplierQuotation({
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[180px]">Item</th>
-                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[120px]">Marca / Modelo</th>
-                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[100px]">Preço + Original</th>
-                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[60px]">Desc. %</th>
-                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[80px]">Desc. Valor</th>
-                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[60px]">Prazo (dias)</th>
-                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[110px]">Quantidade Disponível</th>
-                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[100px]">Disponibilidade</th>
-                        <th className="text-left p-2 text-xs font-medium text-gray-600 min-w-[90px]">Total Final</th>
+                      <tr className="border-b border-border">
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[180px]">Item</th>
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[120px]">Marca / Modelo</th>
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[100px]">Preço + Original</th>
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[60px]">Desc. %</th>
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[80px]">Desc. Valor</th>
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[60px]">Prazo (dias)</th>
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[110px]">Quantidade Disponível</th>
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[100px]">Disponibilidade</th>
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[90px]">Total Final</th>
                       </tr>
                     </thead>
                     <tbody>
                       {quotationItems.map((item, index) => (
-                        <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <tr key={item.id} className="border-b border-border hover:bg-muted/50 dark:hover:bg-slate-800">
                           <td className="p-2 align-top">
                             <div className="space-y-1">
                               <div className="font-medium text-xs break-words">{item.description}</div>
-                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Badge variant="secondary" className="text-xs px-1 py-0">
                                   Solicitado: {parseFloat(item.quantity).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} {item.unit}
                                 </Badge>
@@ -814,7 +814,7 @@ export default function UpdateSupplierQuotation({
                                 })()}
                               </div>
                               {item.specifications && (
-                                <div className="text-xs text-gray-500 italic bg-gray-50 p-1 rounded">
+                                <div className="text-xs text-muted-foreground italic bg-muted p-1 rounded">
                                   {item.specifications}
                                 </div>
                               )}
@@ -915,11 +915,11 @@ export default function UpdateSupplierQuotation({
                                               number = parseFloat(cleanValue.replace(",", "."));
                                             }
                                             if (!isNaN(number)) {
-                                              const formatted = number.toLocaleString("pt-BR", {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                              });
-                                              field.onChange(formatted);
+                                            const formatted = number.toLocaleString("pt-BR", {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 4,
+                                            });
+                                            field.onChange(formatted);
                                             }
                                           }
                                         }}
@@ -929,7 +929,7 @@ export default function UpdateSupplierQuotation({
                                   </FormItem>
                                 )}
                               />
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-muted-foreground">
                                 Original: R$ {(() => {
                                   const unitPrice = form.watch(`items.${index}.unitPrice`);
                                   if (!unitPrice) return "0,00";
@@ -938,7 +938,7 @@ export default function UpdateSupplierQuotation({
                                   const total = quantity * price;
                                   return isNaN(total) ? "0,00" : total.toLocaleString("pt-BR", {
                                     minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
+                                    maximumFractionDigits: 4,
                                   });
                                 })()}
                               </div>
@@ -1017,7 +1017,7 @@ export default function UpdateSupplierQuotation({
                                           if (!isNaN(number)) {
                                             const formatted = number.toLocaleString("pt-BR", {
                                               minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
+                                              maximumFractionDigits: 4,
                                             });
                                             field.onChange(formatted);
                                           }
@@ -1128,7 +1128,7 @@ export default function UpdateSupplierQuotation({
                                         {fulfillmentPercentage.toFixed(1)}%
                                       </Badge>
                                       {fulfillmentPercentage !== 100 && (
-                                        <span className="text-xs text-gray-500">
+                                        <span className="text-xs text-muted-foreground">
                                           ({available.toLocaleString('pt-BR')} de {requestedQty.toLocaleString('pt-BR')})
                                         </span>
                                       )}
@@ -1228,7 +1228,7 @@ export default function UpdateSupplierQuotation({
                                 const finalTotal = calculateItemTotal(watchedItem, index);
                                 return isNaN(finalTotal) ? "0,00" : finalTotal.toLocaleString("pt-BR", {
                                   minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
+                                  maximumFractionDigits: 4,
                                 });
                               })()}
                             </div>
@@ -1251,7 +1251,7 @@ export default function UpdateSupplierQuotation({
                         }, 0);
                         return total.toLocaleString("pt-BR", {
                           minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
+                          maximumFractionDigits: 4,
                         });
                       })()}
                     </div>
@@ -1350,7 +1350,7 @@ export default function UpdateSupplierQuotation({
                                     if (!isNaN(number)) {
                                       const formatted = number.toLocaleString("pt-BR", {
                                         minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
+                                        maximumFractionDigits: 4,
                                       });
                                       field.onChange(formatted);
                                     }
@@ -1449,11 +1449,11 @@ export default function UpdateSupplierQuotation({
                       <div className="flex flex-col justify-end">
                         <div className="text-right space-y-1">
                           <div>
-                            <p className="text-sm text-gray-600">Subtotal</p>
+                            <p className="text-sm text-muted-foreground">Subtotal</p>
                             <p className="text-lg font-semibold">
                               R$ {calculateSubtotal().toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
+                                maximumFractionDigits: 4,
                               })}
                             </p>
                           </div>
@@ -1480,7 +1480,7 @@ export default function UpdateSupplierQuotation({
                                   
                                   return discountAmount.toLocaleString("pt-BR", {
                                     minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
+                                    maximumFractionDigits: 4,
                                   });
                                 })()}
                               </p>
@@ -1496,7 +1496,7 @@ export default function UpdateSupplierQuotation({
                                   const freightAmount = parseNumberFromCurrency(freightValue);
                                   return freightAmount.toLocaleString("pt-BR", {
                                     minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
+                                    maximumFractionDigits: 4,
                                   });
                                 })()}
                               </p>
@@ -1507,7 +1507,7 @@ export default function UpdateSupplierQuotation({
                     </div>
                     <div className="flex justify-end">
                       <div className="text-right">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           Valor Total da Proposta
                         </p>
                         <p className="text-2xl font-bold text-green-600 flex items-center gap-2">
@@ -1515,7 +1515,7 @@ export default function UpdateSupplierQuotation({
                           R${" "}
                           {calculateTotalValue().toLocaleString("pt-BR", {
                             minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
+                            maximumFractionDigits: 4,
                           })}
                         </p>
                       </div>
@@ -1699,12 +1699,12 @@ export default function UpdateSupplierQuotation({
                       <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
                         <div className="text-center">
                           <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                          <p className="text-sm text-gray-600">
-                            Clique para selecionar arquivos ou arraste aqui
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            PDF, DOC, XLS, imagens até 10MB
-                          </p>
+                            <p className="text-sm text-muted-foreground">
+                              Clique para selecionar arquivos ou arraste aqui
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              PDF, DOC, XLS, imagens até 10MB
+                            </p>
                         </div>
                         <input
                           type="file"
@@ -1724,7 +1724,7 @@ export default function UpdateSupplierQuotation({
                         {selectedFiles.map((file, index) => (
                           <div
                             key={index}
-                            className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                          className="flex items-center justify-between p-2 bg-muted rounded"
                           >
                             <div className="flex items-center gap-2">
                               <FileText className="h-4 w-4 text-blue-500" />
@@ -1747,7 +1747,7 @@ export default function UpdateSupplierQuotation({
                     )}
 
                     {isUploading && (
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-muted rounded-full h-2">
                         <div
                           className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                           style={{ width: `${uploadProgress}%` }}

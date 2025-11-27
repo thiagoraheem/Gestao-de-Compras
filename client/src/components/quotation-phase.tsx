@@ -299,34 +299,34 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                   Itens Solicitados
                 </CardTitle>
               </CardHeader>
-              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
+              <CardContent className="border-t border-border p-4">
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="border-b bg-gray-50">
-                        <th className="text-left p-3 text-sm font-medium text-gray-700">Descrição</th>
-                        <th className="text-center p-3 text-sm font-medium text-gray-700 w-32">Quantidade</th>
-                        <th className="text-center p-3 text-sm font-medium text-gray-700 w-40">Prazo de Entrega</th>
+                      <tr className="border-b border-border bg-muted">
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Descrição</th>
+                        <th className="text-center p-3 text-sm font-medium text-muted-foreground w-32">Quantidade</th>
+                        <th className="text-center p-3 text-sm font-medium text-muted-foreground w-40">Prazo de Entrega</th>
                       </tr>
                     </thead>
                     <tbody>
                       {quotationItems.map((item, index) => (
-                        <tr key={item.id} className="border-b hover:bg-gray-50">
+                        <tr key={item.id} className="border-b border-border hover:bg-muted/50 dark:hover:bg-slate-800">
                           <td className="p-3">
                             <div>
-                              <p className="text-sm font-medium text-gray-900">{item.description}</p>
+                              <p className="text-sm font-medium text-foreground">{item.description}</p>
                               {item.itemCode && (
-                                <p className="text-xs text-gray-500 mt-1">Código: {item.itemCode}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Código: {item.itemCode}</p>
                               )}
                             </div>
                           </td>
                           <td className="p-3 text-center">
-                            <span className="text-sm font-semibold text-gray-900">
+                            <span className="text-sm font-semibold text-foreground">
                               {Math.round(Number(item.quantity))} {item.unit}
                             </span>
                           </td>
                           <td className="p-3 text-center">
-                            <span className="text-sm text-gray-700">
+                            <span className="text-sm text-muted-foreground">
                               {item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "dd/MM/yyyy", { locale: ptBR }) : 'Não informado'}
                             </span>
                           </td>
@@ -336,10 +336,10 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                   </table>
                   
                   {/* Summary */}
-                  <div className="mt-4 pt-3 border-t bg-gray-50 rounded-b-lg px-3 py-2">
+                  <div className="mt-4 pt-3 border-t border-border bg-muted rounded-b-lg px-3 py-2">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="font-medium text-gray-600">Total de itens:</span>
-                      <span className="font-semibold text-gray-900">{quotationItems.length} item(s)</span>
+                      <span className="font-medium text-muted-foreground">Total de itens:</span>
+                      <span className="font-semibold text-foreground">{quotationItems.length} item(s)</span>
                     </div>
                   </div>
                 </div>
@@ -354,17 +354,17 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                   Respostas dos Fornecedores
                 </CardTitle>
               </CardHeader>
-              <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
+              <CardContent className="border-t border-border p-4">
                 <div className="space-y-4">
                   {supplierQuotations.map((sq) => (
-                    <div key={sq.id} className="border rounded-lg p-4">
+                    <div key={sq.id} className="border border-border rounded-lg p-4">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
                         <div>
-                          <span className="text-sm font-medium text-gray-500">Fornecedor</span>
+                          <span className="text-sm font-medium text-muted-foreground">Fornecedor</span>
                           <p className="font-medium">{sq.supplier?.name || 'Fornecedor não definido'}</p>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-gray-500">Status</span>
+                          <span className="text-sm font-medium text-muted-foreground">Status</span>
                           <Badge variant={
                             sq.status === 'received' ? 'default' : 
                             sq.status === 'sent' ? 'secondary' : 
@@ -379,9 +379,9 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                           </Badge>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-gray-500">Valor Total</span>
+                          <span className="text-sm font-medium text-muted-foreground">Valor Total</span>
                           <p className="font-medium">
-                            {sq.totalValue ? `R$ ${parseFloat(sq.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'}
+                            {sq.totalValue ? `R$ ${parseFloat(sq.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}` : 'Não informado'}
                           </p>
                         </div>
                         <div className="flex justify-end space-x-1">
