@@ -349,7 +349,7 @@ export default function UpdateSupplierQuotation({
         const quantity = parseFloat(
           correspondingQuotationItem?.quantity || "0",
         );
-        const unitPrice = parseNumberFromCurrency(item.unitPrice);
+        const unitPrice = parseNumberFromCurrency(item.unitPrice || "0");
 
         return sum + quantity * unitPrice;
       }, 0);
@@ -359,7 +359,7 @@ export default function UpdateSupplierQuotation({
           (qi) => qi.id === item.quotationItemId,
         );
         const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
-        const unitPrice = parseNumberFromCurrency(item.unitPrice);
+        const unitPrice = parseNumberFromCurrency(item.unitPrice || "0");
         const originalTotalPrice = quantity * unitPrice;
 
         // Calculate discounted total price
@@ -371,7 +371,7 @@ export default function UpdateSupplierQuotation({
           discountPercentage = parseFloat(item.discountPercentage);
           discountedTotalPrice = originalTotalPrice * (1 - discountPercentage / 100);
         } else if (item.discountValue) {
-          discountValue = parseNumberFromCurrency(item.discountValue);
+          discountValue = parseNumberFromCurrency(item.discountValue || "0");
           discountedTotalPrice = Math.max(0, originalTotalPrice - discountValue);
         }
 
@@ -424,7 +424,93 @@ export default function UpdateSupplierQuotation({
         },
       );
     },
-    onSuccess: async () => {
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-quotations`] });
+      await queryClient.cancelQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-quotations/${supplierId}`] });
+
+      const previousList = queryClient.getQueryData<any[]>([`/api/quotations/${quotationId}/supplier-quotations`]);
+      const previousDetail = queryClient.getQueryData<any>([`/api/quotations/${quotationId}/supplier-quotations/${supplierId}`]);
+
+      const processedItems = (data.items || []).map((item) => {
+        const correspondingQuotationItem = quotationItems.find((qi) => qi.id === item.quotationItemId);
+        const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+        const unitPrice = parseNumberFromCurrency(item.unitPrice || "0");
+        const originalTotalPrice = quantity * unitPrice;
+        let discountedTotalPrice = originalTotalPrice;
+        let discountPercentage = null as number | null;
+        let discountValue = null as number | null;
+        if (item.discountPercentage) {
+          discountPercentage = parseFloat(item.discountPercentage);
+          discountedTotalPrice = originalTotalPrice * (1 - (discountPercentage || 0) / 100);
+        } else if (item.discountValue) {
+          discountValue = parseNumberFromCurrency(item.discountValue);
+          discountedTotalPrice = Math.max(0, originalTotalPrice - (discountValue || 0));
+        }
+        return {
+          quotationItemId: item.quotationItemId,
+          unitPrice,
+          deliveryDays: item.deliveryDays ? parseInt(item.deliveryDays) : null,
+          brand: item.brand || null,
+          model: item.model || null,
+          observations: item.observations || null,
+          discountPercentage,
+          discountValue,
+          originalTotalPrice,
+          discountedTotalPrice,
+          isAvailable: item.isAvailable,
+          unavailabilityReason: item.unavailabilityReason || null,
+          availableQuantity: item.availableQuantity ? parseFloat(item.availableQuantity) : null,
+          confirmedUnit: item.confirmedUnit || null,
+          quantityAdjustmentReason: item.quantityAdjustmentReason || null,
+        };
+      });
+      const subtotalValue = processedItems.reduce((sum, it) => sum + (it.discountedTotalPrice || 0), 0);
+      const discountType = data.discountType;
+      const discountValueInput = data.discountValue;
+      let finalValueCalc = subtotalValue;
+      if (discountType === "percentage" && discountValueInput) {
+        const d = parseFloat(discountValueInput) || 0;
+        finalValueCalc = subtotalValue * (1 - d / 100);
+      } else if (discountType === "fixed" && discountValueInput) {
+        const d = parseNumberFromCurrency(discountValueInput);
+        finalValueCalc = Math.max(0, subtotalValue - d);
+      }
+      if (data.includesFreight && data.freightValue) {
+        const f = parseNumberFromCurrency(data.freightValue);
+        finalValueCalc = finalValueCalc + f;
+      }
+
+      if (previousList && Array.isArray(previousList)) {
+        const nextList = previousList.map((sq: any) => {
+          if ((sq as any).supplierId === supplierId || (sq as any).id === supplierId) {
+            return { ...sq, totalValue: String(finalValueCalc) };
+          }
+          return sq;
+        });
+        queryClient.setQueryData([`/api/quotations/${quotationId}/supplier-quotations`], nextList);
+      }
+      if (previousDetail) {
+        const nextDetail = {
+          ...previousDetail,
+          items: processedItems,
+          subtotalValue: String(subtotalValue),
+          finalValue: String(finalValueCalc),
+          totalValue: String(finalValueCalc),
+          discountType: data.discountType,
+          discountValue: data.discountValue || null,
+          includesFreight: data.includesFreight,
+          freightValue: data.freightValue || null,
+          paymentTerms: data.paymentTerms || null,
+          deliveryTerms: data.deliveryTerms || null,
+          warrantyPeriod: data.warrantyPeriod || null,
+          observations: data.observations || null,
+        };
+        queryClient.setQueryData([`/api/quotations/${quotationId}/supplier-quotations/${supplierId}`], nextDetail);
+      }
+
+      return { previousList, previousDetail };
+    },
+    onSuccess: async (response) => {
       let uploadSuccess = true;
       
       // Upload files if any
@@ -453,25 +539,44 @@ export default function UpdateSupplierQuotation({
         });
       }
 
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({
-        queryKey: [`/api/quotations/${quotationId}/supplier-quotations`],
-      });
-      queryClient.invalidateQueries({
-        queryKey: [`/api/quotations/${quotationId}/supplier-comparison`],
-      });
+      if (response) {
+        const listKey = [`/api/quotations/${quotationId}/supplier-quotations`];
+        const detailKey = [`/api/quotations/${quotationId}/supplier-quotations/${supplierId}`];
+        const prevList = queryClient.getQueryData<any[]>(listKey);
+        if (prevList && Array.isArray(prevList)) {
+          const nextList = prevList.map((sq: any) => {
+            if ((sq as any).supplierId === supplierId || (sq as any).id === supplierId) {
+              return { ...sq, ...response, totalValue: response?.finalValue || response?.totalValue || sq.totalValue };
+            }
+            return sq;
+          });
+          queryClient.setQueryData(listKey, nextList);
+        }
+        queryClient.setQueryData(detailKey, response);
+      }
+      await queryClient.refetchQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-quotations`], type: "active" });
+      await queryClient.refetchQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-comparison`], type: "active" });
 
       form.reset();
       setSelectedFiles([]);
       onClose();
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: any, _variables, context: any) => {
+      if (context?.previousList) {
+        queryClient.setQueryData([`/api/quotations/${quotationId}/supplier-quotations`], context.previousList);
+      }
+      if (context?.previousDetail) {
+        queryClient.setQueryData([`/api/quotations/${quotationId}/supplier-quotations/${supplierId}`], context.previousDetail);
+      }
       toast({
         title: "Erro",
         description: error?.message || "Não foi possível atualizar a cotação.",
         variant: "destructive",
       });
+    },
+    onSettled: async () => {
+      await queryClient.refetchQueries({ queryKey: [`/api/quotations/${quotationId}/supplier-quotations`], type: "active" });
     },
   });
 
