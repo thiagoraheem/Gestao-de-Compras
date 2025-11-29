@@ -35,7 +35,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import RequestPhase from "./request-phase";
 import ApprovalA1Phase from "./approval-a1-phase";
 import ApprovalA2Phase from "./approval-a2-phase";
@@ -84,6 +84,7 @@ interface PurchaseCardProps {
   isDragging?: boolean;
   onCreateRFQ?: (request: any) => void;
   isSearchHighlighted?: boolean;
+  onOpenRequest?: (request: any, phase: PurchasePhase) => void;
 }
 
 export default function PurchaseCard({
@@ -92,6 +93,7 @@ export default function PurchaseCard({
   isDragging = false,
   onCreateRFQ,
   isSearchHighlighted = false,
+  onOpenRequest,
 }: PurchaseCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -101,6 +103,9 @@ export default function PurchaseCard({
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [initialA2Action, setInitialA2Action] = useState<'approve' | 'reject' | null>(null);
   const receiptRef = useRef<ReceiptPhaseHandle | null>(null);
+  const [preventCloseUntil, setPreventCloseUntil] = useState<number>(0);
+
+  
 
   // Get approval type for A2 phase
   const { data: approvalType } = useApprovalType(request.totalValue);
@@ -112,6 +117,10 @@ export default function PurchaseCard({
 
 
   const handleCardClick = () => {
+    if (onOpenRequest) {
+      onOpenRequest(request, phase);
+      return;
+    }
     setIsEditModalOpen(true);
   };
 
@@ -687,7 +696,7 @@ export default function PurchaseCard({
         style={style}
         {...attributes}
         data-request-id={request.id}
-        onClick={() => setIsEditModalOpen(true)}
+        onClick={handleCardClick}
         className={cn(
           "mb-2 cursor-pointer select-none rounded-lg shadow-sm border-border",
           isDragging && "opacity-50",
@@ -759,7 +768,7 @@ export default function PurchaseCard({
                   className="h-6 w-6 md:h-6 md:w-6 lg:h-5 lg:w-5"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsEditModalOpen(true);
+                    onOpenRequest ? onOpenRequest(request, phase) : setIsEditModalOpen(true);
                   }}
                 >
                   <Edit className="h-3 w-3" />
@@ -951,7 +960,7 @@ export default function PurchaseCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     if (request.hasQuotation) {
-                      setIsEditModalOpen(true);
+                      onOpenRequest ? onOpenRequest(request, phase) : setIsEditModalOpen(true);
                     } else {
                       onCreateRFQ(request);
                     }
@@ -1010,7 +1019,7 @@ export default function PurchaseCard({
                       onClick={(e) => {
                         e.stopPropagation();
                         setInitialA2Action('reject');
-                        setIsEditModalOpen(true);
+                        onOpenRequest ? onOpenRequest(request, phase) : setIsEditModalOpen(true);
                       }}
                       disabled={approveA2Mutation.isPending}
                     >
@@ -1021,7 +1030,7 @@ export default function PurchaseCard({
                       onClick={(e) => {
                         e.stopPropagation();
                         setInitialA2Action('approve');
-                        setIsEditModalOpen(true);
+                        onOpenRequest ? onOpenRequest(request, phase) : setIsEditModalOpen(true);
                       }}
                       disabled={approveA2Mutation.isPending}
                     >
@@ -1121,9 +1130,16 @@ export default function PurchaseCard({
         )
       }
       {
-        isEditModalOpen && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
-          <Dialog open={isEditModalOpen} onOpenChange={(open) => setIsEditModalOpen(open)}>
-            <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="purchase-order-phase-desc">
+        isEditModalOpen && !onOpenRequest && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
+          <Dialog open={isEditModalOpen} onOpenChange={(open) => { if (!open && Date.now() < preventCloseUntil) return; setIsEditModalOpen(open); try { if (open) { sessionStorage.setItem('kanban_modal_open_request', String(request.id)); } else { const v = sessionStorage.getItem('kanban_modal_open_request'); if (v === String(request.id)) sessionStorage.removeItem('kanban_modal_open_request'); } } catch {} }}>
+            <DialogContent 
+              className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" 
+              aria-describedby="purchase-order-phase-desc"
+              onInteractOutside={(e) => e.preventDefault()}
+              onEscapeKeyDown={(e) => e.preventDefault()}
+              onPointerDownOutside={(e) => e.preventDefault()}
+              onFocusOutside={(e) => e.preventDefault()}
+            >
               <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
                 <div className="flex justify-between items-center">
                   <DialogTitle className="text-base font-semibold flex items-center gap-2">
@@ -1150,6 +1166,7 @@ export default function PurchaseCard({
                 <PurchaseOrderPhase
                   request={request}
                   onClose={() => setIsEditModalOpen(false)}
+                  onPreviewOpen={() => setPreventCloseUntil(Date.now() + 120000)}
                 />
               </div>
             </DialogContent>
@@ -1158,15 +1175,22 @@ export default function PurchaseCard({
       }
 
       {
-        isEditModalOpen && phase === PURCHASE_PHASES.RECEBIMENTO && (
-          <Dialog open={isEditModalOpen} onOpenChange={(open) => setIsEditModalOpen(open)}>
-            <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="receipt-phase-desc">
+        isEditModalOpen && !onOpenRequest && phase === PURCHASE_PHASES.RECEBIMENTO && (
+          <Dialog open={isEditModalOpen} onOpenChange={(open) => { if (!open && Date.now() < preventCloseUntil) return; setIsEditModalOpen(open); try { if (open) { sessionStorage.setItem('kanban_modal_open_request', String(request.id)); } else { const v = sessionStorage.getItem('kanban_modal_open_request'); if (v === String(request.id)) sessionStorage.removeItem('kanban_modal_open_request'); } } catch {} }}>
+            <DialogContent 
+              className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" 
+              aria-describedby="receipt-phase-desc"
+              onInteractOutside={(e) => e.preventDefault()}
+              onEscapeKeyDown={(e) => e.preventDefault()}
+              onPointerDownOutside={(e) => e.preventDefault()}
+              onFocusOutside={(e) => e.preventDefault()}
+            >
               <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
                 <div className="flex justify-between items-center">
                   <DialogTitle className="text-base font-semibold">Recebimento de Material - Solicitação #{request.requestNumber}</DialogTitle>
                   <div className="flex items-center gap-2">
                     <Button
-                      onClick={() => receiptRef.current?.previewPDF()}
+                      onClick={() => { setPreventCloseUntil(Date.now() + 120000); try { sessionStorage.setItem('kanban_modal_open_request', String(request.id)); } catch {} receiptRef.current?.previewPDF(); }}
                       size="sm"
                       variant="outline"
                       className="border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30"
@@ -1197,6 +1221,7 @@ export default function PurchaseCard({
                   request={request}
                   onClose={() => setIsEditModalOpen(false)}
                   ref={receiptRef}
+                  onPreviewOpen={() => setPreventCloseUntil(Date.now() + 120000)}
                 />
               </div>
             </DialogContent>
@@ -1205,7 +1230,7 @@ export default function PurchaseCard({
       }
 
       {
-        isEditModalOpen && phase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
+        isEditModalOpen && !onOpenRequest && phase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
           <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
             <DialogContent hideClose className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="conclusion-phase-desc">
               <div className="flex justify-between items-center px-6 py-3 border-b bg-card text-card-foreground">

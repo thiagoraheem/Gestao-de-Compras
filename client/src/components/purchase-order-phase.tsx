@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import PdfViewer from "./pdf-viewer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -38,17 +39,22 @@ type PurchaseOrderFormData = z.infer<typeof purchaseOrderSchema>;
 interface PurchaseOrderPhaseProps {
   request: any;
   onClose: () => void;
+  onPreviewOpen?: () => void;
+  onPreviewClose?: () => void;
   className?: string;
 }
+ 
 
-export default function PurchaseOrderPhase({ request, onClose, className }: PurchaseOrderPhaseProps) {
+export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, onPreviewClose, className }: PurchaseOrderPhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfBuffer, setPdfBuffer] = useState<ArrayBuffer | null>(null);
   const [previewMimeType, setPreviewMimeType] = useState<string | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewLoaded, setPreviewLoaded] = useState(false);
 
   const form = useForm<PurchaseOrderFormData>({
     resolver: zodResolver(purchaseOrderSchema),
@@ -170,23 +176,43 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
     }
   };
 
+
+
   // Função para gerar pré-visualização do PDF
+  const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    return window.btoa(binary);
+  };
+
   const handlePreviewPDF = async () => {
+    try { onPreviewOpen && onPreviewOpen(); } catch {}
     setIsLoadingPreview(true);
+    setShowPreviewModal(true);
     try {
       const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
-        method: 'GET'
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store'
       });
 
       if (!response.ok) {
         throw new Error('Falha ao gerar PDF');
       }
 
-      const contentType = response.headers.get('Content-Type') || '';
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const contentType = response.headers.get('content-type') || '';
+      const buffer = await response.arrayBuffer();
+      setPdfBuffer(buffer);
+      const base64 = arrayBufferToBase64(buffer);
+      const url = `data:application/pdf;base64,${base64}`;
       setPdfPreviewUrl(url);
       setPreviewMimeType(contentType);
+      setPreviewLoaded(false);
       setShowPreviewModal(true);
 
       if (contentType.includes('application/pdf')) {
@@ -215,6 +241,8 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       setIsLoadingPreview(false);
     }
   };
+
+  
 
   // Função para download do PDF
   const handleDownloadPDF = async () => {
@@ -275,12 +303,22 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
 
   // Limpar URL do blob quando o modal for fechado
   const handleClosePreview = () => {
+    try { onPreviewClose && onPreviewClose(); } catch {}
     setShowPreviewModal(false);
     if (pdfPreviewUrl) {
       window.URL.revokeObjectURL(pdfPreviewUrl);
       setPdfPreviewUrl(null);
     }
     setPreviewMimeType(null);
+  };
+
+  // Controla abertura/fechamento do modal de pré-visualização sem interferir no diálogo pai
+  const handlePreviewOpenChange = (open: boolean) => {
+    if (open) {
+      setShowPreviewModal(true);
+      return;
+    }
+    handleClosePreview();
   };
 
   const onSubmit = (data: PurchaseOrderFormData) => {
@@ -740,25 +778,17 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
       )}
 
       {/* Modal de Pré-visualização do PDF */}
-      <Dialog open={showPreviewModal} onOpenChange={handleClosePreview}>
-        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-hidden p-0 sm:rounded-lg" aria-describedby="po-pdf-preview-desc">
+      <Dialog open={showPreviewModal} onOpenChange={handlePreviewOpenChange}>
+        <DialogContent className="max-w-6xl w-full max-h-[90vh] p-0 overflow-hidden flex flex-col">
           <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-base font-semibold">Pré-visualização - Pedido de Compra {request.requestNumber}</DialogTitle>
               <div className="flex gap-2">
-                <Button
-                  onClick={handleDownloadFromPreview}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-                >
+                <Button onClick={handleDownloadFromPreview} size="sm" className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
                   <Download className="w-4 h-4 mr-2" />
                   Baixar PDF
                 </Button>
-                <Button
-                  onClick={handleClosePreview}
-                  size="sm"
-                  variant="outline"
-                >
+                <Button onClick={handleClosePreview} size="sm" variant="outline">
                   <X className="w-4 h-4 mr-2" />
                   Fechar
                 </Button>
@@ -766,15 +796,18 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
             </div>
             <p id="po-pdf-preview-desc" className="sr-only">Pré-visualização do documento em PDF do pedido de compra</p>
           </div>
-
-          <div className="px-6 pt-0 pb-2">
+          <div className="px-6 pt-0 pb-2 flex-1 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-hidden">
-              {pdfPreviewUrl ? (
-                <iframe
-                  src={pdfPreviewUrl}
-                  className="w-full h-[72vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900"
-                  title="Pré-visualização do PDF"
-                />
+              {pdfBuffer ? (
+                <PdfViewer data={pdfBuffer} />
+              ) : pdfPreviewUrl ? (
+                <object data={pdfPreviewUrl} type="application/pdf" className="w-full h-[72vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900">
+                  <iframe onLoad={() => setPreviewLoaded(true)}
+                    src={pdfPreviewUrl}
+                    className="w-full h-[72vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900"
+                    title="Pré-visualização do PDF"
+                  />
+                </object>
               ) : (
                 <div className="flex items-center justify-center h-[72vh] bg-slate-100 dark:bg-slate-800 rounded-lg border border-border">
                   <div className="text-center">
@@ -785,14 +818,9 @@ export default function PurchaseOrderPhase({ request, onClose, className }: Purc
               )}
             </div>
           </div>
-
           <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
             <div className="flex justify-end gap-3">
-              <Button
-                onClick={handleDownloadFromPreview}
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-              >
+              <Button onClick={handleDownloadFromPreview} size="sm" className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
                 <Download className="w-4 h-4 mr-2" />
                 Baixar PDF
               </Button>

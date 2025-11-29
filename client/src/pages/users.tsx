@@ -351,7 +351,7 @@ export default function UsersPage() {
 
   return (
     <AdminRoute>
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="h-screen overflow-y-auto max-w-7xl mx-auto p-6">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -370,7 +370,7 @@ export default function UsersPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-y-auto max-h-[calc(100vh-220px)]">
               {isLoading ? (
                 <div className="space-y-3">
                   {[...Array(5)].map((_, i) => (
@@ -405,6 +405,7 @@ export default function UsersPage() {
                     return 0;
                   }).filter(matches);
                   return (
+                    <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -468,6 +469,7 @@ export default function UsersPage() {
                         )}
                       </TableBody>
                     </Table>
+                    </div>
                   );
                 })()
               )}

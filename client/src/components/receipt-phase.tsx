@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import PdfViewer from "./pdf-viewer";
 import {
   Table,
   TableBody,
@@ -30,6 +31,8 @@ interface ReceiptPhaseProps {
   request: any;
   onClose: () => void;
   className?: string;
+  onPreviewOpen?: () => void;
+  onPreviewClose?: () => void;
 }
 
 export interface ReceiptPhaseHandle {
@@ -39,7 +42,7 @@ export interface ReceiptPhaseHandle {
 
 import { forwardRef, useImperativeHandle } from "react";
 
-const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function ReceiptPhase({ request, onClose, className }: ReceiptPhaseProps, ref) {
+const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function ReceiptPhase({ request, onClose, className, onPreviewOpen, onPreviewClose }: ReceiptPhaseProps, ref) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -47,12 +50,14 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfBuffer, setPdfBuffer] = useState<ArrayBuffer | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewLoaded, setPreviewLoaded] = useState(false);
 
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
 
-  
+
 
   // Buscar dados relacionados
   // Primeiro buscar o pedido de compra relacionado à solicitação
@@ -84,12 +89,12 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
 
   // Get selected supplier quotation (ensure we find the chosen one)
   const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen === true) || supplierQuotations[0];
-  
+
   // Calculate freight value
-  const freightValue = selectedSupplierQuotation?.includesFreight && selectedSupplierQuotation?.freightValue 
+  const freightValue = selectedSupplierQuotation?.includesFreight && selectedSupplierQuotation?.freightValue
     ? parseFloat(selectedSupplierQuotation.freightValue?.toString().replace(/[^\d.,]/g, '').replace(',', '.')) || 0
     : 0;
-  
+
   // Fetch supplier quotation items with prices
   const { data: supplierQuotationItems = [] } = useQuery({
     queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
@@ -158,21 +163,39 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   });
 
   // Função para gerar pré-visualização do PDF
+  const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    return window.btoa(binary);
+  };
+
   const handlePreviewPDF = async () => {
+    try { onPreviewOpen && onPreviewOpen(); } catch { }
     setIsLoadingPreview(true);
+    setShowPreviewModal(true);
     try {
       const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
-        method: 'GET'
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store'
       });
 
       if (!response.ok) {
         throw new Error('Falha ao gerar PDF');
       }
 
-      const contentType = response.headers.get('Content-Type') || '';
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const contentType = response.headers.get('content-type') || '';
+      const buffer = await response.arrayBuffer();
+      setPdfBuffer(buffer);
+      const base64 = arrayBufferToBase64(buffer);
+      const url = `data:application/pdf;base64,${base64}`;
       setPdfPreviewUrl(url);
+      setPreviewLoaded(false);
       setShowPreviewModal(true);
 
       if (contentType.includes('application/pdf')) {
@@ -201,6 +224,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       setIsLoadingPreview(false);
     }
   };
+
+
 
   // Função para download do PDF
   const handleDownloadPDF = async () => {
@@ -251,7 +276,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      
+
       toast({
         title: "Sucesso",
         description: "PDF do pedido de compra baixado com sucesso!",
@@ -261,11 +286,21 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
 
   // Limpar URL do blob quando o modal for fechado
   const handleClosePreview = () => {
+    try { onPreviewClose && onPreviewClose(); } catch { }
     setShowPreviewModal(false);
     if (pdfPreviewUrl) {
       window.URL.revokeObjectURL(pdfPreviewUrl);
       setPdfPreviewUrl(null);
     }
+  };
+
+  // Controla abertura/fechamento do modal de pré-visualização sem interferir no diálogo pai
+  const handlePreviewOpenChange = (open: boolean) => {
+    if (open) {
+      setShowPreviewModal(true);
+      return;
+    }
+    handleClosePreview();
   };
 
   useImperativeHandle(ref, () => ({
@@ -277,9 +312,9 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
 
   const formatDate = (date: any) => {
     if (!date) return "N/A";
-    return formatDistanceToNow(new Date(date), { 
-      addSuffix: true, 
-      locale: ptBR 
+    return formatDistanceToNow(new Date(date), {
+      addSuffix: true,
+      locale: ptBR
     });
   };
 
@@ -292,7 +327,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     const unitPrice = Number(item.unitPrice) || 0;
     const quantity = Number(item.quantity) || 0;
     const totalPrice = Number(item.totalPrice) || 0;
-    
+
     return {
       ...item,
       unitPrice: unitPrice,
@@ -346,8 +381,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Urgência</p>
-                <Badge 
-                  variant={request.urgency === "alto" ? "destructive" : "secondary"} 
+                <Badge
+                  variant={request.urgency === "alto" ? "destructive" : "secondary"}
                   className="mt-1"
                 >
                   {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
@@ -378,8 +413,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
             <div>
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Solicitante</p>
               <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
-                {request.requester ? 
-                  `${request.requester.firstName} ${request.requester.lastName}` : 
+                {request.requester ?
+                  `${request.requester.firstName} ${request.requester.lastName}` :
                   "N/A"
                 }
               </p>
@@ -450,7 +485,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                   {formatCurrency(selectedSupplierQuotation.totalValue)}
                 </p>
               </div>
-              
+
               {/* Freight Information - Highlighted */}
               <div className="col-span-full">
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
@@ -478,13 +513,13 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 <p className="text-sm font-medium text-gray-500">Condições de Pagamento</p>
                 <p className="text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
               </div>
-              
+
               {/* Desconto da Proposta */}
               {(selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) && (
                 <div>
                   <p className="text-sm font-medium text-gray-500">Desconto da Proposta</p>
                   <p className="text-lg font-bold text-green-600 mt-1">
-                    {selectedSupplierQuotation.discountType === 'percentage' 
+                    {selectedSupplierQuotation.discountType === 'percentage'
                       ? `${selectedSupplierQuotation.discountValue}%`
                       : formatCurrency(selectedSupplierQuotation.discountValue)
                     }
@@ -492,7 +527,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 </div>
               )}
             </div>
-            
+
             {selectedSupplierQuotation.choiceReason && (
               <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-sm font-medium text-green-800">Justificativa da Escolha:</p>
@@ -522,7 +557,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         </Card>
       )}
 
-      
+
 
       {/* Items Table */}
       <Card>
@@ -564,7 +599,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                   ))}
                 </TableBody>
               </Table>
-              
+
               {/* Total Summary */}
               <div className="border-t border-border bg-slate-50 dark:bg-slate-900 p-4 space-y-3">
                 <div className="flex justify-between items-center">
@@ -577,7 +612,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                     )}
                   </span>
                 </div>
-                
+
                 {/* Freight Display */}
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-blue-600 dark:text-blue-300 flex items-center gap-1">
@@ -588,7 +623,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                     {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
                   </span>
                 </div>
-                
+
                 {/* Total with Freight */}
                 <div className="border-t pt-3">
                   <div className="flex justify-between items-center">
@@ -654,8 +689,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       {/* Action Buttons */}
       <div className="sticky bottom-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-6">
         <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={onClose}
             className="w-full sm:w-auto order-last sm:order-first"
           >
@@ -701,17 +736,13 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       />
 
       {/* Modal de Pré-visualização do PDF */}
-      <Dialog open={showPreviewModal} onOpenChange={handleClosePreview}>
-        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-hidden p-0 sm:rounded-lg" aria-describedby="receipt-pdf-preview-desc">
+      <Dialog open={showPreviewModal} onOpenChange={handlePreviewOpenChange}>
+        <DialogContent className="max-w-6xl w-full max-h-[90vh] p-0 overflow-hidden flex flex-col">
           <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-base font-semibold">Pré-visualização - Pedido de Compra {request.requestNumber}</DialogTitle>
               <div className="flex gap-2">
-                <Button
-                  onClick={handleDownloadFromPreview}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-                >
+                <Button onClick={handleDownloadFromPreview} size="sm" className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
                   <Download className="w-4 h-4 mr-2" />
                   Baixar PDF
                 </Button>
@@ -721,16 +752,20 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 </Button>
               </div>
             </div>
-            <p id="receipt-pdf-preview-desc" className="sr-only">Pré-visualização do documento em PDF do pedido de compra</p>
+            <p id="po-pdf-preview-desc" className="sr-only">Pré-visualização do documento em PDF do pedido de compra</p>
           </div>
-          <div className="px-6 pt-0 pb-2">
+          <div className="px-6 pt-0 pb-2 flex-1 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-hidden">
-              {pdfPreviewUrl ? (
-                <iframe
-                  src={pdfPreviewUrl}
-                  className="w-full h-[72vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900"
-                  title="Pré-visualização do PDF"
-                />
+              {pdfBuffer ? (
+                <PdfViewer data={pdfBuffer} />
+              ) : pdfPreviewUrl ? (
+                <object data={pdfPreviewUrl} type="application/pdf" className="w-full h-[72vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900">
+                  <iframe onLoad={() => setPreviewLoaded(true)}
+                    src={pdfPreviewUrl}
+                    className="w-full h-[72vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900"
+                    title="Pré-visualização do PDF"
+                  />
+                </object>
               ) : (
                 <div className="flex items-center justify-center h-[72vh] bg-slate-100 dark:bg-slate-800 rounded-lg border border-border">
                   <div className="text-center">
@@ -743,11 +778,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
           </div>
           <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
             <div className="flex justify-end gap-3">
-              <Button
-                onClick={handleDownloadFromPreview}
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-              >
+              <Button onClick={handleDownloadFromPreview} size="sm" className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
                 <Download className="w-4 h-4 mr-2" />
                 Baixar PDF
               </Button>

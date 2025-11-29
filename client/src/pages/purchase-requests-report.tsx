@@ -204,9 +204,12 @@ export default function PurchaseRequestsReport() {
   const totals = useMemo(() => {
     return requests.reduce(
       (acc: any, request: PurchaseRequest) => {
-        acc.originalValue += request.originalValue || 0;
-        acc.discount += request.discount || 0;
-        acc.totalValue += request.totalValue || 0;
+        const original = Number(request.originalValue) || 0;
+        const discount = Number(request.discount) || 0;
+        const total = Number(request.totalValue) || 0;
+        acc.originalValue += original;
+        acc.discount += discount;
+        acc.totalValue += total;
         return acc;
       },
       { originalValue: 0, discount: 0, totalValue: 0 }

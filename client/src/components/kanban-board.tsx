@@ -26,6 +26,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import RFQCreation from "./rfq-creation";
+import PurchaseOrderPhase from "./purchase-order-phase";
+import ReceiptPhase from "./receipt-phase";
 
 interface KanbanBoardProps {
   departmentFilter?: string;
@@ -48,13 +50,16 @@ export default function KanbanBoard({
   dateFilter,
 }: KanbanBoardProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeRequest, setActiveRequest] = useState<any>(null);
   const [showRFQCreation, setShowRFQCreation] = useState(false);
   const [selectedRequestForRFQ, setSelectedRequestForRFQ] = useState<any>(null);
   const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalPhase, setModalPhase] = useState<PurchasePhase | null>(null);
+  const [lockDialogClose, setLockDialogClose] = useState(false);
 
   const phaseIcons: Record<PurchasePhase, any> = {
     [PURCHASE_PHASES.SOLICITACAO]: FileText,
@@ -75,6 +80,12 @@ export default function KanbanBoard({
     staleTime: 1000 * 60 * 1, // 1 minute stale time
     enabled: !!user, // Only fetch when user is authenticated
   });
+
+  const handleOpenRequest = (request: any, phase: PurchasePhase) => {
+    setActiveRequest(request);
+    setModalPhase(phase);
+    setIsModalOpen(true);
+  };
 
   // Listen for URL-based request opening
   useEffect(() => {
@@ -643,6 +654,7 @@ export default function KanbanBoard({
                   requests={requestsByPhase[phase] || []}
                   onCreateRFQ={handleCreateRFQ}
                   highlightedRequestIds={highlightedRequestIds}
+                  onOpenRequest={handleOpenRequest}
                 />
               </div>
             ))}
@@ -696,6 +708,7 @@ export default function KanbanBoard({
                 requests={requestsByPhase[phase] || []}
                 onCreateRFQ={handleCreateRFQ}
                 highlightedRequestIds={highlightedRequestIds}
+                onOpenRequest={handleOpenRequest}
               />
             ))}
           </div>
@@ -733,6 +746,34 @@ export default function KanbanBoard({
             });
           }}
         />
+        {/* Central Modal for request phases */}
+        <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open && lockDialogClose) return; setIsModalOpen(open);} }>
+          <DialogContent
+            className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg"
+            aria-describedby="kanban-phase-desc"
+            onInteractOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onFocusOutside={(e) => e.preventDefault()}
+          >
+            <div className="flex-shrink-0 bg-card border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
+              <div className="flex justify-between items-center">
+                <DialogTitle className="text-base font-semibold">
+                  {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && `Pedido de Compra - Solicitação #${activeRequest?.requestNumber}`}
+                  {modalPhase === PURCHASE_PHASES.RECEBIMENTO && `Recebimento de Material - Solicitação #${activeRequest?.requestNumber}`}
+                </DialogTitle>
+              </div>
+            </div>
+            <div className="px-6 pt-0 pb-2">
+              {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && activeRequest && (
+                <PurchaseOrderPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
+              )}
+              {modalPhase === PURCHASE_PHASES.RECEBIMENTO && activeRequest && (
+                <ReceiptPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </DndContext>
     </>
   );
