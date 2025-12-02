@@ -15,6 +15,7 @@ interface PurchaseOrderData {
   deliveryLocation?: any;
   company?: any;
   buyer?: any;
+  purchaseOrder?: any;
 }
 
 export class PDFService {
@@ -1165,7 +1166,7 @@ export class PDFService {
   }
 
   private static async generatePurchaseOrderHTML(data: PurchaseOrderData): Promise<string> {
-    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company, buyer } = data;
+    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company, buyer, purchaseOrder } = data;
     
     // Função para formatar data brasileira
     const formatBrazilianDate = (dateString: string | null | undefined): string => {
@@ -1491,7 +1492,7 @@ export class PDFService {
       </div>
       <div>
         <div class="info-item">
-          <span class="info-label">DATA PEDIDO:</span> ${new Date().toLocaleDateString('pt-BR')}
+          <span class="info-label">DATA PEDIDO:</span> ${formatBrazilianDate(purchaseOrder?.createdAt || purchaseRequest.createdAt)}
         </div>
         <div class="info-item">
           <span class="info-label">PRAZO ENTREGA:</span> ${selectedSupplierQuotation?.deliveryDate ? formatBrazilianDate(selectedSupplierQuotation.deliveryDate) : (selectedSupplierQuotation?.deliveryTerms || formatBrazilianDate(purchaseRequest.idealDeliveryDate))}
@@ -1709,7 +1710,7 @@ export class PDFService {
             
             if (supplierItem) {
               const unitPrice = Number(supplierItem.unitPrice) || 0;
-              const quantity = Number(item.quantity) || 1;
+              const quantity = Number((item as any).requestedQuantity ?? (item as any).quantity) || 1;
               const originalTotal = unitPrice * quantity;
               let discountedTotal = originalTotal;
               let itemDiscount = 0;
@@ -1866,7 +1867,8 @@ export class PDFService {
       selectedSupplierQuotation,
       deliveryLocation,
       company,
-      buyer
+      buyer,
+      purchaseOrder
     };
 
     // Gerar HTML
@@ -1902,12 +1904,12 @@ export class PDFService {
 
     // Calcular valor total usando os itens de cotação do fornecedor selecionado
     let totalValue = 0;
-    let itemsWithPrices = items.map((item: any) => {
+      let itemsWithPrices = items.map((item: any) => {
       const quotationItem = supplierQuotationItems.find((qi: any) => 
         qi.itemDescription === item.description
       );
-      const unitPrice = quotationItem ? Number(quotationItem.unitPrice) : 0;
-      const totalPrice = Number(item.quantity) * unitPrice;
+        const unitPrice = quotationItem ? Number(quotationItem.unitPrice) : 0;
+        const totalPrice = Number(item.requestedQuantity ?? item.quantity ?? 0) * unitPrice;
       totalValue += totalPrice;
       
       return {
@@ -2094,7 +2096,7 @@ export class PDFService {
                 <tr>
                   <td>${item.description}</td>
                   <td>${item.unit}</td>
-                  <td>${parseInt(item.quantity) || 0}</td>
+                  <td>${parseInt(String(item.requestedQuantity ?? item.quantity ?? 0)) || 0}</td>
                   <td>${formatCurrency(item.unitPrice)}</td>
                   <td>${formatCurrency(item.totalPrice)}</td>
                 </tr>
