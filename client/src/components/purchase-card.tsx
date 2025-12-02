@@ -103,7 +103,7 @@ export default function PurchaseCard({
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [initialA2Action, setInitialA2Action] = useState<'approve' | 'reject' | null>(null);
   const receiptRef = useRef<ReceiptPhaseHandle | null>(null);
-  const [preventCloseUntil, setPreventCloseUntil] = useState<number>(0);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   
 
@@ -1131,7 +1131,7 @@ export default function PurchaseCard({
       }
       {
         isEditModalOpen && !onOpenRequest && phase === PURCHASE_PHASES.PEDIDO_COMPRA && (
-          <Dialog open={isEditModalOpen} onOpenChange={(open) => { if (!open && Date.now() < preventCloseUntil) return; setIsEditModalOpen(open); try { if (open) { sessionStorage.setItem('kanban_modal_open_request', String(request.id)); } else { const v = sessionStorage.getItem('kanban_modal_open_request'); if (v === String(request.id)) sessionStorage.removeItem('kanban_modal_open_request'); } } catch {} }}>
+          <Dialog open={isEditModalOpen} onOpenChange={(open) => { if (!open && isPreviewOpen) return; setIsEditModalOpen(open); try { if (open) { sessionStorage.setItem('kanban_modal_open_request', String(request.id)); } else { const v = sessionStorage.getItem('kanban_modal_open_request'); if (v === String(request.id)) sessionStorage.removeItem('kanban_modal_open_request'); } } catch {} }}>
             <DialogContent 
               className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" 
               aria-describedby="purchase-order-phase-desc"
@@ -1166,7 +1166,8 @@ export default function PurchaseCard({
                 <PurchaseOrderPhase
                   request={request}
                   onClose={() => setIsEditModalOpen(false)}
-                  onPreviewOpen={() => setPreventCloseUntil(Date.now() + 120000)}
+                  onPreviewOpen={() => setIsPreviewOpen(true)}
+                  onPreviewClose={() => setIsPreviewOpen(false)}
                 />
               </div>
             </DialogContent>
@@ -1176,7 +1177,7 @@ export default function PurchaseCard({
 
       {
         isEditModalOpen && !onOpenRequest && phase === PURCHASE_PHASES.RECEBIMENTO && (
-          <Dialog open={isEditModalOpen} onOpenChange={(open) => { if (!open && Date.now() < preventCloseUntil) return; setIsEditModalOpen(open); try { if (open) { sessionStorage.setItem('kanban_modal_open_request', String(request.id)); } else { const v = sessionStorage.getItem('kanban_modal_open_request'); if (v === String(request.id)) sessionStorage.removeItem('kanban_modal_open_request'); } } catch {} }}>
+          <Dialog open={isEditModalOpen} onOpenChange={(open) => { if (!open && isPreviewOpen) return; setIsEditModalOpen(open); try { if (open) { sessionStorage.setItem('kanban_modal_open_request', String(request.id)); } else { const v = sessionStorage.getItem('kanban_modal_open_request'); if (v === String(request.id)) sessionStorage.removeItem('kanban_modal_open_request'); } } catch {} }}>
             <DialogContent 
               className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" 
               aria-describedby="receipt-phase-desc"
@@ -1190,7 +1191,7 @@ export default function PurchaseCard({
                   <DialogTitle className="text-base font-semibold">Recebimento de Material - Solicitação #{request.requestNumber}</DialogTitle>
                   <div className="flex items-center gap-2">
                     <Button
-                      onClick={() => { setPreventCloseUntil(Date.now() + 120000); try { sessionStorage.setItem('kanban_modal_open_request', String(request.id)); } catch {} receiptRef.current?.previewPDF(); }}
+                      onClick={(e) => { e.stopPropagation(); setIsPreviewOpen(true); try { sessionStorage.setItem('kanban_modal_open_request', String(request.id)); } catch {} receiptRef.current?.previewPDF(); }}
                       size="sm"
                       variant="outline"
                       className="border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30"
@@ -1199,7 +1200,7 @@ export default function PurchaseCard({
                       Visualizar PDF
                     </Button>
                     <Button
-                      onClick={() => receiptRef.current?.downloadPDF()}
+                      onClick={(e) => { e.stopPropagation(); receiptRef.current?.downloadPDF(); }}
                       size="sm"
                       className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
                     >
@@ -1221,7 +1222,8 @@ export default function PurchaseCard({
                   request={request}
                   onClose={() => setIsEditModalOpen(false)}
                   ref={receiptRef}
-                  onPreviewOpen={() => setPreventCloseUntil(Date.now() + 120000)}
+                  onPreviewOpen={() => setIsPreviewOpen(true)}
+                  onPreviewClose={() => setIsPreviewOpen(false)}
                 />
               </div>
             </DialogContent>
@@ -1237,7 +1239,7 @@ export default function PurchaseCard({
                 <DialogTitle className="text-base font-semibold">Conclusão da Compra - Solicitação #{request.requestNumber}</DialogTitle>
                 <div className="flex items-center gap-2">
                   <Button
-                    onClick={() => conclusionRef.current?.downloadPurchaseOrderPDF()}
+                    onClick={(e) => { e.stopPropagation(); conclusionRef.current?.downloadPurchaseOrderPDF(); }}
                     size="sm"
                     variant="outline"
                     className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
@@ -1245,19 +1247,19 @@ export default function PurchaseCard({
                     <FileText className="w-4 h-4 mr-2" />
                     PDF Pedido de Compra
                   </Button>
-                  <Button onClick={() => conclusionRef.current?.exportPDF()} size="sm" variant="outline">
+                  <Button onClick={(e) => { e.stopPropagation(); conclusionRef.current?.exportPDF(); }} size="sm" variant="outline">
                     <Download className="w-4 h-4 mr-2" />
                     Exportar PDF
                   </Button>
-                  <Button onClick={() => conclusionRef.current?.printSummary()} size="sm" variant="outline">
+                  <Button onClick={(e) => { e.stopPropagation(); conclusionRef.current?.printSummary(); }} size="sm" variant="outline">
                     <Printer className="w-4 h-4 mr-2" />
                     Imprimir
                   </Button>
-                  <Button onClick={() => conclusionRef.current?.sendEmail()} size="sm" variant="outline">
+                  <Button onClick={(e) => { e.stopPropagation(); conclusionRef.current?.sendEmail(); }} size="sm" variant="outline">
                     <Mail className="w-4 h-4 mr-2" />
                     Enviar E-mail
                   </Button>
-                  <Button onClick={() => conclusionRef.current?.openArchiveDialog()} size="sm" variant="outline">
+                  <Button onClick={(e) => { e.stopPropagation(); conclusionRef.current?.openArchiveDialog(); }} size="sm" variant="outline">
                     <Archive className="w-4 h-4 mr-2" />
                     Arquivar
                   </Button>

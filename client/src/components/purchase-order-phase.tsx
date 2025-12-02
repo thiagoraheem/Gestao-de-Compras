@@ -213,7 +213,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
       setPdfPreviewUrl(url);
       setPreviewMimeType(contentType);
       setPreviewLoaded(false);
-      setShowPreviewModal(true);
+      // setShowPreviewModal(true); // Já foi aberto no início
 
       if (contentType.includes('application/pdf')) {
         toast({
@@ -845,7 +845,11 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
             {advanceToReceiptMutation.isPending ? "Avançando..." : "Avançar para Recebimento"}
           </Button>
           <Button
-            onClick={handlePreviewPDF}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handlePreviewPDF();
+            }}
             disabled={isLoadingPreview}
             variant="outline"
             className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
