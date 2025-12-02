@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import PdfViewer from "./pdf-viewer";
+import { ErrorBoundary } from "./error-boundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -386,6 +387,55 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
     approvalHistory.find((h: any) => h.approverType === 'A1') : null;
   const aprovacaoA2 = Array.isArray(approvalHistory) ? 
     approvalHistory.find((h: any) => h.approverType === 'A2') : null;
+
+  if (showPreviewModal) {
+    return (
+      <div className={`flex flex-col h-full ${className}`}>
+        <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 pb-3 mb-4 rounded-t-lg">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold">Pré-visualização - Pedido de Compra {request.requestNumber}</h3>
+              <div className="flex gap-2">
+                <Button onClick={handleDownloadFromPreview} size="sm" className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
+                  <Download className="w-4 h-4 mr-2" />
+                  Baixar PDF
+                </Button>
+                <Button onClick={handleClosePreview} size="sm" variant="outline">
+                  <X className="w-4 h-4 mr-2" />
+                  Voltar
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-hidden flex flex-col min-h-[60vh]">
+              {pdfBuffer ? (
+                <ErrorBoundary fallback={
+                  <div className="flex items-center justify-center h-full p-6 bg-red-50 text-red-600">
+                    <p>Erro ao exibir PDF. O arquivo pode estar corrompido ou ser incompatível.</p>
+                  </div>
+                }>
+                  <PdfViewer data={pdfBuffer} />
+                </ErrorBoundary>
+              ) : pdfPreviewUrl ? (
+                <object data={pdfPreviewUrl} type="application/pdf" className="w-full h-[70vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900">
+                  <iframe onLoad={() => setPreviewLoaded(true)}
+                    src={pdfPreviewUrl}
+                    className="w-full h-[70vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900"
+                    title="Pré-visualização do PDF"
+                  />
+                </object>
+              ) : (
+                <div className="flex items-center justify-center h-[70vh] bg-slate-100 dark:bg-slate-800 rounded-lg border border-border">
+                  <div className="text-center">
+                    <FileText className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+                    <p className="text-slate-600 dark:text-slate-300">Carregando pré-visualização...</p>
+                  </div>
+                </div>
+              )}
+          </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -777,62 +827,8 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
         </Card>
       )}
 
-      {/* Modal de Pré-visualização do PDF */}
-      <Dialog open={showPreviewModal} onOpenChange={handlePreviewOpenChange}>
-        <DialogContent className="max-w-6xl w-full max-h-[90vh] p-0 overflow-hidden flex flex-col">
-          <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-base font-semibold">Pré-visualização - Pedido de Compra {request.requestNumber}</DialogTitle>
-              <div className="flex gap-2">
-                <Button onClick={handleDownloadFromPreview} size="sm" className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
-                  <Download className="w-4 h-4 mr-2" />
-                  Baixar PDF
-                </Button>
-                <Button onClick={handleClosePreview} size="sm" variant="outline">
-                  <X className="w-4 h-4 mr-2" />
-                  Fechar
-                </Button>
-              </div>
-            </div>
-            <p id="po-pdf-preview-desc" className="sr-only">Pré-visualização do documento em PDF do pedido de compra</p>
-          </div>
-          <div className="px-6 pt-0 pb-2 flex-1 overflow-hidden flex flex-col">
-            <div className="flex-1 overflow-hidden">
-              {pdfBuffer ? (
-                <PdfViewer data={pdfBuffer} />
-              ) : pdfPreviewUrl ? (
-                <object data={pdfPreviewUrl} type="application/pdf" className="w-full h-[72vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900">
-                  <iframe onLoad={() => setPreviewLoaded(true)}
-                    src={pdfPreviewUrl}
-                    className="w-full h-[72vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900"
-                    title="Pré-visualização do PDF"
-                  />
-                </object>
-              ) : (
-                <div className="flex items-center justify-center h-[72vh] bg-slate-100 dark:bg-slate-800 rounded-lg border border-border">
-                  <div className="text-center">
-                    <FileText className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
-                    <p className="text-slate-600 dark:text-slate-300">Carregando pré-visualização...</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
-            <div className="flex justify-end gap-3">
-              <Button onClick={handleDownloadFromPreview} size="sm" className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
-                <Download className="w-4 h-4 mr-2" />
-                Baixar PDF
-              </Button>
-              <Button onClick={handleClosePreview} size="sm" variant="outline">
-                <X className="w-4 h-4 mr-2" />
-                Fechar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
+      {/* Modal de Pré-visualização do PDF removido - substituído por renderização condicional */}
+      
       {/* Rodapé fixo com ações */}
       <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
         <div className="flex justify-end gap-3">
@@ -845,6 +841,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
             {advanceToReceiptMutation.isPending ? "Avançando..." : "Avançar para Recebimento"}
           </Button>
           <Button
+            type="button"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();

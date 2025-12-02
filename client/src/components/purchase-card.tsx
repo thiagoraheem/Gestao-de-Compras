@@ -1191,6 +1191,7 @@ export default function PurchaseCard({
                   <DialogTitle className="text-base font-semibold">Recebimento de Material - Solicitação #{request.requestNumber}</DialogTitle>
                   <div className="flex items-center gap-2">
                     <Button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); setIsPreviewOpen(true); try { sessionStorage.setItem('kanban_modal_open_request', String(request.id)); } catch {} receiptRef.current?.previewPDF(); }}
                       size="sm"
                       variant="outline"
@@ -1200,6 +1201,7 @@ export default function PurchaseCard({
                       Visualizar PDF
                     </Button>
                     <Button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); receiptRef.current?.downloadPDF(); }}
                       size="sm"
                       className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"

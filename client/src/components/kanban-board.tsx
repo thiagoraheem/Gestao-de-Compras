@@ -28,6 +28,12 @@ import { Badge } from "@/components/ui/badge";
 import RFQCreation from "./rfq-creation";
 import PurchaseOrderPhase from "./purchase-order-phase";
 import ReceiptPhase from "./receipt-phase";
+import RequestPhase from "./request-phase";
+import ApprovalA1Phase from "./approval-a1-phase";
+import ApprovalA2Phase from "./approval-a2-phase";
+import QuotationPhase from "./quotation-phase";
+import ConclusionPhase from "./conclusion-phase";
+import RequestView from "./request-view";
 
 interface KanbanBoardProps {
   departmentFilter?: string;
@@ -52,6 +58,7 @@ export default function KanbanBoard({
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeRequest, setActiveRequest] = useState<any>(null);
   const [showRFQCreation, setShowRFQCreation] = useState(false);
@@ -72,7 +79,7 @@ export default function KanbanBoard({
     [PURCHASE_PHASES.ARQUIVADO]: Archive,
   };
 
-  const { data: purchaseRequests, isLoading } = useQuery({
+  const { data: purchaseRequests = [], isLoading } = useQuery({
     queryKey: ["/api/purchase-requests"],
     refetchInterval: false, // Disable automatic refetching
     refetchOnWindowFocus: false, // Disable refetch on window focus
@@ -81,7 +88,7 @@ export default function KanbanBoard({
     enabled: !!user, // Only fetch when user is authenticated
   });
 
-  const handleOpenRequest = (request: any, phase: PurchasePhase) => {
+  const handleOpenRequest = (request: any, phase: string) => {
     setActiveRequest(request);
     setModalPhase(phase);
     setIsModalOpen(true);
@@ -747,7 +754,15 @@ export default function KanbanBoard({
           }}
         />
         {/* Central Modal for request phases */}
-        <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open && lockDialogClose) return; setIsModalOpen(open);} }>
+        <Dialog 
+          open={isModalOpen && (
+            modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA || 
+            modalPhase === PURCHASE_PHASES.RECEBIMENTO ||
+            modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA ||
+            modalPhase === PURCHASE_PHASES.ARQUIVADO
+          )} 
+          onOpenChange={(open) => { if (!open && lockDialogClose) return; setIsModalOpen(open);} }
+        >
           <DialogContent
             className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg"
             aria-describedby="kanban-phase-desc"
@@ -761,6 +776,8 @@ export default function KanbanBoard({
                 <DialogTitle className="text-base font-semibold">
                   {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && `Pedido de Compra - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.RECEBIMENTO && `Recebimento de Material - Solicitação #${activeRequest?.requestNumber}`}
+                  {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && `Conclusão da Compra - Solicitação #${activeRequest?.requestNumber}`}
+                  {modalPhase === PURCHASE_PHASES.ARQUIVADO && `Detalhes da Solicitação - #${activeRequest?.requestNumber}`}
                 </DialogTitle>
               </div>
             </div>
@@ -771,9 +788,45 @@ export default function KanbanBoard({
               {modalPhase === PURCHASE_PHASES.RECEBIMENTO && activeRequest && (
                 <ReceiptPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
               )}
+              {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && activeRequest && (
+                <ConclusionPhase request={activeRequest} onClose={() => setIsModalOpen(false)} />
+              )}
+              {modalPhase === PURCHASE_PHASES.ARQUIVADO && activeRequest && (
+                <RequestView request={activeRequest} onClose={() => setIsModalOpen(false)} />
+              )}
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Independent Modals for phases that handle their own dialogs */}
+        {modalPhase === PURCHASE_PHASES.SOLICITACAO && activeRequest && (
+          <RequestPhase
+            request={activeRequest}
+            open={isModalOpen}
+            onOpenChange={(open) => setIsModalOpen(open)}
+          />
+        )}
+        {modalPhase === PURCHASE_PHASES.APROVACAO_A1 && activeRequest && (
+          <ApprovalA1Phase
+            request={activeRequest}
+            open={isModalOpen}
+            onOpenChange={(open) => setIsModalOpen(open)}
+          />
+        )}
+        {modalPhase === PURCHASE_PHASES.APROVACAO_A2 && activeRequest && (
+          <ApprovalA2Phase
+            request={activeRequest}
+            open={isModalOpen}
+            onOpenChange={(open) => setIsModalOpen(open)}
+          />
+        )}
+        {modalPhase === PURCHASE_PHASES.COTACAO && activeRequest && (
+          <QuotationPhase
+            request={activeRequest}
+            open={isModalOpen}
+            onOpenChange={(open) => setIsModalOpen(open)}
+          />
+        )}
       </DndContext>
     </>
   );

@@ -40,6 +40,8 @@ import { useApprovalsBadge } from "@/hooks/useApprovalsBadge";
 import NotificationsPermission from "@/components/NotificationsPermission";
 import ApprovalsInlineBadge from "@/components/approvals-inline-badge";
 
+const KanbanRoute = () => (isIPhone() ? <KanbanIOSPage /> : <KanbanPage />);
+
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   useApprovalsBadge();
   return (
@@ -97,8 +99,8 @@ function Router() {
     <AuthenticatedLayout>
       <RealtimeSyncProvider />
       <Switch>
-        <Route path="/" component={() => (isIPhone() ? <KanbanIOSPage /> : <KanbanPage />)} />
-        <Route path="/kanban" component={() => (isIPhone() ? <KanbanIOSPage /> : <KanbanPage />)} />
+        <Route path="/" component={KanbanRoute} />
+        <Route path="/kanban" component={KanbanRoute} />
         <Route path="/list" component={ListPage} />
         <Route path="/dashboard">
           <ManagerRoute>
