@@ -14,6 +14,8 @@ interface Supplier {
   email: string;
   phone?: string;
   contact?: string;
+  cnpj?: string;
+  cpf?: string;
 }
 
 interface SupplierSelectorProps {
@@ -37,11 +39,15 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
       const email = normalize((supplier as any).email);
       const contact = normalize((supplier as any).contact);
       const phone = normalize((supplier as any).phone);
+      const cnpj = normalize((supplier as any).cnpj);
+      const cpf = normalize((supplier as any).cpf);
       return (
         name.includes(term) ||
         email.includes(term) ||
         contact.includes(term) ||
-        phone.includes(term)
+        phone.includes(term) ||
+        cnpj.includes(term) ||
+        cpf.includes(term)
       );
     });
   }, [suppliers, searchTerm]);
@@ -203,7 +209,7 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <p className="font-medium text-sm text-foreground truncate">
-                        {supplier.name}
+                        {supplier.name} ({supplier.cnpj || supplier.cpf})
                       </p>
                       {selectedSuppliers.includes(supplier.id) && (
                         <Check className="h-4 w-4 text-primary flex-shrink-0" />
