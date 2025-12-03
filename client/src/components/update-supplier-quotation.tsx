@@ -111,6 +111,13 @@ const updateSupplierQuotationSchema = z.object({
       message: "Quantidade disponível deve ser um número válido",
       path: ["availableQuantity"],
     })
+    .refine((data) => {
+      // Somente um tipo de desconto pode ser preenchido por item
+      return !(data.discountPercentage && data.discountValue);
+    }, {
+      message: "Preencha apenas um tipo de desconto (percentual ou valor)",
+      path: ["discountPercentage"],
+    })
   ),
   paymentTerms: z.string().optional(),
   deliveryTerms: z.string().optional(),
@@ -892,8 +899,7 @@ export default function UpdateSupplierQuotation({
                         <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[180px]">Item</th>
                         <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[120px]">Marca / Modelo</th>
                         <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[100px]">Preço + Original</th>
-                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[60px]">Desc. %</th>
-                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[80px]">Desc. Valor</th>
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[140px]">Desconto</th>
                         <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[60px]">Prazo (dias)</th>
                         <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[110px]">Quantidade Disponível</th>
                         <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[100px]">Disponibilidade</th>
@@ -1047,7 +1053,7 @@ export default function UpdateSupplierQuotation({
                                 )}
                               />
                               <div className="text-xs text-muted-foreground">
-                                Original: R$ {(() => {
+                                Orig.: R$ {(() => {
                                   const unitPrice = form.watch(`items.${index}.unitPrice`);
                                   if (!unitPrice) return "0,00";
                                   const quantity = parseFloat(item.quantity);
@@ -1062,90 +1068,98 @@ export default function UpdateSupplierQuotation({
                             </div>
                           </td>
                           <td className="p-2 align-top">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.discountPercentage`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="0"
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      step="0.01"
-                                      readOnly={viewMode === 'view'}
-                                      className="text-xs h-6"
-                                      autoComplete="off"
-                                      onChange={(e) => {
-                                        if (viewMode === 'view') return;
-                                        field.onChange(e.target.value);
-                                        if (e.target.value) {
-                                          form.setValue(`items.${index}.discountValue`, "");
-                                        }
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </td>
-                          <td className="p-2 align-top">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.discountValue`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="0,00"
-                                      readOnly={viewMode === 'view'}
-                                      className="text-xs h-6"
-                                      autoComplete="off"
-                                      onChange={(e) => {
-                                        if (viewMode === 'view') return;
-                                        let inputValue = e.target.value;
-                                        if (/^\d+$/.test(inputValue)) {
-                                          field.onChange(inputValue);
-                                        } else {
-                                          const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                          field.onChange(cleanValue);
-                                        }
-                                        if (e.target.value) {
-                                          form.setValue(`items.${index}.discountPercentage`, "");
-                                        }
-                                      }}
-                                      onBlur={(e) => {
-                                        if (viewMode === 'view') return;
-                                        const value = e.target.value;
-                                        if (value) {
-                                          let number;
-                                          if (/^\d+$/.test(value)) {
-                                            number = parseFloat(value);
-                                          } else if (/^\d+[.,]\d+$/.test(value)) {
-                                            number = parseFloat(value.replace(",", "."));
-                                          } else {
-                                            const cleanValue = value.replace(/[^\d.,]/g, "");
-                                            number = parseFloat(cleanValue.replace(",", "."));
-                                          }
-                                          if (!isNaN(number)) {
-                                            const formatted = number.toLocaleString("pt-BR", {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 4,
-                                            });
-                                            field.onChange(formatted);
-                                          }
-                                        }
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
+                            <div className="space-y-1">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.discountPercentage`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <div className="relative">
+                                        <Input
+                                          {...field}
+                                          placeholder="0"
+                                          type="number"
+                                          min="0"
+                                          max="100"
+                                          step="0.01"
+                                          readOnly={viewMode === 'view'}
+                                          disabled={!!form.watch(`items.${index}.discountValue`)}
+                                          className="text-xs h-6 text-right pr-6"
+                                          autoComplete="off"
+                                          onChange={(e) => {
+                                            if (viewMode === 'view') return;
+                                            field.onChange(e.target.value);
+                                            if (e.target.value) {
+                                              form.setValue(`items.${index}.discountValue`, "");
+                                            }
+                                          }}
+                                        />
+                                        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.discountValue`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <div className="relative">
+                                        <Input
+                                          {...field}
+                                          placeholder="0,00"
+                                          readOnly={viewMode === 'view'}
+                                          disabled={!!form.watch(`items.${index}.discountPercentage`)}
+                                          className="text-xs h-6 text-right pr-6"
+                                          autoComplete="off"
+                                          onChange={(e) => {
+                                            if (viewMode === 'view') return;
+                                            let inputValue = e.target.value;
+                                            if (/^\d+$/.test(inputValue)) {
+                                              field.onChange(inputValue);
+                                            } else {
+                                              const cleanValue = inputValue.replace(/[^\d.,]/g, "");
+                                              field.onChange(cleanValue);
+                                            }
+                                            if (e.target.value) {
+                                              form.setValue(`items.${index}.discountPercentage`, "");
+                                            }
+                                          }}
+                                          onBlur={(e) => {
+                                            if (viewMode === 'view') return;
+                                            const value = e.target.value;
+                                            if (value) {
+                                              let number;
+                                              if (/^\d+$/.test(value)) {
+                                                number = parseFloat(value);
+                                              } else if (/^\d+[.,]\d+$/.test(value)) {
+                                                number = parseFloat(value.replace(",", "."));
+                                              } else {
+                                                const cleanValue = value.replace(/[^\d.,]/g, "");
+                                                number = parseFloat(cleanValue.replace(",", "."));
+                                              }
+                                              if (!isNaN(number)) {
+                                                const formatted = number.toLocaleString("pt-BR", {
+                                                  minimumFractionDigits: 2,
+                                                  maximumFractionDigits: 4,
+                                                });
+                                                field.onChange(formatted);
+                                              }
+                                            }
+                                          }}
+                                        />
+                                        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
                           </td>
                           <td className="p-2 align-top">
                             <FormField
