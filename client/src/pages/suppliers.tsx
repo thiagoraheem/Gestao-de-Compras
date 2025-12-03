@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Plus, Edit, Search, X } from "lucide-react";
@@ -69,6 +70,7 @@ export default function SuppliersPage() {
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedTerm, setDebouncedTerm] = useState("");
+  const [showIntegration, setShowIntegration] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -286,11 +288,23 @@ export default function SuppliersPage() {
   return (
     <AdminOrBuyerRoute>
       <div className="max-w-7xl mx-auto p-6 bg-background">
-        <SupplierIntegrationPanel
-          onRefreshSuppliers={() =>
-            queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] })
-          }
-        />
+        <Collapsible open={showIntegration} onOpenChange={setShowIntegration}>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">Integração de Fornecedores com ERP</div>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm">
+                {showIntegration ? "Ocultar Integração ERP" : "Mostrar Integração ERP"}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <SupplierIntegrationPanel
+              onRefreshSuppliers={() =>
+                queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] })
+              }
+            />
+          </CollapsibleContent>
+        </Collapsible>
         <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -355,12 +369,12 @@ export default function SuppliersPage() {
               </div>
             </div>
 
-            <div className="relative overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[80px] text-center">ERP</TableHead>
-                  <TableHead className="min-w-[250px]">Nome</TableHead>
+            <div className="relative overflow-x-auto overflow-y-auto max-h-[60vh]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[80px] text-center">ERP</TableHead>
+                    <TableHead className="min-w-[250px]">Nome</TableHead>
                   <TableHead className="min-w-[140px]">Tipo</TableHead>
                   <TableHead className="min-w-[160px]">CNPJ</TableHead>
                   <TableHead className="min-w-[160px]">Contato</TableHead>
