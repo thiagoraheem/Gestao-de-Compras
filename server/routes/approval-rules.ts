@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "../storage";
+import { pool } from "../db";
 import { isAuthenticated, isAdmin } from "./middleware";
 import { z } from "zod";
 
@@ -70,8 +71,8 @@ export function registerApprovalRulesRoutes(app: Express) {
       let firstApprover = null;
       
       if (requiresDualApproval) {
-        const firstApproval = a2Approvals.find(ah => ah.approvalStep === 1);
-        const finalApproval = a2Approvals.find(ah => ah.approvalStep === 2);
+        const firstApproval = a2Approvals.find(ah => ah.approvalStep === 'first');
+        const finalApproval = a2Approvals.find(ah => ah.approvalStep === 'final');
         
         if (finalApproval) {
           approvalStatus = finalApproval.approved ? "completed" : "rejected";
@@ -155,8 +156,8 @@ export function registerApprovalRulesRoutes(app: Express) {
           return res.status(403).json({ message: "Dual approval requires CEO or Director permissions" });
         }
 
-        const existingFirstApproval = a2Approvals.find(ah => ah.approvalStep === 1);
-        const existingFinalApproval = a2Approvals.find(ah => ah.approvalStep === 2);
+        const existingFirstApproval = a2Approvals.find(ah => ah.approvalStep === 'first');
+        const existingFinalApproval = a2Approvals.find(ah => ah.approvalStep === 'final');
 
         if (existingFinalApproval) {
           return res.status(400).json({ message: "Request has already been finally approved or rejected" });
@@ -227,8 +228,8 @@ export function registerApprovalRulesRoutes(app: Express) {
         approverId: data.approverId,
         approved: data.approved,
         rejectionReason: data.approved ? null : (data.rejectionReason || "Solicitação reprovada"),
-        approvalStep,
-        approvalValue: request.totalValue,
+        approvalStep: requiresDualApproval ? (approvalStep === 1 ? "first" : "final") : "single",
+        approvalValue: request.totalValue ?? "0",
         requiresDualApproval,
         ipAddress: req.ip || req.connection.remoteAddress || "unknown",
         userAgent: req.get("User-Agent") || "unknown",
@@ -305,6 +306,7 @@ export function registerApprovalRulesRoutes(app: Express) {
 
       const config = await storage.createApprovalConfiguration({
         valueThreshold: data.valueThreshold,
+        effectiveDate: new Date(),
         reason: data.reason,
         createdBy: userId,
       });
@@ -376,7 +378,7 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
   for (const si of supplierQuotationItems) {
     if (si.isAvailable === false) continue;
     const qi = quotationItems.find(q => q.id === si.quotationItemId);
-    const description = si.description || qi?.description || "";
+    const description = qi?.description || "";
     const unit = si.confirmedUnit || qi?.unit || "UN";
     const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
     const unitPrice = si.unitPrice || "0";
@@ -397,7 +399,7 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
       quantity,
       unit,
       unitPrice,
-      totalPrice: totalPrice.toFixed(2),
+      totalPrice: totalPrice.toFixed(4),
       deliveryDeadline: null,
       costCenterId: null,
       accountCode: null,
@@ -415,7 +417,7 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
         requestId,
         approverId,
         'po_created_a2',
-        `PO criado na A2 a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(2)} | Total cotação: R$ ${supplierTotal.toFixed(2)} | Diferença: R$ ${discrepancy.toFixed(2)}`,
+        `PO criado na A2 a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(4)} | Total cotação: R$ ${supplierTotal.toFixed(4)} | Diferença: R$ ${discrepancy.toFixed(4)}`,
         JSON.stringify({ supplierTotal }),
         JSON.stringify({ itemsTotal })
       ]

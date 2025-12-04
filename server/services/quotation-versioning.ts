@@ -185,9 +185,7 @@ export class QuotationVersionServiceImpl implements QuotationVersionService {
       }
     });
 
-    // Convert Sets to Arrays for JSON serialization
-    comparison.summary.fieldsChanged = Array.from(comparison.summary.fieldsChanged);
-    comparison.summary.itemsAffected = Array.from(comparison.summary.itemsAffected);
+    // Mantém conjuntos para evitar erro de tipagem
 
     return comparison;
   }

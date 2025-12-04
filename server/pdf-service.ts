@@ -1446,7 +1446,7 @@ export class PDFService {
       <div class="info-item">
         <span class="info-label">DESCONTO:</span> ${selectedSupplierQuotation.discountType === 'percentage' 
           ? `${selectedSupplierQuotation.discountValue}%` 
-          : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(2).replace('.', ',')}`}
+          : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(4).replace('.', ',')}`}
       </div>
       ` : ''}
     </div>
@@ -1532,16 +1532,16 @@ export class PDFService {
             <td class="text-center">${item.brand || 'Não informado'}</td>
             <td class="text-right">
               ${hasDiscount ? 
-                `<span style="text-decoration: line-through; color: #999;">R$ ${originalUnitPrice.toFixed(2).replace('.', ',')}</span><br>
-                 <span style="color: #28a745; font-weight: bold;">R$ ${(finalTotalPrice / Number(item.quantity || 1)).toFixed(2).replace('.', ',')}</span>` :
-                `R$ ${originalUnitPrice.toFixed(2).replace('.', ',')}`
+                `<span style="text-decoration: line-through; color: #999;">R$ ${originalUnitPrice.toFixed(4).replace('.', ',')}</span><br>
+                 <span style="color: #28a745; font-weight: bold;">R$ ${(finalTotalPrice / Number(item.quantity || 1)).toFixed(4).replace('.', ',')}</span>` :
+                `R$ ${originalUnitPrice.toFixed(4).replace('.', ',')}`
               }
             </td>
             <td class="text-right">
               ${hasDiscount ? 
-                `<span style="text-decoration: line-through; color: #999;">R$ ${originalTotalPrice.toFixed(2).replace('.', ',')}</span><br>
-                 <span style="color: #28a745; font-weight: bold;">R$ ${finalTotalPrice.toFixed(2).replace('.', ',')}</span>` :
-                `R$ ${originalTotalPrice.toFixed(2).replace('.', ',')}`
+                `<span style="text-decoration: line-through; color: #999;">R$ ${originalTotalPrice.toFixed(4).replace('.', ',')}</span><br>
+                 <span style="color: #28a745; font-weight: bold;">R$ ${finalTotalPrice.toFixed(4).replace('.', ',')}</span>` :
+                `R$ ${originalTotalPrice.toFixed(4).replace('.', ',')}`
               }
             </td>
             <td>${item.specifications || ''}</td>
@@ -1565,32 +1565,32 @@ export class PDFService {
         ${desconto > 0 || freightValue > 0 ? `
          <tr class="subtotal-row">
            <td colspan="5" class="text-right"><strong>SUBTOTAL:</strong></td>
-           <td class="text-right"><strong>R$ ${subtotal.toFixed(2).replace('.', ',')}</strong></td>
+           <td class="text-right"><strong>R$ ${subtotal.toFixed(4).replace('.', ',')}</strong></td>
            <td>&nbsp;</td>
          </tr>
          ${desconto > 0 ? `
          <tr class="discount-row">
            <td colspan="5" class="text-right"><strong>DESCONTO ${selectedSupplierQuotation.discountType === 'percentage' ? `(${selectedSupplierQuotation.discountValue}%)` : ''}:</strong></td>
-           <td class="text-right"><strong>- R$ ${desconto.toFixed(2).replace('.', ',')}</strong></td>
+           <td class="text-right"><strong>- R$ ${desconto.toFixed(4).replace('.', ',')}</strong></td>
            <td>&nbsp;</td>
          </tr>
          ` : ''}
          ${freightValue > 0 ? `
          <tr class="subtotal-row">
            <td colspan="5" class="text-right"><strong>FRETE:</strong></td>
-           <td class="text-right"><strong>R$ ${freightValue.toFixed(2).replace('.', ',')}</strong></td>
+           <td class="text-right"><strong>R$ ${freightValue.toFixed(4).replace('.', ',')}</strong></td>
            <td>&nbsp;</td>
          </tr>
          ` : ''}
          <tr class="total-row">
            <td colspan="5" class="text-right"><strong>TOTAL FINAL:</strong></td>
-           <td class="text-right"><strong>R$ ${valorFinal.toFixed(2).replace('.', ',')}</strong></td>
+           <td class="text-right"><strong>R$ ${valorFinal.toFixed(4).replace('.', ',')}</strong></td>
            <td>&nbsp;</td>
          </tr>
          ` : `
         <tr class="total-row">
           <td colspan="5" class="text-right"><strong>TOTAL GERAL:</strong></td>
-          <td class="text-right"><strong>R$ ${(subtotal + freightValue).toFixed(2).replace('.', ',')}</strong></td>
+          <td class="text-right"><strong>R$ ${(subtotal + freightValue).toFixed(4).replace('.', ',')}</strong></td>
           <td>&nbsp;</td>
         </tr>
         `}

@@ -720,10 +720,10 @@ export default function UpdateSupplierQuotation({
     // Convert to number and format with decimal places
     const numberValue = parseInt(numericValue) / 100;
 
-    return numberValue.toLocaleString("pt-BR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    });
+  return numberValue.toLocaleString("pt-BR", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  });
   };
 
   const parseNumberFromCurrency = (value: unknown) => {
@@ -871,7 +871,7 @@ export default function UpdateSupplierQuotation({
               )}
               {existingSupplierQuotation.totalValue && (
                 <span className="text-sm font-semibold text-green-600">
-                  Total: R$ {parseFloat(existingSupplierQuotation.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                  Total: R$ {parseFloat(existingSupplierQuotation.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                 </span>
               )}
             </div>

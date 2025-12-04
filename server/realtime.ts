@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import type { Server as HttpServer, IncomingMessage, AddressInfo } from "http";
-import { WebSocketServer, type WebSocket } from "ws";
+import type { Server as HttpServer, IncomingMessage as HttpIncomingMessage } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { REALTIME_CHANNELS } from "@shared/realtime-events";
 
 type ClientConnection = {
@@ -10,7 +10,7 @@ type ClientConnection = {
   isAlive: boolean;
 };
 
-type IncomingMessage =
+type IncomingMessagePayload =
   | { type: "subscribe"; channel: string }
   | { type: "unsubscribe"; channel: string }
   | { type: "ping" }
@@ -50,7 +50,7 @@ class RealtimeService {
 
     // Log when HTTP server is listening with its bound address
     const logServerAddress = () => {
-      const addr = server.address() as string | AddressInfo | null;
+      const addr: any = server.address();
       if (addr && typeof addr !== "string") {
         console.info(
           `[Realtime] HTTP server listening: ${addr.address}:${addr.port}`
@@ -79,7 +79,7 @@ class RealtimeService {
       );
     });
 
-    this.wss.on("connection", (socket, req: IncomingMessage) => {
+    this.wss.on("connection", (socket, req: HttpIncomingMessage) => {
       const clientId = randomUUID();
       const connection: ClientConnection = {
         id: clientId,
@@ -181,9 +181,9 @@ class RealtimeService {
   }
 
   private handleMessage(client: ClientConnection, raw: string) {
-    let message: IncomingMessage;
+    let message: IncomingMessagePayload;
     try {
-      message = JSON.parse(raw) as IncomingMessage;
+      message = JSON.parse(raw) as IncomingMessagePayload;
     } catch (error) {
       this.safeSend(client.socket, {
         type: "error",

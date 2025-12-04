@@ -369,12 +369,12 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                             sq.status === 'received' ? 'default' : 
                             sq.status === 'sent' ? 'secondary' : 
                             sq.status === 'expired' ? 'destructive' : 
-                            sq.status === 'no_response' ? 'destructive' : 'outline'
+                            ((sq as any).status === 'no_response' ? 'destructive' : 'outline')
                           }>
                             {sq.status === 'pending' && 'Pendente'}
                             {sq.status === 'sent' && 'Enviada'}
                             {sq.status === 'received' && 'Recebida'}
-                            {sq.status === 'no_response' && 'Não Respondeu'}
+                            {(sq as any).status === 'no_response' && 'Não Respondeu'}
                             {sq.status === 'expired' && 'Expirada'}
                           </Badge>
                         </div>
@@ -385,7 +385,7 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                           </p>
                         </div>
                         <div className="flex justify-end space-x-1">
-                          {sq.status !== 'received' && sq.status !== 'no_response' && user?.isBuyer && (
+                          {sq.status !== 'received' && (sq as any).status !== 'no_response' && user?.isBuyer && (
                             <>
                               <Button
                                 size="sm"
@@ -512,7 +512,7 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
             onClose={() => setShowSupplierComparison(false)}
             onComplete={() => {
               setShowSupplierComparison(false);
-              onClose?.();
+              onOpenChange(false);
             }}
           />
         )}
@@ -557,16 +557,16 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                 <p className="text-gray-500">Nenhuma RFQ encontrada no histórico.</p>
               ) : (
                 rfqHistory.map((rfq, index) => (
-                  <Card key={rfq.id} className={rfq.isActive ? "border-blue-500 bg-blue-50" : "border-gray-200"}>
+                  <Card key={rfq.id} className={(rfq as any).isActive ? "border-blue-500 bg-blue-50" : "border-gray-200"}>
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <CardTitle className="text-lg">
                           {rfq.quotationNumber} 
-                          {rfq.isActive && <Badge className="ml-2 bg-blue-600">Ativa</Badge>}
-                          {!rfq.isActive && <Badge variant="outline" className="ml-2">Inativa</Badge>}
+                          {(rfq as any).isActive && <Badge className="ml-2 bg-blue-600">Ativa</Badge>}
+                          {!(rfq as any).isActive && <Badge variant="outline" className="ml-2">Inativa</Badge>}
                         </CardTitle>
                         <div className="text-sm text-gray-500">
-                          Versão {rfq.rfqVersion || 1}
+                          Versão {(rfq as any).rfqVersion || 1}
                         </div>
                       </div>
                     </CardHeader>
@@ -588,7 +588,7 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Criada em</span>
-                          <p className="text-sm">{format(new Date(rfq.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                          <p className="text-sm">{format(new Date((rfq as any).createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                         </div>
                       </div>
                     </CardContent>

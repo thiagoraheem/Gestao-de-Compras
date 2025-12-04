@@ -81,7 +81,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
   });
 
   // Fetch all related data
-  const { data: items = [], isLoading: itemsLoading } = useQuery({
+  const { data: items = [], isLoading: itemsLoading } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/items`],
   });
 
@@ -98,32 +98,32 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
     enabled: !!purchaseOrder?.id,
   });
 
-  const { data: approvalHistory = [], isLoading: approvalHistoryLoading } = useQuery({
+  const { data: approvalHistory = [], isLoading: approvalHistoryLoading } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
   });
 
   // Fetch complete timeline for better process visualization
-  const { data: completeTimeline = [], isLoading: timelineLoading } = useQuery({
+  const { data: completeTimeline = [], isLoading: timelineLoading } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/complete-timeline`],
   });
 
-  const { data: attachments = [], isLoading: attachmentsLoading } = useQuery({
+  const { data: attachments = [], isLoading: attachmentsLoading } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/attachments`],
   });
 
   // Buscar dados do solicitante
-  const { data: requester, isLoading: requesterLoading } = useQuery({
+  const { data: requester, isLoading: requesterLoading } = useQuery<any>({
     queryKey: [`/api/users/${request.requesterId}`],
     enabled: !!request.requesterId,
   });
 
   // Buscar dados do centro de custo
-  const { data: allCostCenters = [], isLoading: costCentersLoading } = useQuery({
+  const { data: allCostCenters = [], isLoading: costCentersLoading } = useQuery<any[]>({
     queryKey: ['/api/cost-centers'],
   });
 
   // Buscar departamento
-  const { data: allDepartments = [], isLoading: departmentsLoading } = useQuery({
+  const { data: allDepartments = [], isLoading: departmentsLoading } = useQuery<any[]>({
     queryKey: ['/api/departments'],
   });
 
@@ -131,11 +131,11 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
   const costCenter = allCostCenters.find((cc: any) => cc.id === request.costCenterId);
   const department = costCenter ? allDepartments.find((d: any) => d.id === costCenter.departmentId) : null;
 
-  const { data: quotation, isLoading: quotationLoading } = useQuery({
+  const { data: quotation, isLoading: quotationLoading } = useQuery<any>({
     queryKey: [`/api/quotations/purchase-request/${request.id}`],
   });
 
-  const { data: supplierQuotations = [], isLoading: supplierQuotationsLoading } = useQuery({
+  const { data: supplierQuotations = [], isLoading: supplierQuotationsLoading } = useQuery<any[]>({
     queryKey: [`/api/quotations/${quotation?.id}/supplier-quotations`],
     enabled: !!quotation?.id,
   });
@@ -144,13 +144,13 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
   const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen) || supplierQuotations[0];
 
   // Fetch supplier quotation items to get pricing
-  const { data: supplierQuotationItems = [], isLoading: supplierQuotationItemsLoading } = useQuery({
+  const { data: supplierQuotationItems = [], isLoading: supplierQuotationItemsLoading } = useQuery<any[]>({
     queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
     enabled: !!selectedSupplierQuotation?.id,
   });
 
   // Buscar anexos de cotações de fornecedores
-  const { data: quotationAttachments = [], isLoading: quotationAttachmentsLoading } = useQuery({
+  const { data: quotationAttachments = [], isLoading: quotationAttachmentsLoading } = useQuery<any[]>({
     queryKey: [`/api/quotations/${quotation?.id}/attachments`],
     enabled: !!quotation?.id,
   });
@@ -870,7 +870,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Status Final</span>
                   <Badge variant="default" className="bg-green-100 text-green-800">
-                    {PHASE_LABELS[request.currentPhase]}
+                    {PHASE_LABELS[request.currentPhase as keyof typeof PHASE_LABELS]}
                   </Badge>
                 </div>
               </div>
@@ -898,11 +898,11 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
               <div className="space-y-4">
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Categoria</span>
-                  <Badge variant="outline">{CATEGORY_LABELS[request.category]}</Badge>
+                  <Badge variant="outline">{CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}</Badge>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Urgência</span>
-                  <Badge variant="outline">{URGENCY_LABELS[request.urgency]}</Badge>
+                  <Badge variant="outline">{URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}</Badge>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Orçamento Disponível</span>
@@ -1162,7 +1162,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Valor Total da Proposta</span>
                       <p className="font-medium text-green-600">
-                        {parseFloat(selectedSupplierQuotation.totalValue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        {parseFloat(selectedSupplierQuotation.totalValue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                       </p>
                     </div>
                     <div>

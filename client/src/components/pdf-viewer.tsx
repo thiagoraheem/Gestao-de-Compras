@@ -22,7 +22,7 @@ export default function PdfViewer({ data, className }: PdfViewerProps) {
     let destroyed = false;
 
     task.promise
-      .then(async (pdf) => {
+      .then(async (pdf: any) => {
         if (destroyed) return;
         const container = containerRef.current!;
         container.innerHTML = "";

@@ -50,7 +50,7 @@ interface ApprovalHistoryItem {
 
 interface RequestDetailsProps {
   attachments: Attachment[];
-  approvalHistory: ApprovalHistoryItem[];
+  approvalHistory?: ApprovalHistoryItem[];
   requestData: any;
   className?: string;
 }

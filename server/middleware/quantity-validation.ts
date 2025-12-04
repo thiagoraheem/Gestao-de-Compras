@@ -3,6 +3,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
+import { pool } from '../db';
 
 // Interface para dados de validação de quantidade
 interface QuantityValidationData {
@@ -108,27 +109,30 @@ export class QuantityValidationMiddleware {
 
       // Validar estrutura básica
       if (!Array.isArray(items)) {
-        return res.status(400).json({
+        res.status(400).json({
           message: 'Items array is required',
           validation_error: true,
           error_type: 'INVALID_INPUT_STRUCTURE'
         });
+        return;
       }
 
       if (items.length === 0) {
-        return res.status(400).json({
+        res.status(400).json({
           message: 'At least one item is required for quantity update',
           validation_error: true,
           error_type: 'EMPTY_ITEMS_ARRAY'
         });
+        return;
       }
 
       if (items.length > 100) {
-        return res.status(400).json({
+        res.status(400).json({
           message: 'Too many items in single request (maximum 100)',
           validation_error: true,
           error_type: 'EXCESSIVE_ITEMS_COUNT'
         });
+        return;
       }
 
       // Buscar itens existentes para comparação
@@ -136,11 +140,12 @@ export class QuantityValidationMiddleware {
       try {
         existingItems = await storage.getSupplierQuotationItems(supplierQuotationId);
       } catch (error) {
-        return res.status(404).json({
+        res.status(404).json({
           message: 'Supplier quotation not found or inaccessible',
           validation_error: true,
           error_type: 'QUOTATION_NOT_FOUND'
         });
+        return;
       }
 
       const validationResults: { [key: string]: ValidationResult } = {};
@@ -182,13 +187,14 @@ export class QuantityValidationMiddleware {
 
       // Se há erros, retornar resposta de validação
       if (hasErrors) {
-        return res.status(400).json({
+        res.status(400).json({
           message: 'Validation failed for quantity update',
           validation_error: true,
           error_type: 'VALIDATION_FAILED',
           validation_results: validationResults,
           max_severity: maxSeverity
         });
+        return;
       }
 
       // Adicionar resultados de validação ao request para uso posterior
@@ -202,11 +208,12 @@ export class QuantityValidationMiddleware {
 
     } catch (error) {
       console.error('Error in quantity validation middleware:', error);
-      return res.status(500).json({
+      res.status(500).json({
         message: 'Internal error during validation',
         validation_error: true,
         error_type: 'VALIDATION_INTERNAL_ERROR'
       });
+      return;
     }
   };
 
@@ -216,7 +223,7 @@ export class QuantityValidationMiddleware {
       const supplierQuotationId = parseInt(req.params.id);
 
       // Executar validação de integridade
-      const integrityResult = await storage.db.query(`
+      const integrityResult = await pool.query(`
         SELECT validate_quantity_integrity($1) as result
       `, [supplierQuotationId]);
 
@@ -228,13 +235,14 @@ export class QuantityValidationMiddleware {
       ) || [];
 
       if (criticalIssues.length > 0) {
-        return res.status(409).json({
+        res.status(409).json({
           message: 'Critical integrity issues detected - operation blocked',
           validation_error: true,
           error_type: 'INTEGRITY_VIOLATION',
           integrity_issues: criticalIssues,
           integrity_score: validation.summary?.integrity_score || 0
         });
+        return;
       }
 
       // Adicionar informações de integridade ao request
@@ -246,13 +254,13 @@ export class QuantityValidationMiddleware {
 
       next();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in real-time consistency validation:', error);
       // Não bloquear operação por erro de validação de consistência
       // mas registrar o problema
       req.integrityValidation = {
         score: 0,
-        issues: [{ type: 'VALIDATION_ERROR', severity: 'HIGH', error: error.message }],
+        issues: [{ type: 'VALIDATION_ERROR', severity: 'HIGH', error: error?.message || String(error) }],
         summary: { validation_error: true }
       };
       next();
@@ -274,7 +282,7 @@ export class QuantityValidationMiddleware {
 
       if (hasCriticalChanges) {
         // Log da operação crítica antes da execução
-        await storage.db.query(`
+        await pool.query(`
           INSERT INTO detailed_audit_log (
             table_name, record_id, operation_type, user_id,
             change_reason, metadata

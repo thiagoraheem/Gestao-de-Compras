@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import { isAuthenticated } from './middleware';
 import { storage } from '../storage';
+import { pool } from '../db';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/api/integrity/validate-quantities/:supplierQuotationId?', isAuthent
     }
 
     // Execute integrity validation function
-    const result = await storage.db.query(`
+    const result = await pool.query(`
       SELECT validate_quantity_integrity($1) as result
     `, [supplierQuotationId]);
 
@@ -32,11 +33,11 @@ router.get('/api/integrity/validate-quantities/:supplierQuotationId?', isAuthent
       validated_by: currentUser.id
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in integrity validation:", error);
     res.status(500).json({ 
       message: "Failed to validate integrity", 
-      error: error.message,
+      error: error?.message || String(error),
       success: false
     });
   }
@@ -63,7 +64,7 @@ router.post('/api/integrity/rollback-transaction', isAuthenticated, async (req, 
     }
 
     // Execute rollback function
-    const result = await storage.db.query(`
+    const result = await pool.query(`
       SELECT rollback_quantity_transaction($1, $2, $3) as result
     `, [transaction_id, currentUser.id, rollback_reason || 'Manual rollback requested']);
 
@@ -83,11 +84,11 @@ router.post('/api/integrity/rollback-transaction', isAuthenticated, async (req, 
       rolled_back_by: currentUser.id
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in transaction rollback:", error);
     res.status(500).json({ 
       message: "Failed to rollback transaction", 
-      error: error.message,
+      error: error?.message || String(error),
       success: false
     });
   }
@@ -140,7 +141,7 @@ router.get('/api/integrity/transaction-history/:supplierQuotationId?', isAuthent
     query += ` ORDER BY dal.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit as string), parseInt(offset as string));
 
-    const result = await storage.db.query(query, params);
+    const result = await pool.query(query, params);
 
     const totalCount = result.rows.length > 0 ? result.rows[0].total_count : 0;
 
@@ -165,11 +166,11 @@ router.get('/api/integrity/transaction-history/:supplierQuotationId?', isAuthent
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching transaction history:", error);
     res.status(500).json({ 
       message: "Failed to fetch transaction history", 
-      error: error.message,
+      error: error?.message || String(error),
       success: false
     });
   }
@@ -187,27 +188,27 @@ router.get('/api/integrity/statistics', isAuthenticated, async (req, res) => {
     // Get various integrity statistics
     const queries = await Promise.all([
       // Total items with integrity issues
-      storage.db.query(`
+      pool.query(`
         SELECT COUNT(*) as count FROM supplier_quotation_items 
         WHERE available_quantity < 0 OR fulfillment_percentage < 0 OR fulfillment_percentage > 200
       `),
       
       // Recent critical quantity changes (last 7 days)
-      storage.db.query(`
+      pool.query(`
         SELECT COUNT(*) as count FROM audit_logs 
         WHERE action_type = 'CRITICAL_QUANTITY_CHANGE' 
         AND performed_at >= NOW() - INTERVAL '7 days'
       `),
       
       // Total atomic transactions today
-      storage.db.query(`
+      pool.query(`
         SELECT COUNT(DISTINCT transaction_id) as count FROM detailed_audit_log 
         WHERE operation_type IN ('BULK_UPDATE', 'BULK_UPDATE_COMPLETE')
         AND created_at >= CURRENT_DATE
       `),
       
       // Failed transactions today
-      storage.db.query(`
+      pool.query(`
         SELECT COUNT(DISTINCT transaction_id) as count FROM detailed_audit_log 
         WHERE operation_type = 'BULK_UPDATE_COMPLETE'
         AND created_at >= CURRENT_DATE
@@ -215,7 +216,7 @@ router.get('/api/integrity/statistics', isAuthenticated, async (req, res) => {
       `),
       
       // Average fulfillment percentage
-      storage.db.query(`
+      pool.query(`
         SELECT ROUND(AVG(fulfillment_percentage), 2) as avg_fulfillment 
         FROM supplier_quotation_items 
         WHERE fulfillment_percentage IS NOT NULL
@@ -236,11 +237,11 @@ router.get('/api/integrity/statistics', isAuthenticated, async (req, res) => {
       statistics
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching integrity statistics:", error);
     res.status(500).json({ 
       message: "Failed to fetch integrity statistics", 
-      error: error.message,
+      error: error?.message || String(error),
       success: false
     });
   }
@@ -249,10 +250,9 @@ router.get('/api/integrity/statistics', isAuthenticated, async (req, res) => {
 // Endpoint público para validação básica de integridade (sem autenticação)
 router.get('/api/integrity/validate-all', async (req, res) => {
   try {
-    // Execute basic integrity validation without user context
-    const result = await storage.db.query(`
-      SELECT validate_quantity_integrity(NULL) as result
-    `);
+    const result = await pool.query(
+      'SELECT validate_quantity_integrity(NULL) as result'
+    );
 
     const validationResult = result.rows[0].result;
 
@@ -263,11 +263,11 @@ router.get('/api/integrity/validate-all', async (req, res) => {
       public_validation: true
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in public integrity validation:", error);
     res.status(500).json({ 
       message: "Failed to validate integrity", 
-      error: error.message,
+      error: error?.message || String(error),
       success: false
     });
   }

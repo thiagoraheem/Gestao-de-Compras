@@ -101,13 +101,13 @@ export default function RequestManagementPage() {
 
     switch (selectedPhase) {
       case PURCHASE_PHASES.SOLICITACAO:
-        return <RequestPhase request={selectedRequest} onClose={handleCloseModal} />;
+        return <RequestPhase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
       case PURCHASE_PHASES.APROVACAO_A1:
-        return <ApprovalA1Phase request={selectedRequest} onClose={handleCloseModal} />;
+        return <ApprovalA1Phase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
       case PURCHASE_PHASES.APROVACAO_A2:
-        return <ApprovalA2Phase request={selectedRequest} onClose={handleCloseModal} />;
+        return <ApprovalA2Phase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
       case PURCHASE_PHASES.COTACAO:
-        return <QuotationPhase request={selectedRequest} onClose={handleCloseModal} />;
+        return <QuotationPhase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
       case PURCHASE_PHASES.PEDIDO_COMPRA:
         return <PurchaseOrderPhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.RECEBIMENTO:
@@ -115,7 +115,7 @@ export default function RequestManagementPage() {
       case PURCHASE_PHASES.CONCLUSAO_COMPRA:
         return <ConclusionPhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.ARQUIVADO:
-        return <RequestView request={selectedRequest} onClose={handleCloseModal} />;
+        return <RequestView request={selectedRequest} />;
       default:
         return (
           <div className="p-8 text-center">

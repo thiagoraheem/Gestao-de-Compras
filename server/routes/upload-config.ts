@@ -34,7 +34,7 @@ export const quotationUpload = multer({
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Tipo de arquivo não suportado. Apenas PDF, DOC, DOCX, XLS, XLSX, TXT, PNG, JPG são permitidos.'), false);
+      cb(null, false);
     }
   },
   limits: {
@@ -62,7 +62,7 @@ export const companyLogoUpload = multer({
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed for company logos'), false);
+      cb(null, false);
     }
   },
   limits: {

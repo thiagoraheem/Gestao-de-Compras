@@ -486,7 +486,7 @@ class ERPService {
 
     const supplier: ERPSupplier = {
       id: numericId,
-      name: nameCandidate,
+      name: nameCandidate ?? tradeName ?? `Fornecedor ${numericId}`,
       tradeName,
       cnpj,
       cpf,

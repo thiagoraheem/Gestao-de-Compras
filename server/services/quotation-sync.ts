@@ -66,15 +66,15 @@ class QuotationSyncServiceImpl implements QuotationSyncService {
           // Tentar encontrar por descrição se quotationItemId não estiver definido
           supplierItem = supplierItems.find(si => 
             !si.quotationItemId && 
-            si.description?.toLowerCase().trim() === qItem.description?.toLowerCase().trim()
+            si.availableQuantity === qItem.quantity && si.confirmedUnit === qItem.unit
           );
           
           if (supplierItem) {
             // Atualizar o supplier_item para incluir o quotationItemId
             await storage.updateSupplierQuotationItem(supplierItem.id, {
               quotationItemId: qItem.id,
-              quantity: qItem.quantity, // Sincronizar quantidade
-              unit: qItem.unit // Sincronizar unidade
+              availableQuantity: qItem.quantity,
+              confirmedUnit: qItem.unit
             });
             console.log(`Mapeamento corrigido: supplier_item ${supplierItem.id} -> quotation_item ${qItem.id}`);
           } else {
@@ -82,14 +82,15 @@ class QuotationSyncServiceImpl implements QuotationSyncService {
             await storage.createSupplierQuotationItem({
               supplierQuotationId: supplierQuotationId,
               quotationItemId: qItem.id,
-              itemCode: qItem.itemCode,
-              description: qItem.description,
-              quantity: qItem.quantity,
-              unit: qItem.unit,
+              availableQuantity: qItem.quantity,
+              confirmedUnit: qItem.unit,
               unitPrice: '0.00',
               totalPrice: '0.00',
               deliveryDays: 0,
-              isAvailable: true
+              isAvailable: true,
+              originalTotalPrice: null,
+              discountedTotalPrice: null,
+              fulfillmentPercentage: null
             });
             console.log(`Novo supplier_item criado para quotation_item ${qItem.id}`);
           }
@@ -128,7 +129,7 @@ class QuotationSyncServiceImpl implements QuotationSyncService {
           if (!supplierItem) {
             results.push({
               quotationItemId: qItem.id,
-              issue: `Item de cotação ${qItem.id} não possui supplier_quotation_item correspondente no fornecedor ${supplierQuot.supplier?.name}`,
+              issue: `Item de cotação ${qItem.id} não possui supplier_quotation_item correspondente (supplierId=${supplierQuot.supplierId})`,
               severity: 'error',
               suggestedFix: 'Executar sincronização automática'
             });
@@ -145,11 +146,11 @@ class QuotationSyncServiceImpl implements QuotationSyncService {
             }
             
             // Verificar consistência de unidades
-            if (supplierItem.unit !== qItem.unit) {
+            if (supplierItem.confirmedUnit !== qItem.unit) {
               results.push({
                 quotationItemId: qItem.id,
                 supplierQuotationItemId: supplierItem.id,
-                issue: `Unidade inconsistente: quotation_item=${qItem.unit}, supplier_item=${supplierItem.unit}`,
+                issue: `Unidade inconsistente: quotation_item=${qItem.unit}, supplier_item=${supplierItem.confirmedUnit}`,
                 severity: 'warning',
                 suggestedFix: 'Sincronizar unidades'
               });
@@ -182,7 +183,7 @@ class QuotationSyncServiceImpl implements QuotationSyncService {
         for (const unmappedItem of unmappedSupplierItems) {
           // Tentar encontrar quotation_item correspondente por descrição
           const matchingQuotationItem = quotationItems.find(qi => 
-            qi.description?.toLowerCase().trim() === unmappedItem.description?.toLowerCase().trim()
+            unmappedItem.availableQuantity === qi.quantity && unmappedItem.confirmedUnit === qi.unit
           );
           
           if (matchingQuotationItem) {
@@ -194,8 +195,8 @@ class QuotationSyncServiceImpl implements QuotationSyncService {
             if (!existingMapping) {
               await storage.updateSupplierQuotationItem(unmappedItem.id, {
                 quotationItemId: matchingQuotationItem.id,
-                quantity: matchingQuotationItem.quantity,
-                unit: matchingQuotationItem.unit
+                availableQuantity: matchingQuotationItem.quantity,
+                confirmedUnit: matchingQuotationItem.unit
               });
               console.log(`Mapeamento corrigido por descrição: supplier_item ${unmappedItem.id} -> quotation_item ${matchingQuotationItem.id}`);
             }

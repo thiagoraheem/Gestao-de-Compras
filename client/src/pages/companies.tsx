@@ -226,12 +226,12 @@ export default function Companies() {
                 <Label htmlFor="tradingName">Nome Fantasia</Label>
                 <Input
                   id="tradingName"
-                  value={formData.tradingName}
+                  value={formData.tradingName || ""}
                   onChange={(e) => setFormData({ ...formData, tradingName: e.target.value })}
                 />
               </div>
               <CNPJInput
-                value={formData.cnpj}
+                value={formData.cnpj || ""}
                 onChange={(value) => setFormData({ ...formData, cnpj: value })}
                 required
               />
@@ -239,7 +239,7 @@ export default function Companies() {
                 <Label htmlFor="address">Endereço</Label>
                 <Input
                   id="address"
-                  value={formData.address}
+                  value={formData.address || ""}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 />
               </div>
@@ -247,7 +247,7 @@ export default function Companies() {
                 <Label htmlFor="phone">Telefone</Label>
                 <Input
                   id="phone"
-                  value={formData.phone}
+                  value={formData.phone || ""}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
               </div>
@@ -256,7 +256,7 @@ export default function Companies() {
                 <Input
                   id="email"
                   type="email"
-                  value={formData.email}
+                  value={formData.email || ""}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
@@ -385,12 +385,12 @@ export default function Companies() {
               <Label htmlFor="edit-tradingName">Nome Fantasia</Label>
               <Input
                 id="edit-tradingName"
-                value={formData.tradingName}
+                value={formData.tradingName || ""}
                 onChange={(e) => setFormData({ ...formData, tradingName: e.target.value })}
               />
             </div>
             <CNPJInput
-              value={formData.cnpj}
+              value={formData.cnpj || ""}
               onChange={(value) => setFormData({ ...formData, cnpj: value })}
               required
             />
@@ -398,7 +398,7 @@ export default function Companies() {
               <Label htmlFor="edit-address">Endereço</Label>
               <Input
                 id="edit-address"
-                value={formData.address}
+                value={formData.address || ""}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               />
             </div>
@@ -406,7 +406,7 @@ export default function Companies() {
               <Label htmlFor="edit-phone">Telefone</Label>
               <Input
                 id="edit-phone"
-                value={formData.phone}
+                value={formData.phone || ""}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
@@ -415,14 +415,14 @@ export default function Companies() {
               <Input
                 id="edit-email"
                 type="email"
-                value={formData.email}
+                value={formData.email || ""}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
             {editingCompany && (
               <LogoUpload
                 companyId={editingCompany.id}
-                currentLogoBase64={editingCompany.logoBase64}
+                currentLogoBase64={editingCompany.logoBase64 || undefined}
                 onUploadSuccess={(logoBase64) => {
                   // Atualizar o estado local e invalidar o cache
                   queryClient.invalidateQueries({ queryKey: ['/api/companies'] });

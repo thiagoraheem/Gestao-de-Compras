@@ -72,22 +72,22 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   });
 
   // Fetch approval history
-  const { data: approvalHistory = [] } = useQuery({
+  const { data: approvalHistory = [] } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
   });
 
   // Fetch supplier quotations to get selected supplier
-  const { data: quotation } = useQuery({
+  const { data: quotation } = useQuery<any>({
     queryKey: [`/api/quotations/purchase-request/${request.id}`],
   });
 
-  const { data: supplierQuotations = [] } = useQuery({
+  const { data: supplierQuotations = [] } = useQuery<any[]>({
     queryKey: [`/api/quotations/${quotation?.id}/supplier-quotations`],
     enabled: !!quotation?.id,
   });
 
   // Get selected supplier quotation (ensure we find the chosen one)
-  const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen === true) || supplierQuotations[0];
+  const selectedSupplierQuotation: any = supplierQuotations.find((sq: any) => sq.isChosen === true) || supplierQuotations[0];
 
   // Calculate freight value
   const freightValue = selectedSupplierQuotation?.includesFreight && selectedSupplierQuotation?.freightValue
@@ -95,7 +95,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     : 0;
 
   // Fetch supplier quotation items with prices
-  const { data: supplierQuotationItems = [] } = useQuery({
+  const { data: supplierQuotationItems = [] } = useQuery<any[]>({
     queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
     enabled: !!selectedSupplierQuotation?.id,
   });
@@ -103,7 +103,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
 
 
   // Fetch quotation items to map descriptions
-  const { data: quotationItems = [] } = useQuery({
+  const { data: quotationItems = [] } = useQuery<any[]>({
     queryKey: [`/api/quotations/${quotation?.id}/items`],
     enabled: !!quotation?.id,
   });

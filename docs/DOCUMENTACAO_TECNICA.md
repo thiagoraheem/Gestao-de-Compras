@@ -558,3 +558,13 @@ npm run db:push  # Aplica mudanças no schema
 2. **CDN**: Distribuição de assets estáticos
 3. **Database**: Índices otimizados e particionamento
 4. **Monitoring**: APM e alertas automáticos
+### Campo de Título na Criação de Solicitação
+
+- Rótulo: `Título` (substitui `Justificativa`)
+- Validação: mínimo 10 e máximo 150 caracteres
+- Bloqueio de digitação: impede entradas acima de 150 caracteres e notifica o usuário
+- Mensagem: toast com variante `destructive` ao ultrapassar o limite
+- Contador: exibido apenas com foco, atualiza em tempo real, mostra `usados/150` e `restantes`
+- Destaque: contador em vermelho ao atingir 80% (≥120 caracteres)
+- Acessibilidade: `aria-describedby` vinculado ao contador e `aria-live="polite"`
+- Responsividade: layout mantém grid e espaçamento existentes sem alterações estruturais

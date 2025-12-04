@@ -27,27 +27,27 @@ function formatDate(dateString: string | null) {
 }
 
 export default function RequestView({ request, onClose }: RequestViewProps) {
-  const { data: requestData, isLoading: isLoadingRequest } = useQuery({
+  const { data: requestData, isLoading: isLoadingRequest } = useQuery<any>({
     queryKey: [`/api/purchase-requests/${request.id}`],
     enabled: !!request.id,
   });
 
-  const { data: items = [], isLoading: isLoadingItems } = useQuery({
+  const { data: items = [], isLoading: isLoadingItems } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/items`],
     enabled: !!request.id,
   });
 
-  const { data: approvalHistory = [], isLoading: isLoadingApprovals } = useQuery({
+  const { data: approvalHistory = [], isLoading: isLoadingApprovals } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
     enabled: !!request.id,
   });
 
-  const { data: completeTimeline = [], isLoading: isLoadingTimeline } = useQuery({
+  const { data: completeTimeline = [], isLoading: isLoadingTimeline } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/complete-timeline`],
     enabled: !!request.id,
   });
 
-  const { data: attachments = [], isLoading: isLoadingAttachments } = useQuery({
+  const { data: attachments = [], isLoading: isLoadingAttachments } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request.id}/attachments`],
     enabled: !!request.id,
   });

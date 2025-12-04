@@ -88,7 +88,7 @@ export default function KanbanBoard({
     enabled: !!user, // Only fetch when user is authenticated
   });
 
-  const handleOpenRequest = (request: any, phase: string) => {
+  const handleOpenRequest = (request: any, phase: PurchasePhase) => {
     setActiveRequest(request);
     setModalPhase(phase);
     setIsModalOpen(true);

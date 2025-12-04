@@ -64,7 +64,7 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
 
   const handleCancelEdit = () => {
     // If it's a new item (no database ID), remove it
-    if (editingId && editingId > 1000000000) { // Temporary ID range
+    if (editingId && Number(editingId) > 1000000000) {
       const filteredItems = items.filter(item => item.id !== editingId);
       onChange(filteredItems);
     }
@@ -226,7 +226,7 @@ export default function EditableItemsTable({ items, onChange, readonly = false, 
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteItem(item.id!)}
+                              onClick={() => handleDeleteItem(Number(item.id))}
                               className="h-8 w-8 p-0"
                             >
                               <Trash2 className="h-4 w-4" />

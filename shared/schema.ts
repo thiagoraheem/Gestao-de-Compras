@@ -111,7 +111,7 @@ export const suppliers = pgTable("suppliers", {
   paymentTerms: text("payment_terms"),
   productsServices: text("products_services"),
   companyId: integer("company_id").references(() => companies.id),
-  idSupplierERP: integer("idsuppliererp").default(null), // Corrigido para lowercase conforme Postgres
+  idSupplierERP: integer("idsuppliererp"), // Corrigido para lowercase conforme Postgres
   createdAt: timestamp("created_at").defaultNow(),
 });
 

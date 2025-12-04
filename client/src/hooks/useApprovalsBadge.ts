@@ -56,7 +56,7 @@ export function useApprovalsBadge() {
               });
             } else {
               const list = await (reg as any).getNotifications({ tag: 'approvals-badge' });
-              list.forEach(n => n.close());
+              list.forEach((n: any) => n.close());
             }
           }
         }

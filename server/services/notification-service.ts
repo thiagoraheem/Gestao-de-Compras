@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { users, quotations, quotationVersionHistory, purchaseRequests } from '../../shared/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import { isEmailEnabled } from '../config';
 
 export interface NotificationData {
@@ -255,9 +255,9 @@ export class NotificationServiceImpl implements NotificationService {
         .select({ id: users.id })
         .from(users)
         .where(
-          and(
-            eq(users.active, true),
-            // Add managers and admins
+          or(
+            eq(users.isManager, true),
+            eq(users.isAdmin, true)
           )
         );
 

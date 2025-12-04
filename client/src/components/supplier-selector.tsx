@@ -67,7 +67,7 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
 
   const handleSelectAll = () => {
     const allFilteredIds = filteredSuppliers.map(s => s.id);
-    const newSelection = [...new Set([...selectedSuppliers, ...allFilteredIds])];
+    const newSelection = Array.from(new Set([...selectedSuppliers, ...allFilteredIds]));
     onSelectionChange(newSelection);
   };
 

@@ -28,7 +28,7 @@ export function RealtimeSyncProvider() {
         return;
       }
 
-      if (!RELEVANT_PURCHASE_REQUEST_EVENTS.has(event.event)) {
+      if (!RELEVANT_PURCHASE_REQUEST_EVENTS.has(event.event as any)) {
         return;
       }
       updateManager.start();

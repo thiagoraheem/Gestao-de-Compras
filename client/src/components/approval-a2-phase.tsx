@@ -525,13 +525,15 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                     {new Intl.NumberFormat('pt-BR', {
                       style: 'currency',
                       currency: 'BRL',
+                      minimumFractionDigits: 4,
+                      maximumFractionDigits: 4,
                     }).format(Number(selectedSupplierQuotation.totalValue || 0))}
                   </p>
                   {selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue && (
                     <p className="text-sm text-orange-600 mt-1">
                       Desconto da proposta: {selectedSupplierQuotation.discountType === 'percentage' 
                         ? `${selectedSupplierQuotation.discountValue}%`
-                        : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(2).replace('.', ',')}`
+                        : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(4).replace('.', ',')}`
                       }
                     </p>
                   )}
@@ -547,6 +549,8 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                         {new Intl.NumberFormat('pt-BR', {
                           style: 'currency',
                           currency: 'BRL',
+                          minimumFractionDigits: 4,
+                          maximumFractionDigits: 4,
                         }).format(Number(selectedSupplierQuotation.freightValue || 0))}
                       </span>
                     ) : (
@@ -647,16 +651,16 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                         <TableCell className="text-center">{item.quantity}</TableCell>
                         <TableCell className="text-center">{item.unit}</TableCell>
                         <TableCell className="text-right">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitPrice)}
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(item.unitPrice)}
                         </TableCell>
                         <TableCell className="text-right">
                           {item.itemDiscount > 0 
-                            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.itemDiscount)
+                            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(item.itemDiscount)
                             : <span className="text-gray-400">-</span>
                           }
                         </TableCell>
                         <TableCell className="text-right">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.totalPrice)}
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(item.totalPrice)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -675,7 +679,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                             <div className="flex justify-between items-center">
                               <span className="text-sm text-gray-700 dark:text-gray-300">Subtotal (sem desconto):</span>
                               <span className="font-medium text-gray-900 dark:text-gray-100">
-                                R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                               </span>
                             </div>
                             {totalDiscount > 0 && (
@@ -684,7 +688,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                                 <span className="font-medium text-orange-600 dark:text-orange-300">
                                   {selectedSupplierQuotation.discountType === 'percentage' 
                                     ? `- ${totalDiscount}%`
-                                    : `- R$ ${totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                    : `- R$ ${totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`}
                                 </span>
                               </div>
                             )}
@@ -696,7 +700,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                               <span className="font-medium">
                                 {selectedSupplierQuotation.includesFreight ? (
                                   <span className="text-blue-600 dark:text-blue-300">
-                                    R$ {Number(selectedSupplierQuotation.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    R$ {Number(selectedSupplierQuotation.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                                   </span>
                                 ) : (
                                   <span className="text-gray-500 dark:text-gray-400">Não incluso</span>
@@ -707,7 +711,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                               <div className="flex justify-between items-center">
                                 <span className="text-base font-semibold text-blue-800 dark:text-blue-200">Valor Final:</span>
                                 <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                                  R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                                 </span>
                               </div>
                             </div>
@@ -870,8 +874,8 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                   </div>
                   <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                     {approvalType === 'dual' 
-                      ? `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer aprovação sequencial de dois aprovadores A2.`
-                      : `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer apenas uma aprovação A2.`
+                      ? `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} requer aprovação sequencial de dois aprovadores A2.`
+                      : `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} requer apenas uma aprovação A2.`
                     }
                   </p>
                   {approvalInfo && approvalInfo.nextApprover && (

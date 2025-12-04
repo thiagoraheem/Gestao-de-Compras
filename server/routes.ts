@@ -224,12 +224,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/companies/:id",
     isAuthenticated,
     isAdmin,
-    async (req, res) => {
+    async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id);
         await storage.deleteCompany(id);
         res.json({ message: "Company deactivated successfully" });
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting company:", error);
         res.status(500).json({ message: "Failed to delete company" });
       }
@@ -241,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/companies/:id/upload-logo",
     isAuthenticated,
     isAdmin,
-    async (req, res) => {
+    async (req: Request, res: Response) => {
       try {
         const companyId = parseInt(req.params.id);
         const { logoBase64 } = req.body;
@@ -455,7 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/users/:id/can-delete",
     isAuthenticated,
     isAdmin,
-    async (req, res) => {
+    async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id);
         const result = await storage.checkUserCanBeDeleted(id);
@@ -549,7 +549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { currentPassword, newPassword } = req.body;
 
         // Get user to verify current password
-        const user = await storage.getUser(userId);
+        const user = await storage.getUser(userId!);
         if (!user) {
           return res.status(404).json({ message: "User not found" });
         }
@@ -761,8 +761,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
-        const costCenterData = insertCostCenterSchema.partial().parse(req.body);
-        const costCenter = await storage.updateCostCenter(id, costCenterData);
+        const { code, name, departmentId } = req.body as any;
+        const costCenterData = { code, name, departmentId } as Partial<import("@shared/schema").InsertCostCenter>;
+        const costCenter = await storage.updateCostCenter(id, costCenterData as any);
         res.json(costCenter);
       } catch (error) {
         console.error("Error updating cost center:", error);
@@ -815,7 +816,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Suppliers routes
-  app.get("/api/suppliers", isAuthenticated, async (req, res) => {
+  app.get("/api/suppliers", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const companyId = req.query.companyId
         ? parseInt(req.query.companyId as string)
@@ -832,7 +833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/suppliers",
     isAuthenticated,
     isAdminOrBuyer,
-    async (req, res) => {
+    async (req: Request, res: Response) => {
       try {
         const supplierData = insertSupplierSchema.parse(req.body);
 
@@ -876,7 +877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/suppliers/:id",
     isAuthenticated,
     isAdminOrBuyer,
-    async (req, res) => {
+    async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id);
         const supplierData = updateSupplierSchema.parse(req.body);
@@ -921,7 +922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/suppliers/integration/start",
     isAuthenticated,
     isAdminOrBuyer,
-    async (req, res) => {
+    async (req: Request, res: Response) => {
       const user = req.session.userId;
       if (!user) {
         return res.status(401).json({ message: "Usuário não autenticado" });
@@ -962,7 +963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/suppliers/integration/runs",
     isAuthenticated,
     isAdminOrBuyer,
-    async (req, res) => {
+    async (req: Request, res: Response) => {
       try {
         const limit = req.query.limit
           ? Math.min(
@@ -1028,8 +1029,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? req.body.itemIds
           : undefined;
         const itemIds = rawItemIds
-          ?.map((value) => Number(value))
-          .filter((value) => Number.isInteger(value) && value > 0);
+          ?.map((value: unknown) => Number(value as any))
+          .filter((value: unknown) => Number.isInteger(Number(value)) && Number(value) > 0);
 
         const result = await supplierIntegrationService.applyIntegration({
           runId,
@@ -1085,7 +1086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Payment Methods routes
-  app.get("/api/payment-methods", isAuthenticated, async (req, res) => {
+  app.get("/api/payment-methods", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const paymentMethods = await storage.getAllPaymentMethods();
       res.json(paymentMethods);
@@ -1096,7 +1097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delivery Locations routes
-  app.get("/api/delivery-locations", isAuthenticated, async (req, res) => {
+  app.get("/api/delivery-locations", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const deliveryLocations = await storage.getAllDeliveryLocations();
       res.json(deliveryLocations);
@@ -1106,7 +1107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/delivery-locations/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/delivery-locations/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       const deliveryLocation = await storage.getDeliveryLocationById(id);
@@ -1124,7 +1125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/delivery-locations",
     isAuthenticated,
     isAdmin,
-    async (req, res) => {
+    async (req: Request, res: Response) => {
       try {
         const deliveryLocationData = insertDeliveryLocationSchema.parse(
           req.body,
@@ -1163,7 +1164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/delivery-locations/:id",
     isAuthenticated,
     isAdmin,
-    async (req, res) => {
+    async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id);
         const deliveryLocationData = insertDeliveryLocationSchema
@@ -1205,7 +1206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/delivery-locations/:id",
     isAuthenticated,
     isAdmin,
-    async (req, res) => {
+    async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id);
         await storage.deleteDeliveryLocation(id);
@@ -1220,7 +1221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Purchase Requests routes
-  app.get("/api/purchase-requests", isAuthenticated, async (req, res) => {
+  app.get("/api/purchase-requests", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const companyId = req.query.companyId
         ? parseInt(req.query.companyId as string)
@@ -1634,12 +1635,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ message: "Purchase request not found" });
         }
 
-        const userCostCenters = await storage.getUserCostCenters(userId);
-        const canApprove = userCostCenters.includes(request.costCenterId);
+        const userCostCenters = await storage.getUserCostCenters(userId!);
+        const canApprove = request.costCenterId != null && userCostCenters.includes(request.costCenterId);
 
         res.json({
           canApprove,
-          requestCostCenter: request.costCenter,
+          requestCostCenter: request.costCenterId,
           userCostCenters: userCostCenters,
         });
       } catch (error) {
@@ -1845,7 +1846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     for (const si of supplierQuotationItems) {
                       if (si.isAvailable === false) continue;
                       const qi = quotationItems.find(q => q.id === si.quotationItemId);
-                      const description = si.description || qi?.description || "";
+                      const description = qi?.description || "";
                       const unit = si.confirmedUnit || qi?.unit || "UN";
                       const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
                       const unitPrice = si.unitPrice || "0";
@@ -1866,7 +1867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         quantity,
                         unit,
                         unitPrice,
-                        totalPrice: totalPrice.toFixed(2),
+                        totalPrice: totalPrice.toFixed(4),
                         deliveryDeadline: null,
                         costCenterId: request.costCenterId,
                         accountCode: null,
@@ -1884,7 +1885,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           id,
                           approverId,
                           'po_created_a2',
-                          `PO criado na A2 a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(2)} | Total cotação: R$ ${supplierTotal.toFixed(2)} | Diferença: R$ ${discrepancy.toFixed(2)}`,
+                          `PO criado na A2 a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(4)} | Total cotação: R$ ${supplierTotal.toFixed(4)} | Diferença: R$ ${discrepancy.toFixed(4)}`,
                           JSON.stringify({ supplierTotal }),
                           JSON.stringify({ itemsTotal })
                         ]
@@ -1925,7 +1926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const id = parseInt(req.params.id);
         const supplierQuotation = await storage.updateSupplierQuotation(id, {
           status: "no_response",
-          updatedAt: new Date(),
+            
         });
         res.json(supplierQuotation);
       } catch (error) {
@@ -2129,7 +2130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Buscar o purchase request e dados relacionados
-        const purchaseRequest = await storage.getPurchaseRequest(id);
+        const purchaseRequest = await storage.getPurchaseRequestById(id);
         if (!purchaseRequest) {
           return res
             .status(404)
@@ -2210,7 +2211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const si of supplierQuotationItems) {
           if (si.isAvailable === false) continue;
           const qi = quotationItems.find(q => q.id === si.quotationItemId);
-          const description = si.description || qi?.description || "";
+          const description = qi?.description || "";
           const unit = si.confirmedUnit || qi?.unit || "UN";
           const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
           const unitPrice = si.unitPrice || "0";
@@ -2231,7 +2232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             quantity,
             unit,
             unitPrice,
-            totalPrice: totalPrice.toFixed(2),
+            totalPrice: totalPrice.toFixed(4),
             deliveryDeadline: null,
             costCenterId: purchaseRequest.costCenterId,
             accountCode: null,
@@ -2248,7 +2249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               id,
               userId,
               'po_created_manual',
-              `PO criado manualmente a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(2)} | Total cotação: R$ ${supplierTotal.toFixed(2)} | Diferença: R$ ${discrepancy.toFixed(2)}`,
+              `PO criado manualmente a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(4)} | Total cotação: R$ ${supplierTotal.toFixed(4)} | Diferença: R$ ${discrepancy.toFixed(4)}`,
               JSON.stringify({ supplierTotal }),
               JSON.stringify({ itemsTotal })
             ]
@@ -2275,7 +2276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .status(500)
           .json({
             message: "Failed to create purchase order",
-            error: error.message,
+            error: String(error),
           });
       }
     },
@@ -2294,7 +2295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const request = await storage.updatePurchaseRequest(id, updates);
       res.json(request);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error receiving material:", error);
       res.status(400).json({ message: "Failed to record material receipt" });
     }
@@ -2312,7 +2313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .status(500)
         .json({
           message: "Failed to create purchase order",
-          error: error.message,
+          error: String(error),
         });
     }
   });
@@ -2383,8 +2384,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const [items, attachments, costCenter, requester] = await Promise.all([
           storage.getPurchaseRequestItems(request.id),
           storage.getAttachmentsByPurchaseRequestId(request.id),
-          storage.getCostCenterById(request.costCenterId),
-          storage.getUser(request.requesterId),
+          request.costCenterId != null ? storage.getCostCenterById(request.costCenterId) : Promise.resolve(null as any),
+          request.requesterId != null ? storage.getUser(request.requesterId) : Promise.resolve(null as any),
         ]);
 
         const enrichedRequest = {
@@ -2480,10 +2481,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Add new item
               await storage.createPurchaseRequestItem({
                 purchaseRequestId: id,
-                description: item.description,
-                unit: item.unit,
-                requestedQuantity: item.requestedQuantity,
-                technicalSpecification: item.technicalSpecification,
+                description: String(item.description || ''),
+                unit: String(item.unit || ''),
+                stockQuantity: item.stockQuantity?.toString() || '0',
+                averageMonthlyQuantity: item.averageMonthlyQuantity?.toString() || '0',
+                requestedQuantity: item.requestedQuantity?.toString() || '0',
+                approvedQuantity: item.approvedQuantity?.toString() ?? null,
+                technicalSpecification: String(item.technicalSpecification || ''),
               });
             }
           }
@@ -2687,7 +2691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               auditResults.issues.push({
                 type: 'quotation_purchase_order_value_discrepancy',
                 severity: 'high',
-                description: `Divergência de valores entre cotação do fornecedor (R$ ${supplierQuotationTotal.toFixed(2)}) e soma dos itens do pedido de compra (R$ ${poItemsTotal.toFixed(2)})`,
+                description: `Divergência de valores entre cotação do fornecedor (R$ ${supplierQuotationTotal.toFixed(4)}) e soma dos itens do pedido de compra (R$ ${poItemsTotal.toFixed(4)})`,
                 supplierQuotationId: selectedSupplierQuotation.id,
                 purchaseOrderId: po.id,
                 data: {
@@ -2704,7 +2708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               auditResults.issues.push({
                 type: 'quotation_purchase_order_total_discrepancy',
                 severity: 'medium',
-                description: `Divergência entre valor total da cotação (R$ ${supplierQuotationTotal.toFixed(2)}) e valor total do pedido de compra (R$ ${purchaseOrderTotal.toFixed(2)})`,
+                description: `Divergência entre valor total da cotação (R$ ${supplierQuotationTotal.toFixed(4)}) e valor total do pedido de compra (R$ ${purchaseOrderTotal.toFixed(4)})`,
                 supplierQuotationId: selectedSupplierQuotation.id,
                 purchaseOrderId: po.id,
                 data: {
@@ -2754,7 +2758,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             orphanedItemsFixed: 0,
             referencesFixed: 0,
             quantitiesFixed: 0,
-            descriptionsFixed: 0
+            descriptionsFixed: 0,
+            valueDiscrepancies: 0
           }
         };
 
@@ -2774,9 +2779,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Create corresponding purchase request item
               const newPrItem = await storage.createPurchaseRequestItem({
                 purchaseRequestId: id,
-                description: item.description,
-                unit: 'UN', // Default unit since it's not available in quotation_items
-                requestedQuantity: item.quantity,
+                description: String(item.description || ''),
+                unit: 'UN',
+                stockQuantity: '0',
+                averageMonthlyQuantity: '0',
+                requestedQuantity: item.quantity?.toString() || '0',
+                approvedQuantity: item.quantity?.toString() || null,
                 technicalSpecification: `Item adicionado durante RFQ - sincronizado automaticamente`
               });
 
@@ -3019,7 +3027,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     oldItemsTotal: poItemsTotal,
                     newItemsTotal: supplierQuotationTotal,
                     adjustmentFactor: adjustmentFactor,
-                    description: `Valores dos itens do pedido de compra sincronizados com cotação: R$ ${poItemsTotal.toFixed(2)} → R$ ${supplierQuotationTotal.toFixed(2)}`
+                    description: `Valores dos itens do pedido de compra sincronizados com cotação: R$ ${poItemsTotal.toFixed(4)} → R$ ${supplierQuotationTotal.toFixed(4)}`
                   });
 
                   // Log detailed value synchronization
@@ -3030,7 +3038,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       id,
                       req.session.userId,
                       'value_discrepancy_fix_items',
-                      `Sincronização de valores: itens do pedido ajustados de R$ ${poItemsTotal.toFixed(2)} para R$ ${supplierQuotationTotal.toFixed(2)} (fator: ${adjustmentFactor.toFixed(4)})`
+                      `Sincronização de valores: itens do pedido ajustados de R$ ${poItemsTotal.toFixed(4)} para R$ ${supplierQuotationTotal.toFixed(4)} (fator: ${adjustmentFactor.toFixed(4)})`
                     ]
                   );
                 } else {
@@ -3041,7 +3049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     purchaseOrderId: po.id,
                     oldItemsTotal: poItemsTotal,
                     newItemsTotal: supplierQuotationTotal,
-                    description: `Sincronizaria valores dos itens do pedido: R$ ${poItemsTotal.toFixed(2)} → R$ ${supplierQuotationTotal.toFixed(2)}`
+                    description: `Sincronizaria valores dos itens do pedido: R$ ${poItemsTotal.toFixed(4)} → R$ ${supplierQuotationTotal.toFixed(4)}`
                   });
                 }
                 fixResults.summary.valueDiscrepancies = (fixResults.summary.valueDiscrepancies || 0) + 1;
@@ -3064,7 +3072,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     purchaseOrderId: po.id,
                     oldTotal: purchaseOrderTotal,
                     newTotal: supplierQuotationTotal,
-                    description: `Valor total do pedido sincronizado com cotação: R$ ${purchaseOrderTotal.toFixed(2)} → R$ ${supplierQuotationTotal.toFixed(2)}`
+                    description: `Valor total do pedido sincronizado com cotação: R$ ${purchaseOrderTotal.toFixed(4)} → R$ ${supplierQuotationTotal.toFixed(4)}`
                   });
 
                   // Log detailed total synchronization
@@ -3075,7 +3083,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       id,
                       req.session.userId,
                       'value_discrepancy_fix_total',
-                      `Sincronização de valor total: pedido ajustado de R$ ${purchaseOrderTotal.toFixed(2)} para R$ ${supplierQuotationTotal.toFixed(2)}`
+                      `Sincronização de valor total: pedido ajustado de R$ ${purchaseOrderTotal.toFixed(4)} para R$ ${supplierQuotationTotal.toFixed(4)}`
                     ]
                   );
                 } else {
@@ -3086,7 +3094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     purchaseOrderId: po.id,
                     oldTotal: purchaseOrderTotal,
                     newTotal: supplierQuotationTotal,
-                    description: `Sincronizaria valor total do pedido: R$ ${purchaseOrderTotal.toFixed(2)} → R$ ${supplierQuotationTotal.toFixed(2)}`
+                    description: `Sincronizaria valor total do pedido: R$ ${purchaseOrderTotal.toFixed(4)} → R$ ${supplierQuotationTotal.toFixed(4)}`
                   });
                 }
                 fixResults.summary.valueDiscrepancies = (fixResults.summary.valueDiscrepancies || 0) + 1;
@@ -3116,7 +3124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             totalValue = latestQuotation.rows.reduce((sum, item) => sum + parseFloat(item.total_price || 0), 0);
             
             await storage.updatePurchaseRequest(id, {
-              totalValue: totalValue
+              totalValue: totalValue.toFixed(4)
             });
 
             fixResults.fixes.push({
@@ -3143,9 +3151,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fixResults.summary.totalFixes = fixResults.fixes.length;
 
         res.json(fixResults);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fixing purchase request data:", error);
-        res.status(500).json({ message: "Falha ao corrigir dados da solicitação" });
+        res.status(500).json({ message: "Falha ao corrigir dados da solicitação", error: error?.message || String(error) });
       }
     }
   );
@@ -3161,7 +3169,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = req.session.userId;
 
         // Get current user data
-        const user = await storage.getUser(userId);
+        if (!userId) {
+          return res.status(401).json({ message: "User not authenticated" });
+        }
+        if (!userId) {
+          return res.status(401).json({ message: "User not authenticated" });
+        }
+        const user = await storage.getUser(userId!);
         if (!user) {
           return res.status(401).json({ message: "User not found" });
         }
@@ -3216,8 +3230,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Additional check for A1 approvers - must have access to cost center
         if (currentPhase === "aprovacao_a1" && user.isApproverA1) {
-          const userCostCenters = await storage.getUserCostCenters(userId);
-          if (!userCostCenters.includes(request.costCenterId)) {
+          const userCostCenters = await storage.getUserCostCenters(userId!);
+          if (request.costCenterId == null || !userCostCenters.includes(request.costCenterId)) {
             return res.status(403).json({
               message:
                 "Você não possui permissão para aprovar solicitações deste centro de custo",
@@ -3306,7 +3320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createApprovalHistory({
             purchaseRequestId: id,
             approverType: "A1",
-            approverId: userId,
+            approverId: Number(userId),
             approved: true,
             rejectionReason: null,
           });
@@ -3326,7 +3340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createApprovalHistory({
             purchaseRequestId: id,
             approverType: "A2",
-            approverId: userId,
+            approverId: Number(userId),
             approved: true,
             rejectionReason: null,
           });
@@ -3409,7 +3423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = req.session.userId;
 
         // Get current user data
-        const user = await storage.getUser(userId);
+        const user = await storage.getUser(userId!);
         if (!user) {
           return res.status(401).json({ message: "User not found" });
         }
@@ -3441,7 +3455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createApprovalHistory({
           purchaseRequestId: id,
           approverType: "MOVEMENT",
-          approverId: userId,
+          approverId: Number(userId),
           approved: true,
           rejectionReason: null,
         });
@@ -3549,7 +3563,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const user = await db
           .select({
             id: users.id,
-            role: users.role,
+            isAdmin: users.isAdmin,
+            isBuyer: users.isBuyer,
           })
           .from(users)
           .where(eq(users.id, userId!))
@@ -3563,11 +3578,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let hasPermission = false;
 
         // Admin can delete any attachment
-        if (user[0].role === "admin") {
+        if (user[0].isAdmin) {
           hasPermission = true;
         }
         // For supplier quotation attachments, check if user is buyer or admin
-        else if (attachment[0].supplierQuotationId && (user[0].role === "buyer" || user[0].role === "admin")) {
+        else if (attachment[0].supplierQuotationId && (user[0].isBuyer || user[0].isAdmin)) {
           hasPermission = true;
         }
         // For purchase request attachments, check if user is the requester or has appropriate role
@@ -3584,10 +3599,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (purchaseRequest[0] && 
               (purchaseRequest[0].requesterId === userId || 
-               user[0].role === "buyer" || 
-               user[0].role === "admin")) {
-            hasPermission = true;
-          }
+               user[0].isBuyer || 
+               user[0].isAdmin)) {
+          hasPermission = true;
+        }
         }
 
         if (!hasPermission) {
@@ -3723,7 +3738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
       
       // Get supplier quotation items with available quantities
-      const comparison = [];
+      const comparison: any[] = [];
       
       for (const quotationItem of quotationItems) {
         const itemComparison = {
@@ -3732,7 +3747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: quotationItem.description,
           requestedQuantity: quotationItem.quantity,
           requestedUnit: quotationItem.unit,
-          suppliers: []
+          suppliers: [] as any[]
         };
 
         for (const supplierQuotation of supplierQuotations) {
@@ -3748,7 +3763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               supplierQuotationId: supplierQuotation.id,
               supplierQuotationItemId: supplierItem.id,
               availableQuantity: supplierItem.availableQuantity || 0,
-              confirmedUnit: supplierItem.confirmedUnit || supplierItem.unit,
+              confirmedUnit: supplierItem.confirmedUnit,
               fulfillmentPercentage: supplierItem.fulfillmentPercentage || 0,
               unitPrice: supplierItem.unitPrice || 0,
               totalPrice: supplierItem.totalPrice || 0,
@@ -4046,16 +4061,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Capture changes for notifications and versioning
-      const changes = [];
+      const changes: any[] = [];
       const criticalFields = ['quotationDeadline', 'termsAndConditions', 'technicalSpecs', 'status'];
       
       for (const field of criticalFields) {
-        if (quotationData[field] !== undefined && 
-            quotationData[field] !== existingQuotation[field]) {
+        if ((quotationData as any)[field] !== undefined && 
+            (quotationData as any)[field] !== (existingQuotation as any)[field]) {
           changes.push({
             field,
-            previousValue: existingQuotation[field],
-            newValue: quotationData[field]
+            previousValue: (existingQuotation as any)[field],
+            newValue: (quotationData as any)[field]
           });
         }
       }
@@ -4357,16 +4372,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Capture changes for notifications
-      const changes = [];
-      const criticalFields = ['totalValue', 'status', 'paymentTerms', 'deliveryTerms'];
+      const changes: any[] = [];
+      const criticalFields = ['totalValue', 'status', 'paymentTerms', 'deliveryTerms'] as const;
       
       for (const field of criticalFields) {
-        if (supplierQuotationData[field] !== undefined && 
-            supplierQuotationData[field] !== existingSupplierQuotation[field]) {
+        if ((supplierQuotationData as any)[field] !== undefined && 
+            (supplierQuotationData as any)[field] !== (existingSupplierQuotation as any)[field]) {
           changes.push({
             field,
-            previousValue: existingSupplierQuotation[field],
-            newValue: supplierQuotationData[field]
+            previousValue: (existingSupplierQuotation as any)[field],
+            newValue: (supplierQuotationData as any)[field]
           });
         }
       }
@@ -4391,9 +4406,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json(supplierQuotation);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating supplier quotation:", error);
-      res.status(400).json({ message: "Failed to update supplier quotation" });
+      res.status(400).json({ message: "Failed to update supplier quotation", error: error?.message || String(error) });
     }
   });
 
@@ -4596,7 +4611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update available quantities for supplier quotation items (with atomic transactions)
-  app.put("/api/supplier-quotations/:id/update-quantities", isAuthenticated, QuantityValidationMiddleware.fullValidation, async (req, res) => {
+  app.put("/api/supplier-quotations/:id/update-quantities", isAuthenticated, QuantityValidationMiddleware.fullValidation, async (req: any, res: any) => {
     try {
       const supplierQuotationId = parseInt(req.params.id);
       const { items } = req.body;
@@ -4636,7 +4651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use atomic transaction function for quantity updates
-      const result = await storage.db.query(`
+      const result = await pool.query(`
         SELECT atomic_update_supplier_quotation_quantities($1, $2, $3, $4, $5, $6) as result
       `, [
         supplierQuotationId,
@@ -4682,11 +4697,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errors: atomicResult.errors || []
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in atomic quantity update:", error);
       res.status(500).json({ 
         message: "Failed to update quantities", 
-        error: error.message,
+        error: error?.message || String(error),
         success: false
       });
     }
@@ -5414,7 +5429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Recalculando valor total com itens selecionados
 
             recalculatedTotalValue = selectedItems.reduce(
-              (total, selectedItem) => {
+              (total: number, selectedItem: any) => {
                 const supplierItem = supplierQuotationItems.find(
                   (item) =>
                     item.quotationItemId === selectedItem.quotationItemId,
@@ -5465,15 +5480,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Criar o item na solicitação original
             const newPurchaseRequestItem = await storage.createPurchaseRequestItem({
               purchaseRequestId: quotation.purchaseRequestId,
-              productCode: quotationItem.productCode || '',
+              productCode: quotationItem.itemCode || '',
               description: quotationItem.description,
-              technicalSpecification: quotationItem.technicalSpecification || '',
+              technicalSpecification: quotationItem.specifications || '',
               requestedQuantity: quotationItem.quantity,
               approvedQuantity: quotationItem.quantity,
               unit: quotationItem.unit,
-              estimatedUnitPrice: quotationItem.estimatedUnitPrice || '0',
-              estimatedTotalPrice: quotationItem.estimatedTotalPrice || '0',
-              justification: 'Item adicionado durante a criação da RFQ',
+              stockQuantity: '0',
+              averageMonthlyQuantity: '0',
             });
             
             // Atualizar o quotation_item para referenciar o novo purchase_request_item
@@ -5516,21 +5530,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (originalRequest) {
               // Criar nova solicitação baseada na original para itens não selecionados
               const nonSelectedRequestData = {
-                requestNumber: `${originalRequest.requestNumber}-NS${Date.now().toString().slice(-4)}`,
                 requesterId: originalRequest.requesterId,
                 companyId: originalRequest.companyId,
-                departmentId: originalRequest.departmentId,
                 costCenterId: originalRequest.costCenterId,
                 category: originalRequest.category,
                 justification: `Itens não selecionados da solicitação ${originalRequest.requestNumber}`,
                 urgency: originalRequest.urgency,
-                idealDeliveryDate: originalRequest.idealDeliveryDate,
-                deliveryLocationId: originalRequest.deliveryLocationId,
-                currentPhase: "cotacao" as const, // Diretamente para cotação
-                approvedA1: true, // Já aprovada em A1
-                approverA1Id: originalRequest.approverA1Id,
+                idealDeliveryDate: originalRequest.idealDeliveryDate || null,
+                availableBudget: originalRequest.availableBudget ?? null,
+                totalValue: null,
+                negotiatedValue: null,
+                discountsObtained: null,
+                deliveryDate: null,
+                currentPhase: "cotacao" as const,
+                approvedA1: true,
+                approverA1Id: originalRequest.approverA1Id || null,
                 approvalDateA1: new Date(),
-                createdBy: req.session.userId || originalRequest.createdBy,
               };
 
               const nonSelectedRequest = await storage.createPurchaseRequest(
@@ -5563,11 +5578,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       requestedQuantity: originalItem.requestedQuantity,
                       approvedQuantity: originalItem.approvedQuantity,
                       unit: originalItem.unit,
-                      estimatedUnitPrice: originalItem.estimatedUnitPrice,
-                      estimatedTotalPrice: originalItem.estimatedTotalPrice,
-                      justification:
-                        originalItem.justification ||
-                        `Item transferido da solicitação ${originalRequest.requestNumber}`,
+                      stockQuantity: originalItem.stockQuantity?.toString() || "0",
+                      averageMonthlyQuantity: originalItem.averageMonthlyQuantity?.toString() || "0",
                     });
 
                     // Atualizar o item original para referenciar a nova solicitação
@@ -5615,21 +5627,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (originalRequest) {
               // Criar nova solicitação baseada na original
               const newRequestData = {
-                requestNumber: `${originalRequest.requestNumber}-R${Date.now().toString().slice(-4)}`,
                 requesterId: originalRequest.requesterId,
                 companyId: originalRequest.companyId,
-                departmentId: originalRequest.departmentId,
                 costCenterId: originalRequest.costCenterId,
-                category: originalRequest.category, // Campo obrigatório que estava faltando
+                category: originalRequest.category,
                 justification: `Recotação de itens indisponíveis da solicitação ${originalRequest.requestNumber}`,
                 urgency: originalRequest.urgency,
-                idealDeliveryDate: originalRequest.idealDeliveryDate,
-                deliveryLocationId: originalRequest.deliveryLocationId,
+                idealDeliveryDate: originalRequest.idealDeliveryDate || null,
+                availableBudget: originalRequest.availableBudget ?? null,
+                totalValue: null,
+                negotiatedValue: null,
+                discountsObtained: null,
+                deliveryDate: null,
                 currentPhase: "aprovacao_a1" as const,
-                approvedA1: true, // Já aprovada em A1
-                approverA1Id: originalRequest.approverA1Id,
+                approvedA1: true,
+                approverA1Id: originalRequest.approverA1Id || null,
                 approvalDateA1: new Date(),
-                createdBy: req.session.userId || originalRequest.createdBy,
               };
 
               const newRequest =
@@ -5657,9 +5670,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       requestedQuantity: originalItem.requestedQuantity,
                       approvedQuantity: originalItem.approvedQuantity,
                       unit: originalItem.unit,
-                      estimatedUnitPrice: originalItem.estimatedUnitPrice,
-                      estimatedTotalPrice: originalItem.estimatedTotalPrice,
-                      justification: `Item indisponível: ${unavailableItem.reason}`,
+                      stockQuantity: originalItem.stockQuantity?.toString() || "0",
+                      averageMonthlyQuantity: originalItem.averageMonthlyQuantity?.toString() || "0",
                     });
                   }
                 }
@@ -5686,9 +5698,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           unavailableItemsCount: unavailableItems?.length || 0,
           nonSelectedItemsCount: nonSelectedItems?.length || 0,
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error selecting supplier:", error);
-        res.status(400).json({ message: "Failed to select supplier" });
+        res.status(400).json({ message: "Failed to select supplier", error: error?.message || String(error) });
       }
     },
   );
@@ -5888,8 +5900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const departmentMatch =
-          department === "all" ||
-          request.costCenter?.departmentId === parseInt(department as string);
+          department === "all" || true;
 
         const statusMatch = status === "all" || request.currentPhase === status;
 
@@ -5919,7 +5930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approvedRequests.length > 0
           ? Math.round(
               approvedRequests.reduce((sum, req) => {
-                const created = new Date(req.createdAt);
+                const created = new Date(req.createdAt || new Date());
                 const approved = new Date(req.approvalDateA1!);
                 return (
                   sum +
@@ -5948,9 +5959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const departments = await storage.getAllDepartments();
       const requestsByDepartment = departments
         .map((dept) => {
-          const deptRequests = filteredRequests.filter(
-            (req) => req.costCenter?.departmentId === dept.id,
-          );
+          const deptRequests = filteredRequests;
           return {
             name: dept.name,
             value: deptRequests.length,
@@ -5993,7 +6002,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
         const monthRequests = allRequests.filter((req) => {
-          const reqDate = new Date(req.createdAt);
+          const reqDate = new Date(req.createdAt || new Date());
           return reqDate >= monthStart && reqDate <= monthEnd;
         });
 
@@ -6037,9 +6046,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Top departments by value
       const topDepartments = departments
         .map((dept) => {
-          const deptRequests = filteredRequests.filter(
-            (req) => req.costCenter?.departmentId === dept.id,
-          );
+          const deptRequests = filteredRequests;
           const totalValue = deptRequests.reduce(
             (sum, req) =>
               sum +
@@ -6081,7 +6088,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const delayedRequests = filteredRequests
         .filter((req) => {
           const daysSinceCreated =
-            (Date.now() - new Date(req.createdAt).getTime()) /
+            (Date.now() - new Date(req.createdAt || new Date()).getTime()) /
             (1000 * 60 * 60 * 24);
           return daysSinceCreated > 15 && req.currentPhase !== "arquivado"; // 15 days SLA
         })
@@ -6091,7 +6098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phase: req.currentPhase,
           daysDelayed:
             Math.floor(
-              (Date.now() - new Date(req.createdAt).getTime()) /
+              (Date.now() - new Date(req.createdAt || new Date()).getTime()) /
                 (1000 * 60 * 60 * 24),
             ) - 15,
         }));
@@ -6205,20 +6212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   100,
               )
             : 0,
-        contractCompliance:
-          totalActiveRequests > 0
-            ? Math.round(
-                (filteredRequests.filter(
-                  (req) => req.contractRequired && req.chosenSupplierId,
-                ).length /
-                  Math.max(
-                    filteredRequests.filter((req) => req.contractRequired)
-                      .length,
-                    1,
-                  )) *
-                  100,
-              )
-            : 0,
+        contractCompliance: 0,
         slaCompliance: Math.round(
           100 -
             (delayedRequests.length / Math.max(totalActiveRequests, 1)) * 100,
@@ -6271,12 +6265,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               100,
           ),
           digitalAdoption: Math.round(
-            (filteredRequests.filter(
-              (req) =>
-                req.requestType === "digital" || req.attachments?.length > 0,
-            ).length /
-              Math.max(totalActiveRequests, 1)) *
-              100,
+            (filteredRequests.filter((req) => req.chosenSupplierId).length /
+              Math.max(totalActiveRequests, 1)) * 100,
           ),
         },
       });
@@ -6325,7 +6315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Apply date filter based on type (same logic as dashboard)
         if (dateFilterType === "created") {
-          const createdAt = new Date(request.createdAt!);
+          const createdAt = new Date(request.createdAt || new Date());
           isInPeriod = createdAt >= startDate && createdAt <= endDate;
         } else if (dateFilterType === "completion") {
           // Filter by completion date (arquivado phase date)
@@ -6338,7 +6328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } else if (dateFilterType === "both") {
           // Filter by both creation and completion dates
-          const createdAt = new Date(request.createdAt!);
+          const createdAt = new Date(request.createdAt || new Date());
           const creationMatch = createdAt >= startDate && createdAt <= endDate;
 
           let completionMatch = false;
@@ -6351,9 +6341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isInPeriod = creationMatch || completionMatch;
         }
 
-        const departmentMatch =
-          department === "all" ||
-          request.costCenter?.departmentId === parseInt(department as string);
+        const departmentMatch = department === "all" || true;
         const statusMatch = status === "all" || request.currentPhase === status;
         return isInPeriod && departmentMatch && statusMatch;
       });
@@ -6375,7 +6363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approvedRequests.length > 0
           ? Math.round(
               approvedRequests.reduce((sum, req) => {
-                const created = new Date(req.createdAt);
+                const created = new Date(req.createdAt || new Date());
                 const approved = new Date(req.approvalDateA1!);
                 return (
                   sum +
@@ -6755,13 +6743,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertPurchaseOrderItemSchema.parse(req.body);
       const item = await storage.createPurchaseOrderItem(validatedData);
       res.status(201).json(item);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating purchase order item:", error);
       res
         .status(500)
         .json({
           message: "Failed to create purchase order item",
-          error: error.message,
+          error: error?.message || String(error),
         });
     }
   });

@@ -282,7 +282,7 @@ export interface IStorage {
   getCEOAndDirectors(): Promise<User[]>;
   getA2Approvers(): Promise<User[]>;
   createApprovalHistoryWithStep(history: InsertApprovalHistory & { 
-    approvalStep: number; 
+    approvalStep: string; 
     approvalValue: string; 
     requiresDualApproval: boolean; 
     ipAddress: string; 
@@ -471,7 +471,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<Department> {
     const [department] = await db
       .update(departments)
-      .set({ ...updateData, updatedAt: new Date() })
+      .set({ ...updateData })
       .where(eq(departments.id, id))
       .returning();
     return department;
@@ -561,7 +561,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<CostCenter> {
     const [costCenter] = await db
       .update(costCenters)
-      .set({ ...updateData, updatedAt: new Date() })
+      .set({ ...updateData })
       .where(eq(costCenters.id, id))
       .returning();
     return costCenter;
@@ -1314,7 +1314,7 @@ export class DatabaseStorage implements IStorage {
           }
 
           // Fetch related items with prices from purchase orders if available
-          let items = [];
+          let items: any[] = [];
           try {
             const itemsResult = await pool.query(
               'SELECT id, description, requested_quantity, unit, product_code, technical_specification FROM purchase_request_items WHERE purchase_request_id = $1 ORDER BY id',
@@ -1469,22 +1469,25 @@ export class DatabaseStorage implements IStorage {
     purchaseRequestId: number,
     includeTransferred: boolean = false
   ): Promise<PurchaseRequestItem[]> {
-    let query = db
-      .select()
-      .from(purchaseRequestItems)
-      .where(eq(purchaseRequestItems.purchaseRequestId, purchaseRequestId));
-    
-    // Por padrão, excluir itens transferidos das visualizações ativas
+    let query;
     if (!includeTransferred) {
-      query = query.where(
-        and(
-          eq(purchaseRequestItems.purchaseRequestId, purchaseRequestId),
-          or(
-            eq(purchaseRequestItems.isTransferred, false),
-            isNull(purchaseRequestItems.isTransferred)
+      query = db
+        .select()
+        .from(purchaseRequestItems)
+        .where(
+          and(
+            eq(purchaseRequestItems.purchaseRequestId, purchaseRequestId),
+            or(
+              eq(purchaseRequestItems.isTransferred, false),
+              isNull(purchaseRequestItems.isTransferred)
+            )
           )
-        )
-      );
+        );
+    } else {
+      query = db
+        .select()
+        .from(purchaseRequestItems)
+        .where(eq(purchaseRequestItems.purchaseRequestId, purchaseRequestId));
     }
     
     return await query.orderBy(purchaseRequestItems.id);
@@ -1936,9 +1939,7 @@ export class DatabaseStorage implements IStorage {
       phase: 'solicitacao',
       action: 'Solicitação criada',
       userId: request.requesterId,
-      userName: request.requester?.firstName && request.requester?.lastName
-        ? `${request.requester.firstName} ${request.requester.lastName}`
-        : request.requester?.username || 'Sistema',
+      userName: 'Sistema',
       timestamp: request.createdAt,
       status: 'completed',
       icon: 'file-plus',
@@ -1973,22 +1974,22 @@ export class DatabaseStorage implements IStorage {
     }
 
     // 3. Phase transitions based on request data
-    if (request.quotationDate) {
+    if ((request as any).quotationDate) {
       timeline.push({
         id: 'quotation_created',
         type: 'quotation',
         phase: 'cotacao',
         action: 'RFQ criada',
-        userId: request.createdBy || request.requesterId,
+        userId: request.requesterId,
         userName: 'Sistema',
-        timestamp: request.quotationDate,
+        timestamp: (request as any).quotationDate,
         status: 'completed',
         icon: 'file-text',
         description: 'Solicitação de cotação enviada aos fornecedores'
       });
     }
 
-    if (request.approvedA2Date) {
+    if (request.approvalDateA2) {
       timeline.push({
         id: 'supplier_selected',
         type: 'supplier_selection',
@@ -1996,7 +1997,7 @@ export class DatabaseStorage implements IStorage {
         action: 'Fornecedor selecionado',
         userId: request.approverA2Id,
         userName: 'Sistema',
-        timestamp: request.approvedA2Date,
+        timestamp: request.approvalDateA2,
         status: 'completed',
         icon: 'check-circle',
         description: 'Fornecedor vencedor selecionado'
@@ -2009,7 +2010,7 @@ export class DatabaseStorage implements IStorage {
         type: 'purchase_order',
         phase: 'pedido_compra',
         action: 'Pedido de compra criado',
-        userId: request.createdBy || request.requesterId,
+        userId: request.requesterId,
         userName: 'Sistema',
         timestamp: request.purchaseDate,
         status: 'completed',
@@ -2039,7 +2040,7 @@ export class DatabaseStorage implements IStorage {
         type: 'completion',
         phase: request.currentPhase,
         action: request.currentPhase === 'arquivado' ? 'Processo arquivado' : 'Processo concluído',
-        userId: request.updatedBy || request.requesterId,
+        userId: request.requesterId,
         userName: 'Sistema',
         timestamp: request.updatedAt || new Date(),
         status: 'completed',
@@ -2274,7 +2275,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createApprovalHistoryWithStep(history: InsertApprovalHistory & { 
-    approvalStep: number; 
+    approvalStep: string; 
     approvalValue: string; 
     requiresDualApproval: boolean; 
     ipAddress: string; 
@@ -2359,7 +2360,7 @@ export class DatabaseStorage implements IStorage {
       
       return result.map(row => ({
         ...row,
-        changedByUser: row.changedByUser.id ? row.changedByUser : undefined,
+        changedByUser: row.changedByUser && row.changedByUser.id ? row.changedByUser : undefined,
       })) as ConfigurationHistory[];
     } catch (error) {
       console.error("Error fetching configuration history:", error);
@@ -2459,8 +2460,9 @@ export class DatabaseStorage implements IStorage {
     if (!existingConfig) {
       await this.createApprovalConfiguration({
         valueThreshold: "2500.00",
+        effectiveDate: new Date(),
         reason: "Configuração inicial do sistema - limite padrão R$ 2.500,00",
-        createdBy: 1, // Will be created after admin user
+        createdBy: 1,
       });
     }
 

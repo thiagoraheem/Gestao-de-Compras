@@ -488,7 +488,7 @@ function generateApprovalA1EmailHTML(
             <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
             <li><strong>Solicitante:</strong> ${requesterName}</li>
             <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
-            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(2) : "N/A"}</li>
+            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(4) : "N/A"}</li>
             <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : "N/A"}</li>
           </ul>
         </div>
@@ -552,7 +552,7 @@ function generateApprovalA2EmailHTML(
             <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
             <li><strong>Solicitante:</strong> ${requesterName}</li>
             <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
-            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(2) : "N/A"}</li>
+            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(4) : "N/A"}</li>
             <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : "N/A"}</li>
             <li><strong>Aprovador A1:</strong> ${approverA1Name}</li>
           </ul>

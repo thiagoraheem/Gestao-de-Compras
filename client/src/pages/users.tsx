@@ -154,7 +154,7 @@ export default function UsersPage() {
       // Return a context object with the snapshotted value
       return { previousUsers };
     },
-    onError: (err, variables, context) => {
+    onError: (err: any, variables, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousUsers) {
         queryClient.setQueryData(["/api/users"], context.previousUsers);

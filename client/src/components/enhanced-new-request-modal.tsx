@@ -52,6 +52,8 @@ import HybridProductInput from "./hybrid-product-input";
 import { useUnits } from "@/hooks/useUnits";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+const MAX_TITLE_LENGTH = 150;
+
 const requestSchema = z.object({
   companyId: z.coerce.number().min(1, "Empresa é obrigatória"),
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
@@ -59,7 +61,8 @@ const requestSchema = z.object({
   urgency: z.string().min(1, "Urgência é obrigatória"),
   justification: z
     .string()
-    .min(10, "Justificativa deve ter pelo menos 10 caracteres"),
+    .min(10, "Título deve ter pelo menos 10 caracteres")
+    .max(MAX_TITLE_LENGTH, `Título deve ter no máximo ${MAX_TITLE_LENGTH} caracteres`),
   idealDeliveryDate: z.string().optional(),
   availableBudget: z.string().optional(),
   additionalInfo: z.string().optional(),
@@ -105,6 +108,7 @@ export default function EnhancedNewRequestModal({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user?.companyId || null);
   const descriptionInputRef = useRef<HTMLInputElement>(null);
+  const [isTitleFocused, setIsTitleFocused] = useState(false);
 
   // Removed automatic item creation - users will manually add items as needed
 
@@ -590,15 +594,40 @@ export default function EnhancedNewRequestModal({
                   name="justification"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Justificativa *</FormLabel>
+                      <FormLabel>Título *</FormLabel>
                       <FormControl>
                         <Textarea
                           {...field}
-                          rows={3}
-                          placeholder="Descreva a necessidade e justificativa para esta compra..."
-                          className="text-sm min-h-[64px]"
+                          rows={2}
+                          placeholder="Informe um título curto para esta solicitação..."
+                          className="text-sm min-h-[48px]"
+                          aria-describedby="new-request-title-counter"
+                          onFocus={() => setIsTitleFocused(true)}
+                          onBlur={() => setIsTitleFocused(false)}
+                          onChange={(e) => {
+                            const v = e.target.value || "";
+                            if (v.length <= MAX_TITLE_LENGTH) {
+                              field.onChange(v);
+                            } else {
+                              field.onChange(v.slice(0, MAX_TITLE_LENGTH));
+                              toast({
+                                title: "Limite atingido",
+                                description: `Máximo de ${MAX_TITLE_LENGTH} caracteres permitido`,
+                                variant: "destructive",
+                              });
+                            }
+                          }}
                         />
                       </FormControl>
+                      {isTitleFocused && (
+                        <div
+                          id="new-request-title-counter"
+                          aria-live="polite"
+                          className={`mt-1 text-xs ${((form.watch("justification") || "").length >= Math.floor(MAX_TITLE_LENGTH * 0.8)) ? "text-red-600" : "text-muted-foreground"}`}
+                        >
+                          {(form.watch("justification") || "").length}/{MAX_TITLE_LENGTH} · {MAX_TITLE_LENGTH - (form.watch("justification") || "").length} caracteres disponíveis
+                        </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -613,7 +642,7 @@ export default function EnhancedNewRequestModal({
                       <FormControl>
                         <Textarea
                           {...field}
-                          rows={2}
+                          rows={3}
                           placeholder="Informações complementares sobre a solicitação..."
                           className="text-sm min-h-[64px]"
                         />

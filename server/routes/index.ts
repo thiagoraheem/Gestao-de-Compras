@@ -29,15 +29,16 @@ function registerPublicRoutes(app: Express) {
       }
 
       // Get related data
-      const [items, requester, timeline] = await Promise.all([
+      const [items, requester, timeline, quotation] = await Promise.all([
         storage.getPurchaseRequestItems(requestId),
         purchaseRequest.requesterId ? storage.getUser(purchaseRequest.requesterId) : null,
-        storage.getCompleteTimeline(requestId)
+        storage.getCompleteTimeline(requestId),
+        storage.getQuotationByPurchaseRequestId(requestId)
       ]);
 
       // Get department and cost center
       let department = null;
-      let costCenter = null;
+      let costCenter: any = null;
       if (purchaseRequest.costCenterId) {
         const allCostCenters = await storage.getAllCostCenters();
         costCenter = allCostCenters.find((cc: any) => cc.id === purchaseRequest.costCenterId);
@@ -55,16 +56,15 @@ function registerPublicRoutes(app: Express) {
       }
 
       // Get delivery location
-      let deliveryLocation = null;
-      if (purchaseRequest.deliveryLocationId) {
+      let deliveryLocation: any = null;
+      if (quotation?.deliveryLocationId) {
         const allDeliveryLocations = await storage.getAllDeliveryLocations();
-        deliveryLocation = allDeliveryLocations.find((dl: any) => dl.id === purchaseRequest.deliveryLocationId);
+        deliveryLocation = allDeliveryLocations.find((dl: any) => dl.id === quotation.deliveryLocationId);
       }
 
       // Get supplier information if available
       let supplier = null;
       try {
-        const quotation = await storage.getQuotationByPurchaseRequestId(requestId);
         if (quotation) {
           const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
           const selectedSupplierQuotation = supplierQuotations.find((sq: any) => sq.isChosen);
@@ -79,10 +79,10 @@ function registerPublicRoutes(app: Express) {
       }
 
       // Check if purchase order PDF is available
-      const hasPurchaseOrderPdf = purchaseRequest.phase === 'purchase_order' || 
-                                 purchaseRequest.phase === 'conclusion' || 
-                                 purchaseRequest.phase === 'receipt' || 
-                                 purchaseRequest.phase === 'archived';
+      const hasPurchaseOrderPdf = purchaseRequest.currentPhase === 'pedido_compra' || 
+                                 purchaseRequest.currentPhase === 'conclusao_compra' || 
+                                 purchaseRequest.currentPhase === 'recebimento' || 
+                                 purchaseRequest.currentPhase === 'arquivado';
 
       res.json({
         purchaseRequest,
@@ -116,10 +116,10 @@ function registerPublicRoutes(app: Express) {
       }
 
       // Check if PDF is available based on phase
-      const hasPurchaseOrderPdf = purchaseRequest.phase === 'purchase_order' || 
-                                 purchaseRequest.phase === 'conclusion' || 
-                                 purchaseRequest.phase === 'receipt' || 
-                                 purchaseRequest.phase === 'archived';
+      const hasPurchaseOrderPdf = purchaseRequest.currentPhase === 'pedido_compra' || 
+                                 purchaseRequest.currentPhase === 'conclusao_compra' || 
+                                 purchaseRequest.currentPhase === 'recebimento' || 
+                                 purchaseRequest.currentPhase === 'arquivado';
 
       if (!hasPurchaseOrderPdf) {
         return res.status(404).json({ message: "Purchase order PDF not available yet" });

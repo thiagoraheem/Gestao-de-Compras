@@ -168,7 +168,7 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                             <span className="text-sm font-medium">Valor Total</span>
                           </div>
                           <span className="text-lg font-bold text-green-600 dark:text-green-300">
-                            R$ {supplierData.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {supplierData.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                           </span>
                         </div>
 
@@ -200,7 +200,7 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                             <p className="text-sm mt-1 text-green-600 dark:text-green-300 font-medium">
                               {supplierData.discountType === 'percentage'
                                 ? `${supplierData.discountValue}%`
-                                : `R$ ${Number(supplierData.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                : `R$ ${Number(supplierData.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
                               }
                             </p>
                           </div>
@@ -215,7 +215,7 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                           <div className="text-sm">
                             {supplierData.includesFreight ? (
                               <span className="text-blue-600 dark:text-blue-300 font-medium">
-                                R$ {Number(supplierData.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                R$ {Number(supplierData.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                               </span>
                             ) : (
                               <span className="text-slate-500 dark:text-slate-400">Não incluso</span>
@@ -236,7 +236,7 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                                       return quotationItem ? quotationItem.description : `Item #${item.quotationItemId}`;
                                     })()}
                                   </span>
-                                  <span>R$ {Number(item.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                  <span>R$ {Number(item.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
                                 </div>
                                 {item.brand && (
                                   <div className="text-xs text-slate-500 dark:text-slate-400">{item.brand} {item.model}</div>
@@ -360,20 +360,22 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                                         })()}
                                         <div className="text-xs text-slate-700 dark:text-slate-300">
                                           Vlr. Unit.: R$ {Number(item.unitPrice).toLocaleString('pt-BR', {
-                                            minimumFractionDigits: 2
+                                            minimumFractionDigits: 4,
+                                            maximumFractionDigits: 4
                                           })}
                                         </div>
                                         {(item.discountPercentage || item.discountValue) && (
                                           <div className="text-xs text-orange-600">
                                             Vlr. Desconto: {item.discountPercentage
                                               ? `${item.discountPercentage}%`
-                                              : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                              : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
                                             }
                                           </div>
                                         )}
                                         <div className="text-sm font-bold text-green-700 dark:text-green-300">
                                           Vlr Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', {
-                                            minimumFractionDigits: 2
+                                            minimumFractionDigits: 4,
+                                            maximumFractionDigits: 4
                                           })}
                                         </div>
                                         {item.deliveryDays && (

@@ -19,7 +19,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoggingIn } = useAuth();
+  const { login, isLoginLoading } = useAuth();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +98,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                disabled={isLoggingIn}
+                disabled={isLoginLoading}
                 className="h-12 border-input focus:border-ring focus:ring-ring"
               />
             </div>
@@ -116,14 +116,14 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  disabled={isLoggingIn}
+                  disabled={isLoginLoading}
                   className="h-12 border-input focus:border-ring focus:ring-ring pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  disabled={isLoggingIn}
+                  disabled={isLoginLoading}
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5" />
@@ -141,9 +141,9 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full h-12 font-medium rounded-lg shadow-lg transition-all duration-200 transform hover:scale-[1.02] bg-primary text-primary-foreground hover:bg-primary/90 dark:bg-secondary dark:text-secondary-foreground dark:hover:bg-secondary/80"
-                disabled={isLoggingIn || !username || !password}
+                disabled={isLoginLoading || !username || !password}
               >
-                {isLoggingIn ? (
+                {isLoginLoading ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Entrando no Sistema...
@@ -159,7 +159,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                   className="text-sm text-muted-foreground hover:text-primary transition-colors underline"
-                  disabled={isLoggingIn}
+                  disabled={isLoginLoading}
                 >
                   Esqueceu sua senha?
                 </button>

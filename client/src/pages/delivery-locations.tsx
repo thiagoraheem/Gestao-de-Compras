@@ -30,15 +30,15 @@ export default function DeliveryLocationsPage() {
   const queryClient = useQueryClient();
 
   // Fetch delivery locations
-  const { data: allDeliveryLocations = [], isLoading, error } = useQuery({
+  const { data: allDeliveryLocations = [], isLoading, error } = useQuery<DeliveryLocation[]>({
     queryKey: ["/api/delivery-locations"],
     staleTime: 0
   });
 
   // Filter delivery locations based on active status
-  const deliveryLocations = showInactive 
+  const deliveryLocations: DeliveryLocation[] = showInactive 
     ? allDeliveryLocations 
-    : allDeliveryLocations?.filter((location: DeliveryLocation) => location.active);
+    : allDeliveryLocations.filter((location: DeliveryLocation) => location.active);
 
   // Create delivery location mutation
   const createMutation = useMutation({
@@ -247,7 +247,7 @@ export default function DeliveryLocationsPage() {
                   <Label htmlFor="contactPerson">Pessoa de Contato</Label>
                   <Input
                     id="contactPerson"
-                    value={formData.contactPerson}
+                    value={formData.contactPerson || ""}
                     onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
                   />
                 </div>
@@ -255,7 +255,7 @@ export default function DeliveryLocationsPage() {
                   <Label htmlFor="phone">Telefone</Label>
                   <Input
                     id="phone"
-                    value={formData.phone}
+                    value={formData.phone || ""}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
                 </div>
@@ -264,7 +264,7 @@ export default function DeliveryLocationsPage() {
                   <Input
                     id="email"
                     type="email"
-                    value={formData.email}
+                    value={formData.email || ""}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 </div>
@@ -272,7 +272,7 @@ export default function DeliveryLocationsPage() {
                   <Label htmlFor="observations">Observações</Label>
                   <Textarea
                     id="observations"
-                    value={formData.observations}
+                    value={formData.observations || ""}
                     onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
                   />
                 </div>
@@ -411,7 +411,7 @@ export default function DeliveryLocationsPage() {
               <Label htmlFor="edit-contactPerson">Pessoa de Contato</Label>
               <Input
                 id="edit-contactPerson"
-                value={formData.contactPerson}
+                value={formData.contactPerson || ""}
                 onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
               />
             </div>
@@ -419,7 +419,7 @@ export default function DeliveryLocationsPage() {
               <Label htmlFor="edit-phone">Telefone</Label>
               <Input
                 id="edit-phone"
-                value={formData.phone}
+                value={formData.phone || ""}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
@@ -428,7 +428,7 @@ export default function DeliveryLocationsPage() {
               <Input
                 id="edit-email"
                 type="email"
-                value={formData.email}
+                value={formData.email || ""}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
@@ -436,7 +436,7 @@ export default function DeliveryLocationsPage() {
               <Label htmlFor="edit-observations">Observações</Label>
               <Textarea
                 id="edit-observations"
-                value={formData.observations}
+                value={formData.observations || ""}
                 onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
               />
             </div>

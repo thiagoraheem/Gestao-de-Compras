@@ -190,7 +190,7 @@ export default function RFQAnalysis({
                     <div>
                       <h3 className="font-semibold text-green-800">Melhor Preço</h3>
                       <p className="text-sm text-green-700">
-                        {getBestValueSupplier()?.supplier?.name} - R$ {minValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {getBestValueSupplier()?.supplier?.name} - R$ {minValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                       </p>
                     </div>
                   </div>
@@ -239,7 +239,7 @@ export default function RFQAnalysis({
                   <div>
                     <p className="text-sm font-medium text-gray-600">Menor Valor</p>
                     <p className="text-2xl font-bold text-green-600">
-                      R$ {minValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {minValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                     </p>
                   </div>
                   <TrendingDown className="h-8 w-8 text-green-600" />
@@ -252,7 +252,7 @@ export default function RFQAnalysis({
                   <div>
                     <p className="text-sm font-medium text-gray-600">Valor Médio</p>
                     <p className="text-2xl font-bold">
-                      R$ {averageValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {averageValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                     </p>
                   </div>
                   <DollarSign className="h-8 w-8 text-blue-600" />
@@ -265,7 +265,7 @@ export default function RFQAnalysis({
                   <div>
                     <p className="text-sm font-medium text-gray-600">Maior Valor</p>
                     <p className="text-2xl font-bold text-red-600">
-                      R$ {maxValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {maxValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                     </p>
                   </div>
                   <TrendingUp className="h-8 w-8 text-red-600" />
@@ -311,7 +311,7 @@ export default function RFQAnalysis({
                           </TableCell>
                           <TableCell>
                             <span className={`font-semibold ${isLowest ? "text-green-600" : ""}`}>
-                              R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                             </span>
                           </TableCell>
                           <TableCell>

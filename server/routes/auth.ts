@@ -38,7 +38,7 @@ export function registerAuthRoutes(app: Express) {
       res.json({ 
         id: user.id,
         username: user.username,
-        name: user.name,
+        name: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName ?? user.username),
         email: user.email,
         isAdmin: user.isAdmin,
         isBuyer: user.isBuyer,
@@ -47,13 +47,12 @@ export function registerAuthRoutes(app: Express) {
         isApproverA2: user.isApproverA2,
         isReceiver: user.isReceiver,
         departmentId: user.departmentId,
-        costCenterId: user.costCenterId,
         companyId: user.companyId,
         company: company ? {
           id: company.id,
           name: company.name,
           cnpj: company.cnpj,
-          logoUrl: company.logoUrl
+          logoUrl: company.logoBase64
         } : null
       });
     } catch (error) {
@@ -85,7 +84,7 @@ export function registerAuthRoutes(app: Express) {
       res.json({
         id: user.id,
         username: user.username,
-        name: user.name,
+        name: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName ?? user.username),
         email: user.email,
         isAdmin: user.isAdmin,
         isBuyer: user.isBuyer,
@@ -94,13 +93,12 @@ export function registerAuthRoutes(app: Express) {
         isApproverA2: user.isApproverA2,
         isReceiver: user.isReceiver,
         departmentId: user.departmentId,
-        costCenterId: user.costCenterId,
         companyId: user.companyId,
         company: company ? {
           id: company.id,
           name: company.name,
           cnpj: company.cnpj,
-          logoUrl: company.logoUrl
+          logoUrl: company.logoBase64
         } : null
       });
     } catch (error) {

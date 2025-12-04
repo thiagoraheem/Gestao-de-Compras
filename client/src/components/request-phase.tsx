@@ -49,13 +49,16 @@ import HybridProductInput from "./hybrid-product-input";
 import { UnitSelect } from "./unit-select";
 import { useUnits } from "@/hooks/useUnits";
 
+const MAX_TITLE_LENGTH = 150;
+
 const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
   category: z.string().min(1, "Categoria é obrigatória"),
   urgency: z.string().min(1, "Urgência é obrigatória"),
   justification: z
     .string()
-    .min(10, "Justificativa deve ter pelo menos 10 caracteres"),
+    .min(10, "Título deve ter pelo menos 10 caracteres")
+    .max(MAX_TITLE_LENGTH, `Título deve ter no máximo ${MAX_TITLE_LENGTH} caracteres`),
   idealDeliveryDate: z.string().optional(),
   additionalInfo: z.string().optional(),
 });
@@ -84,6 +87,7 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
   const { user } = useAuth();
   const { processERPUnit } = useUnits();
   const [manualItems, setManualItems] = useState<Item[]>([]);
+  const [isTitleFocused, setIsTitleFocused] = useState(false);
 
   // Get user's cost center IDs
   const { data: userCostCenterIds } = useQuery<number[]>({
@@ -400,7 +404,7 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
             </DialogClose>
           </div>
         </div>
-        <p id="request-phase-desc" className="sr-only">Formulário para criação ou edição de solicitação de compra</p>
+        <p id="request-phase-desc" className="sr-only">Formulário edição de solicitação de compra</p>
 
         <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 px-6 pt-0 pb-24">
@@ -531,15 +535,45 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
                 name="justification"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Justificativa *</FormLabel>
+                    <FormLabel>Título *</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
-                        rows={3}
-                        placeholder="Descreva a necessidade e justificativa para esta compra..."
+                        rows={2}
+                        placeholder="Informe um título curto para esta solicitação..."
                         className="text-sm min-h-[64px]"
+                        aria-describedby="title-counter"
+                        onFocus={() => setIsTitleFocused(true)}
+                        onBlur={() => setIsTitleFocused(false)}
+                        onChange={(e) => {
+                          const v = e.target.value || "";
+                          if (v.length <= MAX_TITLE_LENGTH) {
+                            field.onChange(v);
+                          } else {
+                            field.onChange(v.slice(0, MAX_TITLE_LENGTH));
+                            toast({
+                              title: "Limite atingido",
+                              description: `Máximo de ${MAX_TITLE_LENGTH} caracteres permitido`,
+                              variant: "destructive",
+                            });
+                          }
+                        }}
                       />
                     </FormControl>
+                    {isTitleFocused && (
+                      <div
+                        id="title-counter"
+                        aria-live="polite"
+                        className={cn(
+                          "mt-1 text-xs",
+                          (form.watch("justification") || "").length >= Math.floor(MAX_TITLE_LENGTH * 0.8)
+                            ? "text-red-600"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {(form.watch("justification") || "").length}/{MAX_TITLE_LENGTH} · {MAX_TITLE_LENGTH - (form.watch("justification") || "").length} caracteres disponíveis
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -554,7 +588,7 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
                     <FormControl>
                       <Textarea
                         {...field}
-                        rows={2}
+                        rows={3}
                         placeholder="Informações complementares sobre a solicitação..."
                         className="text-sm min-h-[64px]"
                       />

@@ -279,10 +279,10 @@ export default function DataAudit({ requestId, requestNumber }: DataAuditProps) 
                           {getSeverityIcon(issue.severity)}
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <Badge variant={SEVERITY_COLORS[issue.severity]} size="sm">
+                              <Badge variant={SEVERITY_COLORS[issue.severity]}>
                                 {ISSUE_TYPE_LABELS[issue.type as keyof typeof ISSUE_TYPE_LABELS] || issue.type}
                               </Badge>
-                              <Badge variant="outline" size="sm">
+                              <Badge variant="outline">
                                 {issue.severity.toUpperCase()}
                               </Badge>
                             </div>
@@ -297,7 +297,7 @@ export default function DataAudit({ requestId, requestNumber }: DataAuditProps) 
                                   <div>
                                     <span className="font-medium text-red-700">Valor da Cotação:</span>
                                     <div className="text-green-600 font-mono">
-                                      R$ {issue.data.supplierQuotationTotal?.toFixed(2) || 'N/A'}
+                                      R$ {issue.data.supplierQuotationTotal?.toFixed(4) || 'N/A'}
                                     </div>
                                   </div>
                                   <div>
@@ -307,12 +307,12 @@ export default function DataAudit({ requestId, requestNumber }: DataAuditProps) 
                                         : 'Total do Pedido:'}
                                     </span>
                                     <div className="text-red-600 font-mono">
-                                      R$ {(issue.data.purchaseOrderItemsTotal || issue.data.purchaseOrderTotal)?.toFixed(2) || 'N/A'}
+                                      R$ {(issue.data.purchaseOrderItemsTotal || issue.data.purchaseOrderTotal)?.toFixed(4) || 'N/A'}
                                     </div>
                                   </div>
                                 </div>
                                 <div className="mt-2 text-xs text-red-600">
-                                  <strong>Diferença:</strong> R$ {issue.data.discrepancy?.toFixed(2) || 'N/A'}
+                                  <strong>Diferença:</strong> R$ {issue.data.discrepancy?.toFixed(4) || 'N/A'}
                                 </div>
                               </div>
                             )}
@@ -444,10 +444,10 @@ export default function DataAudit({ requestId, requestNumber }: DataAuditProps) 
                     {fixResults.fixes.map((fix, index) => (
                       <div key={index} className="p-3 border rounded-lg">
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" size="sm">
+                          <Badge variant="outline">
                             {ISSUE_TYPE_LABELS[fix.type as keyof typeof ISSUE_TYPE_LABELS] || fix.type}
                           </Badge>
-                          <Badge variant={fixResults.dryRun ? "secondary" : "default"} size="sm">
+                          <Badge variant={fixResults.dryRun ? "secondary" : "default"}>
                             {fixResults.dryRun ? "PRÉVIA" : "APLICADO"}
                           </Badge>
                         </div>

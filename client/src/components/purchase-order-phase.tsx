@@ -553,20 +553,20 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
                         {item.unit || 'UND'}
                       </td>
                       <td className="border border-border px-4 py-2 text-center">
-                        R$ {typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2).replace('.', ',') : '0,00'}
+                        R$ {typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(4).replace('.', ',') : '0,0000'}
                       </td>
                       <td className="border border-border px-4 py-2 text-center font-medium">
                         {item.itemDiscount > 0 ? (
                           <div>
                             <div className="text-sm text-slate-500 dark:text-slate-400 line-through">
-                              R$ {typeof item.originalTotalPrice === 'number' ? item.originalTotalPrice.toFixed(2).replace('.', ',') : '0,00'}
+                              R$ {typeof item.originalTotalPrice === 'number' ? item.originalTotalPrice.toFixed(4).replace('.', ',') : '0,0000'}
                             </div>
                             <div className="text-green-600 dark:text-green-300">
-                              R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}
+                              R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(4).replace('.', ',') : '0,0000'}
                             </div>
                           </div>
                         ) : (
-                          <span>R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2).replace('.', ',') : '0,00'}</span>
+                          <span>R$ {typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(4).replace('.', ',') : '0,0000'}</span>
                         )}
                       </td>
                       <td className="border border-border px-4 py-2 text-center">
@@ -584,7 +584,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
                       Subtotal:
                     </td>
                     <td className="border border-border px-4 py-2 text-center">
-                      R$ {subtotal.toFixed(2).replace('.', ',')}
+                      R$ {subtotal.toFixed(4).replace('.', ',')}
                     </td>
                     <td className="border border-border px-4 py-2" colSpan={2}></td>
                   </tr>
@@ -594,7 +594,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
                         Desconto Total:
                       </td>
                       <td className="border border-border px-4 py-2 text-center text-red-600 dark:text-red-400">
-                        - R$ {totalDiscount.toFixed(2).replace('.', ',')}
+                        - R$ {totalDiscount.toFixed(4).replace('.', ',')}
                       </td>
                       <td className="border border-border px-4 py-2" colSpan={2}></td>
                     </tr>
@@ -609,7 +609,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
                     <td className="border border-border px-4 py-2 text-center">
                       {freightValue > 0 ? (
                         <span className="text-blue-600 dark:text-blue-300">
-                          R$ {freightValue.toFixed(2).replace('.', ',')}
+                          R$ {freightValue.toFixed(4).replace('.', ',')}
                         </span>
                       ) : (
                         <span className="text-slate-500 dark:text-slate-400">Não incluso</span>
@@ -622,7 +622,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
                       Total Geral:
                     </td>
                     <td className="border border-border px-4 py-2 text-center">
-                      R$ {finalTotal.toFixed(2).replace('.', ',')}
+                      R$ {finalTotal.toFixed(4).replace('.', ',')}
                     </td>
                     <td className="border border-border px-4 py-2" colSpan={2}></td>
                   </tr>
@@ -666,14 +666,14 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
                 <div className="text-sm">
                   <span className="font-medium text-gray-600">Valor Total da Proposta:</span>
                   <p className="text-lg font-semibold text-green-600 dark:text-green-300">
-                    R$ {finalTotal.toFixed(2).replace('.', ',')}
+                    R$ {finalTotal.toFixed(4).replace('.', ',')}
                   </p>
                 </div>
                 {totalDiscount > 0 && (
                   <div className="text-sm">
                     <span className="font-medium text-gray-600">Desconto Total Aplicado:</span>
                     <p className="text-lg font-semibold text-red-600 dark:text-red-400">
-                      - R$ {totalDiscount.toFixed(2).replace('.', ',')}
+                      - R$ {totalDiscount.toFixed(4).replace('.', ',')}
                     </p>
                   </div>
                 )}
@@ -693,7 +693,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
                   <p className="text-lg font-semibold">
                     {freightValue > 0 ? (
                       <span className="text-blue-600 dark:text-blue-300">
-                        R$ {freightValue.toFixed(2).replace('.', ',')}
+                        R$ {freightValue.toFixed(4).replace('.', ',')}
                       </span>
                     ) : (
                       <span className="text-slate-500 dark:text-slate-400">Não incluso</span>
@@ -714,7 +714,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
                     <p className="text-lg font-semibold text-green-600">
                       {selectedSupplierQuotation.discountType === 'percentage' 
                         ? `${selectedSupplierQuotation.discountValue}%`
-                        : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(2).replace('.', ',')}`
+                        : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(4).replace('.', ',')}`
                       }
                     </p>
                   </div>
