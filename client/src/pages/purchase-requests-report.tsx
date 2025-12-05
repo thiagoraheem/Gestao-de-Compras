@@ -50,6 +50,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DateInput } from "@/components/ui/date-input";
 import { formatCurrency } from "@/lib/currency";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface PurchaseRequest {
   id: number;
@@ -118,6 +119,27 @@ interface User {
   lastName: string;
 }
 
+export function computeTotalsForReport(
+  requests: PurchaseRequest[],
+  includeArchived: boolean
+) {
+  const source = includeArchived
+    ? requests
+    : requests.filter((r) => r.phase !== "arquivado");
+  return source.reduce(
+    (acc: any, request: PurchaseRequest) => {
+      const original = Number(request.originalValue) || 0;
+      const discount = Number(request.discount) || 0;
+      const total = Number(request.totalValue) || 0;
+      acc.originalValue += original;
+      acc.discount += discount;
+      acc.totalValue += total;
+      return acc;
+    },
+    { originalValue: 0, discount: 0, totalValue: 0 }
+  );
+}
+
 const phaseColors = {
   "Aguardando Aprovação A1": "bg-yellow-500/15 text-yellow-700 dark:bg-yellow-400/20 dark:text-yellow-200",
   "Aguardando Aprovação A2": "bg-orange-500/15 text-orange-700 dark:bg-orange-400/20 dark:text-orange-200",
@@ -153,6 +175,8 @@ export default function PurchaseRequestsReport() {
     phase: "all",
     urgency: "all",
   });
+
+  const [includeArchivedInSum, setIncludeArchivedInSum] = useState(false);
 
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
@@ -200,9 +224,15 @@ export default function PurchaseRequestsReport() {
     return Array.from(suppliers).sort();
   }, [requests]);
 
-  // Calculate totals for filtered requests
+  // Visible requests according to archived filter for consistency between table and totals
+  const visibleRequests = useMemo(() => {
+    if (includeArchivedInSum) return requests as PurchaseRequest[];
+    return (requests as PurchaseRequest[]).filter((r) => r.phase !== "arquivado");
+  }, [requests, includeArchivedInSum]);
+
+  // Calculate totals for visible requests
   const totals = useMemo(() => {
-    return requests.reduce(
+    return (visibleRequests as PurchaseRequest[]).reduce(
       (acc: any, request: PurchaseRequest) => {
         const original = Number(request.originalValue) || 0;
         const discount = Number(request.discount) || 0;
@@ -214,7 +244,7 @@ export default function PurchaseRequestsReport() {
       },
       { originalValue: 0, discount: 0, totalValue: 0 }
     );
-  }, [requests]);
+  }, [visibleRequests]);
 
   const toggleRowExpansion = (requestId: number) => {
     const newExpanded = new Set(expandedRows);
@@ -277,8 +307,8 @@ export default function PurchaseRequestsReport() {
       ].join(";")
     ];
 
-    // Data rows with proper escaping and encoding
-    requests.forEach((request: PurchaseRequest) => {
+    // Data rows with proper escaping and encoding (respect archived filter)
+    visibleRequests.forEach((request: PurchaseRequest) => {
       const row = [
         escapeCsvField(request.requestNumber),
         escapeCsvField(request.description),
@@ -555,6 +585,18 @@ export default function PurchaseRequestsReport() {
               </Select>
             </div>
 
+            {/* Consider archived in sum */}
+            <div className="space-y-2">
+              <Label htmlFor="include-archived">Considerar Arquivados na somatória</Label>
+              <div className="flex items-center gap-2 py-2">
+                <Checkbox
+                  id="include-archived"
+                  checked={includeArchivedInSum}
+                  onCheckedChange={(v) => setIncludeArchivedInSum(Boolean(v))}
+                />
+              </div>
+            </div>
+
             {/* Clear Filters Button */}
             <div className="flex items-end">
               <Button
@@ -604,7 +646,7 @@ export default function PurchaseRequestsReport() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {requests.map((request: PurchaseRequest) => (
+                  {visibleRequests.map((request: PurchaseRequest) => (
                     <React.Fragment key={request.id}>
                       <TableRow
                         className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
