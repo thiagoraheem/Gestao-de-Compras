@@ -393,7 +393,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
       <div className={`flex flex-col h-full ${className}`}>
         <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 pb-3 mb-4 rounded-t-lg">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold">Pré-visualização - Pedido de Compra {request.requestNumber}</h3>
+              <h3 className="text-base font-semibold">Pré-visualização - Pedido de Compra {request.requestNumber}{purchaseOrder?.orderNumber ? ` - ${purchaseOrder.orderNumber}` : ''}</h3>
               <div className="flex gap-2">
                 <Button onClick={handleDownloadFromPreview} size="sm" className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
                   <Download className="w-4 h-4 mr-2" />

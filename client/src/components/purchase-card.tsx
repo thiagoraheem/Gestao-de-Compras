@@ -732,7 +732,9 @@ export default function PurchaseCard({
                   )}
                 />
               </div>
-              <Badge className="font-mono text-sm bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 font-semibold px-2 py-1 rounded hover:bg-orange-200 dark:hover:bg-orange-900/70 border-none">{request.requestNumber}</Badge>
+              <Badge className="font-mono text-sm bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 font-semibold px-2 py-1 rounded hover:bg-orange-200 dark:hover:bg-orange-900/70 border-none">
+                {request.requestNumber}{request.purchaseOrder?.orderNumber ? ` - ${request.purchaseOrder.orderNumber}` : ''}
+              </Badge>
             </div>
             <div className="flex gap-0.5">
               {phase === "solicitacao" && !request.approvedA1 && (
@@ -1143,7 +1145,7 @@ export default function PurchaseCard({
               <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
                 <div className="flex justify-between items-center">
                   <DialogTitle className="text-base font-semibold flex items-center gap-2">
-                    Pedido de Compra - Solicitação #{request.requestNumber}
+                    Pedido de Compra - {request.requestNumber}{request.purchaseOrder?.orderNumber ? ` - ${request.purchaseOrder.orderNumber}` : ''}
                   </DialogTitle>
                   <div className="flex items-center gap-2">
                     {request.urgency && (

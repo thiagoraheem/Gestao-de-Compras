@@ -742,8 +742,6 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
     return 0;
   }, [request, selectedSupplierQuotation, supplierQuotationItems, items]);
 
-  const budgetSavings = request.availableBudget ? request.availableBudget - totalItemsValue : 0;
-
   // Função para formatar quantidades no padrão brasileiro
   const formatQuantity = (quantity: number | string) => {
     const num = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
@@ -787,8 +785,6 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
 
   const isLoading = itemsLoading || approvalHistoryLoading || attachmentsLoading || quotationLoading || supplierQuotationItemsLoading || requesterLoading || costCentersLoading || departmentsLoading || quotationAttachmentsLoading || timelineLoading;
 
-  
-
   useImperativeHandle(ref, () => ({
     downloadPurchaseOrderPDF: () => downloadPurchaseOrderPDFMutation.mutate(),
     exportPDF: () => exportPDFMutation.mutate(),
@@ -799,7 +795,108 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
 
   return (
     <div className={className}>
+{/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Conclusão da Compra</h2>
+          <p className="text-muted-foreground">Solicitação {request.requestNumber}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadPurchaseOrderPDFMutation.mutate()}
+            disabled={downloadPurchaseOrderPDFMutation.isPending}
+            className="border-blue-600 text-blue-600 hover:bg-blue-50"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            {downloadPurchaseOrderPDFMutation.isPending ? "Baixando..." : "PDF Pedido de Compra"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => exportPDFMutation.mutate()}
+            disabled={exportPDFMutation.isPending}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exportar PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrint}
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Imprimir
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSendEmail}
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            Enviar E-mail
+          </Button>
 
+          {request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
+            <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                >
+                  <Archive className="h-4 w-4 mr-2" />
+                  Arquivar
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Arquivar Solicitação</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleArchive)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="conclusionObservations"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Observações de Conclusão (Opcional)</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Adicione observações sobre a conclusão do processo..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowArchiveDialog(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isArchiving}
+                      >
+                        {isArchiving ? "Arquivando..." : "Arquivar"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
       {isLoading ? (
         <div className="flex items-center justify-center p-8">
           <Clock className="h-6 w-6 animate-spin mr-2" />
@@ -1010,7 +1107,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
               <div className="space-y-4">
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Número do Pedido</span>
-                  <p className="text-lg font-semibold">{request.requestNumber}</p>
+                  <p className="text-lg font-semibold">{purchaseOrder.orderNumber || request.requestNumber}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Data de Emissão</span>

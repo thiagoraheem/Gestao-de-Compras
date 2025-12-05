@@ -1238,7 +1238,7 @@ export class PDFService {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Pedido de Compras - ${purchaseRequest.requestNumber}</title>
+  <title>Pedido de Compras - ${purchaseOrder?.orderNumber || ''}</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -1409,7 +1409,7 @@ export class PDFService {
     </div>
     ` : ''}
     <div class="header-info">
-      <h1>PEDIDO DE COMPRAS - ${purchaseRequest.requestNumber}</h1>
+      <h1>PEDIDO DE COMPRAS - ${purchaseOrder?.orderNumber || ''}</h1>
       <h2>${company?.name || company?.tradingName || 'EMPRESA NÃO INFORMADA'}</h2>
       ${company?.address ? `<p>Endereço: ${company.address}</p>` : ''}
       ${company?.cnpj ? `<p>CNPJ: ${company.cnpj}</p>` : ''}

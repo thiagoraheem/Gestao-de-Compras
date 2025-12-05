@@ -879,6 +879,11 @@ export class DatabaseStorage implements IStorage {
           name: chosenSupplier.name,
           email: chosenSupplier.email,
         },
+        // Purchase Order data
+        purchaseOrder: {
+          id: purchaseOrders.id,
+          orderNumber: purchaseOrders.orderNumber,
+        },
       })
       .from(purchaseRequests)
       .leftJoin(
@@ -894,6 +899,10 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(
         chosenSupplier,
         eq(purchaseRequests.chosenSupplierId, chosenSupplier.id),
+      )
+      .leftJoin(
+        purchaseOrders,
+        eq(purchaseOrders.purchaseRequestId, purchaseRequests.id),
       )
       .where(companyId ? eq(purchaseRequests.companyId, companyId) : undefined)
       .orderBy(desc(purchaseRequests.createdAt));
