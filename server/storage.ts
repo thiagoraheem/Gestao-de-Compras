@@ -1948,7 +1948,14 @@ export class DatabaseStorage implements IStorage {
       phase: 'solicitacao',
       action: 'Solicitação criada',
       userId: request.requesterId,
-      userName: 'Sistema',
+      userName: (() => {
+        const first = (request as any).requester?.firstName;
+        const last = (request as any).requester?.lastName;
+        const username = (request as any).requester?.username;
+        if (first && last) return `${first} ${last}`;
+        if (username) return username;
+        return '';
+      })() || 'Sistema',
       timestamp: request.createdAt,
       status: 'completed',
       icon: 'file-plus',
@@ -1982,86 +1989,202 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    // 3. Phase transitions based on request data
-    if ((request as any).quotationDate) {
+    // 2.1 Ensure A1 appears before RFQ even if history is missing
+    const hasA1InTimeline = timeline.some((e) => e.type === 'approval' && e.phase === 'aprovacao_a1');
+    if (!hasA1InTimeline && request.approvalDateA1) {
+      let approverA1Name = 'Sistema';
+      if (request.approverA1Id) {
+        const approverA1 = await this.getUserById(request.approverA1Id);
+        if (approverA1) {
+          approverA1Name = approverA1.firstName && approverA1.lastName
+            ? `${approverA1.firstName} ${approverA1.lastName}`
+            : approverA1.username || 'Sistema';
+        }
+      }
+      timeline.push({
+        id: 'approval_a1_fallback',
+        type: 'approval',
+        phase: 'aprovacao_a1',
+        action: request.approvedA1 ? 'Aprovação' : 'Reprovação',
+        userId: request.approverA1Id,
+        userName: approverA1Name,
+        timestamp: request.approvalDateA1,
+        status: request.approvedA1 ? 'approved' : 'rejected',
+        icon: request.approvedA1 ? 'check-circle' : 'x-circle',
+        description: request.approvedA1
+          ? `Aprovado por ${approverA1Name}`
+          : `Reprovado por ${approverA1Name}`,
+        reason: request.rejectionReasonA1 || null,
+      });
+    }
+
+    // 3. RFQ creation
+    const quotation = await this.getQuotationByPurchaseRequestId(purchaseRequestId);
+    if (quotation) {
+      let rfqCreatorName = 'Sistema';
+      if (quotation.createdBy) {
+        const rfqCreator = await this.getUserById(quotation.createdBy);
+        if (rfqCreator) {
+          rfqCreatorName = rfqCreator.firstName && rfqCreator.lastName
+            ? `${rfqCreator.firstName} ${rfqCreator.lastName}`
+            : rfqCreator.username || rfqCreator.email || 'Sistema';
+        }
+      }
       timeline.push({
         id: 'quotation_created',
         type: 'quotation',
         phase: 'cotacao',
-        action: 'RFQ criada',
-        userId: request.requesterId,
-        userName: 'Sistema',
-        timestamp: (request as any).quotationDate,
+        action: 'Cotação (RFQ) criada',
+        userId: quotation.createdBy,
+        userName: rfqCreatorName,
+        timestamp: quotation.createdAt,
         status: 'completed',
         icon: 'file-text',
-        description: 'Solicitação de cotação enviada aos fornecedores'
+        description: quotation.termsAndConditions || quotation.technicalSpecs || 'Solicitação de cotação enviada aos fornecedores'
       });
+
+      const supplierQuotations = await this.getSupplierQuotations(quotation.id);
+      const chosen = supplierQuotations.find((sq) => sq.isChosen);
+      if (chosen) {
+        let buyerName = 'Sistema';
+        if (request.buyerId) {
+          const buyer = await this.getUserById(request.buyerId);
+          if (buyer) {
+            buyerName = buyer.firstName && buyer.lastName
+              ? `${buyer.firstName} ${buyer.lastName}`
+              : buyer.username || 'Sistema';
+          }
+        }
+        let chosenSupplierName = '';
+        if ((chosen as any).supplier?.name) {
+          chosenSupplierName = (chosen as any).supplier.name;
+        } else if (chosen.supplierId) {
+          const chosenSupplier = await this.getSupplierById(chosen.supplierId);
+          if (chosenSupplier?.name) {
+            chosenSupplierName = chosenSupplier.name;
+          }
+        }
+        timeline.push({
+          id: 'supplier_selected',
+          type: 'supplier_selection',
+          phase: 'cotacao',
+          action: 'Fornecedor selecionado',
+          userId: request.buyerId,
+          userName: buyerName,
+          timestamp: request.updatedAt || quotation.createdAt,
+          status: 'completed',
+          icon: 'check-circle',
+          description: `Fornecedor vencedor selecionado${chosenSupplierName ? `: ${chosenSupplierName}` : ''}${chosen.choiceReason ? ` • Motivo: ${chosen.choiceReason}` : ''}`
+        });
+      }
     }
 
-    if (request.approvalDateA2) {
-      timeline.push({
-        id: 'supplier_selected',
-        type: 'supplier_selection',
-        phase: 'cotacao',
-        action: 'Fornecedor selecionado',
-        userId: request.approverA2Id,
-        userName: 'Sistema',
-        timestamp: request.approvalDateA2,
-        status: 'completed',
-        icon: 'check-circle',
-        description: 'Fornecedor vencedor selecionado'
-      });
-    }
-
-    if (request.purchaseDate) {
+    // 4. Purchase Order
+    const po = await this.getPurchaseOrderByRequestId(purchaseRequestId);
+    if (po) {
+      let poCreatorName = 'Sistema';
+      if (po.createdBy) {
+        const poCreator = await this.getUserById(po.createdBy);
+        if (poCreator) {
+          poCreatorName = poCreator.firstName && poCreator.lastName
+            ? `${poCreator.firstName} ${poCreator.lastName}`
+            : poCreator.username || 'Sistema';
+        }
+      }
       timeline.push({
         id: 'purchase_order_created',
         type: 'purchase_order',
         phase: 'pedido_compra',
-        action: 'Pedido de compra criado',
-        userId: request.requesterId,
-        userName: 'Sistema',
-        timestamp: request.purchaseDate,
+        action: 'Pedido de Compra criado',
+        userId: po.createdBy,
+        userName: poCreatorName,
+        timestamp: po.createdAt || request.purchaseDate || request.updatedAt,
         status: 'completed',
         icon: 'shopping-cart',
-        description: 'Pedido de compra oficial gerado'
+        description: po.observations || request.purchaseObservations || 'Pedido de compra oficial gerado'
       });
     }
 
     if (request.receivedDate) {
+      let receiverName = 'Sistema';
+      if (request.receivedById) {
+        const receiver = await this.getUserById(request.receivedById);
+        if (receiver) {
+          receiverName = receiver.firstName && receiver.lastName
+            ? `${receiver.firstName} ${receiver.lastName}`
+            : receiver.username || 'Sistema';
+        }
+      }
       timeline.push({
         id: 'material_received',
         type: 'receipt',
         phase: 'recebimento',
         action: 'Material recebido',
         userId: request.receivedById,
-        userName: 'Sistema',
+        userName: receiverName,
         timestamp: request.receivedDate,
         status: 'completed',
         icon: 'package-check',
-        description: 'Material recebido e conferido'
+        description: request.pendencyReason ? `Recebimento com pendência: ${request.pendencyReason}` : 'Material recebido e conferido'
       });
     }
 
     if (request.currentPhase === 'conclusao_compra' || request.currentPhase === 'arquivado') {
+      let finisherName = 'Sistema';
+      if (request.buyerId) {
+        const buyer = await this.getUserById(request.buyerId);
+        if (buyer) {
+          finisherName = buyer.firstName && buyer.lastName ? `${buyer.firstName} ${buyer.lastName}` : buyer.username || 'Sistema';
+        }
+      } else if (request.approverA2Id) {
+        const approverA2 = await this.getUserById(request.approverA2Id);
+        if (approverA2) {
+          finisherName = approverA2.firstName && approverA2.lastName ? `${approverA2.firstName} ${approverA2.lastName}` : approverA2.username || 'Sistema';
+        }
+      } else if (request.requesterId) {
+        const requesterUser = await this.getUserById(request.requesterId);
+        if (requesterUser) {
+          finisherName = requesterUser.firstName && requesterUser.lastName ? `${requesterUser.firstName} ${requesterUser.lastName}` : requesterUser.username || 'Sistema';
+        }
+      }
       timeline.push({
         id: 'process_completed',
         type: 'completion',
         phase: request.currentPhase,
         action: request.currentPhase === 'arquivado' ? 'Processo arquivado' : 'Processo concluído',
-        userId: request.requesterId,
-        userName: 'Sistema',
-        timestamp: request.updatedAt || new Date(),
+        userId: request.buyerId || request.approverA2Id || request.requesterId,
+        userName: finisherName,
+        timestamp: (request as any).archivedDate || request.updatedAt || new Date(),
         status: 'completed',
         icon: request.currentPhase === 'arquivado' ? 'archive' : 'check-circle-2',
         description: request.currentPhase === 'arquivado' 
-          ? 'Processo arquivado com sucesso'
+          ? (request as any).conclusionObservations || 'Processo arquivado com sucesso'
           : 'Processo de compra concluído'
       });
     }
 
-    // Sort timeline by timestamp
-    timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    // Sort timeline by timestamp with stable tie-breaker using business phase order
+    const phaseRank: Record<string, number> = {
+      solicitacao: 1,
+      aprovacao_a1: 2,
+      cotacao: 3,
+      aprovacao_a2: 4,
+      pedido_compra: 5,
+      recebimento: 6,
+      conclusao_compra: 7,
+      arquivado: 8,
+    };
+    timeline.sort((a, b) => {
+      const ta = new Date(a.timestamp).getTime();
+      const tb = new Date(b.timestamp).getTime();
+      if (ta !== tb) return ta - tb;
+      const ra = phaseRank[a.phase] ?? 99;
+      const rb = phaseRank[b.phase] ?? 99;
+      if (ra !== rb) return ra - rb;
+      const sa = String(a.id);
+      const sb = String(b.id);
+      return sa.localeCompare(sb);
+    });
 
     return timeline;
   }
