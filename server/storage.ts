@@ -1236,12 +1236,26 @@ export class DatabaseStorage implements IStorage {
           
           let originalValue = null;
           let discount = null;
-          try {
-            let foundQuotationData = false;
-            if (request.chosenSupplierId) {
-              const chosenSupplierQuotationResult = await pool.query(
-                `SELECT sq.id, sq.subtotal_value, sq.final_value, sq.discount_type, sq.discount_value
-                 FROM supplier_quotations sq
+            // Prefer purchase order items to determine final value if available
+            let poItemsSum = 0;
+            try {
+              const poItemsResult = await pool.query(
+                `SELECT poi.total_price
+                 FROM purchase_order_items poi 
+                 JOIN purchase_orders po ON poi.purchase_order_id = po.id 
+                 WHERE po.purchase_request_id = $1`,
+                [request.id]
+              );
+              poItemsSum = poItemsResult.rows.reduce((sum: number, row: any) => sum + (parseFloat(row.total_price) || 0), 0);
+            } catch {}
+
+            // Calculate quotation values first, then override with PO if exists
+            {
+              let foundQuotationData = false;
+              if (request.chosenSupplierId) {
+                const chosenSupplierQuotationResult = await pool.query(
+                  `SELECT sq.id, sq.subtotal_value, sq.final_value, sq.discount_type, sq.discount_value
+                   FROM supplier_quotations sq
                  JOIN quotations q ON sq.quotation_id = q.id
                  WHERE q.purchase_request_id = $1 
                  AND sq.supplier_id = $2
@@ -1263,23 +1277,48 @@ export class DatabaseStorage implements IStorage {
                     [quotation.id]
                   );
                   itemsRes.rows.forEach((row: any) => {
-                    const orig = parseFloat(row.original_total_price || row.total_price || '0') || 0;
-                    const discTotalCandidate = parseFloat(row.discounted_total_price || row.total_price || '0') || 0;
+                    const baseTotal = parseFloat(row.total_price || '0') || 0;
+                    let orig = parseFloat(row.original_total_price || '0') || 0;
+                    let discTotalCandidate = parseFloat(row.discounted_total_price || '0') || 0;
+                    
+                    // Sanity check: if original or discounted price is absurdly high compared to base total, ignore it
+                    // This fixes SOL-2025-359 where original_total_price is 100x the total_price
+                    if (baseTotal > 0) {
+                      if (orig > baseTotal * 2) orig = baseTotal;
+                      if (orig === 0) orig = baseTotal;
+                      
+                      if (discTotalCandidate > baseTotal * 2) discTotalCandidate = 0;
+                    } else {
+                       // If no base total, fallback to original logic but be careful
+                       if (orig === 0) orig = baseTotal;
+                       if (discTotalCandidate === 0) discTotalCandidate = baseTotal;
+                    }
+
                     const pct = parseFloat(row.discount_percentage || '0') || 0;
                     const fixed = parseFloat(row.discount_value || '0') || 0;
-                    let discTotal = discTotalCandidate;
-                    if (row.discounted_total_price != null || pct > 0 || fixed > 0) {
-                      hasExplicitItemDiscount = hasExplicitItemDiscount || (pct > 0 || fixed > 0) || row.discounted_total_price != null;
+                    let discTotal = discTotalCandidate > 0 ? discTotalCandidate : orig;
+                    
+                    const hasDiscountValue = (pct > 0 || fixed > 0);
+                    // Check price drop only if we trust the values
+                    const hasPriceDrop = discTotalCandidate > 0 && discTotalCandidate < orig - 0.01; 
+                    
+                    if (hasDiscountValue || hasPriceDrop) {
+                      hasExplicitItemDiscount = true;
                     }
-                    if (!row.discounted_total_price && (pct > 0 || fixed > 0)) {
+
+                    // Apply explicit discount calculation if available
+                    if (hasDiscountValue) {
                       const pctValue = pct > 0 ? (orig * pct) / 100 : 0;
                       const totalDisc = Math.max(0, pctValue + fixed);
                       discTotal = Math.max(0, orig - totalDisc);
                     }
+                    
                     itemsOriginalSum += orig;
                     itemsDiscountedSum += Math.min(orig, Math.max(0, discTotal));
                   });
-                } catch {}
+                } catch (err) {
+                  console.error('Error fetching quotation items:', err);
+                }
                 const subtotalFromQuotation = quotation.subtotal_value ? parseFloat(quotation.subtotal_value) : 0;
                 const finalFromQuotation = quotation.final_value ? parseFloat(quotation.final_value) : 0;
 
@@ -1292,18 +1331,45 @@ export class DatabaseStorage implements IStorage {
                 } else {
                   originalCandidate = subtotalFromQuotation || null;
                   finalCandidate = finalFromQuotation || subtotalFromQuotation || null;
+                  
+                  // Sanity check for data consistency when items are missing
+                  if (originalCandidate != null && finalCandidate != null && finalCandidate > 0) {
+                    const ratio = originalCandidate / finalCandidate;
+                    // If subtotal is suspiciously high (>1.5x) without explicit discount flags, trust the final value
+                    if (ratio > 1.5 && !quotation.discount_value && !quotation.discount_type) {
+                      originalCandidate = finalCandidate;
+                    }
+                  }
                 }
 
-                if (!hasExplicitItemDiscount && originalCandidate != null && finalCandidate != null) {
+                // Global Sanity Check against Request Total
+                if (request.totalValue && originalCandidate != null && finalCandidate != null) {
+                  const reqTotal = parseFloat(request.totalValue);
+                  // If final value matches request total, but original is huge without item evidence
+                  if (reqTotal > 0 && Math.abs(finalCandidate - reqTotal) < 1.0) {
+                     if (originalCandidate > reqTotal * 1.5 && !hasExplicitItemDiscount && !quotation.discount_value && !quotation.discount_type) {
+                        originalCandidate = finalCandidate;
+                     }
+                  }
+                }
+
+                const hasExplicitDiscount = hasExplicitItemDiscount || (quotation.discount_value && parseFloat(quotation.discount_value) > 0) || !!quotation.discount_type;
+
+                if (!hasExplicitDiscount && originalCandidate != null && finalCandidate != null) {
                   // Sem desconto explícito nos itens: considere valores iguais
                   originalValue = finalCandidate;
                   discount = 0;
-                  request.totalValue = finalCandidate;
+                  // Não sobrescrever totalValue se não houver soma de itens
+                  if (itemsOriginalSum > 0 || itemsDiscountedSum > 0) {
+                    request.totalValue = finalCandidate;
+                  }
                 } else {
                   originalValue = originalCandidate;
                   const finalVal = finalCandidate ?? 0;
                   discount = originalCandidate != null ? Math.max(0, originalCandidate - finalVal) : null;
-                  request.totalValue = finalCandidate ?? request.totalValue;
+                  if (itemsOriginalSum > 0 || itemsDiscountedSum > 0) {
+                    request.totalValue = finalCandidate ?? request.totalValue;
+                  }
                 }
               }
             }
@@ -1314,13 +1380,15 @@ export class DatabaseStorage implements IStorage {
                 discount = 0;
               }
             }
-          } catch (error) {
-            if (request.totalValue) {
-              const v = parseFloat(request.totalValue);
-              if (v > 0) {
-                originalValue = v;
-                discount = 0;
-              }
+          }
+
+          if (poItemsSum > 0) {
+            request.totalValue = poItemsSum;
+            if (originalValue != null) {
+              discount = Math.max(0, originalValue - poItemsSum);
+            } else {
+              originalValue = poItemsSum;
+              discount = 0;
             }
           }
 
