@@ -8,7 +8,10 @@ import {
   decimal,
   varchar,
   jsonb,
+  json,
+  inet,
   index,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -25,6 +28,13 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Tabela de sessão compatível com connect-pg-simple
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: json("sess").notNull(),
+  expire: timestamp("expire").notNull(),
+});
+
 // Companies table
 export const companies = pgTable("companies", {
   id: serial("id").primaryKey(),
@@ -34,6 +44,7 @@ export const companies = pgTable("companies", {
   address: text("address"),
   phone: text("phone"),
   email: text("email"),
+  logoUrl: text("logo_url"),
   logoBase64: text("logo_base64"), // Armazenará a string base64 completa
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -158,6 +169,7 @@ export const paymentMethods = pgTable("payment_methods", {
   active: boolean("active").default(true),
 });
 
+
 // Purchase Requests table
 export const purchaseRequests = pgTable("purchase_requests", {
   id: serial("id").primaryKey(),
@@ -202,8 +214,8 @@ export const purchaseRequests = pgTable("purchase_requests", {
   requiresDualApproval: boolean("requires_dual_approval").default(false),
   firstApproverA2Id: integer("first_approver_a2_id").references(() => users.id),
   finalApproverId: integer("final_approver_id").references(() => users.id),
-  firstApprovalDate: timestamp("first_approval_date"),
-  finalApprovalDate: timestamp("final_approval_date"),
+  firstApprovalDate: timestamp("first_approval_date", { withTimezone: true }),
+  finalApprovalDate: timestamp("final_approval_date", { withTimezone: true }),
   approvalConfigurationId: integer("approval_configuration_id"),
 
   // Pedido de Compra
@@ -335,7 +347,7 @@ export const supplierQuotations = pgTable("supplier_quotations", {
   status: text("status").notNull().default("pending"), // pending, sent, received, expired, cancelled, no_response
   sentAt: timestamp("sent_at"),
   receivedAt: timestamp("received_at"),
-  totalValue: decimal("total_value", { precision: 15, scale: 2 }),
+  totalValue: decimal("total_value", { precision: 15, scale: 4 }),
   paymentTerms: text("payment_terms"),
   deliveryTerms: text("delivery_terms"),
   warrantyPeriod: text("warranty_period"), // Período de garantia (ex: "12 meses", "24 meses", "1 ano")
@@ -345,8 +357,8 @@ export const supplierQuotations = pgTable("supplier_quotations", {
   // Discount fields
   discountType: text("discount_type").default("none"), // percentage, fixed, none
   discountValue: decimal("discount_value", { precision: 15, scale: 4 }).default("0"),
-  subtotalValue: decimal("subtotal_value", { precision: 15, scale: 2 }),
-  finalValue: decimal("final_value", { precision: 15, scale: 2 }),
+  subtotalValue: decimal("subtotal_value", { precision: 15, scale: 4 }),
+  finalValue: decimal("final_value", { precision: 15, scale: 4 }),
   // Freight fields
   includesFreight: boolean("includes_freight").default(false),
   freightValue: decimal("freight_value", { precision: 15, scale: 2 }),
@@ -358,7 +370,7 @@ export const supplierQuotationItems = pgTable("supplier_quotation_items", {
   supplierQuotationId: integer("supplier_quotation_id").references(() => supplierQuotations.id).notNull(),
   quotationItemId: integer("quotation_item_id").references(() => quotationItems.id).notNull(),
   unitPrice: decimal("unit_price", { precision: 15, scale: 4 }).notNull(),
-  totalPrice: decimal("total_price", { precision: 15, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 15, scale: 4 }).notNull(),
   deliveryDays: integer("delivery_days"),
   brand: text("brand"),
   model: text("model"),
@@ -366,8 +378,8 @@ export const supplierQuotationItems = pgTable("supplier_quotation_items", {
   // Discount fields for items
   discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default("0"),
   discountValue: decimal("discount_value", { precision: 15, scale: 4 }).default("0"),
-  originalTotalPrice: decimal("original_total_price", { precision: 15, scale: 2 }),
-  discountedTotalPrice: decimal("discounted_total_price", { precision: 15, scale: 2 }),
+  originalTotalPrice: decimal("original_total_price", { precision: 15, scale: 4 }),
+  discountedTotalPrice: decimal("discounted_total_price", { precision: 15, scale: 4 }),
   // Availability fields for supplier return functionality
   isAvailable: boolean("is_available").default(true),
   unavailabilityReason: text("unavailability_reason"),
@@ -395,6 +407,7 @@ export const quantityAdjustmentHistory = pgTable("quantity_adjustment_history", 
   previousTotalValue: decimal("previous_total_value", { precision: 15, scale: 2 }),
   newTotalValue: decimal("new_total_value", { precision: 15, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  severityLevel: text("severity_level"),
 });
 
 // Quotation Version History table for tracking version changes
@@ -449,26 +462,38 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
   unit: text("unit").notNull(),
   unitPrice: decimal("unit_price", { precision: 15, scale: 4 }).notNull(),
-  totalPrice: decimal("total_price", { precision: 15, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 15, scale: 4 }).notNull(),
   deliveryDeadline: timestamp("delivery_deadline"),
   costCenterId: integer("cost_center_id").references(() => costCenters.id),
   accountCode: text("account_code"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const receiptTypeEnum = pgEnum("receipt_type", ["produto", "servico", "avulso"]);
+export const receiptStatusEnum = pgEnum("receipt_status", [
+  "rascunho",
+  "validado_compras",
+  "enviado_locador",
+  "integrado_locador",
+  "erro_integracao",
+  "partial",
+  "complete",
+  "pending_approval",
+]);
+
 // Receipt/Delivery tables
 export const receipts = pgTable("receipts", {
   id: serial("id").primaryKey(),
   receiptNumber: text("receipt_number").notNull().unique(),
   purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id).notNull(),
-  status: text("status").notNull().default("partial"), // partial, complete, pending_approval
+  status: text("status").notNull(),
   receivedBy: integer("received_by").references(() => users.id).notNull(),
-  receivedAt: timestamp("received_at").defaultNow().notNull(),
+  receivedAt: timestamp("received_at").notNull(),
   observations: text("observations"),
-  qualityApproved: boolean("quality_approved").default(false),
+  qualityApproved: boolean("quality_approved"),
   approvedBy: integer("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").notNull(),
 });
 
 export const receiptItems = pgTable("receipt_items", {
@@ -477,10 +502,12 @@ export const receiptItems = pgTable("receipt_items", {
   purchaseOrderItemId: integer("purchase_order_item_id").references(() => purchaseOrderItems.id).notNull(),
   quantityReceived: decimal("quantity_received", { precision: 10, scale: 3 }).notNull(),
   quantityApproved: decimal("quantity_approved", { precision: 10, scale: 3 }),
-  condition: text("condition").notNull().default("good"), // good, damaged, defective
+  condition: text("condition").notNull(),
   observations: text("observations"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").notNull(),
 });
+
+// XML e parcelas não existem no banco atual; removidos para alinhar o modelo
 
 // Relations
 export const companiesRelations = relations(companies, ({ many }) => ({
@@ -900,6 +927,7 @@ export const insertDeliveryLocationSchema = createInsertSchema(deliveryLocations
   updatedAt: true,
 });
 
+
 // RFQ Insert schemas
 export const insertQuotationSchema = createInsertSchema(quotations).omit({
   id: true,
@@ -985,7 +1013,7 @@ export const insertReceiptSchema = createInsertSchema(receipts).omit({
   receiptNumber: true,
   createdAt: true,
 }).extend({
-  receivedAt: z.string().transform((val) => new Date(val)),
+  receivedAt: z.string().optional().transform((val) => val ? new Date(val) : null),
   approvedAt: z.string().optional().transform((val) => val ? new Date(val) : null),
 });
 
@@ -993,7 +1021,7 @@ export const insertReceiptItemSchema = createInsertSchema(receiptItems).omit({
   id: true,
   createdAt: true,
 }).extend({
-  quantityReceived: z.string().transform((val) => val),
+  quantityReceived: z.string().optional().transform((val) => val || null),
   quantityApproved: z.string().optional().transform((val) => val || null),
 });
 
@@ -1048,24 +1076,24 @@ export const approvalConfigurations = pgTable("approval_configurations", {
   id: serial("id").primaryKey(),
   valueThreshold: decimal("value_threshold", { precision: 15, scale: 2 }).notNull().default("2500.00"),
   isActive: boolean("is_active").default(true),
-  effectiveDate: timestamp("effective_date").defaultNow(),
+  effectiveDate: timestamp("effective_date", { withTimezone: true }).defaultNow(),
   createdBy: integer("created_by").references(() => users.id),
   reason: text("reason").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
 // Configuration History table for audit trail
 export const configurationHistory = pgTable("configuration_history", {
   id: serial("id").primaryKey(),
   configurationId: integer("configuration_id").references(() => approvalConfigurations.id),
-  changeType: text("change_type").notNull(), // 'create', 'update', 'deactivate'
+  changeType: varchar("change_type", { length: 50 }).notNull(),
   previousValues: jsonb("previous_values"),
   newValues: jsonb("new_values").notNull(),
   changedBy: integer("changed_by").references(() => users.id),
-  ipAddress: text("ip_address"),
+  ipAddress: inet("ip_address"),
   userAgent: text("user_agent"),
-  changedAt: timestamp("changed_at").defaultNow(),
+  changedAt: timestamp("changed_at", { withTimezone: true }).defaultNow(),
 });
 
 // Insert schemas

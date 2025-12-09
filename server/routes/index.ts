@@ -4,6 +4,8 @@ import { registerApprovalRulesRoutes } from "./approval-rules";
 import { registerApprovalsRoutes } from "./approvals";
 import { registerNotificationRoutes } from "./notifications";
 import integrityValidationRoutes from "./integrity-validation";
+import { registerReceiptsRoutes } from "./receipts";
+import { registerMasterDataRoutes } from "./master-data";
 import { PDFService } from "../pdf-service";
 import { storage } from "../storage";
 // Import other route modules as they are created
@@ -219,6 +221,8 @@ export function registerAllRoutes(app: Express) {
   
   registerApprovalsRoutes(app);
   registerNotificationRoutes(app);
+  registerReceiptsRoutes(app);
+  registerMasterDataRoutes(app);
   
   // Register integrity validation routes
   app.use(integrityValidationRoutes);
