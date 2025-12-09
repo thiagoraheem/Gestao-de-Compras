@@ -50,6 +50,7 @@ import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";
 import debug from "@/lib/debug";
 import { DateInput } from "@/components/ui/date-input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
@@ -176,27 +177,30 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader className="pb-2">
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-                </CardContent>
-              </Card>
-            ))}
+      <ScrollArea className="h-[100svh] md:h-[100vh]">
+        <div className="container mx-auto px-4 py-8">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardHeader className="pb-2">
+                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </ScrollArea>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <ScrollArea className="h-[100svh] md:h-[100vh]">
+      <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col space-y-6">
         {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
@@ -946,6 +950,7 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+      </div>
+    </ScrollArea>
   );
 }
