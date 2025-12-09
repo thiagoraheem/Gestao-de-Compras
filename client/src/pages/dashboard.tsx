@@ -200,7 +200,7 @@ export default function Dashboard() {
 
   return (
     <ScrollArea className="h-[100svh] md:h-[100vh]">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 mb-10">
       <div className="flex flex-col space-y-6">
         {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
