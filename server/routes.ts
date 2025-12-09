@@ -5887,6 +5887,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get all purchase requests within the period
       const allRequests = await storage.getAllPurchaseRequests();
+      const allCostCenters = await storage.getAllCostCenters();
+      const selectedDeptId = department !== "all" ? Number(department) : null;
       const filteredRequests = allRequests.filter((request) => {
         let isInPeriod = false;
 
@@ -5919,7 +5921,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const departmentMatch =
-          department === "all" || true;
+          selectedDeptId == null
+            ? true
+            : (() => {
+                const cc = allCostCenters.find(
+                  (c) => c.id === request.costCenterId,
+                );
+                return cc ? cc.departmentId === selectedDeptId : false;
+              })();
 
         const statusMatch = status === "all" || request.currentPhase === status;
 
@@ -5978,7 +5987,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const departments = await storage.getAllDepartments();
       const requestsByDepartment = departments
         .map((dept) => {
-          const deptRequests = filteredRequests;
+          const deptRequests = filteredRequests.filter((req) => {
+            const cc = allCostCenters.find((c) => c.id === req.costCenterId);
+            return cc ? cc.departmentId === dept.id : false;
+          });
           return {
             name: dept.name,
             value: deptRequests.length,
@@ -6065,7 +6077,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Top departments by value
       const topDepartments = departments
         .map((dept) => {
-          const deptRequests = filteredRequests;
+          const deptRequests = filteredRequests.filter((req) => {
+            const cc = allCostCenters.find((c) => c.id === req.costCenterId);
+            return cc ? cc.departmentId === dept.id : false;
+          });
           const totalValue = deptRequests.reduce(
             (sum, req) =>
               sum +
