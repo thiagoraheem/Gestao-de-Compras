@@ -1254,6 +1254,7 @@ export class DatabaseStorage implements IStorage {
                 foundQuotationData = true;
                 let itemsOriginalSum = 0;
                 let itemsDiscountedSum = 0;
+                let hasExplicitItemDiscount = false;
                 try {
                   const itemsRes = await pool.query(
                     `SELECT original_total_price, discounted_total_price, total_price, discount_percentage, discount_value
@@ -1267,6 +1268,9 @@ export class DatabaseStorage implements IStorage {
                     const pct = parseFloat(row.discount_percentage || '0') || 0;
                     const fixed = parseFloat(row.discount_value || '0') || 0;
                     let discTotal = discTotalCandidate;
+                    if (row.discounted_total_price != null || pct > 0 || fixed > 0) {
+                      hasExplicitItemDiscount = hasExplicitItemDiscount || (pct > 0 || fixed > 0) || row.discounted_total_price != null;
+                    }
                     if (!row.discounted_total_price && (pct > 0 || fixed > 0)) {
                       const pctValue = pct > 0 ? (orig * pct) / 100 : 0;
                       const totalDisc = Math.max(0, pctValue + fixed);
@@ -1276,33 +1280,31 @@ export class DatabaseStorage implements IStorage {
                     itemsDiscountedSum += Math.min(orig, Math.max(0, discTotal));
                   });
                 } catch {}
-                const subtotalAfterItems = itemsDiscountedSum > 0
-                  ? itemsDiscountedSum
-                  : (quotation.subtotal_value ? parseFloat(quotation.subtotal_value) : 0);
-                const itemDiscountTotal = Math.max(0, itemsOriginalSum - subtotalAfterItems);
-                let proposalDiscount = 0;
-                const discountType = String(quotation.discount_type || 'none');
-                const discountValue = parseFloat(quotation.discount_value || '0') || 0;
-                if (subtotalAfterItems > 0) {
-                  if (discountType === 'percentage' && discountValue > 0) {
-                    proposalDiscount = (subtotalAfterItems * discountValue) / 100;
-                  } else if (discountType === 'fixed' && discountValue > 0) {
-                    proposalDiscount = discountValue;
-                  } else if (quotation.final_value && quotation.subtotal_value) {
-                    const sub = parseFloat(quotation.subtotal_value) || 0;
-                    const fin = parseFloat(quotation.final_value) || 0;
-                    proposalDiscount = Math.max(0, sub - fin);
-                  }
+                const subtotalFromQuotation = quotation.subtotal_value ? parseFloat(quotation.subtotal_value) : 0;
+                const finalFromQuotation = quotation.final_value ? parseFloat(quotation.final_value) : 0;
+
+                let originalCandidate = null as number | null;
+                let finalCandidate = null as number | null;
+
+                if (itemsOriginalSum > 0 || itemsDiscountedSum > 0) {
+                  originalCandidate = itemsOriginalSum > 0 ? itemsOriginalSum : (subtotalFromQuotation || null);
+                  finalCandidate = itemsDiscountedSum > 0 ? itemsDiscountedSum : (finalFromQuotation || subtotalFromQuotation || null);
+                } else {
+                  originalCandidate = subtotalFromQuotation || null;
+                  finalCandidate = finalFromQuotation || subtotalFromQuotation || null;
                 }
-                const finalValue = quotation.final_value
-                  ? parseFloat(quotation.final_value)
-                  : Math.max(0, subtotalAfterItems - proposalDiscount);
-                const computedOriginal = itemsOriginalSum > 0
-                  ? itemsOriginalSum
-                  : Math.max(0, subtotalAfterItems + proposalDiscount);
-                originalValue = computedOriginal > 0 ? computedOriginal : null;
-                discount = Math.max(0, computedOriginal - finalValue);
-                request.totalValue = finalValue;
+
+                if (!hasExplicitItemDiscount && originalCandidate != null && finalCandidate != null) {
+                  // Sem desconto explícito nos itens: considere valores iguais
+                  originalValue = finalCandidate;
+                  discount = 0;
+                  request.totalValue = finalCandidate;
+                } else {
+                  originalValue = originalCandidate;
+                  const finalVal = finalCandidate ?? 0;
+                  discount = originalCandidate != null ? Math.max(0, originalCandidate - finalVal) : null;
+                  request.totalValue = finalCandidate ?? request.totalValue;
+                }
               }
             }
             if (!foundQuotationData && request.totalValue) {
