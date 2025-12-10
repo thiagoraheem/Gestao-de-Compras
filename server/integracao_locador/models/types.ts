@@ -8,6 +8,7 @@ export interface ChartOfAccounts {
   idChartOfAccounts: number;
   parentId?: number | null;
   accountName?: string | null;
+  isPayable?: boolean;
 }
 
 export interface Product {

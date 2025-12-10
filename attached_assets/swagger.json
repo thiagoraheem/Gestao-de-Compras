@@ -3782,6 +3782,9 @@
           "accountName": {
             "type": "string",
             "nullable": true
+          },
+          "isPayable": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false

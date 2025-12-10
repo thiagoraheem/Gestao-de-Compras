@@ -26,6 +26,7 @@ function mapAccount(raw: any): ChartOfAccounts {
     idChartOfAccounts: Number(raw.idChartOfAccounts ?? raw.id ?? 0),
     parentId: raw.parentId ?? null,
     accountName: raw.accountName ?? raw.name ?? null,
+    isPayable: raw.isPayable ?? raw.IsPayable ?? false,
   };
 }
 

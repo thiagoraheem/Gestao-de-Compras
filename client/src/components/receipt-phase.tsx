@@ -298,19 +298,25 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     }
     const byId = new Map<number, any>();
     list.forEach((pc: any) => { const id = (pc.idChartOfAccounts ?? pc.id); if (id != null) byId.set(Number(id), pc); });
-    return parents.map((p: any) => {
+    const result = parents.map((p: any) => {
       const pid = Number(p.idChartOfAccounts ?? p.id);
-      const children = (childrenMap.get(pid) || []).sort((a: any, b: any) => String((a.accountName ?? a.name) || '').localeCompare(String((b.accountName ?? b.name) || '')));
-      const childrenWithGrand = children.map((c: any) => {
+      const childrenAll = (childrenMap.get(pid) || []).sort((a: any, b: any) => String((a.accountName ?? a.name) || '').localeCompare(String((b.accountName ?? b.name) || '')));
+      const childrenWithGrand = childrenAll.map((c: any) => {
         const cid = Number(c.idChartOfAccounts ?? c.id);
-        const grand = (childrenMap.get(cid) || []).sort((a: any, b: any) => String((a.accountName ?? a.name) || '').localeCompare(String((b.accountName ?? b.name) || '')));
-        return { node: c, grandchildren: grand };
+        const grandAll = (childrenMap.get(cid) || []).sort((a: any, b: any) => String((a.accountName ?? a.name) || '').localeCompare(String((b.accountName ?? b.name) || '')));
+        const grandPayable = grandAll.filter((g: any) => g.isPayable === true);
+        const isChildPayable = c.isPayable === true;
+        return { node: c, grandchildren: grandPayable, selectable: isChildPayable && grandPayable.length === 0 };
       });
+      // filter children: keep those selectable or that have payable grandchildren
+      const childrenFiltered = childrenWithGrand.filter((c: any) => c.selectable || c.grandchildren.length > 0);
       return {
         parent: p,
-        children: childrenWithGrand
+        children: childrenFiltered
       };
-    }).sort((a: any, b: any) => String((a.parent.accountName ?? a.parent.name) || '').localeCompare(String((b.parent.accountName ?? b.parent.name) || '')));
+    }).filter((g: any) => g.children.length > 0)
+      .sort((a: any, b: any) => String((a.parent.accountName ?? a.parent.name) || '').localeCompare(String((b.parent.accountName ?? b.parent.name) || '')));
+    return result;
   }, [chartAccounts]);
 
   useEffect(() => {
@@ -753,15 +759,25 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                         </div>
                         {expandedCoaLv1.has(Number(parent.idChartOfAccounts ?? parent.id)) && children.map((c: any) => (
                           <div key={(c.node.idChartOfAccounts ?? c.node.id)}>
-                            <div className="py-1.5 pl-10 pr-2 text-sm font-semibold flex items-center gap-2 cursor-pointer" onClick={() => toggleLv2(Number(c.node.idChartOfAccounts ?? c.node.id))}>
-                              {expandedCoaLv2.has(Number(c.node.idChartOfAccounts ?? c.node.id)) ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
-                              {(c.node.accountName ?? c.node.name)}
-                            </div>
-                            {expandedCoaLv2.has(Number(c.node.idChartOfAccounts ?? c.node.id)) && c.grandchildren.map((pc: any) => (
-                              <SelectItem key={(pc.idChartOfAccounts ?? pc.id)} value={String(pc.idChartOfAccounts ?? pc.id)} className="pl-14">
-                                {(pc.accountName ?? pc.name)}
-                              </SelectItem>
-                            ))}
+                            {c.grandchildren.length > 0 ? (
+                              <div className="py-1.5 pl-10 pr-2 text-sm font-semibold flex items-center gap-2 cursor-pointer" onClick={() => toggleLv2(Number(c.node.idChartOfAccounts ?? c.node.id))}>
+                                {expandedCoaLv2.has(Number(c.node.idChartOfAccounts ?? c.node.id)) ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
+                                {(c.node.accountName ?? c.node.name)}
+                              </div>
+                            ) : null}
+                            {c.grandchildren.length > 0 ? (
+                              expandedCoaLv2.has(Number(c.node.idChartOfAccounts ?? c.node.id)) && c.grandchildren.map((pc: any) => (
+                                <SelectItem key={(pc.idChartOfAccounts ?? pc.id)} value={String(pc.idChartOfAccounts ?? pc.id)} className="pl-14">
+                                  {(pc.accountName ?? pc.name)}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              c.selectable ? (
+                                <SelectItem key={(c.node.idChartOfAccounts ?? c.node.id)} value={String(c.node.idChartOfAccounts ?? c.node.id)} className="pl-10">
+                                  {(c.node.accountName ?? c.node.name)}
+                                </SelectItem>
+                              ) : null
+                            )}
                           </div>
                         ))}
                       </SelectGroup>
