@@ -1063,9 +1063,13 @@ export default function PurchaseCard({
                     className="px-3 py-1.5 text-xs font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 rounded-md hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
-                      confirmReceiptMutation.mutate();
+                      if (onOpenRequest) {
+                        onOpenRequest(request, PURCHASE_PHASES.RECEBIMENTO);
+                      } else {
+                        setIsEditModalOpen(true);
+                      }
                     }}
-                    disabled={confirmReceiptMutation.isPending}
+                    disabled={false}
                   >
                     Confirmar
                   </button>
