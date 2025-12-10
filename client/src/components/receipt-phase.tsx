@@ -72,6 +72,10 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [manualCostCenterId, setManualCostCenterId] = useState<number | null>(null);
   const [manualChartOfAccountsId, setManualChartOfAccountsId] = useState<number | null>(null);
   const [manualItems, setManualItems] = useState<Array<{ code?: string; description: string; unit?: string; quantity: number; unitPrice: number }>>([]);
+  const [manualNFNumber, setManualNFNumber] = useState<string>("");
+  const [manualNFSeries, setManualNFSeries] = useState<string>("");
+  const [manualNFIssueDate, setManualNFIssueDate] = useState<string>("");
+  const [manualNFEntryDate, setManualNFEntryDate] = useState<string>("");
   const [supplierMatch, setSupplierMatch] = useState<null | boolean>(null);
 
   // Check if user has permission to perform receipt actions
@@ -141,6 +145,32 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       setTypeCategoryError("");
     }
   }, [request?.category, receiptType]);
+
+  useEffect(() => {
+    if (receiptType === "avulso") {
+      const hadXml = !!xmlPreview;
+      setXmlPreview(null);
+      setXmlRaw("");
+      setItemDecisions({});
+      setSupplierMatch(null);
+      setManualNFNumber("");
+      setManualNFSeries("");
+      setManualNFIssueDate("");
+      setManualNFEntryDate("");
+      try {
+        apiRequest(`/api/audit/log`, {
+          method: "POST",
+          body: {
+            purchaseRequestId: request.id,
+            actionType: "recebimento_avulso_mode_switch",
+            actionDescription: "Alternado para modo Avulso, dados de XML descartados",
+            beforeData: { xmlPreviewExists: hadXml },
+            afterData: { xmlPreviewExists: false },
+          },
+        });
+      } catch {}
+    }
+  }, [receiptType]);
 
   useEffect(() => {
     fetch("/api/centros-custo").then(r => r.json()).then(setCostCenters).catch(() => setCostCenters([]));
@@ -228,9 +258,49 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   // Mutations for receipt actions
   const confirmReceiptMutation = useMutation({
     mutationFn: async () => {
+      try {
+        if (receiptType === "avulso") {
+          try {
+            await apiRequest(`/api/audit/log`, {
+              method: "POST",
+              body: {
+                purchaseRequestId: request?.id,
+                actionType: "recebimento_avulso_confirm",
+                actionDescription: "Confirmação de recebimento em modo Avulso",
+                beforeData: {
+                  xmlPreviewExists: !!xmlPreview,
+                },
+                afterData: {
+                  nf: {
+                    number: manualNFNumber,
+                    series: manualNFSeries,
+                    issueDate: manualNFIssueDate,
+                    entryDate: manualNFEntryDate,
+                    total: manualTotal,
+                  },
+                  manualCostCenterId,
+                  manualChartOfAccountsId,
+                  itemsCount: manualItems.length,
+                },
+              },
+            });
+          } catch {}
+        }
+      } catch {}
       const response = await apiRequest(`/api/purchase-requests/${request?.id}/confirm-receipt`, {
         method: "POST",
-        body: { receivedById: user?.id },
+        body: {
+          receivedById: user?.id,
+          receiptMode: receiptType,
+          nfNumber: receiptType === "avulso" ? manualNFNumber : undefined,
+          nfSeries: receiptType === "avulso" ? manualNFSeries : undefined,
+          nfIssueDate: receiptType === "avulso" ? manualNFIssueDate : undefined,
+          nfEntryDate: receiptType === "avulso" ? manualNFEntryDate : undefined,
+          nfTotal: receiptType === "avulso" ? manualTotal : undefined,
+          manualCostCenterId: receiptType === "avulso" ? manualCostCenterId : undefined,
+          manualChartOfAccountsId: receiptType === "avulso" ? manualChartOfAccountsId : undefined,
+          manualItems: receiptType === "avulso" ? manualItems : undefined,
+        },
       });
       return response;
     },
@@ -972,7 +1042,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                   )}
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground">Importação de XML disponível apenas para Tipo Produto</p>
+                <p className="text-sm text-muted-foreground">Importação de XML disponível apenas para Tipo Produto. No modo Avulso, preencha os campos manualmente.</p>
               )}
             </CardContent>
           </Card>
@@ -982,6 +1052,25 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
               <Card>
                 <CardHeader><CardTitle>Entrada Manual (Avulso)</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Modo Avulso</Badge>
+                  </div>
+                  <div>
+                    <Label>Número da NF</Label>
+                    <Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} placeholder="Informe o número" className={cn("", !manualNFNumber && "ring-1 ring-amber-400")}/>
+                  </div>
+                  <div>
+                    <Label>Série</Label>
+                    <Input value={manualNFSeries} onChange={(e) => setManualNFSeries(e.target.value)} placeholder="Informe a série" className={cn("", !manualNFSeries && "ring-1 ring-amber-400")}/>
+                  </div>
+                  <div>
+                    <Label>Data de Emissão</Label>
+                    <Input type="date" value={manualNFIssueDate} onChange={(e) => setManualNFIssueDate(e.target.value)} className={cn("", !manualNFIssueDate && "ring-1 ring-amber-400")}/>
+                  </div>
+                  <div>
+                    <Label>Data de Entrada</Label>
+                    <Input type="date" value={manualNFEntryDate} onChange={(e) => setManualNFEntryDate(e.target.value)} className={cn("", !manualNFEntryDate && "ring-1 ring-amber-400")}/>
+                  </div>
                   <div>
                     <Label>Valor Total</Label>
                     <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" />
@@ -1003,6 +1092,9 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                         {chartAccounts.map((pc) => (<SelectItem key={pc.id} value={String(pc.id)}>{pc.code} - {pc.description}</SelectItem>))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="md:col-span-2 text-sm text-muted-foreground">
+                    Campos destacados são obrigatórios para confirmação.
                   </div>
                 </CardContent>
               </Card>
@@ -1133,11 +1225,11 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Razão Social</Label>
-                <p className="mt-1">{xmlPreview?.header?.supplier?.name || selectedSupplier?.name || "N/A"}</p>
+                <p className="mt-1">{selectedSupplier?.name || xmlPreview?.header?.supplier?.name || "N/A"}</p>
               </div>
               <div>
                 <Label>CNPJ</Label>
-                <p className="mt-1">{xmlPreview?.header?.supplier?.cnpjCpf || selectedSupplier?.cnpj || "N/A"}</p>
+                <p className="mt-1">{selectedSupplier?.cnpj || xmlPreview?.header?.supplier?.cnpjCpf || "N/A"}</p>
               </div>
               {supplierMatch === false && (
                 <div className="md:col-span-2 text-sm text-red-600">Alerta: CNPJ/CPF do emitente no XML difere do fornecedor do pedido de compra. Verifique se a NF pertence ao pedido.</div>
@@ -1151,11 +1243,23 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
           <Card>
             <CardHeader><CardTitle>Dados da Nota Fiscal</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><Label>Número</Label><p className="mt-1">{xmlPreview?.header?.documentNumber || ""}</p></div>
-              <div><Label>Série</Label><p className="mt-1">{xmlPreview?.header?.documentSeries || ""}</p></div>
-              <div><Label>Data de Emissão</Label><p className="mt-1">{xmlPreview?.header?.issueDate || ""}</p></div>
-              <div><Label>Data de Entrada</Label><p className="mt-1">{xmlPreview?.header?.entryDate || ""}</p></div>
-              <div className="md:col-span-2"><Label>Valor Total</Label><p className="mt-1">{xmlPreview?.totals?.vNF || xmlPreview?.totals?.vProd || ""}</p></div>
+              {receiptType === "avulso" ? (
+                <>
+                  <div><Label>Número</Label><Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} /></div>
+                  <div><Label>Série</Label><Input value={manualNFSeries} onChange={(e) => setManualNFSeries(e.target.value)} /></div>
+                  <div><Label>Data de Emissão</Label><Input type="date" value={manualNFIssueDate} onChange={(e) => setManualNFIssueDate(e.target.value)} /></div>
+                  <div><Label>Data de Entrada</Label><Input type="date" value={manualNFEntryDate} onChange={(e) => setManualNFEntryDate(e.target.value)} /></div>
+                  <div className="md:col-span-2"><Label>Valor Total</Label><Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} /></div>
+                </>
+              ) : (
+                <>
+                  <div><Label>Número</Label><p className="mt-1">{xmlPreview?.header?.documentNumber || ""}</p></div>
+                  <div><Label>Série</Label><p className="mt-1">{xmlPreview?.header?.documentSeries || ""}</p></div>
+                  <div><Label>Data de Emissão</Label><p className="mt-1">{xmlPreview?.header?.issueDate || ""}</p></div>
+                  <div><Label>Data de Entrada</Label><p className="mt-1">{xmlPreview?.header?.entryDate || ""}</p></div>
+                  <div className="md:col-span-2"><Label>Valor Total</Label><p className="mt-1">{xmlPreview?.totals?.vNF || xmlPreview?.totals?.vProd || ""}</p></div>
+                </>
+              )}
             </CardContent>
           </Card>
 
