@@ -5,6 +5,2584 @@
     "version": "v1"
   },
   "paths": {
+    "/api/Auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Auth/protegido": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Boleto/registrar-por-lista": {
+      "post": {
+        "tags": [
+          "Boleto"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Boleto/registrar-por-usuario/{usuarioId}": {
+      "post": {
+        "tags": [
+          "Boleto"
+        ],
+        "parameters": [
+          {
+            "name": "usuarioId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Boleto/registrar-todos": {
+      "post": {
+        "tags": [
+          "Boleto"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ChartOfAccounts": {
+      "get": {
+        "tags": [
+          "ChartOfAccounts"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Comissao": {
+      "get": {
+        "tags": [
+          "Comissao"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Comissao"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "idComissao": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedor": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "MesRef": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "ValorComissao": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "ValorPago": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "QtdClientes": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "QtdClientesNovos": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "QtdPropostas": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "QtdPropostasFaturadas": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "ValorPropostas": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "ValorPropostasFaturadas": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "QtdContratos": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "QtdRenovacoes": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "ValorContratos": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "ValorRenovacoes": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "QtdFaturasAtrasadas": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "ValorFaturasAtrasadas": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "ValorComissaoAtrasadas": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "NomUsuario": {
+                    "type": "string"
+                  },
+                  "DatAlteracao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "NomUsuarioAlteracao": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFuncionario": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.NumCTPS": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CPF": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Nome": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Telefone": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Endereco": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Salario": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "idVendedorNavigation.DatAdmissao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.DatDemissao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.FlgComissao": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.ValComissao": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "idVendedorNavigation.VlrDesconto": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "idVendedorNavigation.Email": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Login": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Senha": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.AssinaturaDigitalizada": {
+                    "type": "string",
+                    "format": "byte"
+                  },
+                  "idVendedorNavigation.CodSetor": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodFavorecido": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodFuncao": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.Settings": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Foto": {
+                    "type": "string",
+                    "format": "byte"
+                  },
+                  "idVendedorNavigation.DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.NomUsuario": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.DatAlteracao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.NomUsuarioAlteracao": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.CodFavorecido": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.DesFavorecido": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Endereco": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Numero": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Bairro": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.CEP": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Municipio": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Estado": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.RG": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.CPF": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.CNPJ": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.IE": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.IM": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.FlgTipo": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Email": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Telefone": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Comentario": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.IsActive": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.NomUsuario": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.CodClienteLocador": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_AccountsPayable": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_AccountsPayable"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_AccountsReceivable": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_AccountsReceivable"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_Clientes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Clientes"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_FINLancamentos": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_FINLancamentos"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_FINTransferencia": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_FINTransferencia"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_Fornecedor": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Fornecedor"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_Funcionarios": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Funcionarios"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Tipo": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.DatUltPagto": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.CodFuncao": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.DesFuncao": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.FlgAtivo": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.FlgComissao": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.NomUsuario": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.NomUsuarioAlteracao": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.DatAlteracao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.tbl_Funcionarios": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Funcionarios"
+                    }
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.CodSetor": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.DesSetor": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.FlgAtivo": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.NomUsuario": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.FlgComissao": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.tbl_Funcionarios": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Funcionarios"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Comissao": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Comissao"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_ComissaoMetaVendedor": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ComissaoMetaVendedor"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_CommissionInvoices": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_CommissionInvoices"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_CommissionPaymentType": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_CommissionPaymentType"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_CommissionPaymentVendor": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_CommissionPaymentVendor"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_CommissionSummary": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_CommissionSummary"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Embarque": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Embarque"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Locacao": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Locacao"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_LocacaoContrato": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_LocacaoContrato"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_LocacaoEstorno": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_LocacaoEstorno"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_LocacaoPedido": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_LocacaoPedido"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_ManutencaoItem": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ManutencaoItem"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_ManutencaoItemLaudo": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ManutencaoItemLaudo"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Notificacao": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Notificacao"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Orcamento": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Orcamento"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Recibo": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Recibo"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_SEGAccessCount": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_SEGAccessCount"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_SEGGrupoUsuario": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_SEGGrupoUsuario"
+                    }
+                  },
+                  "idVendedorNavigation.DesSetor": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.DesFuncao": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.IsOnline": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.Status": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.IndStatus": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.DatAtualizacao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.IsVendedor": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.PodePerderRenovacao": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.BloquearDescontoRenovacao": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.AutoSelectEmLocacoes": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.ApenasRenovarSeCriador": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.ShowQuestionRegisterBoleto": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.StartupForm": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.UserSettings.IsShowWallPaper": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.WallPaperId": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.UserSettings.PodeRenovarSemRestricoes": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.UserTheme.DevExpressTheme": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.UserSettings.UserTheme.DevExpressColor": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.UserSettings.UserTheme.DevExpressCompactMode": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.IsIgnorarCarteiraClientes": {
+                    "type": "boolean"
+                  },
+                  "tbl_ComissaoPagamento": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ComissaoPagamento"
+                    }
+                  },
+                  "tbl_ComissaoPercentual": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ComissaoPercentual"
+                    }
+                  },
+                  "Nome": {
+                    "type": "string"
+                  }
+                }
+              },
+              "encoding": {
+                "idComissao": {
+                  "style": "form"
+                },
+                "idVendedor": {
+                  "style": "form"
+                },
+                "MesRef": {
+                  "style": "form"
+                },
+                "ValorComissao": {
+                  "style": "form"
+                },
+                "ValorPago": {
+                  "style": "form"
+                },
+                "QtdClientes": {
+                  "style": "form"
+                },
+                "QtdClientesNovos": {
+                  "style": "form"
+                },
+                "QtdPropostas": {
+                  "style": "form"
+                },
+                "QtdPropostasFaturadas": {
+                  "style": "form"
+                },
+                "ValorPropostas": {
+                  "style": "form"
+                },
+                "ValorPropostasFaturadas": {
+                  "style": "form"
+                },
+                "QtdContratos": {
+                  "style": "form"
+                },
+                "QtdRenovacoes": {
+                  "style": "form"
+                },
+                "ValorContratos": {
+                  "style": "form"
+                },
+                "ValorRenovacoes": {
+                  "style": "form"
+                },
+                "QtdFaturasAtrasadas": {
+                  "style": "form"
+                },
+                "ValorFaturasAtrasadas": {
+                  "style": "form"
+                },
+                "ValorComissaoAtrasadas": {
+                  "style": "form"
+                },
+                "DatCadastro": {
+                  "style": "form"
+                },
+                "NomUsuario": {
+                  "style": "form"
+                },
+                "DatAlteracao": {
+                  "style": "form"
+                },
+                "NomUsuarioAlteracao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncionario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.NumCTPS": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CPF": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Nome": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Telefone": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Endereco": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Salario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DatAdmissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DatDemissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.FlgComissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.ValComissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.VlrDesconto": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Email": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Login": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Senha": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.AssinaturaDigitalizada": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecido": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Settings": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Foto": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DatCadastro": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.NomUsuario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DatAlteracao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.NomUsuarioAlteracao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.CodFavorecido": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.DesFavorecido": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Endereco": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Numero": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Bairro": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.CEP": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Municipio": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Estado": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.RG": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.CPF": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.CNPJ": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.IE": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.IM": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.FlgTipo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Email": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Telefone": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Comentario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.IsActive": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.DatCadastro": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.NomUsuario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.CodClienteLocador": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_AccountsPayable": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_AccountsReceivable": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_Clientes": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_FINLancamentos": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_FINTransferencia": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_Fornecedor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_Funcionarios": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Tipo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.DatUltPagto": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.CodFuncao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.DesFuncao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.FlgAtivo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.FlgComissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.NomUsuario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.DatCadastro": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.NomUsuarioAlteracao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.DatAlteracao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.tbl_Funcionarios": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.CodSetor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.DesSetor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.FlgAtivo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.NomUsuario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.DatCadastro": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.FlgComissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.tbl_Funcionarios": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Comissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_ComissaoMetaVendedor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_CommissionInvoices": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_CommissionPaymentType": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_CommissionPaymentVendor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_CommissionSummary": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Embarque": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Locacao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_LocacaoContrato": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_LocacaoEstorno": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_LocacaoPedido": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_ManutencaoItem": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_ManutencaoItemLaudo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Notificacao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Orcamento": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Recibo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_SEGAccessCount": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_SEGGrupoUsuario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DesSetor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DesFuncao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.IsOnline": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Status": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.IndStatus": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DatAtualizacao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.IsVendedor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.PodePerderRenovacao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.BloquearDescontoRenovacao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.AutoSelectEmLocacoes": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.ApenasRenovarSeCriador": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.ShowQuestionRegisterBoleto": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.StartupForm": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.IsShowWallPaper": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.WallPaperId": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.PodeRenovarSemRestricoes": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.UserTheme.DevExpressTheme": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.UserTheme.DevExpressColor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.UserTheme.DevExpressCompactMode": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.IsIgnorarCarteiraClientes": {
+                  "style": "form"
+                },
+                "tbl_ComissaoPagamento": {
+                  "style": "form"
+                },
+                "tbl_ComissaoPercentual": {
+                  "style": "form"
+                },
+                "Nome": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Comissao/GetByDate": {
+      "get": {
+        "tags": [
+          "Comissao"
+        ],
+        "parameters": [
+          {
+            "name": "dateRef",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Comissao/{id}": {
+      "get": {
+        "tags": [
+          "Comissao"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Comissao"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "idComissao": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedor": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "MesRef": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "ValorComissao": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "ValorPago": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "QtdClientes": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "QtdClientesNovos": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "QtdPropostas": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "QtdPropostasFaturadas": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "ValorPropostas": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "ValorPropostasFaturadas": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "QtdContratos": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "QtdRenovacoes": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "ValorContratos": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "ValorRenovacoes": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "QtdFaturasAtrasadas": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "ValorFaturasAtrasadas": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "ValorComissaoAtrasadas": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "NomUsuario": {
+                    "type": "string"
+                  },
+                  "DatAlteracao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "NomUsuarioAlteracao": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFuncionario": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.NumCTPS": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CPF": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Nome": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Telefone": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Endereco": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Salario": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "idVendedorNavigation.DatAdmissao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.DatDemissao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.FlgComissao": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.ValComissao": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "idVendedorNavigation.VlrDesconto": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "idVendedorNavigation.Email": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Login": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Senha": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.AssinaturaDigitalizada": {
+                    "type": "string",
+                    "format": "byte"
+                  },
+                  "idVendedorNavigation.CodSetor": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodFavorecido": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodFuncao": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.Settings": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.Foto": {
+                    "type": "string",
+                    "format": "byte"
+                  },
+                  "idVendedorNavigation.DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.NomUsuario": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.DatAlteracao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.NomUsuarioAlteracao": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.CodFavorecido": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.DesFavorecido": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Endereco": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Numero": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Bairro": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.CEP": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Municipio": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Estado": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.RG": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.CPF": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.CNPJ": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.IE": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.IM": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.FlgTipo": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Email": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Telefone": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Comentario": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.IsActive": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.NomUsuario": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.CodClienteLocador": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_AccountsPayable": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_AccountsPayable"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_AccountsReceivable": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_AccountsReceivable"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_Clientes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Clientes"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_FINLancamentos": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_FINLancamentos"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_FINTransferencia": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_FINTransferencia"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_Fornecedor": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Fornecedor"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.tbl_Funcionarios": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Funcionarios"
+                    }
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.Tipo": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFavorecidoNavigation.DatUltPagto": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.CodFuncao": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.DesFuncao": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.FlgAtivo": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.FlgComissao": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.NomUsuario": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.NomUsuarioAlteracao": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.DatAlteracao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.CodFuncaoNavigation.tbl_Funcionarios": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Funcionarios"
+                    }
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.CodSetor": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.DesSetor": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.FlgAtivo": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.NomUsuario": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.FlgComissao": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.CodSetorNavigation.tbl_Funcionarios": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Funcionarios"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Comissao": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Comissao"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_ComissaoMetaVendedor": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ComissaoMetaVendedor"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_CommissionInvoices": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_CommissionInvoices"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_CommissionPaymentType": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_CommissionPaymentType"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_CommissionPaymentVendor": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_CommissionPaymentVendor"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_CommissionSummary": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_CommissionSummary"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Embarque": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Embarque"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Locacao": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Locacao"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_LocacaoContrato": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_LocacaoContrato"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_LocacaoEstorno": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_LocacaoEstorno"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_LocacaoPedido": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_LocacaoPedido"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_ManutencaoItem": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ManutencaoItem"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_ManutencaoItemLaudo": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ManutencaoItemLaudo"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Notificacao": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Notificacao"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Orcamento": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Orcamento"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_Recibo": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Recibo"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_SEGAccessCount": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_SEGAccessCount"
+                    }
+                  },
+                  "idVendedorNavigation.tbl_SEGGrupoUsuario": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_SEGGrupoUsuario"
+                    }
+                  },
+                  "idVendedorNavigation.DesSetor": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.DesFuncao": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.IsOnline": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.Status": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.IndStatus": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.DatAtualizacao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idVendedorNavigation.IsVendedor": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.PodePerderRenovacao": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.BloquearDescontoRenovacao": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.AutoSelectEmLocacoes": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.ApenasRenovarSeCriador": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.ShowQuestionRegisterBoleto": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.StartupForm": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.UserSettings.IsShowWallPaper": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.WallPaperId": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "idVendedorNavigation.UserSettings.PodeRenovarSemRestricoes": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.UserTheme.DevExpressTheme": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.UserSettings.UserTheme.DevExpressColor": {
+                    "type": "string"
+                  },
+                  "idVendedorNavigation.UserSettings.UserTheme.DevExpressCompactMode": {
+                    "type": "boolean"
+                  },
+                  "idVendedorNavigation.UserSettings.IsIgnorarCarteiraClientes": {
+                    "type": "boolean"
+                  },
+                  "tbl_ComissaoPagamento": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ComissaoPagamento"
+                    }
+                  },
+                  "tbl_ComissaoPercentual": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ComissaoPercentual"
+                    }
+                  },
+                  "Nome": {
+                    "type": "string"
+                  }
+                }
+              },
+              "encoding": {
+                "idComissao": {
+                  "style": "form"
+                },
+                "idVendedor": {
+                  "style": "form"
+                },
+                "MesRef": {
+                  "style": "form"
+                },
+                "ValorComissao": {
+                  "style": "form"
+                },
+                "ValorPago": {
+                  "style": "form"
+                },
+                "QtdClientes": {
+                  "style": "form"
+                },
+                "QtdClientesNovos": {
+                  "style": "form"
+                },
+                "QtdPropostas": {
+                  "style": "form"
+                },
+                "QtdPropostasFaturadas": {
+                  "style": "form"
+                },
+                "ValorPropostas": {
+                  "style": "form"
+                },
+                "ValorPropostasFaturadas": {
+                  "style": "form"
+                },
+                "QtdContratos": {
+                  "style": "form"
+                },
+                "QtdRenovacoes": {
+                  "style": "form"
+                },
+                "ValorContratos": {
+                  "style": "form"
+                },
+                "ValorRenovacoes": {
+                  "style": "form"
+                },
+                "QtdFaturasAtrasadas": {
+                  "style": "form"
+                },
+                "ValorFaturasAtrasadas": {
+                  "style": "form"
+                },
+                "ValorComissaoAtrasadas": {
+                  "style": "form"
+                },
+                "DatCadastro": {
+                  "style": "form"
+                },
+                "NomUsuario": {
+                  "style": "form"
+                },
+                "DatAlteracao": {
+                  "style": "form"
+                },
+                "NomUsuarioAlteracao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncionario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.NumCTPS": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CPF": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Nome": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Telefone": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Endereco": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Salario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DatAdmissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DatDemissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.FlgComissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.ValComissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.VlrDesconto": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Email": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Login": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Senha": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.AssinaturaDigitalizada": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecido": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Settings": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Foto": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DatCadastro": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.NomUsuario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DatAlteracao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.NomUsuarioAlteracao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.CodFavorecido": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.DesFavorecido": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Endereco": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Numero": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Bairro": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.CEP": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Municipio": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Estado": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.RG": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.CPF": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.CNPJ": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.IE": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.IM": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.FlgTipo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Email": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Telefone": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Comentario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.IsActive": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.DatCadastro": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.NomUsuario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.CodClienteLocador": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_AccountsPayable": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_AccountsReceivable": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_Clientes": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_FINLancamentos": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_FINTransferencia": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_Fornecedor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.tbl_Funcionarios": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.Tipo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFavorecidoNavigation.DatUltPagto": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.CodFuncao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.DesFuncao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.FlgAtivo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.FlgComissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.NomUsuario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.DatCadastro": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.NomUsuarioAlteracao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.DatAlteracao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodFuncaoNavigation.tbl_Funcionarios": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.CodSetor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.DesSetor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.FlgAtivo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.NomUsuario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.DatCadastro": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.FlgComissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.CodSetorNavigation.tbl_Funcionarios": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Comissao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_ComissaoMetaVendedor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_CommissionInvoices": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_CommissionPaymentType": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_CommissionPaymentVendor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_CommissionSummary": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Embarque": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Locacao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_LocacaoContrato": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_LocacaoEstorno": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_LocacaoPedido": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_ManutencaoItem": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_ManutencaoItemLaudo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Notificacao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Orcamento": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_Recibo": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_SEGAccessCount": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.tbl_SEGGrupoUsuario": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DesSetor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DesFuncao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.IsOnline": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.Status": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.IndStatus": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.DatAtualizacao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.IsVendedor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.PodePerderRenovacao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.BloquearDescontoRenovacao": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.AutoSelectEmLocacoes": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.ApenasRenovarSeCriador": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.ShowQuestionRegisterBoleto": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.StartupForm": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.IsShowWallPaper": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.WallPaperId": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.PodeRenovarSemRestricoes": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.UserTheme.DevExpressTheme": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.UserTheme.DevExpressColor": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.UserTheme.DevExpressCompactMode": {
+                  "style": "form"
+                },
+                "idVendedorNavigation.UserSettings.IsIgnorarCarteiraClientes": {
+                  "style": "form"
+                },
+                "tbl_ComissaoPagamento": {
+                  "style": "form"
+                },
+                "tbl_ComissaoPercentual": {
+                  "style": "form"
+                },
+                "Nome": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Comissao"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ComissaoParametros": {
+      "get": {
+        "tags": [
+          "ComissaoParametros"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/tbl_ComissaoParametros"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/tbl_ComissaoParametros"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/tbl_ComissaoParametros"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ComissaoParametros"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_ComissaoParametros"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_ComissaoParametros"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_ComissaoParametros"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/tbl_ComissaoParametros"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/tbl_ComissaoParametros"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/tbl_ComissaoParametros"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ComissaoParametros/{id}": {
+      "get": {
+        "tags": [
+          "ComissaoParametros"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/tbl_ComissaoParametros"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/tbl_ComissaoParametros"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/tbl_ComissaoParametros"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "ComissaoParametros"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_ComissaoParametros"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_ComissaoParametros"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_ComissaoParametros"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ComissaoParametros"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/CostCenter": {
+      "get": {
+        "tags": [
+          "CostCenter"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Empresa": {
+      "get": {
+        "tags": [
+          "Empresa"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Estoque/congelar": {
+      "patch": {
+        "tags": [
+          "Estoque"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "boolean"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "boolean"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Estoque/verificar-congelamento": {
+      "get": {
+        "tags": [
+          "Estoque"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Estoque/atualizar": {
+      "patch": {
+        "tags": [
+          "Estoque"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarEstoqueRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarEstoqueRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarEstoqueRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Estoque/atualizar-lista": {
+      "patch": {
+        "tags": [
+          "Estoque"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AtualizarEstoqueRequest"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AtualizarEstoqueRequest"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AtualizarEstoqueRequest"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Estoque/corrigir-estoque-serial": {
+      "patch": {
+        "tags": [
+          "Estoque"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CorrigirEstoqueSerialRequest"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CorrigirEstoqueSerialRequest"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CorrigirEstoqueSerialRequest"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Financeiro/GetCalendarSummary": {
+      "get": {
+        "tags": [
+          "Financeiro"
+        ],
+        "parameters": [
+          {
+            "name": "datInicio",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "datFim",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "idConta",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Financeiro/GetDayData": {
+      "get": {
+        "tags": [
+          "Financeiro"
+        ],
+        "parameters": [
+          {
+            "name": "datInicio",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "datFim",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "idConta",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/Fornecedor": {
       "get": {
         "tags": [
@@ -84,6 +2662,834 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Orcamento": {
+      "get": {
+        "tags": [
+          "Orcamento"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Orcamento"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_Orcamento"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_Orcamento"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_Orcamento"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Orcamento"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "isApproved",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "userName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Orcamento/{id}": {
+      "get": {
+        "tags": [
+          "Orcamento"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Orcamento"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_Orcamento"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_Orcamento"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_Orcamento"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Orcamento"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Produtos": {
+      "get": {
+        "tags": [
+          "Produtos"
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10
+            }
+          },
+          {
+            "name": "codCategoria",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Produtos/GetCount": {
+      "get": {
+        "tags": [
+          "Produtos"
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10
+            }
+          },
+          {
+            "name": "codCategoria",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Receita": {
+      "get": {
+        "tags": [
+          "Receita"
+        ],
+        "parameters": [
+          {
+            "name": "cnpj",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/ReciboCobranca/GetList": {
+      "get": {
+        "tags": [
+          "ReciboCobranca"
+        ],
+        "parameters": [
+          {
+            "name": "idFatura",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/tbl_ReciboCobranca"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/tbl_ReciboCobranca"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/tbl_ReciboCobranca"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ReciboCobranca/GetById": {
+      "get": {
+        "tags": [
+          "ReciboCobranca"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/tbl_ReciboCobranca"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/tbl_ReciboCobranca"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/tbl_ReciboCobranca"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ReciboCobranca": {
+      "post": {
+        "tags": [
+          "ReciboCobranca"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "CodReciboCobranca": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "CodRecibo": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "DatCobranca": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "DesCobranca": {
+                    "type": "string"
+                  },
+                  "CodStatusCobranca": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "NomUsuario": {
+                    "type": "string"
+                  },
+                  "CodStatusCobrancaNavigation.CodStatusCobranca": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "CodStatusCobrancaNavigation.DesStatus": {
+                    "type": "string"
+                  },
+                  "CodStatusCobrancaNavigation.Observacao": {
+                    "type": "string"
+                  },
+                  "CodStatusCobrancaNavigation.CodStatusBaixa": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "CodStatusCobrancaNavigation.OrdemClassificacao": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "CodStatusCobrancaNavigation.FlgContabilizavel": {
+                    "type": "boolean"
+                  },
+                  "CodStatusCobrancaNavigation.FlgAlterarStatus": {
+                    "type": "boolean"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastral": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "CodStatusCobrancaNavigation.DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "CodStatusCobrancaNavigation.NomUsuario": {
+                    "type": "string"
+                  },
+                  "CodStatusCobrancaNavigation.DatAlteracao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "CodStatusCobrancaNavigation.NomUsuarioAlteracao": {
+                    "type": "string"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.CodSituacaoCadastral": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.DesSituacaoCadastral": {
+                    "type": "string"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgAtivo": {
+                    "type": "boolean"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgBloqueado": {
+                    "type": "boolean"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgOrcar": {
+                    "type": "boolean"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgFaturarAVista": {
+                    "type": "boolean"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgFaturarAPrazo": {
+                    "type": "boolean"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgRenovacao": {
+                    "type": "boolean"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.DatCadastro": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.NomUsuario": {
+                    "type": "string"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.DatAlteracao": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.NomUsuarioAlteracao": {
+                    "type": "string"
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.tbl_Clientes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Clientes"
+                    }
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.tbl_ClientesOcorrencias": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ClientesOcorrencias"
+                    }
+                  },
+                  "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.tbl_ReciboStatusCobranca": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ReciboStatusCobranca"
+                    }
+                  },
+                  "CodStatusCobrancaNavigation.tbl_Recibo": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_Recibo"
+                    }
+                  },
+                  "CodStatusCobrancaNavigation.tbl_ReciboCobranca": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/tbl_ReciboCobranca"
+                    }
+                  },
+                  "DesStatus": {
+                    "type": "string"
+                  }
+                }
+              },
+              "encoding": {
+                "CodReciboCobranca": {
+                  "style": "form"
+                },
+                "CodRecibo": {
+                  "style": "form"
+                },
+                "DatCobranca": {
+                  "style": "form"
+                },
+                "DesCobranca": {
+                  "style": "form"
+                },
+                "CodStatusCobranca": {
+                  "style": "form"
+                },
+                "NomUsuario": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodStatusCobranca": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.DesStatus": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.Observacao": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodStatusBaixa": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.OrdemClassificacao": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.FlgContabilizavel": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.FlgAlterarStatus": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastral": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.DatCadastro": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.NomUsuario": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.DatAlteracao": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.NomUsuarioAlteracao": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.CodSituacaoCadastral": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.DesSituacaoCadastral": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgAtivo": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgBloqueado": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgOrcar": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgFaturarAVista": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgFaturarAPrazo": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.FlgRenovacao": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.DatCadastro": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.NomUsuario": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.DatAlteracao": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.NomUsuarioAlteracao": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.tbl_Clientes": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.tbl_ClientesOcorrencias": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.CodSituacaoCadastralNavigation.tbl_ReciboStatusCobranca": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.tbl_Recibo": {
+                  "style": "form"
+                },
+                "CodStatusCobrancaNavigation.tbl_ReciboCobranca": {
+                  "style": "form"
+                },
+                "DesStatus": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Util/Ping": {
+      "get": {
+        "tags": [
+          "Util"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Util/GetBackupDate": {
+      "get": {
+        "tags": [
+          "Util"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Util/GetBackupFiles": {
+      "get": {
+        "tags": [
+          "Util"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Util/VerificarAtualizacao": {
+      "get": {
+        "tags": [
+          "Util"
+        ],
+        "parameters": [
+          {
+            "name": "versaoCliente",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Zapsign": {
+      "post": {
+        "tags": [
+          "Zapsign"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_RetornoWebHook"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_RetornoWebHook"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_RetornoWebHook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Zapsign"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_RetornoWebHook"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_RetornoWebHook"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/tbl_RetornoWebHook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Zapsign/GetTiposPDF": {
+      "get": {
+        "tags": [
+          "Zapsign"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/tbl_ArquivoPDFTipo"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/tbl_ArquivoPDFTipo"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/tbl_ArquivoPDFTipo"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -381,6 +3787,9 @@
           "financialReceivableInterestAmount": {
             "type": "integer",
             "format": "int32"
+          },
+          "exibirNosCombosDeRotas": {
+            "type": "boolean"
           },
           "allInformationFilled": {
             "type": "boolean",
@@ -844,6 +4253,9 @@
           },
           "userTheme": {
             "$ref": "#/components/schemas/Theme"
+          },
+          "isIgnorarCarteiraClientes": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -2984,6 +6396,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/tbl_ClientesOcorrencias"
+            },
+            "nullable": true
+          },
+          "tbl_ReciboStatusCobranca": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/tbl_ReciboStatusCobranca"
             },
             "nullable": true
           }
@@ -5728,6 +9147,16 @@
             "type": "string",
             "nullable": true
           },
+          "codEmpresaOrigem": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "codEmpresaDestino": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
           "idUserCreate": {
             "type": "integer",
             "format": "int32"
@@ -5745,6 +9174,12 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "codEmpresaDestinoNavigation": {
+            "$ref": "#/components/schemas/tbl_Empresa"
+          },
+          "codEmpresaOrigemNavigation": {
+            "$ref": "#/components/schemas/tbl_Empresa"
           },
           "codFuncionarioNavigation": {
             "$ref": "#/components/schemas/tbl_Funcionarios"
@@ -6062,6 +9497,20 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/tbl_CostCenters"
+            },
+            "nullable": true
+          },
+          "tbl_EmbarqueCodEmpresaDestinoNavigation": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/tbl_Embarque"
+            },
+            "nullable": true
+          },
+          "tbl_EmbarqueCodEmpresaOrigemNavigation": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/tbl_Embarque"
             },
             "nullable": true
           },
@@ -13475,6 +16924,11 @@
           "flgAlterarStatus": {
             "type": "boolean"
           },
+          "codSituacaoCadastral": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
           "datCadastro": {
             "type": "string",
             "format": "date-time"
@@ -13491,6 +16945,9 @@
           "nomUsuarioAlteracao": {
             "type": "string",
             "nullable": true
+          },
+          "codSituacaoCadastralNavigation": {
+            "$ref": "#/components/schemas/tbl_ClienteSituacaoCadastralTipos"
           },
           "tbl_Recibo": {
             "type": "array",

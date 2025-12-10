@@ -848,6 +848,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/suppliers/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid supplier ID" });
+      }
+
+      const supplier = await storage.getSupplierById(id);
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+
+      res.json(supplier);
+    } catch (error) {
+      console.error("Error fetching supplier:", error);
+      res.status(500).json({ message: "Failed to fetch supplier" });
+    }
+  });
+
   app.post(
     "/api/suppliers",
     isAuthenticated,

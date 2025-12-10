@@ -61,11 +61,14 @@ export class RealtimeClient {
       return;
     }
 
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const loc = window.location;
+    const wsProtocol = loc.protocol === "https:" ? "wss" : "ws";
     const configuredUrl = import.meta.env.VITE_WEBSOCKET_URL as string | undefined;
-    const url = configuredUrl && configuredUrl.trim().length > 0
-      ? configuredUrl
-      : `${protocol}://${window.location.host}/ws`;
+    const hostname = loc.hostname || "localhost";
+    const portPart = loc.port && loc.port !== "0" ? `:${loc.port}` : "";
+    const host = `${hostname}${portPart}`;
+    const defaultUrl = `${wsProtocol}://${host}/ws`;
+    const url = configuredUrl && configuredUrl.trim().length > 0 ? configuredUrl : defaultUrl;
 
     // Debug logs to help diagnose connection target in production
     const logEnv = import.meta.env ?? {} as any;
@@ -74,8 +77,8 @@ export class RealtimeClient {
       console.info('[RealtimeClient] Attempting WS connect', {
         VITE_WEBSOCKET_URL: logEnv.VITE_WEBSOCKET_URL,
         resolvedUrl: url,
-        host: window.location.host,
-        protocol,
+        host,
+        protocol: wsProtocol,
       });
     } catch {}
 

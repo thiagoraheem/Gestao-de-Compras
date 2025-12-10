@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -7,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PdfViewer from "./pdf-viewer";
 import { ErrorBoundary } from "./error-boundary";
 import {
@@ -44,6 +48,7 @@ export interface ReceiptPhaseHandle {
 import { forwardRef, useImperativeHandle } from "react";
 
 const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function ReceiptPhase({ request, onClose, className, onPreviewOpen, onPreviewClose }: ReceiptPhaseProps, ref) {
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -54,6 +59,20 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [pdfBuffer, setPdfBuffer] = useState<ArrayBuffer | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewLoaded, setPreviewLoaded] = useState(false);
+  const [showNFModal, setShowNFModal] = useState(false);
+  const [receiptType, setReceiptType] = useState<"produto" | "servico" | "avulso">("produto");
+  const [xmlPreview, setXmlPreview] = useState<any | null>(null);
+  const [xmlRaw, setXmlRaw] = useState<string>("");
+  const [isXmlUploading, setIsXmlUploading] = useState(false);
+  const [typeCategoryError, setTypeCategoryError] = useState<string>("");
+  const [itemDecisions, setItemDecisions] = useState<Record<string, { confirmed: boolean }>>({});
+  const [costCenters, setCostCenters] = useState<any[]>([]);
+  const [chartAccounts, setChartAccounts] = useState<any[]>([]);
+  const [manualTotal, setManualTotal] = useState<string>("");
+  const [manualCostCenterId, setManualCostCenterId] = useState<number | null>(null);
+  const [manualChartOfAccountsId, setManualChartOfAccountsId] = useState<number | null>(null);
+  const [manualItems, setManualItems] = useState<Array<{ code?: string; description: string; unit?: string; quantity: number; unitPrice: number }>>([]);
+  const [supplierMatch, setSupplierMatch] = useState<null | boolean>(null);
 
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
@@ -88,6 +107,10 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
 
   // Get selected supplier quotation (ensure we find the chosen one)
   const selectedSupplierQuotation: any = supplierQuotations.find((sq: any) => sq.isChosen === true) || supplierQuotations[0];
+  const { data: selectedSupplier } = useQuery<any>({
+    queryKey: [`/api/suppliers/${selectedSupplierQuotation?.supplierId}`],
+    enabled: !!selectedSupplierQuotation?.supplierId,
+  });
 
   // Calculate freight value
   const freightValue = selectedSupplierQuotation?.includesFreight && selectedSupplierQuotation?.freightValue
@@ -107,6 +130,100 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     queryKey: [`/api/quotations/${quotation?.id}/items`],
     enabled: !!quotation?.id,
   });
+
+  useEffect(() => {
+    const category = request?.category;
+    const map: Record<string, "produto" | "servico" | "avulso"> = { Produto: "produto", Serviço: "servico", Outros: "avulso" };
+    const expected = map[category] || undefined;
+    if (expected && receiptType !== expected && receiptType !== "avulso") {
+      setTypeCategoryError(`Tipo selecionado (${receiptType}) incompatível com a Categoria de Compra (${category}). Ajuste o Tipo para '${expected}'.`);
+    } else {
+      setTypeCategoryError("");
+    }
+  }, [request?.category, receiptType]);
+
+  useEffect(() => {
+    fetch("/api/centros-custo").then(r => r.json()).then(setCostCenters).catch(() => setCostCenters([]));
+    fetch("/api/plano-contas").then(r => r.json()).then(setChartAccounts).catch(() => setChartAccounts([]));
+  }, []);
+
+  const onUploadXml = async (file: File | null) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".xml")) {
+      toast({ title: "Erro", description: "Selecione um arquivo .xml", variant: "destructive" });
+      return;
+    }
+    try {
+      setIsXmlUploading(true);
+      const raw = await file.text();
+      setXmlRaw(raw);
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/recebimentos/import-xml", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Falha na importação");
+      }
+      const data = await res.json();
+      const preview = data.preview || data;
+      setXmlPreview(preview);
+      // Compare emitente (XML) com fornecedor do pedido
+      try {
+        const xmlCnpjCpf = String(preview?.header?.supplier?.cnpjCpf || "").replace(/\D+/g, "");
+        const poCnpj = String(selectedSupplier?.cnpj || "").replace(/\D+/g, "");
+        if (xmlCnpjCpf && poCnpj) setSupplierMatch(xmlCnpjCpf === poCnpj);
+        else setSupplierMatch(null);
+      } catch { setSupplierMatch(null); }
+      toast({ title: "XML importado", description: "Dados preenchidos a partir do XML" });
+    } catch (e: any) {
+      toast({ title: "Erro", description: e.message, variant: "destructive" });
+    }
+    finally {
+      setIsXmlUploading(false);
+    }
+  };
+
+  const totals = useMemo(() => {
+    if (!xmlPreview?.items) return { icms: 0, ipi: 0, pis: 0, cofins: 0 };
+    return (xmlPreview.items as any[]).reduce((acc, it: any) => {
+      acc.icms += Number(it.taxes?.icmsAmount || 0);
+      acc.ipi += Number(it.taxes?.ipiAmount || 0);
+      acc.pis += Number(it.taxes?.pisAmount || 0);
+      acc.cofins += Number(it.taxes?.cofinsAmount || 0);
+      return acc;
+    }, { icms: 0, ipi: 0, pis: 0, cofins: 0 });
+  }, [xmlPreview]);
+
+  const poLookup = useMemo(() => {
+    const map = new Map<string, any>();
+    (items || []).forEach((it: any) => {
+      const key = (it.description || it.itemCode || String(it.id)).trim().toLowerCase();
+      map.set(key, it);
+    });
+    return map;
+  }, [items]);
+
+  const compareStatus = (poItem: any, nfItem: any) => {
+    const sameDesc = poItem?.description && nfItem?.description && poItem.description.trim().toLowerCase() === nfItem.description.trim().toLowerCase();
+    const qtyPo = Number(poItem?.quantity || poItem?.requestedQuantity || 0);
+    const qtyNf = Number(nfItem?.quantity || 0);
+    const unitPricePo = Number(poItem?.unitPrice || 0);
+    const unitPriceNf = Number(nfItem?.unitPrice || 0);
+    if (!sameDesc) return "orange";
+    if (qtyPo !== qtyNf) return "yellow";
+    if (unitPricePo !== unitPriceNf) return "red";
+    return "ok";
+  };
+
+  const nfItemsDecorated = useMemo(() => {
+    const list = Array.isArray(xmlPreview?.items) ? xmlPreview.items : [];
+    return list.map((nf: any, idx: number) => {
+      const key = (nf.description || nf.itemCode || String(nf.lineNumber || idx)).trim().toLowerCase();
+      const poItem = poLookup.get(key);
+      const status = compareStatus(poItem, nf);
+      return { nf, poItem, status };
+    });
+  }, [xmlPreview, poLookup]);
 
   // Mutations for receipt actions
   const confirmReceiptMutation = useMutation({
@@ -317,8 +434,6 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     });
   };
 
-  // Get selected supplier from quotations
-  const selectedSupplier = selectedSupplierQuotation;
 
   // Para a fase de recebimento, usar diretamente os dados dos itens que já vêm com preços do pedido de compra
   const itemsWithPrices = Array.isArray(items) ? items.map(item => {
@@ -770,8 +885,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 <span className="truncate">Reportar Pendência</span>
               </Button>
               <Button
-                onClick={() => confirmReceiptMutation.mutate()}
-                disabled={confirmReceiptMutation.isPending}
+                onClick={() => setShowNFModal(true)}
                 className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 w-full sm:w-auto flex items-center justify-center"
               >
                 <Check className="mr-2 h-4 w-4 flex-shrink-0" />
@@ -796,6 +910,348 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         onConfirm={(reason) => reportIssueMutation.mutate(reason)}
         isLoading={reportIssueMutation.isPending}
       />
+
+      {/* Modal: Recebimento de Nota Fiscal */}
+      <Dialog open={showNFModal} onOpenChange={setShowNFModal}>
+        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto" aria-describedby="nf-receipt-desc">
+          <div className="flex items-center justify-between">
+            <DialogTitle>Recebimento de Nota Fiscal</DialogTitle>
+            <button aria-label="Fechar" className="p-2 rounded" onClick={() => setShowNFModal(false)}>✕</button>
+          </div>
+          <p id="nf-receipt-desc" className="sr-only">Modal dedicado para conferência de NF-e</p>
+
+          {/* Resumo do Pedido de Compra */}
+          {purchaseOrder && (
+            <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
+              <div>
+                <span className="font-medium">Pedido:</span> {purchaseOrder.orderNumber || purchaseOrder.id}
+              </div>
+              <div>
+                <span className="font-medium">Valor:</span> {formatCurrency(Number(purchaseOrder.totalValue || 0))}
+              </div>
+              <div>
+                <span className="font-medium">Fornecedor PO:</span> {selectedSupplierQuotation?.supplier?.name || "N/A"}
+              </div>
+            </div>
+          )}
+
+          <Card>
+            <CardHeader><CardTitle>Tipo</CardTitle></CardHeader>
+            <CardContent>
+              <div>
+                <Label>Tipo de Recebimento</Label>
+                <Select value={receiptType} onValueChange={(v) => setReceiptType(v as any)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="produto">Produto (NF-e XML)</SelectItem>
+                    <SelectItem value="servico">Serviço (Manual)</SelectItem>
+                    <SelectItem value="avulso">Avulso (sem NF)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {typeCategoryError && (
+                  <p role="alert" className="mt-2 text-sm text-red-600">{typeCategoryError}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Importação de XML</CardTitle></CardHeader>
+            <CardContent>
+              {receiptType === "produto" ? (
+                <>
+                  <Input type="file" accept=".xml" disabled={isXmlUploading} onChange={(e) => onUploadXml(e.target.files?.[0] || null)} />
+                  {isXmlUploading && (
+                    <div className="mt-2 text-sm text-muted-foreground">Processando XML...</div>
+                  )}
+                  {xmlPreview && (
+                    <div className="mt-4 text-sm">
+                      <div>Total: {xmlPreview?.totals?.vNF || xmlPreview?.totals?.vProd}</div>
+                      <div>Itens: {Array.isArray(xmlPreview?.items) ? xmlPreview.items.length : 0}</div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Importação de XML disponível apenas para Tipo Produto</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {receiptType === "avulso" && (
+            <>
+              <Card>
+                <CardHeader><CardTitle>Entrada Manual (Avulso)</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Valor Total</Label>
+                    <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" />
+                  </div>
+                  <div>
+                    <Label>Centro de Custo</Label>
+                    <Select onValueChange={(v) => setManualCostCenterId(Number(v))}>
+                      <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {costCenters.map((cc) => (<SelectItem key={cc.id} value={String(cc.id)}>{cc.code} - {cc.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Plano de Contas</Label>
+                    <Select onValueChange={(v) => setManualChartOfAccountsId(Number(v))}>
+                      <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {chartAccounts.map((pc) => (<SelectItem key={pc.id} value={String(pc.id)}>{pc.code} - {pc.description}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><CardTitle>Itens (Avulso)</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div className="text-sm text-muted-foreground">Adicione itens manualmente ou importe do pedido</div>
+                      <Button type="button" variant="outline" onClick={async () => {
+                        try {
+                          if (!purchaseOrder?.id) {
+                            return toast({ title: "Importação", description: "Pedido de compra não encontrado", variant: "destructive" });
+                          }
+                          const poItems = await apiRequest(`/api/purchase-orders/${purchaseOrder.id}/items`);
+                          if (poItems.length === 0) {
+                            return toast({ title: "Importação", description: "Nenhum item disponível no pedido para importação", variant: "destructive" });
+                          }
+                          const ok = window.confirm(`Importar ${poItems.length} item(ns) do Pedido de Compra? Você poderá editar os itens após a importação.`);
+                          if (!ok) return;
+                          const imported = poItems.map((it: any) => {
+                            const quantity = Number(it.quantity ?? it.requestedQuantity ?? 0);
+                            const unitPrice = Number(it.unitPrice ?? (it.totalPrice && quantity ? Number(it.totalPrice) / quantity : 0));
+                            return {
+                              code: it.itemCode || String(it.id),
+                              description: it.description || "",
+                              unit: it.unit || "",
+                              quantity: quantity || 0,
+                              unitPrice: unitPrice || 0,
+                            };
+                          }).filter((m: any) => m.description && m.quantity > 0);
+                          if (imported.length === 0) {
+                            return toast({ title: "Importação", description: "Nenhum item válido para importar", variant: "destructive" });
+                          }
+                          setManualItems(imported);
+                          const total = imported.reduce((acc: number, it: any) => acc + it.quantity * it.unitPrice, 0);
+                          setManualTotal(String(total.toFixed(2)));
+                          try {
+                            await apiRequest(`/api/audit/log`, {
+                              method: "POST",
+                              body: {
+                                purchaseRequestId: request.id,
+                                actionType: "recebimento_avulso_import_po_items",
+                                actionDescription: `Importados ${imported.length} item(ns) do PO ${purchaseOrder?.orderNumber || purchaseOrder?.id}`,
+                                beforeData: { manualItemsCount: manualItems.length },
+                                afterData: { manualItemsCount: imported.length, total },
+                              },
+                            });
+                          } catch {}
+                          toast({ title: "Itens importados", description: `Foram importados ${imported.length} item(ns) do pedido.`, });
+                        } catch (e: any) {
+                          toast({ title: "Erro", description: e.message || "Falha ao importar itens", variant: "destructive" });
+                        }
+                      }}>Importar itens do pedido</Button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input placeholder="Código" onChange={(e) => {
+                        const code = e.target.value;
+                        (window as any)._tmpCode = code;
+                      }} />
+                      <Input placeholder="Descrição" onChange={(e) => {
+                        const description = e.target.value;
+                        (window as any)._tmpDescription = description;
+                      }} />
+                      <Input placeholder="Unidade" onChange={(e) => {
+                        const unit = e.target.value;
+                        (window as any)._tmpUnit = unit;
+                      }} />
+                      <Input type="number" placeholder="Qtd" onChange={(e) => {
+                        const quantity = Number(e.target.value || 0);
+                        (window as any)._tmpQuantity = quantity;
+                      }} />
+                      <Input type="number" placeholder="Valor Unit." onChange={(e) => {
+                        const unitPrice = Number(e.target.value || 0);
+                        (window as any)._tmpUnitPrice = unitPrice;
+                      }} />
+                      <Button type="button" onClick={() => {
+                        const code = (window as any)._tmpCode || "";
+                        const description = (window as any)._tmpDescription || "";
+                        const unit = (window as any)._tmpUnit || "";
+                        const quantity = Number((window as any)._tmpQuantity || 0);
+                        const unitPrice = Number((window as any)._tmpUnitPrice || 0);
+                        if (!description || quantity <= 0) {
+                          return toast({ title: "Itens", description: "Informe descrição e quantidade válidas", variant: "destructive" });
+                        }
+                        setManualItems((prev) => [...prev, { code, description, unit, quantity, unitPrice }]);
+                      }}>Adicionar</Button>
+                    </div>
+                    <div className="rounded border mt-2">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Código</TableHead>
+                            <TableHead>Descrição</TableHead>
+                            <TableHead className="text-center">Qtd</TableHead>
+                            <TableHead className="text-right">Valor Unit.</TableHead>
+                            <TableHead className="text-right">Valor Total</TableHead>
+                            <TableHead className="text-center">Unidade</TableHead>
+                            <TableHead className="text-center">Ação</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {manualItems.map((it, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell>{it.code || "-"}</TableCell>
+                              <TableCell>{it.description}</TableCell>
+                              <TableCell className="text-center">{it.quantity}</TableCell>
+                              <TableCell className="text-right">{it.unitPrice}</TableCell>
+                              <TableCell className="text-right">{(it.quantity * it.unitPrice).toFixed(2)}</TableCell>
+                              <TableCell className="text-center">{it.unit || ""}</TableCell>
+                              <TableCell className="text-center">
+                                <Button type="button" variant="destructive" onClick={() => setManualItems((prev) => prev.filter((_, i) => i !== idx))}>Remover</Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          <Card>
+            <CardHeader><CardTitle>Fornecedor</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Razão Social</Label>
+                <p className="mt-1">{xmlPreview?.header?.supplier?.name || selectedSupplier?.name || "N/A"}</p>
+              </div>
+              <div>
+                <Label>CNPJ</Label>
+                <p className="mt-1">{xmlPreview?.header?.supplier?.cnpjCpf || selectedSupplier?.cnpj || "N/A"}</p>
+              </div>
+              {supplierMatch === false && (
+                <div className="md:col-span-2 text-sm text-red-600">Alerta: CNPJ/CPF do emitente no XML difere do fornecedor do pedido de compra. Verifique se a NF pertence ao pedido.</div>
+              )}
+              {supplierMatch === true && (
+                <div className="md:col-span-2 text-sm text-green-600">Fornecedor correspondente ao emitente da NF.</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Dados da Nota Fiscal</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><Label>Número</Label><p className="mt-1">{xmlPreview?.header?.documentNumber || ""}</p></div>
+              <div><Label>Série</Label><p className="mt-1">{xmlPreview?.header?.documentSeries || ""}</p></div>
+              <div><Label>Data de Emissão</Label><p className="mt-1">{xmlPreview?.header?.issueDate || ""}</p></div>
+              <div><Label>Data de Entrada</Label><p className="mt-1">{xmlPreview?.header?.entryDate || ""}</p></div>
+              <div className="md:col-span-2"><Label>Valor Total</Label><p className="mt-1">{xmlPreview?.totals?.vNF || xmlPreview?.totals?.vProd || ""}</p></div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Tributos Destacados</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div><Label>ICMS</Label><p className="mt-1">{totals.icms.toFixed(2)}</p></div>
+              <div><Label>IPI</Label><p className="mt-1">{totals.ipi.toFixed(2)}</p></div>
+              <div><Label>PIS</Label><p className="mt-1">{totals.pis.toFixed(2)}</p></div>
+              <div><Label>COFINS</Label><p className="mt-1">{totals.cofins.toFixed(2)}</p></div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Transporte</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-sm">{xmlPreview?.header?.transport?.modFrete ? `Modalidade: ${xmlPreview.header.transport.modFrete}` : "Não informado"}</p>
+            </CardContent>
+          </Card>
+
+          <Separator />
+
+          <Card>
+            <CardHeader><CardTitle>Itens da Nota Fiscal</CardTitle></CardHeader>
+            <CardContent>
+              <div className="rounded border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="text-center">Qtd</TableHead>
+                      <TableHead className="text-right">Valor Unit.</TableHead>
+                      <TableHead className="text-right">Valor Total</TableHead>
+                      <TableHead className="text-center">Unidade</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-center">Ação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {nfItemsDecorated.map(({ nf, poItem, status }: any, idx: number) => (
+                      <TableRow key={idx} className={
+                        status === "red" ? "bg-red-50 dark:bg-red-900/20" :
+                        status === "yellow" ? "bg-yellow-50 dark:bg-yellow-900/20" :
+                        status === "orange" ? "bg-orange-50 dark:bg-orange-900/20" : ""
+                      }>
+                        <TableCell>{nf.itemCode || poItem?.itemCode || "-"}</TableCell>
+                        <TableCell>{nf.description}</TableCell>
+                        <TableCell className="text-center">{nf.quantity}</TableCell>
+                        <TableCell className="text-right">{nf.unitPrice}</TableCell>
+                        <TableCell className="text-right">{nf.totalPrice}</TableCell>
+                        <TableCell className="text-center">{nf.unit}</TableCell>
+                        <TableCell className="text-center">
+                          {status === "ok" && <Badge variant="outline">OK</Badge>}
+                          {status === "red" && <Badge variant="destructive">Divergência</Badge>}
+                          {status === "yellow" && <Badge variant="secondary">Qtd diferente</Badge>}
+                          {status === "orange" && <Badge variant="default">Não previsto</Badge>}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <label className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={itemDecisions[idx]?.confirmed || false}
+                              onChange={(e) => setItemDecisions((prev) => ({ ...prev, [idx]: { confirmed: e.target.checked } }))}
+                            /> Confirmar
+                          </label>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowNFModal(false)}>Cancelar</Button>
+            <Button onClick={() => {
+              if (typeCategoryError) {
+                return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
+              }
+              if (receiptType === "avulso") {
+                const hasTotals = manualTotal && manualTotal.trim() !== "";
+                const hasCC = !!manualCostCenterId;
+                const hasCOA = !!manualChartOfAccountsId;
+                const hasItems = manualItems.length > 0;
+                if (!hasTotals || !hasCC || !hasCOA || !hasItems) {
+                  return toast({ title: "Validação", description: "Preencha Valor Total, Centro de Custo, Plano de Contas e pelo menos um item", variant: "destructive" });
+                }
+              }
+              setShowNFModal(false);
+              confirmReceiptMutation.mutate();
+            }}>Confirmar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Pré-visualização do PDF removido - substituído por renderização condicional */}
     </div>

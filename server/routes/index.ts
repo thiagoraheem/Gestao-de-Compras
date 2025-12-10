@@ -5,6 +5,7 @@ import { registerApprovalsRoutes } from "./approvals";
 import { registerNotificationRoutes } from "./notifications";
 import integrityValidationRoutes from "./integrity-validation";
 import { registerReceiptsRoutes } from "./receipts";
+import { registerAuditRoutes } from "./audit";
 import { registerMasterDataRoutes } from "./master-data";
 import { PDFService } from "../pdf-service";
 import { storage } from "../storage";
@@ -223,6 +224,7 @@ export function registerAllRoutes(app: Express) {
   registerNotificationRoutes(app);
   registerReceiptsRoutes(app);
   registerMasterDataRoutes(app);
+  registerAuditRoutes(app);
   
   // Register integrity validation routes
   app.use(integrityValidationRoutes);
