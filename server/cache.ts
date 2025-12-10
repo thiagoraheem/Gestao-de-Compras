@@ -108,6 +108,20 @@ export const CACHE_CONFIG = {
     ttl: 300000, // 5 minutes for companies
     enabled: true
   }
+  ,
+  '/api/centros-custo': {
+    ttl: 300000,
+    enabled: true
+  },
+  '/api/plano-contas': {
+    ttl: 300000,
+    enabled: true
+  }
+  ,
+  '/api/integracao-locador/centros-custo': {
+    ttl: 300000,
+    enabled: true
+  }
 };
 
 // Create global cache instance

@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import PdfViewer from "./pdf-viewer";
 import { ErrorBoundary } from "./error-boundary";
 import {
@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck } from "lucide-react";
+import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck, ChevronDown, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
@@ -68,6 +68,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [itemDecisions, setItemDecisions] = useState<Record<string, { confirmed: boolean }>>({});
   const [costCenters, setCostCenters] = useState<any[]>([]);
   const [chartAccounts, setChartAccounts] = useState<any[]>([]);
+  const [expandedCoaLv1, setExpandedCoaLv1] = useState<Set<number>>(new Set());
+  const [expandedCoaLv2, setExpandedCoaLv2] = useState<Set<number>>(new Set());
   const [manualTotal, setManualTotal] = useState<string>("");
   const [manualCostCenterId, setManualCostCenterId] = useState<number | null>(null);
   const [manualChartOfAccountsId, setManualChartOfAccountsId] = useState<number | null>(null);
@@ -173,8 +175,19 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   }, [receiptType]);
 
   useEffect(() => {
-    fetch("/api/centros-custo").then(r => r.json()).then(setCostCenters).catch(() => setCostCenters([]));
-    fetch("/api/plano-contas").then(r => r.json()).then(setChartAccounts).catch(() => setChartAccounts([]));
+    fetch("/api/integracao-locador/centros-custo")
+      .then(async (r) => {
+        try { const d = await r.json(); return Array.isArray(d) ? d : []; } catch (e) { console.error('locador centros-custo parse error', e); return []; }
+      })
+      .then((d) => { console.log('locador centros-custo loaded', Array.isArray(d) ? d.length : 0); setCostCenters(d); })
+      .catch((e) => { console.error('locador centros-custo request error', e); setCostCenters([]); });
+
+    fetch("/api/plano-contas")
+      .then(async (r) => {
+        try { const d = await r.json(); return Array.isArray(d) ? d : []; } catch (e) { console.error('locador plano-contas parse error', e); return []; }
+      })
+      .then((d) => { console.log('locador plano-contas loaded', Array.isArray(d) ? d.length : 0); setChartAccounts(d); })
+      .catch((e) => { console.error('locador plano-contas request error', e); setChartAccounts([]); });
   }, []);
 
   const onUploadXml = async (file: File | null) => {
@@ -255,6 +268,73 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     });
   }, [xmlPreview, poLookup]);
 
+  const costCenterTree = useMemo(() => {
+    const list = Array.isArray(costCenters) ? costCenters : [];
+    const parents = list.filter((cc: any) => cc.parentId == null);
+    const childrenMap = new Map<number, any[]>();
+    for (const cc of list) {
+      if (cc.parentId != null) {
+        const arr = childrenMap.get(cc.parentId) || [];
+        arr.push(cc);
+        childrenMap.set(cc.parentId, arr);
+      }
+    }
+    return parents.map((p: any) => ({
+      parent: p,
+      children: (childrenMap.get(p.idCostCenter ?? p.id) || []).sort((a: any, b: any) => String(a.name || '').localeCompare(String(b.name || '')))
+    })).sort((a: any, b: any) => String(a.parent.name || '').localeCompare(String(b.parent.name || '')));
+  }, [costCenters]);
+
+  const chartAccountTree = useMemo(() => {
+    const list = Array.isArray(chartAccounts) ? chartAccounts : [];
+    const parents = list.filter((pc: any) => pc.parentId == null);
+    const childrenMap = new Map<number, any[]>();
+    for (const pc of list) {
+      if (pc.parentId != null) {
+        const arr = childrenMap.get(pc.parentId) || [];
+        arr.push(pc);
+        childrenMap.set(pc.parentId, arr);
+      }
+    }
+    const byId = new Map<number, any>();
+    list.forEach((pc: any) => { const id = (pc.idChartOfAccounts ?? pc.id); if (id != null) byId.set(Number(id), pc); });
+    return parents.map((p: any) => {
+      const pid = Number(p.idChartOfAccounts ?? p.id);
+      const children = (childrenMap.get(pid) || []).sort((a: any, b: any) => String((a.accountName ?? a.name) || '').localeCompare(String((b.accountName ?? b.name) || '')));
+      const childrenWithGrand = children.map((c: any) => {
+        const cid = Number(c.idChartOfAccounts ?? c.id);
+        const grand = (childrenMap.get(cid) || []).sort((a: any, b: any) => String((a.accountName ?? a.name) || '').localeCompare(String((b.accountName ?? b.name) || '')));
+        return { node: c, grandchildren: grand };
+      });
+      return {
+        parent: p,
+        children: childrenWithGrand
+      };
+    }).sort((a: any, b: any) => String((a.parent.accountName ?? a.parent.name) || '').localeCompare(String((b.parent.accountName ?? b.parent.name) || '')));
+  }, [chartAccounts]);
+
+  useEffect(() => {
+    const parents = chartAccountTree.map((g: any) => Number(g.parent.idChartOfAccounts ?? g.parent.id)).filter(Boolean);
+    setExpandedCoaLv1(new Set(parents));
+    const subs = chartAccountTree.flatMap((g: any) => g.children.map((c: any) => Number(c.node.idChartOfAccounts ?? c.node.id))).filter(Boolean);
+    setExpandedCoaLv2(new Set(subs));
+  }, [chartAccountTree.length]);
+
+  const toggleLv1 = (id: number) => {
+    setExpandedCoaLv1(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleLv2 = (id: number) => {
+    setExpandedCoaLv2(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   // Mutations for receipt actions
   const confirmReceiptMutation = useMutation({
     mutationFn: async () => {
@@ -297,8 +377,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
           nfIssueDate: receiptType === "avulso" ? manualNFIssueDate : undefined,
           nfEntryDate: receiptType === "avulso" ? manualNFEntryDate : undefined,
           nfTotal: receiptType === "avulso" ? manualTotal : undefined,
-          manualCostCenterId: receiptType === "avulso" ? manualCostCenterId : undefined,
-          manualChartOfAccountsId: receiptType === "avulso" ? manualChartOfAccountsId : undefined,
+          manualCostCenterId: manualCostCenterId,
+          manualChartOfAccountsId: manualChartOfAccountsId,
           manualItems: receiptType === "avulso" ? manualItems : undefined,
         },
       });
@@ -630,6 +710,67 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
             <div>
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Data de Criação</p>
               <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">{formatDate(request.createdAt)}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Classificação Contábil</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Centro de Custo</Label>
+              <Select onValueChange={(v) => setManualCostCenterId(Number(v))}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {Array.isArray(costCenters) && costCenters.length > 0 ? (
+                    costCenterTree.map(({ parent, children }: any) => (
+                      <SelectGroup key={parent.idCostCenter ?? parent.id}>
+                        <SelectLabel>{parent.name}</SelectLabel>
+                        {children.map((cc: any) => (
+                          <SelectItem key={cc.idCostCenter ?? cc.id} value={String(cc.idCostCenter ?? cc.id)} className="pl-10">
+                            {cc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>Nenhum centro de custo disponível</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Plano de Contas</Label>
+              <Select onValueChange={(v) => setManualChartOfAccountsId(Number(v))}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {Array.isArray(chartAccounts) && chartAccounts.length > 0 ? (
+                    chartAccountTree.map(({ parent, children }: any) => (
+                      <SelectGroup key={(parent.idChartOfAccounts ?? parent.id)}>
+                        <div className="py-1.5 pl-8 pr-2 text-sm font-semibold flex items-center gap-2 cursor-pointer" onClick={() => toggleLv1(Number(parent.idChartOfAccounts ?? parent.id))}>
+                          {expandedCoaLv1.has(Number(parent.idChartOfAccounts ?? parent.id)) ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
+                          {(parent.accountName ?? parent.name)}
+                        </div>
+                        {expandedCoaLv1.has(Number(parent.idChartOfAccounts ?? parent.id)) && children.map((c: any) => (
+                          <div key={(c.node.idChartOfAccounts ?? c.node.id)}>
+                            <div className="py-1.5 pl-10 pr-2 text-sm font-semibold flex items-center gap-2 cursor-pointer" onClick={() => toggleLv2(Number(c.node.idChartOfAccounts ?? c.node.id))}>
+                              {expandedCoaLv2.has(Number(c.node.idChartOfAccounts ?? c.node.id)) ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
+                              {(c.node.accountName ?? c.node.name)}
+                            </div>
+                            {expandedCoaLv2.has(Number(c.node.idChartOfAccounts ?? c.node.id)) && c.grandchildren.map((pc: any) => (
+                              <SelectItem key={(pc.idChartOfAccounts ?? pc.id)} value={String(pc.idChartOfAccounts ?? pc.id)} className="pl-14">
+                                {(pc.accountName ?? pc.name)}
+                              </SelectItem>
+                            ))}
+                          </div>
+                        ))}
+                      </SelectGroup>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>Nenhum plano de contas disponível</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -1075,24 +1216,6 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                     <Label>Valor Total</Label>
                     <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" />
                   </div>
-                  <div>
-                    <Label>Centro de Custo</Label>
-                    <Select onValueChange={(v) => setManualCostCenterId(Number(v))}>
-                      <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        {costCenters.map((cc) => (<SelectItem key={cc.id} value={String(cc.id)}>{cc.code} - {cc.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Plano de Contas</Label>
-                    <Select onValueChange={(v) => setManualChartOfAccountsId(Number(v))}>
-                      <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        {chartAccounts.map((pc) => (<SelectItem key={pc.id} value={String(pc.id)}>{pc.code} - {pc.description}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div className="md:col-span-2 text-sm text-muted-foreground">
                     Campos destacados são obrigatórios para confirmação.
                   </div>
@@ -1341,13 +1464,16 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
               if (typeCategoryError) {
                 return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
               }
+              const hasCC = !!manualCostCenterId;
+              const hasCOA = !!manualChartOfAccountsId;
+              if (!hasCC || !hasCOA) {
+                return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+              }
               if (receiptType === "avulso") {
                 const hasTotals = manualTotal && manualTotal.trim() !== "";
-                const hasCC = !!manualCostCenterId;
-                const hasCOA = !!manualChartOfAccountsId;
                 const hasItems = manualItems.length > 0;
-                if (!hasTotals || !hasCC || !hasCOA || !hasItems) {
-                  return toast({ title: "Validação", description: "Preencha Valor Total, Centro de Custo, Plano de Contas e pelo menos um item", variant: "destructive" });
+                if (!hasTotals || !hasItems) {
+                  return toast({ title: "Validação", description: "Preencha Valor Total e pelo menos um item", variant: "destructive" });
                 }
               }
               setShowNFModal(false);
