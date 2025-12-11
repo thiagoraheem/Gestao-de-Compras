@@ -9,8 +9,7 @@ const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
-// Configuração do banco de desenvolvimento
-const DATABASE_URL_DEV = "postgres://compras:Compras2025@54.232.194.197:5432/locador_compras";
+const DATABASE_URL_DEV = process.env.DATABASE_URL_DEV || process.env.DATABASE_URL || "postgres://compras:Compras2025@54.232.194.197:5432/locador_compras";
 
 async function applyMigration() {
   const pool = new Pool({
@@ -19,17 +18,17 @@ async function applyMigration() {
 
   try {
     console.log('🔄 Conectando ao banco de desenvolvimento...');
-    
-    // Ler o arquivo de migração
-    const migrationPath = path.join(__dirname, '..', 'migrations', '0005_add_purchase_order_indexes.sql');
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-    
-    console.log('📄 Aplicando migração 0005_add_purchase_order_indexes.sql...');
-    
-    // Executar a migração
-    await pool.query(migrationSQL);
-    
-    console.log('✅ Migração aplicada com sucesso!');
+
+    const filesArg = process.argv.find(a => a.startsWith('--files=')) || process.argv.find(a => a.startsWith('--file='));
+    const filesList = filesArg ? filesArg.split('=')[1].split(',').map(f => f.trim()).filter(Boolean) : ['0005_add_purchase_order_indexes.sql'];
+
+    for (const file of filesList) {
+      const migrationPath = path.isAbsolute(file) ? file : path.join(__dirname, '..', 'migrations', file);
+      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+      console.log(`📄 Aplicando migração ${path.basename(migrationPath)}...`);
+      await pool.query(migrationSQL);
+      console.log(`✅ Migração ${path.basename(migrationPath)} aplicada com sucesso!`);
+    }
     
     // Verificar se as tabelas estão funcionando
     console.log('🔍 Verificando estrutura das tabelas...');
@@ -79,13 +78,11 @@ async function applyMigration() {
     console.log('📈 Contagem atual das tabelas:');
     console.table(countCheck.rows);
     
-    console.log('\n🎉 Funcionalidade de Purchase Orders está pronta para uso!');
+    console.log('\n🎉 Migrações aplicadas com sucesso!');
     console.log('\n📝 Próximos passos:');
-    console.log('1. Reinicie o servidor de desenvolvimento');
-    console.log('2. Teste criando um Purchase Order através da interface');
-    console.log('3. Verifique se os dados são inseridos corretamente nas tabelas');
-    console.log('\n⚠️  Para PRODUÇÃO: Execute manualmente o arquivo migrations/0005_add_purchase_order_indexes.sql');
-    
+    console.log('1. Reinicie o servidor de desenvolvimento se necessário');
+    console.log('2. Valide a estrutura alterada e fluxos impactados');
+  
   } catch (error) {
     console.error('❌ Erro ao aplicar migração:', error);
     process.exit(1);

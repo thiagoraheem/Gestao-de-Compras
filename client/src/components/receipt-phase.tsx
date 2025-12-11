@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
@@ -32,6 +32,8 @@ import { formatCurrency } from "@/lib/currency";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import PendencyModal from "./pendency-modal";
+import { NFEViewer } from "@/components/nfe/NFEViewer";
+import { NFEList } from "@/components/nfe/NFEList";
 
 export function buildCostCenterTreeData(listInput: any[]) {
   const list = Array.isArray(listInput) ? listInput : [];
@@ -97,6 +99,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [xmlPreview, setXmlPreview] = useState<any | null>(null);
   const [xmlRaw, setXmlRaw] = useState<string>("");
   const [isXmlUploading, setIsXmlUploading] = useState(false);
+  const [xmlAttachmentId, setXmlAttachmentId] = useState<number | null>(null);
   const [typeCategoryError, setTypeCategoryError] = useState<string>("");
   const [itemDecisions, setItemDecisions] = useState<Record<string, { confirmed: boolean }>>({});
   const [costCenters, setCostCenters] = useState<any[]>([]);
@@ -241,7 +244,6 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         if (data.manualNFEntryDate) setManualNFEntryDate(data.manualNFEntryDate);
         if (data.manualTotal) setManualTotal(data.manualTotal);
         if (Array.isArray(data.manualItems)) setManualItems(data.manualItems);
-        if (data.activeTab) setActiveTab(data.activeTab);
       }
     } catch {}
   }, [request?.id]);
@@ -277,6 +279,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       setXmlRaw(raw);
       const fd = new FormData();
       fd.append("file", file);
+      fd.append("purchaseRequestId", String(request.id));
       const res = await fetch("/api/recebimentos/import-xml", { method: "POST", body: fd });
       if (!res.ok) {
         const err = await res.json();
@@ -285,6 +288,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       const data = await res.json();
       const preview = data.preview || data;
       setXmlPreview(preview);
+      setXmlAttachmentId(data.attachment?.id ?? null);
       // Compare emitente (XML) com fornecedor do pedido
       try {
         const xmlCnpjCpf = String(preview?.header?.supplier?.cnpjCpf || "").replace(/\D+/g, "");
@@ -478,6 +482,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         title: "Sucesso",
         description: "Recebimento confirmado! Item movido para Conclusão.",
       });
+      try { setLocation(`/kanban?request=${request?.id}&phase=conclusao_compra`); } catch {}
       onClose();
     },
     onError: () => {
@@ -742,7 +747,60 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     );
   }
 
-  const isFiscalValid = !!manualCostCenterId && !!manualChartOfAccountsId;
+  const validCostCenterIds = useMemo(() => {
+    const ids = new Set<number>();
+    costCenterTree.forEach(({ children }: any) => {
+      children.forEach((c: any) => {
+        if (c.selectable) {
+          const id = Number(c.node.idCostCenter ?? c.node.id);
+          if (id) ids.add(id);
+        }
+        c.grandchildren.forEach((gc: any) => {
+          const id = Number(gc.idCostCenter ?? gc.id);
+          if (id) ids.add(id);
+        });
+      });
+    });
+    return ids;
+  }, [costCenterTree]);
+
+  const validChartAccountIds = useMemo(() => {
+    const ids = new Set<number>();
+    chartAccountTree.forEach(({ children }: any) => {
+      children.forEach((c: any) => {
+        if (c.selectable) {
+          const id = Number(c.node.idChartOfAccounts ?? c.node.id);
+          if (id) ids.add(id);
+        }
+        c.grandchildren.forEach((pc: any) => {
+          const id = Number(pc.idChartOfAccounts ?? pc.id);
+          if (id) ids.add(id);
+        });
+      });
+    });
+    return ids;
+  }, [chartAccountTree]);
+
+  const isFiscalValid = !!manualCostCenterId && !!manualChartOfAccountsId && validCostCenterIds.has(Number(manualCostCenterId)) && validChartAccountIds.has(Number(manualChartOfAccountsId));
+  const canConfirm = useMemo(() => {
+    if (typeCategoryError) return false;
+    if (!isFiscalValid) return false;
+    if (receiptType === "avulso") {
+      const requiredFilled = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate].every(v => !!v && String(v).trim() !== "");
+      const hasTotals = String(manualTotal || '').trim() !== '';
+      const hasItems = manualItems.length > 0;
+      return requiredFilled && hasTotals && hasItems;
+    }
+    const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
+      const current = Number(receivedQuantities[it.id] || 0);
+      const max = Number(it.quantity || 0);
+      return current > max;
+    }) : [];
+    if (invalids.length > 0) return false;
+    const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
+    if (!hasAnyQty && !xmlPreview) return false;
+    return true;
+  }, [typeCategoryError, isFiscalValid, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualTotal, manualItems.length, itemsWithPrices, receivedQuantities, xmlPreview]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -753,7 +811,34 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+      <Tabs value={activeTab} onValueChange={(v) => {
+        const next = v as 'fiscal' | 'xml' | 'items';
+        if (next === 'xml' && !isFiscalValid) {
+          toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+          return;
+        }
+        if (next === 'items') {
+          if (!isFiscalValid) {
+            toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+            return;
+          }
+          const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
+            const current = Number(receivedQuantities[it.id] || 0);
+            const max = Number(it.quantity || 0);
+            return current > max;
+          }) : [];
+          if (invalids.length > 0) {
+            toast({ title: "Validação", description: "Existem itens com quantidade recebida maior que a prevista", variant: "destructive" });
+            return;
+          }
+          const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
+          if (!hasAnyQty && !xmlPreview) {
+            toast({ title: "Validação", description: "Informe quantidades recebidas ou importe o XML", variant: "destructive" });
+            return;
+          }
+        }
+        setActiveTab(next);
+      }}>
         <TabsList className="w-full justify-start gap-2">
           <TabsTrigger value="fiscal">Confirmações Fiscais</TabsTrigger>
           <TabsTrigger value="xml" disabled={!isFiscalValid}>Importar NF</TabsTrigger>
@@ -817,7 +902,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Centro de Custo</Label>
-              <Select onValueChange={(v) => setManualCostCenterId(Number(v))}>
+              <Select value={manualCostCenterId ? String(manualCostCenterId) : undefined} onValueChange={(v) => setManualCostCenterId(Number(v))}>
                 <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {Array.isArray(costCenters) && costCenters.length > 0 ? (
@@ -860,7 +945,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
             </div>
             <div>
               <Label>Plano de Contas</Label>
-              <Select onValueChange={(v) => setManualChartOfAccountsId(Number(v))}>
+              <Select value={manualChartOfAccountsId ? String(manualChartOfAccountsId) : undefined} onValueChange={(v) => setManualChartOfAccountsId(Number(v))}>
                 <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {Array.isArray(chartAccounts) && chartAccounts.length > 0 ? (
@@ -956,7 +1041,12 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       </div>
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button onClick={() => setActiveTab('xml')} disabled={!isFiscalValid}>Próxima</Button>
+        <Button onClick={() => {
+          if (!isFiscalValid) {
+            return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+          }
+          setActiveTab('xml');
+        }}>Próxima</Button>
       </div>
         </TabsContent>
 
@@ -972,11 +1062,36 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                       <div className="mt-2 text-sm text-muted-foreground">Processando XML...</div>
                     )}
                     {xmlPreview && (
-                      <div className="mt-4 text-sm">
-                        <div>Total: {xmlPreview?.totals?.vNF || xmlPreview?.totals?.vProd}</div>
-                        <div>Itens: {Array.isArray(xmlPreview?.items) ? xmlPreview.items.length : 0}</div>
+                      <div className="mt-4 text-sm flex items-center justify-between">
+                        <div>
+                          <div>Total: {xmlPreview?.totals?.vNF || xmlPreview?.totals?.vProd}</div>
+                          <div>Itens: {Array.isArray(xmlPreview?.items) ? xmlPreview.items.length : 0}</div>
+                        </div>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="secondary">Visualização detalhada</Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-6xl">
+                            <DialogTitle>NF-e</DialogTitle>
+                            <div className="max-h-[75vh] overflow-y-auto">
+                              <NFEViewer xmlString={xmlRaw} />
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     )}
+                    <div className="mt-6">
+                      <Card>
+                        <CardHeader><CardTitle>Buscar NF-es Importadas</CardTitle></CardHeader>
+                        <CardContent>
+                          {/* Lightweight list to locate previous XMLs */}
+                          <ErrorBoundary fallback={<div className="text-sm text-red-600">Erro ao carregar lista</div>}>
+                            {/** dynamic import avoids bundle size concerns */}
+                            <NFEList />
+                          </ErrorBoundary>
+                        </CardContent>
+                      </Card>
+                    </div>
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">Importação de XML disponível apenas para Tipo Produto. No modo Avulso, preencha os campos na etapa de itens.</p>
@@ -1031,7 +1146,24 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
 
             <div className="flex justify-between gap-2">
               <Button variant="outline" onClick={() => setActiveTab('fiscal')}>Voltar</Button>
-              <Button onClick={() => setActiveTab('items')}>Próxima</Button>
+              <Button onClick={() => {
+                if (!isFiscalValid) {
+                  return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                }
+                const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
+                  const current = Number(receivedQuantities[it.id] || 0);
+                  const max = Number(it.quantity || 0);
+                  return current > max;
+                }) : [];
+                if (invalids.length > 0) {
+                  return toast({ title: "Validação", description: "Existem itens com quantidade recebida maior que a prevista", variant: "destructive" });
+                }
+                const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
+                if (!hasAnyQty && !xmlPreview) {
+                  return toast({ title: "Validação", description: "Informe quantidades recebidas ou importe o XML", variant: "destructive" });
+                }
+                setActiveTab('items');
+              }}>Próxima</Button>
             </div>
           </div>
         </TabsContent>
@@ -1200,7 +1332,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
 
             <div className="flex justify-between gap-2">
               <Button variant="outline" onClick={() => setActiveTab('xml')}>Voltar</Button>
-              <Button onClick={() => {
+              <Button disabled={!canConfirm} onClick={() => {
                 if (typeCategoryError) {
                   return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
                 }
@@ -1224,6 +1356,20 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                   }) : [];
                   if (invalids.length > 0) {
                     return toast({ title: "Validação", description: "Existem itens com quantidade recebida maior que a prevista", variant: "destructive" });
+                  }
+                }
+                if (!isFiscalValid) {
+                  return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                }
+                if (receiptType === "avulso") {
+                  const required = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate];
+                  if (required.some(v => !v || String(v).trim() === "")) {
+                    return toast({ title: "Validação", description: "Preencha Número, Série, Emissão e Entrada da NF", variant: "destructive" });
+                  }
+                } else {
+                  const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
+                  if (!hasAnyQty && !xmlPreview) {
+                    return toast({ title: "Validação", description: "Informe quantidades recebidas ou importe o XML", variant: "destructive" });
                   }
                 }
                 confirmReceiptMutation.mutate();
@@ -1504,7 +1650,37 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 <span className="truncate">Reportar Pendência</span>
               </Button>
               <Button
-                onClick={() => setShowNFModal(true)}
+                onClick={() => {
+                  if (!isFiscalValid) {
+                    return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                  }
+                  if (receiptType === "avulso") {
+                    const required = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate];
+                    const hasTotals = String(manualTotal || '').trim() !== '';
+                    const hasItems = manualItems.length > 0;
+                    if (required.some(v => !v || String(v).trim() === "")) {
+                      return toast({ title: "Validação", description: "Preencha Número, Série, Emissão e Entrada da NF", variant: "destructive" });
+                    }
+                    if (!hasTotals || !hasItems) {
+                      return toast({ title: "Validação", description: "Preencha Valor Total e pelo menos um item", variant: "destructive" });
+                    }
+                  } else {
+                    const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
+                      const current = Number(receivedQuantities[it.id] || 0);
+                      const max = Number(it.quantity || 0);
+                      return current > max;
+                    }) : [];
+                    if (invalids.length > 0) {
+                      return toast({ title: "Validação", description: "Existem itens com quantidade recebida maior que a prevista", variant: "destructive" });
+                    }
+                    const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
+                    if (!hasAnyQty && !xmlPreview) {
+                      return toast({ title: "Validação", description: "Informe quantidades recebidas ou importe o XML", variant: "destructive" });
+                    }
+                  }
+                  confirmReceiptMutation.mutate();
+                }}
+                disabled={!canConfirm}
                 className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 w-full sm:w-auto flex items-center justify-center"
               >
                 <Check className="mr-2 h-4 w-4 flex-shrink-0" />

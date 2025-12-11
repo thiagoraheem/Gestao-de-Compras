@@ -2098,6 +2098,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           receivedDate: new Date(),
           currentPhase: "conclusao_compra" as any,
         });
+        try {
+          const { db } = await import("./db");
+          const { sql } = await import("drizzle-orm");
+          await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+            VALUES (${id}, ${'recebimento_confirmado'}, ${'Confirmação de recebimento e avanço de fase'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id, newPhase: 'conclusao_compra' })}::jsonb, ${sql`ARRAY['receipts','purchase_requests']`} );`);
+        } catch {}
 
         res.json({ request: updatedRequest, receipt });
       } catch (error) {

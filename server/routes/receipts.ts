@@ -6,6 +6,7 @@ import { db } from "../db";
 import {
   receipts,
   insertReceiptSchema,
+  attachments,
 } from "@shared/schema";
 import { parseNFeXml } from "../services/nfe-parser";
 import { z } from "zod";
@@ -50,6 +51,21 @@ export function registerReceiptsRoutes(app: Express) {
 
       const parsed = parseNFeXml(xmlContent);
 
+      const prIdRaw = (req.body?.purchaseRequestId ?? req.query?.purchaseRequestId) as any;
+      const purchaseRequestId = prIdRaw ? Number(prIdRaw) : undefined;
+      let savedAttachmentId: number | undefined = undefined;
+      try {
+        const [att] = await db.insert(attachments).values({
+          purchaseRequestId: purchaseRequestId,
+          fileName: req.file.originalname,
+          filePath: req.file.path,
+          fileType: req.file.mimetype,
+          fileSize: req.file.size,
+          attachmentType: "recebimento_nf_xml",
+        }).returning();
+        savedAttachmentId = att?.id as any;
+      } catch {}
+
       // Não é possível criar recebimento automaticamente: banco exige campos mínimos (pedido, recebedor, data)
       // Retorna apenas prévia parseada para o frontend preencher e salvar
       try {
@@ -63,11 +79,44 @@ export function registerReceiptsRoutes(app: Express) {
           items: parsed.items,
           installments: parsed.installments,
           totals: parsed.header.totals,
-        }
+        },
+        attachment: savedAttachmentId ? { id: savedAttachmentId } : undefined,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro ao processar XML";
       return res.status(400).json({ message });
+    }
+  });
+
+  app.get("/api/nfe/attachments", async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 50, 200);
+      const search = String(req.query.search || "").trim().toLowerCase();
+      const rows = await db.select().from(attachments).where(sql`${attachments.attachmentType} = 'recebimento_nf_xml'`).limit(limit);
+      const result: any[] = [];
+      for (const row of rows) {
+        try {
+          const content = await fs.promises.readFile(row.filePath, "utf-8");
+          const parsed = parseNFeXml(content);
+          const header = parsed?.header || {};
+          const hay = `${row.fileName} ${header.documentNumber || ''} ${header.documentSeries || ''} ${header.supplier?.name || ''} ${header.supplier?.cnpjCpf || ''}`.toLowerCase();
+          if (search && !hay.includes(search)) continue;
+          result.push({
+            id: row.id,
+            fileName: row.fileName,
+            uploadedAt: row.uploadedAt,
+            documentNumber: header.documentNumber,
+            documentSeries: header.documentSeries,
+            documentKey: header.documentKey,
+            supplierName: header.supplier?.name,
+            supplierCnpjCpf: header.supplier?.cnpjCpf,
+            total: header.totals?.vNF || header.totals?.vProd,
+          });
+        } catch {}
+      }
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao listar NF-es" });
     }
   });
 
