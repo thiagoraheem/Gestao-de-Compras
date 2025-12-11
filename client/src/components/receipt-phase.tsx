@@ -1086,11 +1086,47 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                         <CardContent>
                           {/* Lightweight list to locate previous XMLs */}
                           <ErrorBoundary fallback={<div className="text-sm text-red-600">Erro ao carregar lista</div>}>
-                            {/** dynamic import avoids bundle size concerns */}
-                            <NFEList />
+                            <NFEList
+                              purchaseRequestId={request.id}
+                              onPreviewLoaded={({ preview, attachmentId, xmlRaw }) => {
+                                try {
+                                  setXmlPreview(preview);
+                                  setXmlRaw(xmlRaw);
+                                  setXmlAttachmentId(attachmentId ?? null);
+                                  try {
+                                    const xmlCnpjCpf = String(preview?.header?.supplier?.cnpjCpf || "").replace(/\D+/g, "");
+                                    const poCnpj = String(selectedSupplier?.cnpj || "").replace(/\D+/g, "");
+                                    if (xmlCnpjCpf && poCnpj) setSupplierMatch(xmlCnpjCpf === poCnpj);
+                                    else setSupplierMatch(null);
+                                  } catch { setSupplierMatch(null); }
+                                  toast({ title: "XML carregado", description: "Prévia importada a partir de anexo" });
+                                } catch {}
+                              }}
+                            />
                           </ErrorBoundary>
                         </CardContent>
                       </Card>
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <Button type="button" variant="secondary" onClick={() => {
+                        if (!isFiscalValid) {
+                          return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                        }
+                        try {
+                          apiRequest(`/api/audit/log`, {
+                            method: "POST",
+                            body: {
+                              purchaseRequestId: request.id,
+                              actionType: "nfe_manual_inclusion_started",
+                              actionDescription: "Inclusão manual de NF iniciada",
+                              beforeData: null,
+                              afterData: null,
+                              affectedTables: ["receipts"],
+                            },
+                          });
+                        } catch {}
+                        setActiveTab('manual_nf' as any);
+                      }}>Incluir Nota Manualmente</Button>
                     </div>
                   </>
                 ) : (
@@ -1161,6 +1197,46 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
                 if (!hasAnyQty && !xmlPreview) {
                   return toast({ title: "Validação", description: "Informe quantidades recebidas ou importe o XML", variant: "destructive" });
+                }
+                setActiveTab('items');
+              }}>Próxima</Button>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="manual_nf">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader><CardTitle>Inclusão Manual de Nota Fiscal</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Número da NF</Label>
+                  <Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} placeholder="Informe o número" />
+                </div>
+                <div>
+                  <Label>Série</Label>
+                  <Input value={manualNFSeries} onChange={(e) => setManualNFSeries(e.target.value)} placeholder="Informe a série" />
+                </div>
+                <div>
+                  <Label>Data de Emissão</Label>
+                  <Input type="date" value={manualNFIssueDate} onChange={(e) => setManualNFIssueDate(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Valor Total</Label>
+                  <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" />
+                </div>
+                <div className="md:col-span-2 text-sm text-muted-foreground">Campos são obrigatórios para avançar.</div>
+              </CardContent>
+            </Card>
+            <div className="flex justify-between gap-2">
+              <Button variant="outline" onClick={() => setActiveTab('xml')}>Voltar</Button>
+              <Button onClick={() => {
+                if (!isFiscalValid) {
+                  return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                }
+                const required = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualTotal];
+                if (required.some(v => !v || String(v).trim() === "")) {
+                  return toast({ title: "Validação", description: "Preencha Número, Série, Emissão e Valor Total", variant: "destructive" });
                 }
                 setActiveTab('items');
               }}>Próxima</Button>
@@ -1299,6 +1375,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                           <TableHead>Descrição</TableHead>
                           <TableHead className="text-center">Qtd Prevista</TableHead>
                           <TableHead className="text-center">Qtd Recebida</TableHead>
+                          <TableHead className="text-center">Saldo a Receber</TableHead>
                           <TableHead className="text-center">Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1307,6 +1384,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                           const current = Number(receivedQuantities[it.id] || 0);
                           const max = Number(it.quantity || 0);
                           const invalid = current > max;
+                          const saldo = Math.max(0, max - current);
                           return (
                             <TableRow key={it.id} className={invalid ? "bg-red-50 dark:bg-red-900/20" : ""}>
                               <TableCell>{it.description}</TableCell>
@@ -1317,8 +1395,9 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                                   setReceivedQuantities((prev) => ({ ...prev, [it.id]: v }));
                                 }} />
                               </TableCell>
+                              <TableCell className="text-center">{Number(saldo).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}</TableCell>
                               <TableCell className="text-center">
-                                {invalid ? <Badge variant="destructive">Qtd maior que prevista</Badge> : (current > 0 ? <Badge variant="default">Confirmado</Badge> : <Badge variant="secondary">Pendente</Badge>)}
+                                {invalid ? <Badge variant="destructive">Qtd maior que prevista</Badge> : (current === 0 ? <Badge variant="secondary">Não Recebido</Badge> : current < max ? <Badge variant="default">Parcial</Badge> : <Badge variant="outline">Completo</Badge>)}
                               </TableCell>
                             </TableRow>
                           );

@@ -92,7 +92,11 @@ export function registerReceiptsRoutes(app: Express) {
     try {
       const limit = Math.min(Number(req.query.limit) || 50, 200);
       const search = String(req.query.search || "").trim().toLowerCase();
-      const rows = await db.select().from(attachments).where(sql`${attachments.attachmentType} = 'recebimento_nf_xml'`).limit(limit);
+      const prId = req.query.purchaseRequestId ? Number(req.query.purchaseRequestId) : undefined;
+      const baseWhere = prId
+        ? sql`${attachments.attachmentType} = 'recebimento_nf_xml' AND ${attachments.purchaseRequestId} = ${prId}`
+        : sql`${attachments.attachmentType} = 'recebimento_nf_xml'`;
+      const rows = await db.select().from(attachments).where(baseWhere).limit(limit);
       const result: any[] = [];
       for (const row of rows) {
         try {
@@ -117,6 +121,30 @@ export function registerReceiptsRoutes(app: Express) {
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Erro ao listar NF-es" });
+    }
+  });
+
+  app.get("/api/nfe/attachments/:id/preview", async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "ID inválido" });
+      const [att] = await db.select().from(attachments).where(sql`${attachments.id} = ${id} AND ${attachments.attachmentType} = 'recebimento_nf_xml'`).limit(1);
+      if (!att) return res.status(404).json({ message: "Anexo não encontrado" });
+      const content = await fs.promises.readFile(att.filePath, "utf-8");
+      const parsed = parseNFeXml(content);
+      const preview = {
+        header: parsed.header,
+        items: parsed.items,
+        installments: parsed.installments,
+        totals: parsed.header.totals,
+      };
+      try {
+        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+          VALUES (${att.purchaseRequestId ?? 0}, ${'recebimento_preview_xml'}, ${'Pré-visualização de XML NF-e (anexo)'}, ${null}, ${null}, ${JSON.stringify({ attachmentId: att.id, documentKey: parsed.header.documentKey })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+      } catch {}
+      res.json({ preview, attachment: { id: att.id }, xmlRaw: content });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao gerar prévia de NF-e" });
     }
   });
 
