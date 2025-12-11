@@ -2048,7 +2048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
-        const { receivedById } = req.body;
+        const { receivedById, receiptMode, nfNumber, nfSeries, nfIssueDate, nfEntryDate, nfTotal, manualCostCenterId, manualChartOfAccountsId, manualItems } = req.body;
 
         const request = await storage.getPurchaseRequestById(id);
         if (!request || request.currentPhase !== "recebimento") {
@@ -2057,18 +2057,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ message: "Request must be in the receiving phase" });
         }
 
-        const updateData = {
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (!purchaseOrder) {
+          return res.status(400).json({ message: "Pedido de compra não encontrado para a solicitação" });
+        }
+
+        const receipt = await storage.createReceipt({
+          purchaseOrderId: purchaseOrder.id,
+          status: "validado_compras",
+          receivedBy: receivedById,
+          receivedAt: new Date(),
+          observations: JSON.stringify({
+            mode: receiptMode,
+            nf: { number: nfNumber, series: nfSeries, issueDate: nfIssueDate, entryDate: nfEntryDate, total: nfTotal },
+            accounting: { costCenterId: manualCostCenterId, chartOfAccountsId: manualChartOfAccountsId },
+            itemsCount: Array.isArray(manualItems) ? manualItems.length : 0,
+          }),
+        } as any);
+
+        const receivedQuantities: Record<number, number> | undefined = (req.body as any).receivedQuantities;
+        if (receiptMode !== "avulso" && receivedQuantities && typeof receivedQuantities === "object") {
+          const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+          for (const it of poItems) {
+            const qty = Number((receivedQuantities as any)[it.id] || 0);
+            if (qty > 0) {
+              await storage.createReceiptItem({
+                receiptId: receipt.id,
+                purchaseOrderItemId: it.id,
+                quantityReceived: String(qty),
+                quantityApproved: null,
+                condition: "good",
+                observations: null,
+              } as any);
+            }
+          }
+        }
+
+        const updatedRequest = await storage.updatePurchaseRequest(id, {
           receivedById: receivedById,
           receivedDate: new Date(),
           currentPhase: "conclusao_compra" as any,
-          updatedAt: new Date(),
-        };
+        });
 
-        const updatedRequest = await storage.updatePurchaseRequest(
-          id,
-          updateData,
-        );
-        res.json(updatedRequest);
+        res.json({ request: updatedRequest, receipt });
       } catch (error) {
         console.error("Error confirming receipt:", error);
         res.status(400).json({ message: "Failed to confirm receipt" });

@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PdfViewer from "./pdf-viewer";
 import { ErrorBoundary } from "./error-boundary";
 import {
@@ -31,6 +32,37 @@ import { formatCurrency } from "@/lib/currency";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import PendencyModal from "./pendency-modal";
+
+export function buildCostCenterTreeData(listInput: any[]) {
+  const list = Array.isArray(listInput) ? listInput : [];
+  const parents = list.filter((cc: any) => cc.parentId == null);
+  const childrenMap = new Map<number, any[]>();
+  for (const cc of list) {
+    if (cc.parentId != null) {
+      const pid = Number(cc.parentId);
+      const arr = childrenMap.get(pid) || [];
+      arr.push(cc);
+      childrenMap.set(pid, arr);
+    }
+  }
+  const result = parents.map((p: any) => {
+    const pid = Number(p.idCostCenter ?? p.id);
+    const childrenAll = (childrenMap.get(pid) || []).sort((a: any, b: any) => String(a.name || '').localeCompare(String(b.name || '')));
+    const childrenWithGrand = childrenAll.map((c: any) => {
+      const cid = Number(c.idCostCenter ?? c.id);
+      const grandAll = (childrenMap.get(cid) || []).sort((a: any, b: any) => String(a.name || '').localeCompare(String(b.name || '')));
+      return { node: c, grandchildren: grandAll, selectable: grandAll.length === 0 };
+    });
+    return { parent: p, children: childrenWithGrand };
+  }).sort((a: any, b: any) => String(a.parent.name || '').localeCompare(String(b.parent.name || '')));
+  return result;
+}
+
+export function computeInitialCcExpand(tree: any[]) {
+  const lv1 = tree.map((g: any) => Number(g.parent.idCostCenter ?? g.parent.id)).filter(Boolean);
+  const lv2 = tree.flatMap((g: any) => g.children.map((c: any) => Number(c.node.idCostCenter ?? c.node.id))).filter(Boolean);
+  return { lv1, lv2 };
+}
 
 interface ReceiptPhaseProps {
   request: any;
@@ -60,6 +92,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewLoaded, setPreviewLoaded] = useState(false);
   const [showNFModal, setShowNFModal] = useState(false);
+  const [receivedQuantities, setReceivedQuantities] = useState<Record<number, number>>({});
   const [receiptType, setReceiptType] = useState<"produto" | "servico" | "avulso">("produto");
   const [xmlPreview, setXmlPreview] = useState<any | null>(null);
   const [xmlRaw, setXmlRaw] = useState<string>("");
@@ -70,6 +103,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [chartAccounts, setChartAccounts] = useState<any[]>([]);
   const [expandedCoaLv1, setExpandedCoaLv1] = useState<Set<number>>(new Set());
   const [expandedCoaLv2, setExpandedCoaLv2] = useState<Set<number>>(new Set());
+  const [expandedCcLv1, setExpandedCcLv1] = useState<Set<number>>(new Set());
+  const [expandedCcLv2, setExpandedCcLv2] = useState<Set<number>>(new Set());
   const [manualTotal, setManualTotal] = useState<string>("");
   const [manualCostCenterId, setManualCostCenterId] = useState<number | null>(null);
   const [manualChartOfAccountsId, setManualChartOfAccountsId] = useState<number | null>(null);
@@ -79,6 +114,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [manualNFIssueDate, setManualNFIssueDate] = useState<string>("");
   const [manualNFEntryDate, setManualNFEntryDate] = useState<string>("");
   const [supplierMatch, setSupplierMatch] = useState<null | boolean>(null);
+  const [activeTab, setActiveTab] = useState<'fiscal' | 'xml' | 'items'>('fiscal');
 
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
@@ -190,6 +226,45 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       .catch((e) => { console.error('locador plano-contas request error', e); setChartAccounts([]); });
   }, []);
 
+  useEffect(() => {
+    try {
+      const key = `receipt_flow_${request?.id}`;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data.manualCostCenterId) setManualCostCenterId(Number(data.manualCostCenterId));
+        if (data.manualChartOfAccountsId) setManualChartOfAccountsId(Number(data.manualChartOfAccountsId));
+        if (data.receiptType) setReceiptType(data.receiptType);
+        if (data.manualNFNumber) setManualNFNumber(data.manualNFNumber);
+        if (data.manualNFSeries) setManualNFSeries(data.manualNFSeries);
+        if (data.manualNFIssueDate) setManualNFIssueDate(data.manualNFIssueDate);
+        if (data.manualNFEntryDate) setManualNFEntryDate(data.manualNFEntryDate);
+        if (data.manualTotal) setManualTotal(data.manualTotal);
+        if (Array.isArray(data.manualItems)) setManualItems(data.manualItems);
+        if (data.activeTab) setActiveTab(data.activeTab);
+      }
+    } catch {}
+  }, [request?.id]);
+
+  useEffect(() => {
+    try {
+      const key = `receipt_flow_${request?.id}`;
+      const payload = {
+        manualCostCenterId,
+        manualChartOfAccountsId,
+        receiptType,
+        manualNFNumber,
+        manualNFSeries,
+        manualNFIssueDate,
+        manualNFEntryDate,
+        manualTotal,
+        manualItems,
+        activeTab,
+      };
+      localStorage.setItem(key, JSON.stringify(payload));
+    } catch {}
+  }, [manualCostCenterId, manualChartOfAccountsId, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualTotal, manualItems, activeTab, request?.id]);
+
   const onUploadXml = async (file: File | null) => {
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".xml")) {
@@ -268,22 +343,28 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     });
   }, [xmlPreview, poLookup]);
 
-  const costCenterTree = useMemo(() => {
-    const list = Array.isArray(costCenters) ? costCenters : [];
-    const parents = list.filter((cc: any) => cc.parentId == null);
-    const childrenMap = new Map<number, any[]>();
-    for (const cc of list) {
-      if (cc.parentId != null) {
-        const arr = childrenMap.get(cc.parentId) || [];
-        arr.push(cc);
-        childrenMap.set(cc.parentId, arr);
-      }
-    }
-    return parents.map((p: any) => ({
-      parent: p,
-      children: (childrenMap.get(p.idCostCenter ?? p.id) || []).sort((a: any, b: any) => String(a.name || '').localeCompare(String(b.name || '')))
-    })).sort((a: any, b: any) => String(a.parent.name || '').localeCompare(String(b.parent.name || '')));
-  }, [costCenters]);
+  const costCenterTree = useMemo(() => buildCostCenterTreeData(costCenters), [costCenters]);
+
+  useEffect(() => {
+    const { lv1, lv2 } = computeInitialCcExpand(costCenterTree);
+    setExpandedCcLv1(new Set(lv1));
+    setExpandedCcLv2(new Set(lv2));
+  }, [costCenterTree.length]);
+
+  const toggleCcLv1 = (id: number) => {
+    setExpandedCcLv1((prev: Set<number>) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleCcLv2 = (id: number) => {
+    setExpandedCcLv2((prev: Set<number>) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const chartAccountTree = useMemo(() => {
     const list = Array.isArray(chartAccounts) ? chartAccounts : [];
@@ -386,6 +467,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
           manualCostCenterId: manualCostCenterId,
           manualChartOfAccountsId: manualChartOfAccountsId,
           manualItems: receiptType === "avulso" ? manualItems : undefined,
+          receivedQuantities: receiptType !== "avulso" ? receivedQuantities : undefined,
         },
       });
       return response;
@@ -660,6 +742,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     );
   }
 
+  const isFiscalValid = !!manualCostCenterId && !!manualChartOfAccountsId;
+
   return (
     <div className={cn("space-y-6", className)}>
       <div className="flex items-center justify-between">
@@ -669,6 +753,14 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         </div>
       </div>
 
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <TabsList className="w-full justify-start gap-2">
+          <TabsTrigger value="fiscal">Confirmações Fiscais</TabsTrigger>
+          <TabsTrigger value="xml" disabled={!isFiscalValid}>Importar NF</TabsTrigger>
+          <TabsTrigger value="items" disabled={!isFiscalValid}>Confirmação de Itens</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="fiscal">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Request Information */}
         <Card>
@@ -731,11 +823,32 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                   {Array.isArray(costCenters) && costCenters.length > 0 ? (
                     costCenterTree.map(({ parent, children }: any) => (
                       <SelectGroup key={parent.idCostCenter ?? parent.id}>
-                        <SelectLabel>{parent.name}</SelectLabel>
-                        {children.map((cc: any) => (
-                          <SelectItem key={cc.idCostCenter ?? cc.id} value={String(cc.idCostCenter ?? cc.id)} className="pl-10">
-                            {cc.name}
-                          </SelectItem>
+                        <div className="py-1.5 pl-8 pr-2 text-sm font-semibold flex items-center gap-2 cursor-pointer" onClick={() => toggleCcLv1(Number(parent.idCostCenter ?? parent.id))}>
+                          {expandedCcLv1.has(Number(parent.idCostCenter ?? parent.id)) ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
+                          {parent.name}
+                        </div>
+                        {expandedCcLv1.has(Number(parent.idCostCenter ?? parent.id)) && children.map((c: any) => (
+                          <div key={(c.node.idCostCenter ?? c.node.id)}>
+                            {c.grandchildren.length > 0 ? (
+                              <div className="py-1.5 pl-10 pr-2 text-sm font-semibold flex items-center gap-2 cursor-pointer" onClick={() => toggleCcLv2(Number(c.node.idCostCenter ?? c.node.id))}>
+                                {expandedCcLv2.has(Number(c.node.idCostCenter ?? c.node.id)) ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
+                                {c.node.name}
+                              </div>
+                            ) : null}
+                            {c.grandchildren.length > 0 ? (
+                              expandedCcLv2.has(Number(c.node.idCostCenter ?? c.node.id)) && c.grandchildren.map((gc: any) => (
+                                <SelectItem key={(gc.idCostCenter ?? gc.id)} value={String(gc.idCostCenter ?? gc.id)} className="pl-14">
+                                  {gc.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              c.selectable ? (
+                                <SelectItem key={(c.node.idCostCenter ?? c.node.id)} value={String(c.node.idCostCenter ?? c.node.id)} className="pl-10">
+                                  {c.node.name}
+                                </SelectItem>
+                              ) : null
+                            )}
+                          </div>
                         ))}
                       </SelectGroup>
                     ))
@@ -841,6 +954,285 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
           </CardContent>
         </Card>
       </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={() => setActiveTab('xml')} disabled={!isFiscalValid}>Próxima</Button>
+      </div>
+        </TabsContent>
+
+        <TabsContent value="xml">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader><CardTitle>Importação de XML</CardTitle></CardHeader>
+              <CardContent>
+                {receiptType === "produto" ? (
+                  <>
+                    <Input type="file" accept=".xml" disabled={isXmlUploading} onChange={(e) => onUploadXml(e.target.files?.[0] || null)} />
+                    {isXmlUploading && (
+                      <div className="mt-2 text-sm text-muted-foreground">Processando XML...</div>
+                    )}
+                    {xmlPreview && (
+                      <div className="mt-4 text-sm">
+                        <div>Total: {xmlPreview?.totals?.vNF || xmlPreview?.totals?.vProd}</div>
+                        <div>Itens: {Array.isArray(xmlPreview?.items) ? xmlPreview.items.length : 0}</div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Importação de XML disponível apenas para Tipo Produto. No modo Avulso, preencha os campos na etapa de itens.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {xmlPreview && (
+              <Card>
+                <CardHeader><CardTitle>Itens da Nota Fiscal</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="rounded border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Código</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead className="text-center">Qtd</TableHead>
+                          <TableHead className="text-right">Valor Unit.</TableHead>
+                          <TableHead className="text-right">Valor Total</TableHead>
+                          <TableHead className="text-center">Unidade</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {nfItemsDecorated.map(({ nf, poItem, status }: any, idx: number) => (
+                          <TableRow key={idx} className={
+                            status === "red" ? "bg-red-50 dark:bg-red-900/20" :
+                            status === "yellow" ? "bg-yellow-50 dark:bg-yellow-900/20" :
+                            status === "orange" ? "bg-orange-50 dark:bg-orange-900/20" : ""
+                          }>
+                            <TableCell>{nf.itemCode || poItem?.itemCode || "-"}</TableCell>
+                            <TableCell>{nf.description}</TableCell>
+                            <TableCell className="text-center">{nf.quantity}</TableCell>
+                            <TableCell className="text-right">{nf.unitPrice}</TableCell>
+                            <TableCell className="text-right">{nf.totalPrice}</TableCell>
+                            <TableCell className="text-center">{nf.unit}</TableCell>
+                            <TableCell className="text-center">
+                              {status === "ok" && <Badge variant="outline">OK</Badge>}
+                              {status === "red" && <Badge variant="destructive">Divergência</Badge>}
+                              {status === "yellow" && <Badge variant="secondary">Qtd diferente</Badge>}
+                              {status === "orange" && <Badge variant="default">Não previsto</Badge>}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="flex justify-between gap-2">
+              <Button variant="outline" onClick={() => setActiveTab('fiscal')}>Voltar</Button>
+              <Button onClick={() => setActiveTab('items')}>Próxima</Button>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="items">
+          <div className="space-y-6">
+            {receiptType === "avulso" && (
+              <>
+                <Card>
+                  <CardHeader><CardTitle>Entrada Manual (Avulso)</CardTitle></CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Modo Avulso</Badge>
+                    </div>
+                    <div>
+                      <Label>Número da NF</Label>
+                      <Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} placeholder="Informe o número" className={cn("", !manualNFNumber && "ring-1 ring-amber-400")}/>
+                    </div>
+                    <div>
+                      <Label>Série</Label>
+                      <Input value={manualNFSeries} onChange={(e) => setManualNFSeries(e.target.value)} placeholder="Informe a série" className={cn("", !manualNFSeries && "ring-1 ring-amber-400")}/>
+                    </div>
+                    <div>
+                      <Label>Data de Emissão</Label>
+                      <Input type="date" value={manualNFIssueDate} onChange={(e) => setManualNFIssueDate(e.target.value)} className={cn("", !manualNFIssueDate && "ring-1 ring-amber-400")}/>
+                    </div>
+                    <div>
+                      <Label>Data de Entrada</Label>
+                      <Input type="date" value={manualNFEntryDate} onChange={(e) => setManualNFEntryDate(e.target.value)} className={cn("", !manualNFEntryDate && "ring-1 ring-amber-400")}/>
+                    </div>
+                    <div>
+                      <Label>Valor Total</Label>
+                      <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" />
+                    </div>
+                    <div className="md:col-span-2 text-sm text-muted-foreground">Campos destacados são obrigatórios para confirmação.</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle>Itens (Avulso)</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm text-muted-foreground">Adicione itens manualmente ou importe do pedido</div>
+                        <Button type="button" variant="outline" onClick={async () => {
+                          try {
+                            if (!purchaseOrder?.id) {
+                              return toast({ title: "Importação", description: "Pedido de compra não encontrado", variant: "destructive" });
+                            }
+                            const poItems = await apiRequest(`/api/purchase-orders/${purchaseOrder.id}/items`);
+                            if (poItems.length === 0) {
+                              return toast({ title: "Importação", description: "Nenhum item disponível no pedido para importação", variant: "destructive" });
+                            }
+                            const ok = window.confirm(`Importar ${poItems.length} item(ns) do Pedido de Compra? Você poderá editar os itens após a importação.`);
+                            if (!ok) return;
+                            const imported = poItems.map((it: any) => {
+                              const quantity = Number(it.quantity ?? it.requestedQuantity ?? 0);
+                              const unitPrice = Number(it.unitPrice ?? (it.totalPrice && quantity ? Number(it.totalPrice) / quantity : 0));
+                              return { code: it.itemCode || String(it.id), description: it.description || "", unit: it.unit || "", quantity: quantity || 0, unitPrice: unitPrice || 0 };
+                            }).filter((m: any) => m.description && m.quantity > 0);
+                            if (imported.length === 0) {
+                              return toast({ title: "Importação", description: "Nenhum item válido para importar", variant: "destructive" });
+                            }
+                            setManualItems(imported);
+                            const total = imported.reduce((acc: number, it: any) => acc + it.quantity * it.unitPrice, 0);
+                            setManualTotal(String(total.toFixed(2)));
+                            toast({ title: "Itens importados", description: `Foram importados ${imported.length} item(ns) do pedido.` });
+                          } catch (e: any) {
+                            toast({ title: "Erro", description: e.message || "Falha ao importar itens", variant: "destructive" });
+                          }
+                        }}>Importar itens do pedido</Button>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input placeholder="Código" onChange={(e) => { (window as any)._tmpCode = e.target.value; }} />
+                        <Input placeholder="Descrição" onChange={(e) => { (window as any)._tmpDescription = e.target.value; }} />
+                        <Input placeholder="Unidade" onChange={(e) => { (window as any)._tmpUnit = e.target.value; }} />
+                        <Input type="number" placeholder="Qtd" onChange={(e) => { (window as any)._tmpQuantity = Number(e.target.value || 0); }} />
+                        <Input type="number" placeholder="Valor Unit." onChange={(e) => { (window as any)._tmpUnitPrice = Number(e.target.value || 0); }} />
+                        <Button type="button" onClick={() => {
+                          const code = (window as any)._tmpCode || "";
+                          const description = (window as any)._tmpDescription || "";
+                          const unit = (window as any)._tmpUnit || "";
+                          const quantity = Number((window as any)._tmpQuantity || 0);
+                          const unitPrice = Number((window as any)._tmpUnitPrice || 0);
+                          if (!description || quantity <= 0) {
+                            return toast({ title: "Itens", description: "Informe descrição e quantidade válidas", variant: "destructive" });
+                          }
+                          setManualItems((prev) => [...prev, { code, description, unit, quantity, unitPrice }]);
+                        }}>Adicionar</Button>
+                      </div>
+                      <div className="rounded border mt-2">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Código</TableHead>
+                              <TableHead>Descrição</TableHead>
+                              <TableHead className="text-center">Qtd</TableHead>
+                              <TableHead className="text-right">Valor Unit.</TableHead>
+                              <TableHead className="text-right">Valor Total</TableHead>
+                              <TableHead className="text-center">Unidade</TableHead>
+                              <TableHead className="text-center">Ação</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {manualItems.map((it, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell>{it.code || "-"}</TableCell>
+                                <TableCell>{it.description}</TableCell>
+                                <TableCell className="text-center">{it.quantity}</TableCell>
+                                <TableCell className="text-right">{it.unitPrice}</TableCell>
+                                <TableCell className="text-right">{(it.quantity * it.unitPrice).toFixed(2)}</TableCell>
+                                <TableCell className="text-center">{it.unit || ""}</TableCell>
+                                <TableCell className="text-center"><Button type="button" variant="destructive" onClick={() => setManualItems((prev) => prev.filter((_, i) => i !== idx))}>Remover</Button></TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
+            {receiptType !== "avulso" && (
+              <Card>
+                <CardHeader><CardTitle>Confirmação de Itens</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="rounded border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead className="text-center">Qtd Prevista</TableHead>
+                          <TableHead className="text-center">Qtd Recebida</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Array.isArray(itemsWithPrices) && itemsWithPrices.map((it: any) => {
+                          const current = Number(receivedQuantities[it.id] || 0);
+                          const max = Number(it.quantity || 0);
+                          const invalid = current > max;
+                          return (
+                            <TableRow key={it.id} className={invalid ? "bg-red-50 dark:bg-red-900/20" : ""}>
+                              <TableCell>{it.description}</TableCell>
+                              <TableCell className="text-center">{Number(max).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}</TableCell>
+                              <TableCell className="text-center">
+                                <Input type="number" min={0} step={0.001} value={current || ''} onChange={(e) => {
+                                  const v = Number(e.target.value || 0);
+                                  setReceivedQuantities((prev) => ({ ...prev, [it.id]: v }));
+                                }} />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {invalid ? <Badge variant="destructive">Qtd maior que prevista</Badge> : (current > 0 ? <Badge variant="default">Confirmado</Badge> : <Badge variant="secondary">Pendente</Badge>)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="flex justify-between gap-2">
+              <Button variant="outline" onClick={() => setActiveTab('xml')}>Voltar</Button>
+              <Button onClick={() => {
+                if (typeCategoryError) {
+                  return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
+                }
+                const hasCC = !!manualCostCenterId;
+                const hasCOA = !!manualChartOfAccountsId;
+                if (!hasCC || !hasCOA) {
+                  return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                }
+                if (receiptType === "avulso") {
+                  const hasTotals = manualTotal && manualTotal.trim() !== "";
+                  const hasItems = manualItems.length > 0;
+                  if (!hasTotals || !hasItems) {
+                    return toast({ title: "Validação", description: "Preencha Valor Total e pelo menos um item", variant: "destructive" });
+                  }
+                }
+                if (receiptType !== "avulso") {
+                  const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
+                    const current = Number(receivedQuantities[it.id] || 0);
+                    const max = Number(it.quantity || 0);
+                    return current > max;
+                  }) : [];
+                  if (invalids.length > 0) {
+                    return toast({ title: "Validação", description: "Existem itens com quantidade recebida maior que a prevista", variant: "destructive" });
+                  }
+                }
+                confirmReceiptMutation.mutate();
+              }}>Confirmar Recebimento</Button>
+            </div>
+          </div>
+        </TabsContent>
+
+      </Tabs>
 
       {/* Selected Supplier Information */}
       {selectedSupplierQuotation && (

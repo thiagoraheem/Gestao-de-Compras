@@ -61,6 +61,10 @@ import {
   type InsertApprovalConfiguration,
   type ConfigurationHistory,
   type InsertConfigurationHistory,
+  type Receipt,
+  type InsertReceipt,
+  type ReceiptItem,
+  type InsertReceiptItem,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, desc, like, sql, gt, count, or, isNull } from "drizzle-orm";
@@ -269,6 +273,10 @@ export interface IStorage {
     id: number,
     item: Partial<InsertPurchaseOrderItem>,
   ): Promise<PurchaseOrderItem>;
+
+  // Receipts operations
+  createReceipt(receipt: InsertReceipt): Promise<Receipt>;
+  createReceiptItem(item: InsertReceiptItem): Promise<ReceiptItem>;
 
   // Approval History operations
   getApprovalHistory(purchaseRequestId: number): Promise<any[]>;
@@ -1968,6 +1976,51 @@ export class DatabaseStorage implements IStorage {
       .where(eq(purchaseOrderItems.id, id))
       .returning();
     return updated;
+  }
+
+  async createReceipt(receipt: InsertReceipt): Promise<Receipt> {
+    const now = new Date();
+    const gen = () => {
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+      return `REC-${y}${m}${d}-${rand}`;
+    };
+    const values = {
+      receiptNumber: gen(),
+      status: receipt.status,
+      purchaseOrderId: receipt.purchaseOrderId,
+      receivedBy: receipt.receivedBy,
+      receivedAt: receipt.receivedAt ?? now,
+      observations: receipt.observations ?? null,
+      approvedBy: receipt.approvedBy ?? null,
+      approvedAt: receipt.approvedAt ?? null,
+      qualityApproved: receipt.qualityApproved ?? null,
+      createdAt: now,
+    };
+    const [created] = await db
+      .insert(receipts)
+      .values(values as any)
+      .returning();
+    return created as Receipt;
+  }
+
+  async createReceiptItem(item: InsertReceiptItem): Promise<ReceiptItem> {
+    const values = {
+      receiptId: item.receiptId,
+      purchaseOrderItemId: item.purchaseOrderItemId,
+      quantityReceived: item.quantityReceived ?? "0",
+      quantityApproved: item.quantityApproved ?? null,
+      condition: item.condition,
+      observations: item.observations ?? null,
+      createdAt: new Date(),
+    };
+    const [created] = await db
+      .insert(receiptItems)
+      .values(values as any)
+      .returning();
+    return created as ReceiptItem;
   }
 
   // Approval History operations
