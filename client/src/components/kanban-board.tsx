@@ -326,9 +326,22 @@ export default function KanbanBoard({
       return true;
     }
 
-    // Allow moving from Aprovação A2 back to earlier phases (for corrections)
-    if (phase === "aprovacao_a2" && (targetPhase === "solicitacao" || targetPhase === "aprovacao_a1" || targetPhase === "cotacao")) {
-      return true;
+    // Buyer-specific rule: allow moving from Aprovação A2 back to Cotação
+    if (phase === "aprovacao_a2" && targetPhase === "cotacao") {
+      return (
+        user?.isApproverA2 ||
+        user?.isBuyer ||
+        user?.isAdmin ||
+        user?.isManager
+      );
+    }
+
+    // Allow approvers to move from Aprovação A2 back to earlier phases (for corrections)
+    if (
+      phase === "aprovacao_a2" &&
+      (targetPhase === "solicitacao" || targetPhase === "aprovacao_a1")
+    ) {
+      return user?.isApproverA2 || user?.isAdmin || user?.isManager;
     }
 
     // Allow moving from any phase to solicitacao (return to start)
@@ -337,15 +350,35 @@ export default function KanbanBoard({
     }
 
     // Normal permission checks for moving OUT of approval phases
-    if (phase === "aprovacao_a1" && targetPhase !== "solicitacao" && !user?.isApproverA1) {
+    if (
+      phase === "aprovacao_a1" &&
+      targetPhase !== "solicitacao" &&
+      !user?.isApproverA1
+    ) {
       return false;
     }
-    if (phase === "aprovacao_a2" && targetPhase !== "solicitacao" && !user?.isApproverA2) {
+    if (
+      phase === "aprovacao_a2" &&
+      targetPhase !== "solicitacao" &&
+      !user?.isApproverA2
+    ) {
       return false;
     }
 
+    // Permission check for moving OUT of Pedido de Compra back to Cotação/Aprovação A2
+    if (
+      phase === "pedido_compra" &&
+      (targetPhase === "cotacao" || targetPhase === "aprovacao_a2")
+    ) {
+      return user?.isBuyer || user?.isAdmin;
+    }
+
     // Permission check for moving OUT of Recebimento phase
-    if (phase === "recebimento" && targetPhase !== "solicitacao" && !user?.isReceiver) {
+    if (
+      phase === "recebimento" &&
+      targetPhase !== "solicitacao" &&
+      !user?.isReceiver
+    ) {
       return false;
     }
 

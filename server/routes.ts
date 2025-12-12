@@ -3439,13 +3439,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        if (currentPhase === "aprovacao_a2" && !user.isApproverA2) {
-          return res
-            .status(403)
-            .json({
+        if (currentPhase === "aprovacao_a2") {
+          const isBackToCotacao = newPhase === "cotacao";
+          const canMoveFromA2 =
+            user.isApproverA2 ||
+            (isBackToCotacao && (user.isBuyer || user.isAdmin || user.isManager));
+
+          if (!canMoveFromA2) {
+            return res.status(403).json({
               message:
                 "Você não possui permissão para mover cards da fase Aprovação A2",
             });
+          }
         }
 
         if (
