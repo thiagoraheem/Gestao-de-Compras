@@ -87,10 +87,13 @@ export const departments = pgTable("departments", {
 // Cost Centers table
 export const costCenters = pgTable("cost_centers", {
   id: serial("id").primaryKey(),
+  externalId: varchar("external_id", { length: 50 }),
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   departmentId: integer("department_id").references(() => departments.id),
   createdAt: timestamp("created_at").defaultNow(),
+  isActive: boolean("is_active").default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // User Department associations
@@ -485,10 +488,25 @@ export const receiptStatusEnum = pgEnum("receipt_status", [
 export const receipts = pgTable("receipts", {
   id: serial("id").primaryKey(),
   receiptNumber: text("receipt_number").notNull().unique(),
-  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id).notNull(),
+  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id),
   status: text("status").notNull(),
-  receivedBy: integer("received_by").references(() => users.id).notNull(),
-  receivedAt: timestamp("received_at").notNull(),
+  receiptType: receiptTypeEnum("receipt_type").notNull().default("produto"),
+  supplierId: integer("supplier_id").references(() => suppliers.id),
+  locadorSupplierId: varchar("locador_supplier_id", { length: 50 }),
+  documentNumber: varchar("document_number", { length: 50 }),
+  documentSeries: varchar("document_series", { length: 20 }),
+  documentKey: varchar("document_key", { length: 100 }),
+  documentIssueDate: timestamp("document_issue_date"),
+  documentEntryDate: timestamp("document_entry_date"),
+  totalAmount: decimal("total_amount", { precision: 18, scale: 2 }).default("0"),
+  installmentsCount: integer("installments_count"),
+  paymentTerms: varchar("payment_terms", { length: 200 }),
+  costCenterId: integer("cost_center_id").references(() => costCenters.id),
+  chartOfAccountsId: integer("chart_of_accounts_id"),
+  locadorReceiptId: varchar("locador_receipt_id", { length: 50 }),
+  integrationMessage: text("integration_message"),
+  receivedBy: integer("received_by").references(() => users.id),
+  receivedAt: timestamp("received_at"),
   observations: text("observations"),
   qualityApproved: boolean("quality_approved"),
   approvedBy: integer("approved_by").references(() => users.id),
@@ -499,15 +517,56 @@ export const receipts = pgTable("receipts", {
 export const receiptItems = pgTable("receipt_items", {
   id: serial("id").primaryKey(),
   receiptId: integer("receipt_id").references(() => receipts.id).notNull(),
-  purchaseOrderItemId: integer("purchase_order_item_id").references(() => purchaseOrderItems.id).notNull(),
+  purchaseOrderItemId: integer("purchase_order_item_id").references(() => purchaseOrderItems.id),
+  lineNumber: integer("line_number"),
+  description: varchar("description", { length: 300 }),
+  unit: varchar("unit", { length: 20 }),
+  quantity: decimal("quantity", { precision: 18, scale: 4 }).default("0"),
+  unitPrice: decimal("unit_price", { precision: 18, scale: 6 }).default("0"),
+  totalPrice: decimal("total_price", { precision: 18, scale: 2 }).default("0"),
+  locadorProductId: varchar("locador_product_id", { length: 50 }),
+  locadorProductCode: varchar("locador_product_code", { length: 50 }),
   quantityReceived: decimal("quantity_received", { precision: 10, scale: 3 }).notNull(),
   quantityApproved: decimal("quantity_approved", { precision: 10, scale: 3 }),
   condition: text("condition").notNull(),
   observations: text("observations"),
+  ncm: varchar("ncm", { length: 20 }),
+  cfop: varchar("cfop", { length: 10 }),
+  icmsRate: decimal("icms_rate", { precision: 5, scale: 2 }),
+  icmsAmount: decimal("icms_amount", { precision: 18, scale: 2 }),
+  ipiRate: decimal("ipi_rate", { precision: 5, scale: 2 }),
+  ipiAmount: decimal("ipi_amount", { precision: 18, scale: 2 }),
+  pisRate: decimal("pis_rate", { precision: 5, scale: 2 }),
+  pisAmount: decimal("pis_amount", { precision: 18, scale: 2 }),
+  cofinsRate: decimal("cofins_rate", { precision: 5, scale: 2 }),
+  cofinsAmount: decimal("cofins_amount", { precision: 18, scale: 2 }),
   createdAt: timestamp("created_at").notNull(),
 });
 
-// XML e parcelas não existem no banco atual; removidos para alinhar o modelo
+export const receiptNfXmls = pgTable("receipt_nf_xmls", {
+  id: serial("id").primaryKey(),
+  receiptId: integer("receipt_id").references(() => receipts.id).notNull(),
+  xmlContent: text("xml_content").notNull(),
+  xmlHash: varchar("xml_hash", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const receiptInstallments = pgTable("receipt_installments", {
+  id: serial("id").primaryKey(),
+  receiptId: integer("receipt_id").references(() => receipts.id).notNull(),
+  installmentNumber: varchar("installment_number", { length: 50 }).notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
+});
+
+export const chartOfAccounts = pgTable("chart_of_accounts", {
+  id: serial("id").primaryKey(),
+  externalId: varchar("external_id", { length: 50 }).notNull(),
+  code: varchar("code", { length: 50 }).notNull(),
+  description: varchar("description", { length: 255 }).notNull(),
+  isActive: boolean("is_active").default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 // Relations
 export const companiesRelations = relations(companies, ({ many }) => ({
@@ -1015,6 +1074,21 @@ export const insertReceiptSchema = createInsertSchema(receipts).omit({
 }).extend({
   receivedAt: z.string().optional().transform((val) => val ? new Date(val) : null),
   approvedAt: z.string().optional().transform((val) => val ? new Date(val) : null),
+  totalAmount: z.union([z.string(), z.number()]).optional().transform((val) => val?.toString() || "0"),
+  installmentsCount: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => {
+    if (val === null || val === undefined || val === '') return null;
+    return typeof val === 'string' ? parseInt(val, 10) : val;
+  }),
+  documentIssueDate: z.string().optional().transform((val) => val ? new Date(val) : null),
+  documentEntryDate: z.string().optional().transform((val) => val ? new Date(val) : null),
+}).refine((data) => {
+  if (data.receiptType === "servico" || data.receiptType === "avulso") {
+    return !!data.costCenterId && !!data.chartOfAccountsId;
+  }
+  return true;
+}, {
+  message: "Centro de Custo e Plano de Contas são obrigatórios para serviço/avulso",
+  path: ["costCenterId"],
 });
 
 export const insertReceiptItemSchema = createInsertSchema(receiptItems).omit({
@@ -1023,6 +1097,9 @@ export const insertReceiptItemSchema = createInsertSchema(receiptItems).omit({
 }).extend({
   quantityReceived: z.string().optional().transform((val) => val || null),
   quantityApproved: z.string().optional().transform((val) => val || null),
+  quantity: z.union([z.string(), z.number(), z.undefined()]).optional().transform((val) => val?.toString() || "0"),
+  unitPrice: z.union([z.string(), z.number(), z.undefined()]).optional().transform((val) => val?.toString() || "0"),
+  totalPrice: z.union([z.string(), z.number(), z.undefined()]).optional().transform((val) => val?.toString() || "0"),
 });
 
 // Types

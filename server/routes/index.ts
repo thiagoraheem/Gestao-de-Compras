@@ -7,6 +7,8 @@ import integrityValidationRoutes from "./integrity-validation";
 import { registerReceiptsRoutes } from "./receipts";
 import { registerAuditRoutes } from "./audit";
 import { registerMasterDataRoutes } from "./master-data";
+import { registerMockLocadorRoutes } from "./mock-locador";
+import { registerOpenApiRoute } from "./openapi";
 import { PDFService } from "../pdf-service";
 import { storage } from "../storage";
 // Import other route modules as they are created
@@ -225,6 +227,8 @@ export function registerAllRoutes(app: Express) {
   registerReceiptsRoutes(app);
   registerMasterDataRoutes(app);
   registerAuditRoutes(app);
+  registerMockLocadorRoutes(app);
+  registerOpenApiRoute(app);
   
   // Register integrity validation routes
   app.use(integrityValidationRoutes);

@@ -98,7 +98,7 @@ CREATE TABLE cost_centers (
 ### 3.2. Tabela: chart_of_accounts (Plano de Contas)
 
 ```sql
-CREATE TABLE chart_of_accounts (
+CREATE TABLE chart_of_accounts_erperp (
   id              UUID PRIMARY KEY,
   external_id     VARCHAR(50) NOT NULL,  -- ID do Locador
   code            VARCHAR(50) NOT NULL,  -- Ex.: 3.2.1.01
