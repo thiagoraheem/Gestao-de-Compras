@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { isAuthenticated } from "./middleware";
 import { db } from "../db";
-import { purchaseRequests } from "@shared/schema";
+import { purchaseRequests } from "../../shared/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 export function registerApprovalsRoutes(app: Express) {

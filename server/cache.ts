@@ -1,4 +1,4 @@
-import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "@shared/realtime-events";
+import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../shared/realtime-events";
 import { realtime } from "./realtime";
 
 // Simple in-memory cache with TTL (Time To Live)

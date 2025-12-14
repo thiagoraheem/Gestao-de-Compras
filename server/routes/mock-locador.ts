@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { db } from "../db";
-import { costCenters, chartOfAccounts } from "@shared/schema";
+import { costCenters, chartOfAccounts } from "../../shared/schema";
 
 type MockState = {
   responseMode: "success" | "error";

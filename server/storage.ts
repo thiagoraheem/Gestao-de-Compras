@@ -65,7 +65,7 @@ import {
   type InsertReceipt,
   type ReceiptItem,
   type InsertReceiptItem,
-} from "@shared/schema";
+} from "../shared/schema";
 import { db, pool } from "./db";
 import { eq, and, desc, like, sql, gt, count, or, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -2008,11 +2008,10 @@ export class DatabaseStorage implements IStorage {
 
   async createReceiptItem(item: InsertReceiptItem): Promise<ReceiptItem> {
     const values = {
-      receiptId: item.receiptId,
-      purchaseOrderItemId: item.purchaseOrderItemId,
+      ...item,
       quantityReceived: item.quantityReceived ?? "0",
       quantityApproved: item.quantityApproved ?? null,
-      condition: item.condition,
+      condition: item.condition ?? null,
       observations: item.observations ?? null,
       createdAt: new Date(),
     };

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { Server as HttpServer, IncomingMessage as HttpIncomingMessage } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { REALTIME_CHANNELS } from "@shared/realtime-events";
+import { REALTIME_CHANNELS } from "../shared/realtime-events";
 
 type ClientConnection = {
   id: string;

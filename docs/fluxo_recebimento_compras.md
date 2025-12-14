@@ -64,6 +64,7 @@ flowchart TD
   "numero_pedido": "PC-2025-045",
   "data_pedido": "2025-11-12",
   "fornecedor": {
+    "fornecedor_id": 50,
     "cnpj": "12.345.678/0001-99",
     "nome": "ABC Materiais LTDA"
   },
@@ -72,11 +73,18 @@ flowchart TD
     "serie": "1",
     "chave_nfe": "35251112345678900011550010009876543219876543",
     "data_emissao": "2025-11-10",
-    "valor_total": 1980.00
+    "valor_total": 1980.00    
   },
   "condicoes_pagamento": {
-    "parcelas": 2,
-    "dias": [30, 60]
+    "forma_pagamento": 1,
+    "data_vencimento": "2025-12-10",
+    "parcelas": 1,
+    "rateio": [{
+      "plano_conta_id": 101,
+      "centro_custo_id": 201,
+      "valor": 1980.00,
+      "percentual": 100.00
+    }]
   },
   "itens": [
     {
@@ -84,14 +92,18 @@ flowchart TD
       "descricao": "Cimento CP-II 50kg",
       "quantidade": 50,
       "preco_unitario": 39.60,
-      "unidade": "UN"
+      "unidade": "UN",
+      "ncm": "2001.00.00",
+      "cest": "123456"
     },
     {
       "codigo_produto": "FER-002",
       "descricao": "Vergalhão 8mm",
       "quantidade": 30,
       "preco_unitario": 21.90,
-      "unidade": "M"
+      "unidade": "M",
+      "ncm": "2001.00.00",
+      "cest": "123456"
     }
   ]
 }

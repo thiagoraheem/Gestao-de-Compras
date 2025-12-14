@@ -30,7 +30,7 @@ import {
   insertSupplierQuotationItemSchema,
   insertPurchaseOrderSchema,
   insertPurchaseOrderItemSchema,
-} from "@shared/schema";
+} from "../shared/schema";
 import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -53,11 +53,11 @@ import { quotationSyncService } from './services/quotation-sync';
 import { quotationVersionService } from './services/quotation-versioning';
 import { notificationService } from './services/notification-service';
 import { initRealtime, realtime } from "./realtime";
-import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "@shared/realtime-events";
+import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../shared/realtime-events";
 
 // ES modules compatibility
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 
 // Multer configuration now handled in modular routes
 

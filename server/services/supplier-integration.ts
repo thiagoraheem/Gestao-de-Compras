@@ -6,7 +6,7 @@ import {
   type InsertSupplier,
   type SupplierIntegrationItem,
   type SupplierIntegrationRun,
-} from "@shared/schema";
+} from "../../shared/schema";
 import { db } from "../db";
 import {
   createSupplierIntegrationRun,

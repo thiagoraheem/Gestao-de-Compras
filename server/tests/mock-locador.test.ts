@@ -1,9 +1,13 @@
-const express = require("express");
-const request = require("supertest");
-const { registerRoutes } = require("../routes");
+import express from "express";
+// @ts-ignore
+import request from "supertest";
+import { registerRoutes } from "../routes";
+
+// @ts-ignore
+import { describe, it, expect, beforeAll } from '@jest/globals';
 
 describe("Mock Locador API", () => {
-  let app;
+  let app: express.Express;
   beforeAll(async () => {
     app = express();
     app.use(express.json());

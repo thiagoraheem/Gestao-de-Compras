@@ -10,10 +10,11 @@ import {
   receiptNfXmls,
   receiptItems,
   receiptInstallments,
-} from "@shared/schema";
+} from "../../shared/schema";
 import { parseNFeXml } from "../services/nfe-parser";
 import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
+// @ts-ignore
 import fetch from "node-fetch";
 
 function generateReceiptNumber() {

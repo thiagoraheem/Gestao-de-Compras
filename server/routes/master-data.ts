@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { db } from "../db";
-import { costCenters } from "@shared/schema";
+import { costCenters } from "../../shared/schema";
 import { costCenterService } from "../integracao_locador/services/cost-center-service";
 import { chartOfAccountsService } from "../integracao_locador/services/chart-of-accounts-service";
 import { initSwaggerWatcher } from "../integracao_locador/utils/swagger-watcher";
