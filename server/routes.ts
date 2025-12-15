@@ -30,6 +30,10 @@ import {
   insertSupplierQuotationItemSchema,
   insertPurchaseOrderSchema,
   insertPurchaseOrderItemSchema,
+  insertReceiptAllocationSchema,
+  costCenters,
+  chartOfAccounts,
+  receiptAllocations,
 } from "../shared/schema";
 import { z } from "zod";
 import session from "express-session";
@@ -2173,7 +2177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
-        const { receivedById, receiptMode, nfNumber, nfSeries, nfIssueDate, nfEntryDate, nfTotal, manualCostCenterId, manualChartOfAccountsId, manualItems } = req.body;
+        const { receivedById, receiptMode, paymentMethodCode, invoiceDueDate, nfNumber, nfSeries, nfIssueDate, nfEntryDate, nfTotal, manualCostCenterId, manualChartOfAccountsId, manualItems, allocations: rawAllocations, allocationMode } = req.body;
 
         const request = await storage.getPurchaseRequestById(id);
         if (!request || request.currentPhase !== "recebimento") {
@@ -2194,9 +2198,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           receivedAt: new Date(),
           observations: JSON.stringify({
             mode: receiptMode,
+            financial: { paymentMethodCode: paymentMethodCode || null, invoiceDueDate: invoiceDueDate || null },
             nf: { number: nfNumber, series: nfSeries, issueDate: nfIssueDate, entryDate: nfEntryDate, total: nfTotal },
             accounting: { costCenterId: manualCostCenterId, chartOfAccountsId: manualChartOfAccountsId },
             itemsCount: Array.isArray(manualItems) ? manualItems.length : 0,
+            rateio: { mode: allocationMode || null }
           }),
         } as any);
 
@@ -2216,6 +2222,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } as any);
             }
           }
+        }
+
+        const baseTotal = (() => {
+          if (receiptMode === "avulso" && nfTotal) return Number(nfTotal || 0);
+          return Number(purchaseOrder.totalValue || 0);
+        })();
+        if (Array.isArray(rawAllocations) && rawAllocations.length > 0) {
+          const { db } = await import("./db");
+          const { eq } = await import("drizzle-orm");
+          const resolveCostCenterId = async (rawId: number): Promise<number | null> => {
+            const byId = await db.select().from(costCenters).where(eq(costCenters.id, rawId)).limit(1);
+            if (Array.isArray(byId) && byId.length > 0) return Number(byId[0].id);
+            const byExt = await db.select().from(costCenters).where(eq(costCenters.externalId, String(rawId))).limit(1);
+            if (Array.isArray(byExt) && byExt.length > 0) return Number(byExt[0].id);
+            return null;
+          };
+          const resolveChartAccountId = async (rawId: number): Promise<number | null> => {
+            const byId = await db.select().from(chartOfAccounts).where(eq(chartOfAccounts.id, rawId)).limit(1);
+            if (Array.isArray(byId) && byId.length > 0) return Number(byId[0].id);
+            const byExt = await db.select().from(chartOfAccounts).where(eq(chartOfAccounts.externalId, String(rawId))).limit(1);
+            if (Array.isArray(byExt) && byExt.length > 0) return Number(byExt[0].id);
+            return null;
+          };
+
+          const itemsParsed: Array<{
+            receiptId: number;
+            costCenterId: number;
+            chartOfAccountsId: number;
+            amount: string;
+            percentage: string | null;
+            mode: string;
+          }> = [];
+
+          for (const a of rawAllocations) {
+            const resolvedCC = await resolveCostCenterId(Number(a.costCenterId));
+            if (!resolvedCC) {
+              return res.status(400).json({ message: "Centro de Custo inválido ou não sincronizado" });
+            }
+            const resolvedCOA = await resolveChartAccountId(Number(a.chartOfAccountsId));
+            if (!resolvedCOA) {
+              return res.status(400).json({ message: "Plano de Contas inválido ou não sincronizado" });
+            }
+            const parsed = insertReceiptAllocationSchema.parse({
+              receiptId: receipt.id,
+              costCenterId: resolvedCC,
+              chartOfAccountsId: resolvedCOA,
+              amount: String(a.amount),
+              percentage: a.percentage ? String(a.percentage) : null,
+              mode: allocationMode === "proporcional" ? "proporcional" : "manual",
+            });
+            itemsParsed.push({
+              receiptId: receipt.id,
+              costCenterId: Number(parsed.costCenterId),
+              chartOfAccountsId: Number(parsed.chartOfAccountsId),
+              amount: parsed.amount,
+              percentage: parsed.percentage,
+              mode: parsed.mode,
+            });
+          }
+          const sum = itemsParsed.reduce((acc: number, it: any) => acc + Number(it.amount || 0), 0);
+          const round2 = (n: number) => Math.round(n * 100) / 100;
+          if (round2(sum) !== round2(baseTotal)) {
+            return res.status(400).json({ message: "Soma do rateio deve ser igual ao valor total do pedido" });
+          }
+          const { sql } = await import("drizzle-orm");
+          await db.transaction(async (tx) => {
+            await tx.delete(receiptAllocations).where(sql`${receiptAllocations.receiptId} = ${receipt.id}`);
+            for (const it of itemsParsed) {
+              await tx.insert(receiptAllocations).values({
+                receiptId: receipt.id,
+                costCenterId: it.costCenterId,
+                chartOfAccountsId: it.chartOfAccountsId,
+                amount: it.amount,
+                percentage: it.percentage,
+                mode: it.mode,
+              } as any);
+            }
+          });
+          try {
+            const { db } = await import("./db");
+            const { sql } = await import("drizzle-orm");
+            await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+              VALUES (${id}, ${'recebimento_rateio_salvo'}, ${'Rateio de CC/Plano de Contas salvo'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id, allocations: itemsParsed })}::jsonb, ${sql`ARRAY['receipt_allocations']`} );`);
+          } catch {}
         }
 
         const updatedRequest = await storage.updatePurchaseRequest(id, {

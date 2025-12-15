@@ -499,20 +499,27 @@ Para Avulso:
    * Descrição
    * Valor total
 
-## 7.7. Seção 5: Centro de Custo e Plano de Contas
+## 7.7. Aba Rateio: Centro de Custo e Plano de Contas
 
 Campos:
-* Centro de Custo (select obrigatório para Serviço e Avulso, opcional para Produto conforme regra)
-* Plano de Contas (select obrigatório para Serviço e Avulso, opcional para Produto)
+- Centro de Custo (seleção em árvore)
+- Plano de Contas (seleção em árvore)
 
 Comportamento:
-* O select deve ser preenchido via chamadas a:
-   * `GET /api/centros-custo` (backend Compras, que por sua vez consome o Locador)
-   * `GET /api/plano-contas`
-* Possibilidade de filtro por texto:
-   * pesquisar por código ou nome/descrição.
-* Se o usuário tentar salvar/validar Serviço ou Avulso sem CC/PC:
-   * impedir e mostrar mensagem “Centro de Custo e Plano de Contas são obrigatórios para este tipo de recebimento”.
+- Seleção exclusivamente nesta aba; os campos foram removidos da página principal.
+- Componentes reutilizáveis em árvore: `CostCenterTreeSelect` e `ChartAccountTreeSelect`.
+- Dados carregados via:
+  - `GET /api/centros-custo` (backend Compras, consumindo o Locador)
+  - `GET /api/plano-contas`
+- Suporte a filtro por texto (código, nome/descrição).
+- Persistência entre abas garantida (os valores selecionados permanecem ao navegar).
+
+Validação:
+- Pelo menos um rateio deve ser informado na aba Rateio.
+- Cada item de rateio deve possuir Centro de Custo e Plano de Contas.
+- A soma do rateio deve igualar ao total do recebimento (por valor ou percentual).
+- Para `serviço` e `avulso`, o rateio (CC/PC) é obrigatório; para `produto`, segue a configuração/regra da empresa.
+- Mensagens de erro são exibidas somente quando essas regras não são atendidas (sem rateio, item incompleto ou soma divergente).
 
 ## 7.8. Seção 6: Condições de Pagamento / Parcelas
 

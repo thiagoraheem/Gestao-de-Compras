@@ -34,6 +34,8 @@ import { cn } from "@/lib/utils";
 import PendencyModal from "./pendency-modal";
 import { NFEViewer } from "@/components/nfe/NFEViewer";
 import { NFEList } from "@/components/nfe/NFEList";
+import { CostCenterTreeSelect } from "@/components/fields/CostCenterTreeSelect";
+import { ChartAccountTreeSelect } from "@/components/fields/ChartAccountTreeSelect";
 
 export function buildCostCenterTreeData(listInput: any[]) {
   const list = Array.isArray(listInput) ? listInput : [];
@@ -109,6 +111,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [expandedCcLv1, setExpandedCcLv1] = useState<Set<number>>(new Set());
   const [expandedCcLv2, setExpandedCcLv2] = useState<Set<number>>(new Set());
   const [manualTotal, setManualTotal] = useState<string>("");
+  const [paymentMethodCode, setPaymentMethodCode] = useState<string>("");
+  const [invoiceDueDate, setInvoiceDueDate] = useState<string>("");
   const [manualCostCenterId, setManualCostCenterId] = useState<number | null>(null);
   const [manualChartOfAccountsId, setManualChartOfAccountsId] = useState<number | null>(null);
   const [manualItems, setManualItems] = useState<Array<{ code?: string; description: string; unit?: string; quantity: number; unitPrice: number }>>([]);
@@ -117,7 +121,11 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [manualNFIssueDate, setManualNFIssueDate] = useState<string>("");
   const [manualNFEntryDate, setManualNFEntryDate] = useState<string>("");
   const [supplierMatch, setSupplierMatch] = useState<null | boolean>(null);
-  const [activeTab, setActiveTab] = useState<'fiscal' | 'xml' | 'items'>('fiscal');
+  const [activeTab, setActiveTab] = useState<'fiscal' | 'rateio' | 'xml' | 'manual_nf' | 'items'>('fiscal');
+  const [allocations, setAllocations] = useState<Array<{ costCenterId?: number; chartOfAccountsId?: number; amount?: string; percentage?: string }>>([]);
+  const [allocationMode, setAllocationMode] = useState<'manual' | 'proporcional'>('manual');
+  const [paymentMethods, setPaymentMethods] = useState<Array<{ code: string; name: string }>>([]);
+  const [autoFilledRows, setAutoFilledRows] = useState<Set<number>>(new Set());
 
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
@@ -227,6 +235,35 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       })
       .then((d) => { console.log('locador plano-contas loaded', Array.isArray(d) ? d.length : 0); setChartAccounts(d); })
       .catch((e) => { console.error('locador plano-contas request error', e); setChartAccounts([]); });
+    fetch("/api/payment-methods")
+      .then(async (r) => {
+        try { const d = await r.json(); return Array.isArray(d) ? d : []; } catch { return []; }
+      })
+      .then((d) => {
+        if (Array.isArray(d) && d.length > 0) {
+          const mapped = d.map((pm: any) => ({ code: pm.code || pm.name || pm.description || pm.id?.toString() || "", name: pm.name || pm.description || pm.code || "" })).filter((x: any) => x.code && x.name);
+          setPaymentMethods(mapped);
+        } else {
+          setPaymentMethods([
+            { code: "boleto", name: "Boleto" },
+            { code: "cheque", name: "Cheque" },
+            { code: "transferencia", name: "Transferência Bancária" },
+            { code: "cartao_credito", name: "Cartão de Crédito" },
+            { code: "dinheiro", name: "Dinheiro" },
+            { code: "pix", name: "Pix" },
+          ]);
+        }
+      })
+      .catch(() => {
+        setPaymentMethods([
+          { code: "boleto", name: "Boleto" },
+          { code: "cheque", name: "Cheque" },
+          { code: "transferencia", name: "Transferência Bancária" },
+          { code: "cartao_credito", name: "Cartão de Crédito" },
+          { code: "dinheiro", name: "Dinheiro" },
+          { code: "pix", name: "Pix" },
+        ]);
+      });
   }, []);
 
   useEffect(() => {
@@ -235,8 +272,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       const raw = localStorage.getItem(key);
       if (raw) {
         const data = JSON.parse(raw);
-        if (data.manualCostCenterId) setManualCostCenterId(Number(data.manualCostCenterId));
-        if (data.manualChartOfAccountsId) setManualChartOfAccountsId(Number(data.manualChartOfAccountsId));
+        if (data.paymentMethodCode) setPaymentMethodCode(String(data.paymentMethodCode));
+        if (data.invoiceDueDate) setInvoiceDueDate(String(data.invoiceDueDate));
         if (data.receiptType) setReceiptType(data.receiptType);
         if (data.manualNFNumber) setManualNFNumber(data.manualNFNumber);
         if (data.manualNFSeries) setManualNFSeries(data.manualNFSeries);
@@ -244,6 +281,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         if (data.manualNFEntryDate) setManualNFEntryDate(data.manualNFEntryDate);
         if (data.manualTotal) setManualTotal(data.manualTotal);
         if (Array.isArray(data.manualItems)) setManualItems(data.manualItems);
+        if (Array.isArray(data.allocations)) setAllocations(data.allocations);
+        if (data.allocationMode) setAllocationMode(data.allocationMode);
       }
     } catch {}
   }, [request?.id]);
@@ -252,8 +291,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     try {
       const key = `receipt_flow_${request?.id}`;
       const payload = {
-        manualCostCenterId,
-        manualChartOfAccountsId,
+        paymentMethodCode,
+        invoiceDueDate,
         receiptType,
         manualNFNumber,
         manualNFSeries,
@@ -261,11 +300,13 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         manualNFEntryDate,
         manualTotal,
         manualItems,
+        allocations,
+        allocationMode,
         activeTab,
       };
       localStorage.setItem(key, JSON.stringify(payload));
     } catch {}
-  }, [manualCostCenterId, manualChartOfAccountsId, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualTotal, manualItems, activeTab, request?.id]);
+  }, [paymentMethodCode, invoiceDueDate, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualTotal, manualItems, allocations, allocationMode, activeTab, request?.id]);
 
   const onUploadXml = async (file: File | null) => {
     if (!file) return;
@@ -463,15 +504,22 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         body: {
           receivedById: user?.id,
           receiptMode: receiptType,
+          paymentMethodCode,
+          invoiceDueDate,
           nfNumber: receiptType === "avulso" ? manualNFNumber : undefined,
           nfSeries: receiptType === "avulso" ? manualNFSeries : undefined,
           nfIssueDate: receiptType === "avulso" ? manualNFIssueDate : undefined,
           nfEntryDate: receiptType === "avulso" ? manualNFEntryDate : undefined,
           nfTotal: receiptType === "avulso" ? manualTotal : undefined,
-          manualCostCenterId: manualCostCenterId,
-          manualChartOfAccountsId: manualChartOfAccountsId,
           manualItems: receiptType === "avulso" ? manualItems : undefined,
           receivedQuantities: receiptType !== "avulso" ? receivedQuantities : undefined,
+          allocations: allocations.length > 0 ? allocations.map((a) => ({
+            costCenterId: a.costCenterId,
+            chartOfAccountsId: a.chartOfAccountsId,
+            amount: a.amount,
+            percentage: a.percentage,
+          })) : undefined,
+          allocationMode: allocations.length > 0 ? allocationMode : undefined,
         },
       });
       return response;
@@ -781,10 +829,95 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     return ids;
   }, [chartAccountTree]);
 
-  const isFiscalValid = !!manualCostCenterId && !!manualChartOfAccountsId && validCostCenterIds.has(Number(manualCostCenterId)) && validChartAccountIds.has(Number(manualChartOfAccountsId));
+  const baseTotalForAllocation = useMemo(() => {
+    if (receiptType === "avulso") {
+      const val = parseFloat(String(manualTotal || "0").replace(",", "."));
+      return isFinite(val) ? val : 0;
+    }
+    const poTot = Number(purchaseOrder?.totalValue || 0);
+    return isFinite(poTot) ? poTot : 0;
+  }, [receiptType, manualTotal, purchaseOrder?.totalValue]);
+
+  const allocationsSum = useMemo(() => {
+    return (allocations || []).reduce((acc, it) => acc + (parseFloat(String(it.amount || "0").replace(",", ".")) || 0), 0);
+  }, [allocations]);
+
+  const allocationsSumOk = useMemo(() => {
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    return round2(allocationsSum) === round2(baseTotalForAllocation);
+  }, [allocationsSum, baseTotalForAllocation]);
+
+  useEffect(() => {
+    if (activeTab === 'xml') {
+      const prefilledManual = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualTotal].every(v => !!v && String(v).trim() !== "");
+      if (prefilledManual) {
+        setReceiptType('avulso');
+        setActiveTab('manual_nf');
+      }
+    }
+  }, [activeTab, manualNFNumber, manualNFSeries, manualNFIssueDate, manualTotal]);
+
+  const handleFillMissingAllocationValues = () => {
+    const parseNum = (v: any) => {
+      const s = String(v ?? '').trim();
+      if (!s) return NaN;
+      const n = parseFloat(s.replace(',', '.'));
+      return isFinite(n) ? n : NaN;
+    };
+    const validRows = allocations
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => r.costCenterId && r.chartOfAccountsId);
+    if (validRows.length === 0) {
+      toast({ title: "Validação", description: "Nenhuma linha válida para preenchimento automático", variant: "destructive" });
+      return;
+    }
+    const filled = validRows
+      .map(({ r, i }) => ({ i, amount: parseNum(r.amount) }))
+      .filter(({ amount }) => isFinite(amount) && amount > 0);
+    const sumFilled = filled.reduce((acc, it) => acc + it.amount, 0);
+    const remaining = Math.max(0, baseTotalForAllocation - sumFilled);
+    if (remaining <= 0) {
+      toast({ title: "Validação", description: "Nada a preencher: o restante do total é 0", variant: "destructive" });
+      return;
+    }
+    const missing = validRows.filter(({ r }) => {
+      const amt = parseNum(r.amount);
+      return !(isFinite(amt) && amt > 0);
+    });
+    if (missing.length === 0) {
+      toast({ title: "Validação", description: "Nenhuma linha com valor vazio para preencher", variant: "destructive" });
+      return;
+    }
+    let weights = missing.map(({ r }) => {
+      const pct = parseNum(r.percentage);
+      if (isFinite(pct) && pct > 0) return pct;
+      return 1;
+    });
+    let weightSum = weights.reduce((a, b) => a + b, 0);
+    if (!(isFinite(weightSum) && weightSum > 0)) {
+      weights = missing.map(() => 1);
+      weightSum = missing.length;
+    }
+    const updates = new Map<number, { amount: string; percentage: string }>();
+    let assigned = 0;
+    for (let idx = 0; idx < missing.length; idx++) {
+      const isLast = idx === missing.length - 1;
+      const portion = isLast ? Math.round((remaining - assigned) * 100) / 100 : Math.round(((remaining * weights[idx]) / weightSum) * 100) / 100;
+      assigned += isLast ? 0 : portion;
+      const pct = Math.round(((portion / baseTotalForAllocation) * 100) * 100) / 100;
+      updates.set(missing[idx].i, { amount: portion.toFixed(2), percentage: pct.toFixed(2) });
+    }
+    setAllocations(prev => prev.map((r, i) => updates.has(i) ? { ...r, amount: updates.get(i)!.amount, percentage: updates.get(i)!.percentage } : r));
+    setAutoFilledRows(new Set(missing.map(m => m.i)));
+    toast({ title: "Sucesso", description: `Valores preenchidos automaticamente em ${missing.length} linha(s)` });
+    window.setTimeout(() => setAutoFilledRows(new Set()), 2500);
+  };
+
+  const isFiscalValid = !!paymentMethodCode && !!invoiceDueDate;
   const canConfirm = useMemo(() => {
     if (typeCategoryError) return false;
     if (!isFiscalValid) return false;
+    if (allocations.length > 0 && !allocationsSumOk) return false;
     if (receiptType === "avulso") {
       const requiredFilled = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate].every(v => !!v && String(v).trim() !== "");
       const hasTotals = String(manualTotal || '').trim() !== '';
@@ -800,7 +933,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
     if (!hasAnyQty && !xmlPreview) return false;
     return true;
-  }, [typeCategoryError, isFiscalValid, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualTotal, manualItems.length, itemsWithPrices, receivedQuantities, xmlPreview]);
+  }, [typeCategoryError, isFiscalValid, allocations.length, allocationsSumOk, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualTotal, manualItems.length, itemsWithPrices, receivedQuantities, xmlPreview]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -812,14 +945,24 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => {
-        const next = v as 'fiscal' | 'xml' | 'items';
+        const next = v as 'fiscal' | 'rateio' | 'xml' | 'manual_nf' | 'items';
         if (next === 'xml' && !isFiscalValid) {
-          toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+          toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
           return;
+        }
+        if (next === 'xml' && (!paymentMethodCode || !invoiceDueDate)) {
+          toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
+          return;
+        }
+        if (next === 'rateio') {
+          if (!isFiscalValid) {
+            toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
+            return;
+          }
         }
         if (next === 'items') {
           if (!isFiscalValid) {
-            toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+            toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
             return;
           }
           const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
@@ -836,12 +979,17 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
             toast({ title: "Validação", description: "Informe quantidades recebidas ou importe o XML", variant: "destructive" });
             return;
           }
+          if (allocations.length > 0 && !allocationsSumOk) {
+            toast({ title: "Validação", description: "A soma do rateio deve igualar o total", variant: "destructive" });
+            return;
+          }
         }
         setActiveTab(next);
       }}>
         <TabsList className="w-full justify-start gap-2">
-          <TabsTrigger value="fiscal">Confirmações Fiscais</TabsTrigger>
-          <TabsTrigger value="xml" disabled={!isFiscalValid}>Importar NF</TabsTrigger>
+          <TabsTrigger value="fiscal">Informações Básicas</TabsTrigger>
+          <TabsTrigger value="rateio" disabled={!isFiscalValid}>Rateio</TabsTrigger>
+          <TabsTrigger value="xml" disabled={!isFiscalValid}>Informações de Nota Fiscal</TabsTrigger>
           <TabsTrigger value="items" disabled={!isFiscalValid}>Confirmação de Itens</TabsTrigger>
         </TabsList>
 
@@ -898,93 +1046,26 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Classificação Contábil</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Informações Financeiras</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label>Centro de Custo</Label>
-              <Select value={manualCostCenterId ? String(manualCostCenterId) : undefined} onValueChange={(v) => setManualCostCenterId(Number(v))}>
+              <Label>Forma de Pagamento</Label>
+              <Select value={paymentMethodCode || undefined} onValueChange={(v) => setPaymentMethodCode(v)}>
                 <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {Array.isArray(costCenters) && costCenters.length > 0 ? (
-                    costCenterTree.map(({ parent, children }: any) => (
-                      <SelectGroup key={parent.idCostCenter ?? parent.id}>
-                        <div className="py-1.5 pl-8 pr-2 text-sm font-semibold flex items-center gap-2 cursor-pointer" onClick={() => toggleCcLv1(Number(parent.idCostCenter ?? parent.id))}>
-                          {expandedCcLv1.has(Number(parent.idCostCenter ?? parent.id)) ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
-                          {parent.name}
-                        </div>
-                        {expandedCcLv1.has(Number(parent.idCostCenter ?? parent.id)) && children.map((c: any) => (
-                          <div key={(c.node.idCostCenter ?? c.node.id)}>
-                            {c.grandchildren.length > 0 ? (
-                              <div className="py-1.5 pl-10 pr-2 text-sm font-semibold flex items-center gap-2 cursor-pointer" onClick={() => toggleCcLv2(Number(c.node.idCostCenter ?? c.node.id))}>
-                                {expandedCcLv2.has(Number(c.node.idCostCenter ?? c.node.id)) ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
-                                {c.node.name}
-                              </div>
-                            ) : null}
-                            {c.grandchildren.length > 0 ? (
-                              expandedCcLv2.has(Number(c.node.idCostCenter ?? c.node.id)) && c.grandchildren.map((gc: any) => (
-                                <SelectItem key={(gc.idCostCenter ?? gc.id)} value={String(gc.idCostCenter ?? gc.id)} className="pl-14">
-                                  {gc.name}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              c.selectable ? (
-                                <SelectItem key={(c.node.idCostCenter ?? c.node.id)} value={String(c.node.idCostCenter ?? c.node.id)} className="pl-10">
-                                  {c.node.name}
-                                </SelectItem>
-                              ) : null
-                            )}
-                          </div>
-                        ))}
-                      </SelectGroup>
+                  {paymentMethods.length > 0 ? (
+                    paymentMethods.map((pm) => (
+                      <SelectItem key={pm.code} value={pm.code}>{pm.name}</SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="none" disabled>Nenhum centro de custo disponível</SelectItem>
+                    <SelectItem value="none" disabled>Nenhuma forma disponível</SelectItem>
                   )}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Plano de Contas</Label>
-              <Select value={manualChartOfAccountsId ? String(manualChartOfAccountsId) : undefined} onValueChange={(v) => setManualChartOfAccountsId(Number(v))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {Array.isArray(chartAccounts) && chartAccounts.length > 0 ? (
-                    chartAccountTree.map(({ parent, children }: any) => (
-                      <SelectGroup key={(parent.idChartOfAccounts ?? parent.id)}>
-                        <div className="py-1.5 pl-8 pr-2 text-sm font-semibold flex items-center gap-2 cursor-pointer" onClick={() => toggleLv1(Number(parent.idChartOfAccounts ?? parent.id))}>
-                          {expandedCoaLv1.has(Number(parent.idChartOfAccounts ?? parent.id)) ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
-                          {(parent.accountName ?? parent.name)}
-                        </div>
-                        {expandedCoaLv1.has(Number(parent.idChartOfAccounts ?? parent.id)) && children.map((c: any) => (
-                          <div key={(c.node.idChartOfAccounts ?? c.node.id)}>
-                            {c.grandchildren.length > 0 ? (
-                              <div className="py-1.5 pl-10 pr-2 text-sm font-semibold flex items-center gap-2 cursor-pointer" onClick={() => toggleLv2(Number(c.node.idChartOfAccounts ?? c.node.id))}>
-                                {expandedCoaLv2.has(Number(c.node.idChartOfAccounts ?? c.node.id)) ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
-                                {(c.node.accountName ?? c.node.name)}
-                              </div>
-                            ) : null}
-                            {c.grandchildren.length > 0 ? (
-                              expandedCoaLv2.has(Number(c.node.idChartOfAccounts ?? c.node.id)) && c.grandchildren.map((pc: any) => (
-                                <SelectItem key={(pc.idChartOfAccounts ?? pc.id)} value={String(pc.idChartOfAccounts ?? pc.id)} className="pl-14">
-                                  {(pc.accountName ?? pc.name)}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              c.selectable ? (
-                                <SelectItem key={(c.node.idChartOfAccounts ?? c.node.id)} value={String(c.node.idChartOfAccounts ?? c.node.id)} className="pl-10">
-                                  {(c.node.accountName ?? c.node.name)}
-                                </SelectItem>
-                              ) : null
-                            )}
-                          </div>
-                        ))}
-                      </SelectGroup>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>Nenhum plano de contas disponível</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <Label>Data de Vencimento da Fatura</Label>
+              <Input type="date" value={invoiceDueDate} onChange={(e) => setInvoiceDueDate(e.target.value)} />
             </div>
           </CardContent>
         </Card>
@@ -1042,20 +1123,160 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
         <Button onClick={() => {
-          if (!isFiscalValid) {
-            return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+          if (!paymentMethodCode || !invoiceDueDate) {
+            return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
           }
-          setActiveTab('xml');
+          setActiveTab('rateio');
         }}>Próxima</Button>
       </div>
+        </TabsContent>
+
+        <TabsContent value="rateio">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader><CardTitle>Rateio de Centro de Custo e Plano de Contas</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2 items-center">
+                  <Label>Modo</Label>
+                  <Select value={allocationMode} onValueChange={(v) => setAllocationMode(v as any)}>
+                    <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual</SelectItem>
+                      <SelectItem value="proporcional">Proporcional</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="ml-auto text-sm">
+                    <span className="mr-2">Total do Pedido:</span>
+                    <Badge variant="outline">{formatCurrency(baseTotalForAllocation)}</Badge>
+                  </div>
+                </div>
+                <div className="rounded border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Centro de Custo</TableHead>
+                        <TableHead>Plano de Contas</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                        <TableHead className="text-right">%</TableHead>
+                        <TableHead className="text-center">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allocations.map((row, idx) => (
+                        <TableRow key={idx} className={autoFilledRows.has(idx) ? "bg-green-50 dark:bg-green-900/20" : undefined}>
+                          <TableCell>
+                            <CostCenterTreeSelect options={costCenters} value={row.costCenterId ?? null} onChange={(id) => {
+                              setAllocations(prev => prev.map((r, i) => i === idx ? { ...r, costCenterId: id ?? undefined } : r));
+                            }} placeholder="Selecione" />
+                          </TableCell>
+                          <TableCell>
+                            <ChartAccountTreeSelect options={chartAccounts} value={row.chartOfAccountsId ?? null} onChange={(id) => {
+                              setAllocations(prev => prev.map((r, i) => i === idx ? { ...r, chartOfAccountsId: id ?? undefined } : r));
+                            }} placeholder="Selecione" />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input value={row.amount ?? ""} onChange={(e) => {
+                              const val = e.target.value;
+                              setAllocations(prev => prev.map((r, i) => i === idx ? { ...r, amount: val } : r));
+                            }} placeholder="0,00" className={autoFilledRows.has(idx) ? "ring-1 ring-green-500" : undefined} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input value={row.percentage ?? ""} onChange={(e) => {
+                              const val = e.target.value;
+                              setAllocations(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
+                            }} placeholder="%" className={autoFilledRows.has(idx) ? "ring-1 ring-green-500" : undefined} />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button variant="outline" size="sm" onClick={() => {
+                              setAllocations(prev => prev.filter((_, i) => i !== idx));
+                            }}>Remover</Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {allocations.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">Nenhuma linha de rateio adicionada</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="secondary" onClick={() => {
+                    setAllocations(prev => [...prev, {}]);
+                  }}>Adicionar Linha</Button>
+                  <Button type="button" variant="secondary" onClick={() => {
+                    if (allocationMode !== "proporcional") return;
+                    const rows = allocations.filter(a => a.costCenterId && a.chartOfAccountsId);
+                    if (rows.length === 0) return;
+                    const per = baseTotalForAllocation / rows.length;
+                    const pct = 100 / rows.length;
+                    setAllocations(prev => prev.map(r => {
+                      if (r.costCenterId && r.chartOfAccountsId) {
+                        return { ...r, amount: per.toFixed(2), percentage: pct.toFixed(2) };
+                      }
+                      return r;
+                    }));
+                  }}>Distribuir Proporcionalmente</Button>
+                  <Button type="button" variant="secondary" onClick={() => {
+                    setAllocations(prev => prev.length > 0 ? prev : [{ amount: String(baseTotalForAllocation.toFixed(2)), percentage: "100" }]);
+                  }}>Preencher 100%</Button>
+                  <Button type="button" variant="default" onClick={handleFillMissingAllocationValues} aria-label="Preencher valores vazios do rateio">
+                    Preencher Valores Vazios
+                  </Button>
+                  <div className="ml-auto flex items-center gap-3">
+                    <Badge variant={allocationsSumOk ? "outline" : "destructive"}>{allocationsSumOk ? "Soma ok" : "Soma diferente do total"}</Badge>
+                    <div className="text-sm">Soma: {formatCurrency(allocationsSum)} </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <div className="flex justify-between gap-2">
+              <Button variant="outline" onClick={() => setActiveTab('fiscal')}>Voltar</Button>
+              <Button onClick={() => {
+                if (!isFiscalValid) {
+                  return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
+                }
+                if (allocations.length > 0 && !allocationsSumOk) {
+                  return toast({ title: "Validação", description: "A soma do rateio deve igualar o total", variant: "destructive" });
+                }
+                setActiveTab('xml');
+              }}>Próxima</Button>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="xml">
           <div className="space-y-6">
             <Card>
+              <CardHeader><CardTitle>Tipo de Nota Fiscal</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Selecione o tipo</Label>
+                  <Select value={receiptType} onValueChange={(v) => {
+                    const next = v as "produto" | "servico" | "avulso";
+                    setReceiptType(next);
+                    if (next === "avulso") {
+                      setActiveTab('manual_nf');
+                    }
+                  }}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="produto">Produto</SelectItem>
+                      <SelectItem value="servico">Serviço</SelectItem>
+                      <SelectItem value="avulso">Avulsa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Para notas Avulsas, os campos de inclusão manual serão exibidos automaticamente.
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
               <CardHeader><CardTitle>Importação de XML</CardTitle></CardHeader>
               <CardContent>
-                {receiptType === "produto" ? (
+                {receiptType !== "avulso" ? (
                   <>
                     <Input type="file" accept=".xml" disabled={isXmlUploading} onChange={(e) => onUploadXml(e.target.files?.[0] || null)} />
                     {isXmlUploading && (
@@ -1110,7 +1331,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                     <div className="mt-4 flex justify-end">
                       <Button type="button" variant="secondary" onClick={() => {
                         if (!isFiscalValid) {
-                          return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                          return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
                         }
                         try {
                           apiRequest(`/api/audit/log`, {
@@ -1184,7 +1405,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
               <Button variant="outline" onClick={() => setActiveTab('fiscal')}>Voltar</Button>
               <Button onClick={() => {
                 if (!isFiscalValid) {
-                  return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                  return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
                 }
                 const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
                   const current = Number(receivedQuantities[it.id] || 0);
@@ -1232,7 +1453,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
               <Button variant="outline" onClick={() => setActiveTab('xml')}>Voltar</Button>
               <Button onClick={() => {
                 if (!isFiscalValid) {
-                  return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                  return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
                 }
                 const required = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualTotal];
                 if (required.some(v => !v || String(v).trim() === "")) {
@@ -1415,11 +1636,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 if (typeCategoryError) {
                   return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
                 }
-                const hasCC = !!manualCostCenterId;
-                const hasCOA = !!manualChartOfAccountsId;
-                if (!hasCC || !hasCOA) {
-                  return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
-                }
+                // Validar campos financeiros da etapa inicial
                 if (receiptType === "avulso") {
                   const hasTotals = manualTotal && manualTotal.trim() !== "";
                   const hasItems = manualItems.length > 0;
@@ -1438,7 +1655,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                   }
                 }
                 if (!isFiscalValid) {
-                  return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                  return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
                 }
                 if (receiptType === "avulso") {
                   const required = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate];
@@ -1731,7 +1948,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
               <Button
                 onClick={() => {
                   if (!isFiscalValid) {
-                    return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+                    return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
                   }
                   if (receiptType === "avulso") {
                     const required = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate];
@@ -2127,10 +2344,8 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
               if (typeCategoryError) {
                 return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
               }
-              const hasCC = !!manualCostCenterId;
-              const hasCOA = !!manualChartOfAccountsId;
-              if (!hasCC || !hasCOA) {
-                return toast({ title: "Validação", description: "Selecione Centro de Custo e Plano de Contas", variant: "destructive" });
+              if (!isFiscalValid) {
+                return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
               }
               if (receiptType === "avulso") {
                 const hasTotals = manualTotal && manualTotal.trim() !== "";

@@ -559,6 +559,18 @@ export const receiptInstallments = pgTable("receipt_installments", {
   amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
 });
 
+export const receiptAllocations = pgTable("receipt_allocations", {
+  id: serial("id").primaryKey(),
+  receiptId: integer("receipt_id").references(() => receipts.id).notNull(),
+  costCenterId: integer("cost_center_id").references(() => costCenters.id).notNull(),
+  chartOfAccountsId: integer("chart_of_accounts_id").references(() => chartOfAccounts.id).notNull(),
+  amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
+  percentage: decimal("percentage", { precision: 7, scale: 4 }),
+  mode: text("mode").notNull().default("manual"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const chartOfAccounts = pgTable("chart_of_accounts", {
   id: serial("id").primaryKey(),
   externalId: varchar("external_id", { length: 50 }).notNull(),
@@ -567,6 +579,37 @@ export const chartOfAccounts = pgTable("chart_of_accounts", {
   isActive: boolean("is_active").default(true),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id).notNull(),
+  performedBy: integer("performed_by").references(() => users.id),
+  actionType: varchar("action_type", { length: 100 }).notNull(),
+  actionDescription: text("action_description"),
+  performedAt: timestamp("performed_at").defaultNow().notNull(),
+  beforeData: jsonb("before_data"),
+  afterData: jsonb("after_data"),
+}, (table) => [
+  index("idx_audit_logs_purchase_request_id").on(table.purchaseRequestId),
+  index("idx_audit_logs_action_type").on(table.actionType),
+  index("idx_audit_logs_performed_at").on(table.performedAt),
+]);
+
+export const detailedAuditLog = pgTable("detailed_audit_log", {
+  id: serial("id").primaryKey(),
+  transactionId: varchar("transaction_id", { length: 100 }).notNull(),
+  tableName: varchar("table_name", { length: 100 }).notNull(),
+  recordId: integer("record_id").notNull(),
+  operationType: varchar("operation_type", { length: 50 }).notNull(),
+  userId: integer("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  changeReason: text("change_reason"),
+  metadata: jsonb("metadata"),
+}, (table) => [
+  index("idx_detailed_audit_transaction_id").on(table.transactionId),
+  index("idx_detailed_audit_table_record").on(table.tableName, table.recordId),
+  index("idx_detailed_audit_created_at").on(table.createdAt),
+]);
 
 // Relations
 export const companiesRelations = relations(companies, ({ many }) => ({
@@ -873,6 +916,7 @@ export const receiptsRelations = relations(receipts, ({ one, many }) => ({
     references: [users.id],
   }),
   items: many(receiptItems),
+  allocations: many(receiptAllocations),
 }));
 
 export const receiptItemsRelations = relations(receiptItems, ({ one }) => ({
@@ -883,6 +927,17 @@ export const receiptItemsRelations = relations(receiptItems, ({ one }) => ({
   purchaseOrderItem: one(purchaseOrderItems, {
     fields: [receiptItems.purchaseOrderItemId],
     references: [purchaseOrderItems.id],
+  }),
+}));
+
+export const receiptAllocationsRelations = relations(receiptAllocations, ({ one }) => ({
+  receipt: one(receipts, {
+    fields: [receiptAllocations.receiptId],
+    references: [receipts.id],
+  }),
+  costCenter: one(costCenters, {
+    fields: [receiptAllocations.costCenterId],
+    references: [costCenters.id],
   }),
 }));
 
@@ -1102,6 +1157,19 @@ export const insertReceiptItemSchema = createInsertSchema(receiptItems).omit({
   totalPrice: z.union([z.string(), z.number(), z.undefined()]).optional().transform((val) => val?.toString() || "0"),
 });
 
+export const insertReceiptAllocationSchema = createInsertSchema(receiptAllocations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  amount: z.union([z.string(), z.number()]).transform((val) => val.toString()),
+  percentage: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => {
+    if (val === null || val === undefined || val === '') return null;
+    return typeof val === 'string' ? val : val.toString();
+  }),
+  mode: z.enum(["manual", "proporcional"]).default("manual"),
+});
+
 // Types
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
@@ -1146,6 +1214,8 @@ export type Receipt = typeof receipts.$inferSelect;
 export type InsertReceipt = z.infer<typeof insertReceiptSchema>;
 export type ReceiptItem = typeof receiptItems.$inferSelect;
 export type InsertReceiptItem = z.infer<typeof insertReceiptItemSchema>;
+export type ReceiptAllocation = typeof receiptAllocations.$inferSelect;
+export type InsertReceiptAllocation = z.infer<typeof insertReceiptAllocationSchema>;
 export type ApprovalHistory = typeof approvalHistory.$inferSelect;
 
 // Approval Configurations table
