@@ -321,6 +321,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       const fd = new FormData();
       fd.append("file", file);
       fd.append("purchaseRequestId", String(request.id));
+      fd.append("receiptType", String(receiptType));
       const res = await fetch("/api/recebimentos/import-xml", { method: "POST", body: fd });
       if (!res.ok) {
         const err = await res.json();
@@ -337,7 +338,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         if (xmlCnpjCpf && poCnpj) setSupplierMatch(xmlCnpjCpf === poCnpj);
         else setSupplierMatch(null);
       } catch { setSupplierMatch(null); }
-      toast({ title: "XML importado", description: "Dados preenchidos a partir do XML" });
+      toast({ title: "XML importado", description: receiptType === "servico" ? "Dados preenchidos a partir do XML da NFS-e" : "Dados preenchidos a partir do XML da NF-e" });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     }
@@ -1260,52 +1261,60 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                     {isXmlUploading && (
                       <div className="mt-2 text-sm text-muted-foreground">Processando XML...</div>
                     )}
+                    {receiptType === "servico" && (
+                      <div className="mt-3">
+                        <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">Modo NFS-e</Badge>
+                      </div>
+                    )}
                     {xmlPreview && (
                       <div className="mt-4 text-sm flex items-center justify-between">
                         <div>
                           <div>Total: {xmlPreview?.totals?.vNF || xmlPreview?.totals?.vProd}</div>
                           <div>Itens: {Array.isArray(xmlPreview?.items) ? xmlPreview.items.length : 0}</div>
                         </div>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="secondary">Visualização detalhada</Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-6xl">
-                            <DialogTitle>NF-e</DialogTitle>
-                            <div className="max-h-[75vh] overflow-y-auto">
-                              <NFEViewer xmlString={xmlRaw} />
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                        {receiptType === "produto" && (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="secondary">Visualização detalhada</Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-6xl">
+                              <DialogTitle>NF-e</DialogTitle>
+                              <div className="max-h-[75vh] overflow-y-auto">
+                                <NFEViewer xmlString={xmlRaw} />
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        )}
                       </div>
                     )}
-                    <div className="mt-6">
-                      <Card>
-                        <CardHeader><CardTitle>Buscar NF-es Importadas</CardTitle></CardHeader>
-                        <CardContent>
-                          {/* Lightweight list to locate previous XMLs */}
-                          <ErrorBoundary fallback={<div className="text-sm text-red-600">Erro ao carregar lista</div>}>
-                            <NFEList
-                              purchaseRequestId={request.id}
-                              onPreviewLoaded={({ preview, attachmentId, xmlRaw }) => {
-                                try {
-                                  setXmlPreview(preview);
-                                  setXmlRaw(xmlRaw);
-                                  setXmlAttachmentId(attachmentId ?? null);
+                    {receiptType === "produto" && (
+                      <div className="mt-6">
+                        <Card>
+                          <CardHeader><CardTitle>Buscar NF-es Importadas</CardTitle></CardHeader>
+                          <CardContent>
+                            <ErrorBoundary fallback={<div className="text-sm text-red-600">Erro ao carregar lista</div>}>
+                              <NFEList
+                                purchaseRequestId={request.id}
+                                onPreviewLoaded={({ preview, attachmentId, xmlRaw }) => {
                                   try {
-                                    const xmlCnpjCpf = String(preview?.header?.supplier?.cnpjCpf || "").replace(/\D+/g, "");
-                                    const poCnpj = String(selectedSupplier?.cnpj || "").replace(/\D+/g, "");
-                                    if (xmlCnpjCpf && poCnpj) setSupplierMatch(xmlCnpjCpf === poCnpj);
-                                    else setSupplierMatch(null);
-                                  } catch { setSupplierMatch(null); }
-                                  toast({ title: "XML carregado", description: "Prévia importada a partir de anexo" });
-                                } catch {}
-                              }}
-                            />
-                          </ErrorBoundary>
-                        </CardContent>
-                      </Card>
-                    </div>
+                                    setXmlPreview(preview);
+                                    setXmlRaw(xmlRaw);
+                                    setXmlAttachmentId(attachmentId ?? null);
+                                    try {
+                                      const xmlCnpjCpf = String(preview?.header?.supplier?.cnpjCpf || "").replace(/\D+/g, "");
+                                      const poCnpj = String(selectedSupplier?.cnpj || "").replace(/\D+/g, "");
+                                      if (xmlCnpjCpf && poCnpj) setSupplierMatch(xmlCnpjCpf === poCnpj);
+                                      else setSupplierMatch(null);
+                                    } catch { setSupplierMatch(null); }
+                                    toast({ title: "XML carregado", description: "Prévia importada a partir de anexo" });
+                                  } catch {}
+                                }}
+                              />
+                            </ErrorBoundary>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
                     <div className="mt-4 flex justify-end">
                       <Button type="button" variant="secondary" onClick={() => {
                         if (!isFiscalValid) {
@@ -2060,7 +2069,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
           <Card>
             <CardHeader><CardTitle>Importação de XML</CardTitle></CardHeader>
             <CardContent>
-              {receiptType === "produto" ? (
+              {receiptType !== "avulso" ? (
                 <>
                   <Input type="file" accept=".xml" disabled={isXmlUploading} onChange={(e) => onUploadXml(e.target.files?.[0] || null)} />
                   {isXmlUploading && (

@@ -12,6 +12,7 @@ import {
   receiptInstallments,
 } from "../../shared/schema";
 import { parseNFeXml } from "../services/nfe-parser";
+import { parseNFSeXml } from "../services/nfse-parser";
 import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
 // @ts-ignore
@@ -53,7 +54,28 @@ export function registerReceiptsRoutes(app: Express) {
       }
       const xmlContent = await fs.promises.readFile(req.file.path, "utf-8");
 
-      const parsed = parseNFeXml(xmlContent);
+      const reqTypeRaw = String((req.body?.receiptType ?? req.query?.receiptType ?? "produto")).toLowerCase();
+      const isService = reqTypeRaw === "servico";
+      let parsed: ReturnType<typeof parseNFeXml> | ReturnType<typeof parseNFSeXml>;
+      try {
+        parsed = isService ? parseNFSeXml(xmlContent) : parseNFeXml(xmlContent);
+      } catch (err) {
+        if (isService) {
+          try {
+            parseNFeXml(xmlContent);
+            return res.status(400).json({ message: "XML é de NF-e; selecione o tipo Produto" });
+          } catch {
+            return res.status(400).json({ message: "XML inválido ou não reconhecido como NFS-e" });
+          }
+        } else {
+          try {
+            parseNFSeXml(xmlContent);
+            return res.status(400).json({ message: "XML é de NFS-e; selecione o tipo Serviço" });
+          } catch {
+            return res.status(400).json({ message: "XML inválido ou não reconhecido como NF-e" });
+          }
+        }
+      }
 
       const prIdRaw = (req.body?.purchaseRequestId ?? req.query?.purchaseRequestId) as any;
       const purchaseRequestId = prIdRaw ? Number(prIdRaw) : undefined;
@@ -65,23 +87,34 @@ export function registerReceiptsRoutes(app: Express) {
           filePath: req.file.path,
           fileType: req.file.mimetype,
           fileSize: req.file.size,
-          attachmentType: "recebimento_nf_xml",
+          attachmentType: isService ? "recebimento_nfse_xml" : "recebimento_nf_xml",
         }).returning();
         savedAttachmentId = att?.id as any;
       } catch {}
+
+      if (reqTypeRaw === "servico") {
+        const missing: string[] = [];
+        if (!parsed.header.documentNumber) missing.push("Número da nota");
+        if (!parsed.header.supplier?.cnpjCpf) missing.push("CNPJ do prestador");
+        if (!parsed.header.totals?.vNF) missing.push("Valor total");
+        if (!Array.isArray(parsed.items) || parsed.items.length === 0) missing.push("Itens/Serviços");
+        if (missing.length) {
+          return res.status(400).json({ message: `XML NFS-e com campos faltantes: ${missing.join(", ")}` });
+        }
+      }
 
       const result = await db.transaction(async (tx) => {
         const [createdReceipt] = await tx.insert(receipts).values({
           receiptNumber: generateReceiptNumber(),
           purchaseOrderId: purchaseRequestId ? undefined as any : null,
           status: "rascunho",
-          receiptType: "produto",
+          receiptType: isService ? "servico" : "produto",
           documentNumber: parsed.header.documentNumber,
           documentSeries: parsed.header.documentSeries,
           documentKey: parsed.header.documentKey,
           documentIssueDate: parsed.header.issueDate ? new Date(parsed.header.issueDate) : null,
           documentEntryDate: parsed.header.entryDate ? new Date(parsed.header.entryDate) : null,
-          totalAmount: (parsed.header.totals?.vNF || parsed.header.totals?.vProd || "0") as any,
+          totalAmount: (parsed.header.totals?.vNF || (parsed as any).header.totals?.vProd || "0") as any,
           installmentsCount: Array.isArray(parsed.installments) ? parsed.installments.length : null,
           createdAt: new Date(),
         } as any).returning();
@@ -100,16 +133,16 @@ export function registerReceiptsRoutes(app: Express) {
             quantity: it.quantity as any,
             unitPrice: it.unitPrice as any,
             totalPrice: it.totalPrice as any,
-            ncm: it.ncm,
-            cfop: it.cfop,
-            icmsRate: it.taxes?.icmsRate as any,
-            icmsAmount: it.taxes?.icmsAmount as any,
-            ipiRate: it.taxes?.ipiRate as any,
-            ipiAmount: it.taxes?.ipiAmount as any,
-            pisRate: it.taxes?.pisRate as any,
-            pisAmount: it.taxes?.pisAmount as any,
-            cofinsRate: it.taxes?.cofinsRate as any,
-            cofinsAmount: it.taxes?.cofinsAmount as any,
+            ncm: (it as any).ncm,
+            cfop: (it as any).cfop,
+            icmsRate: (it as any).taxes?.icmsRate as any,
+            icmsAmount: (it as any).taxes?.icmsAmount as any,
+            ipiRate: (it as any).taxes?.ipiRate as any,
+            ipiAmount: (it as any).taxes?.ipiAmount as any,
+            pisRate: (it as any).taxes?.pisRate as any,
+            pisAmount: (it as any).taxes?.pisAmount ?? (it as any).taxes?.pisAmount as any,
+            cofinsRate: (it as any).taxes?.cofinsRate as any,
+            cofinsAmount: (it as any).taxes?.cofinsAmount as any,
             quantityReceived: (it.quantity ?? "0") as any,
             condition: "xml",
             createdAt: new Date(),
@@ -127,7 +160,7 @@ export function registerReceiptsRoutes(app: Express) {
       });
       try {
         await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-          VALUES (${0}, ${'recebimento_import_xml'}, ${'Importação de XML NF-e (prévia)'}, ${null}, ${null}, ${JSON.stringify({ documentKey: parsed.header.documentKey })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+          VALUES (${0}, ${isService ? 'recebimento_import_nfse' : 'recebimento_import_xml'}, ${isService ? 'Importação de XML NFS-e (prévia)' : 'Importação de XML NF-e (prévia)'}, ${null}, ${null}, ${JSON.stringify({ documentId: parsed.header.documentKey || parsed.header.documentNumber })}::jsonb, ${sql`ARRAY['receipts']`} );`);
       } catch {}
 
       return res.json({
@@ -142,6 +175,10 @@ export function registerReceiptsRoutes(app: Express) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro ao processar XML";
+      try {
+        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+          VALUES (${0}, ${'recebimento_import_xml_error'}, ${String(message)}, ${null}, ${null}, ${null}, ${sql`ARRAY['receipts']`} );`);
+      } catch {}
       return res.status(400).json({ message });
     }
   });
