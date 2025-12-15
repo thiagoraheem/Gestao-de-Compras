@@ -1697,7 +1697,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       </Tabs>
 
       {/* Selected Supplier Information */}
-      {selectedSupplierQuotation && (
+      {activeTab === 'fiscal' && selectedSupplierQuotation && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -1804,94 +1804,90 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
 
 
       {/* Items Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Itens da Compra</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {itemsWithPrices.length > 0 ? (
-            <div className="rounded-md border border-border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead className="text-center">Qtd</TableHead>
-                    <TableHead className="text-center">Unidade</TableHead>
-                    <TableHead className="text-right">Valor Unit.</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {itemsWithPrices.map((item: any, index: number) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">
-                        {item.description}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {Number(item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {item.unit}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.unitPrice)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(item.totalPrice)}
-                      </TableCell>
+      {activeTab === 'fiscal' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Itens da Compra</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {itemsWithPrices.length > 0 ? (
+              <div className="rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="text-center">Qtd</TableHead>
+                      <TableHead className="text-center">Unidade</TableHead>
+                      <TableHead className="text-right">Valor Unit.</TableHead>
+                      <TableHead className="text-right">Valor Total</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              {/* Total Summary */}
-              <div className="border-t border-border bg-slate-50 dark:bg-slate-900 p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                    Subtotal ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
-                  </span>
-                  <span className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                    {formatCurrency(
-                      itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
-                    )}
-                  </span>
-                </div>
-
-                {/* Freight Display */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-blue-600 dark:text-blue-300 flex items-center gap-1">
-                    <Truck className="h-4 w-4" />
-                    Frete
-                  </span>
-                  <span className="text-base font-semibold text-blue-600 dark:text-blue-300">
-                    {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
-                  </span>
-                </div>
-
-                {/* Total with Freight */}
-                <div className="border-t pt-3">
+                  </TableHeader>
+                  <TableBody>
+                    {itemsWithPrices.map((item: any, index: number) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">
+                          {item.description}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {Number(item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {item.unit}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(item.unitPrice)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(item.totalPrice)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <div className="border-t border-border bg-slate-50 dark:bg-slate-900 p-4 space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-base font-bold text-slate-800 dark:text-slate-200">
-                      Total Geral
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                      Subtotal ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
                     </span>
-                    <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                    <span className="text-base font-semibold text-slate-800 dark:text-slate-200">
                       {formatCurrency(
-                        (itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0) || 0) + (freightValue || 0)
+                        itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
                       )}
                     </span>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-blue-600 dark:text-blue-300 flex items-center gap-1">
+                      <Truck className="h-4 w-4" />
+                      Frete
+                    </span>
+                    <span className="text-base font-semibold text-blue-600 dark:text-blue-300">
+                      {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
+                    </span>
+                  </div>
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-base font-bold text-slate-800 dark:text-slate-200">
+                        Total Geral
+                      </span>
+                      <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                        {formatCurrency(
+                          (itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0) || 0) + (freightValue || 0)
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-              <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Nenhum item encontrado</p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Os dados dos itens serão carregados automaticamente</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Nenhum item encontrado</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Os dados dos itens serão carregados automaticamente</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Approval History */}
       {Array.isArray(approvalHistory) && approvalHistory.length > 0 && (
