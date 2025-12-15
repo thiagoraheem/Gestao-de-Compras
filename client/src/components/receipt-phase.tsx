@@ -121,7 +121,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [manualNFIssueDate, setManualNFIssueDate] = useState<string>("");
   const [manualNFEntryDate, setManualNFEntryDate] = useState<string>("");
   const [supplierMatch, setSupplierMatch] = useState<null | boolean>(null);
-  const [activeTab, setActiveTab] = useState<'fiscal' | 'rateio' | 'xml' | 'manual_nf' | 'items'>('fiscal');
+  const [activeTab, setActiveTab] = useState<'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items'>('fiscal');
   const [allocations, setAllocations] = useState<Array<{ costCenterId?: number; chartOfAccountsId?: number; amount?: string; percentage?: string }>>([]);
   const [allocationMode, setAllocationMode] = useState<'manual' | 'proporcional'>('manual');
   const [paymentMethods, setPaymentMethods] = useState<Array<{ code: string; name: string }>>([]);
@@ -852,7 +852,6 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       const prefilledManual = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualTotal].every(v => !!v && String(v).trim() !== "");
       if (prefilledManual) {
         setReceiptType('avulso');
-        setActiveTab('manual_nf');
       }
     }
   }, [activeTab, manualNFNumber, manualNFSeries, manualNFIssueDate, manualTotal]);
@@ -945,21 +944,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => {
-        const next = v as 'fiscal' | 'rateio' | 'xml' | 'manual_nf' | 'items';
-        if (next === 'xml' && !isFiscalValid) {
-          toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
-          return;
-        }
-        if (next === 'xml' && (!paymentMethodCode || !invoiceDueDate)) {
-          toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
-          return;
-        }
-        if (next === 'rateio') {
-          if (!isFiscalValid) {
-            toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
-            return;
-          }
-        }
+        const next = v as 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items';
         if (next === 'items') {
           if (!isFiscalValid) {
             toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
@@ -988,9 +973,9 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       }}>
         <TabsList className="w-full justify-start gap-2">
           <TabsTrigger value="fiscal">Informações Básicas</TabsTrigger>
-          <TabsTrigger value="rateio" disabled={!isFiscalValid}>Rateio</TabsTrigger>
-          <TabsTrigger value="xml" disabled={!isFiscalValid}>Informações de Nota Fiscal</TabsTrigger>
-          <TabsTrigger value="items" disabled={!isFiscalValid}>Confirmação de Itens</TabsTrigger>
+          <TabsTrigger value="xml">Informações de Nota Fiscal</TabsTrigger>
+          <TabsTrigger value="financeiro">Informações Financeiras</TabsTrigger>
+          <TabsTrigger value="items">Confirmação de Itens</TabsTrigger>
         </TabsList>
 
         <TabsContent value="fiscal">
@@ -1045,31 +1030,6 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle>Informações Financeiras</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Forma de Pagamento</Label>
-              <Select value={paymentMethodCode || undefined} onValueChange={(v) => setPaymentMethodCode(v)}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.length > 0 ? (
-                    paymentMethods.map((pm) => (
-                      <SelectItem key={pm.code} value={pm.code}>{pm.name}</SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>Nenhuma forma disponível</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Data de Vencimento da Fatura</Label>
-              <Input type="date" value={invoiceDueDate} onChange={(e) => setInvoiceDueDate(e.target.value)} />
-            </div>
-          </CardContent>
-        </Card>
-
         {/* People Information */}
         <Card>
           <CardHeader>
@@ -1120,19 +1080,40 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
           </CardContent>
         </Card>
       </div>
-      <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
         <Button onClick={() => {
-          if (!paymentMethodCode || !invoiceDueDate) {
-            return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
-          }
-          setActiveTab('rateio');
+          setActiveTab('xml');
         }}>Próxima</Button>
       </div>
         </TabsContent>
 
-        <TabsContent value="rateio">
+        <TabsContent value="financeiro">
           <div className="space-y-6">
+            <Card>
+              <CardHeader><CardTitle>Informações Financeiras</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Forma de Pagamento</Label>
+                  <Select value={paymentMethodCode || undefined} onValueChange={(v) => setPaymentMethodCode(v)}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.length > 0 ? (
+                        paymentMethods.map((pm) => (
+                          <SelectItem key={pm.code} value={pm.code}>{pm.name}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>Nenhuma forma disponível</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Data de Vencimento da Fatura</Label>
+                  <Input type="date" value={invoiceDueDate} onChange={(e) => setInvoiceDueDate(e.target.value)} />
+                </div>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader><CardTitle>Rateio de Centro de Custo e Plano de Contas</CardTitle></CardHeader>
               <CardContent className="space-y-4">
@@ -1232,7 +1213,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
               </CardContent>
             </Card>
             <div className="flex justify-between gap-2">
-              <Button variant="outline" onClick={() => setActiveTab('fiscal')}>Voltar</Button>
+              <Button variant="outline" onClick={() => setActiveTab('xml')}>Voltar</Button>
               <Button onClick={() => {
                 if (!isFiscalValid) {
                   return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
@@ -1240,7 +1221,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 if (allocations.length > 0 && !allocationsSumOk) {
                   return toast({ title: "Validação", description: "A soma do rateio deve igualar o total", variant: "destructive" });
                 }
-                setActiveTab('xml');
+                setActiveTab('items');
               }}>Próxima</Button>
             </div>
           </div>
@@ -1256,9 +1237,6 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                   <Select value={receiptType} onValueChange={(v) => {
                     const next = v as "produto" | "servico" | "avulso";
                     setReceiptType(next);
-                    if (next === "avulso") {
-                      setActiveTab('manual_nf');
-                    }
                   }}>
                     <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
@@ -1269,7 +1247,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                   </Select>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Para notas Avulsas, os campos de inclusão manual serão exibidos automaticamente.
+                  Para notas Avulsas, os campos de inclusão manual são exibidos abaixo.
                 </div>
               </CardContent>
             </Card>
@@ -1351,10 +1329,39 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                     </div>
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Importação de XML disponível apenas para Tipo Produto. No modo Avulso, preencha os campos na etapa de itens.</p>
+                  <p className="text-sm text-muted-foreground">Importação de XML disponível apenas para Tipos Produto/Serviço. No modo Avulsa, preencha os campos da nota fiscal manual abaixo.</p>
                 )}
               </CardContent>
             </Card>
+
+            {receiptType === "avulso" && (
+              <Card>
+                <CardHeader><CardTitle>Inclusão Manual de Nota Fiscal (Avulsa)</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Número da NF</Label>
+                    <Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} placeholder="Informe o número" />
+                  </div>
+                  <div>
+                    <Label>Série</Label>
+                    <Input value={manualNFSeries} onChange={(e) => setManualNFSeries(e.target.value)} placeholder="Informe a série" />
+                  </div>
+                  <div>
+                    <Label>Data de Emissão</Label>
+                    <Input type="date" value={manualNFIssueDate} onChange={(e) => setManualNFIssueDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Data de Entrada</Label>
+                    <Input type="date" value={manualNFEntryDate} onChange={(e) => setManualNFEntryDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Valor Total</Label>
+                    <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" />
+                  </div>
+                  <div className="md:col-span-2 text-sm text-muted-foreground">Campos são obrigatórios para avançar.</div>
+                </CardContent>
+              </Card>
+            )}
 
             {xmlPreview && (
               <Card>
@@ -1404,8 +1411,12 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
             <div className="flex justify-between gap-2">
               <Button variant="outline" onClick={() => setActiveTab('fiscal')}>Voltar</Button>
               <Button onClick={() => {
-                if (!isFiscalValid) {
-                  return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
+                if (receiptType === "avulso") {
+                  const required = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualTotal];
+                  if (required.some(v => !v || String(v).trim() === "")) {
+                    return toast({ title: "Validação", description: "Preencha Número, Série, Emissão, Entrada e Valor Total da NF Avulsa", variant: "destructive" });
+                  }
+                  return setActiveTab('financeiro');
                 }
                 const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
                   const current = Number(receivedQuantities[it.id] || 0);
@@ -1417,9 +1428,9 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 }
                 const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
                 if (!hasAnyQty && !xmlPreview) {
-                  return toast({ title: "Validação", description: "Informe quantidades recebidas ou importe o XML", variant: "destructive" });
+                  return toast({ title: "Validação", description: "Informe quantidades recebidas ou importe o XML da NF", variant: "destructive" });
                 }
-                setActiveTab('items');
+                setActiveTab('financeiro');
               }}>Próxima</Button>
             </div>
           </div>
