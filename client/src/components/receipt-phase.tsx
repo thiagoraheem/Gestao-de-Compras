@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
@@ -36,6 +36,16 @@ import { NFEViewer } from "@/components/nfe/NFEViewer";
 import { NFEList } from "@/components/nfe/NFEList";
 import { CostCenterTreeSelect } from "@/components/fields/CostCenterTreeSelect";
 import { ChartAccountTreeSelect } from "@/components/fields/ChartAccountTreeSelect";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function buildCostCenterTreeData(listInput: any[]) {
   const list = Array.isArray(listInput) ? listInput : [];
@@ -82,6 +92,9 @@ export interface ReceiptPhaseHandle {
 }
 
 import { forwardRef, useImperativeHandle } from "react";
+import { validateAllocationsAgainstLocador, formatReceiptApiError } from "../utils/locador-validation";
+import { validateManualHeader, validateManualItems, validateEmitter, validateRecipient, validateTransport, validateProductTaxes, validateServiceData, computeIcms, computeIpi, computeIss, validateTotalConsistency } from "../utils/manual-nf-validation";
+import { buildNFeXml, buildNFSeXml } from "../utils/xml-generation";
 
 const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function ReceiptPhase({ request, onClose, className, onPreviewOpen, onPreviewClose }: ReceiptPhaseProps, ref) {
   const [, setLocation] = useLocation();
@@ -102,6 +115,21 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [xmlRaw, setXmlRaw] = useState<string>("");
   const [isXmlUploading, setIsXmlUploading] = useState(false);
   const [xmlAttachmentId, setXmlAttachmentId] = useState<number | null>(null);
+  const [xmlRecovered, setXmlRecovered] = useState(false);
+  useEffect(() => {
+    try {
+      const key = `xml_state_${request?.id}`;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const snap = JSON.parse(raw);
+        if (snap?.xmlPreview) setXmlPreview(snap.xmlPreview);
+        if (snap?.xmlRaw) setXmlRaw(snap.xmlRaw);
+        setXmlAttachmentId(snap?.xmlAttachmentId ?? null);
+        if (snap?.receiptType) setReceiptType(snap.receiptType);
+        setXmlRecovered(true);
+      }
+    } catch {}
+  }, [request?.id]);
   const [typeCategoryError, setTypeCategoryError] = useState<string>("");
   const [itemDecisions, setItemDecisions] = useState<Record<string, { confirmed: boolean }>>({});
   const [costCenters, setCostCenters] = useState<any[]>([]);
@@ -113,6 +141,9 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [manualTotal, setManualTotal] = useState<string>("");
   const [paymentMethodCode, setPaymentMethodCode] = useState<string>("");
   const [invoiceDueDate, setInvoiceDueDate] = useState<string>("");
+  const [hasInstallments, setHasInstallments] = useState<boolean>(false);
+  const [installmentCount, setInstallmentCount] = useState<number>(1);
+  const [installments, setInstallments] = useState<Array<{ dueDate: string; amount: string; method?: string }>>([]);
   const [manualCostCenterId, setManualCostCenterId] = useState<number | null>(null);
   const [manualChartOfAccountsId, setManualChartOfAccountsId] = useState<number | null>(null);
   const [manualItems, setManualItems] = useState<Array<{ code?: string; description: string; unit?: string; quantity: number; unitPrice: number }>>([]);
@@ -120,12 +151,21 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [manualNFSeries, setManualNFSeries] = useState<string>("");
   const [manualNFIssueDate, setManualNFIssueDate] = useState<string>("");
   const [manualNFEntryDate, setManualNFEntryDate] = useState<string>("");
+  const [manualNFEmitterCNPJ, setManualNFEmitterCNPJ] = useState<string>("");
+  const [manualNFAccessKey, setManualNFAccessKey] = useState<string>("");
+  const [manualNFStep, setManualNFStep] = useState<1 | 2 | 3>(1);
+  const [manualErrors, setManualErrors] = useState<Record<string, string>>({});
   const [supplierMatch, setSupplierMatch] = useState<null | boolean>(null);
   const [activeTab, setActiveTab] = useState<'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items'>('fiscal');
   const [allocations, setAllocations] = useState<Array<{ costCenterId?: number; chartOfAccountsId?: number; amount?: string; percentage?: string }>>([]);
   const [allocationMode, setAllocationMode] = useState<'manual' | 'proporcional'>('manual');
   const [paymentMethods, setPaymentMethods] = useState<Array<{ code: string; name: string }>>([]);
   const [autoFilledRows, setAutoFilledRows] = useState<Set<number>>(new Set());
+  const [emitter, setEmitter] = useState<{ cnpj?: string; name?: string; fantasyName?: string; ie?: string; im?: string; cnae?: string; crt?: string; address?: { street?: string; number?: string; neighborhood?: string; city?: string; uf?: string; cep?: string; country?: string; phone?: string } }>({});
+  const [recipient, setRecipient] = useState<{ cnpjCpf?: string; name?: string; ie?: string; email?: string; address?: { street?: string; number?: string; neighborhood?: string; city?: string; uf?: string; cep?: string; country?: string; phone?: string } }>({});
+  const [productTransp, setProductTransp] = useState<{ modFrete?: string; transporter?: { cnpj?: string; name?: string; ie?: string; address?: string; city?: string; uf?: string }; volume?: { quantity?: number; specie?: string } }>({});
+  const [serviceData, setServiceData] = useState<{ itemListaServico?: string; codigoTributacaoMunicipio?: string; discriminacao?: string; codigoMunicipio?: string; valores?: { valorServicos?: number; valorDeducoes?: number; valorPis?: number; valorCofins?: number; valorInss?: number; valorIr?: number; valorCsll?: number; issRetido?: number; valorIss?: number; valorIssRetido?: number; baseCalculo?: number; aliquota?: number; valorLiquidoNfse?: number; descontoIncondicionado?: number; descontoCondicionado?: number } }>({});
+  const [itemTaxes, setItemTaxes] = useState<Record<number, { vBC?: number; pICMS?: number; vICMS?: number; ipi?: { vBC?: number; pIPI?: number; vIPI?: number }; pis?: { cst?: string }; cofins?: { cst?: string } }>>({});
 
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
@@ -195,6 +235,87 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     }
   }, [request?.category, receiptType]);
 
+  useEffect(() => {
+    try {
+      const key = `nf_draft_${request?.id}`;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const data = JSON.parse(raw);
+        setEmitter(data.emitter || {});
+        setRecipient(data.recipient || {});
+        setProductTransp(data.productTransp || {});
+        setServiceData(data.serviceData || {});
+        setItemTaxes(data.itemTaxes || {});
+        setManualNFNumber(data.manualNFNumber || "");
+        setManualNFSeries(data.manualNFSeries || "");
+        setManualNFIssueDate(data.manualNFIssueDate || "");
+        setManualNFEntryDate(data.manualNFEntryDate || "");
+        setManualNFEmitterCNPJ(data.manualNFEmitterCNPJ || "");
+        setManualNFAccessKey(data.manualNFAccessKey || "");
+        setManualItems(Array.isArray(data.manualItems) ? data.manualItems : []);
+      }
+    } catch {}
+  }, [request?.id]);
+
+  useEffect(() => {
+    if (!xmlPreview) return;
+    try {
+      const h = xmlPreview?.header || {};
+      const sup = h?.supplier || {};
+      const dest = h?.recipient || {};
+      const totals = h?.totals || {};
+      setEmitter(prev => ({ ...prev, cnpj: sup?.cnpjCpf || prev.cnpj, name: sup?.name || prev.name }));
+      setRecipient(prev => ({ ...prev, cnpjCpf: dest?.cnpjCpf || prev.cnpjCpf, name: dest?.name || prev.name }));
+      if (receiptType === "servico") {
+        setServiceData(prev => ({
+          ...prev,
+          discriminacao: xmlPreview?.items?.[0]?.description || prev.discriminacao,
+          codigoMunicipio: String((xmlPreview?.items?.[0]?.codigoMunicipio ?? prev.codigoMunicipio ?? "")),
+          valores: {
+            ...(prev.valores || {}),
+            valorServicos: Number((totals?.vNF ?? prev.valores?.valorServicos ?? 0)),
+            valorPis: Number((totals?.vPIS ?? prev.valores?.valorPis ?? 0)),
+            valorCofins: Number((totals?.vCOFINS ?? prev.valores?.valorCofins ?? 0)),
+            valorIss: Number((totals?.vISS ?? prev.valores?.valorIss ?? 0)),
+            baseCalculo: Number((totals?.vNF ?? prev.valores?.baseCalculo ?? 0)),
+          }
+        }));
+      }
+      if (receiptType === "produto") {
+        setManualItems(Array.isArray(xmlPreview?.items) ? xmlPreview.items.map((it: any) => ({
+          code: it.code || it.codigo,
+          description: it.description,
+          unit: it.unit,
+          quantity: Number(it.quantity),
+          unitPrice: Number(it.unitPrice),
+        })) : []);
+        const taxesMap: Record<number, any> = {};
+        (xmlPreview?.items || []).forEach((it: any, idx: number) => {
+          const t = it.taxes || {};
+          taxesMap[idx + 1] = {
+            vBC: Number(t.vBC ?? 0),
+            pICMS: Number(t.pICMS ?? 0),
+            vICMS: Number(t.vICMS ?? 0),
+            ipi: { vBC: Number(t.ipiBase ?? 0), pIPI: Number(t.ipiAliquota ?? 0), vIPI: Number(t.ipiValor ?? 0) },
+            pis: { cst: String(t.pisCST || "") },
+            cofins: { cst: String(t.cofinsCST || "") },
+          };
+        });
+        setItemTaxes(taxesMap);
+      }
+    } catch {}
+  }, [xmlPreview, receiptType]);
+
+  useEffect(() => {
+    try {
+      const key = `nf_draft_${request?.id}`;
+      const data = {
+        emitter, recipient, productTransp, serviceData, itemTaxes,
+        manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualItems,
+      };
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch {}
+  }, [request?.id, emitter, recipient, productTransp, serviceData, itemTaxes, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualItems]);
   useEffect(() => {
     if (receiptType === "avulso") {
       const hadXml = !!xmlPreview;
@@ -279,10 +400,16 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         if (data.manualNFSeries) setManualNFSeries(data.manualNFSeries);
         if (data.manualNFIssueDate) setManualNFIssueDate(data.manualNFIssueDate);
         if (data.manualNFEntryDate) setManualNFEntryDate(data.manualNFEntryDate);
+        if (data.manualNFEmitterCNPJ) setManualNFEmitterCNPJ(data.manualNFEmitterCNPJ);
+        if (data.manualNFAccessKey) setManualNFAccessKey(data.manualNFAccessKey);
+        if (data.manualNFStep) setManualNFStep(data.manualNFStep);
         if (data.manualTotal) setManualTotal(data.manualTotal);
         if (Array.isArray(data.manualItems)) setManualItems(data.manualItems);
         if (Array.isArray(data.allocations)) setAllocations(data.allocations);
         if (data.allocationMode) setAllocationMode(data.allocationMode);
+        if (data.hasInstallments != null) setHasInstallments(!!data.hasInstallments);
+        if (Array.isArray(data.installments)) setInstallments(data.installments);
+        if (data.installmentCount != null) setInstallmentCount(Number(data.installmentCount));
       }
     } catch {}
   }, [request?.id]);
@@ -298,15 +425,87 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         manualNFSeries,
         manualNFIssueDate,
         manualNFEntryDate,
+        manualNFEmitterCNPJ,
+        manualNFAccessKey,
+        manualNFStep,
         manualTotal,
         manualItems,
         allocations,
         allocationMode,
         activeTab,
+        hasInstallments,
+        installmentCount,
+        installments,
       };
       localStorage.setItem(key, JSON.stringify(payload));
     } catch {}
-  }, [paymentMethodCode, invoiceDueDate, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualTotal, manualItems, allocations, allocationMode, activeTab, request?.id]);
+  }, [paymentMethodCode, invoiceDueDate, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualNFStep, manualTotal, manualItems, allocations, allocationMode, activeTab, request?.id]);
+
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const handleResetConfirmed = () => {
+    try {
+      const backupDraftKey = `nf_draft_backup_${request?.id}`;
+      const backupFlowKey = `receipt_flow_backup_${request?.id}`;
+      const draftKey = `nf_draft_${request?.id}`;
+      const flowKey = `receipt_flow_${request?.id}`;
+      const currentDraft = {
+        emitter, recipient, productTransp, serviceData, itemTaxes, manualItems,
+        manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey,
+      };
+      const currentFlow = {
+        paymentMethodCode, invoiceDueDate, receiptType, manualNFStep, manualTotal, allocations, allocationMode, activeTab,
+        hasInstallments, installmentCount, installments,
+      };
+      sessionStorage.setItem(backupDraftKey, JSON.stringify(currentDraft));
+      sessionStorage.setItem(backupFlowKey, JSON.stringify(currentFlow));
+      localStorage.removeItem(draftKey);
+      localStorage.removeItem(flowKey);
+      sessionStorage.removeItem(draftKey);
+      sessionStorage.removeItem(flowKey);
+    } catch {}
+    try {
+      setReceivedQuantities({});
+      setReceiptType("produto");
+      setXmlPreview(null);
+      setXmlRaw("");
+      setIsXmlUploading(false);
+      setXmlAttachmentId(null);
+      setTypeCategoryError("");
+      setItemDecisions({});
+      setManualTotal("");
+      setPaymentMethodCode("");
+      setInvoiceDueDate("");
+      setManualCostCenterId(null);
+      setManualChartOfAccountsId(null);
+      setEmitter({});
+      setRecipient({});
+      setProductTransp({});
+      setServiceData({});
+      setItemTaxes({});
+      setManualItems([]);
+      setManualNFNumber("");
+      setManualNFSeries("");
+      setManualNFIssueDate("");
+      setManualNFEntryDate("");
+      setManualNFEmitterCNPJ("");
+      setManualNFAccessKey("");
+      setManualNFStep(1);
+      setManualErrors({});
+      setSupplierMatch(null);
+      setAllocations([]);
+      setAllocationMode("manual");
+      setAutoFilledRows(new Set());
+      setActiveTab("fiscal");
+      setHasInstallments(false);
+      setInstallmentCount(1);
+      setInstallments([]);
+      toast({ title: "Formulário reiniciado", description: "Dados limpos. Um backup temporário foi criado na sessão." });
+    } catch {
+      toast({ title: "Erro", description: "Falha ao reiniciar o formulário", variant: "destructive" });
+    } finally {
+      setShowClearConfirm(false);
+    }
+  };
 
   const onUploadXml = async (file: File | null) => {
     if (!file) return;
@@ -331,13 +530,23 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       const preview = data.preview || data;
       setXmlPreview(preview);
       setXmlAttachmentId(data.attachment?.id ?? null);
-      // Compare emitente (XML) com fornecedor do pedido
       try {
         const xmlCnpjCpf = String(preview?.header?.supplier?.cnpjCpf || "").replace(/\D+/g, "");
         const poCnpj = String(selectedSupplier?.cnpj || "").replace(/\D+/g, "");
         if (xmlCnpjCpf && poCnpj) setSupplierMatch(xmlCnpjCpf === poCnpj);
         else setSupplierMatch(null);
       } catch { setSupplierMatch(null); }
+      try {
+        const stateKey = `xml_state_${request.id}`;
+        const histKey = `xml_history_${request.id}`;
+        const snapshot = { xmlRaw: raw, xmlPreview: preview, xmlAttachmentId: data.attachment?.id ?? null, receiptType, timestamp: new Date().toISOString() };
+        localStorage.setItem(stateKey, JSON.stringify(snapshot));
+        const existing = localStorage.getItem(histKey);
+        const history = existing ? JSON.parse(existing) : [];
+        history.push({ timestamp: snapshot.timestamp, attachmentId: snapshot.xmlAttachmentId, itemsCount: Array.isArray(preview?.items) ? preview.items.length : 0, totals: preview?.totals });
+        localStorage.setItem(histKey, JSON.stringify(history));
+      } catch {}
+      setXmlRecovered(true);
       toast({ title: "XML importado", description: receiptType === "servico" ? "Dados preenchidos a partir do XML da NFS-e" : "Dados preenchidos a partir do XML da NF-e" });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
@@ -500,6 +709,33 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
           } catch {}
         }
       } catch {}
+      try {
+        const validation = validateAllocationsAgainstLocador(allocations, costCenters, chartAccounts);
+        console.log("validation:locador", { allocations, sources: validation.sources, invalidRows: validation.invalidRows });
+        await apiRequest(`/api/audit/log`, {
+          method: "POST",
+          body: {
+            purchaseRequestId: request?.id,
+            actionType: "recebimento_validacao_rateio",
+            actionDescription: "Validação de rateio usando dados do Locador",
+            beforeData: {
+              allocationsCount: allocations.length,
+            },
+            afterData: {
+              isValid: validation.isValid,
+              invalidRows: validation.invalidRows,
+              sources: validation.sources,
+            },
+          },
+        });
+        if (!validation.isValid) {
+          throw new Error(formatReceiptApiError("Validação de rateio falhou", validation.invalidRows));
+        }
+      } catch (e) {
+        if (e instanceof Error) {
+          throw e;
+        }
+      }
       const response = await apiRequest(`/api/purchase-requests/${request?.id}/confirm-receipt`, {
         method: "POST",
         body: {
@@ -534,10 +770,13 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       try { setLocation(`/kanban?request=${request?.id}&phase=conclusao_compra`); } catch {}
       onClose();
     },
-    onError: () => {
+    onError: (error: any) => {
+      const apiMsg = error?.message || "Falha ao confirmar o recebimento";
+      const validation = validateAllocationsAgainstLocador(allocations, costCenters, chartAccounts);
+      const description = formatReceiptApiError(apiMsg, validation.invalidRows);
       toast({
-        title: "Erro",
-        description: "Não foi possível confirmar o recebimento",
+        title: "Erro ao confirmar recebimento",
+        description,
         variant: "destructive",
       });
     },
@@ -913,16 +1152,34 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     window.setTimeout(() => setAutoFilledRows(new Set()), 2500);
   };
 
-  const isFiscalValid = !!paymentMethodCode && !!invoiceDueDate;
+  const isFiscalValid = (() => {
+    if (!hasInstallments) return !!paymentMethodCode && !!invoiceDueDate;
+    const total = baseTotalForAllocation;
+    const rows = installments || [];
+    if (rows.length === 0) return false;
+    const sum = rows.reduce((acc, r) => acc + (parseFloat(String(r.amount || "0").replace(",", ".")) || 0), 0);
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const sorted = rows.every((r, i, arr) => i === 0 || new Date(r.dueDate) >= new Date(arr[i - 1].dueDate));
+    const allFilled = rows.every(r => !!r.dueDate && (parseFloat(String(r.amount || "0").replace(",", ".")) > 0) && (!!r.method || !!paymentMethodCode));
+    return round2(sum) === round2(total) && sorted && allFilled;
+  })();
   const canConfirm = useMemo(() => {
     if (typeCategoryError) return false;
     if (!isFiscalValid) return false;
     if (allocations.length > 0 && !allocationsSumOk) return false;
-    if (receiptType === "avulso") {
-      const requiredFilled = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate].every(v => !!v && String(v).trim() !== "");
-      const hasTotals = String(manualTotal || '').trim() !== '';
-      const hasItems = manualItems.length > 0;
-      return requiredFilled && hasTotals && hasItems;
+    if (receiptType === "avulso" || activeTab === "manual_nf") {
+      const header = validateManualHeader({
+        number: manualNFNumber,
+        series: manualNFSeries,
+        accessKey: manualNFAccessKey,
+        issueDate: manualNFIssueDate,
+        emitterCnpj: manualNFEmitterCNPJ,
+        total: manualTotal,
+        kind: receiptType === "servico" ? "servico" : "produto",
+      });
+      if (!header.isValid) return false;
+      const itemsOk = validateManualItems(receiptType === "servico" ? "servico" : "produto", manualItems as any).isValid;
+      return itemsOk;
     }
     const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
       const current = Number(receivedQuantities[it.id] || 0);
@@ -933,7 +1190,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
     if (!hasAnyQty && !xmlPreview) return false;
     return true;
-  }, [typeCategoryError, isFiscalValid, allocations.length, allocationsSumOk, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualTotal, manualItems.length, itemsWithPrices, receivedQuantities, xmlPreview]);
+  }, [typeCategoryError, isFiscalValid, allocations.length, allocationsSumOk, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualTotal, manualItems.length, itemsWithPrices, receivedQuantities, xmlPreview, activeTab]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -972,11 +1229,42 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         }
         setActiveTab(next);
       }}>
-        <TabsList className="w-full justify-start gap-2">
+        <TabsList className="w-full justify-between gap-2">
           <TabsTrigger value="fiscal">Informações Básicas</TabsTrigger>
           <TabsTrigger value="xml">Informações de Nota Fiscal</TabsTrigger>
+          <TabsTrigger value="manual_nf">Inclusão Manual de NF</TabsTrigger>
           <TabsTrigger value="financeiro">Informações Financeiras</TabsTrigger>
           <TabsTrigger value="items">Confirmação de Itens</TabsTrigger>
+          <div className="ml-auto">
+            <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reiniciar Formulário</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja limpar todos os dados? Um backup temporário será criado na sessão e campos obrigatórios permanecerão destacados.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={handleResetConfirmed}
+                  >
+                    Limpar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+              <Button
+                variant="outline"
+                className="ml-2 border-destructive text-destructive hover:bg-destructive/10"
+                aria-label="Limpar dados do formulário"
+                onClick={() => setShowClearConfirm(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Limpar Dados
+              </Button>
+            </AlertDialog>
+          </div>
         </TabsList>
 
         <TabsContent value="fiscal">
@@ -1089,6 +1377,294 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       </div>
         </TabsContent>
 
+        <TabsContent value="manual_nf">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader><CardTitle>Inclusão Manual de Nota Fiscal</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Tipo</Label>
+                    <Select value={receiptType} onValueChange={(v) => setReceiptType(v as any)}>
+                      <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="produto">Produto</SelectItem>
+                        <SelectItem value="servico">Serviço</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Número da NF</Label>
+                    <Input value={manualNFNumber} onChange={(e) => { setManualNFNumber(e.target.value); }} placeholder="Informe o número" />
+                    {manualErrors.number && <p className="text-sm text-red-600 mt-1">{manualErrors.number}</p>}
+                  </div>
+                  <div>
+                    <Label>Série</Label>
+                    <Input value={manualNFSeries} onChange={(e) => { setManualNFSeries(e.target.value); }} placeholder="Informe a série" />
+                    {manualErrors.series && <p className="text-sm text-red-600 mt-1">{manualErrors.series}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Chave de Acesso (NF-e)</Label>
+                    <Input value={manualNFAccessKey} onChange={(e) => setManualNFAccessKey(e.target.value)} placeholder="44 dígitos" />
+                    {manualErrors.accessKey && <p className="text-sm text-red-600 mt-1">{manualErrors.accessKey}</p>}
+                  </div>
+                  <div>
+                    <Label>Data de Emissão</Label>
+                    <Input type="date" value={manualNFIssueDate} onChange={(e) => setManualNFIssueDate(e.target.value)} />
+                    {manualErrors.issueDate && <p className="text-sm text-red-600 mt-1">{manualErrors.issueDate}</p>}
+                  </div>
+                  <div>
+                    <Label>CNPJ do Emitente</Label>
+                    <Input value={manualNFEmitterCNPJ} onChange={(e) => setManualNFEmitterCNPJ(e.target.value)} placeholder="00.000.000/0000-00" />
+                    {manualErrors.emitterCnpj && <p className="text-sm text-red-600 mt-1">{manualErrors.emitterCnpj}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Data de Entrada</Label>
+                    <Input type="date" value={manualNFEntryDate} onChange={(e) => setManualNFEntryDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Valor Total</Label>
+                    <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" />
+                    {manualErrors.total && <p className="text-sm text-red-600 mt-1">{manualErrors.total}</p>}
+                  </div>
+                </div>
+                <div className="flex justify-between">
+                  <Button type="button" variant="outline" onClick={() => setActiveTab('xml')}>Voltar</Button>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="secondary" onClick={() => {
+                      const header = validateManualHeader({
+                        number: manualNFNumber, series: manualNFSeries, accessKey: manualNFAccessKey,
+                        issueDate: manualNFIssueDate, emitterCnpj: manualNFEmitterCNPJ, total: manualTotal,
+                        kind: receiptType === "servico" ? "servico" : "produto",
+                      });
+                      setManualErrors(header.errors);
+                      if (!header.isValid) {
+                        return toast({ title: "Validação", description: "Preencha os campos obrigatórios corretamente", variant: "destructive" });
+                      }
+                      setManualNFStep(2);
+                      toast({ title: "Etapa", description: "Cadastro inicial concluído" });
+                    }}>Próxima</Button>
+                    <Button type="button" variant="outline" onClick={() => toast({ title: "Rascunho", description: "Dados salvos localmente" })}>Salvar Parcial</Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {manualNFStep >= 2 && (
+              <Card>
+                <CardHeader><CardTitle>Itens da Nota ({receiptType === "servico" ? "Serviços" : "Produtos"})</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="text-sm text-muted-foreground">Adicione múltiplos itens e valide os dados</div>
+                    <Button type="button" variant="secondary" onClick={() => {
+                      if (receiptType === "servico") {
+                        setManualItems(prev => [...prev, { description: "", netValue: 0, issValue: 0 } as any]);
+                      } else {
+                        setManualItems(prev => [...prev, { description: "", ncm: "", quantity: 1, unit: "UN", unitPrice: 0 } as any]);
+                      }
+                    }}>Adicionar Item</Button>
+                  </div>
+                  <div className="space-y-2">
+                    {manualItems.map((it: any, idx: number) => (
+                      <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2">
+                        {receiptType === "servico" ? (
+                          <>
+                            <div className="md:col-span-2">
+                              <Label>Descrição</Label>
+                              <Input value={it.description || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, description: e.target.value } : row))} />
+                            </div>
+                            <div>
+                              <Label>Código de Serviço</Label>
+                              <Input value={it.serviceCode || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, serviceCode: e.target.value } : row))} />
+                            </div>
+                            <div>
+                              <Label>Valor Líquido</Label>
+                              <Input type="number" value={it.netValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, netValue: Number(e.target.value) } : row))} />
+                            </div>
+                            <div>
+                              <Label>ISS</Label>
+                              <Input type="number" value={it.issValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, issValue: Number(e.target.value) } : row))} />
+                            </div>
+                            <div className="flex items-end">
+                              <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <Label>Código</Label>
+                              <Input value={it.code || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, code: e.target.value } : row))} />
+                            </div>
+                            <div className="md:col-span-2">
+                              <Label>Descrição</Label>
+                              <Input value={it.description || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, description: e.target.value } : row))} />
+                            </div>
+                            <div>
+                              <Label>NCM</Label>
+                              <Input value={it.ncm || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, ncm: e.target.value } : row))} />
+                            </div>
+                            <div>
+                              <Label>Qtd</Label>
+                              <Input type="number" value={it.quantity ?? 1} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity: Number(e.target.value) } : row))} />
+                            </div>
+                            <div>
+                              <Label>Valor Unit.</Label>
+                              <Input type="number" value={it.unitPrice ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, unitPrice: Number(e.target.value) } : row))} />
+                            </div>
+                            <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2 bg-slate-50">
+                              <div>
+                                <Label>ICMS vBC</Label>
+                                <Input type="number" value={(itemTaxes[idx + 1]?.vBC ?? "") as any} onChange={(e) => {
+                                  const vBC = Number(e.target.value || 0);
+                                  setItemTaxes(prev => {
+                                    const curr = { ...(prev[idx + 1] || {}) };
+                                    curr.vBC = vBC;
+                                    if (curr.pICMS != null) curr.vICMS = Number(((vBC || 0) * (Number(curr.pICMS) || 0) / 100).toFixed(2));
+                                    return { ...prev, [idx + 1]: curr };
+                                  });
+                                }} />
+                              </div>
+                              <div>
+                                <Label>ICMS %</Label>
+                                <Input type="number" value={(itemTaxes[idx + 1]?.pICMS ?? "") as any} onChange={(e) => {
+                                  const pICMS = Number(e.target.value || 0);
+                                  setItemTaxes(prev => {
+                                    const curr = { ...(prev[idx + 1] || {}) };
+                                    curr.pICMS = pICMS;
+                                    const base = curr.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
+                                    curr.vICMS = Number(((base || 0) * (pICMS || 0) / 100).toFixed(2));
+                                    return { ...prev, [idx + 1]: curr };
+                                  });
+                                }} />
+                              </div>
+                              <div>
+                                <Label>ICMS Valor</Label>
+                                <Input type="number" value={(itemTaxes[idx + 1]?.vICMS ?? "") as any} onChange={(e) => {
+                                  const vICMS = Number(e.target.value || 0);
+                                  setItemTaxes(prev => ({ ...prev, [idx + 1]: { ...(prev[idx + 1] || {}), vICMS } }));
+                                }} />
+                              </div>
+                              <div>
+                                <Label>IPI vBC</Label>
+                                <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.vBC ?? "") as any} onChange={(e) => {
+                                  const vBC = Number(e.target.value || 0);
+                                  setItemTaxes(prev => {
+                                    const curr = { ...(prev[idx + 1] || {}) };
+                                    curr.ipi = { ...(curr.ipi || {}), vBC };
+                                    return { ...prev, [idx + 1]: curr };
+                                  });
+                                }} />
+                              </div>
+                              <div>
+                                <Label>IPI %</Label>
+                                <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.pIPI ?? "") as any} onChange={(e) => {
+                                  const pIPI = Number(e.target.value || 0);
+                                  setItemTaxes(prev => {
+                                    const curr = { ...(prev[idx + 1] || {}) };
+                                    const base = curr.ipi?.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
+                                    curr.ipi = { ...(curr.ipi || {}), pIPI, vIPI: Number(((base || 0) * (pIPI || 0) / 100).toFixed(2)) };
+                                    return { ...prev, [idx + 1]: curr };
+                                  });
+                                }} />
+                              </div>
+                              <div>
+                                <Label>IPI Valor</Label>
+                                <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.vIPI ?? "") as any} onChange={(e) => {
+                                  const vIPI = Number(e.target.value || 0);
+                                  setItemTaxes(prev => {
+                                    const curr = { ...(prev[idx + 1] || {}) };
+                                    curr.ipi = { ...(curr.ipi || {}), vIPI };
+                                    return { ...prev, [idx + 1]: curr };
+                                  });
+                                }} />
+                              </div>
+                              <div>
+                                <Label>PIS CST</Label>
+                                <Input value={(itemTaxes[idx + 1]?.pis?.cst ?? "") as any} onChange={(e) => {
+                                  const cst = String(e.target.value || "");
+                                  setItemTaxes(prev => {
+                                    const curr = { ...(prev[idx + 1] || {}) };
+                                    curr.pis = { ...(curr.pis || {}), cst };
+                                    return { ...prev, [idx + 1]: curr };
+                                  });
+                                }} />
+                              </div>
+                              <div>
+                                <Label>COFINS CST</Label>
+                                <Input value={(itemTaxes[idx + 1]?.cofins?.cst ?? "") as any} onChange={(e) => {
+                                  const cst = String(e.target.value || "");
+                                  setItemTaxes(prev => {
+                                    const curr = { ...(prev[idx + 1] || {}) };
+                                    curr.cofins = { ...(curr.cofins || {}), cst };
+                                    return { ...prev, [idx + 1]: curr };
+                                  });
+                                }} />
+                              </div>
+                            </div>
+                            <div className="flex items-end">
+                              <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between">
+                    <Button type="button" variant="outline" onClick={() => setManualNFStep(1)}>Voltar</Button>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="secondary" onClick={() => {
+                        const res = validateManualItems(receiptType === "servico" ? "servico" : "produto", manualItems as any);
+                        if (!res.isValid) {
+                          return toast({ title: "Validação", description: res.errors[0]?.message || "Itens inválidos", variant: "destructive" });
+                        }
+                        setManualNFStep(3);
+                        toast({ title: "Etapa", description: "Itens incluídos" });
+                      }}>Próxima</Button>
+                      <Button type="button" variant="outline" onClick={() => toast({ title: "Rascunho", description: "Itens salvos localmente" })}>Salvar Parcial</Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {manualNFStep >= 3 && (
+              <Card>
+                <CardHeader><CardTitle>Conferência Final</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="text-sm text-muted-foreground">Verifique se os dados estão consistentes antes de confirmar</div>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setManualNFStep(2)}>Voltar</Button>
+                    <Button type="button" onClick={() => {
+                      const header = validateManualHeader({
+                        number: manualNFNumber, series: manualNFSeries, accessKey: manualNFAccessKey,
+                        issueDate: manualNFIssueDate, emitterCnpj: manualNFEmitterCNPJ, total: manualTotal,
+                        kind: receiptType === "servico" ? "servico" : "produto",
+                      });
+                      setManualErrors(header.errors);
+                      if (!header.isValid) {
+                        return toast({ title: "Validação", description: "Campos obrigatórios pendentes no cadastro inicial", variant: "destructive" });
+                      }
+                      const kind = receiptType === "servico" ? "servico" : "produto";
+                      const res = validateManualItems(kind, manualItems as any);
+                      if (!res.isValid) {
+                        return toast({ title: "Validação", description: "Itens inválidos", variant: "destructive" });
+                      }
+                      const totCheck = validateTotalConsistency(manualTotal, kind as any, manualItems as any);
+                      if (!totCheck.isValid) {
+                        return toast({ title: "Validação", description: `Valor total (${totCheck.provided.toFixed(2)}) não confere com soma dos itens (${totCheck.expected.toFixed(2)})`, variant: "destructive" });
+                      }
+                      confirmReceiptMutation.mutate();
+                    }}>Confirmar NF Manual</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
         <TabsContent value="financeiro">
           <div className="space-y-6">
             <Card>
@@ -1113,6 +1689,93 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                   <Label>Data de Vencimento da Fatura</Label>
                   <Input type="date" value={invoiceDueDate} onChange={(e) => setInvoiceDueDate(e.target.value)} />
                 </div>
+                <div>
+                  <Label>Parcelamento</Label>
+                  <Select value={hasInstallments ? "sim" : "nao"} onValueChange={(v) => setHasInstallments(v === "sim")}> 
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nao">Sem parcelamento</SelectItem>
+                      <SelectItem value="sim">Parcelado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {hasInstallments && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div>
+                      <Label>Número de parcelas</Label>
+                      <Input type="number" min={1} value={installmentCount} onChange={(e) => setInstallmentCount(Math.max(1, Number(e.target.value || 1)))} />
+                    </div>
+                    <div className="flex items-end">
+                      <Button type="button" variant="secondary" onClick={() => {
+                        if (!invoiceDueDate) {
+                          toast({ title: "Validação", description: "Informe a Data de Vencimento inicial", variant: "destructive" });
+                          return;
+                        }
+                        const total = baseTotalForAllocation;
+                        const n = Math.max(1, Number(installmentCount || 1));
+                        const per = Math.floor((total * 100) / n) / 100;
+                        const vals = Array.from({ length: n }).map((_, i) => (i === n - 1 ? Number((total - per * (n - 1)).toFixed(2)) : per));
+                        const base = new Date(invoiceDueDate);
+                        const rows = vals.map((amt, i) => {
+                          const d = new Date(base);
+                          d.setMonth(d.getMonth() + i);
+                          const yyyy = d.getFullYear();
+                          const mm = String(d.getMonth() + 1).padStart(2, '0');
+                          const dd = String(d.getDate()).padStart(2, '0');
+                          return { dueDate: `${yyyy}-${mm}-${dd}`, amount: amt.toFixed(2), method: paymentMethodCode || undefined };
+                        });
+                        setInstallments(rows);
+                        toast({ title: "Parcelas geradas", description: `${n} parcela(s) criadas totalizando ${formatCurrency(total)}` });
+                      }}>Gerar Parcelas</Button>
+                    </div>
+                    <div className="md:col-span-2">
+                      <div className="rounded border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>#</TableHead>
+                              <TableHead>Valor</TableHead>
+                              <TableHead>Vencimento</TableHead>
+                              <TableHead>Forma</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {installments.map((row, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell>{idx + 1}</TableCell>
+                                <TableCell>
+                                  <Input value={row.amount} onChange={(e) => setInstallments(prev => prev.map((r, i) => i === idx ? { ...r, amount: e.target.value } : r))} />
+                                </TableCell>
+                                <TableCell>
+                                  <Input type="date" value={row.dueDate} onChange={(e) => setInstallments(prev => prev.map((r, i) => i === idx ? { ...r, dueDate: e.target.value } : r))} />
+                                </TableCell>
+                                <TableCell>
+                                  <Select value={row.method || paymentMethodCode || undefined} onValueChange={(v) => setInstallments(prev => prev.map((r, i) => i === idx ? { ...r, method: v } : r))}>
+                                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      {paymentMethods.length > 0 ? (
+                                        paymentMethods.map((pm) => (
+                                          <SelectItem key={pm.code} value={pm.code}>{pm.name}</SelectItem>
+                                        ))
+                                      ) : (
+                                        <SelectItem value="none" disabled>Nenhuma forma disponível</SelectItem>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {installments.length === 0 && (
+                              <TableRow>
+                                <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">Nenhuma parcela</TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -1201,7 +1864,19 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                     }));
                   }}>Distribuir Proporcionalmente</Button>
                   <Button type="button" variant="secondary" onClick={() => {
-                    setAllocations(prev => prev.length > 0 ? prev : [{ amount: String(baseTotalForAllocation.toFixed(2)), percentage: "100" }]);
+                    const validRows = allocations.map((r, i) => ({ r, i })).filter(({ r }) => r.costCenterId && r.chartOfAccountsId);
+                    if (validRows.length === 0) {
+                      toast({ title: "Validação", description: "Adicione uma linha com Centro de Custo e Plano de Contas selecionados", variant: "destructive" });
+                      return;
+                    }
+                    if (validRows.length > 1) {
+                      toast({ title: "Validação", description: "Para 'Preencher 100%', mantenha apenas uma linha válida", variant: "destructive" });
+                      return;
+                    }
+                    const idx = validRows[0].i;
+                    setAllocations(prev => prev.map((r, i) => i === idx ? { ...r, amount: baseTotalForAllocation.toFixed(2), percentage: "100" } : { ...r, amount: undefined, percentage: undefined }));
+                    setAutoFilledRows(new Set([idx]));
+                    window.setTimeout(() => setAutoFilledRows(new Set()), 2500);
                   }}>Preencher 100%</Button>
                   <Button type="button" variant="default" onClick={handleFillMissingAllocationValues} aria-label="Preencher valores vazios do rateio">
                     Preencher Valores Vazios
@@ -1266,6 +1941,11 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                         <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">Modo NFS-e</Badge>
                       </div>
                     )}
+                    {(xmlPreview || xmlRecovered) && (
+                      <div className="mt-3">
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">XML já importado</Badge>
+                      </div>
+                    )}
                     {xmlPreview && (
                       <div className="mt-4 text-sm flex items-center justify-between">
                         <div>
@@ -1306,6 +1986,17 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                                       if (xmlCnpjCpf && poCnpj) setSupplierMatch(xmlCnpjCpf === poCnpj);
                                       else setSupplierMatch(null);
                                     } catch { setSupplierMatch(null); }
+                                    try {
+                                      const stateKey = `xml_state_${request.id}`;
+                                      const histKey = `xml_history_${request.id}`;
+                                      const snapshot = { xmlRaw, xmlPreview: preview, xmlAttachmentId: attachmentId ?? null, receiptType, timestamp: new Date().toISOString() };
+                                      localStorage.setItem(stateKey, JSON.stringify(snapshot));
+                                      const existing = localStorage.getItem(histKey);
+                                      const history = existing ? JSON.parse(existing) : [];
+                                      history.push({ timestamp: snapshot.timestamp, attachmentId: snapshot.xmlAttachmentId, itemsCount: Array.isArray(preview?.items) ? preview.items.length : 0, totals: preview?.totals });
+                                      localStorage.setItem(histKey, JSON.stringify(history));
+                                    } catch {}
+                                    setXmlRecovered(true);
                                     toast({ title: "XML carregado", description: "Prévia importada a partir de anexo" });
                                   } catch {}
                                 }}
@@ -1340,12 +2031,328 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 ) : (
                   <p className="text-sm text-muted-foreground">Importação de XML disponível apenas para Tipos Produto/Serviço. No modo Avulsa, preencha os campos da nota fiscal manual abaixo.</p>
                 )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Dados do Emitente</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>CNPJ</Label>
+                <Input value={emitter.cnpj || ""} onChange={(e) => setEmitter(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Razão Social</Label>
+                <Input value={emitter.name || ""} onChange={(e) => setEmitter(prev => ({ ...prev, name: e.target.value }))} placeholder="Nome" />
+              </div>
+              <div>
+                <Label>Nome Fantasia</Label>
+                <Input value={emitter.fantasyName || ""} onChange={(e) => setEmitter(prev => ({ ...prev, fantasyName: e.target.value }))} />
+              </div>
+              <div>
+                <Label>IE</Label>
+                <Input value={emitter.ie || ""} onChange={(e) => setEmitter(prev => ({ ...prev, ie: e.target.value }))} />
+              </div>
+              <div>
+                <Label>IM</Label>
+                <Input value={emitter.im || ""} onChange={(e) => setEmitter(prev => ({ ...prev, im: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Endereço</Label>
+                <Input value={emitter.address?.street || ""} onChange={(e) => setEmitter(prev => ({ ...prev, address: { ...(prev.address || {}), street: e.target.value } }))} placeholder="Logradouro" />
+              </div>
+              <div>
+                <Label>Número</Label>
+                <Input value={emitter.address?.number || ""} onChange={(e) => setEmitter(prev => ({ ...prev, address: { ...(prev.address || {}), number: e.target.value } }))} />
+              </div>
+              <div>
+                <Label>Bairro</Label>
+                <Input value={emitter.address?.neighborhood || ""} onChange={(e) => setEmitter(prev => ({ ...prev, address: { ...(prev.address || {}), neighborhood: e.target.value } }))} />
+              </div>
+              <div>
+                <Label>Cidade</Label>
+                <Input value={emitter.address?.city || ""} onChange={(e) => setEmitter(prev => ({ ...prev, address: { ...(prev.address || {}), city: e.target.value } }))} />
+              </div>
+              <div>
+                <Label>UF</Label>
+                <Input value={emitter.address?.uf || ""} onChange={(e) => setEmitter(prev => ({ ...prev, address: { ...(prev.address || {}), uf: e.target.value } }))} />
+              </div>
+              <div>
+                <Label>CEP</Label>
+                <Input value={emitter.address?.cep || ""} onChange={(e) => setEmitter(prev => ({ ...prev, address: { ...(prev.address || {}), cep: e.target.value } }))} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Dados do Destinatário</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>CPF/CNPJ</Label>
+                <Input value={recipient.cnpjCpf || ""} onChange={(e) => setRecipient(prev => ({ ...prev, cnpjCpf: e.target.value }))} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Razão Social</Label>
+                <Input value={recipient.name || ""} onChange={(e) => setRecipient(prev => ({ ...prev, name: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input value={recipient.email || ""} onChange={(e) => setRecipient(prev => ({ ...prev, email: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Endereço</Label>
+                <Input value={recipient.address?.street || ""} onChange={(e) => setRecipient(prev => ({ ...prev, address: { ...(prev.address || {}), street: e.target.value } }))} placeholder="Logradouro" />
+              </div>
+              <div>
+                <Label>Número</Label>
+                <Input value={recipient.address?.number || ""} onChange={(e) => setRecipient(prev => ({ ...prev, address: { ...(prev.address || {}), number: e.target.value } }))} />
+              </div>
+              <div>
+                <Label>Bairro</Label>
+                <Input value={recipient.address?.neighborhood || ""} onChange={(e) => setRecipient(prev => ({ ...prev, address: { ...(prev.address || {}), neighborhood: e.target.value } }))} />
+              </div>
+              <div>
+                <Label>Cidade</Label>
+                <Input value={recipient.address?.city || ""} onChange={(e) => setRecipient(prev => ({ ...prev, address: { ...(prev.address || {}), city: e.target.value } }))} />
+              </div>
+              <div>
+                <Label>UF</Label>
+                <Input value={recipient.address?.uf || ""} onChange={(e) => setRecipient(prev => ({ ...prev, address: { ...(prev.address || {}), uf: e.target.value } }))} />
+              </div>
+              <div>
+                <Label>CEP</Label>
+                <Input value={recipient.address?.cep || ""} onChange={(e) => setRecipient(prev => ({ ...prev, address: { ...(prev.address || {}), cep: e.target.value } }))} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {receiptType === "produto" && (
+            <Card>
+              <CardHeader><CardTitle>Informações de Transporte</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Modalidade de Frete</Label>
+                  <Select value={productTransp.modFrete || ""} onValueChange={(v) => setProductTransp(prev => ({ ...prev, modFrete: v }))}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Por conta do Emitente</SelectItem>
+                      <SelectItem value="1">Por conta do Destinatário</SelectItem>
+                      <SelectItem value="2">Por conta de Terceiros</SelectItem>
+                      <SelectItem value="3">Transporte Próprio Remetente</SelectItem>
+                      <SelectItem value="4">Transporte Próprio Destinatário</SelectItem>
+                      <SelectItem value="9">Sem Frete</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>CNPJ Transportador</Label>
+                  <Input value={productTransp.transporter?.cnpj || ""} onChange={(e) => setProductTransp(prev => ({ ...prev, transporter: { ...(prev.transporter || {}), cnpj: e.target.value } }))} />
+                </div>
+                <div>
+                  <Label>Nome Transportador</Label>
+                  <Input value={productTransp.transporter?.name || ""} onChange={(e) => setProductTransp(prev => ({ ...prev, transporter: { ...(prev.transporter || {}), name: e.target.value } }))} />
+                </div>
+                <div>
+                  <Label>Qtd Volumes</Label>
+                  <Input type="number" value={productTransp.volume?.quantity ?? ""} onChange={(e) => setProductTransp(prev => ({ ...prev, volume: { ...(prev.volume || {}), quantity: Number(e.target.value || 0) } }))} />
+                </div>
+                <div>
+                  <Label>Espécie</Label>
+                  <Input value={productTransp.volume?.specie || ""} onChange={(e) => setProductTransp(prev => ({ ...prev, volume: { ...(prev.volume || {}), specie: e.target.value } }))} />
+                </div>
               </CardContent>
             </Card>
+          )}
 
-            {receiptType === "avulso" && (
-              <Card>
-                <CardHeader><CardTitle>Inclusão Manual de Nota Fiscal (Avulsa)</CardTitle></CardHeader>
+          {receiptType === "servico" && (
+            <Card>
+              <CardHeader><CardTitle>Dados de Serviço (NFS-e)</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Item Lista Serviço</Label>
+                  <Input value={serviceData.itemListaServico || ""} onChange={(e) => setServiceData(prev => ({ ...prev, itemListaServico: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Código Tributação Município</Label>
+                  <Input value={serviceData.codigoTributacaoMunicipio || ""} onChange={(e) => setServiceData(prev => ({ ...prev, codigoTributacaoMunicipio: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Código Município</Label>
+                  <Input value={serviceData.codigoMunicipio || ""} onChange={(e) => setServiceData(prev => ({ ...prev, codigoMunicipio: e.target.value }))} />
+                </div>
+                <div className="md:col-span-3">
+                  <Label>Discriminação</Label>
+                  <Input value={serviceData.discriminacao || ""} onChange={(e) => setServiceData(prev => ({ ...prev, discriminacao: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Valor Serviços</Label>
+                  <Input type="number" value={serviceData.valores?.valorServicos ?? ""} onChange={(e) => {
+                    const base = Number(e.target.value || 0);
+                    const aliq = Number(serviceData.valores?.aliquota || 0);
+                    const iss = computeIss(base, aliq);
+                    setServiceData(prev => ({ ...prev, valores: { ...(prev.valores || {}), valorServicos: base, baseCalculo: base, valorIss: iss, valorLiquidoNfse: Number((base - iss).toFixed(2)) } }));
+                  }} />
+                </div>
+                <div>
+                  <Label>Alíquota (%)</Label>
+                  <Input type="number" value={serviceData.valores?.aliquota ?? ""} onChange={(e) => {
+                    const aliq = Number(e.target.value || 0);
+                    const base = Number(serviceData.valores?.valorServicos || 0);
+                    const iss = computeIss(base, aliq);
+                    setServiceData(prev => ({ ...prev, valores: { ...(prev.valores || {}), aliquota: aliq, valorIss: iss, valorLiquidoNfse: Number((base - iss).toFixed(2)) } }));
+                  }} />
+                </div>
+                <div>
+                  <Label>ISS</Label>
+                  <Input type="number" value={serviceData.valores?.valorIss ?? ""} onChange={(e) => {
+                    const iss = Number(e.target.value || 0);
+                    const base = Number(serviceData.valores?.valorServicos || 0);
+                    setServiceData(prev => ({ ...prev, valores: { ...(prev.valores || {}), valorIss: iss, valorLiquidoNfse: Number((base - iss).toFixed(2)) } }));
+                  }} />
+                </div>
+                <div>
+                  <Label>Valor Líquido NFS-e</Label>
+                  <Input type="number" value={serviceData.valores?.valorLiquidoNfse ?? ""} onChange={(e) => setServiceData(prev => ({ ...prev, valores: { ...(prev.valores || {}), valorLiquidoNfse: Number(e.target.value || 0) } }))} />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={() => {
+              try {
+                const key = `nf_draft_${request?.id}`;
+                const data = { emitter, recipient, productTransp, serviceData, itemTaxes, manualItems, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey };
+                localStorage.setItem(key, JSON.stringify(data));
+                toast({ title: "Rascunho salvo", description: "Você pode retomar depois." });
+              } catch {
+                toast({ title: "Rascunho", description: "Falha ao salvar rascunho", variant: "destructive" });
+              }
+            }}>Salvar Rascunho</Button>
+            <Button onClick={() => {
+              if (receiptType === "produto") {
+                const emRes = validateEmitter(emitter as any);
+                const reRes = validateRecipient(recipient as any);
+                if (!emRes.isValid || !reRes.isValid) {
+                  const firstErr = Object.values(emRes.errors)[0] || Object.values(reRes.errors)[0] || "Campos obrigatórios ausentes";
+                  return toast({ title: "Validação", description: firstErr, variant: "destructive" });
+                }
+                if (!Array.isArray(manualItems) || manualItems.length === 0) {
+                  return toast({ title: "Validação", description: "Inclua ao menos um item", variant: "destructive" });
+                }
+                const totalsVProd = manualItems.reduce((acc, it) => acc + Number(it.quantity || 0) * Number(it.unitPrice || 0), 0);
+                const xml = buildNFeXml({
+                  accessKey: manualNFAccessKey || undefined,
+                  number: manualNFNumber || "",
+                  series: manualNFSeries || "",
+                  issueDate: manualNFIssueDate || "",
+                  entryDate: manualNFEntryDate || "",
+                  emitter: {
+                    cnpj: String(emitter.cnpj || "").replace(/\D+/g, ""),
+                    name: emitter.name || "",
+                    fantasyName: emitter.fantasyName || "",
+                    ie: emitter.ie || "",
+                    im: emitter.im || "",
+                    cnae: emitter.cnae || "",
+                    crt: emitter.crt || "",
+                    address: { street: emitter.address?.street, number: emitter.address?.number, neighborhood: emitter.address?.neighborhood, city: emitter.address?.city, uf: emitter.address?.uf, cep: emitter.address?.cep, country: emitter.address?.country, phone: emitter.address?.phone }
+                  },
+                  recipient: {
+                    cnpjCpf: String(recipient.cnpjCpf || "").replace(/\D+/g, ""),
+                    name: recipient.name || "",
+                    ie: recipient.ie || "",
+                    email: recipient.email || "",
+                    address: { street: recipient.address?.street, number: recipient.address?.number, neighborhood: recipient.address?.neighborhood, city: recipient.address?.city, uf: recipient.address?.uf, cep: recipient.address?.cep, country: recipient.address?.country, phone: recipient.address?.phone }
+                  },
+                  items: manualItems.map((it, idx) => {
+                    const tax = itemTaxes[idx + 1] || {};
+                    const vBC = tax.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
+                    const vICMS = tax.pICMS != null ? computeIcms(vBC, Number(tax.pICMS)) : tax.vICMS;
+                    return {
+                      lineNumber: idx + 1,
+                      code: it.code,
+                      description: it.description,
+                      unit: it.unit || "UN",
+                      quantity: Number(it.quantity || 0),
+                      unitPrice: Number(it.unitPrice || 0),
+                      totalPrice: Number(((it.quantity || 0) * (it.unitPrice || 0)).toFixed(2)),
+                      taxes: {
+                        icms: { vBC, pICMS: tax.pICMS, vICMS },
+                        ipi: { vBC: tax.ipi?.vBC, pIPI: tax.ipi?.pIPI, vIPI: tax.ipi?.vIPI, cst: "99" },
+                        pis: { cst: tax.pis?.cst || "08" },
+                        cofins: { cst: tax.cofins?.cst || "08" },
+                      }
+                    };
+                  }),
+                  totals: { vNF: Number(totalsVProd.toFixed(2)), vProd: Number(totalsVProd.toFixed(2)) },
+                  transp: productTransp.modFrete ? { modFrete: String(productTransp.modFrete), transporter: productTransp.transporter, volume: productTransp.volume } : undefined,
+                  pagamento: paymentMethodCode ? { indPag: "0", tPag: paymentMethodCode, vPag: Number(totalsVProd.toFixed(2)) } : undefined,
+                  infCpl: xmlPreview?.header?.informacoesAdicionais || undefined,
+                });
+                setXmlRaw(xml);
+                toast({ title: "XML Gerado", description: "NF-e montada a partir dos campos editáveis." });
+              } else if (receiptType === "servico") {
+                const emRes = validateEmitter(emitter as any);
+                const reRes = validateRecipient(recipient as any);
+                const svRes = validateServiceData(serviceData as any);
+                if (!emRes.isValid || !reRes.isValid || !svRes.isValid) {
+                  const firstErr = Object.values(emRes.errors)[0] || Object.values(reRes.errors)[0] || Object.values(svRes.errors)[0] || "Campos obrigatórios ausentes";
+                  return toast({ title: "Validação", description: firstErr, variant: "destructive" });
+                }
+                const xml = buildNFSeXml({
+                  numero: manualNFNumber || "",
+                  codigoVerificacao: manualNFAccessKey || undefined,
+                  dataEmissao: manualNFIssueDate || "",
+                  rps: { numero: manualNFNumber || "", serie: manualNFSeries || "", tipo: "1" },
+                  competencia: manualNFIssueDate || "",
+                  outrasInformacoes: serviceData.discriminacao || "",
+                  valores: {
+                    valorServicos: Number(serviceData.valores?.valorServicos || 0),
+                    valorDeducoes: Number(serviceData.valores?.valorDeducoes || 0),
+                    valorPis: Number(serviceData.valores?.valorPis || 0),
+                    valorCofins: Number(serviceData.valores?.valorCofins || 0),
+                    valorInss: Number(serviceData.valores?.valorInss || 0),
+                    valorIr: Number(serviceData.valores?.valorIr || 0),
+                    valorCsll: Number(serviceData.valores?.valorCsll || 0),
+                    issRetido: Number(serviceData.valores?.issRetido || 0),
+                    valorIss: Number(serviceData.valores?.valorIss || 0),
+                    valorIssRetido: Number(serviceData.valores?.valorIssRetido || 0),
+                    baseCalculo: Number(serviceData.valores?.baseCalculo || serviceData.valores?.valorServicos || 0),
+                    aliquota: Number(serviceData.valores?.aliquota || 0),
+                    valorLiquidoNfse: Number(serviceData.valores?.valorLiquidoNfse || 0),
+                    descontoIncondicionado: Number(serviceData.valores?.descontoIncondicionado || 0),
+                    descontoCondicionado: Number(serviceData.valores?.descontoCondicionado || 0),
+                  },
+                  itemListaServico: serviceData.itemListaServico || "",
+                  codigoTributacaoMunicipio: serviceData.codigoTributacaoMunicipio || "",
+                  discriminacao: serviceData.discriminacao || "",
+                  codigoMunicipio: serviceData.codigoMunicipio || "",
+                  prestador: {
+                    cnpj: String(emitter.cnpj || "").replace(/\D+/g, ""),
+                    inscricaoMunicipal: emitter.im || "",
+                    razaoSocial: emitter.name || "",
+                    nomeFantasia: emitter.fantasyName || "",
+                    endereco: { endereco: emitter.address?.street, numero: emitter.address?.number, complemento: "", bairro: emitter.address?.neighborhood, codigoMunicipio: "", uf: emitter.address?.uf, cep: emitter.address?.cep },
+                    contato: { telefone: emitter.address?.phone, email: "" },
+                  },
+                  tomador: {
+                    cnpjCpf: String(recipient.cnpjCpf || "").replace(/\D+/g, ""),
+                    inscricaoMunicipal: recipient.ie || "",
+                    razaoSocial: recipient.name || "",
+                    endereco: { endereco: recipient.address?.street, numero: recipient.address?.number, complemento: "", bairro: recipient.address?.neighborhood, codigoMunicipio: serviceData.codigoMunicipio, uf: recipient.address?.uf, cep: recipient.address?.cep },
+                    contato: { telefone: recipient.address?.phone, email: recipient.email },
+                  },
+                  orgaoGerador: { codigoMunicipio: serviceData.codigoMunicipio || "", uf: recipient.address?.uf || "" },
+                });
+                setXmlRaw(xml);
+                toast({ title: "XML Gerado", description: "NFS-e montada a partir dos campos editáveis." });
+              }
+            }}>Gerar XML</Button>
+          </div>
+
+          {receiptType === "avulso" && (
+            <Card>
+              <CardHeader><CardTitle>Inclusão Manual de Nota Fiscal (Avulsa)</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Número da NF</Label>
@@ -1989,6 +2996,15 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                     if (!hasAnyQty && !xmlPreview) {
                       return toast({ title: "Validação", description: "Informe quantidades recebidas ou importe o XML", variant: "destructive" });
                     }
+                    const v = validateAllocationsAgainstLocador(allocations, costCenters, chartAccounts);
+                    console.log("validation:locador:pre-submit", { allocations, sources: v.sources, invalidRows: v.invalidRows });
+                    if (!v.isValid) {
+                      return toast({
+                        title: "Validação",
+                        description: formatReceiptApiError("Rateio inválido com base nos dados do Locador", v.invalidRows),
+                        variant: "destructive",
+                      });
+                    }
                   }
                   confirmReceiptMutation.mutate();
                 }}
@@ -2368,6 +3384,16 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
                 const hasItems = manualItems.length > 0;
                 if (!hasTotals || !hasItems) {
                   return toast({ title: "Validação", description: "Preencha Valor Total e pelo menos um item", variant: "destructive" });
+                }
+              } else {
+                const v = validateAllocationsAgainstLocador(allocations, costCenters, chartAccounts);
+                console.log("validation:locador:pre-submit", { allocations, sources: v.sources, invalidRows: v.invalidRows });
+                if (!v.isValid) {
+                  return toast({
+                    title: "Validação",
+                    description: formatReceiptApiError("Rateio inválido com base nos dados do Locador", v.invalidRows),
+                    variant: "destructive",
+                  });
                 }
               }
               setShowNFModal(false);

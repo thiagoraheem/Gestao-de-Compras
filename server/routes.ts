@@ -58,6 +58,8 @@ import { quotationVersionService } from './services/quotation-versioning';
 import { notificationService } from './services/notification-service';
 import { initRealtime, realtime } from "./realtime";
 import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../shared/realtime-events";
+import { costCenterService } from "./integracao_locador/services/cost-center-service";
+import { chartOfAccountsService } from "./integracao_locador/services/chart-of-accounts-service";
 
 // ES modules compatibility
 // const __filename = fileURLToPath(import.meta.url);
@@ -126,15 +128,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   try {
     await pool.query(`
       CREATE EXTENSION IF NOT EXISTS pgcrypto;
-      DO $$
-      BEGIN
-        IF EXISTS (
-          SELECT 1 FROM information_schema.columns
-          WHERE table_schema = 'public' AND table_name = 'detailed_audit_log' AND column_name = 'transaction_id' AND data_type <> 'uuid'
-        ) THEN
-          EXECUTE 'ALTER TABLE detailed_audit_log ALTER COLUMN transaction_id TYPE UUID USING gen_random_uuid()';
-        END IF;
-      END $$;
       CREATE OR REPLACE FUNCTION audit_trigger_function()
       RETURNS TRIGGER AS $$
       DECLARE
@@ -164,22 +157,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               FOR field_name IN SELECT key FROM jsonb_each_text(new_record) LOOP
                   new_val := new_record ->> field_name;
                   INSERT INTO detailed_audit_log (
-                      table_name, record_id, field_name, old_value, new_value,
-                      changed_by, operation_type, transaction_id, session_id,
-                      ip_address, user_agent, metadata
+                      table_name, record_id, operation_type, user_id, transaction_id, metadata
                   ) VALUES (
                       TG_TABLE_NAME,
                       (new_record ->> 'id')::INTEGER,
-                      field_name,
-                      NULL,
-                      new_val,
-                      (audit_context ->> 'user_id')::INTEGER,
                       TG_OP,
+                      (audit_context ->> 'user_id')::INTEGER,
                       current_tx_uuid,
-                      audit_context ->> 'session_id',
-                      (audit_context ->> 'ip_address')::INET,
-                      audit_context ->> 'user_agent',
-                      jsonb_build_object('operation','field_insert','table',TG_TABLE_NAME,'txid_current',current_tx)
+                      jsonb_build_object(
+                        'operation','field_insert',
+                        'table',TG_TABLE_NAME,
+                        'txid_current',current_tx,
+                        'field',field_name,
+                        'new_value',new_val
+                      )
                   );
               END LOOP;
           END IF;
@@ -187,22 +178,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               FOR field_name IN SELECT key FROM jsonb_each_text(old_record) LOOP
                   old_val := old_record ->> field_name;
                   INSERT INTO detailed_audit_log (
-                      table_name, record_id, field_name, old_value, new_value,
-                      changed_by, operation_type, transaction_id, session_id,
-                      ip_address, user_agent, metadata
+                      table_name, record_id, operation_type, user_id, transaction_id, metadata
                   ) VALUES (
                       TG_TABLE_NAME,
                       (old_record ->> 'id')::INTEGER,
-                      field_name,
-                      old_val,
-                      NULL,
-                      (audit_context ->> 'user_id')::INTEGER,
                       TG_OP,
+                      (audit_context ->> 'user_id')::INTEGER,
                       current_tx_uuid,
-                      audit_context ->> 'session_id',
-                      (audit_context ->> 'ip_address')::INET,
-                      audit_context ->> 'user_agent',
-                      jsonb_build_object('operation','field_delete','table',TG_TABLE_NAME,'txid_current',current_tx)
+                      jsonb_build_object(
+                        'operation','field_delete',
+                        'table',TG_TABLE_NAME,
+                        'txid_current',current_tx,
+                        'field',field_name,
+                        'old_value',old_val
+                      )
                   );
               END LOOP;
           END IF;
@@ -212,22 +201,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   new_val := new_record ->> field_name;
                   IF old_val IS DISTINCT FROM new_val THEN
                       INSERT INTO detailed_audit_log (
-                          table_name, record_id, field_name, old_value, new_value,
-                          changed_by, operation_type, transaction_id, session_id,
-                          ip_address, user_agent, metadata, change_reason
+                          table_name, record_id, operation_type, user_id, transaction_id, metadata, change_reason
                       ) VALUES (
                           TG_TABLE_NAME,
                           (new_record ->> 'id')::INTEGER,
-                          field_name,
-                          old_val,
-                          new_val,
-                          (audit_context ->> 'user_id')::INTEGER,
                           TG_OP,
+                          (audit_context ->> 'user_id')::INTEGER,
                           current_tx_uuid,
-                          audit_context ->> 'session_id',
-                          (audit_context ->> 'ip_address')::INET,
-                          audit_context ->> 'user_agent',
-                          jsonb_build_object('operation','field_update','table',TG_TABLE_NAME,'field_type',pg_typeof(old_val)::text,'txid_current',current_tx),
+                          jsonb_build_object(
+                            'operation','field_update',
+                            'table',TG_TABLE_NAME,
+                            'txid_current',current_tx,
+                            'field',field_name,
+                            'old_value',old_val,
+                            'new_value',new_val
+                          ),
                           CASE 
                               WHEN field_name LIKE '%quantity%' THEN 'Quantity adjustment'
                               WHEN field_name LIKE '%price%' THEN 'Price adjustment'
@@ -2236,14 +2224,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (Array.isArray(byId) && byId.length > 0) return Number(byId[0].id);
             const byExt = await db.select().from(costCenters).where(eq(costCenters.externalId, String(rawId))).limit(1);
             if (Array.isArray(byExt) && byExt.length > 0) return Number(byExt[0].id);
-            return null;
+            try {
+              const remote = await costCenterService.list();
+              const found = (remote || []).find((cc: any) => Number(cc.idCostCenter ?? cc.id) === Number(rawId));
+              if (!found) return null;
+              const code = `CC-${String(rawId)}`;
+              const name = String(found.name || `Centro ${String(rawId)}`);
+              const [inserted] = await db.insert(costCenters).values({
+                externalId: String(rawId),
+                code,
+                name,
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              } as any).returning();
+              return inserted ? Number(inserted.id) : null;
+            } catch {
+              return null;
+            }
           };
           const resolveChartAccountId = async (rawId: number): Promise<number | null> => {
             const byId = await db.select().from(chartOfAccounts).where(eq(chartOfAccounts.id, rawId)).limit(1);
             if (Array.isArray(byId) && byId.length > 0) return Number(byId[0].id);
             const byExt = await db.select().from(chartOfAccounts).where(eq(chartOfAccounts.externalId, String(rawId))).limit(1);
             if (Array.isArray(byExt) && byExt.length > 0) return Number(byExt[0].id);
-            return null;
+            try {
+              const remote = await chartOfAccountsService.list();
+              const found = (remote || []).find((pc: any) => Number(pc.idChartOfAccounts ?? pc.id) === Number(rawId));
+              if (!found) return null;
+              const code = `PC-${String(rawId)}`;
+              const description = String(found.accountName || `Conta ${String(rawId)}`);
+              const [inserted] = await db.insert(chartOfAccounts).values({
+                externalId: String(rawId),
+                code,
+                description,
+                isActive: true,
+                updatedAt: new Date(),
+              } as any).returning();
+              return inserted ? Number(inserted.id) : null;
+            } catch {
+              return null;
+            }
           };
 
           const itemsParsed: Array<{

@@ -2661,6 +2661,44 @@
         }
       }
     },
+    "/api/FormaPagamento": {
+      "get": {
+        "tags": [
+          "FormaPagamento"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboPadrao"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboPadrao"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboPadrao"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Fornecedor": {
       "get": {
         "tags": [
@@ -3104,6 +3142,37 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/Purchase/PurchaseReceive": {
+      "post": {
+        "tags": [
+          "Purchase"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseReceiveRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseReceiveRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseReceiveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -3745,6 +3814,28 @@
         },
         "additionalProperties": false
       },
+      "AllocationDetail": {
+        "type": "object",
+        "properties": {
+          "plano_conta_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "centro_custo_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "percentual": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "AtualizarEstoqueRequest": {
         "type": "object",
         "properties": {
@@ -3785,6 +3876,19 @@
           },
           "isPayable": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComboPadrao": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "nullable": true
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -4184,6 +4288,32 @@
         },
         "additionalProperties": false
       },
+      "InvoiceInfo": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "string",
+            "nullable": true
+          },
+          "serie": {
+            "type": "string",
+            "nullable": true
+          },
+          "chave_nfe": {
+            "type": "string",
+            "nullable": true
+          },
+          "data_emissao": {
+            "type": "string",
+            "nullable": true
+          },
+          "valor_total": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "LabelledItem": {
         "type": "object",
         "properties": {
@@ -4228,6 +4358,31 @@
           },
           "role": {
             "$ref": "#/components/schemas/LabelledItem"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PaymentConditions": {
+        "type": "object",
+        "properties": {
+          "forma_pagamento": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "data_vencimento": {
+            "type": "string",
+            "nullable": true
+          },
+          "parcelas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rateio": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AllocationDetail"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -4348,6 +4503,74 @@
           },
           "partNumber": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PurchaseItem": {
+        "type": "object",
+        "properties": {
+          "codigo_produto": {
+            "type": "string",
+            "nullable": true
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantidade": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "preco_unitario": {
+            "type": "number",
+            "format": "double"
+          },
+          "unidade": {
+            "type": "string",
+            "nullable": true
+          },
+          "ncm": {
+            "type": "string",
+            "nullable": true
+          },
+          "cest": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PurchaseReceiveRequest": {
+        "type": "object",
+        "properties": {
+          "pedido_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "numero_pedido": {
+            "type": "string",
+            "nullable": true
+          },
+          "data_pedido": {
+            "type": "string",
+            "nullable": true
+          },
+          "fornecedor": {
+            "$ref": "#/components/schemas/SupplierInfo"
+          },
+          "nota_fiscal": {
+            "$ref": "#/components/schemas/InvoiceInfo"
+          },
+          "condicoes_pagamento": {
+            "$ref": "#/components/schemas/PaymentConditions"
+          },
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseItem"
+            },
             "nullable": true
           }
         },
@@ -4540,6 +4763,24 @@
           "supplierType": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SupplierInfo": {
+        "type": "object",
+        "properties": {
+          "fornecedor_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cnpj": {
+            "type": "string",
+            "nullable": true
+          },
+          "nome": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
