@@ -512,7 +512,12 @@ export const receipts = pgTable("receipts", {
   approvedBy: integer("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
   createdAt: timestamp("created_at").notNull(),
-});
+}, (table) => [
+  index("idx_receipts_document_number").on(table.documentNumber),
+  index("idx_receipts_document_key").on(table.documentKey),
+  index("idx_receipts_document_series").on(table.documentSeries),
+  index("idx_receipts_supplier_id").on(table.supplierId),
+]);
 
 export const receiptItems = pgTable("receipt_items", {
   id: serial("id").primaryKey(),

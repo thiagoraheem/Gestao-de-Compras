@@ -368,9 +368,7 @@ BEGIN
             action_description,
             performed_by,
             before_data,
-            after_data,
-            affected_tables,
-            metadata
+            after_data
         ) VALUES (
             NEW.id,
             'PHASE_TRANSITION',
@@ -381,13 +379,7 @@ BEGIN
             ),
             (audit_context ->> 'user_id')::INTEGER,
             jsonb_build_object('phase', OLD.current_phase),
-            jsonb_build_object('phase', NEW.current_phase),
-            ARRAY['purchase_requests'],
-            jsonb_build_object(
-                'request_number', NEW.request_number,
-                'transition_timestamp', NOW(),
-                'session_id', audit_context ->> 'session_id'
-            )
+            jsonb_build_object('phase', NEW.current_phase)
         );
     END IF;
     

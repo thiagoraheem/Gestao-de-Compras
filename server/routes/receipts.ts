@@ -10,11 +10,12 @@ import {
   receiptNfXmls,
   receiptItems,
   receiptInstallments,
+  suppliers,
 } from "../../shared/schema";
 import { parseNFeXml } from "../services/nfe-parser";
 import { parseNFSeXml } from "../services/nfse-parser";
 import { z } from "zod";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, like, or, desc } from "drizzle-orm";
 // @ts-ignore
 import fetch from "node-fetch";
 
@@ -47,6 +48,87 @@ const xmlUpload = multer({
 });
 
 export function registerReceiptsRoutes(app: Express) {
+  app.get("/api/receipts/search", async (req: Request, res: Response) => {
+    try {
+      const { number, series, cnpj, accessKey } = req.query;
+      const conditions = [];
+
+      if (number) conditions.push(like(receipts.documentNumber, `%${String(number)}%`));
+      if (series) conditions.push(eq(receipts.documentSeries, String(series)));
+      if (accessKey) conditions.push(like(receipts.documentKey, `%${String(accessKey)}%`));
+
+      let query = db.select({
+        id: receipts.id,
+        receiptNumber: receipts.receiptNumber,
+        documentNumber: receipts.documentNumber,
+        documentSeries: receipts.documentSeries,
+        documentKey: receipts.documentKey,
+        documentIssueDate: receipts.documentIssueDate,
+        totalAmount: receipts.totalAmount,
+        supplierName: suppliers.name,
+        supplierCnpj: suppliers.cnpj,
+        status: receipts.status,
+        createdAt: receipts.createdAt
+      })
+      .from(receipts)
+      .leftJoin(suppliers, eq(receipts.supplierId, suppliers.id));
+
+      if (cnpj) {
+        conditions.push(like(suppliers.cnpj, `%${String(cnpj).replace(/\D/g, '')}%`));
+      }
+
+      if (conditions.length === 0) {
+        return res.json([]);
+      }
+
+      const results = await query.where(and(...conditions)).orderBy(desc(receipts.createdAt)).limit(20);
+
+      res.json(results);
+    } catch (error) {
+       console.error("Error searching receipts:", error);
+       res.status(500).json({ message: "Erro ao buscar notas fiscais" });
+    }
+  });
+
+  app.post("/api/recebimentos/parse-existing/:id", async (req: Request, res: Response) => {
+      try {
+        const id = Number(req.params.id);
+        const [xmlRow] = await db.select().from(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
+
+        if (!xmlRow) {
+            return res.status(404).json({ message: "XML não encontrado para este recebimento" });
+        }
+
+        const xmlContent = xmlRow.xmlContent;
+        let parsed;
+        let isService = false;
+        try {
+            parsed = parseNFeXml(xmlContent);
+        } catch (e) {
+            try {
+                parsed = parseNFSeXml(xmlContent);
+                isService = true;
+            } catch (e2) {
+                 return res.status(400).json({ message: "XML armazenado é inválido ou formato desconhecido" });
+            }
+        }
+
+        return res.json({
+            receipt: { id },
+            preview: {
+              header: parsed.header,
+              items: parsed.items,
+              installments: parsed.installments,
+              totals: parsed.header.totals,
+            },
+        });
+
+      } catch (error) {
+          const message = error instanceof Error ? error.message : "Erro ao processar XML existente";
+          res.status(400).json({ message });
+      }
+  });
+
   app.post("/api/recebimentos/import-xml", xmlUpload.single("file"), async (req: Request, res: Response) => {
     try {
       if (!req.file) {

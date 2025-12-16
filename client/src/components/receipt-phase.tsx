@@ -22,7 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { ReceiptSearchDialog } from "./receipt-search-dialog";
+import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck, ChevronDown, ChevronRight, Trash2, Search } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
@@ -957,6 +958,56 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
 
 
 
+  const handleExistingReceiptSelect = async (receiptId: number) => {
+    try {
+      const res = await apiRequest(`/api/recebimentos/parse-existing/${receiptId}`, "POST");
+      const data = await res.json();
+
+      if (data.preview) {
+        setXmlPreview(data.preview);
+        setManualNFStep(1); // Ensure we start at step 1 to review data
+        
+        // Auto-populate manual fields that might not be covered by the effect
+        if (data.preview.header) {
+          setManualNFNumber(data.preview.header.number || "");
+          setManualNFSeries(data.preview.header.series || "");
+          setManualNFAccessKey(data.preview.header.accessKey || "");
+          setManualNFIssueDate(data.preview.header.issueDate?.split('T')[0] || "");
+          setManualNFEmitterCNPJ(data.preview.header.supplier?.cnpjCpf || "");
+        }
+        
+        if (data.preview.totals) {
+            setManualTotal(String(data.preview.totals.vNF || data.preview.totals.total || "0"));
+        }
+
+        toast({
+            title: "Nota Fiscal Carregada",
+            description: "Os dados da nota fiscal foram preenchidos automaticamente.",
+          });
+          
+          try {
+            apiRequest(`/api/audit/log`, {
+              method: "POST",
+              body: {
+                purchaseRequestId: request.id,
+                actionType: "manual_nf_load_existing",
+                actionDescription: `Carregados dados da Nota Fiscal existente ID: ${receiptId}`,
+                beforeData: {},
+                afterData: { receiptId, documentNumber: data.preview.header.number },
+              },
+            });
+          } catch {}
+        }
+      } catch (error) {
+      console.error("Error loading existing receipt:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados da nota fiscal.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatDate = (date: any) => {
     if (!date) return "N/A";
     return formatDistanceToNow(new Date(date), {
@@ -1380,7 +1431,13 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         <TabsContent value="manual_nf">
           <div className="space-y-6">
             <Card>
-              <CardHeader><CardTitle>Inclusão Manual de Nota Fiscal</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle>Inclusão Manual de Nota Fiscal</CardTitle>
+                <ReceiptSearchDialog
+                  trigger={<Button variant="outline" size="sm"><Search className="h-4 w-4 mr-2" />Buscar Nota Existente</Button>}
+                  onSelect={handleExistingReceiptSelect}
+                />
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
