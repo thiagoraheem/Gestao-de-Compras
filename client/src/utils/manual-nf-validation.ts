@@ -25,17 +25,29 @@ export function validateManualHeader(params: {
   issueDate: string;
   emitterCnpj: string;
   total: string;
-  kind: "produto" | "servico";
+  kind: "produto" | "servico" | "avulso";
 }) {
   const errors: Record<string, string> = {};
-  if (!params.number?.trim()) errors.number = "Número da NF é obrigatório";
-  if (!params.series?.trim()) errors.series = "Série da NF é obrigatória";
+  if (!params.number?.trim()) errors.number = "Número do documento é obrigatório";
   if (!params.issueDate?.trim()) errors.issueDate = "Data de emissão é obrigatória";
   if (!params.total?.trim()) errors.total = "Valor total é obrigatório";
-  if (!params.emitterCnpj?.trim() || !isValidCnpj(params.emitterCnpj)) errors.emitterCnpj = "CNPJ do emitente inválido";
-  if (params.kind === "produto") {
-    if (!params.accessKey?.trim() || !isValidAccessKey(params.accessKey)) errors.accessKey = "Chave de acesso (44 dígitos) é obrigatória";
+  
+  // Validations specific to NF types (not Avulsa)
+  if (params.kind !== "avulso") {
+    if (!params.series?.trim()) errors.series = "Série da NF é obrigatória";
+    if (!params.emitterCnpj?.trim() || !isValidCnpj(params.emitterCnpj)) errors.emitterCnpj = "CNPJ do emitente inválido";
+    
+    if (params.kind === "produto") {
+      if (!params.accessKey?.trim() || !isValidAccessKey(params.accessKey)) errors.accessKey = "Chave de acesso (44 dígitos) é obrigatória";
+    }
   }
+
+  // Common validations
+  const totalVal = parseFloat(params.total?.replace(',', '.') || '0');
+  if (isNaN(totalVal) || totalVal <= 0) {
+      errors.total = "Valor total deve ser maior que zero";
+  }
+
   return { isValid: Object.keys(errors).length === 0, errors };
 }
 

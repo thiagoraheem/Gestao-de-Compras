@@ -533,6 +533,7 @@ export const receiptItems = pgTable("receipt_items", {
   locadorProductCode: varchar("locador_product_code", { length: 50 }),
   quantityReceived: decimal("quantity_received", { precision: 10, scale: 3 }).notNull(),
   quantityApproved: decimal("quantity_approved", { precision: 10, scale: 3 }),
+  remainingQuantity: decimal("remaining_quantity", { precision: 10, scale: 3 }),
   condition: text("condition").notNull(),
   observations: text("observations"),
   ncm: varchar("ncm", { length: 20 }),
@@ -552,7 +553,7 @@ export const receiptNfXmls = pgTable("receipt_nf_xmls", {
   id: serial("id").primaryKey(),
   receiptId: integer("receipt_id").references(() => receipts.id).notNull(),
   xmlContent: text("xml_content").notNull(),
-  xmlHash: varchar("xml_hash", { length: 64 }).notNull(),
+  xmlHash: varchar("xml_hash", { length: 64 }).notNull().unique(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

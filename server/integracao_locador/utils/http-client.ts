@@ -46,6 +46,7 @@ export class HttpClient {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'X-API-Version': cfg.version,
+      ...(cfg.token ? { 'Authorization': `Bearer ${cfg.token}` } : {}),
       ...(opts.headers ?? {}),
     };
 
@@ -128,3 +129,5 @@ function isRetryable(err: unknown): boolean {
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export const httpClient = new HttpClient();

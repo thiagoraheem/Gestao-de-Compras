@@ -10,6 +10,13 @@ export type NFeParseResult = {
     entryDate?: string;
     supplier?: { cnpjCpf?: string; name?: string };
     recipient?: { cnpjCpf?: string; name?: string };
+    transp?: {
+      modFrete?: string;
+      carrierCnpj?: string;
+      carrierName?: string;
+      volumeQuantity?: string;
+      species?: string;
+    };
     totals?: {
       vNF?: string;
       vProd?: string;
@@ -60,6 +67,9 @@ export function parseNFeXml(xmlContent: string): NFeParseResult {
   const ide = nfe.ide || {};
   const emit = nfe.emit || {};
   const dest = nfe.dest || {};
+  const transp = nfe.transp || {};
+  const transporta = transp.transporta || {};
+  const vol = Array.isArray(transp.vol) ? transp.vol[0] : (transp.vol || {});
   const total = nfe.total?.ICMSTot || {};
 
   const header = {
@@ -68,8 +78,46 @@ export function parseNFeXml(xmlContent: string): NFeParseResult {
     documentKey: nfe["@Id"] ? String(nfe["@Id"]).replace("NFe", "") : json?.protNFe?.infProt?.chNFe,
     issueDate: ide.dhEmi || ide.dEmi,
     entryDate: ide.dhSaiEnt || ide.dSaiEnt,
-    supplier: { cnpjCpf: emit.CNPJ || emit.CPF, name: emit.xNome },
-    recipient: { cnpjCpf: dest.CNPJ || dest.CPF, name: dest.xNome },
+    supplier: {
+      cnpjCpf: emit.CNPJ || emit.CPF,
+      name: emit.xNome,
+      fantasyName: emit.xFant,
+      ie: emit.IE,
+      im: emit.IM,
+      address: {
+        street: emit.enderEmit?.xLgr,
+        number: emit.enderEmit?.nro,
+        neighborhood: emit.enderEmit?.xBairro,
+        city: emit.enderEmit?.xMun,
+        uf: emit.enderEmit?.UF,
+        cep: emit.enderEmit?.CEP,
+        country: emit.enderEmit?.xPais,
+        phone: emit.enderEmit?.fone,
+      },
+    },
+    recipient: {
+      cnpjCpf: dest.CNPJ || dest.CPF,
+      name: dest.xNome,
+      ie: dest.IE,
+      email: dest.email,
+      address: {
+        street: dest.enderDest?.xLgr,
+        number: dest.enderDest?.nro,
+        neighborhood: dest.enderDest?.xBairro,
+        city: dest.enderDest?.xMun,
+        uf: dest.enderDest?.UF,
+        cep: dest.enderDest?.CEP,
+        country: dest.enderDest?.xPais,
+        phone: dest.enderDest?.fone,
+      },
+    },
+    transp: {
+      modFrete: transp.modFrete,
+      carrierCnpj: transporta.CNPJ || transporta.CPF,
+      carrierName: transporta.xNome,
+      volumeQuantity: vol.qVol,
+      species: vol.esp,
+    },
     totals: {
       vNF: total.vNF,
       vProd: total.vProd,

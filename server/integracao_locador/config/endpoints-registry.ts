@@ -6,6 +6,8 @@ type EndpointMap = {
   chartOfAccounts: string;
   suppliers: string;
   products: string;
+  paymentMethods: string;
+  purchaseReceive: string;
   version: string;
 };
 
@@ -14,6 +16,8 @@ let endpoints: EndpointMap = {
   chartOfAccounts: '/ChartOfAccounts',
   suppliers: '/Fornecedor',
   products: '/Produtos',
+  paymentMethods: '/FormaPagamento',
+  purchaseReceive: '/Purchase/PurchaseReceive',
   version: 'v1',
 };
 
@@ -30,6 +34,8 @@ export function getEndpoints(): EndpointMap {
     chartOfAccounts: normalizePath(endpoints.chartOfAccounts),
     suppliers: normalizePath(endpoints.suppliers),
     products: normalizePath(endpoints.products),
+    paymentMethods: normalizePath(endpoints.paymentMethods),
+    purchaseReceive: normalizePath(endpoints.purchaseReceive),
     version: endpoints.version,
   };
 }
@@ -50,6 +56,8 @@ export function refreshEndpointsFromSwagger(swaggerPath: string) {
       chartOfAccounts: normalizePath(findPath('chartofaccounts') || endpoints.chartOfAccounts),
       suppliers: normalizePath(findPath('fornecedor') || endpoints.suppliers),
       products: normalizePath(findPath('produtos') || endpoints.products),
+      paymentMethods: normalizePath(findPath('formapagamento') || endpoints.paymentMethods),
+      purchaseReceive: normalizePath(findPath('purchasereceive') || endpoints.purchaseReceive),
       version: (doc.info?.version as string) || endpoints.version,
     };
   } catch (error) {

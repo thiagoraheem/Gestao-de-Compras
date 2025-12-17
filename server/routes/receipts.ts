@@ -130,18 +130,18 @@ export function registerReceiptsRoutes(app: Express) {
   });
 
   app.post("/api/recebimentos/import-xml", xmlUpload.single("file"), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "Arquivo XML é obrigatório" });
-      }
-      const xmlContent = await fs.promises.readFile(req.file.path, "utf-8");
-
-      const reqTypeRaw = String((req.body?.receiptType ?? req.query?.receiptType ?? "produto")).toLowerCase();
+    const reqTypeRaw = String((req.body?.receiptType ?? req.query?.receiptType ?? "produto")).toLowerCase();
       const isService = reqTypeRaw === "servico";
-      let parsed: ReturnType<typeof parseNFeXml> | ReturnType<typeof parseNFSeXml>;
+      let parsed: ReturnType<typeof parseNFeXml> | ReturnType<typeof parseNFSeXml> | undefined;
       try {
-        parsed = isService ? parseNFSeXml(xmlContent) : parseNFeXml(xmlContent);
-      } catch (err) {
+        if (!req.file) {
+          return res.status(400).json({ message: "Arquivo XML é obrigatório" });
+        }
+        const xmlContent = await fs.promises.readFile(req.file.path, "utf-8");
+
+        try {
+          parsed = isService ? parseNFSeXml(xmlContent) : parseNFeXml(xmlContent);
+        } catch (err) {
         if (isService) {
           try {
             parseNFeXml(xmlContent);
@@ -157,6 +157,10 @@ export function registerReceiptsRoutes(app: Express) {
             return res.status(400).json({ message: "XML inválido ou não reconhecido como NF-e" });
           }
         }
+      }
+      
+      if (!parsed) {
+        return res.status(400).json({ message: "Erro ao processar XML" });
       }
 
       const prIdRaw = (req.body?.purchaseRequestId ?? req.query?.purchaseRequestId) as any;
@@ -185,28 +189,29 @@ export function registerReceiptsRoutes(app: Express) {
         }
       }
 
+      const p = parsed;
       const result = await db.transaction(async (tx) => {
         const [createdReceipt] = await tx.insert(receipts).values({
           receiptNumber: generateReceiptNumber(),
           purchaseOrderId: purchaseRequestId ? undefined as any : null,
           status: "rascunho",
           receiptType: isService ? "servico" : "produto",
-          documentNumber: parsed.header.documentNumber,
-          documentSeries: parsed.header.documentSeries,
-          documentKey: parsed.header.documentKey,
-          documentIssueDate: parsed.header.issueDate ? new Date(parsed.header.issueDate) : null,
-          documentEntryDate: parsed.header.entryDate ? new Date(parsed.header.entryDate) : null,
-          totalAmount: (parsed.header.totals?.vNF || (parsed as any).header.totals?.vProd || "0") as any,
-          installmentsCount: Array.isArray(parsed.installments) ? parsed.installments.length : null,
+          documentNumber: p.header.documentNumber,
+          documentSeries: p.header.documentSeries,
+          documentKey: p.header.documentKey,
+          documentIssueDate: p.header.issueDate ? new Date(p.header.issueDate) : null,
+          documentEntryDate: p.header.entryDate ? new Date(p.header.entryDate) : null,
+          totalAmount: (p.header.totals?.vNF || (p as any).header.totals?.vProd || "0") as any,
+          installmentsCount: Array.isArray(p.installments) ? p.installments.length : null,
           createdAt: new Date(),
         } as any).returning();
         const receiptId = createdReceipt.id;
         await tx.insert(receiptNfXmls).values({
           receiptId,
           xmlContent,
-          xmlHash: parsed.xmlHash,
+          xmlHash: p.xmlHash,
         } as any);
-        for (const it of parsed.items || []) {
+        for (const it of p.items || []) {
           await tx.insert(receiptItems).values({
             receiptId,
             lineNumber: it.lineNumber,
@@ -230,7 +235,7 @@ export function registerReceiptsRoutes(app: Express) {
             createdAt: new Date(),
           } as any);
         }
-        for (const dup of parsed.installments || []) {
+        for (const dup of p.installments || []) {
           await tx.insert(receiptInstallments).values({
             receiptId,
             installmentNumber: dup.number || "",
@@ -256,7 +261,22 @@ export function registerReceiptsRoutes(app: Express) {
         attachment: savedAttachmentId ? { id: savedAttachmentId } : undefined,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro ao processar XML";
+      let message = error instanceof Error ? error.message : "Erro ao processar XML";
+      if (message.includes("receipt_nf_xmls_xml_hash_unique") || message.includes("receipt_nf_xmls_xml_hash_key") || (message.includes("duplicate key") && message.includes("xml_hash"))) {
+        message = "Esta Nota Fiscal já foi importada anteriormente no sistema.";
+        // Return 200 with warning and preview so frontend can still populate data
+        if (parsed) {
+           return res.json({
+            warning: message,
+            preview: {
+              header: parsed.header,
+              items: parsed.items,
+              installments: parsed.installments,
+              totals: parsed.header.totals,
+            }
+          });
+        }
+      }
       try {
         await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
           VALUES (${0}, ${'recebimento_import_xml_error'}, ${String(message)}, ${null}, ${null}, ${null}, ${sql`ARRAY['receipts']`} );`);

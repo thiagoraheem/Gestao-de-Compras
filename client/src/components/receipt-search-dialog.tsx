@@ -37,7 +37,37 @@ export function ReceiptSearchDialog({ onSelect, trigger }: ReceiptSearchDialogPr
     },
   });
 
+  const [errors, setErrors] = useState({
+    cnpj: "",
+    accessKey: "",
+  });
+
+  const validate = () => {
+    const newErrors = { cnpj: "", accessKey: "" };
+    let isValid = true;
+
+    if (filters.cnpj) {
+      const cleanCnpj = filters.cnpj.replace(/\D/g, "");
+      if (cleanCnpj.length !== 14) {
+        newErrors.cnpj = "CNPJ deve conter 14 dígitos";
+        isValid = false;
+      }
+    }
+
+    if (filters.accessKey) {
+      const cleanKey = filters.accessKey.replace(/\D/g, "");
+      if (cleanKey.length !== 44) {
+        newErrors.accessKey = "Chave de Acesso deve conter 44 dígitos";
+        isValid = false;
+      }
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const handleSearch = () => {
+    if (!validate()) return;
     setHasSearched(true);
     searchMutation.mutate(filters);
   };
@@ -89,7 +119,9 @@ export function ReceiptSearchDialog({ onSelect, trigger }: ReceiptSearchDialogPr
               placeholder="Apenas números" 
               value={filters.cnpj}
               onChange={(e) => setFilters(prev => ({ ...prev, cnpj: e.target.value }))}
+              className={errors.cnpj ? "border-red-500" : ""}
             />
+            {errors.cnpj && <span className="text-xs text-red-500">{errors.cnpj}</span>}
           </div>
           <div className="space-y-2">
             <Label>Chave de Acesso</Label>
@@ -97,7 +129,9 @@ export function ReceiptSearchDialog({ onSelect, trigger }: ReceiptSearchDialogPr
               placeholder="44 dígitos" 
               value={filters.accessKey}
               onChange={(e) => setFilters(prev => ({ ...prev, accessKey: e.target.value }))}
+              className={errors.accessKey ? "border-red-500" : ""}
             />
+            {errors.accessKey && <span className="text-xs text-red-500">{errors.accessKey}</span>}
           </div>
         </div>
 

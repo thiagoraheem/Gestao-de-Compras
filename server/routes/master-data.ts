@@ -3,6 +3,8 @@ import { db } from "../db";
 import { costCenters } from "../../shared/schema";
 import { costCenterService } from "../integracao_locador/services/cost-center-service";
 import { chartOfAccountsService } from "../integracao_locador/services/chart-of-accounts-service";
+import { paymentMethodService } from "../integracao_locador/services/payment-method-service";
+import { purchaseReceiveService } from "../integracao_locador/services/purchase-receive-service";
 import { initSwaggerWatcher } from "../integracao_locador/utils/swagger-watcher";
 import { eq } from "drizzle-orm";
 
@@ -52,6 +54,25 @@ export function registerMasterDataRoutes(app: Express) {
     }
   });
 
+  app.get("/api/integracao-locador/formas-pagamento", async (_req, res) => {
+    try {
+      const started = Date.now();
+      const remote = await paymentMethodService.list();
+      res.set('X-Upstream', 'locador');
+      res.set('X-Upstream-Items', String(remote.length));
+      res.set('X-Upstream-Duration', String(Date.now() - started));
+      if (process.env.LOG_VERBOSE === 'true' || process.env.NODE_ENV === 'development') {
+        console.log(`[route] GET /api/integracao-locador/formas-pagamento items=${remote.length}`);
+      }
+      return res.json(remote);
+    } catch (error) {
+      if (process.env.LOG_VERBOSE === 'true' || process.env.NODE_ENV === 'development') {
+        console.error(`[route] /api/integracao-locador/formas-pagamento failed ${String((error as any)?.message || error)}`);
+      }
+      res.status(502).json({ message: "Falha ao consultar Formas de Pagamento no Locador" });
+    }
+  });
+
   app.post("/api/sync/centros-custo", async (_req, res) => {
     try {
       const remote = await costCenterService.list();
@@ -83,5 +104,15 @@ export function registerMasterDataRoutes(app: Express) {
   app.post("/api/sync/plano-contas", async (req, res) => {
     const data = Array.isArray(req.body) ? req.body : [];
     res.json({ synced: data.length });
+  });
+
+  app.post("/api/integracao-locador/recebimento", async (req, res) => {
+    try {
+      await purchaseReceiveService.submit(req.body);
+      res.json({ success: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro desconhecido ao enviar recebimento";
+      res.status(500).json({ message });
+    }
   });
 }
