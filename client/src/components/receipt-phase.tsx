@@ -151,6 +151,15 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [manualNFSeries, setManualNFSeries] = useState<string>("");
   const [manualNFIssueDate, setManualNFIssueDate] = useState<string>("");
   const [manualNFEntryDate, setManualNFEntryDate] = useState<string>("");
+  const [manualProductsValue, setManualProductsValue] = useState<string>("");
+  const [manualFreightValue, setManualFreightValue] = useState<string>("");
+  const [manualDiscountValue, setManualDiscountValue] = useState<string>("");
+  const [manualIcmsBase, setManualIcmsBase] = useState<string>("");
+  const [manualIcmsValue, setManualIcmsValue] = useState<string>("");
+  const [manualOtherTaxes, setManualOtherTaxes] = useState<string>("");
+  const [manualPaymentCondition, setManualPaymentCondition] = useState<string>("");
+  const [manualBankDetails, setManualBankDetails] = useState<string>("");
+  const [manualPaidAmount, setManualPaidAmount] = useState<string>("");
   const [manualNFEmitterCNPJ, setManualNFEmitterCNPJ] = useState<string>("");
   const [manualNFAccessKey, setManualNFAccessKey] = useState<string>("");
   const [manualNFStep, setManualNFStep] = useState<1 | 2 | 3>(1);
@@ -251,6 +260,15 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         setManualNFSeries(data.manualNFSeries || "");
         setManualNFIssueDate(data.manualNFIssueDate || "");
         setManualNFEntryDate(data.manualNFEntryDate || "");
+        setManualProductsValue(data.manualProductsValue || "");
+        setManualFreightValue(data.manualFreightValue || "");
+        setManualDiscountValue(data.manualDiscountValue || "");
+        setManualIcmsBase(data.manualIcmsBase || "");
+        setManualIcmsValue(data.manualIcmsValue || "");
+        setManualOtherTaxes(data.manualOtherTaxes || "");
+        setManualPaymentCondition(data.manualPaymentCondition || "");
+        setManualBankDetails(data.manualBankDetails || "");
+        setManualPaidAmount(data.manualPaidAmount || "");
         setManualNFEmitterCNPJ(data.manualNFEmitterCNPJ || "");
         setManualNFAccessKey(data.manualNFAccessKey || "");
         setManualItems(Array.isArray(data.manualItems) ? data.manualItems : []);
@@ -351,10 +369,12 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       const data = {
         emitter, recipient, productTransp, serviceData, itemTaxes,
         manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualItems,
+        manualProductsValue, manualFreightValue, manualDiscountValue, manualIcmsBase, manualIcmsValue, manualOtherTaxes,
+        manualPaymentCondition, manualBankDetails, manualPaidAmount,
       };
       localStorage.setItem(key, JSON.stringify(data));
     } catch {}
-  }, [request?.id, emitter, recipient, productTransp, serviceData, itemTaxes, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualItems]);
+  }, [request?.id, emitter, recipient, productTransp, serviceData, itemTaxes, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualItems, manualProductsValue, manualFreightValue, manualDiscountValue, manualIcmsBase, manualIcmsValue, manualOtherTaxes, manualPaymentCondition, manualBankDetails, manualPaidAmount]);
   useEffect(() => {
     if (receiptType === "avulso") {
       const hadXml = !!xmlPreview;
@@ -447,6 +467,15 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         if (data.manualNFSeries) setManualNFSeries(data.manualNFSeries);
         if (data.manualNFIssueDate) setManualNFIssueDate(data.manualNFIssueDate);
         if (data.manualNFEntryDate) setManualNFEntryDate(data.manualNFEntryDate);
+        if (data.manualProductsValue) setManualProductsValue(data.manualProductsValue);
+        if (data.manualFreightValue) setManualFreightValue(data.manualFreightValue);
+        if (data.manualDiscountValue) setManualDiscountValue(data.manualDiscountValue);
+        if (data.manualIcmsBase) setManualIcmsBase(data.manualIcmsBase);
+        if (data.manualIcmsValue) setManualIcmsValue(data.manualIcmsValue);
+        if (data.manualOtherTaxes) setManualOtherTaxes(data.manualOtherTaxes);
+        if (data.manualPaymentCondition) setManualPaymentCondition(data.manualPaymentCondition);
+        if (data.manualBankDetails) setManualBankDetails(data.manualBankDetails);
+        if (data.manualPaidAmount) setManualPaidAmount(data.manualPaidAmount);
         if (data.manualNFEmitterCNPJ) setManualNFEmitterCNPJ(data.manualNFEmitterCNPJ);
         if (data.manualNFAccessKey) setManualNFAccessKey(data.manualNFAccessKey);
         if (data.manualNFStep) setManualNFStep(data.manualNFStep);
@@ -472,6 +501,8 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         manualNFSeries,
         manualNFIssueDate,
         manualNFEntryDate,
+        manualProductsValue, manualFreightValue, manualDiscountValue, manualIcmsBase, manualIcmsValue, manualOtherTaxes,
+        manualPaymentCondition, manualBankDetails, manualPaidAmount,
         manualNFEmitterCNPJ,
         manualNFAccessKey,
         manualNFStep,
@@ -486,7 +517,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       };
       localStorage.setItem(key, JSON.stringify(payload));
     } catch {}
-  }, [paymentMethodCode, invoiceDueDate, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualNFStep, manualTotal, manualItems, allocations, allocationMode, activeTab, request?.id]);
+  }, [paymentMethodCode, invoiceDueDate, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualNFStep, manualTotal, manualItems, allocations, allocationMode, activeTab, request?.id, manualProductsValue, manualFreightValue, manualDiscountValue, manualIcmsBase, manualIcmsValue, manualOtherTaxes, manualPaymentCondition, manualBankDetails, manualPaidAmount]);
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const handleResetConfirmed = () => {
@@ -534,6 +565,15 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       setManualNFSeries("");
       setManualNFIssueDate("");
       setManualNFEntryDate("");
+      setManualProductsValue("");
+      setManualFreightValue("");
+      setManualDiscountValue("");
+      setManualIcmsBase("");
+      setManualIcmsValue("");
+      setManualOtherTaxes("");
+      setManualPaymentCondition("");
+      setManualBankDetails("");
+      setManualPaidAmount("");
       setManualNFEmitterCNPJ("");
       setManualNFAccessKey("");
       setManualNFStep(1);
@@ -577,6 +617,18 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       const preview = data.preview || data;
       setXmlPreview(preview);
       setXmlAttachmentId(data.attachment?.id ?? null);
+
+      // Auto-fill totals from XML preview
+      if (preview?.totals) {
+        setManualProductsValue(preview.totals.vProd || "");
+        setManualFreightValue(preview.totals.vFrete || "");
+        setManualDiscountValue(preview.totals.vDesc || "");
+        setManualIcmsBase(preview.totals.vBC || "");
+        setManualIcmsValue(preview.totals.vICMS || "");
+        setManualOtherTaxes(preview.totals.vOutro || "");
+        setManualTotal(preview.totals.vNF || "");
+      }
+
       try {
         const xmlCnpjCpf = String(preview?.header?.supplier?.cnpjCpf || "").replace(/\D+/g, "");
         const poCnpj = String(selectedSupplier?.cnpj || "").replace(/\D+/g, "");
@@ -2116,32 +2168,20 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
               <Card>
                 <CardHeader><CardTitle>Dados do Documento Avulso</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Número do Documento <span className="text-red-500">*</span></Label>
-                      <Input 
-                        value={manualNFNumber} 
-                        onChange={(e) => setManualNFNumber(e.target.value)} 
-                        placeholder="Informe o número" 
-                      />
+                      <Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} placeholder="Informe o número" />
                       {manualErrors.number && <p className="text-sm text-red-600 mt-1">{manualErrors.number}</p>}
                     </div>
                     <div>
                       <Label>Data de Emissão <span className="text-red-500">*</span></Label>
-                      <Input 
-                        type="date" 
-                        value={manualNFIssueDate} 
-                        onChange={(e) => setManualNFIssueDate(e.target.value)} 
-                      />
+                      <Input type="date" value={manualNFIssueDate} onChange={(e) => setManualNFIssueDate(e.target.value)} />
                       {manualErrors.issueDate && <p className="text-sm text-red-600 mt-1">{manualErrors.issueDate}</p>}
                     </div>
-                    <div>
+                    <div className="md:col-span-2">
                       <Label>Valor Total <span className="text-red-500">*</span></Label>
-                      <Input 
-                        value={manualTotal} 
-                        onChange={(e) => setManualTotal(e.target.value)} 
-                        placeholder="0,00" 
-                      />
+                      <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" />
                       {manualErrors.total && <p className="text-sm text-red-600 mt-1">{manualErrors.total}</p>}
                     </div>
                   </div>
@@ -2201,6 +2241,18 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                                     setXmlPreview(preview);
                                     setXmlRaw(xmlRaw);
                                     setXmlAttachmentId(attachmentId ?? null);
+
+                                    // Auto-fill totals from XML preview
+                                    if (preview?.totals) {
+                                      setManualProductsValue(preview.totals.vProd || "");
+                                      setManualFreightValue(preview.totals.vFrete || "");
+                                      setManualDiscountValue(preview.totals.vDesc || "");
+                                      setManualIcmsBase(preview.totals.vBC || "");
+                                      setManualIcmsValue(preview.totals.vICMS || "");
+                                      setManualOtherTaxes(preview.totals.vOutro || "");
+                                      setManualTotal(preview.totals.vNF || "");
+                                    }
+
                                     try {
                                       const xmlCnpjCpf = String(preview?.header?.supplier?.cnpjCpf || "").replace(/\D+/g, "");
                                       const poCnpj = String(selectedSupplier?.cnpj || "").replace(/\D+/g, "");
@@ -2256,6 +2308,44 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
           {receiptType !== "avulso" && (
             <>
+              <Card>
+                <CardHeader><CardTitle>Totais da Nota</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div><Label>Valor Produtos</Label><Input value={manualProductsValue} onChange={(e) => setManualProductsValue(e.target.value)} placeholder="0,00" /></div>
+                    <div><Label>Valor Frete</Label><Input value={manualFreightValue} onChange={(e) => setManualFreightValue(e.target.value)} placeholder="0,00" /></div>
+                    <div><Label>Descontos</Label><Input value={manualDiscountValue} onChange={(e) => setManualDiscountValue(e.target.value)} placeholder="0,00" /></div>
+                    <div><Label>Base ICMS</Label><Input value={manualIcmsBase} onChange={(e) => setManualIcmsBase(e.target.value)} placeholder="0,00" /></div>
+                    <div><Label>Valor ICMS</Label><Input value={manualIcmsValue} onChange={(e) => setManualIcmsValue(e.target.value)} placeholder="0,00" /></div>
+                    <div><Label>Outras Despesas</Label><Input value={manualOtherTaxes} onChange={(e) => setManualOtherTaxes(e.target.value)} placeholder="0,00" /></div>
+                    <div className="md:col-span-3">
+                      <Label>Valor Total da Nota</Label>
+                      <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" className="font-bold text-lg" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><CardTitle>Pagamento</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Forma de Pagamento</Label>
+                      <Select value={paymentMethodCode} onValueChange={setPaymentMethodCode}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {paymentMethods.map(pm => (<SelectItem key={pm.code} value={pm.code}>{pm.name}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div><Label>Condições de Pagamento</Label><Input value={manualPaymentCondition} onChange={(e) => setManualPaymentCondition(e.target.value)} placeholder="Ex: 30/60/90 dias" /></div>
+                    <div className="md:col-span-2"><Label>Dados Bancários</Label><Input value={manualBankDetails} onChange={(e) => setManualBankDetails(e.target.value)} placeholder="Banco, Agência, Conta" /></div>
+                    <div><Label>Valor Pago</Label><Input value={manualPaidAmount} onChange={(e) => setManualPaidAmount(e.target.value)} placeholder="0,00" /></div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader><CardTitle>Dados do Emitente</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
