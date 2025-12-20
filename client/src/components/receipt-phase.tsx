@@ -620,13 +620,13 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
       // Auto-fill totals from XML preview
       if (preview?.totals) {
-        setManualProductsValue(preview.totals.vProd || "");
-        setManualFreightValue(preview.totals.vFrete || "");
-        setManualDiscountValue(preview.totals.vDesc || "");
-        setManualIcmsBase(preview.totals.vBC || "");
-        setManualIcmsValue(preview.totals.vICMS || "");
-        setManualOtherTaxes(preview.totals.vOutro || "");
-        setManualTotal(preview.totals.vNF || "");
+        setManualProductsValue(String(preview.totals.vProd || ""));
+        setManualFreightValue(String(preview.totals.vFrete || ""));
+        setManualDiscountValue(String(preview.totals.vDesc || ""));
+        setManualIcmsBase(String(preview.totals.vBC || ""));
+        setManualIcmsValue(String(preview.totals.vICMS || ""));
+        setManualOtherTaxes(String(preview.totals.vOutro || ""));
+        setManualTotal(String(preview.totals.vNF || ""));
       }
 
       try {
@@ -2244,13 +2244,13 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
                                     // Auto-fill totals from XML preview
                                     if (preview?.totals) {
-                                      setManualProductsValue(preview.totals.vProd || "");
-                                      setManualFreightValue(preview.totals.vFrete || "");
-                                      setManualDiscountValue(preview.totals.vDesc || "");
-                                      setManualIcmsBase(preview.totals.vBC || "");
-                                      setManualIcmsValue(preview.totals.vICMS || "");
-                                      setManualOtherTaxes(preview.totals.vOutro || "");
-                                      setManualTotal(preview.totals.vNF || "");
+                                      setManualProductsValue(String(preview.totals.vProd || ""));
+                                      setManualFreightValue(String(preview.totals.vFrete || ""));
+                                      setManualDiscountValue(String(preview.totals.vDesc || ""));
+                                      setManualIcmsBase(String(preview.totals.vBC || ""));
+                                      setManualIcmsValue(String(preview.totals.vICMS || ""));
+                                      setManualOtherTaxes(String(preview.totals.vOutro || ""));
+                                      setManualTotal(String(preview.totals.vNF || ""));
                                     }
 
                                     try {
@@ -2924,7 +2924,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                 }
                 // Validar campos financeiros da etapa inicial
                 if (receiptType === "avulso") {
-                  const hasTotals = manualTotal && manualTotal.trim() !== "";
+                  const hasTotals = manualTotal && String(manualTotal).trim() !== "";
                   const hasItems = manualItems.length > 0;
                   if (!hasTotals || !hasItems) {
                     return toast({ title: "Validação", description: "Preencha Valor Total e pelo menos um item", variant: "destructive" });
@@ -3639,7 +3639,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                 return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
               }
               if (receiptType === "avulso") {
-                const hasTotals = manualTotal && manualTotal.trim() !== "";
+                const hasTotals = manualTotal && String(manualTotal).trim() !== "";
                 const hasItems = manualItems.length > 0;
                 if (!hasTotals || !hasItems) {
                   return toast({ title: "Validação", description: "Preencha Valor Total e pelo menos um item", variant: "destructive" });

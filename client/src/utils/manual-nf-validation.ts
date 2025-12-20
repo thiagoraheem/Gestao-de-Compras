@@ -28,22 +28,22 @@ export function validateManualHeader(params: {
   kind: "produto" | "servico" | "avulso";
 }) {
   const errors: Record<string, string> = {};
-  if (!params.number?.trim()) errors.number = "Número do documento é obrigatório";
-  if (!params.issueDate?.trim()) errors.issueDate = "Data de emissão é obrigatória";
-  if (!params.total?.trim()) errors.total = "Valor total é obrigatório";
+  if (!String(params.number || "").trim()) errors.number = "Número do documento é obrigatório";
+  if (!String(params.issueDate || "").trim()) errors.issueDate = "Data de emissão é obrigatória";
+  if (!String(params.total || "").trim()) errors.total = "Valor total é obrigatório";
   
   // Validations specific to NF types (not Avulsa)
   if (params.kind !== "avulso") {
-    if (!params.series?.trim()) errors.series = "Série da NF é obrigatória";
-    if (!params.emitterCnpj?.trim() || !isValidCnpj(params.emitterCnpj)) errors.emitterCnpj = "CNPJ do emitente inválido";
+    if (!String(params.series || "").trim()) errors.series = "Série da NF é obrigatória";
+    if (!String(params.emitterCnpj || "").trim() || !isValidCnpj(String(params.emitterCnpj || ""))) errors.emitterCnpj = "CNPJ do emitente inválido";
     
     if (params.kind === "produto") {
-      if (!params.accessKey?.trim() || !isValidAccessKey(params.accessKey)) errors.accessKey = "Chave de acesso (44 dígitos) é obrigatória";
+      if (!String(params.accessKey || "").trim() || !isValidAccessKey(String(params.accessKey || ""))) errors.accessKey = "Chave de acesso (44 dígitos) é obrigatória";
     }
   }
 
   // Common validations
-  const totalVal = parseFloat(params.total?.replace(',', '.') || '0');
+  const totalVal = parseFloat(String(params.total || "0").replace(',', '.'));
   if (isNaN(totalVal) || totalVal <= 0) {
       errors.total = "Valor total deve ser maior que zero";
   }
@@ -61,11 +61,11 @@ export function validateManualItems(kind: "produto" | "servico", items: Array<Ma
   }
   items.forEach((it: any, idx: number) => {
     if (kind === "produto") {
-      if (!it.description?.trim()) errors.push({ index: idx, message: "Descrição é obrigatória" });
+      if (!String(it.description || "").trim()) errors.push({ index: idx, message: "Descrição é obrigatória" });
       if (it.quantity == null || Number(it.quantity) <= 0) errors.push({ index: idx, message: "Quantidade deve ser maior que zero" });
       if (it.unitPrice == null || Number(it.unitPrice) < 0) errors.push({ index: idx, message: "Valor unitário inválido" });
     } else {
-      if (!it.description?.trim()) errors.push({ index: idx, message: "Descrição é obrigatória" });
+      if (!String(it.description || "").trim()) errors.push({ index: idx, message: "Descrição é obrigatória" });
       if (it.netValue == null || Number(it.netValue) <= 0) errors.push({ index: idx, message: "Valor líquido deve ser maior que zero" });
       if (it.issValue != null && Number(it.issValue) < 0) errors.push({ index: idx, message: "ISS inválido" });
     }
