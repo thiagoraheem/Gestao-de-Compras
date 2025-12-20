@@ -1784,7 +1784,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                               <Label>Valor Unit.</Label>
                               <Input type="number" value={it.unitPrice ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, unitPrice: Number(e.target.value) } : row))} />
                             </div>
-                            <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2 bg-slate-50">
+                            <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2 bg-slate-50 dark:bg-slate-900">
                               <div>
                                 <Label>ICMS vBC</Label>
                                 <Input type="number" value={(itemTaxes[idx + 1]?.vBC ?? "") as any} onChange={(e) => {
@@ -1925,6 +1925,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                       const totCheck = validateTotalConsistency(manualTotal, kind as any, manualItems as any);
                       if (!totCheck.isValid) {
                         return toast({ title: "Validação", description: `Valor total (${totCheck.provided.toFixed(2)}) não confere com soma dos itens (${totCheck.expected.toFixed(2)})`, variant: "destructive" });
+                      }
+                      if (!isFiscalValid) {
+                        return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura na aba Informações Financeiras antes de finalizar", variant: "destructive" });
                       }
                       confirmReceiptMutation.mutate();
                     }}>Confirmar NF Manual</Button>
@@ -2316,9 +2319,6 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                     )}
                     <div className="mt-4 flex justify-end">
                       <Button type="button" variant="secondary" onClick={() => {
-                        if (!isFiscalValid) {
-                          return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
-                        }
                         try {
                           apiRequest(`/api/audit/log`, {
                             method: "POST",
@@ -2774,45 +2774,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           </div>
         </TabsContent>
 
-        <TabsContent value="manual_nf">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader><CardTitle>Inclusão Manual de Nota Fiscal</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Número da NF</Label>
-                  <Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} placeholder="Informe o número" />
-                </div>
-                <div>
-                  <Label>Série</Label>
-                  <Input value={manualNFSeries} onChange={(e) => setManualNFSeries(e.target.value)} placeholder="Informe a série" />
-                </div>
-                <div>
-                  <Label>Data de Emissão</Label>
-                  <Input type="date" value={manualNFIssueDate} onChange={(e) => setManualNFIssueDate(e.target.value)} />
-                </div>
-                <div>
-                  <Label>Valor Total</Label>
-                  <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" />
-                </div>
-                <div className="md:col-span-2 text-sm text-muted-foreground">Campos são obrigatórios para avançar.</div>
-              </CardContent>
-            </Card>
-            <div className="flex justify-between gap-2">
-              <Button variant="outline" onClick={() => setActiveTab('xml')}>Voltar</Button>
-              <Button onClick={() => {
-                if (!isFiscalValid) {
-                  return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
-                }
-                const required = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualTotal];
-                if (required.some(v => !v || String(v).trim() === "")) {
-                  return toast({ title: "Validação", description: "Preencha Número, Série, Emissão e Valor Total", variant: "destructive" });
-                }
-                setActiveTab('items');
-              }}>Próxima</Button>
-            </div>
-          </div>
-        </TabsContent>
+
 
         <TabsContent value="items">
           <div className="space-y-6">

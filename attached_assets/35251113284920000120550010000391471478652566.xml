@@ -1,2 +1,225 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><NFe><infNFe Id="NFe35251113284920000120550010000391471478652566" versao="4.00"><ide><cUF>35</cUF><cNF>47865256</cNF><natOp>VENDA MERC. RECEBIDA TERC. DES</natOp><mod>55</mod><serie>1</serie><nNF>39147</nNF><dhEmi>2025-11-25T20:18:00-03:00</dhEmi><dhSaiEnt>2025-11-25T20:18:00-03:00</dhSaiEnt><tpNF>1</tpNF><idDest>2</idDest><cMunFG>3520509</cMunFG><tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>6</cDV><tpAmb>1</tpAmb><finNFe>1</finNFe><indFinal>1</indFinal><indPres>9</indPres><procEmi>0</procEmi><verProc>12.1.2410 | 3.0</verProc></ide><emit><CNPJ>13284920000120</CNPJ><xNome>SKYJACK BRASIL IMP COM EQUIP ELEV LTDA</xNome><xFant>SKYJACK BRASIL IMP COM EQUIP ELEV LTDA</xFant><enderEmit><xLgr>Al. Jupiter</xLgr><nro>710</nro><xCpl>Quadra F Lote 23</xCpl><xBairro>Distr. Indl.</xBairro><cMun>3520509</cMun><xMun>Indaiatuba</xMun><UF>SP</UF><CEP>13347653</CEP><cPais>1058</cPais><xPais>BRASIL</xPais><fone>1939360136</fone></enderEmit><IE>353124560112</IE><IM>1346519</IM><CNAE>4663000</CNAE><CRT>3</CRT></emit><dest><CNPJ>13844973000159</CNPJ><xNome>BBM SERVICOS, ALUGUEL DE MAQUINAS E TECNOLOGIAS LTDA</xNome><enderDest><xLgr>RUA FRANCISCO ARRUDA</xLgr><nro>265</nro><xBairro>ALEIXO</xBairro><cMun>1302603</cMun><xMun>MANAUS</xMun><UF>AM</UF><CEP>69083060</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderDest><indIEDest>1</indIEDest><IE>042351979</IE><email>pmariana@blomaq.com.br, contasapagar@blomaq.com.br, nfe@blom</email></dest><det nItem="1"><prod><cProd>109568</cProd><cEAN>SEM GTIN</cEAN><xProd>FILTRO HIDRAULICO</xProd><NCM>84212300</NCM><CEST>0103700</CEST><cBenef/><CFOP>6110</CFOP><uCom>PC</uCom><qCom>9.0000</qCom><vUnCom>269.47000000</vUnCom><vProd>2425.23</vProd><cEANTrib>SEM GTIN</cEANTrib><uTrib>PC</uTrib><qTrib>9.0000</qTrib><vUnTrib>269.47000000</vUnTrib><indTot>1</indTot></prod><imposto><vTotTrib>1142.28</vTotTrib><ICMS><ICMS10><orig>1</orig><CST>10</CST><modBC>3</modBC><vBC>2425.23</vBC><pICMS>4.0000</pICMS><vICMS>97.01</vICMS><modBCST>4</modBCST><pMVAST>0.0100</pMVAST><vBCST>2910.28</vBCST><pICMSST>20.0000</pICMSST><vICMSST>485.05</vICMSST></ICMS10></ICMS><IPI><cEnq>336</cEnq><IPINT><CST>52</CST></IPINT></IPI><PIS><PISNT><CST>06</CST></PISNT></PIS><COFINS><COFINSNT><CST>06</CST></COFINSNT></COFINS></imposto></det><total><ICMSTot><vBC>2425.23</vBC><vICMS>97.01</vICMS><vICMSDeson>0</vICMSDeson><vFCPUFDest>0</vFCPUFDest><vICMSUFDest>0</vICMSUFDest><vICMSUFRemet>0</vICMSUFRemet><vFCP>0</vFCP><vBCST>2910.28</vBCST><vST>485.05</vST><vFCPST>0</vFCPST><vFCPSTRet>0</vFCPSTRet><vProd>2425.23</vProd><vFrete>0</vFrete><vSeg>0</vSeg><vDesc>0</vDesc><vII>0</vII><vIPI>0</vIPI><vIPIDevol>0</vIPIDevol><vPIS>0</vPIS><vCOFINS>0</vCOFINS><vOutro>0</vOutro><vNF>2910.28</vNF><vTotTrib>1142.28</vTotTrib></ICMSTot></total><transp><modFrete>0</modFrete><vol><qVol>1</qVol><esp>CAIXA</esp><pesoL>7.200</pesoL><pesoB>7.200</pesoB></vol></transp><cobr><fat><nFat>1000039147</nFat><vOrig>2910.28</vOrig><vDesc>0</vDesc><vLiq>2910.28</vLiq></fat><dup><nDup>001</nDup><dVenc>2025-12-25</dVenc><vDup>1455.14</vDup></dup><dup><nDup>002</nDup><dVenc>2026-01-24</dVenc><vDup>1455.14</vDup></dup></cobr><pag><detPag><indPag>1</indPag><tPag>15</tPag><vPag>2910.28</vPag></detPag></pag><infAdic><infCpl>SO 026629 ORC 153073 PC SOL 2025-24 Aliquota de 4% do ICMS conforme Resolucao SF 13/2012.</infCpl></infAdic><infRespTec><CNPJ>53113791000122</CNPJ><xContato>Rodrigo de Almeida Sartorio</xContato><email>resp_tecnico_dfe_protheus@totvs.com.br</email><fone>1128593904</fone></infRespTec></infNFe><Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><Reference URI="#NFe35251113284920000120550010000391471478652566"><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>qpmXsCB4RhkvlC5ibbJLTz/xb84=</DigestValue></Reference></SignedInfo><SignatureValue>la/ynWzz5RxXSyN88dNNCzYCNkUMKSXLCh7gogvIwtKtbdkZVRisKaEa5pyAgpSalszj+DEPjJvArnfIzTsZlQw4fqrsgMoR2rP8JmYVvN5GqYD0EHuqA4IGPmCxQsClHaUftyzHgbzAzw9t1CVjLT59FentVw/yMOsUvKcWwv6m1j99VPvmbWaDQLpndUKUDwPSYxBI8yKMePByNFb11oOKzHXxNZT4+pklH4KDQc96eWnbR0/RbCB3xh4bNVfTEb7lfBsB7V51KrDdvT971BU6OeFuM9qiOkEC/bF+MniTouBh+US2RWEFvDa1NtNKeqbnkN6rf7Iip04+DSpBhg==</SignatureValue><KeyInfo><X509Data><X509Certificate>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</X509Certificate></X509Data></KeyInfo></Signature></NFe><protNFe versao="4.00"><infProt Id="Id135253639304357"><tpAmb>1</tpAmb><verAplic>SP_NFE_PL009_V4</verAplic><chNFe>35251113284920000120550010000391471478652566</chNFe><dhRecbto>2025-11-25T20:24:51-03:00</dhRecbto><nProt>135253639304357</nProt><digVal>qpmXsCB4RhkvlC5ibbJLTz/xb84=</digVal><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo></infProt></protNFe></nfeProc>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+    <NFe>
+        <infNFe Id="NFe35251113284920000120550010000391471478652566" versao="4.00">
+            <ide>
+                <cUF>35</cUF>
+                <cNF>47865256</cNF>
+                <natOp>VENDA MERC. RECEBIDA TERC. DES</natOp>
+                <mod>55</mod>
+                <serie>1</serie>
+                <nNF>39147</nNF>
+                <dhEmi>2025-11-25T20:18:00-03:00</dhEmi>
+                <dhSaiEnt>2025-11-25T20:18:00-03:00</dhSaiEnt>
+                <tpNF>1</tpNF>
+                <idDest>2</idDest>
+                <cMunFG>3520509</cMunFG>
+                <tpImp>1</tpImp>
+                <tpEmis>1</tpEmis>
+                <cDV>6</cDV>
+                <tpAmb>1</tpAmb>
+                <finNFe>1</finNFe>
+                <indFinal>1</indFinal>
+                <indPres>9</indPres>
+                <procEmi>0</procEmi>
+                <verProc>12.1.2410 | 3.0</verProc>
+            </ide>
+            <emit>
+                <CNPJ>13284920000120</CNPJ>
+                <xNome>SKYJACK BRASIL IMP COM EQUIP ELEV LTDA</xNome>
+                <xFant>SKYJACK BRASIL IMP COM EQUIP ELEV LTDA</xFant>
+                <enderEmit>
+                    <xLgr>Al. Jupiter</xLgr>
+                    <nro>710</nro>
+                    <xCpl>Quadra F Lote 23</xCpl>
+                    <xBairro>Distr. Indl.</xBairro>
+                    <cMun>3520509</cMun>
+                    <xMun>Indaiatuba</xMun>
+                    <UF>SP</UF>
+                    <CEP>13347653</CEP>
+                    <cPais>1058</cPais>
+                    <xPais>BRASIL</xPais>
+                    <fone>1939360136</fone>
+                </enderEmit>
+                <IE>353124560112</IE>
+                <IM>1346519</IM>
+                <CNAE>4663000</CNAE>
+                <CRT>3</CRT>
+            </emit>
+            <dest>
+                <CNPJ>13844973000159</CNPJ>
+                <xNome>BBM SERVICOS, ALUGUEL DE MAQUINAS E TECNOLOGIAS LTDA</xNome>
+                <enderDest>
+                    <xLgr>RUA FRANCISCO ARRUDA</xLgr>
+                    <nro>265</nro>
+                    <xBairro>ALEIXO</xBairro>
+                    <cMun>1302603</cMun>
+                    <xMun>MANAUS</xMun>
+                    <UF>AM</UF>
+                    <CEP>69083060</CEP>
+                    <cPais>1058</cPais>
+                    <xPais>BRASIL</xPais>
+                </enderDest>
+                <indIEDest>1</indIEDest>
+                <IE>042351979</IE>
+                <email>pmariana@blomaq.com.br, contasapagar@blomaq.com.br, nfe@blom</email>
+            </dest>
+            <det nItem="1">
+                <prod>
+                    <cProd>109568</cProd>
+                    <cEAN>SEM GTIN</cEAN>
+                    <xProd>FILTRO HIDRAULICO</xProd>
+                    <NCM>84212300</NCM>
+                    <CEST>0103700</CEST>
+                    <cBenef/>
+                    <CFOP>6110</CFOP>
+                    <uCom>PC</uCom>
+                    <qCom>9.0000</qCom>
+                    <vUnCom>269.47000000</vUnCom>
+                    <vProd>2425.23</vProd>
+                    <cEANTrib>SEM GTIN</cEANTrib>
+                    <uTrib>PC</uTrib>
+                    <qTrib>9.0000</qTrib>
+                    <vUnTrib>269.47000000</vUnTrib>
+                    <indTot>1</indTot>
+                </prod>
+                <imposto>
+                    <vTotTrib>1142.28</vTotTrib>
+                    <ICMS>
+                        <ICMS10>
+                            <orig>1</orig>
+                            <CST>10</CST>
+                            <modBC>3</modBC>
+                            <vBC>2425.23</vBC>
+                            <pICMS>4.0000</pICMS>
+                            <vICMS>97.01</vICMS>
+                            <modBCST>4</modBCST>
+                            <pMVAST>0.0100</pMVAST>
+                            <vBCST>2910.28</vBCST>
+                            <pICMSST>20.0000</pICMSST>
+                            <vICMSST>485.05</vICMSST>
+                        </ICMS10>
+                    </ICMS>
+                    <IPI>
+                        <cEnq>336</cEnq>
+                        <IPINT>
+                            <CST>52</CST>
+                        </IPINT>
+                    </IPI>
+                    <PIS>
+                        <PISNT>
+                            <CST>06</CST>
+                        </PISNT>
+                    </PIS>
+                    <COFINS>
+                        <COFINSNT>
+                            <CST>06</CST>
+                        </COFINSNT>
+                    </COFINS>
+                </imposto>
+            </det>
+            <total>
+                <ICMSTot>
+                    <vBC>2425.23</vBC>
+                    <vICMS>97.01</vICMS>
+                    <vICMSDeson>0</vICMSDeson>
+                    <vFCPUFDest>0</vFCPUFDest>
+                    <vICMSUFDest>0</vICMSUFDest>
+                    <vICMSUFRemet>0</vICMSUFRemet>
+                    <vFCP>0</vFCP>
+                    <vBCST>2910.28</vBCST>
+                    <vST>485.05</vST>
+                    <vFCPST>0</vFCPST>
+                    <vFCPSTRet>0</vFCPSTRet>
+                    <vProd>2425.23</vProd>
+                    <vFrete>0</vFrete>
+                    <vSeg>0</vSeg>
+                    <vDesc>0</vDesc>
+                    <vII>0</vII>
+                    <vIPI>0</vIPI>
+                    <vIPIDevol>0</vIPIDevol>
+                    <vPIS>0</vPIS>
+                    <vCOFINS>0</vCOFINS>
+                    <vOutro>0</vOutro>
+                    <vNF>2910.28</vNF>
+                    <vTotTrib>1142.28</vTotTrib>
+                </ICMSTot>
+            </total>
+            <transp>
+                <modFrete>0</modFrete>
+                <vol>
+                    <qVol>1</qVol>
+                    <esp>CAIXA</esp>
+                    <pesoL>7.200</pesoL>
+                    <pesoB>7.200</pesoB>
+                </vol>
+            </transp>
+            <cobr>
+                <fat>
+                    <nFat>1000039147</nFat>
+                    <vOrig>2910.28</vOrig>
+                    <vDesc>0</vDesc>
+                    <vLiq>2910.28</vLiq>
+                </fat>
+                <dup>
+                    <nDup>001</nDup>
+                    <dVenc>2025-12-25</dVenc>
+                    <vDup>1455.14</vDup>
+                </dup>
+                <dup>
+                    <nDup>002</nDup>
+                    <dVenc>2026-01-24</dVenc>
+                    <vDup>1455.14</vDup>
+                </dup>
+            </cobr>
+            <pag>
+                <detPag>
+                    <indPag>1</indPag>
+                    <tPag>15</tPag>
+                    <vPag>2910.28</vPag>
+                </detPag>
+            </pag>
+            <infAdic>
+                <infCpl>SO 026629 ORC 153073 PC SOL 2025-24 Aliquota de 4% do ICMS conforme Resolucao SF 13/2012.</infCpl>
+            </infAdic>
+            <infRespTec>
+                <CNPJ>53113791000122</CNPJ>
+                <xContato>Rodrigo de Almeida Sartorio</xContato>
+                <email>resp_tecnico_dfe_protheus@totvs.com.br</email>
+                <fone>1128593904</fone>
+            </infRespTec>
+        </infNFe>
+        <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+            <SignedInfo>
+                <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+                <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+                <Reference URI="#NFe35251113284920000120550010000391471478652566">
+                    <Transforms>
+                        <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+                        <Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+                    </Transforms>
+                    <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+                    <DigestValue>qpmXsCB4RhkvlC5ibbJLTz/xb84=</DigestValue>
+                </Reference>
+            </SignedInfo>
+            <SignatureValue>la/ynWzz5RxXSyN88dNNCzYCNkUMKSXLCh7gogvIwtKtbdkZVRisKaEa5pyAgpSalszj+DEPjJvArnfIzTsZlQw4fqrsgMoR2rP8JmYVvN5GqYD0EHuqA4IGPmCxQsClHaUftyzHgbzAzw9t1CVjLT59FentVw/yMOsUvKcWwv6m1j99VPvmbWaDQLpndUKUDwPSYxBI8yKMePByNFb11oOKzHXxNZT4+pklH4KDQc96eWnbR0/RbCB3xh4bNVfTEb7lfBsB7V51KrDdvT971BU6OeFuM9qiOkEC/bF+MniTouBh+US2RWEFvDa1NtNKeqbnkN6rf7Iip04+DSpBhg==</SignatureValue>
+            <KeyInfo>
+                <X509Data>
+                    <X509Certificate>MIIH+TCCBeGgAwIBAgILAKSFsyZ64yPDCvswDQYJKoZIhvcNAQELBQAwWzELMAkGA1UEBhMCQlIxFjAUBgNVBAsMDUFDIFN5bmd1bGFySUQxEzARBgNVBAoMCklDUC1CcmFzaWwxHzAdBgNVBAMMFkFDIFN5bmd1bGFySUQgTXVsdGlwbGEwHhcNMjUwMjEzMTcyMTMwWhcNMjYwMjEzMTcyMTMwWjCB5jELMAkGA1UEBhMCQlIxEzARBgNVBAoMCklDUC1CcmFzaWwxIjAgBgNVBAsMGUNlcnRpZmljYWRvIERpZ2l0YWwgUEogQTExGTAXBgNVBAsMEFZpZGVvY29uZmVyZW5jaWExFzAVBgNVBAsMDjMzMzk5NDI4MDAwMTA4MR8wHQYDVQQLDBZBQyBTeW5ndWxhcklEIE11bHRpcGxhMUkwRwYDVQQDDEBTS1lKQUNLIEJSQVNJTCBJTVBPUlRBQ0FPIEUgQ09NRVJDSU8gREUgRVFVSVBBTUVOOjEzMjg0OTIwMDAwMTIwMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7jpoW9X4BT49yNmUEj0jMJ5+LijKK294p9fpLt8qHzmbXQG7L8N/cefUo+RAkpbRH21n/GAGRI750SDvqmrl0EOPcsyBRCC+6Xrh57lSz/OBA+jDSu84N7tg9kQ8xeefgcu/EPqjqNkx0ZhpnJEkyeZRSc2WNS6mdNfZGp0qcVa6J7FljLQB/PjwY9w7hD5uwfBWZcE1ozurzIQTiXObXH+WrD+zrdJuDGLS+SlYSedbdsSldFHan+J9LQDvlDNYvwwfJ7ZMRyuWE7TM72VPD1LNl1WVR4CzwA0LGotIu01z91Ihfyj9rQbHe2+YlBoTAU5r2nImaLxhiWwWK3nI3QIDAQABo4IDMDCCAywwDgYDVR0PAQH/BAQDAgXgMB0GA1UdJQQWMBQGCCsGAQUFBwMEBggrBgEFBQcDAjAJBgNVHRMEAjAAMB8GA1UdIwQYMBaAFJPh/34d5fXkTeE5YoshaZXmr3IWMB0GA1UdDgQWBBTmEtFdtCiSIkzURFcpyCnOhj7rwjB/BggrBgEFBQcBAQRzMHEwbwYIKwYBBQUHMAKGY2h0dHA6Ly9zeW5ndWxhcmlkLmNvbS5ici9yZXBvc2l0b3Jpby9hYy1zeW5ndWxhcmlkLW11bHRpcGxhL2NlcnRpZmljYWRvcy9hYy1zeW5ndWxhcmlkLW11bHRpcGxhLnA3YjCBggYDVR0gBHsweTB3BgdgTAECAYEFMGwwagYIKwYBBQUHAgEWXmh0dHA6Ly9zeW5ndWxhcmlkLmNvbS5ici9yZXBvc2l0b3Jpby9hYy1zeW5ndWxhcmlkLW11bHRpcGxhL2RwYy9kcGMtYWMtc3luZ3VsYXJJRC1tdWx0aXBsYS5wZGYwgcQGA1UdEQSBvDCBuaAoBgVgTAEDAqAfBB1ST01BTiBSQUZBRUwgVEVJWEVJUkEgVkVMQVNDT6AZBgVgTAEDA6AQBA4xMzI4NDkyMDAwMDEyMKBCBgVgTAEDBKA5BDcxNjA5MTk3NDc3OTMxODgyMTcyMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwoBcGBWBMAQMHoA4EDDAwMDAwMDAwMDAwMIEVZmlzY2FsLmJyQHNreWphY2suY29tMIHiBgNVHR8Egdowgdcwb6BtoGuGaWh0dHA6Ly9pY3AtYnJhc2lsLnN5bmd1bGFyaWQuY29tLmJyL3JlcG9zaXRvcmlvL2FjLXN5bmd1bGFyaWQtbXVsdGlwbGEvbGNyL2xjci1hYy1zeW5ndWxhcmlkLW11bHRpcGxhLmNybDBkoGKgYIZeaHR0cDovL3N5bmd1bGFyaWQuY29tLmJyL3JlcG9zaXRvcmlvL2FjLXN5bmd1bGFyaWQtbXVsdGlwbGEvbGNyL2xjci1hYy1zeW5ndWxhcmlkLW11bHRpcGxhLmNybDANBgkqhkiG9w0BAQsFAAOCAgEAQKJQYhgr7otqc04HAYjy0qSJ1r0S0GdXfymnFNUrrTrsoBFDq/C0/YHqvCXJXUTennMUzLaMChQPPz8X7aj/l5+zhQKkDpOREifFC0kQH7Mm+x2nI/1DDYZnzTNXtjDqNz7017GVwa9ZFo7AASHjygS1uEW8T5hn+R8Kpj4jvmbIkKzZhL9wuVTH9MmZw95E9Ktr6sRCBd5/5rQ4owfJ6oXhezty4ZOQIGCN71sHmo5eNoq+ugq6UyjSD4ywkajr6CvLxe8Edow3o/QDyAa3tTsmzdrz/HdYXjkCb2Lv9rdDh9u+Qt39xVl2ZdxbmPXAFx3GxafV3sqtToRdAk4gb2snDkmbmoPQ72fqfoNVCI4Kgx3ZxPGglGDId047xD8ZLokM1iZDUg0p3FkOb3ijMYubmlcY9X8dfaT3eIJEALxu8UGfDqqHl/17z6OmVAAS4SdEHf8wMXzPHLheGVmzoL/Twfm8sTLRDiVAMyGq+0OP7l+KVtSJWSpN1dNiSMqJqqk8gwMJWnCbWzVxM/A3KFWvSPqSe6WD44a1BynLbSKM+DSW2ttwQv9cPMzNDzKOXIBVjmHJKyesW7h6XpnoG3CY6ciHCcRFUn96x+6DNxcLsX1VCmfKJNFIDuFNaRRbN4zy5xpLvsNPXx8DHEgSIRfJfAo04OO+c5zWjV2VQFM=</X509Certificate>
+                </X509Data>
+            </KeyInfo>
+        </Signature>
+    </NFe>
+    <protNFe versao="4.00">
+        <infProt Id="Id135253639304357">
+            <tpAmb>1</tpAmb>
+            <verAplic>SP_NFE_PL009_V4</verAplic>
+            <chNFe>35251113284920000120550010000391471478652566</chNFe>
+            <dhRecbto>2025-11-25T20:24:51-03:00</dhRecbto>
+            <nProt>135253639304357</nProt>
+            <digVal>qpmXsCB4RhkvlC5ibbJLTz/xb84=</digVal>
+            <cStat>100</cStat>
+            <xMotivo>Autorizado o uso da NF-e</xMotivo>
+        </infProt>
+    </protNFe>
+</nfeProc>

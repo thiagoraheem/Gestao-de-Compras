@@ -179,6 +179,8 @@ export default function Companies() {
     const hasData = formData.name || formData.tradingName || formData.cnpj || formData.address;
     
     if (hasData) {
+      // Update the combobox selection immediately, but ask for confirmation before overwriting data
+      setFormData(prev => ({ ...prev, idCompanyERP: company.idCompany }));
       setPendingERPCompany(company);
       setIsOverwriteDialogOpen(true);
     } else {
