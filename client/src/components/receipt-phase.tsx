@@ -845,7 +845,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           numero_pedido: purchaseOrder?.number || String(request?.id),
           data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : new Date().toISOString(),
           fornecedor: {
-            fornecedor_id: selectedSupplier?.id,
+            fornecedor_id: selectedSupplier?.idSupplierERP || selectedSupplier?.id,
             cnpj: selectedSupplier?.cnpj,
             nome: selectedSupplier?.name
           },
@@ -862,7 +862,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             parcelas: hasInstallments ? installmentCount : 1,
             rateio: allocations.map(a => ({
               centro_custo_id: a.costCenterId,
-              conta_contabil_id: a.chartOfAccountsId,
+              plano_conta_id: a.chartOfAccountsId,
               valor: Number(a.amount || 0),
               percentual: Number(a.percentage || 0)
             }))
