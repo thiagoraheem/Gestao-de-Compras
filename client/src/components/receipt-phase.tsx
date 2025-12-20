@@ -1926,11 +1926,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                       if (!totCheck.isValid) {
                         return toast({ title: "Validação", description: `Valor total (${totCheck.provided.toFixed(2)}) não confere com soma dos itens (${totCheck.expected.toFixed(2)})`, variant: "destructive" });
                       }
-                      if (!isFiscalValid) {
-                        return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura na aba Informações Financeiras antes de finalizar", variant: "destructive" });
-                      }
-                      confirmReceiptMutation.mutate();
-                    }}>Confirmar NF Manual</Button>
+                      setActiveTab('financeiro');
+                      toast({ title: "Sucesso", description: "Dados da Nota Fiscal validados. Prossiga com as informações financeiras." });
+                    }}>Avançar para Financeiro</Button>
                   </div>
                 </CardContent>
               </Card>
