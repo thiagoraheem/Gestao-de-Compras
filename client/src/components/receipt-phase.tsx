@@ -234,6 +234,22 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     enabled: !!quotation?.id,
   });
 
+  // Ensure we have the latest request data including companyId
+  const { data: freshRequest } = useQuery<any>({
+    queryKey: [`/api/purchase-requests/${request?.id}`],
+    enabled: !!request?.id,
+    initialData: request
+  });
+
+  // Use freshRequest for critical fields
+  const activeRequest = freshRequest || request;
+
+  // Fetch company data to get idCompanyERP
+  const { data: companyData, isLoading: isLoadingCompany } = useQuery<any>({
+    queryKey: [`/api/companies/${activeRequest?.companyId}`],
+    enabled: !!activeRequest?.companyId,
+  });
+
   useEffect(() => {
     const category = request?.category;
     const map: Record<string, "produto" | "servico" | "avulso"> = { Produto: "produto", Serviço: "servico", Outros: "avulso" };
@@ -786,6 +802,13 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
   // Mutations for receipt actions
   const confirmReceiptMutation = useMutation({
+    onMutate: () => {
+      console.log("Starting confirmation mutation...");
+      console.log("Active request object:", activeRequest);
+      console.log("Company ID from request:", activeRequest?.companyId);
+      console.log("Company Data fetched:", companyData);
+      console.log("Allocations:", allocations);
+    },
     mutationFn: async () => {
       try {
         if (receiptType === "avulso") {
@@ -793,7 +816,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             await apiRequest(`/api/audit/log`, {
               method: "POST",
               body: {
-                purchaseRequestId: request?.id,
+                purchaseRequestId: activeRequest?.id,
                 actionType: "recebimento_avulso_confirm",
                 actionDescription: "Confirmação de recebimento em modo Avulso",
                 beforeData: {
@@ -822,7 +845,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         await apiRequest(`/api/audit/log`, {
           method: "POST",
           body: {
-            purchaseRequestId: request?.id,
+            purchaseRequestId: activeRequest?.id,
             actionType: "recebimento_validacao_rateio",
             actionDescription: "Validação de rateio usando dados do Locador",
             beforeData: {
@@ -841,8 +864,8 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
         // Integration with Locador
         const purchaseReceivePayload = {
-          pedido_id: request?.id,
-          numero_pedido: purchaseOrder?.number || String(request?.id),
+          pedido_id: activeRequest?.id,
+          numero_pedido: purchaseOrder?.number || String(activeRequest?.id),
           data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : new Date().toISOString(),
           fornecedor: {
             fornecedor_id: selectedSupplier?.idSupplierERP || selectedSupplier?.id,
@@ -857,6 +880,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             valor_total: Number(receiptType === "avulso" ? manualTotal : (xmlPreview?.header?.totals?.vNF || xmlPreview?.header?.totals?.total || 0))
           },
           condicoes_pagamento: {
+            empresa_id: companyData?.idCompanyERP ?? activeRequest?.companyId,
             forma_pagamento: Number(paymentMethodCode),
             data_vencimento: invoiceDueDate,
             parcelas: hasInstallments ? installmentCount : 1,
@@ -879,6 +903,17 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         };
 
         console.log("Submitting to Locador:", purchaseReceivePayload);
+        
+        // Validation check
+        if (!purchaseReceivePayload.condicoes_pagamento.empresa_id) {
+           console.error("CRITICAL: empresa_id is missing!", { 
+             companyDataId: companyData?.idCompanyERP, 
+             requestCompanyId: activeRequest?.companyId,
+             companyData
+           });
+           throw new Error("ID da empresa não identificado. Por favor, verifique se a empresa está configurada corretamente.");
+        }
+
         await apiRequest("/api/integracao-locador/recebimento", {
           method: "POST",
           body: purchaseReceivePayload
@@ -889,7 +924,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           throw e;
         }
       }
-      const response = await apiRequest(`/api/purchase-requests/${request?.id}/confirm-receipt`, {
+      const response = await apiRequest(`/api/purchase-requests/${activeRequest?.id}/confirm-receipt`, {
         method: "POST",
         body: {
           receivedById: user?.id,
@@ -3631,7 +3666,10 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowNFModal(false)}>Cancelar</Button>
-            <Button onClick={() => {
+            <Button 
+              disabled={confirmReceiptMutation.isPending || isLoadingCompany}
+              onClick={() => {
+              if (isLoadingCompany) return;
               if (typeCategoryError) {
                 return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
               }
@@ -3657,7 +3695,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
               }
               setShowNFModal(false);
               confirmReceiptMutation.mutate();
-            }}>Confirmar</Button>
+            }}>
+              {isLoadingCompany ? "Carregando..." : (confirmReceiptMutation.isPending ? "Enviando..." : "Confirmar")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

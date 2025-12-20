@@ -819,6 +819,7 @@ export class DatabaseStorage implements IStorage {
         requestNumber: purchaseRequests.requestNumber,
         requesterId: purchaseRequests.requesterId,
         costCenterId: purchaseRequests.costCenterId,
+        companyId: purchaseRequests.companyId,
         category: purchaseRequests.category,
         urgency: purchaseRequests.urgency,
         justification: purchaseRequests.justification,

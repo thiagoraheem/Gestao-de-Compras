@@ -260,7 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/companies/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/companies/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const company = await storage.getCompanyById(id);
