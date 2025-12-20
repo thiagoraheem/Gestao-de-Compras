@@ -46,6 +46,7 @@ export const companies = pgTable("companies", {
   email: text("email"),
   logoUrl: text("logo_url"),
   logoBase64: text("logo_base64"), // Armazenará a string base64 completa
+  idCompanyERP: integer("id_company_erp"),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
