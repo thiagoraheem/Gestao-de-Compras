@@ -596,6 +596,8 @@ export const auditLogs = pgTable("audit_logs", {
   performedAt: timestamp("performed_at").defaultNow().notNull(),
   beforeData: jsonb("before_data"),
   afterData: jsonb("after_data"),
+  affectedTables: text("affected_tables").array(),
+  metadata: jsonb("metadata"),
 }, (table) => [
   index("idx_audit_logs_purchase_request_id").on(table.purchaseRequestId),
   index("idx_audit_logs_action_type").on(table.actionType),

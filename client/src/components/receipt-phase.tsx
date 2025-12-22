@@ -267,6 +267,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       const raw = localStorage.getItem(key);
       if (raw) {
         const data = JSON.parse(raw);
+        // Restore receipt type if saved
+        if (data.receiptType) setReceiptType(data.receiptType);
+        
         setEmitter(data.emitter || {});
         setRecipient(data.recipient || {});
         setProductTransp(data.productTransp || {});
@@ -383,6 +386,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     try {
       const key = `nf_draft_${request?.id}`;
       const data = {
+        receiptType, // Persist receipt type
         emitter, recipient, productTransp, serviceData, itemTaxes,
         manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualItems,
         manualProductsValue, manualFreightValue, manualDiscountValue, manualIcmsBase, manualIcmsValue, manualOtherTaxes,
@@ -390,7 +394,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       };
       localStorage.setItem(key, JSON.stringify(data));
     } catch {}
-  }, [request?.id, emitter, recipient, productTransp, serviceData, itemTaxes, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualItems, manualProductsValue, manualFreightValue, manualDiscountValue, manualIcmsBase, manualIcmsValue, manualOtherTaxes, manualPaymentCondition, manualBankDetails, manualPaidAmount]);
+  }, [request?.id, receiptType, emitter, recipient, productTransp, serviceData, itemTaxes, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualItems, manualProductsValue, manualFreightValue, manualDiscountValue, manualIcmsBase, manualIcmsValue, manualOtherTaxes, manualPaymentCondition, manualBankDetails, manualPaidAmount]);
   useEffect(() => {
     if (receiptType === "avulso") {
       const hadXml = !!xmlPreview;
@@ -868,16 +872,18 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           numero_pedido: purchaseOrder?.number || String(activeRequest?.id),
           data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : new Date().toISOString(),
           fornecedor: {
-            fornecedor_id: selectedSupplier?.idSupplierERP || selectedSupplier?.id,
-            cnpj: selectedSupplier?.cnpj,
-            nome: selectedSupplier?.name
+            fornecedor_id: selectedSupplier?.idSupplierERP || selectedSupplier?.id || selectedSupplierQuotation?.supplier?.idSupplierERP || selectedSupplierQuotation?.supplier?.id,
+            cnpj: selectedSupplier?.cnpj || selectedSupplierQuotation?.supplier?.cnpj,
+            nome: selectedSupplier?.name || selectedSupplierQuotation?.supplier?.name
           },
           nota_fiscal: {
-            numero: receiptType === "avulso" ? manualNFNumber : (xmlPreview?.header?.number || ""),
-            serie: receiptType === "avulso" ? "" : (xmlPreview?.header?.series || ""),
-            chave_nfe: receiptType === "avulso" ? "" : (xmlPreview?.header?.accessKey || ""),
-            data_emissao: receiptType === "avulso" ? manualNFIssueDate : (xmlPreview?.header?.issueDate || ""),
-            valor_total: Number(receiptType === "avulso" ? manualTotal : (xmlPreview?.header?.totals?.vNF || xmlPreview?.header?.totals?.total || 0))
+            numero: (xmlPreview?.header?.number) || manualNFNumber || "",
+            serie: (xmlPreview?.header?.series) || manualNFSeries || "",
+            chave_nfe: (xmlPreview?.header?.accessKey) || manualNFAccessKey || "",
+            data_emissao: (xmlPreview?.header?.issueDate) || manualNFIssueDate || "",
+            valor_total: (xmlPreview?.header?.totals?.vNF || xmlPreview?.header?.totals?.total)
+              ? Number(xmlPreview?.header?.totals?.vNF || xmlPreview?.header?.totals?.total)
+              : parseFloat(String(manualTotal || "0").replace(',', '.'))
           },
           condicoes_pagamento: {
             empresa_id: companyData?.idCompanyERP ?? activeRequest?.companyId,
@@ -904,6 +910,16 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
         console.log("Submitting to Locador:", purchaseReceivePayload);
         
+        // Validation check for Supplier
+        if (!purchaseReceivePayload.fornecedor.cnpj) {
+           console.error("CRITICAL: Supplier data is missing!", { 
+             selectedSupplier, 
+             selectedSupplierQuotation,
+             supplierFromQuotation: selectedSupplierQuotation?.supplier
+           });
+           throw new Error("Dados do fornecedor (CNPJ) não identificados. Por favor, verifique o cadastro do fornecedor.");
+        }
+
         // Validation check
         if (!purchaseReceivePayload.condicoes_pagamento.empresa_id) {
            console.error("CRITICAL: empresa_id is missing!", { 
@@ -1341,6 +1357,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     return round2(allocationsSum) === round2(baseTotalForAllocation);
   }, [allocationsSum, baseTotalForAllocation]);
 
+  // Removed automatic switch to 'avulso' based on manual fields presence
+  // to prevent incorrect type switching when user is manually entering a Product/Service invoice
+  /*
   useEffect(() => {
     if (activeTab === 'xml') {
       const prefilledManual = [manualNFNumber, manualNFSeries, manualNFIssueDate, manualTotal].every(v => !!v && String(v).trim() !== "");
@@ -1349,6 +1368,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       }
     }
   }, [activeTab, manualNFNumber, manualNFSeries, manualNFIssueDate, manualTotal]);
+  */
 
   const handleFillMissingAllocationValues = () => {
     const parseNum = (v: any) => {
@@ -2939,9 +2959,20 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                   return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
                 }
                 if (receiptType === "avulso") {
-                  const required = [manualNFNumber, manualNFIssueDate];
+                  const required = [manualNFNumber, manualNFIssueDate, manualTotal];
                   if (required.some(v => !v || String(v).trim() === "")) {
-                    return toast({ title: "Validação", description: "Preencha Número e Emissão da NF", variant: "destructive" });
+                    return toast({ title: "Validação", description: "Preencha Número, Emissão e Valor Total da NF", variant: "destructive" });
+                  }
+                } else if (!xmlPreview) {
+                  // Manual entry for Produto/Servico
+                  const required = [manualNFNumber, manualNFIssueDate, manualTotal];
+                  if (required.some(v => !v || String(v).trim() === "")) {
+                    return toast({ title: "Validação", description: "Como não há XML, preencha Número, Emissão e Valor Total na aba de Inclusão Manual", variant: "destructive" });
+                  }
+                  
+                  const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
+                  if (!hasAnyQty) {
+                    return toast({ title: "Validação", description: "Informe as quantidades recebidas", variant: "destructive" });
                   }
                 } else {
                   const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
