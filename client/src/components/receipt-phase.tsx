@@ -867,9 +867,16 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         }
 
         // Integration with Locador
+        // Mapeamento atualizado conforme requisitos:
+        // - pedido_id: mapeado para purchaseOrder.id
+        // - numero_pedido: mapeado para purchaseOrder.orderNumber (ou number como fallback)
+        // - request_number: novo campo com o número da solicitação
+        // - solicitacao_id: novo campo com o ID da solicitação
         const purchaseReceivePayload = {
-          pedido_id: activeRequest?.id,
-          numero_pedido: purchaseOrder?.number || String(activeRequest?.id),
+          pedido_id: purchaseOrder?.id,
+          numero_pedido: purchaseOrder?.orderNumber || purchaseOrder?.number,
+          numero_solicitacao: activeRequest?.requestNumber,
+          solicitacao_id: activeRequest?.id,
           data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : new Date().toISOString(),
           fornecedor: {
             fornecedor_id: selectedSupplier?.idSupplierERP || selectedSupplier?.id || selectedSupplierQuotation?.supplier?.idSupplierERP || selectedSupplierQuotation?.supplier?.id,
@@ -910,6 +917,20 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
         console.log("Submitting to Locador:", purchaseReceivePayload);
         
+        // Validação de campos obrigatórios de identificação do pedido
+        if (!purchaseReceivePayload.pedido_id) {
+           console.error("CRITICAL: Purchase Order ID is missing!", { purchaseOrder });
+           throw new Error("ID do Pedido de Compra não identificado. Verifique se o pedido foi gerado corretamente.");
+        }
+        if (!purchaseReceivePayload.numero_pedido) {
+           console.error("CRITICAL: Purchase Order Number is missing!", { purchaseOrder });
+           throw new Error("Número do Pedido de Compra não identificado.");
+        }
+        if (!purchaseReceivePayload.solicitacao_id) {
+           console.error("CRITICAL: Request ID is missing!", { activeRequest });
+           throw new Error("ID da Solicitação não identificado.");
+        }
+
         // Validation check for Supplier
         if (!purchaseReceivePayload.fornecedor.cnpj) {
            console.error("CRITICAL: Supplier data is missing!", { 
