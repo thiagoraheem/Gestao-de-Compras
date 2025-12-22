@@ -867,19 +867,58 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         }
 
         // Integration with Locador
-        // Mapeamento atualizado conforme requisitos:
-        // - pedido_id: mapeado para purchaseOrder.id
-        // - numero_pedido: mapeado para purchaseOrder.orderNumber (ou number como fallback)
-        // - request_number: novo campo com o número da solicitação
-        // - solicitacao_id: novo campo com o ID da solicitação
+        // Mapeamento e parcelamento conforme requisitos:
+        // - pedido_id: purchaseOrder.id
+        // - numero_pedido: purchaseOrder.orderNumber (ou number como fallback)
+        // - request_number: número da solicitação
+        // - solicitacao_id: ID da solicitação
+        // - parcelas_detalhes: lista de parcelas (vencimento/valor/forma/número)
+        const parcelasDetalhes: Array<{
+          data_vencimento: string;
+          valor: number;
+          forma_pagamento: number;
+          numero_parcela: number;
+        }> = (() => {
+          const toNumber2 = (v: any) => {
+            const n = parseFloat(String(v ?? "0").replace(",", "."));
+            return Number.isFinite(n) ? Number(n.toFixed(2)) : NaN;
+          };
+          const baseMethod = Number(paymentMethodCode);
+          if (hasInstallments) {
+            const rows = installments || [];
+            if (rows.length === 0) return [];
+            return rows.map((row, idx) => {
+              const amt = toNumber2(row.amount);
+              const method = Number(row.method ?? paymentMethodCode);
+              return {
+                data_vencimento: row.dueDate,
+                valor: amt,
+                forma_pagamento: method,
+                numero_parcela: idx + 1,
+              };
+            });
+          } else {
+            const amt = Number(baseTotalForAllocation.toFixed(2));
+            return invoiceDueDate
+              ? [
+                  {
+                    data_vencimento: invoiceDueDate,
+                    valor: amt,
+                    forma_pagamento: baseMethod,
+                    numero_parcela: 1,
+                  },
+                ]
+              : [];
+          }
+        })();
         const purchaseReceivePayload = {
           pedido_id: purchaseOrder?.id,
           numero_pedido: purchaseOrder?.orderNumber || purchaseOrder?.number,
-          numero_solicitacao: activeRequest?.requestNumber,
+          request_number: activeRequest?.requestNumber,
           solicitacao_id: activeRequest?.id,
           data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : new Date().toISOString(),
           fornecedor: {
-            fornecedor_id: selectedSupplier?.idSupplierERP || selectedSupplier?.id || selectedSupplierQuotation?.supplier?.idSupplierERP || selectedSupplierQuotation?.supplier?.id,
+            fornecedor_id: selectedSupplier?.idSupplierERP || selectedSupplierQuotation?.supplier?.idSupplierERP,
             cnpj: selectedSupplier?.cnpj || selectedSupplierQuotation?.supplier?.cnpj,
             nome: selectedSupplier?.name || selectedSupplierQuotation?.supplier?.name
           },
@@ -897,6 +936,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             forma_pagamento: Number(paymentMethodCode),
             data_vencimento: invoiceDueDate,
             parcelas: hasInstallments ? installmentCount : 1,
+            parcelas_detalhes: parcelasDetalhes,
             rateio: allocations.map(a => ({
               centro_custo_id: a.costCenterId,
               plano_conta_id: a.chartOfAccountsId,
@@ -917,6 +957,27 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
         console.log("Submitting to Locador:", purchaseReceivePayload);
         
+        // Validação de parcelas detalhadas
+        {
+          const det = purchaseReceivePayload.condicoes_pagamento.parcelas_detalhes || [];
+          if (!Array.isArray(det) || det.length === 0) {
+            throw new Error("Nenhuma parcela detalhada encontrada nas condições de pagamento.");
+          }
+          const invalids = det.filter(
+            (p) =>
+              !p.data_vencimento ||
+              !Number.isFinite(p.valor) ||
+              p.valor <= 0 ||
+              !Number.isFinite(p.forma_pagamento) ||
+              !Number.isFinite(p.numero_parcela) ||
+              p.numero_parcela < 1,
+          );
+          if (invalids.length > 0) {
+            console.error("CRITICAL: Parcelas detalhadas inválidas!", { invalids, det });
+            throw new Error("Uma ou mais parcelas detalhadas estão inválidas. Verifique vencimentos, valores e forma de pagamento.");
+          }
+        }
+
         // Validação de campos obrigatórios de identificação do pedido
         if (!purchaseReceivePayload.pedido_id) {
            console.error("CRITICAL: Purchase Order ID is missing!", { purchaseOrder });
