@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, forwardRef, useImperativeHandle } from "react";
+import React, { useState, useMemo, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -171,7 +171,8 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [paymentMethods, setPaymentMethods] = useState<Array<{ code: string; name: string }>>([]);
   const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
   const [autoFilledRows, setAutoFilledRows] = useState<Set<number>>(new Set());
-  const [emitter, setEmitter] = useState<{ cnpj?: string; name?: string; fantasyName?: string; ie?: string; im?: string; cnae?: string; crt?: string; address?: { street?: string; number?: string; neighborhood?: string; city?: string; uf?: string; cep?: string; country?: string; phone?: string } }>({});
+  const skipIntegrationRef = useRef(false);
+  const [emitter, setEmitter] = useState<{ idSupplierERP?: string; cnpj?: string; name?: string; fantasyName?: string; ie?: string; im?: string; cnae?: string; crt?: string; address?: { street?: string; number?: string; neighborhood?: string; city?: string; uf?: string; cep?: string; country?: string; phone?: string } }>({});
   const [recipient, setRecipient] = useState<{ cnpjCpf?: string; name?: string; ie?: string; email?: string; address?: { street?: string; number?: string; neighborhood?: string; city?: string; uf?: string; cep?: string; country?: string; phone?: string } }>({});
   const [productTransp, setProductTransp] = useState<{ modFrete?: string; transporter?: { cnpj?: string; name?: string; ie?: string; address?: string; city?: string; uf?: string }; volume?: { quantity?: number; specie?: string } }>({});
   const [serviceData, setServiceData] = useState<{ itemListaServico?: string; codigoTributacaoMunicipio?: string; discriminacao?: string; codigoMunicipio?: string; valores?: { valorServicos?: number; valorDeducoes?: number; valorPis?: number; valorCofins?: number; valorInss?: number; valorIr?: number; valorCsll?: number; issRetido?: number; valorIss?: number; valorIssRetido?: number; baseCalculo?: number; aliquota?: number; valorLiquidoNfse?: number; descontoIncondicionado?: number; descontoCondicionado?: number } }>({});
@@ -381,6 +382,12 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       }
     } catch {}
   }, [xmlPreview, receiptType]);
+
+  useEffect(() => {
+    if (selectedSupplier?.idSupplierERP) {
+      setEmitter(prev => ({ ...prev, idSupplierERP: selectedSupplier.idSupplierERP }));
+    }
+  }, [selectedSupplier]);
 
   useEffect(() => {
     try {
@@ -914,9 +921,10 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         const purchaseReceivePayload = {
           pedido_id: purchaseOrder?.id,
           numero_pedido: purchaseOrder?.orderNumber || purchaseOrder?.number,
-          request_number: activeRequest?.requestNumber,
+          numero_solicitacao: activeRequest?.requestNumber,
           solicitacao_id: activeRequest?.id,
           data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : new Date().toISOString(),
+          justificativa: activeRequest?.justification || "",
           fornecedor: {
             fornecedor_id: selectedSupplier?.idSupplierERP || selectedSupplierQuotation?.supplier?.idSupplierERP,
             cnpj: selectedSupplier?.cnpj || selectedSupplierQuotation?.supplier?.cnpj,
@@ -1003,19 +1011,38 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         }
 
         // Validation check
-        if (!purchaseReceivePayload.condicoes_pagamento.empresa_id) {
-           console.error("CRITICAL: empresa_id is missing!", { 
-             companyDataId: companyData?.idCompanyERP, 
-             requestCompanyId: activeRequest?.companyId,
-             companyData
-           });
-           throw new Error("ID da empresa não identificado. Por favor, verifique se a empresa está configurada corretamente.");
-        }
+        if (!skipIntegrationRef.current) {
+          if (!purchaseReceivePayload.condicoes_pagamento.empresa_id) {
+             console.error("CRITICAL: empresa_id is missing!", { 
+               companyDataId: companyData?.idCompanyERP, 
+               requestCompanyId: activeRequest?.companyId,
+               companyData
+             });
+             throw new Error("ID da empresa não identificado. Por favor, verifique se a empresa está configurada corretamente.");
+          }
 
-        await apiRequest("/api/integracao-locador/recebimento", {
-          method: "POST",
-          body: purchaseReceivePayload
-        });
+          await apiRequest("/api/integracao-locador/recebimento", {
+            method: "POST",
+            body: purchaseReceivePayload
+          });
+        } else {
+          try {
+            await apiRequest(`/api/audit/log`, {
+              method: "POST",
+              body: {
+                purchaseRequestId: activeRequest?.id,
+                actionType: "recebimento_sem_integracao_locador",
+                actionDescription: "Integração com Locador não realizada (idSupplierERP ausente)",
+                beforeData: { 
+                  supplierId: selectedSupplier?.id || selectedSupplierQuotation?.supplierId,
+                  supplierName: selectedSupplier?.name || selectedSupplierQuotation?.supplier?.name
+                },
+                afterData: null,
+                affectedTables: ["receipts"],
+              },
+            });
+          } catch {}
+        }
 
       } catch (e) {
         if (e instanceof Error) {
@@ -2485,6 +2512,18 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                 <CardHeader><CardTitle>Dados do Emitente</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
+                <Label className={!emitter.idSupplierERP ? "text-red-600 font-bold" : ""}>ID Fornecedor ERP</Label>
+                <Input 
+                  value={emitter.idSupplierERP || ""} 
+                  onChange={(e) => setEmitter(prev => ({ ...prev, idSupplierERP: e.target.value }))} 
+                  className={!emitter.idSupplierERP ? "border-red-500 focus-visible:ring-red-500" : ""}
+                  placeholder="ID ERP" 
+                />
+                {!emitter.idSupplierERP && (
+                  <p className="text-xs text-red-600 mt-1">Obrigatório para integração</p>
+                )}
+              </div>
+              <div>
                 <Label>CNPJ</Label>
                 <Input value={emitter.cnpj || ""} onChange={(e) => setEmitter(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" />
               </div>
@@ -3737,40 +3776,90 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             </CardContent>
           </Card>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowNFModal(false)}>Cancelar</Button>
-            <Button 
-              disabled={confirmReceiptMutation.isPending || isLoadingCompany}
-              onClick={() => {
-              if (isLoadingCompany) return;
-              if (typeCategoryError) {
-                return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
-              }
-              if (!isFiscalValid) {
-                return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
-              }
-              if (receiptType === "avulso") {
-                const hasTotals = manualTotal && String(manualTotal).trim() !== "";
-                const hasItems = manualItems.length > 0;
-                if (!hasTotals || !hasItems) {
-                  return toast({ title: "Validação", description: "Preencha Valor Total e pelo menos um item", variant: "destructive" });
+          <div className="flex flex-col gap-4">
+            {!emitter.idSupplierERP && (
+              <div className="p-4 border border-amber-200 bg-amber-50 text-amber-800 rounded-md">
+                <p className="font-bold">Atenção</p>
+                <p>O campo <strong>idSupplierERP</strong> não está preenchido para este fornecedor. A integração com o sistema do Locador não será realizada.</p>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowNFModal(false)}>Cancelar</Button>
+              
+              {!emitter.idSupplierERP && (
+                <Button 
+                  variant="secondary"
+                  disabled={confirmReceiptMutation.isPending || isLoadingCompany}
+                  onClick={() => {
+                    if (isLoadingCompany) return;
+                    if (typeCategoryError) {
+                      return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
+                    }
+                    if (!isFiscalValid) {
+                      return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
+                    }
+                    if (receiptType === "avulso") {
+                      const hasTotals = manualTotal && String(manualTotal).trim() !== "";
+                      const hasItems = manualItems.length > 0;
+                      if (!hasTotals || !hasItems) {
+                        return toast({ title: "Validação", description: "Preencha Valor Total e pelo menos um item", variant: "destructive" });
+                      }
+                    } else {
+                      const v = validateAllocationsAgainstLocador(allocations, costCenters, chartAccounts);
+                      if (!v.isValid) {
+                        return toast({
+                          title: "Validação",
+                          description: formatReceiptApiError("Rateio inválido com base nos dados do Locador", v.invalidRows),
+                          variant: "destructive",
+                        });
+                      }
+                    }
+                    skipIntegrationRef.current = true;
+                    setShowNFModal(false);
+                    confirmReceiptMutation.mutate();
+                  }}
+                >
+                  {confirmReceiptMutation.isPending ? "Processando..." : "Confirmar (Sem Integração)"}
+                </Button>
+              )}
+
+              <Button 
+                disabled={confirmReceiptMutation.isPending || isLoadingCompany || !emitter.idSupplierERP}
+                className={!emitter.idSupplierERP ? "opacity-50 cursor-not-allowed" : ""}
+                onClick={() => {
+                if (isLoadingCompany) return;
+                if (!emitter.idSupplierERP) return; // Prevent click if disabled logic fails visually
+                
+                if (typeCategoryError) {
+                  return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
                 }
-              } else {
-                const v = validateAllocationsAgainstLocador(allocations, costCenters, chartAccounts);
-                console.log("validation:locador:pre-submit", { allocations, sources: v.sources, invalidRows: v.invalidRows });
-                if (!v.isValid) {
-                  return toast({
-                    title: "Validação",
-                    description: formatReceiptApiError("Rateio inválido com base nos dados do Locador", v.invalidRows),
-                    variant: "destructive",
-                  });
+                if (!isFiscalValid) {
+                  return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
                 }
-              }
-              setShowNFModal(false);
-              confirmReceiptMutation.mutate();
-            }}>
-              {isLoadingCompany ? "Carregando..." : (confirmReceiptMutation.isPending ? "Enviando..." : "Confirmar")}
-            </Button>
+                if (receiptType === "avulso") {
+                  const hasTotals = manualTotal && String(manualTotal).trim() !== "";
+                  const hasItems = manualItems.length > 0;
+                  if (!hasTotals || !hasItems) {
+                    return toast({ title: "Validação", description: "Preencha Valor Total e pelo menos um item", variant: "destructive" });
+                  }
+                } else {
+                  const v = validateAllocationsAgainstLocador(allocations, costCenters, chartAccounts);
+                  console.log("validation:locador:pre-submit", { allocations, sources: v.sources, invalidRows: v.invalidRows });
+                  if (!v.isValid) {
+                    return toast({
+                      title: "Validação",
+                      description: formatReceiptApiError("Rateio inválido com base nos dados do Locador", v.invalidRows),
+                      variant: "destructive",
+                    });
+                  }
+                }
+                skipIntegrationRef.current = false;
+                setShowNFModal(false);
+                confirmReceiptMutation.mutate();
+              }}>
+                {isLoadingCompany ? "Carregando..." : (confirmReceiptMutation.isPending ? "Enviando..." : "Enviar para API do Locador")}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
