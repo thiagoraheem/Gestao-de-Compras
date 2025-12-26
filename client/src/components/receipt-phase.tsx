@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ReceiptSearchDialog } from "./receipt-search-dialog";
-import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck, ChevronDown, ChevronRight, Trash2, Search } from "lucide-react";
+import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck, ChevronDown, ChevronRight, Trash2, Search, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
@@ -1049,11 +1049,25 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           throw e;
         }
       }
+      // Calculate final status
+      const isComplete = (() => {
+        if (receiptType === "avulso") return true;
+        if (!Array.isArray(itemsWithPrices) || itemsWithPrices.length === 0) return true;
+        
+        return itemsWithPrices.every((it: any) => {
+          const prev = Number(it.quantityReceived || 0);
+          const current = Number(receivedQuantities[it.id] || 0);
+          const max = Number(it.quantity || 0);
+          return (prev + current) >= max;
+        });
+      })();
+
       const response = await apiRequest(`/api/purchase-requests/${activeRequest?.id}/confirm-receipt`, {
         method: "POST",
         body: {
           receivedById: user?.id,
           receiptMode: receiptType,
+          finalStatus: isComplete,
           paymentMethodCode,
           invoiceDueDate,
           nfNumber: receiptType === "avulso" ? manualNFNumber : undefined,
@@ -1072,15 +1086,20 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           allocationMode: allocations.length > 0 ? allocationMode : undefined,
         },
       });
-      return response;
+      return { response, isComplete };
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      const { isComplete } = data;
+
       toast({
         title: "Sucesso",
-        description: "Recebimento confirmado! Item movido para Conclusão.",
+        description: isComplete ? "Recebimento confirmado! Item movido para Conclusão." : "Recebimento parcial registrado com sucesso.",
       });
-      try { setLocation(`/kanban?request=${request?.id}&phase=conclusao_compra`); } catch {}
+      
+      if (isComplete) {
+        try { setLocation(`/kanban?request=${request?.id}&phase=conclusao_compra`); } catch {}
+      }
       onClose();
     },
     onError: (error: any) => {
@@ -2512,18 +2531,6 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                 <CardHeader><CardTitle>Dados do Emitente</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label className={!emitter.idSupplierERP ? "text-red-600 font-bold" : ""}>ID Fornecedor ERP</Label>
-                <Input 
-                  value={emitter.idSupplierERP || ""} 
-                  onChange={(e) => setEmitter(prev => ({ ...prev, idSupplierERP: e.target.value }))} 
-                  className={!emitter.idSupplierERP ? "border-red-500 focus-visible:ring-red-500" : ""}
-                  placeholder="ID ERP" 
-                />
-                {!emitter.idSupplierERP && (
-                  <p className="text-xs text-red-600 mt-1">Obrigatório para integração</p>
-                )}
-              </div>
-              <div>
                 <Label>CNPJ</Label>
                 <Input value={emitter.cnpj || ""} onChange={(e) => setEmitter(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" />
               </div>
@@ -3007,7 +3014,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
               </>
             )}
 
-            {receiptType !== "avulso" && (
+            {receiptType !== "avulso" && (user?.isReceiver || user?.isAdmin) && (
               <Card>
                 <CardHeader><CardTitle>Confirmação de Itens</CardTitle></CardHeader>
                 <CardContent>
@@ -3026,8 +3033,10 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                         {Array.isArray(itemsWithPrices) && itemsWithPrices.map((it: any) => {
                           const current = Number(receivedQuantities[it.id] || 0);
                           const max = Number(it.quantity || 0);
-                          const invalid = current > max;
-                          const saldo = Math.max(0, max - current);
+                          const prev = Number(it.quantityReceived || 0);
+                          const totalReceived = prev + current;
+                          const invalid = totalReceived > max;
+                          const saldo = Math.max(0, max - totalReceived);
                           return (
                             <TableRow key={it.id} className={invalid ? "bg-red-50 dark:bg-red-900/20" : ""}>
                               <TableCell>{it.description}</TableCell>
@@ -3040,13 +3049,76 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                               </TableCell>
                               <TableCell className="text-center">{Number(saldo).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}</TableCell>
                               <TableCell className="text-center">
-                                {invalid ? <Badge variant="destructive">Qtd maior que prevista</Badge> : (current === 0 ? <Badge variant="secondary">Não Recebido</Badge> : current < max ? <Badge variant="default">Parcial</Badge> : <Badge variant="outline">Completo</Badge>)}
+                                {invalid ? <Badge variant="destructive">Qtd Excedente</Badge> : (totalReceived === 0 ? <Badge variant="secondary">Não Recebido</Badge> : totalReceived < max ? <Badge variant="default">Parcial ({prev > 0 ? `+${prev}` : ''})</Badge> : <Badge variant="outline">Completo</Badge>)}
                               </TableCell>
                             </TableRow>
                           );
                         })}
                       </TableBody>
                     </Table>
+                    
+                    {/* Summary Footer */}
+                    <div className="bg-slate-50 dark:bg-slate-900 p-4 border-t border-slate-200 dark:border-slate-800">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Progresso do Recebimento:</span>
+                          <span className="font-medium">
+                            {(() => {
+                              const totalExpected = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(it.quantity || 0), 0);
+                              const totalReceivedPrev = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(it.quantityReceived || 0), 0);
+                              const totalReceivedNow = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(receivedQuantities[it.id] || 0), 0);
+                              const total = totalReceivedPrev + totalReceivedNow;
+                              const percent = totalExpected > 0 ? Math.min(100, (total / totalExpected) * 100) : 0;
+                              return `${percent.toFixed(1)}% (${total.toLocaleString('pt-BR')} / ${totalExpected.toLocaleString('pt-BR')})`;
+                            })()}
+                          </span>
+                        </div>
+                        
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                          <div 
+                            className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" 
+                            style={{ width: `${(() => {
+                              const totalExpected = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(it.quantity || 0), 0);
+                              const totalReceivedPrev = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(it.quantityReceived || 0), 0);
+                              const totalReceivedNow = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(receivedQuantities[it.id] || 0), 0);
+                              return totalExpected > 0 ? Math.min(100, ((totalReceivedPrev + totalReceivedNow) / totalExpected) * 100) : 0;
+                            })()}%` }}
+                          ></div>
+                        </div>
+
+                        <div className="flex justify-between items-center mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-100 dark:border-blue-800">
+                           <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Status Previsto:</span>
+                           {(() => {
+                              const isComplete = itemsWithPrices.every((it: any) => {
+                                const prev = Number(it.quantityReceived || 0);
+                                const current = Number(receivedQuantities[it.id] || 0);
+                                const max = Number(it.quantity || 0);
+                                return (prev + current) >= max;
+                              });
+                              return isComplete ? 
+                                <Badge className="bg-green-600 hover:bg-green-700">Conclusão Total</Badge> : 
+                                <Badge variant="secondary">Recebimento Parcial - Continuar</Badge>;
+                           })()}
+                        </div>
+                        {(() => {
+                              const isComplete = itemsWithPrices.every((it: any) => {
+                                const prev = Number(it.quantityReceived || 0);
+                                const current = Number(receivedQuantities[it.id] || 0);
+                                const max = Number(it.quantity || 0);
+                                return (prev + current) >= max;
+                              });
+                              if (!isComplete) {
+                                return (
+                                  <p className="text-xs text-slate-500 mt-1">
+                                    * O pedido permanecerá na fase de recebimento até que todos os itens sejam entregues.
+                                  </p>
+                                );
+                              }
+                              return null;
+                        })()}
+                      </div>
+                    </div>
+
                   </div>
                 </CardContent>
               </Card>
@@ -3119,6 +3191,14 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {selectedSupplier && !selectedSupplier.idSupplierERP && (
+               <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-3">
+                 <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                 <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                   Fornecedor não sincronizado com o ERP - não gerará registro no Contas a Pagar
+                 </span>
+               </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               <div>
                 <p className="text-sm font-medium text-gray-500">Nome do Fornecedor</p>

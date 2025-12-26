@@ -453,6 +453,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
   observations: text("observations"),
   approvedBy: integer("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
+  fulfillmentStatus: text("fulfillment_status").default("pending"), // pending, partial, fulfilled
   createdBy: integer("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

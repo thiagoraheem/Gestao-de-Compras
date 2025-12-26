@@ -47,7 +47,7 @@ export interface PurchaseReceiveRequest {
   data_pedido?: string;
   fornecedor: SupplierInfo;
   nota_fiscal: InvoiceInfo;
-  condicoes_pagamento: PaymentConditions;
+  condicoes_pagamento?: PaymentConditions;
   itens?: PurchaseItem[];
 }
 

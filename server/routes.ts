@@ -2165,7 +2165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
-        const { receivedById, receiptMode, paymentMethodCode, invoiceDueDate, nfNumber, nfSeries, nfIssueDate, nfEntryDate, nfTotal, manualCostCenterId, manualChartOfAccountsId, manualItems, allocations: rawAllocations, allocationMode } = req.body;
+        const { receivedById, receiptMode, paymentMethodCode, invoiceDueDate, nfNumber, nfSeries, nfIssueDate, nfEntryDate, nfTotal, manualCostCenterId, manualChartOfAccountsId, manualItems, allocations: rawAllocations, allocationMode, finalStatus } = req.body;
 
         const request = await storage.getPurchaseRequestById(id);
         if (!request || request.currentPhase !== "recebimento") {
@@ -2196,10 +2196,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const receivedQuantities: Record<number, number> | undefined = (req.body as any).receivedQuantities;
         if (receiptMode !== "avulso" && receivedQuantities && typeof receivedQuantities === "object") {
+          const { db } = await import("./db");
+          const { eq } = await import("drizzle-orm");
           const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+          
           for (const it of poItems) {
             const qty = Number((receivedQuantities as any)[it.id] || 0);
             if (qty > 0) {
+              const currentQty = Number(it.quantityReceived || 0);
+              const maxQty = Number(it.quantity || 0);
+              
+              if ((currentQty + qty) > maxQty) {
+                // Allow a small tolerance for floating point errors if needed, or strictly reject
+                // For now, strict rejection as requested: "Validar que as quantidades recebidas não excedam as solicitadas"
+                 return res.status(400).json({ 
+                   message: `Quantidade recebida excede a solicitada para o item: ${it.description || it.id}. Recebido: ${currentQty + qty}, Solicitado: ${maxQty}` 
+                 });
+              }
+
               await storage.createReceiptItem({
                 receiptId: receipt.id,
                 purchaseOrderItemId: it.id,
@@ -2208,8 +2222,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 condition: "good",
                 observations: null,
               } as any);
+
+              // Update quantityReceived in purchase_order_items
+              await db.update(purchaseOrderItems)
+                .set({ quantityReceived: String(currentQty + qty) })
+                .where(eq(purchaseOrderItems.id, it.id));
             }
           }
+
+          // Update fulfillmentStatus in purchase_orders
+          const updatedItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+          let totalOrdered = 0;
+          let totalReceived = 0;
+          
+          for (const item of updatedItems) {
+            totalOrdered += Number(item.quantity || 0);
+            totalReceived += Number(item.quantityReceived || 0);
+          }
+
+          let newFulfillmentStatus = "pending";
+          if (totalReceived >= totalOrdered && totalReceived > 0) {
+            newFulfillmentStatus = "fulfilled";
+          } else if (totalReceived > 0) {
+            newFulfillmentStatus = "partial";
+          }
+
+          await db.update(purchaseOrders)
+            .set({ fulfillmentStatus: newFulfillmentStatus })
+            .where(eq(purchaseOrders.id, purchaseOrder.id));
         }
 
         const baseTotal = (() => {
@@ -2329,19 +2369,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch {}
         }
 
-        const updatedRequest = await storage.updatePurchaseRequest(id, {
-          receivedById: receivedById,
-          receivedDate: new Date(),
-          currentPhase: "conclusao_compra" as any,
-        });
-        try {
-          const { db } = await import("./db");
-          const { sql } = await import("drizzle-orm");
-          await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-            VALUES (${id}, ${'recebimento_confirmado'}, ${'Confirmação de recebimento e avanço de fase'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id, newPhase: 'conclusao_compra' })}::jsonb, ${sql`ARRAY['receipts','purchase_requests']`} );`);
-        } catch {}
+        if (finalStatus) {
+            const updatedRequest = await storage.updatePurchaseRequest(id, {
+              receivedById: receivedById,
+              receivedDate: new Date(),
+              currentPhase: "conclusao_compra" as any,
+            });
+            try {
+              const { db } = await import("./db");
+              const { sql } = await import("drizzle-orm");
+              await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+                VALUES (${id}, ${'recebimento_confirmado'}, ${'Confirmação de recebimento e avanço de fase'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id, newPhase: 'conclusao_compra' })}::jsonb, ${sql`ARRAY['receipts','purchase_requests']`} );`);
+            } catch {}
+            res.json({ request: updatedRequest, receipt });
+        } else {
+             // Partial receipt - stay in receiving phase
+             const updatedRequest = await storage.getPurchaseRequestById(id);
+             try {
+                const { db } = await import("./db");
+                const { sql } = await import("drizzle-orm");
+                await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+                  VALUES (${id}, ${'recebimento_parcial'}, ${'Recebimento parcial registrado'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id, status: 'partial' })}::jsonb, ${sql`ARRAY['receipts','purchase_requests']`} );`);
+              } catch {}
+             res.json({ request: updatedRequest, receipt });
+        }
 
-        res.json({ request: updatedRequest, receipt });
       } catch (error) {
         console.error("Error confirming receipt:", error);
         res.status(400).json({ message: "Failed to confirm receipt" });

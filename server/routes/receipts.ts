@@ -410,11 +410,24 @@ export function registerReceiptsRoutes(app: Express) {
     const id = Number(req.params.id);
     const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
     if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
-    if (rec.status !== "validado_compras") return res.status(400).json({ message: "Recebimento precisa estar validado" });
+    if (rec.status !== "validado_compras" && rec.status !== "erro_integracao") return res.status(400).json({ message: "Recebimento precisa estar validado ou com erro de integração para ser enviado" });
 
     const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
     const installments = await db.select().from(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
     const [xmlRow] = await db.select().from(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
+
+    // Logic to differentiate payload for ERP (First vs Subsequent receipt)
+    let isFirstReceipt = true;
+    if (rec.purchaseOrderId) {
+      const existingReceipts = await db.select()
+        .from(receipts)
+        .where(eq(receipts.purchaseOrderId, rec.purchaseOrderId))
+        .orderBy(asc(receipts.createdAt));
+      
+      if (existingReceipts.length > 0 && existingReceipts[0].id !== rec.id) {
+        isFirstReceipt = false;
+      }
+    }
 
     const dto: any = {
       tipo_documento: rec.receiptType,
@@ -457,13 +470,23 @@ export function registerReceiptsRoutes(app: Express) {
         ncm: it.ncm || null,
         cfop: it.cfop || null,
       })),
-      parcelas: installments.map((p: any) => ({
+      xml_nfe: xmlRow?.xmlContent || null,
+    };
+
+    // Only include payment conditions (installments) if it's the first receipt
+    if (isFirstReceipt) {
+      dto.parcelas = installments.map((p: any) => ({
         numero: p.installmentNumber,
         data_vencimento: p.dueDate ? new Date(p.dueDate).toISOString().slice(0, 10) : null,
         valor: p.amount ? Number(p.amount) : null,
-      })),
-      xml_nfe: xmlRow?.xmlContent || null,
-    };
+      }));
+    } else {
+      // For subsequent receipts, send stock-only info (implied by lack of parcelas/payment info)
+      // and keep reference to original if possible (already have id_recebimento_compras)
+      // The requirement "Manter referência ao recebimento original" might be satisfied by the PO number linkage on ERP side
+      // or we could add a field if the API supported it.
+      // For now, we follow "Excluir condições de pagamento".
+    }
 
     let respJson: any;
     let integStatus = "erro_integracao";

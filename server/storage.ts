@@ -277,6 +277,8 @@ export interface IStorage {
   // Receipts operations
   createReceipt(receipt: InsertReceipt): Promise<Receipt>;
   createReceiptItem(item: InsertReceiptItem): Promise<ReceiptItem>;
+  getReceiptsByPurchaseOrderId(purchaseOrderId: number): Promise<Receipt[]>;
+
 
   // Approval History operations
   getApprovalHistory(purchaseRequestId: number): Promise<any[]>;
@@ -2021,6 +2023,14 @@ export class DatabaseStorage implements IStorage {
       .values(values as any)
       .returning();
     return created as ReceiptItem;
+  }
+
+  async getReceiptsByPurchaseOrderId(purchaseOrderId: number): Promise<Receipt[]> {
+    return await db
+      .select()
+      .from(receipts)
+      .where(eq(receipts.purchaseOrderId, purchaseOrderId))
+      .orderBy(desc(receipts.createdAt));
   }
 
   // Approval History operations
