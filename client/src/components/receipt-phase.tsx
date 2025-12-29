@@ -263,6 +263,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     receiptId?: number;
     confirmedAt?: string;
     confirmedBy?: { name: string; email?: string } | null;
+    financialData?: any;
   }>({
     queryKey: [`/api/purchase-requests/${request?.id}/nf-status`],
     enabled: !!request?.id,
@@ -271,7 +272,20 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const nfConfirmed = !!nfStatus?.nfConfirmed;
   useEffect(() => {
     if (nfStatus?.receiptId) setNfReceiptId(nfStatus.receiptId);
-  }, [nfStatus?.receiptId]);
+    if (nfConfirmed && nfStatus?.financialData) {
+       try {
+         const fd = nfStatus.financialData;
+         if (fd.financial) {
+           if (fd.financial.paymentMethodCode) setPaymentMethodCode(fd.financial.paymentMethodCode);
+           if (fd.financial.invoiceDueDate) setInvoiceDueDate(fd.financial.invoiceDueDate);
+         }
+         if (fd.rateio) {
+           if (fd.rateio.mode) setAllocationMode(fd.rateio.mode);
+           if (Array.isArray(fd.rateio.allocations)) setAllocations(fd.rateio.allocations);
+         }
+       } catch (e) { console.error('Error restoring financial data', e); }
+    }
+  }, [nfStatus?.receiptId, nfConfirmed, nfStatus?.financialData]);
 
   useEffect(() => {
     if (!isReceiverOnly) return;
@@ -430,6 +444,26 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           }
         }));
       }
+
+      // Auto-fill manual header fields from XML
+      if (h?.documentNumber || h?.nNF) setManualNFNumber(String(h.documentNumber || h.nNF));
+      if (h?.documentSeries || h?.serie) setManualNFSeries(String(h.documentSeries || h.serie));
+      
+      const rawIssueDate = h?.issueDate || h?.dhEmi || h?.dEmi;
+      if (rawIssueDate) {
+        const d = String(rawIssueDate);
+        setManualNFIssueDate(d.substring(0, 10));
+      }
+
+      const rawEntryDate = h?.entryDate || h?.dhSaiEnt || h?.dSaiEnt;
+      if (rawEntryDate) {
+        const d = String(rawEntryDate);
+        setManualNFEntryDate(d.substring(0, 10));
+      }
+
+      if (h?.documentKey || h?.chNFe || h?.id) setManualNFAccessKey(String(h.documentKey || h.chNFe || h.id));
+      if (h?.supplier?.cnpjCpf) setManualNFEmitterCNPJ(String(h.supplier.cnpjCpf).replace(/\D/g, ""));
+      if (totals?.vNF) setManualTotal(String(totals.vNF));
 
       if (receiptType === "servico") {
         setServiceData(prev => ({
@@ -937,6 +971,10 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           nfAccessKey: manualNFAccessKey,
           manualItems: receiptType === "avulso" ? [] : normalizedItems,
           xmlReceiptId: nfReceiptId,
+          paymentMethodCode,
+          invoiceDueDate,
+          allocations,
+          allocationMode,
         },
       });
     },
@@ -944,6 +982,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       if (data?.receipt?.id) setNfReceiptId(data.receipt.id);
       queryClient.invalidateQueries({ queryKey: [`/api/purchase-requests/${request?.id}/nf-status`] });
       toast({ title: "NF confirmada", description: "Nota Fiscal validada com sucesso." });
+      setActiveTab("items");
     },
     onError: (error: any) => {
       toast({
@@ -1776,7 +1815,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-200">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
-              Necessário cadastro prévio da NF para seguir com o recebimento físico.
+              Aguardando preenchimento da Nota Fiscal e Informações Financeiras pelo Comprador. O recebimento físico só será liberado após esta etapa.
             </div>
           </div>
         )}
@@ -1785,7 +1824,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       <Tabs value={activeTab} onValueChange={(v) => {
         const next = v as 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items';
         if (isReceiverOnly && !nfConfirmed && next !== 'fiscal') {
-          toast({ title: "NF pendente", description: "Necessário cadastro prévio da NF para continuar.", variant: "destructive" });
+          toast({ title: "Acesso Bloqueado", description: "Aguardando preenchimento da Nota Fiscal e Informações Financeiras pelo Comprador.", variant: "destructive" });
           return;
         }
         if (next === 'items') {
@@ -2632,15 +2671,22 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             </Card>
             <div className="flex justify-between gap-2">
               <Button variant="outline" onClick={() => setActiveTab('xml')}>Voltar</Button>
-              <Button onClick={() => {
+              <Button disabled={confirmNfMutation.isPending} onClick={() => {
                 if (!isFiscalValid) {
                   return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
                 }
                 if (allocations.length > 0 && !allocationsSumOk) {
                   return toast({ title: "Validação", description: "A soma do rateio deve igualar o total", variant: "destructive" });
                 }
-                setActiveTab('items');
-              }}>Próxima</Button>
+                
+                if (!nfConfirmed) {
+                  confirmNfMutation.mutate();
+                } else {
+                  setActiveTab('items');
+                }
+              }}>
+                {confirmNfMutation.isPending ? "Confirmando..." : "Próxima"}
+              </Button>
             </div>
           </div>
         </TabsContent>
@@ -2814,6 +2860,28 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           {receiptType !== "avulso" && (
             <>
               <Card>
+                <CardHeader><CardTitle>Dados Gerais da NF</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label>Número da NF</Label>
+                    <Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} placeholder="Número" />
+                  </div>
+                  <div>
+                    <Label>Série</Label>
+                    <Input value={manualNFSeries} onChange={(e) => setManualNFSeries(e.target.value)} placeholder="Série" />
+                  </div>
+                  <div>
+                    <Label>Data de Emissão</Label>
+                    <Input type="date" value={manualNFIssueDate} onChange={(e) => setManualNFIssueDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Data de Entrada</Label>
+                    <Input type="date" value={manualNFEntryDate} onChange={(e) => setManualNFEntryDate(e.target.value)} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
                 <CardHeader><CardTitle>Totais da Nota</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2845,6 +2913,15 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                       onClick={() => {
                         if (!xmlPreview) {
                           return toast({ title: "Validação", description: "Importe o XML da NF para confirmar.", variant: "destructive" });
+                        }
+                        if (!manualNFNumber) {
+                          return toast({ title: "Validação", description: "O Número da NF é obrigatório.", variant: "destructive" });
+                        }
+                        if (!manualNFIssueDate) {
+                          return toast({ title: "Validação", description: "A Data de Emissão é obrigatória.", variant: "destructive" });
+                        }
+                        if (!manualTotal) {
+                          return toast({ title: "Validação", description: "O Valor Total é obrigatório.", variant: "destructive" });
                         }
                         confirmNfMutation.mutate();
                       }}

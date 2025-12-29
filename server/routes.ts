@@ -2182,11 +2182,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         const confirmedBy = nfReceipt.approvedBy ? await storage.getUser(nfReceipt.approvedBy) : null;
+        let financialData = null;
+        if (nfReceipt.observations) {
+          try {
+            financialData = typeof nfReceipt.observations === 'string' 
+              ? JSON.parse(nfReceipt.observations) 
+              : nfReceipt.observations;
+          } catch {}
+        }
         return res.json({
           nfConfirmed: true,
           status: nfReceipt.status,
           receiptId: nfReceipt.id,
           confirmedAt: nfReceipt.approvedAt || nfReceipt.createdAt,
+          financialData,
           confirmedBy: confirmedBy
             ? {
                 id: confirmedBy.id,
@@ -2241,6 +2250,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           nfAccessKey,
           manualItems,
           xmlReceiptId,
+          paymentMethodCode,
+          invoiceDueDate,
+          allocations,
+          allocationMode,
         } = req.body;
 
         const request = await storage.getPurchaseRequestById(id);
@@ -2257,7 +2270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (receiptType !== "avulso") {
-          if (!nfNumber || !nfIssueDate || !nfTotal) {
+          if (!nfNumber || !nfIssueDate || nfTotal === undefined || nfTotal === null || String(nfTotal).trim() === "") {
             return res.status(400).json({ message: "Dados da NF incompletos para confirmação" });
           }
           if (Array.isArray(manualItems) && manualItems.length > 0) {
@@ -2295,6 +2308,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               status: "nf_confirmada",
               approvedBy: req.session.userId,
               approvedAt: now,
+              observations: JSON.stringify({
+                financial: {
+                  paymentMethodCode: paymentMethodCode || null,
+                  invoiceDueDate: invoiceDueDate || null
+                },
+                rateio: {
+                  mode: allocationMode || null,
+                  allocations: allocations || []
+                }
+              }),
             })
             .where(eq(receipts.id, xmlId))
             .returning();
@@ -2319,6 +2342,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               approvedBy: req.session.userId,
               approvedAt: now,
               createdAt: now,
+              observations: JSON.stringify({
+                financial: {
+                  paymentMethodCode: paymentMethodCode || null,
+                  invoiceDueDate: invoiceDueDate || null
+                },
+                rateio: {
+                  mode: allocationMode || null,
+                  allocations: allocations || []
+                }
+              }),
             } as any)
             .returning();
           receipt = created;
