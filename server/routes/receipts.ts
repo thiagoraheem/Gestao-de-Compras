@@ -194,7 +194,7 @@ export function registerReceiptsRoutes(app: Express) {
         const [createdReceipt] = await tx.insert(receipts).values({
           receiptNumber: generateReceiptNumber(),
           purchaseOrderId: purchaseRequestId ? undefined as any : null,
-          status: "rascunho",
+          status: "nf_pendente",
           receiptType: isService ? "servico" : "produto",
           documentNumber: p.header.documentNumber,
           documentSeries: p.header.documentSeries,
@@ -398,7 +398,7 @@ export function registerReceiptsRoutes(app: Express) {
       const xmlRows = await db.select().from(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
       if (xmlRows.length === 0) return res.status(400).json({ message: "XML NF-e não associado ao recebimento" });
     }
-    const [updated] = await db.update(receipts).set({ status: "validado_compras" }).where(eq(receipts.id, id)).returning();
+    const [updated] = await db.update(receipts).set({ status: "nf_confirmada", approvedAt: new Date() }).where(eq(receipts.id, id)).returning();
     try {
       await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
         VALUES (${0}, ${'recebimento_validar'}, ${'Validação de recebimento'}, ${null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
@@ -410,7 +410,9 @@ export function registerReceiptsRoutes(app: Express) {
     const id = Number(req.params.id);
     const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
     if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
-    if (rec.status !== "validado_compras" && rec.status !== "erro_integracao") return res.status(400).json({ message: "Recebimento precisa estar validado ou com erro de integração para ser enviado" });
+    if (!["validado_compras", "nf_confirmada", "recebimento_confirmado", "recebimento_parcial", "erro_integracao"].includes(rec.status)) {
+      return res.status(400).json({ message: "Recebimento precisa estar validado ou com erro de integração para ser enviado" });
+    }
 
     const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
     const installments = await db.select().from(receiptInstallments).where(eq(receiptInstallments.receiptId, id));

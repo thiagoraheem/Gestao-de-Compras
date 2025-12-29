@@ -477,10 +477,14 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
 export const receiptTypeEnum = pgEnum("receipt_type", ["produto", "servico", "avulso"]);
 export const receiptStatusEnum = pgEnum("receipt_status", [
   "rascunho",
+  "nf_pendente",
+  "nf_confirmada",
   "validado_compras",
   "enviado_locador",
   "integrado_locador",
   "erro_integracao",
+  "recebimento_confirmado",
+  "recebimento_parcial",
   "partial",
   "complete",
   "pending_approval",

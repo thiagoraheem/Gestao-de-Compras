@@ -34,6 +34,8 @@ import {
   costCenters,
   chartOfAccounts,
   receiptAllocations,
+  receipts,
+  receiptItems,
 } from "../shared/schema";
 import { z } from "zod";
 import session from "express-session";
@@ -60,6 +62,15 @@ import { initRealtime, realtime } from "./realtime";
 import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../shared/realtime-events";
 import { costCenterService } from "./integracao_locador/services/cost-center-service";
 import { chartOfAccountsService } from "./integracao_locador/services/chart-of-accounts-service";
+
+function generateReceiptNumber() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+  return `REC-${y}${m}${d}-${rand}`;
+}
 
 // ES modules compatibility
 // const __filename = fileURLToPath(import.meta.url);
@@ -2140,6 +2151,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  app.get(
+    "/api/purchase-requests/:id/nf-status",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        if (!Number.isFinite(id)) {
+          return res.status(400).json({ message: "ID inválido" });
+        }
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (!purchaseOrder) {
+          return res.json({ nfConfirmed: false, status: "nf_pendente" });
+        }
+        const receiptsList = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+        const confirmedStatuses = new Set([
+          "nf_confirmada",
+          "recebimento_confirmado",
+          "recebimento_parcial",
+          "complete",
+          "partial",
+          "validado_compras",
+        ]);
+        const nfReceipt = receiptsList.find((rec) => confirmedStatuses.has(rec.status));
+        if (!nfReceipt) {
+          const pendingReceipt = receiptsList.find((rec) => rec.status === "nf_pendente");
+          return res.json({
+            nfConfirmed: false,
+            status: pendingReceipt ? pendingReceipt.status : "nf_pendente",
+          });
+        }
+        const confirmedBy = nfReceipt.approvedBy ? await storage.getUser(nfReceipt.approvedBy) : null;
+        return res.json({
+          nfConfirmed: true,
+          status: nfReceipt.status,
+          receiptId: nfReceipt.id,
+          confirmedAt: nfReceipt.approvedAt || nfReceipt.createdAt,
+          confirmedBy: confirmedBy
+            ? {
+                id: confirmedBy.id,
+                name: `${confirmedBy.firstName} ${confirmedBy.lastName}`.trim(),
+                email: confirmedBy.email,
+              }
+            : null,
+        });
+      } catch (error) {
+        console.error("Error fetching NF status:", error);
+        res.status(500).json({ message: "Erro ao buscar status da NF" });
+      }
+    },
+  );
+
   // Add isReceiver permission check middleware
   async function isReceiver(req: Request, res: Response, next: Function) {
     if (!req.session.userId) {
@@ -2157,6 +2219,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     next();
   }
+
+  app.post(
+    "/api/purchase-requests/:id/confirm-nf",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        if (!Number.isFinite(id)) {
+          return res.status(400).json({ message: "ID inválido" });
+        }
+        const {
+          receiptType,
+          purchaseOrderId,
+          nfNumber,
+          nfSeries,
+          nfIssueDate,
+          nfEntryDate,
+          nfTotal,
+          nfAccessKey,
+          manualItems,
+          xmlReceiptId,
+        } = req.body;
+
+        const request = await storage.getPurchaseRequestById(id);
+        if (!request || request.currentPhase !== "recebimento") {
+          return res.status(400).json({ message: "Request must be in the receiving phase" });
+        }
+
+        const purchaseOrder =
+          (purchaseOrderId ? await storage.getPurchaseOrderById(Number(purchaseOrderId)) : undefined) ||
+          (await storage.getPurchaseOrderByRequestId(id));
+
+        if (!purchaseOrder) {
+          return res.status(400).json({ message: "Pedido de compra não encontrado" });
+        }
+
+        if (receiptType !== "avulso") {
+          if (!nfNumber || !nfIssueDate || !nfTotal) {
+            return res.status(400).json({ message: "Dados da NF incompletos para confirmação" });
+          }
+          if (Array.isArray(manualItems) && manualItems.length > 0) {
+            const missingLinks = manualItems.some((item: any) => !item.purchaseOrderItemId);
+            if (missingLinks) {
+              return res.status(400).json({ message: "Vincule todos os itens da NF ao pedido de compra" });
+            }
+          }
+        }
+
+        const existingReceipts = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+        const alreadyConfirmed = existingReceipts.find((rec) => rec.status === "nf_confirmada");
+        if (alreadyConfirmed) {
+          return res.json({ receipt: alreadyConfirmed, nfConfirmed: true });
+        }
+
+        const { db } = await import("./db");
+        const { eq } = await import("drizzle-orm");
+        const now = new Date();
+        let receipt;
+
+        if (xmlReceiptId) {
+          const xmlId = Number(xmlReceiptId);
+          const [updated] = await db
+            .update(receipts)
+            .set({
+              purchaseOrderId: purchaseOrder.id,
+              receiptType: receiptType || "produto",
+              documentNumber: nfNumber,
+              documentSeries: nfSeries || null,
+              documentKey: nfAccessKey || null,
+              documentIssueDate: nfIssueDate ? new Date(nfIssueDate) : null,
+              documentEntryDate: nfEntryDate ? new Date(nfEntryDate) : null,
+              totalAmount: nfTotal,
+              status: "nf_confirmada",
+              approvedBy: req.session.userId,
+              approvedAt: now,
+            })
+            .where(eq(receipts.id, xmlId))
+            .returning();
+          if (!updated) {
+            return res.status(404).json({ message: "Recebimento XML não encontrado" });
+          }
+          receipt = updated;
+        } else {
+          const [created] = await db
+            .insert(receipts)
+            .values({
+              receiptNumber: generateReceiptNumber(),
+              purchaseOrderId: purchaseOrder.id,
+              status: "nf_confirmada",
+              receiptType: receiptType || "produto",
+              documentNumber: nfNumber || null,
+              documentSeries: nfSeries || null,
+              documentKey: nfAccessKey || null,
+              documentIssueDate: nfIssueDate ? new Date(nfIssueDate) : null,
+              documentEntryDate: nfEntryDate ? new Date(nfEntryDate) : null,
+              totalAmount: nfTotal || "0",
+              approvedBy: req.session.userId,
+              approvedAt: now,
+              createdAt: now,
+            } as any)
+            .returning();
+          receipt = created;
+
+          if (Array.isArray(manualItems) && manualItems.length > 0) {
+            for (const item of manualItems) {
+              await db.insert(receiptItems).values({
+                receiptId: receipt.id,
+                purchaseOrderItemId: item.purchaseOrderItemId || null,
+                lineNumber: item.lineNumber || null,
+                description: item.description || "",
+                unit: item.unit || null,
+                quantity: item.quantity ?? "0",
+                unitPrice: item.unitPrice ?? "0",
+                totalPrice: item.totalPrice ?? "0",
+                ncm: item.ncm || null,
+                quantityReceived: "0",
+                condition: "nf_confirmada",
+                createdAt: now,
+              } as any);
+            }
+          }
+        }
+
+        try {
+          const { sql } = await import("drizzle-orm");
+          await db.execute(
+            sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+              VALUES (${id}, ${"nf_confirmada"}, ${"Nota Fiscal confirmada"}, ${req.session.userId}, ${null}, ${JSON.stringify({ receiptId: receipt.id, receiptType })}::jsonb, ${sql`ARRAY['receipts','receipt_items']`} );`,
+          );
+        } catch {}
+
+        res.json({ receipt, nfConfirmed: true });
+      } catch (error) {
+        console.error("Error confirming NF:", error);
+        res.status(400).json({ message: "Falha ao confirmar a Nota Fiscal" });
+      }
+    },
+  );
 
   app.post(
     "/api/purchase-requests/:id/confirm-receipt",
@@ -2179,9 +2380,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "Pedido de compra não encontrado para a solicitação" });
         }
 
+        if (receiptMode !== "avulso") {
+          const receiptsList = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+          const confirmedReceipt = receiptsList.find((rec) =>
+            ["nf_confirmada", "recebimento_confirmado", "recebimento_parcial", "validado_compras"].includes(rec.status),
+          );
+          if (!confirmedReceipt) {
+            return res.status(400).json({ message: "Necessário cadastro prévio da NF para confirmar o recebimento." });
+          }
+        }
+
         const receipt = await storage.createReceipt({
           purchaseOrderId: purchaseOrder.id,
-          status: "validado_compras",
+          status: finalStatus ? "recebimento_confirmado" : "recebimento_parcial",
           receivedBy: receivedById,
           receivedAt: new Date(),
           observations: JSON.stringify({

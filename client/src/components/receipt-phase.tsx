@@ -174,6 +174,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [xmlRaw, setXmlRaw] = useState<string>("");
   const [isXmlUploading, setIsXmlUploading] = useState(false);
   const [xmlAttachmentId, setXmlAttachmentId] = useState<number | null>(null);
+  const [nfReceiptId, setNfReceiptId] = useState<number | null>(null);
   const [xmlRecovered, setXmlRecovered] = useState(false);
   useEffect(() => {
     try {
@@ -184,6 +185,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         if (snap?.xmlPreview) setXmlPreview(snap.xmlPreview);
         if (snap?.xmlRaw) setXmlRaw(snap.xmlRaw);
         setXmlAttachmentId(snap?.xmlAttachmentId ?? null);
+        if (snap?.receiptId) setNfReceiptId(snap.receiptId);
         if (snap?.receiptType) setReceiptType(snap.receiptType);
         setXmlRecovered(true);
       }
@@ -239,6 +241,8 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
+  const canConfirmNf = user?.isBuyer || user?.isAdmin;
+  const isReceiverOnly = !!user?.isReceiver && !user?.isBuyer && !user?.isAdmin;
 
   // Buscar dados relacionados
   // Primeiro buscar o pedido de compra relacionado à solicitação
@@ -252,6 +256,31 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/items`],
     enabled: !!purchaseOrder?.id,
   });
+
+  const { data: nfStatus } = useQuery<{
+    nfConfirmed: boolean;
+    status: string;
+    receiptId?: number;
+    confirmedAt?: string;
+    confirmedBy?: { name: string; email?: string } | null;
+  }>({
+    queryKey: [`/api/purchase-requests/${request?.id}/nf-status`],
+    enabled: !!request?.id,
+  });
+
+  const nfConfirmed = !!nfStatus?.nfConfirmed;
+  useEffect(() => {
+    if (nfStatus?.receiptId) setNfReceiptId(nfStatus.receiptId);
+  }, [nfStatus?.receiptId]);
+
+  useEffect(() => {
+    if (!isReceiverOnly) return;
+    if (nfConfirmed) {
+      setActiveTab("items");
+    } else {
+      setActiveTab("fiscal");
+    }
+  }, [isReceiverOnly, nfConfirmed]);
 
   // Fetch approval history
   const { data: approvalHistory = [] } = useQuery<any[]>({
@@ -634,6 +663,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       setXmlRaw("");
       setIsXmlUploading(false);
       setXmlAttachmentId(null);
+      setNfReceiptId(null);
       setTypeCategoryError("");
       setItemDecisions({});
       setManualTotal("");
@@ -703,6 +733,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       const preview = data.preview || data;
       setXmlPreview(preview);
       setXmlAttachmentId(data.attachment?.id ?? null);
+      setNfReceiptId(data.receipt?.id ?? null);
 
       // Auto-fill totals from XML preview
       if (preview?.totals) {
@@ -724,7 +755,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       try {
         const stateKey = `xml_state_${request.id}`;
         const histKey = `xml_history_${request.id}`;
-        const snapshot = { xmlRaw: raw, xmlPreview: preview, xmlAttachmentId: data.attachment?.id ?? null, receiptType, timestamp: new Date().toISOString() };
+      const snapshot = { xmlRaw: raw, xmlPreview: preview, xmlAttachmentId: data.attachment?.id ?? null, receiptId: data.receipt?.id ?? null, receiptType, timestamp: new Date().toISOString() };
         localStorage.setItem(stateKey, JSON.stringify(snapshot));
         const existing = localStorage.getItem(histKey);
         const history = existing ? JSON.parse(existing) : [];
@@ -871,6 +902,58 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   };
 
   // Mutations for receipt actions
+  const confirmNfMutation = useMutation({
+    mutationFn: async () => {
+      const normalizedItems = receiptType === "servico"
+        ? manualItems.map((item: any, index: number) => ({
+            lineNumber: index + 1,
+            description: item.description,
+            unit: item.unit || "SV",
+            quantity: 1,
+            unitPrice: Number(item.netValue ?? item.unitPrice ?? 0),
+            totalPrice: Number(item.netValue ?? item.unitPrice ?? 0),
+            purchaseOrderItemId: item.purchaseOrderItemId,
+          }))
+        : manualItems.map((item: any, index: number) => ({
+            lineNumber: index + 1,
+            description: item.description,
+            unit: item.unit || "UN",
+            quantity: Number(item.quantity ?? 0),
+            unitPrice: Number(item.unitPrice ?? 0),
+            totalPrice: Number((Number(item.quantity ?? 0) * Number(item.unitPrice ?? 0)).toFixed(2)),
+            ncm: item.ncm,
+            purchaseOrderItemId: item.purchaseOrderItemId,
+          }));
+      return apiRequest(`/api/purchase-requests/${request?.id}/confirm-nf`, {
+        method: "POST",
+        body: {
+          receiptType,
+          purchaseOrderId: purchaseOrder?.id,
+          nfNumber: manualNFNumber,
+          nfSeries: manualNFSeries,
+          nfIssueDate: manualNFIssueDate,
+          nfEntryDate: manualNFEntryDate,
+          nfTotal: manualTotal,
+          nfAccessKey: manualNFAccessKey,
+          manualItems: receiptType === "avulso" ? [] : normalizedItems,
+          xmlReceiptId: nfReceiptId,
+        },
+      });
+    },
+    onSuccess: (data: any) => {
+      if (data?.receipt?.id) setNfReceiptId(data.receipt.id);
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-requests/${request?.id}/nf-status`] });
+      toast({ title: "NF confirmada", description: "Nota Fiscal validada com sucesso." });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao confirmar NF",
+        description: error?.message || "Não foi possível confirmar a Nota Fiscal.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const confirmReceiptMutation = useMutation({
     onMutate: () => {
       console.log("Starting confirmation mutation...");
@@ -1355,6 +1438,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
       if (data.preview) {
         setXmlPreview(data.preview);
+        setNfReceiptId(receiptId);
         setManualNFStep(1); // Ensure we start at step 1 to review data
         
         // Auto-populate manual fields that might not be covered by the effect
@@ -1633,6 +1717,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   }, [manualItems, purchaseOrderItems.length, receiptType]);
   const canConfirm = useMemo(() => {
     if (typeCategoryError) return false;
+    if (isReceiverOnly && !nfConfirmed) return false;
     if (!isFiscalValid) return false;
     if (allocations.length > 0 && !allocationsSumOk) return false;
     if (receiptType === "avulso" || activeTab === "manual_nf") {
@@ -1670,8 +1755,39 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         </div>
       </div>
 
+      <div className="flex flex-col gap-2">
+        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm text-slate-700 dark:text-slate-300">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">Status da NF:</span>
+            {nfConfirmed ? (
+              <Badge variant="outline" className="border-green-600 text-green-700 dark:text-green-400">NF confirmada</Badge>
+            ) : (
+              <Badge variant="secondary">NF pendente</Badge>
+            )}
+            {nfStatus?.confirmedBy?.name && (
+              <span className="text-xs text-muted-foreground">
+                Confirmada por {nfStatus.confirmedBy.name}
+                {nfStatus.confirmedAt ? ` em ${new Date(nfStatus.confirmedAt).toLocaleDateString("pt-BR")}` : ""}
+              </span>
+            )}
+          </div>
+        </div>
+        {isReceiverOnly && !nfConfirmed && (
+          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-200">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Necessário cadastro prévio da NF para seguir com o recebimento físico.
+            </div>
+          </div>
+        )}
+      </div>
+
       <Tabs value={activeTab} onValueChange={(v) => {
         const next = v as 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items';
+        if (isReceiverOnly && !nfConfirmed && next !== 'fiscal') {
+          toast({ title: "NF pendente", description: "Necessário cadastro prévio da NF para continuar.", variant: "destructive" });
+          return;
+        }
         if (next === 'items') {
           if (!isFiscalValid) {
             toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
@@ -1700,9 +1816,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       }}>
         <TabsList className="w-full justify-between gap-2">
           <TabsTrigger value="fiscal">Informações Básicas</TabsTrigger>
-          <TabsTrigger value="xml">Informações de Nota Fiscal</TabsTrigger>
-          {receiptType !== "avulso" && <TabsTrigger value="manual_nf">Inclusão Manual de NF</TabsTrigger>}
-          <TabsTrigger value="financeiro">Informações Financeiras</TabsTrigger>
+          <TabsTrigger value="xml" disabled={isReceiverOnly}>Informações de Nota Fiscal</TabsTrigger>
+          {receiptType !== "avulso" && <TabsTrigger value="manual_nf" disabled={isReceiverOnly}>Inclusão Manual de NF</TabsTrigger>}
+          <TabsTrigger value="financeiro" disabled={isReceiverOnly}>Informações Financeiras</TabsTrigger>
           <TabsTrigger value="items">Confirmação de Itens</TabsTrigger>
           <div className="ml-auto">
             <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
@@ -2227,6 +2343,39 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                   <div className="text-sm text-muted-foreground">Verifique se os dados estão consistentes antes de confirmar</div>
                   <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={() => setManualNFStep(2)}>Voltar</Button>
+                    {canConfirmNf && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={confirmNfMutation.isPending || nfConfirmed}
+                        onClick={() => {
+                          const header = validateManualHeader({
+                            number: manualNFNumber, series: manualNFSeries, accessKey: manualNFAccessKey,
+                            issueDate: manualNFIssueDate, emitterCnpj: manualNFEmitterCNPJ, total: manualTotal,
+                            kind: receiptType === "servico" ? "servico" : "produto",
+                          });
+                          setManualErrors(header.errors);
+                          if (!header.isValid) {
+                            return toast({ title: "Validação", description: "Campos obrigatórios pendentes no cadastro inicial", variant: "destructive" });
+                          }
+                          const kind = receiptType === "servico" ? "servico" : "produto";
+                          const res = validateManualItems(kind, manualItems as any);
+                          if (!res.isValid) {
+                            return toast({ title: "Validação", description: "Itens inválidos", variant: "destructive" });
+                          }
+                          if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) {
+                            return toast({ title: "Validação", description: "Vincule todos os itens da nota aos itens do pedido antes de confirmar.", variant: "destructive" });
+                          }
+                          const totCheck = validateTotalConsistency(manualTotal, kind as any, manualItems as any);
+                          if (!totCheck.isValid) {
+                            return toast({ title: "Validação", description: `Valor total (${totCheck.provided.toFixed(2)}) não confere com soma dos itens (${totCheck.expected.toFixed(2)})`, variant: "destructive" });
+                          }
+                          confirmNfMutation.mutate();
+                        }}
+                      >
+                        {nfConfirmed ? "NF confirmada" : "Confirmar NF"}
+                      </Button>
+                    )}
                     <Button type="button" onClick={() => {
                       const header = validateManualHeader({
                         number: manualNFNumber, series: manualNFSeries, accessKey: manualNFAccessKey,
@@ -2621,7 +2770,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                                     try {
                                       const stateKey = `xml_state_${request.id}`;
                                       const histKey = `xml_history_${request.id}`;
-                                      const snapshot = { xmlRaw, xmlPreview: preview, xmlAttachmentId: attachmentId ?? null, receiptType, timestamp: new Date().toISOString() };
+                                      const snapshot = { xmlRaw, xmlPreview: preview, xmlAttachmentId: attachmentId ?? null, receiptId: nfReceiptId ?? null, receiptType, timestamp: new Date().toISOString() };
                                       localStorage.setItem(stateKey, JSON.stringify(snapshot));
                                       const existing = localStorage.getItem(histKey);
                                       const history = existing ? JSON.parse(existing) : [];
@@ -2681,6 +2830,30 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                   </div>
                 </CardContent>
               </Card>
+
+              {canConfirmNf && (
+                <Card>
+                  <CardHeader><CardTitle>Confirmação da Nota Fiscal</CardTitle></CardHeader>
+                  <CardContent className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Valide os dados fiscais e confirme a NF antes do recebimento físico.
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={confirmNfMutation.isPending || nfConfirmed}
+                      onClick={() => {
+                        if (!xmlPreview) {
+                          return toast({ title: "Validação", description: "Importe o XML da NF para confirmar.", variant: "destructive" });
+                        }
+                        confirmNfMutation.mutate();
+                      }}
+                    >
+                      {nfConfirmed ? "NF confirmada" : "Confirmar NF"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader><CardTitle>Pagamento</CardTitle></CardHeader>
@@ -3305,6 +3478,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                 if (typeCategoryError) {
                   return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
                 }
+                if (receiptType !== "avulso" && !nfConfirmed) {
+                  return toast({ title: "NF pendente", description: "Necessário cadastro prévio da NF para confirmar o recebimento.", variant: "destructive" });
+                }
                 // Validar campos financeiros da etapa inicial
                 if (receiptType === "avulso") {
                   const hasTotals = manualTotal && String(manualTotal).trim() !== "";
@@ -3636,6 +3812,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                 onClick={() => {
                   if (!isFiscalValid) {
                     return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
+                  }
+                  if (receiptType !== "avulso" && !nfConfirmed) {
+                    return toast({ title: "NF pendente", description: "Necessário cadastro prévio da NF para confirmar o recebimento.", variant: "destructive" });
                   }
                   if (receiptType === "avulso") {
                     const required = [manualNFNumber, manualNFIssueDate];
