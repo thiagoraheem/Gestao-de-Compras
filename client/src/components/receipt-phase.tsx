@@ -82,6 +82,65 @@ export function computeInitialCcExpand(tree: any[]) {
   return { lv1, lv2 };
 }
 
+const MANUAL_ITEM_MATCH_THRESHOLD = 0.45;
+
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const calculateTokenScore = (left: string, right: string) => {
+  const leftTokens = new Set(left.split(" ").filter(Boolean));
+  const rightTokens = new Set(right.split(" ").filter(Boolean));
+  if (leftTokens.size === 0 || rightTokens.size === 0) return 0;
+  let intersection = 0;
+  for (const token of leftTokens) {
+    if (rightTokens.has(token)) intersection += 1;
+  }
+  const maxSize = Math.max(leftTokens.size, rightTokens.size);
+  return maxSize > 0 ? intersection / maxSize : 0;
+};
+
+const findBestPurchaseOrderMatch = (manualItem: any, poItems: any[]) => {
+  if (!manualItem || poItems.length === 0) return null;
+  const manualCode = normalizeText(String(manualItem.code || ""));
+  const manualDesc = normalizeText(String(manualItem.description || ""));
+  let best: { id: number; score: number } | null = null;
+
+  for (const poItem of poItems) {
+    const poCode = normalizeText(String(poItem.productCode || poItem.itemCode || poItem.code || ""));
+    const poDesc = normalizeText(String(poItem.description || ""));
+    let score = 0;
+
+    if (manualCode && poCode) {
+      if (manualCode === poCode) {
+        score = 1;
+      } else if (manualCode.includes(poCode) || poCode.includes(manualCode)) {
+        score = Math.max(score, 0.85);
+      }
+    }
+
+    if (manualDesc && poDesc) {
+      if (manualDesc === poDesc) {
+        score = Math.max(score, 0.9);
+      } else if (manualDesc.includes(poDesc) || poDesc.includes(manualDesc)) {
+        score = Math.max(score, 0.7);
+      } else {
+        score = Math.max(score, calculateTokenScore(manualDesc, poDesc));
+      }
+    }
+
+    if (!best || score > best.score) {
+      best = { id: poItem.id, score };
+    }
+  }
+
+  return best;
+};
+
 interface ReceiptPhaseProps {
   request: any;
   onClose: () => void;
@@ -115,6 +174,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [xmlRaw, setXmlRaw] = useState<string>("");
   const [isXmlUploading, setIsXmlUploading] = useState(false);
   const [xmlAttachmentId, setXmlAttachmentId] = useState<number | null>(null);
+  const [nfReceiptId, setNfReceiptId] = useState<number | null>(null);
   const [xmlRecovered, setXmlRecovered] = useState(false);
   useEffect(() => {
     try {
@@ -125,6 +185,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         if (snap?.xmlPreview) setXmlPreview(snap.xmlPreview);
         if (snap?.xmlRaw) setXmlRaw(snap.xmlRaw);
         setXmlAttachmentId(snap?.xmlAttachmentId ?? null);
+        if (snap?.receiptId) setNfReceiptId(snap.receiptId);
         if (snap?.receiptType) setReceiptType(snap.receiptType);
         setXmlRecovered(true);
       }
@@ -146,7 +207,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [installments, setInstallments] = useState<Array<{ dueDate: string; amount: string; method?: string }>>([]);
   const [manualCostCenterId, setManualCostCenterId] = useState<number | null>(null);
   const [manualChartOfAccountsId, setManualChartOfAccountsId] = useState<number | null>(null);
-  const [manualItems, setManualItems] = useState<Array<{ code?: string; description: string; unit?: string; quantity: number; unitPrice: number }>>([]);
+  const [manualItems, setManualItems] = useState<Array<{ code?: string; description: string; unit?: string; quantity: number; unitPrice: number; purchaseOrderItemId?: number; matchSource?: "auto" | "manual" }>>([]);
   const [manualNFNumber, setManualNFNumber] = useState<string>("");
   const [manualNFSeries, setManualNFSeries] = useState<string>("");
   const [manualNFIssueDate, setManualNFIssueDate] = useState<string>("");
@@ -180,6 +241,8 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
   // Check if user has permission to perform receipt actions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
+  const canConfirmNf = user?.isBuyer || user?.isAdmin;
+  const isReceiverOnly = !!user?.isReceiver && !user?.isBuyer && !user?.isAdmin;
 
   // Buscar dados relacionados
   // Primeiro buscar o pedido de compra relacionado à solicitação
@@ -193,6 +256,31 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/items`],
     enabled: !!purchaseOrder?.id,
   });
+
+  const { data: nfStatus } = useQuery<{
+    nfConfirmed: boolean;
+    status: string;
+    receiptId?: number;
+    confirmedAt?: string;
+    confirmedBy?: { name: string; email?: string } | null;
+  }>({
+    queryKey: [`/api/purchase-requests/${request?.id}/nf-status`],
+    enabled: !!request?.id,
+  });
+
+  const nfConfirmed = !!nfStatus?.nfConfirmed;
+  useEffect(() => {
+    if (nfStatus?.receiptId) setNfReceiptId(nfStatus.receiptId);
+  }, [nfStatus?.receiptId]);
+
+  useEffect(() => {
+    if (!isReceiverOnly) return;
+    if (nfConfirmed) {
+      setActiveTab("items");
+    } else {
+      setActiveTab("fiscal");
+    }
+  }, [isReceiverOnly, nfConfirmed]);
 
   // Fetch approval history
   const { data: approvalHistory = [] } = useQuery<any[]>({
@@ -575,6 +663,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       setXmlRaw("");
       setIsXmlUploading(false);
       setXmlAttachmentId(null);
+      setNfReceiptId(null);
       setTypeCategoryError("");
       setItemDecisions({});
       setManualTotal("");
@@ -644,6 +733,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       const preview = data.preview || data;
       setXmlPreview(preview);
       setXmlAttachmentId(data.attachment?.id ?? null);
+      setNfReceiptId(data.receipt?.id ?? null);
 
       // Auto-fill totals from XML preview
       if (preview?.totals) {
@@ -665,7 +755,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       try {
         const stateKey = `xml_state_${request.id}`;
         const histKey = `xml_history_${request.id}`;
-        const snapshot = { xmlRaw: raw, xmlPreview: preview, xmlAttachmentId: data.attachment?.id ?? null, receiptType, timestamp: new Date().toISOString() };
+      const snapshot = { xmlRaw: raw, xmlPreview: preview, xmlAttachmentId: data.attachment?.id ?? null, receiptId: data.receipt?.id ?? null, receiptType, timestamp: new Date().toISOString() };
         localStorage.setItem(stateKey, JSON.stringify(snapshot));
         const existing = localStorage.getItem(histKey);
         const history = existing ? JSON.parse(existing) : [];
@@ -812,6 +902,58 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   };
 
   // Mutations for receipt actions
+  const confirmNfMutation = useMutation({
+    mutationFn: async () => {
+      const normalizedItems = receiptType === "servico"
+        ? manualItems.map((item: any, index: number) => ({
+            lineNumber: index + 1,
+            description: item.description,
+            unit: item.unit || "SV",
+            quantity: 1,
+            unitPrice: Number(item.netValue ?? item.unitPrice ?? 0),
+            totalPrice: Number(item.netValue ?? item.unitPrice ?? 0),
+            purchaseOrderItemId: item.purchaseOrderItemId,
+          }))
+        : manualItems.map((item: any, index: number) => ({
+            lineNumber: index + 1,
+            description: item.description,
+            unit: item.unit || "UN",
+            quantity: Number(item.quantity ?? 0),
+            unitPrice: Number(item.unitPrice ?? 0),
+            totalPrice: Number((Number(item.quantity ?? 0) * Number(item.unitPrice ?? 0)).toFixed(2)),
+            ncm: item.ncm,
+            purchaseOrderItemId: item.purchaseOrderItemId,
+          }));
+      return apiRequest(`/api/purchase-requests/${request?.id}/confirm-nf`, {
+        method: "POST",
+        body: {
+          receiptType,
+          purchaseOrderId: purchaseOrder?.id,
+          nfNumber: manualNFNumber,
+          nfSeries: manualNFSeries,
+          nfIssueDate: manualNFIssueDate,
+          nfEntryDate: manualNFEntryDate,
+          nfTotal: manualTotal,
+          nfAccessKey: manualNFAccessKey,
+          manualItems: receiptType === "avulso" ? [] : normalizedItems,
+          xmlReceiptId: nfReceiptId,
+        },
+      });
+    },
+    onSuccess: (data: any) => {
+      if (data?.receipt?.id) setNfReceiptId(data.receipt.id);
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-requests/${request?.id}/nf-status`] });
+      toast({ title: "NF confirmada", description: "Nota Fiscal validada com sucesso." });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao confirmar NF",
+        description: error?.message || "Não foi possível confirmar a Nota Fiscal.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const confirmReceiptMutation = useMutation({
     onMutate: () => {
       console.log("Starting confirmation mutation...");
@@ -1296,6 +1438,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
       if (data.preview) {
         setXmlPreview(data.preview);
+        setNfReceiptId(receiptId);
         setManualNFStep(1); // Ensure we start at step 1 to review data
         
         // Auto-populate manual fields that might not be covered by the effect
@@ -1363,26 +1506,6 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     });
   };
 
-
-  // Para a fase de recebimento, usar diretamente os dados dos itens que já vêm com preços do pedido de compra
-  const itemsWithPrices = Array.isArray(items) ? items.map(item => {
-    // Os itens do pedido de compra já vêm com os preços corretos da API
-    const unitPrice = Number(item.unitPrice) || 0;
-    const quantity = Number(item.quantity) || 0;
-    const totalPrice = Number(item.totalPrice) || 0;
-
-    return {
-      ...item,
-      unitPrice: unitPrice,
-      originalUnitPrice: unitPrice,
-      itemDiscount: 0, // Para pedidos de compra, não há desconto adicional
-      totalPrice: totalPrice,
-      originalTotalPrice: totalPrice,
-      brand: item.brand || '',
-      deliveryTime: item.deliveryTime || '',
-      isAvailable: true
-    };
-  }) : [];
 
   if (showPreviewModal) {
     return (
@@ -1554,6 +1677,27 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     window.setTimeout(() => setAutoFilledRows(new Set()), 2500);
   };
 
+  // Para a fase de recebimento, usar diretamente os dados dos itens que já vêm com preços do pedido de compra
+  const itemsWithPrices = Array.isArray(items) ? items.map(item => {
+    // Os itens do pedido de compra já vêm com os preços corretos da API
+    const unitPrice = Number(item.unitPrice) || 0;
+    const quantity = Number(item.quantity) || 0;
+    const totalPrice = Number(item.totalPrice) || 0;
+
+    return {
+      ...item,
+      unitPrice: unitPrice,
+      originalUnitPrice: unitPrice,
+      itemDiscount: 0, // Para pedidos de compra, não há desconto adicional
+      totalPrice: totalPrice,
+      originalTotalPrice: totalPrice,
+      brand: item.brand || '',
+      deliveryTime: item.deliveryTime || '',
+      isAvailable: true
+    };
+  }) : [];
+  const purchaseOrderItems = useMemo(() => (Array.isArray(itemsWithPrices) ? itemsWithPrices : []), [itemsWithPrices]);
+
   const isFiscalValid = (() => {
     if (!hasInstallments) return !!paymentMethodCode && !!invoiceDueDate;
     const total = baseTotalForAllocation;
@@ -1565,8 +1709,15 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     const allFilled = rows.every(r => !!r.dueDate && (parseFloat(String(r.amount || "0").replace(",", ".")) > 0) && (!!r.method || !!paymentMethodCode));
     return round2(sum) === round2(total) && sorted && allFilled;
   })();
+  const manualItemsMissingLinks = useMemo(() => {
+    if (receiptType === "avulso" || manualItems.length === 0 || purchaseOrderItems.length === 0) return [];
+    return manualItems
+      .map((item, index) => (!item.purchaseOrderItemId ? index : null))
+      .filter((value): value is number => value !== null);
+  }, [manualItems, purchaseOrderItems.length, receiptType]);
   const canConfirm = useMemo(() => {
     if (typeCategoryError) return false;
+    if (isReceiverOnly && !nfConfirmed) return false;
     if (!isFiscalValid) return false;
     if (allocations.length > 0 && !allocationsSumOk) return false;
     if (receiptType === "avulso" || activeTab === "manual_nf") {
@@ -1581,6 +1732,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       });
       if (!header.isValid) return false;
       const itemsOk = validateManualItems(receiptType === "servico" ? "servico" : "produto", manualItems as any).isValid;
+      if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) return false;
       return itemsOk;
     }
     const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
@@ -1592,7 +1744,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
     if (!hasAnyQty && !xmlPreview) return false;
     return true;
-  }, [typeCategoryError, isFiscalValid, allocations.length, allocationsSumOk, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualTotal, manualItems.length, itemsWithPrices, receivedQuantities, xmlPreview, activeTab]);
+  }, [typeCategoryError, isReceiverOnly, nfConfirmed, isFiscalValid, allocations.length, allocationsSumOk, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualTotal, manualItems.length, manualItemsMissingLinks, itemsWithPrices, receivedQuantities, xmlPreview, activeTab]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -1603,8 +1755,39 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         </div>
       </div>
 
+      <div className="flex flex-col gap-2">
+        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm text-slate-700 dark:text-slate-300">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">Status da NF:</span>
+            {nfConfirmed ? (
+              <Badge variant="outline" className="border-green-600 text-green-700 dark:text-green-400">NF confirmada</Badge>
+            ) : (
+              <Badge variant="secondary">NF pendente</Badge>
+            )}
+            {nfStatus?.confirmedBy?.name && (
+              <span className="text-xs text-muted-foreground">
+                Confirmada por {nfStatus.confirmedBy.name}
+                {nfStatus.confirmedAt ? ` em ${new Date(nfStatus.confirmedAt).toLocaleDateString("pt-BR")}` : ""}
+              </span>
+            )}
+          </div>
+        </div>
+        {isReceiverOnly && !nfConfirmed && (
+          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-200">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Necessário cadastro prévio da NF para seguir com o recebimento físico.
+            </div>
+          </div>
+        )}
+      </div>
+
       <Tabs value={activeTab} onValueChange={(v) => {
         const next = v as 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items';
+        if (isReceiverOnly && !nfConfirmed && next !== 'fiscal') {
+          toast({ title: "NF pendente", description: "Necessário cadastro prévio da NF para continuar.", variant: "destructive" });
+          return;
+        }
         if (next === 'items') {
           if (!isFiscalValid) {
             toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
@@ -1633,9 +1816,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       }}>
         <TabsList className="w-full justify-between gap-2">
           <TabsTrigger value="fiscal">Informações Básicas</TabsTrigger>
-          <TabsTrigger value="xml">Informações de Nota Fiscal</TabsTrigger>
-          {receiptType !== "avulso" && <TabsTrigger value="manual_nf">Inclusão Manual de NF</TabsTrigger>}
-          <TabsTrigger value="financeiro">Informações Financeiras</TabsTrigger>
+          <TabsTrigger value="xml" disabled={isReceiverOnly}>Informações de Nota Fiscal</TabsTrigger>
+          {receiptType !== "avulso" && <TabsTrigger value="manual_nf" disabled={isReceiverOnly}>Inclusão Manual de NF</TabsTrigger>}
+          <TabsTrigger value="financeiro" disabled={isReceiverOnly}>Informações Financeiras</TabsTrigger>
           <TabsTrigger value="items">Confirmação de Itens</TabsTrigger>
           <div className="ml-auto">
             <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
@@ -1886,149 +2069,251 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                     }}>Adicionar Item</Button>
                   </div>
                   <div className="space-y-2">
-                    {manualItems.map((it: any, idx: number) => (
-                      <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2">
-                        {receiptType === "servico" ? (
-                          <>
-                            <div className="md:col-span-2">
-                              <Label>Descrição</Label>
-                              <Input value={it.description || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, description: e.target.value } : row))} />
-                            </div>
-                            <div>
-                              <Label>Código de Serviço</Label>
-                              <Input value={it.serviceCode || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, serviceCode: e.target.value } : row))} />
-                            </div>
-                            <div>
-                              <Label>Valor Líquido</Label>
-                              <Input type="number" value={it.netValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, netValue: Number(e.target.value) } : row))} />
-                            </div>
-                            <div>
-                              <Label>ISS</Label>
-                              <Input type="number" value={it.issValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, issValue: Number(e.target.value) } : row))} />
-                            </div>
-                            <div className="flex items-end">
-                              <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div>
-                              <Label>Código</Label>
-                              <Input value={it.code || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, code: e.target.value } : row))} />
-                            </div>
-                            <div className="md:col-span-2">
-                              <Label>Descrição</Label>
-                              <Input value={it.description || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, description: e.target.value } : row))} />
-                            </div>
-                            <div>
-                              <Label>NCM</Label>
-                              <Input value={it.ncm || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, ncm: e.target.value } : row))} />
-                            </div>
-                            <div>
-                              <Label>Qtd</Label>
-                              <Input type="number" value={it.quantity ?? 1} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity: Number(e.target.value) } : row))} />
-                            </div>
-                            <div>
-                              <Label>Valor Unit.</Label>
-                              <Input type="number" value={it.unitPrice ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, unitPrice: Number(e.target.value) } : row))} />
-                            </div>
-                            <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2 bg-slate-50 dark:bg-slate-900">
-                              <div>
-                                <Label>ICMS vBC</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.vBC ?? "") as any} onChange={(e) => {
-                                  const vBC = Number(e.target.value || 0);
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.vBC = vBC;
-                                    if (curr.pICMS != null) curr.vICMS = Number(((vBC || 0) * (Number(curr.pICMS) || 0) / 100).toFixed(2));
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                    {manualItems.map((it: any, idx: number) => {
+                      const selectedPoItem = purchaseOrderItems.find((po) => po.id === it.purchaseOrderItemId);
+                      const bestMatch = findBestPurchaseOrderMatch(it, purchaseOrderItems);
+                      const suggestedMatch = bestMatch && bestMatch.score >= MANUAL_ITEM_MATCH_THRESHOLD
+                        ? purchaseOrderItems.find((po) => po.id === bestMatch.id)
+                        : null;
+                      return (
+                        <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2">
+                          <div className="md:col-span-6">
+                            <Label>Item do Pedido de Compra</Label>
+                            {purchaseOrderItems.length === 0 ? (
+                              <div className="text-sm text-muted-foreground mt-1">Nenhum item disponível no pedido para comparação.</div>
+                            ) : (
+                              <>
+                                <Select
+                                  value={it.purchaseOrderItemId ? String(it.purchaseOrderItemId) : "none"}
+                                  onValueChange={(value) => {
+                                    setManualItems(prev => prev.map((row, i) => {
+                                      if (i !== idx) return row;
+                                      if (value === "none") {
+                                        const { purchaseOrderItemId, matchSource, ...rest } = row;
+                                        return { ...rest };
+                                      }
+                                      return { ...row, purchaseOrderItemId: Number(value), matchSource: "manual" };
+                                    }));
+                                  }}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Selecione o item correspondente no pedido" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectGroup>
+                                      <SelectLabel>Itens do Pedido</SelectLabel>
+                                      <SelectItem value="none">Não vincular</SelectItem>
+                                      {purchaseOrderItems.map((po) => (
+                                        <SelectItem key={po.id} value={String(po.id)}>
+                                          {(po.productCode || po.itemCode || po.code || `#${po.id}`)} - {po.description}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </SelectContent>
+                                </Select>
+                                {it.matchSource === "auto" && selectedPoItem && (
+                                  <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
+                                    <AlertCircle className="h-3 w-3" />
+                                    Sugestão automática aplicada. Confirme se corresponde ao item do pedido.
+                                  </p>
+                                )}
+                                {!it.purchaseOrderItemId && suggestedMatch && (
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Sugestão automática: {suggestedMatch.description} ({(bestMatch?.score || 0).toFixed(2)} de similaridade).
+                                  </p>
+                                )}
+                                {selectedPoItem && (
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Qtd prevista: {Number(selectedPoItem.quantity || 0).toLocaleString("pt-BR")} • Unidade: {selectedPoItem.unit || "-"} • Valor unitário: {formatCurrency(selectedPoItem.unitPrice || 0)}
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          </div>
+                          {receiptType === "servico" ? (
+                            <>
+                              <div className="md:col-span-2">
+                                <Label>Descrição</Label>
+                                <Input
+                                  value={it.description || ""}
+                                  onChange={(e) => setManualItems(prev => prev.map((row, i) => {
+                                    if (i !== idx) return row;
+                                    const updated = { ...row, description: e.target.value };
+                                    if (!row.purchaseOrderItemId || row.matchSource === "auto") {
+                                      const match = findBestPurchaseOrderMatch(updated, purchaseOrderItems);
+                                      if (match && match.score >= MANUAL_ITEM_MATCH_THRESHOLD) {
+                                        updated.purchaseOrderItemId = match.id;
+                                        updated.matchSource = "auto";
+                                      }
+                                    }
+                                    return updated;
+                                  }))}
+                                />
                               </div>
                               <div>
-                                <Label>ICMS %</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.pICMS ?? "") as any} onChange={(e) => {
-                                  const pICMS = Number(e.target.value || 0);
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.pICMS = pICMS;
-                                    const base = curr.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
-                                    curr.vICMS = Number(((base || 0) * (pICMS || 0) / 100).toFixed(2));
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                                <Label>Código de Serviço</Label>
+                                <Input value={it.serviceCode || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, serviceCode: e.target.value } : row))} />
                               </div>
                               <div>
-                                <Label>ICMS Valor</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.vICMS ?? "") as any} onChange={(e) => {
-                                  const vICMS = Number(e.target.value || 0);
-                                  setItemTaxes(prev => ({ ...prev, [idx + 1]: { ...(prev[idx + 1] || {}), vICMS } }));
-                                }} />
+                                <Label>Valor Líquido</Label>
+                                <Input type="number" value={it.netValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, netValue: Number(e.target.value) } : row))} />
                               </div>
                               <div>
-                                <Label>IPI vBC</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.vBC ?? "") as any} onChange={(e) => {
-                                  const vBC = Number(e.target.value || 0);
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.ipi = { ...(curr.ipi || {}), vBC };
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                                <Label>ISS</Label>
+                                <Input type="number" value={it.issValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, issValue: Number(e.target.value) } : row))} />
+                              </div>
+                              <div className="flex items-end">
+                                <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <Label>Código</Label>
+                                <Input
+                                  value={it.code || ""}
+                                  onChange={(e) => setManualItems(prev => prev.map((row, i) => {
+                                    if (i !== idx) return row;
+                                    const updated = { ...row, code: e.target.value };
+                                    if (!row.purchaseOrderItemId || row.matchSource === "auto") {
+                                      const match = findBestPurchaseOrderMatch(updated, purchaseOrderItems);
+                                      if (match && match.score >= MANUAL_ITEM_MATCH_THRESHOLD) {
+                                        updated.purchaseOrderItemId = match.id;
+                                        updated.matchSource = "auto";
+                                      }
+                                    }
+                                    return updated;
+                                  }))}
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <Label>Descrição</Label>
+                                <Input
+                                  value={it.description || ""}
+                                  onChange={(e) => setManualItems(prev => prev.map((row, i) => {
+                                    if (i !== idx) return row;
+                                    const updated = { ...row, description: e.target.value };
+                                    if (!row.purchaseOrderItemId || row.matchSource === "auto") {
+                                      const match = findBestPurchaseOrderMatch(updated, purchaseOrderItems);
+                                      if (match && match.score >= MANUAL_ITEM_MATCH_THRESHOLD) {
+                                        updated.purchaseOrderItemId = match.id;
+                                        updated.matchSource = "auto";
+                                      }
+                                    }
+                                    return updated;
+                                  }))}
+                                />
                               </div>
                               <div>
-                                <Label>IPI %</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.pIPI ?? "") as any} onChange={(e) => {
-                                  const pIPI = Number(e.target.value || 0);
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    const base = curr.ipi?.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
-                                    curr.ipi = { ...(curr.ipi || {}), pIPI, vIPI: Number(((base || 0) * (pIPI || 0) / 100).toFixed(2)) };
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                                <Label>NCM</Label>
+                                <Input value={it.ncm || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, ncm: e.target.value } : row))} />
                               </div>
                               <div>
-                                <Label>IPI Valor</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.vIPI ?? "") as any} onChange={(e) => {
-                                  const vIPI = Number(e.target.value || 0);
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.ipi = { ...(curr.ipi || {}), vIPI };
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                                <Label>Qtd</Label>
+                                <Input type="number" value={it.quantity ?? 1} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity: Number(e.target.value) } : row))} />
                               </div>
                               <div>
-                                <Label>PIS CST</Label>
-                                <Input value={(itemTaxes[idx + 1]?.pis?.cst ?? "") as any} onChange={(e) => {
-                                  const cst = String(e.target.value || "");
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.pis = { ...(curr.pis || {}), cst };
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                                <Label>Valor Unit.</Label>
+                                <Input type="number" value={it.unitPrice ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, unitPrice: Number(e.target.value) } : row))} />
                               </div>
-                              <div>
-                                <Label>COFINS CST</Label>
-                                <Input value={(itemTaxes[idx + 1]?.cofins?.cst ?? "") as any} onChange={(e) => {
-                                  const cst = String(e.target.value || "");
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.cofins = { ...(curr.cofins || {}), cst };
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                              <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2 bg-slate-50 dark:bg-slate-900">
+                                <div>
+                                  <Label>ICMS vBC</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.vBC ?? "") as any} onChange={(e) => {
+                                    const vBC = Number(e.target.value || 0);
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.vBC = vBC;
+                                      if (curr.pICMS != null) curr.vICMS = Number(((vBC || 0) * (Number(curr.pICMS) || 0) / 100).toFixed(2));
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>ICMS %</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.pICMS ?? "") as any} onChange={(e) => {
+                                    const pICMS = Number(e.target.value || 0);
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.pICMS = pICMS;
+                                      const base = curr.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
+                                      curr.vICMS = Number(((base || 0) * (pICMS || 0) / 100).toFixed(2));
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>ICMS Valor</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.vICMS ?? "") as any} onChange={(e) => {
+                                    const vICMS = Number(e.target.value || 0);
+                                    setItemTaxes(prev => ({ ...prev, [idx + 1]: { ...(prev[idx + 1] || {}), vICMS } }));
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>IPI vBC</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.vBC ?? "") as any} onChange={(e) => {
+                                    const vBC = Number(e.target.value || 0);
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.ipi = { ...(curr.ipi || {}), vBC };
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>IPI %</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.pIPI ?? "") as any} onChange={(e) => {
+                                    const pIPI = Number(e.target.value || 0);
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      const base = curr.ipi?.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
+                                      curr.ipi = { ...(curr.ipi || {}), pIPI, vIPI: Number(((base || 0) * (pIPI || 0) / 100).toFixed(2)) };
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>IPI Valor</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.vIPI ?? "") as any} onChange={(e) => {
+                                    const vIPI = Number(e.target.value || 0);
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.ipi = { ...(curr.ipi || {}), vIPI };
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>PIS CST</Label>
+                                  <Input value={(itemTaxes[idx + 1]?.pis?.cst ?? "") as any} onChange={(e) => {
+                                    const cst = String(e.target.value || "");
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.pis = { ...(curr.pis || {}), cst };
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>COFINS CST</Label>
+                                  <Input value={(itemTaxes[idx + 1]?.cofins?.cst ?? "") as any} onChange={(e) => {
+                                    const cst = String(e.target.value || "");
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.cofins = { ...(curr.cofins || {}), cst };
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-end">
-                              <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                              <div className="flex items-end">
+                                <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="flex justify-between">
                     <Button type="button" variant="outline" onClick={() => setManualNFStep(1)}>Voltar</Button>
@@ -2037,6 +2322,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                         const res = validateManualItems(receiptType === "servico" ? "servico" : "produto", manualItems as any);
                         if (!res.isValid) {
                           return toast({ title: "Validação", description: res.errors[0]?.message || "Itens inválidos", variant: "destructive" });
+                        }
+                        if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) {
+                          return toast({ title: "Validação", description: "Vincule cada item da nota a um item do pedido de compra.", variant: "destructive" });
                         }
                         setManualNFStep(3);
                         toast({ title: "Etapa", description: "Itens incluídos" });
@@ -2055,6 +2343,39 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                   <div className="text-sm text-muted-foreground">Verifique se os dados estão consistentes antes de confirmar</div>
                   <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={() => setManualNFStep(2)}>Voltar</Button>
+                    {canConfirmNf && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={confirmNfMutation.isPending || nfConfirmed}
+                        onClick={() => {
+                          const header = validateManualHeader({
+                            number: manualNFNumber, series: manualNFSeries, accessKey: manualNFAccessKey,
+                            issueDate: manualNFIssueDate, emitterCnpj: manualNFEmitterCNPJ, total: manualTotal,
+                            kind: receiptType === "servico" ? "servico" : "produto",
+                          });
+                          setManualErrors(header.errors);
+                          if (!header.isValid) {
+                            return toast({ title: "Validação", description: "Campos obrigatórios pendentes no cadastro inicial", variant: "destructive" });
+                          }
+                          const kind = receiptType === "servico" ? "servico" : "produto";
+                          const res = validateManualItems(kind, manualItems as any);
+                          if (!res.isValid) {
+                            return toast({ title: "Validação", description: "Itens inválidos", variant: "destructive" });
+                          }
+                          if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) {
+                            return toast({ title: "Validação", description: "Vincule todos os itens da nota aos itens do pedido antes de confirmar.", variant: "destructive" });
+                          }
+                          const totCheck = validateTotalConsistency(manualTotal, kind as any, manualItems as any);
+                          if (!totCheck.isValid) {
+                            return toast({ title: "Validação", description: `Valor total (${totCheck.provided.toFixed(2)}) não confere com soma dos itens (${totCheck.expected.toFixed(2)})`, variant: "destructive" });
+                          }
+                          confirmNfMutation.mutate();
+                        }}
+                      >
+                        {nfConfirmed ? "NF confirmada" : "Confirmar NF"}
+                      </Button>
+                    )}
                     <Button type="button" onClick={() => {
                       const header = validateManualHeader({
                         number: manualNFNumber, series: manualNFSeries, accessKey: manualNFAccessKey,
@@ -2069,6 +2390,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                       const res = validateManualItems(kind, manualItems as any);
                       if (!res.isValid) {
                         return toast({ title: "Validação", description: "Itens inválidos", variant: "destructive" });
+                      }
+                      if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) {
+                        return toast({ title: "Validação", description: "Vincule todos os itens da nota aos itens do pedido antes de avançar.", variant: "destructive" });
                       }
                       const totCheck = validateTotalConsistency(manualTotal, kind as any, manualItems as any);
                       if (!totCheck.isValid) {
@@ -2446,7 +2770,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                                     try {
                                       const stateKey = `xml_state_${request.id}`;
                                       const histKey = `xml_history_${request.id}`;
-                                      const snapshot = { xmlRaw, xmlPreview: preview, xmlAttachmentId: attachmentId ?? null, receiptType, timestamp: new Date().toISOString() };
+                                      const snapshot = { xmlRaw, xmlPreview: preview, xmlAttachmentId: attachmentId ?? null, receiptId: nfReceiptId ?? null, receiptType, timestamp: new Date().toISOString() };
                                       localStorage.setItem(stateKey, JSON.stringify(snapshot));
                                       const existing = localStorage.getItem(histKey);
                                       const history = existing ? JSON.parse(existing) : [];
@@ -2506,6 +2830,30 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                   </div>
                 </CardContent>
               </Card>
+
+              {canConfirmNf && (
+                <Card>
+                  <CardHeader><CardTitle>Confirmação da Nota Fiscal</CardTitle></CardHeader>
+                  <CardContent className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Valide os dados fiscais e confirme a NF antes do recebimento físico.
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={confirmNfMutation.isPending || nfConfirmed}
+                      onClick={() => {
+                        if (!xmlPreview) {
+                          return toast({ title: "Validação", description: "Importe o XML da NF para confirmar.", variant: "destructive" });
+                        }
+                        confirmNfMutation.mutate();
+                      }}
+                    >
+                      {nfConfirmed ? "NF confirmada" : "Confirmar NF"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader><CardTitle>Pagamento</CardTitle></CardHeader>
@@ -3130,6 +3478,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                 if (typeCategoryError) {
                   return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
                 }
+                if (receiptType !== "avulso" && !nfConfirmed) {
+                  return toast({ title: "NF pendente", description: "Necessário cadastro prévio da NF para confirmar o recebimento.", variant: "destructive" });
+                }
                 // Validar campos financeiros da etapa inicial
                 if (receiptType === "avulso") {
                   const hasTotals = manualTotal && String(manualTotal).trim() !== "";
@@ -3166,6 +3517,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                   const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
                   if (!hasAnyQty) {
                     return toast({ title: "Validação", description: "Informe as quantidades recebidas", variant: "destructive" });
+                  }
+                  if (manualItemsMissingLinks.length > 0) {
+                    return toast({ title: "Validação", description: "Vincule todos os itens da nota aos itens do pedido.", variant: "destructive" });
                   }
                 } else {
                   const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
@@ -3458,6 +3812,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                 onClick={() => {
                   if (!isFiscalValid) {
                     return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
+                  }
+                  if (receiptType !== "avulso" && !nfConfirmed) {
+                    return toast({ title: "NF pendente", description: "Necessário cadastro prévio da NF para confirmar o recebimento.", variant: "destructive" });
                   }
                   if (receiptType === "avulso") {
                     const required = [manualNFNumber, manualNFIssueDate];
