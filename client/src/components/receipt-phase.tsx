@@ -82,6 +82,65 @@ export function computeInitialCcExpand(tree: any[]) {
   return { lv1, lv2 };
 }
 
+const MANUAL_ITEM_MATCH_THRESHOLD = 0.45;
+
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const calculateTokenScore = (left: string, right: string) => {
+  const leftTokens = new Set(left.split(" ").filter(Boolean));
+  const rightTokens = new Set(right.split(" ").filter(Boolean));
+  if (leftTokens.size === 0 || rightTokens.size === 0) return 0;
+  let intersection = 0;
+  for (const token of leftTokens) {
+    if (rightTokens.has(token)) intersection += 1;
+  }
+  const maxSize = Math.max(leftTokens.size, rightTokens.size);
+  return maxSize > 0 ? intersection / maxSize : 0;
+};
+
+const findBestPurchaseOrderMatch = (manualItem: any, poItems: any[]) => {
+  if (!manualItem || poItems.length === 0) return null;
+  const manualCode = normalizeText(String(manualItem.code || ""));
+  const manualDesc = normalizeText(String(manualItem.description || ""));
+  let best: { id: number; score: number } | null = null;
+
+  for (const poItem of poItems) {
+    const poCode = normalizeText(String(poItem.productCode || poItem.itemCode || poItem.code || ""));
+    const poDesc = normalizeText(String(poItem.description || ""));
+    let score = 0;
+
+    if (manualCode && poCode) {
+      if (manualCode === poCode) {
+        score = 1;
+      } else if (manualCode.includes(poCode) || poCode.includes(manualCode)) {
+        score = Math.max(score, 0.85);
+      }
+    }
+
+    if (manualDesc && poDesc) {
+      if (manualDesc === poDesc) {
+        score = Math.max(score, 0.9);
+      } else if (manualDesc.includes(poDesc) || poDesc.includes(manualDesc)) {
+        score = Math.max(score, 0.7);
+      } else {
+        score = Math.max(score, calculateTokenScore(manualDesc, poDesc));
+      }
+    }
+
+    if (!best || score > best.score) {
+      best = { id: poItem.id, score };
+    }
+  }
+
+  return best;
+};
+
 interface ReceiptPhaseProps {
   request: any;
   onClose: () => void;
@@ -146,7 +205,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [installments, setInstallments] = useState<Array<{ dueDate: string; amount: string; method?: string }>>([]);
   const [manualCostCenterId, setManualCostCenterId] = useState<number | null>(null);
   const [manualChartOfAccountsId, setManualChartOfAccountsId] = useState<number | null>(null);
-  const [manualItems, setManualItems] = useState<Array<{ code?: string; description: string; unit?: string; quantity: number; unitPrice: number }>>([]);
+  const [manualItems, setManualItems] = useState<Array<{ code?: string; description: string; unit?: string; quantity: number; unitPrice: number; purchaseOrderItemId?: number; matchSource?: "auto" | "manual" }>>([]);
   const [manualNFNumber, setManualNFNumber] = useState<string>("");
   const [manualNFSeries, setManualNFSeries] = useState<string>("");
   const [manualNFIssueDate, setManualNFIssueDate] = useState<string>("");
@@ -1364,26 +1423,6 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   };
 
 
-  // Para a fase de recebimento, usar diretamente os dados dos itens que já vêm com preços do pedido de compra
-  const itemsWithPrices = Array.isArray(items) ? items.map(item => {
-    // Os itens do pedido de compra já vêm com os preços corretos da API
-    const unitPrice = Number(item.unitPrice) || 0;
-    const quantity = Number(item.quantity) || 0;
-    const totalPrice = Number(item.totalPrice) || 0;
-
-    return {
-      ...item,
-      unitPrice: unitPrice,
-      originalUnitPrice: unitPrice,
-      itemDiscount: 0, // Para pedidos de compra, não há desconto adicional
-      totalPrice: totalPrice,
-      originalTotalPrice: totalPrice,
-      brand: item.brand || '',
-      deliveryTime: item.deliveryTime || '',
-      isAvailable: true
-    };
-  }) : [];
-
   if (showPreviewModal) {
     return (
       <div className={cn("flex flex-col h-full", className)}>
@@ -1554,6 +1593,27 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     window.setTimeout(() => setAutoFilledRows(new Set()), 2500);
   };
 
+  // Para a fase de recebimento, usar diretamente os dados dos itens que já vêm com preços do pedido de compra
+  const itemsWithPrices = Array.isArray(items) ? items.map(item => {
+    // Os itens do pedido de compra já vêm com os preços corretos da API
+    const unitPrice = Number(item.unitPrice) || 0;
+    const quantity = Number(item.quantity) || 0;
+    const totalPrice = Number(item.totalPrice) || 0;
+
+    return {
+      ...item,
+      unitPrice: unitPrice,
+      originalUnitPrice: unitPrice,
+      itemDiscount: 0, // Para pedidos de compra, não há desconto adicional
+      totalPrice: totalPrice,
+      originalTotalPrice: totalPrice,
+      brand: item.brand || '',
+      deliveryTime: item.deliveryTime || '',
+      isAvailable: true
+    };
+  }) : [];
+  const purchaseOrderItems = useMemo(() => (Array.isArray(itemsWithPrices) ? itemsWithPrices : []), [itemsWithPrices]);
+
   const isFiscalValid = (() => {
     if (!hasInstallments) return !!paymentMethodCode && !!invoiceDueDate;
     const total = baseTotalForAllocation;
@@ -1565,6 +1625,12 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     const allFilled = rows.every(r => !!r.dueDate && (parseFloat(String(r.amount || "0").replace(",", ".")) > 0) && (!!r.method || !!paymentMethodCode));
     return round2(sum) === round2(total) && sorted && allFilled;
   })();
+  const manualItemsMissingLinks = useMemo(() => {
+    if (receiptType === "avulso" || manualItems.length === 0 || purchaseOrderItems.length === 0) return [];
+    return manualItems
+      .map((item, index) => (!item.purchaseOrderItemId ? index : null))
+      .filter((value): value is number => value !== null);
+  }, [manualItems, purchaseOrderItems.length, receiptType]);
   const canConfirm = useMemo(() => {
     if (typeCategoryError) return false;
     if (!isFiscalValid) return false;
@@ -1581,6 +1647,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       });
       if (!header.isValid) return false;
       const itemsOk = validateManualItems(receiptType === "servico" ? "servico" : "produto", manualItems as any).isValid;
+      if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) return false;
       return itemsOk;
     }
     const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
@@ -1592,7 +1659,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
     if (!hasAnyQty && !xmlPreview) return false;
     return true;
-  }, [typeCategoryError, isFiscalValid, allocations.length, allocationsSumOk, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualTotal, manualItems.length, itemsWithPrices, receivedQuantities, xmlPreview, activeTab]);
+  }, [typeCategoryError, isFiscalValid, allocations.length, allocationsSumOk, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualTotal, manualItems.length, manualItemsMissingLinks, itemsWithPrices, receivedQuantities, xmlPreview, activeTab]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -1886,149 +1953,251 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                     }}>Adicionar Item</Button>
                   </div>
                   <div className="space-y-2">
-                    {manualItems.map((it: any, idx: number) => (
-                      <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2">
-                        {receiptType === "servico" ? (
-                          <>
-                            <div className="md:col-span-2">
-                              <Label>Descrição</Label>
-                              <Input value={it.description || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, description: e.target.value } : row))} />
-                            </div>
-                            <div>
-                              <Label>Código de Serviço</Label>
-                              <Input value={it.serviceCode || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, serviceCode: e.target.value } : row))} />
-                            </div>
-                            <div>
-                              <Label>Valor Líquido</Label>
-                              <Input type="number" value={it.netValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, netValue: Number(e.target.value) } : row))} />
-                            </div>
-                            <div>
-                              <Label>ISS</Label>
-                              <Input type="number" value={it.issValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, issValue: Number(e.target.value) } : row))} />
-                            </div>
-                            <div className="flex items-end">
-                              <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div>
-                              <Label>Código</Label>
-                              <Input value={it.code || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, code: e.target.value } : row))} />
-                            </div>
-                            <div className="md:col-span-2">
-                              <Label>Descrição</Label>
-                              <Input value={it.description || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, description: e.target.value } : row))} />
-                            </div>
-                            <div>
-                              <Label>NCM</Label>
-                              <Input value={it.ncm || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, ncm: e.target.value } : row))} />
-                            </div>
-                            <div>
-                              <Label>Qtd</Label>
-                              <Input type="number" value={it.quantity ?? 1} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity: Number(e.target.value) } : row))} />
-                            </div>
-                            <div>
-                              <Label>Valor Unit.</Label>
-                              <Input type="number" value={it.unitPrice ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, unitPrice: Number(e.target.value) } : row))} />
-                            </div>
-                            <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2 bg-slate-50 dark:bg-slate-900">
-                              <div>
-                                <Label>ICMS vBC</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.vBC ?? "") as any} onChange={(e) => {
-                                  const vBC = Number(e.target.value || 0);
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.vBC = vBC;
-                                    if (curr.pICMS != null) curr.vICMS = Number(((vBC || 0) * (Number(curr.pICMS) || 0) / 100).toFixed(2));
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                    {manualItems.map((it: any, idx: number) => {
+                      const selectedPoItem = purchaseOrderItems.find((po) => po.id === it.purchaseOrderItemId);
+                      const bestMatch = findBestPurchaseOrderMatch(it, purchaseOrderItems);
+                      const suggestedMatch = bestMatch && bestMatch.score >= MANUAL_ITEM_MATCH_THRESHOLD
+                        ? purchaseOrderItems.find((po) => po.id === bestMatch.id)
+                        : null;
+                      return (
+                        <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2">
+                          <div className="md:col-span-6">
+                            <Label>Item do Pedido de Compra</Label>
+                            {purchaseOrderItems.length === 0 ? (
+                              <div className="text-sm text-muted-foreground mt-1">Nenhum item disponível no pedido para comparação.</div>
+                            ) : (
+                              <>
+                                <Select
+                                  value={it.purchaseOrderItemId ? String(it.purchaseOrderItemId) : "none"}
+                                  onValueChange={(value) => {
+                                    setManualItems(prev => prev.map((row, i) => {
+                                      if (i !== idx) return row;
+                                      if (value === "none") {
+                                        const { purchaseOrderItemId, matchSource, ...rest } = row;
+                                        return { ...rest };
+                                      }
+                                      return { ...row, purchaseOrderItemId: Number(value), matchSource: "manual" };
+                                    }));
+                                  }}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Selecione o item correspondente no pedido" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectGroup>
+                                      <SelectLabel>Itens do Pedido</SelectLabel>
+                                      <SelectItem value="none">Não vincular</SelectItem>
+                                      {purchaseOrderItems.map((po) => (
+                                        <SelectItem key={po.id} value={String(po.id)}>
+                                          {(po.productCode || po.itemCode || po.code || `#${po.id}`)} - {po.description}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </SelectContent>
+                                </Select>
+                                {it.matchSource === "auto" && selectedPoItem && (
+                                  <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
+                                    <AlertCircle className="h-3 w-3" />
+                                    Sugestão automática aplicada. Confirme se corresponde ao item do pedido.
+                                  </p>
+                                )}
+                                {!it.purchaseOrderItemId && suggestedMatch && (
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Sugestão automática: {suggestedMatch.description} ({(bestMatch?.score || 0).toFixed(2)} de similaridade).
+                                  </p>
+                                )}
+                                {selectedPoItem && (
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Qtd prevista: {Number(selectedPoItem.quantity || 0).toLocaleString("pt-BR")} • Unidade: {selectedPoItem.unit || "-"} • Valor unitário: {formatCurrency(selectedPoItem.unitPrice || 0)}
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          </div>
+                          {receiptType === "servico" ? (
+                            <>
+                              <div className="md:col-span-2">
+                                <Label>Descrição</Label>
+                                <Input
+                                  value={it.description || ""}
+                                  onChange={(e) => setManualItems(prev => prev.map((row, i) => {
+                                    if (i !== idx) return row;
+                                    const updated = { ...row, description: e.target.value };
+                                    if (!row.purchaseOrderItemId || row.matchSource === "auto") {
+                                      const match = findBestPurchaseOrderMatch(updated, purchaseOrderItems);
+                                      if (match && match.score >= MANUAL_ITEM_MATCH_THRESHOLD) {
+                                        updated.purchaseOrderItemId = match.id;
+                                        updated.matchSource = "auto";
+                                      }
+                                    }
+                                    return updated;
+                                  }))}
+                                />
                               </div>
                               <div>
-                                <Label>ICMS %</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.pICMS ?? "") as any} onChange={(e) => {
-                                  const pICMS = Number(e.target.value || 0);
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.pICMS = pICMS;
-                                    const base = curr.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
-                                    curr.vICMS = Number(((base || 0) * (pICMS || 0) / 100).toFixed(2));
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                                <Label>Código de Serviço</Label>
+                                <Input value={it.serviceCode || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, serviceCode: e.target.value } : row))} />
                               </div>
                               <div>
-                                <Label>ICMS Valor</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.vICMS ?? "") as any} onChange={(e) => {
-                                  const vICMS = Number(e.target.value || 0);
-                                  setItemTaxes(prev => ({ ...prev, [idx + 1]: { ...(prev[idx + 1] || {}), vICMS } }));
-                                }} />
+                                <Label>Valor Líquido</Label>
+                                <Input type="number" value={it.netValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, netValue: Number(e.target.value) } : row))} />
                               </div>
                               <div>
-                                <Label>IPI vBC</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.vBC ?? "") as any} onChange={(e) => {
-                                  const vBC = Number(e.target.value || 0);
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.ipi = { ...(curr.ipi || {}), vBC };
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                                <Label>ISS</Label>
+                                <Input type="number" value={it.issValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, issValue: Number(e.target.value) } : row))} />
+                              </div>
+                              <div className="flex items-end">
+                                <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <Label>Código</Label>
+                                <Input
+                                  value={it.code || ""}
+                                  onChange={(e) => setManualItems(prev => prev.map((row, i) => {
+                                    if (i !== idx) return row;
+                                    const updated = { ...row, code: e.target.value };
+                                    if (!row.purchaseOrderItemId || row.matchSource === "auto") {
+                                      const match = findBestPurchaseOrderMatch(updated, purchaseOrderItems);
+                                      if (match && match.score >= MANUAL_ITEM_MATCH_THRESHOLD) {
+                                        updated.purchaseOrderItemId = match.id;
+                                        updated.matchSource = "auto";
+                                      }
+                                    }
+                                    return updated;
+                                  }))}
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <Label>Descrição</Label>
+                                <Input
+                                  value={it.description || ""}
+                                  onChange={(e) => setManualItems(prev => prev.map((row, i) => {
+                                    if (i !== idx) return row;
+                                    const updated = { ...row, description: e.target.value };
+                                    if (!row.purchaseOrderItemId || row.matchSource === "auto") {
+                                      const match = findBestPurchaseOrderMatch(updated, purchaseOrderItems);
+                                      if (match && match.score >= MANUAL_ITEM_MATCH_THRESHOLD) {
+                                        updated.purchaseOrderItemId = match.id;
+                                        updated.matchSource = "auto";
+                                      }
+                                    }
+                                    return updated;
+                                  }))}
+                                />
                               </div>
                               <div>
-                                <Label>IPI %</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.pIPI ?? "") as any} onChange={(e) => {
-                                  const pIPI = Number(e.target.value || 0);
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    const base = curr.ipi?.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
-                                    curr.ipi = { ...(curr.ipi || {}), pIPI, vIPI: Number(((base || 0) * (pIPI || 0) / 100).toFixed(2)) };
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                                <Label>NCM</Label>
+                                <Input value={it.ncm || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, ncm: e.target.value } : row))} />
                               </div>
                               <div>
-                                <Label>IPI Valor</Label>
-                                <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.vIPI ?? "") as any} onChange={(e) => {
-                                  const vIPI = Number(e.target.value || 0);
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.ipi = { ...(curr.ipi || {}), vIPI };
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                                <Label>Qtd</Label>
+                                <Input type="number" value={it.quantity ?? 1} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity: Number(e.target.value) } : row))} />
                               </div>
                               <div>
-                                <Label>PIS CST</Label>
-                                <Input value={(itemTaxes[idx + 1]?.pis?.cst ?? "") as any} onChange={(e) => {
-                                  const cst = String(e.target.value || "");
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.pis = { ...(curr.pis || {}), cst };
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                                <Label>Valor Unit.</Label>
+                                <Input type="number" value={it.unitPrice ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, unitPrice: Number(e.target.value) } : row))} />
                               </div>
-                              <div>
-                                <Label>COFINS CST</Label>
-                                <Input value={(itemTaxes[idx + 1]?.cofins?.cst ?? "") as any} onChange={(e) => {
-                                  const cst = String(e.target.value || "");
-                                  setItemTaxes(prev => {
-                                    const curr = { ...(prev[idx + 1] || {}) };
-                                    curr.cofins = { ...(curr.cofins || {}), cst };
-                                    return { ...prev, [idx + 1]: curr };
-                                  });
-                                }} />
+                              <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-2 border rounded p-2 bg-slate-50 dark:bg-slate-900">
+                                <div>
+                                  <Label>ICMS vBC</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.vBC ?? "") as any} onChange={(e) => {
+                                    const vBC = Number(e.target.value || 0);
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.vBC = vBC;
+                                      if (curr.pICMS != null) curr.vICMS = Number(((vBC || 0) * (Number(curr.pICMS) || 0) / 100).toFixed(2));
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>ICMS %</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.pICMS ?? "") as any} onChange={(e) => {
+                                    const pICMS = Number(e.target.value || 0);
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.pICMS = pICMS;
+                                      const base = curr.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
+                                      curr.vICMS = Number(((base || 0) * (pICMS || 0) / 100).toFixed(2));
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>ICMS Valor</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.vICMS ?? "") as any} onChange={(e) => {
+                                    const vICMS = Number(e.target.value || 0);
+                                    setItemTaxes(prev => ({ ...prev, [idx + 1]: { ...(prev[idx + 1] || {}), vICMS } }));
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>IPI vBC</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.vBC ?? "") as any} onChange={(e) => {
+                                    const vBC = Number(e.target.value || 0);
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.ipi = { ...(curr.ipi || {}), vBC };
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>IPI %</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.pIPI ?? "") as any} onChange={(e) => {
+                                    const pIPI = Number(e.target.value || 0);
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      const base = curr.ipi?.vBC ?? Number((it.quantity || 0) * (it.unitPrice || 0));
+                                      curr.ipi = { ...(curr.ipi || {}), pIPI, vIPI: Number(((base || 0) * (pIPI || 0) / 100).toFixed(2)) };
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>IPI Valor</Label>
+                                  <Input type="number" value={(itemTaxes[idx + 1]?.ipi?.vIPI ?? "") as any} onChange={(e) => {
+                                    const vIPI = Number(e.target.value || 0);
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.ipi = { ...(curr.ipi || {}), vIPI };
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>PIS CST</Label>
+                                  <Input value={(itemTaxes[idx + 1]?.pis?.cst ?? "") as any} onChange={(e) => {
+                                    const cst = String(e.target.value || "");
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.pis = { ...(curr.pis || {}), cst };
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <Label>COFINS CST</Label>
+                                  <Input value={(itemTaxes[idx + 1]?.cofins?.cst ?? "") as any} onChange={(e) => {
+                                    const cst = String(e.target.value || "");
+                                    setItemTaxes(prev => {
+                                      const curr = { ...(prev[idx + 1] || {}) };
+                                      curr.cofins = { ...(curr.cofins || {}), cst };
+                                      return { ...prev, [idx + 1]: curr };
+                                    });
+                                  }} />
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-end">
-                              <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                              <div className="flex items-end">
+                                <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="flex justify-between">
                     <Button type="button" variant="outline" onClick={() => setManualNFStep(1)}>Voltar</Button>
@@ -2037,6 +2206,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                         const res = validateManualItems(receiptType === "servico" ? "servico" : "produto", manualItems as any);
                         if (!res.isValid) {
                           return toast({ title: "Validação", description: res.errors[0]?.message || "Itens inválidos", variant: "destructive" });
+                        }
+                        if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) {
+                          return toast({ title: "Validação", description: "Vincule cada item da nota a um item do pedido de compra.", variant: "destructive" });
                         }
                         setManualNFStep(3);
                         toast({ title: "Etapa", description: "Itens incluídos" });
@@ -2069,6 +2241,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                       const res = validateManualItems(kind, manualItems as any);
                       if (!res.isValid) {
                         return toast({ title: "Validação", description: "Itens inválidos", variant: "destructive" });
+                      }
+                      if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) {
+                        return toast({ title: "Validação", description: "Vincule todos os itens da nota aos itens do pedido antes de avançar.", variant: "destructive" });
                       }
                       const totCheck = validateTotalConsistency(manualTotal, kind as any, manualItems as any);
                       if (!totCheck.isValid) {
@@ -3166,6 +3341,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                   const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
                   if (!hasAnyQty) {
                     return toast({ title: "Validação", description: "Informe as quantidades recebidas", variant: "destructive" });
+                  }
+                  if (manualItemsMissingLinks.length > 0) {
+                    return toast({ title: "Validação", description: "Vincule todos os itens da nota aos itens do pedido.", variant: "destructive" });
                   }
                 } else {
                   const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
