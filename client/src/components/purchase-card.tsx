@@ -7,6 +7,7 @@ import {
   PurchasePhase,
   PURCHASE_PHASES,
   PHASE_LABELS,
+  ReceiptMode,
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
 import {
@@ -84,7 +85,7 @@ interface PurchaseCardProps {
   isDragging?: boolean;
   onCreateRFQ?: (request: any) => void;
   isSearchHighlighted?: boolean;
-  onOpenRequest?: (request: any, phase: PurchasePhase) => void;
+  onOpenRequest?: (request: any, phase: PurchasePhase, mode?: ReceiptMode) => void;
 }
 
 export default function PurchaseCard({
@@ -104,6 +105,7 @@ export default function PurchaseCard({
   const [initialA2Action, setInitialA2Action] = useState<'approve' | 'reject' | null>(null);
   const receiptRef = useRef<ReceiptPhaseHandle | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [receiptMode, setReceiptMode] = useState<'view' | 'physical' | 'fiscal'>('view');
 
   
 
@@ -121,6 +123,7 @@ export default function PurchaseCard({
       onOpenRequest(request, phase);
       return;
     }
+    setReceiptMode('view');
     setIsEditModalOpen(true);
   };
 
@@ -387,65 +390,9 @@ export default function PurchaseCard({
     },
   });
 
-  const confirmReceiptMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest(
-        `/api/purchase-requests/${request.id}/confirm-receipt`,
-        {
-          method: "POST",
-          body: {
-            receivedById: user?.id,
-          },
-        },
-      );
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      toast({
-        title: "Sucesso",
-        description: "Recebimento confirmado! Item movido para Conclusão.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível confirmar o recebimento",
-        variant: "destructive",
-      });
-    },
-  });
 
-  const reportIssueMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest(
-        `/api/purchase-requests/${request.id}/report-issue`,
-        {
-          method: "POST",
-          body: {
-            reportedById: user?.id,
-          },
-        },
-      );
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      toast({
-        title: "Pendência Reportada",
-        description:
-          "Item retornado para Pedido de Compra com tag de pendência.",
-        variant: "destructive",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível reportar a pendência",
-        variant: "destructive",
-      });
-    },
-  });
+
+
 
   const advanceToReceiptMutation = useMutation({
     mutationFn: async () => {
@@ -1049,29 +996,40 @@ export default function PurchaseCard({
               {/* Receipt Actions */}
               {phase === PURCHASE_PHASES.RECEBIMENTO && canPerformReceiptActions && (
                 <>
+
+                  
+                  {/* Physical Receipt Button */}
                   <button
-                    className="px-3 py-1.5 text-xs font-semibold text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/40 rounded-md hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
+                    className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
                     onClick={(e) => {
                       e.stopPropagation();
-                      reportIssueMutation.mutate();
-                    }}
-                    disabled={reportIssueMutation.isPending}
-                  >
-                    Pendência
-                  </button>
-                  <button
-                    className="px-3 py-1.5 text-xs font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 rounded-md hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                      setReceiptMode('physical');
                       if (onOpenRequest) {
-                        onOpenRequest(request, PURCHASE_PHASES.RECEBIMENTO);
+                        onOpenRequest(request, PURCHASE_PHASES.RECEBIMENTO, 'physical');
                       } else {
                         setIsEditModalOpen(true);
                       }
                     }}
-                    disabled={false}
+                    disabled={!!request.physicalReceiptAt}
                   >
-                    Confirmar
+                    {request.physicalReceiptAt ? "Físico OK" : "Confirmar"}
+                  </button>
+
+                  {/* Fiscal Receipt Button */}
+                  <button
+                    className="px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 rounded-md hover:bg-orange-600 transition-colors disabled:opacity-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setReceiptMode('fiscal');
+                      if (onOpenRequest) {
+                        onOpenRequest(request, PURCHASE_PHASES.RECEBIMENTO, 'fiscal');
+                      } else {
+                        setIsEditModalOpen(true);
+                      }
+                    }}
+                    disabled={!!request.fiscalReceiptAt}
+                  >
+                    {request.fiscalReceiptAt ? "Fiscal OK" : "Conf. Fiscal"}
                   </button>
                 </>
               )}
@@ -1232,6 +1190,7 @@ export default function PurchaseCard({
                   ref={receiptRef}
                   onPreviewOpen={() => setIsPreviewOpen(true)}
                   onPreviewClose={() => setIsPreviewOpen(false)}
+                  mode={receiptMode}
                 />
               </div>
             </DialogContent>

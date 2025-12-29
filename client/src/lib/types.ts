@@ -9,6 +9,10 @@ export const PURCHASE_PHASES = {
   ARQUIVADO: 'arquivado',
 } as const;
 
+export type PurchasePhase = typeof PURCHASE_PHASES[keyof typeof PURCHASE_PHASES];
+
+export type ReceiptMode = 'view' | 'physical' | 'fiscal';
+
 export const PHASE_LABELS = {
   [PURCHASE_PHASES.SOLICITACAO]: 'Solicitação',
   [PURCHASE_PHASES.APROVACAO_A1]: 'Aprovação A1',
@@ -48,15 +52,9 @@ export const URGENCY_LABELS = {
 export const CATEGORY_OPTIONS = {
   PRODUTO: 'produto',
   SERVICO: 'servico',
-  OUTROS: 'outros',
 } as const;
 
 export const CATEGORY_LABELS = {
   [CATEGORY_OPTIONS.PRODUTO]: 'Produto',
   [CATEGORY_OPTIONS.SERVICO]: 'Serviço',
-  [CATEGORY_OPTIONS.OUTROS]: 'Outros',
 } as const;
-
-export type PurchasePhase = typeof PURCHASE_PHASES[keyof typeof PURCHASE_PHASES];
-export type UrgencyLevel = typeof URGENCY_LEVELS[keyof typeof URGENCY_LEVELS];
-export type CategoryOption = typeof CATEGORY_OPTIONS[keyof typeof CATEGORY_OPTIONS];

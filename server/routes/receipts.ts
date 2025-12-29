@@ -15,7 +15,7 @@ import {
 import { parseNFeXml } from "../services/nfe-parser";
 import { parseNFSeXml } from "../services/nfse-parser";
 import { z } from "zod";
-import { eq, sql, and, like, or, desc } from "drizzle-orm";
+import { eq, sql, and, like, or, desc, asc } from "drizzle-orm";
 // @ts-ignore
 import fetch from "node-fetch";
 

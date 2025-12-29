@@ -36,11 +36,15 @@ import {
   receiptAllocations,
   receipts,
   receiptItems,
+  purchaseRequests,
+  purchaseOrderItems,
+  purchaseOrders,
 } from "../shared/schema";
 import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
-import { pool } from "./db";
+import { pool, db } from "./db";
+import { eq } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import mime from "mime-types";
@@ -2390,6 +2394,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(400).json({ message: "Falha ao confirmar a Nota Fiscal" });
       }
     },
+  );
+
+  // New Endpoint: Confirm Physical Receipt
+  app.post(
+    "/api/purchase-requests/:id/confirm-physical",
+    isAuthenticated,
+    isReceiver,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const userId = req.session.userId!;
+        const { receivedQuantities, observations } = req.body;
+
+        const request = await storage.getPurchaseRequestById(id);
+        if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
+
+        // Update Physical Receipt Status
+        await db.update(purchaseRequests)
+          .set({
+            physicalReceiptAt: new Date(),
+            physicalReceiptById: userId,
+            // We don't move phase yet
+          })
+          .where(eq(purchaseRequests.id, id));
+
+        // Save Quantities (Logic reused from confirm-receipt)
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (purchaseOrder && receivedQuantities) {
+           // Ensure receipt record exists or create one?
+           // For now, we update purchase_order_items directly as per existing logic,
+           // or we should create a receipt record to track this specific event?
+           // Existing logic updates purchase_order_items.quantityReceived.
+           
+           const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+           for (const it of poItems) {
+              const qty = Number(receivedQuantities[it.id] || 0);
+              if (qty > 0) {
+                 const currentQty = Number(it.quantityReceived || 0);
+                 const maxQty = Number(it.quantity || 0);
+                 // Note: logic might need adjustment if we allow multiple partial receipts. 
+                 // For now assuming cumulative or absolute? The input seems to be "current session received".
+                 // Existing logic seemed to take absolute or delta? 
+                 // "const currentQty = Number(it.quantityReceived || 0); ... quantityReceived: String(currentQty + qty)" -> It's delta.
+                 
+                 await db.update(purchaseOrderItems)
+                   .set({ quantityReceived: String(currentQty + qty) })
+                   .where(eq(purchaseOrderItems.id, it.id));
+              }
+           }
+        }
+
+        const updatedReq = await storage.getPurchaseRequestById(id);
+        const isFullyComplete = !!(updatedReq?.physicalReceiptAt && updatedReq?.fiscalReceiptAt);
+
+        res.json({ success: true, physicalDone: true, isFullyComplete });
+      } catch (error) {
+        console.error("Error confirming physical receipt:", error);
+        res.status(500).json({ message: "Erro ao confirmar recebimento físico" });
+      }
+    }
+  );
+
+  // New Endpoint: Confirm Fiscal Receipt
+  app.post(
+    "/api/purchase-requests/:id/confirm-fiscal",
+    isAuthenticated,
+    isReceiver, // or isBuyer?
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const userId = req.session.userId!;
+        // Fiscal data payload is handled by specific receipt endpoints or passed here?
+        // Usually fiscal data is complex (XML, etc).
+        // If the user uses the "Confirmar Fiscal" button, they might have already saved the NF via "validar" endpoint?
+        // Or we pass the data here. 
+        // For now, we assume data is saved via existing receipt endpoints (like /api/recebimentos/...) 
+        // and this endpoint marks the step as done.
+        
+        const request = await storage.getPurchaseRequestById(id);
+        if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
+
+        await db.update(purchaseRequests)
+          .set({
+            fiscalReceiptAt: new Date(),
+            fiscalReceiptById: userId,
+          })
+          .where(eq(purchaseRequests.id, id));
+
+        const updatedReq = await storage.getPurchaseRequestById(id);
+        const isFullyComplete = !!(updatedReq?.physicalReceiptAt && updatedReq?.fiscalReceiptAt);
+
+        res.json({ success: true, fiscalDone: true, isFullyComplete });
+      } catch (error) {
+        console.error("Error confirming fiscal receipt:", error);
+        res.status(500).json({ message: "Erro ao confirmar recebimento fiscal" });
+      }
+    }
+  );
+
+  // New Endpoint: Finalize Receipt (Move to Conclusion)
+  app.post(
+    "/api/purchase-requests/:id/finalize-receipt",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const request = await storage.getPurchaseRequestById(id);
+        
+        if (!request?.physicalReceiptAt || !request?.fiscalReceiptAt) {
+           return res.status(400).json({ message: "É necessário concluir as etapas Física e Fiscal antes de finalizar." });
+        }
+
+        await storage.updatePurchaseRequest(id, {
+          currentPhase: "conclusao_compra",
+          receivedDate: new Date(),
+          receivedById: req.session.userId
+        });
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error finalizing receipt:", error);
+        res.status(500).json({ message: "Erro ao finalizar recebimento" });
+      }
+    }
   );
 
   app.post(

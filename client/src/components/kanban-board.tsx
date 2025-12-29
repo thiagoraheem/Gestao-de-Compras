@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { PURCHASE_PHASES, PHASE_LABELS, type PurchasePhase } from "@/lib/types";
+import { PURCHASE_PHASES, PHASE_LABELS, type PurchasePhase, type ReceiptMode } from "@/lib/types";
 import KanbanColumn from "./kanban-column";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -67,6 +67,7 @@ export default function KanbanBoard({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPhase, setModalPhase] = useState<PurchasePhase | null>(null);
   const [lockDialogClose, setLockDialogClose] = useState(false);
+  const [modalMode, setModalMode] = useState<'view' | 'physical' | 'fiscal' | undefined>(undefined);
 
   const phaseIcons: Record<PurchasePhase, any> = {
     [PURCHASE_PHASES.SOLICITACAO]: FileText,
@@ -88,9 +89,10 @@ export default function KanbanBoard({
     enabled: !!user, // Only fetch when user is authenticated
   });
 
-  const handleOpenRequest = (request: any, phase: PurchasePhase) => {
+  const handleOpenRequest = (request: any, phase: PurchasePhase, mode?: ReceiptMode) => {
     setActiveRequest(request);
     setModalPhase(phase);
+    setModalMode(mode);
     setIsModalOpen(true);
   };
 
@@ -819,7 +821,13 @@ export default function KanbanBoard({
                 <PurchaseOrderPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
               )}
               {modalPhase === PURCHASE_PHASES.RECEBIMENTO && activeRequest && (
-                <ReceiptPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
+                <ReceiptPhase 
+                  request={activeRequest} 
+                  onClose={() => setIsModalOpen(false)} 
+                  onPreviewOpen={() => setLockDialogClose(true)} 
+                  onPreviewClose={() => setLockDialogClose(false)}
+                  mode={modalMode}
+                />
               )}
               {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && activeRequest && (
                 <ConclusionPhase request={activeRequest} onClose={() => setIsModalOpen(false)} />

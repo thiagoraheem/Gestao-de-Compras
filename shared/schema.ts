@@ -232,6 +232,12 @@ export const purchaseRequests = pgTable("purchase_requests", {
   hasPendency: boolean("has_pendency").default(false),
   pendencyReason: text("pendency_reason"),
 
+  // Separate Receipt Steps
+  physicalReceiptAt: timestamp("physical_receipt_at"),
+  physicalReceiptById: integer("physical_receipt_by_id").references(() => users.id),
+  fiscalReceiptAt: timestamp("fiscal_receipt_at"),
+  fiscalReceiptById: integer("fiscal_receipt_by_id").references(() => users.id),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -471,6 +477,7 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   deliveryDeadline: timestamp("delivery_deadline"),
   costCenterId: integer("cost_center_id").references(() => costCenters.id),
   accountCode: text("account_code"),
+  quantityReceived: decimal("quantity_received", { precision: 10, scale: 3 }).default("0"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1030,6 +1037,7 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
     'aprovacao_a2',
     'pedido_compra',
     'recebimento',
+    'conclusao_compra',
     'arquivado'
   ]).optional(),
 });
