@@ -287,8 +287,9 @@ export default function SuppliersPage() {
 
   return (
     <AdminOrBuyerRoute>
-      <div className="max-w-7xl mx-auto p-6 bg-background">
-        <Collapsible open={showIntegration} onOpenChange={setShowIntegration}>
+      <div className="h-full overflow-y-auto bg-background">
+        <div className="max-w-7xl mx-auto p-6">
+          <Collapsible open={showIntegration} onOpenChange={setShowIntegration}>
           <div className="mb-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground">Integração de Fornecedores com ERP</div>
             <CollapsibleTrigger asChild>
@@ -691,6 +692,7 @@ export default function SuppliersPage() {
           </div>
         </DialogContent>
       </Dialog>
+        </div>
       </div>
     </AdminOrBuyerRoute>
   );
