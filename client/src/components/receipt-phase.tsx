@@ -1744,7 +1744,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
     if (!hasAnyQty && !xmlPreview) return false;
     return true;
-  }, [typeCategoryError, isReceiverOnly, nfConfirmed, isFiscalValid, allocations.length, allocationsSumOk, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualTotal, manualItems.length, manualItemsMissingLinks, itemsWithPrices, receivedQuantities, xmlPreview, activeTab]);
+  }, [typeCategoryError, isFiscalValid, allocations.length, allocationsSumOk, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualTotal, manualItems.length, manualItemsMissingLinks, itemsWithPrices, receivedQuantities, xmlPreview, activeTab]);
 
   return (
     <div className={cn("space-y-6", className)}>
