@@ -57,6 +57,7 @@ interface QuotationPhaseProps {
 export default function QuotationPhase({ request, open, onOpenChange }: QuotationPhaseProps) {
   const [, setLocation] = useLocation();
   const [showRFQCreation, setShowRFQCreation] = useState(false);
+  const [isCreatingNewVersion, setIsCreatingNewVersion] = useState(false);
   const [showRFQAnalysis, setShowRFQAnalysis] = useState(false);
   const [showSupplierComparison, setShowSupplierComparison] = useState(false);
   const [showUpdateQuotation, setShowUpdateQuotation] = useState(false);
@@ -277,7 +278,10 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                           Histórico
                         </Button>
                         <Button 
-                          onClick={() => setShowRFQCreation(true)}
+                          onClick={() => {
+                            setIsCreatingNewVersion(true);
+                            setShowRFQCreation(true);
+                          }}
                           variant="outline"
                           className="ml-2"
                         >
@@ -451,7 +455,10 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
             <div className="flex justify-end gap-4">
               {quotation.status === 'draft' && user?.isBuyer && (
                 <Button 
-                  onClick={() => setShowRFQCreation(true)}
+                  onClick={() => {
+                    setIsCreatingNewVersion(false);
+                    setShowRFQCreation(true);
+                  }}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -485,11 +492,16 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
         {/* Modais auxiliares */}
         <RFQCreation
           purchaseRequest={request}
-          existingQuotation={quotation}
+          existingQuotation={isCreatingNewVersion ? null : quotation}
+          baseQuotation={isCreatingNewVersion ? quotation : null}
           isOpen={showRFQCreation}
-          onOpenChange={setShowRFQCreation}
+          onOpenChange={(open) => {
+            setShowRFQCreation(open);
+            if (!open) setIsCreatingNewVersion(false);
+          }}
           onComplete={() => {
             setShowRFQCreation(false);
+            setIsCreatingNewVersion(false);
           }}
         />
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, addDays } from "date-fns";
@@ -66,12 +66,13 @@ type RFQCreationData = z.infer<typeof rfqCreationSchema>;
 interface RFQCreationProps {
   purchaseRequest: any;
   existingQuotation?: any;
+  baseQuotation?: any;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete: () => void;
 }
 
-export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen, onOpenChange, onComplete }: RFQCreationProps) {
+export default function RFQCreation({ purchaseRequest, existingQuotation, baseQuotation, isOpen, onOpenChange, onComplete }: RFQCreationProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -159,6 +160,12 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
     enabled: !!isOpen && !!existingQuotation?.id,
   });
 
+  // Fetch items from base quotation for cloning (new RFQ based on existing one)
+  const { data: baseQuotationItems = [], isLoading: baseItemsLoading } = useQuery<any[]>({
+    queryKey: [`/api/quotations/${baseQuotation?.id}/items`],
+    enabled: !!isOpen && !!baseQuotation?.id && !existingQuotation,
+  });
+
   const form = useForm<RFQCreationData>({
     resolver: zodResolver(rfqCreationSchema),
     defaultValues: {
@@ -178,7 +185,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
   // Check if we have all the data we need
   const isLoadingData = existingQuotation 
     ? quotationItemsLoading || supplierQuotationsLoading
-    : itemsLoading || requestLoading;
+    : (baseQuotation ? baseItemsLoading : itemsLoading || requestLoading);
 
   // Set form items when all data is loaded, only once per open
   useEffect(() => {
@@ -195,11 +202,37 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
           unit: item.unit || "UN",
           specifications: item.specifications || "",
           deliveryDeadline: item.deliveryDeadline ? format(new Date(item.deliveryDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 15), "yyyy-MM-dd"),
-          purchaseRequestItemId: item.purchaseRequestItemId,
+          purchaseRequestItemId: item.purchaseRequestItemId || undefined,
         }));
         replace(mappedItems);
         itemsInitializedRef.current = true;
         debug.log("RFQCreation: itens inicializados da cotação existente", mappedItems.length);
+      }
+      return;
+    }
+
+    // Logic for baseQuotation (Cloning/New Version)
+    if (baseQuotation) {
+      const targetLen = baseQuotationItems.length;
+      if (targetLen > 0) {
+        const mappedItems = baseQuotationItems.map(item => ({
+          itemCode: item.itemCode || "",
+          description: item.description || "",
+          quantity: item.quantity?.toString() || "1",
+          unit: item.unit || "UN",
+          specifications: item.specifications || "",
+          // Reset deadline for new RFQ
+          deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
+          // Keep link to PR if exists, null for extra items added in previous RFQ
+          purchaseRequestItemId: item.purchaseRequestItemId || undefined,
+        }));
+        replace(mappedItems);
+        itemsInitializedRef.current = true;
+        debug.log("RFQCreation: itens inicializados da cotação base (clonagem)", mappedItems.length);
+        
+        // Also copy other fields if desired
+        if (baseQuotation.termsAndConditions) form.setValue("termsAndConditions", baseQuotation.termsAndConditions);
+        if (baseQuotation.technicalSpecs) form.setValue("technicalSpecs", baseQuotation.technicalSpecs);
       }
       return;
     }
@@ -520,6 +553,39 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
     createRFQWithoutEmailMutation.mutate(data);
   };
 
+  const onInvalid = (errors: FieldErrors<RFQCreationData>) => {
+    console.error("Erro de validação no formulário RFQ:", errors);
+    
+    // Create a list of missing fields
+    const missingFields = [];
+    
+    if (errors.deliveryLocationId) missingFields.push("Local de Entrega");
+    if (errors.quotationDeadline) missingFields.push("Prazo para Envio de Cotações");
+    if (errors.selectedSuppliers) missingFields.push("Seleção de Fornecedores");
+    if (errors.items) {
+      if (Array.isArray(errors.items)) {
+        missingFields.push(`Itens da Solicitação (${errors.items.filter(Boolean).length} com erro)`);
+      } else {
+        missingFields.push("Itens da Solicitação");
+      }
+    }
+
+    toast({
+      title: "Erro de validação",
+      description: (
+        <div className="flex flex-col gap-1">
+          <p>Por favor, verifique os seguintes campos:</p>
+          <ul className="list-disc list-inside text-sm">
+            {missingFields.map((field, i) => (
+              <li key={i}>{field}</li>
+            ))}
+          </ul>
+        </div>
+      ),
+      variant: "destructive",
+    });
+  };
+
   const saveDraft = () => {
     // TODO: Implement save as draft functionality
     toast({
@@ -719,8 +785,8 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
               </CardHeader>
               <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4 space-y-4">
                 {purchaseRequestItems.length > 0 && (
-                  <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                    <p className="text-sm text-blue-700">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
                       <strong>Itens carregados da solicitação original:</strong> 
                       Revise e confirme os itens abaixo, adicionando especificações técnicas e prazos de entrega conforme necessário.
                     </p>
@@ -821,7 +887,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
                         name={`items.${index}.description`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">Descrição do Item</FormLabel>
+                            <FormLabel className="text-gray-700 dark:text-slate-300 font-medium">Descrição do Item</FormLabel>
                             <FormControl>
                               <Textarea 
                                 placeholder="Descrição detalhada do item (carregada da solicitação original)"
@@ -840,7 +906,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
                         name={`items.${index}.specifications`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-blue-600 font-medium">
+                            <FormLabel className="text-blue-600 dark:text-blue-400 font-medium">
                               Especificações Técnicas para Cotação *
                             </FormLabel>
                             <FormControl>
@@ -916,7 +982,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
               </Button>
               <Button 
                 type="button"
-                onClick={form.handleSubmit(onSubmitWithoutEmail)}
+                onClick={form.handleSubmit(onSubmitWithoutEmail, onInvalid)}
                 disabled={createRFQWithoutEmailMutation.isPending || createRFQWithEmailMutation.isPending}
                 variant="outline"
                 className="border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-600 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-400/10 dark:hover:text-orange-400"
@@ -935,9 +1001,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, isOpen
               </Button>
               <Button 
                 type="button"
-                onClick={form.handleSubmit(onSubmitWithEmail)}
-                disabled={createRFQWithEmailMutation.isPending || createRFQWithoutEmailMutation.isPending}
+                onClick={form.handleSubmit(onSubmitWithEmail, onInvalid)}
                 className="bg-blue-600 hover:bg-blue-700"
+                disabled={createRFQWithEmailMutation.isPending || createRFQWithoutEmailMutation.isPending}
               >
                 {createRFQWithEmailMutation.isPending ? (
                   <>
