@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -50,6 +51,8 @@ export function ReceiptXmlImport() {
     setActiveTab,
     canConfirmNf,
     nfConfirmed,
+    manualItems, setManualItems,
+    purchaseOrderItems,
   } = useReceipt();
 
   const { confirmNfMutation } = useReceiptActions();
@@ -90,6 +93,25 @@ export function ReceiptXmlImport() {
         setManualOtherTaxes(String(preview.totals.vOutro || ""));
         setManualTotal(String(preview.totals.vNF || ""));
       }
+      const h = preview?.header || {};
+      const normalizeDate = (s: any) => {
+        if (!s) return "";
+        try {
+          const d = new Date(String(s));
+          if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+          const str = String(s);
+          if (str.includes("T")) return str.split("T")[0];
+          return str;
+        } catch {
+          const str = String(s);
+          return str.includes("T") ? str.split("T")[0] : str;
+        }
+      };
+      if (h.documentNumber || h.number) setManualNFNumber(String(h.documentNumber ?? h.number));
+      if (h.documentSeries || h.series) setManualNFSeries(String(h.documentSeries ?? h.series));
+      if (h.documentKey || h.accessKey) setManualNFAccessKey(String(h.documentKey ?? h.accessKey));
+      if (h.issueDate || h.dhEmi) setManualNFIssueDate(normalizeDate(h.issueDate || h.dhEmi));
+      if (h.entryDate || h.dhSaiEnt) setManualNFEntryDate(normalizeDate(h.entryDate || h.dhSaiEnt));
 
       // We don't have selectedSupplier in context directly, assuming it's handled via effects or not critical here
       // Logic for setSupplierMatch is simplified or omitted if dependencies missing
@@ -243,6 +265,25 @@ export function ReceiptXmlImport() {
                                 setManualOtherTaxes(String(preview.totals.vOutro || ""));
                                 setManualTotal(String(preview.totals.vNF || ""));
                               }
+                              const h = preview?.header || {};
+                              const normalizeDate = (s: any) => {
+                                if (!s) return "";
+                                try {
+                                  const d = new Date(String(s));
+                                  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+                                  const str = String(s);
+                                  if (str.includes("T")) return str.split("T")[0];
+                                  return str;
+                                } catch {
+                                  const str = String(s);
+                                  return str.includes("T") ? str.split("T")[0] : str;
+                                }
+                              };
+                              if (h.documentNumber || h.number) setManualNFNumber(String(h.documentNumber ?? h.number));
+                              if (h.documentSeries || h.series) setManualNFSeries(String(h.documentSeries ?? h.series));
+                              if (h.documentKey || h.accessKey) setManualNFAccessKey(String(h.documentKey ?? h.accessKey));
+                              if (h.issueDate || h.dhEmi) setManualNFIssueDate(normalizeDate(h.issueDate || h.dhEmi));
+                              if (h.entryDate || h.dhSaiEnt) setManualNFEntryDate(normalizeDate(h.entryDate || h.dhSaiEnt));
 
                               try {
                                 const stateKey = `xml_state_${request.id}`;
@@ -327,6 +368,63 @@ export function ReceiptXmlImport() {
                   <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} placeholder="0,00" className="font-bold text-lg" />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Itens da NF (Importados)</CardTitle></CardHeader>
+            <CardContent>
+              {Array.isArray(manualItems) && manualItems.length > 0 ? (
+                <div className="rounded border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Código</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead className="text-center">Qtd</TableHead>
+                        <TableHead className="text-center">Un</TableHead>
+                        <TableHead className="text-right">Unitário</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="text-center">Vínculo</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {manualItems.map((it: any, idx: number) => (
+                        <TableRow key={idx}>
+                          <TableCell>{it.code || ""}</TableCell>
+                          <TableCell>{it.description || ""}</TableCell>
+                          <TableCell className="text-center">{Number(it.quantity ?? 0)}</TableCell>
+                          <TableCell className="text-center">{it.unit || ""}</TableCell>
+                          <TableCell className="text-right">{Number(it.unitPrice ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{(Number(it.quantity ?? 0) * Number(it.unitPrice ?? 0)).toFixed(2)}</TableCell>
+                          <TableCell className="text-center">
+                            <Select
+                              value={it.purchaseOrderItemId ? String(it.purchaseOrderItemId) : "none"}
+                              onValueChange={(v) => setManualItems((prev: any[]) => prev.map((row, i) => i === idx ? { ...row, purchaseOrderItemId: v === "none" ? undefined : Number(v), matchSource: "manual" } : row))}
+                            >
+                              <SelectTrigger className={!it.purchaseOrderItemId
+                                ? "border-amber-300 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-100"
+                                : "border-green-300 bg-green-50 dark:border-green-500 dark:bg-green-900/30 dark:text-green-100"}>
+                                <SelectValue placeholder="Vincular ao Item do Pedido" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Sem vínculo</SelectItem>
+                                {Array.isArray(purchaseOrderItems) && purchaseOrderItems.map((poItem: any) => (
+                                  <SelectItem key={poItem.id} value={String(poItem.id)}>
+                                    {poItem.itemCode} - {poItem.description} ({poItem.quantity} {poItem.unit})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">Nenhum item importado</div>
+              )}
             </CardContent>
           </Card>
 

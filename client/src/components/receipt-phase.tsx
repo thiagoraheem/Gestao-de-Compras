@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PdfViewer from "./pdf-viewer";
-import { Eye, X, FileText, Check } from "lucide-react";
+import { Eye, X, FileText, Check, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";
@@ -45,12 +45,14 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
   const {
     activeTab, setActiveTab,
     request,
+    activeRequest,
     onClose,
     canPerformReceiptActions,
     isPendencyModalOpen, setIsPendencyModalOpen,
     approvalHistory,
     itemsWithPrices,
-    freightValue
+    freightValue,
+    mode
   } = useReceipt();
 
   const { confirmPhysicalMutation, reportIssueMutation } = useReceiptActions();
@@ -174,27 +176,51 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {request.fiscalReceiptAt && (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex gap-1">
-              <Check className="w-3 h-3" /> Fiscal OK
-            </Badge>
-          )}
-          {request.physicalReceiptAt && (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex gap-1">
-              <Check className="w-3 h-3" /> Físico OK
-            </Badge>
-          )}
+          <Badge
+            variant="outline"
+            className={cn(
+              "flex gap-1",
+              activeRequest?.fiscalReceiptAt
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
+            )}
+          >
+            {activeRequest?.fiscalReceiptAt ? (
+              <Check className="w-3 h-3" />
+            ) : (
+              <Clock className="w-3 h-3" />
+            )}
+            {activeRequest?.fiscalReceiptAt ? "Conf. Fiscal Concluída" : "Conf. Fiscal Pendente"}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={cn(
+              "flex gap-1",
+              activeRequest?.physicalReceiptAt
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
+            )}
+          >
+            {activeRequest?.physicalReceiptAt ? (
+              <Check className="w-3 h-3" />
+            ) : (
+              <Clock className="w-3 h-3" />
+            )}
+            {activeRequest?.physicalReceiptAt ? "Recebimento Físico Concluído" : "Recebimento Físico Pendente"}
+          </Badge>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
-          <TabsTrigger value="fiscal">Info. Básicas</TabsTrigger>
-          <TabsTrigger value="xml">XML / Importação</TabsTrigger>
-          <TabsTrigger value="manual_nf">Inclusão Manual</TabsTrigger>
-          <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
-          <TabsTrigger value="items">Itens / Físico</TabsTrigger>
-        </TabsList>
+        {mode === 'fiscal' && (
+          <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+            <TabsTrigger value="fiscal">Info. Básicas</TabsTrigger>
+            <TabsTrigger value="xml">XML / Importação</TabsTrigger>
+            <TabsTrigger value="manual_nf">Inclusão Manual</TabsTrigger>
+            <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+            <TabsTrigger value="items">Itens / Físico</TabsTrigger>
+          </TabsList>
+        )}
 
         <TabsContent value="fiscal">
           <div className="space-y-6">
@@ -390,16 +416,16 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
                   <Button
                     className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
                     onClick={() => setActiveTab('items')}
-                    disabled={!!request.physicalReceiptAt}
+                    disabled={!!activeRequest?.physicalReceiptAt}
                   >
-                    {request.physicalReceiptAt ? "Físico OK" : "Confirmar"}
+                    {activeRequest?.physicalReceiptAt ? "Físico OK" : "Confirmar"}
                   </Button>
                   <Button
                     className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600"
                     onClick={() => setActiveTab('xml')}
-                    disabled={!!request.fiscalReceiptAt}
+                    disabled={!!activeRequest?.fiscalReceiptAt}
                   >
-                    {request.fiscalReceiptAt ? "Fiscal OK" : "Conf. Fiscal"}
+                    {activeRequest?.fiscalReceiptAt ? "Fiscal OK" : "Conf. Fiscal"}
                   </Button>
                 </>
               )}
@@ -417,7 +443,7 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
                   </Button>
                   <Button
                     onClick={() => confirmPhysicalMutation.mutate()}
-                    disabled={confirmPhysicalMutation.isPending || !!request.physicalReceiptAt}
+                    disabled={confirmPhysicalMutation.isPending || !!activeRequest?.physicalReceiptAt}
                     className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 w-full sm:w-auto flex items-center justify-center"
                   >
                     <Check className="mr-2 h-4 w-4 flex-shrink-0" />

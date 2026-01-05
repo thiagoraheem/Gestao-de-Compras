@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { findBestPurchaseOrderMatch, MANUAL_ITEM_MATCH_THRESHOLD } from "../../utils/item-matching-helper";
 
 interface ReceiptContextType {
   // Props
@@ -333,6 +334,20 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
       const sup = h?.supplier || {};
       const dest = h?.recipient || {};
       const totals = h?.totals || {};
+      const normalizeDate = (s: any) => {
+        if (!s) return "";
+        try {
+          const d = new Date(String(s));
+          if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+          const str = String(s);
+          if (str.includes("T")) return str.split("T")[0];
+          return str;
+        } catch {
+          const str = String(s);
+          return str.includes("T") ? str.split("T")[0] : str;
+        }
+      };
+
       setEmitter((prev: any) => ({
         ...prev,
         cnpj: sup?.cnpjCpf || prev.cnpj,
@@ -365,6 +380,26 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
           transporter: h.transp.transporta,
           volume: h.transp.vol
         }));
+      }
+
+      // Populate manual header fields
+      if (h) {
+        if (h.documentNumber || h.number) setManualNFNumber(String(h.documentNumber ?? h.number));
+        if (h.documentSeries || h.series) setManualNFSeries(String(h.documentSeries ?? h.series));
+        if (h.documentKey || h.accessKey) setManualNFAccessKey(String(h.documentKey ?? h.accessKey));
+        if (h.issueDate || h.dhEmi) setManualNFIssueDate(normalizeDate(h.issueDate || h.dhEmi));
+        if (h.entryDate || h.dhSaiEnt) setManualNFEntryDate(normalizeDate(h.entryDate || h.dhSaiEnt));
+        if (sup?.cnpjCpf) setManualNFEmitterCNPJ(String(sup.cnpjCpf));
+      }
+      if (totals) {
+        const total =
+          totals.vNF ??
+          totals.total ??
+          undefined;
+        if (typeof total !== "undefined") setManualTotal(String(total));
+        if (typeof totals.vProd !== "undefined") setManualProductsValue(String(totals.vProd));
+        if (typeof totals.vFrete !== "undefined") setManualFreightValue(String(totals.vFrete));
+        if (typeof totals.vDesc !== "undefined") setManualDiscountValue(String(totals.vDesc));
       }
 
       if (receiptType === "servico") {
@@ -401,9 +436,82 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
           };
         });
         setItemTaxes(taxesMap);
+        try {
+          const icmsBaseSum = Object.values(taxesMap).reduce((acc: number, t: any) => acc + Number(t.vBC || 0), 0);
+          const icmsValueSum = Object.values(taxesMap).reduce((acc: number, t: any) => acc + Number(t.vICMS || 0), 0);
+          if (!isNaN(icmsBaseSum)) setManualIcmsBase(String(Number(icmsBaseSum.toFixed(2))));
+          if (!isNaN(icmsValueSum)) setManualIcmsValue(String(Number(icmsValueSum.toFixed(2))));
+        } catch {}
+
+        // Auto-link imported items to Purchase Order items
+        try {
+          const baseItemsForMatch = Array.isArray(xmlPreview?.items) ? xmlPreview.items.map((it: any) => ({
+            code: it.code || it.codigo,
+            description: it.description,
+            unit: it.unit,
+            quantity: Number(it.quantity),
+            unitPrice: Number(it.unitPrice),
+          })) : [];
+          const matched = baseItemsForMatch.map((row: any) => {
+            const match = findBestPurchaseOrderMatch(row, purchaseOrderItems || []);
+            if (match && match.score >= MANUAL_ITEM_MATCH_THRESHOLD) {
+              return { ...row, purchaseOrderItemId: match.id, matchSource: "auto" };
+            }
+            return row;
+          });
+          if (matched.length > 0) setManualItems(matched);
+        } catch {}
       }
+
+      // Payment mapping from installments (NF-e detPag or cobr.dup)
+      try {
+        const installments: Array<{ number?: string; dueDate?: string; amount?: string }> = Array.isArray((xmlPreview as any)?.installments)
+          ? (xmlPreview as any).installments
+          : [];
+        if (installments.length > 0) {
+          const first = installments[0] || {};
+          const codeOrLabel = String(first.number || "");
+          const amountStr = String(first.amount || "");
+          if (amountStr) setManualPaidAmount(amountStr);
+          // Attempt to set payment method by code
+          const isTwoDigitCode = /^[0-9]{2}$/.test(codeOrLabel);
+          if (isTwoDigitCode) {
+            setPaymentMethodCode(codeOrLabel);
+          } else {
+            // Try match by name against available paymentMethods
+            const found = (paymentMethods || []).find(pm => String(pm.name).toLowerCase().includes(codeOrLabel.toLowerCase()));
+            if (found) setPaymentMethodCode(found.code);
+          }
+          // Build payment condition string from installments list
+          const condition = installments
+            .map(it => `${it.number || ""}${it.dueDate ? ` (${normalizeDate(it.dueDate)})` : ""}: ${it.amount || ""}`)
+            .join(" | ");
+          if (condition) setManualPaymentCondition(condition);
+        }
+      } catch {}
     } catch {}
   }, [xmlPreview, receiptType]);
+
+  // Re-match items when Purchase Order items load after XML preview
+  useEffect(() => {
+    try {
+      if (receiptType !== "produto") return;
+      if (!xmlPreview) return;
+      if (!Array.isArray(purchaseOrderItems) || purchaseOrderItems.length === 0) return;
+      if (!Array.isArray(manualItems) || manualItems.length === 0) return;
+      const needsLink = manualItems.some((it: any) => !it.purchaseOrderItemId);
+      if (!needsLink) return;
+      const updated = manualItems.map((row: any) => {
+        if (row.purchaseOrderItemId) return row;
+        const match = findBestPurchaseOrderMatch(row, purchaseOrderItems || []);
+        if (match && match.score >= MANUAL_ITEM_MATCH_THRESHOLD) {
+          return { ...row, purchaseOrderItemId: match.id, matchSource: row.matchSource || "auto" };
+        }
+        return row;
+      });
+      setManualItems(updated);
+    } catch {}
+  }, [purchaseOrderItems]);
 
   // Persist draft to LocalStorage
   useEffect(() => {
