@@ -1,4 +1,4 @@
-import React, { useState, forwardRef, useImperativeHandle } from "react";
+import React, { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { useReceiptActions } from "./receipt/useReceiptActions";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Truck } from "lucide-react";
+import { computeTabsVisibility } from "./receipt-phase-logic";
 
 export interface ReceiptPhaseProps {
   request: any;
@@ -32,6 +33,7 @@ export interface ReceiptPhaseProps {
   onPreviewOpen?: () => void;
   onPreviewClose?: () => void;
   className?: string;
+  hideTabsByDefault?: boolean;
 }
 
 export interface ReceiptPhaseHandle {
@@ -165,8 +167,25 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
     }
   };
 
+  const [showTabs, setShowTabs] = useState<boolean>(() => {
+    return computeTabsVisibility({
+      fromKanban: !!props.hideTabsByDefault,
+      activeTab,
+      mode
+    });
+  });
+
+  useEffect(() => {
+    const v = computeTabsVisibility({
+      fromKanban: !!props.hideTabsByDefault,
+      activeTab,
+      mode
+    });
+    setShowTabs(v);
+  }, [activeTab, mode, props.hideTabsByDefault]);
+
   return (
-    <div className={cn("flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50", className)}>
+    <div className={cn("flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 transition-all duration-300", className)}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -212,8 +231,8 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
       </div>
 
       <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="space-y-4">
-        {mode === 'fiscal' && (
-          <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+        {showTabs && (
+          <TabsList className="grid w-full grid-cols-5 lg:w-[600px] transition-all duration-300">
             <TabsTrigger value="fiscal">Info. Básicas</TabsTrigger>
             <TabsTrigger value="xml">XML / Importação</TabsTrigger>
             <TabsTrigger value="manual_nf">Inclusão Manual</TabsTrigger>
@@ -415,14 +434,14 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
                 <>
                   <Button
                     className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
-                    onClick={() => setActiveTab('items')}
+                    onClick={() => { setShowTabs(false); setActiveTab('items'); }}
                     disabled={!!activeRequest?.physicalReceiptAt}
                   >
                     {activeRequest?.physicalReceiptAt ? "Físico OK" : "Confirmar"}
                   </Button>
                   <Button
                     className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600"
-                    onClick={() => setActiveTab('xml')}
+                    onClick={() => { setShowTabs(true); setActiveTab('xml'); }}
                     disabled={!!activeRequest?.fiscalReceiptAt}
                   >
                     {activeRequest?.fiscalReceiptAt ? "Fiscal OK" : "Conf. Fiscal"}
@@ -467,8 +486,9 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
         setShowPreviewModal(v);
         if (!v && onPreviewClose) onPreviewClose();
       }}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col" aria-describedby="pdf-preview-desc">
           <DialogTitle>Visualizar PDF</DialogTitle>
+          <p id="pdf-preview-desc" className="sr-only">Pré-visualização do PDF do pedido selecionado</p>
           <div className="flex-1 w-full bg-slate-100 rounded-md overflow-hidden">
             {pdfBuffer && <PdfViewer data={pdfBuffer} className="w-full h-full" />}
           </div>

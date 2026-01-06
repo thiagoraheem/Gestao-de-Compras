@@ -816,6 +816,12 @@ export default function KanbanBoard({
                 </DialogTitle>
               </div>
             </div>
+            <p id="kanban-phase-desc" className="sr-only">
+              {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && "Tela de Pedido de Compra da solicitação selecionada"}
+              {modalPhase === PURCHASE_PHASES.RECEBIMENTO && "Tela de Recebimento de Material para conferência fiscal e física"}
+              {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && "Tela de Conclusão da Compra com resumo final"}
+              {modalPhase === PURCHASE_PHASES.ARQUIVADO && "Tela de detalhes da solicitação arquivada"}
+            </p>
             <div className="px-6 pt-0 pb-2">
               {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && activeRequest && (
                 <PurchaseOrderPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
@@ -827,6 +833,7 @@ export default function KanbanBoard({
                   onPreviewOpen={() => setLockDialogClose(true)} 
                   onPreviewClose={() => setLockDialogClose(false)}
                   mode={modalMode}
+                  hideTabsByDefault
                 />
               )}
               {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && activeRequest && (

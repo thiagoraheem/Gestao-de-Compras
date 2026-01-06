@@ -325,6 +325,24 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
   });
 
   // Effects
+  useEffect(() => {
+    const receiptId = nfStatus?.receiptId;
+    if (!receiptId) return;
+    if (xmlPreview) return;
+    (async () => {
+      try {
+        const res = await apiRequest(`/api/recebimentos/parse-existing/${receiptId}`, { method: "POST" });
+        const preview = (res as any)?.preview || res;
+        if (preview) {
+          setXmlPreview(preview);
+          setXmlRecovered(true);
+          setNfReceiptId(receiptId);
+        }
+      } catch (error) {
+        // Silent failure: keep screen usable even if preview fetch fails
+      }
+    })();
+  }, [nfStatus?.receiptId, xmlPreview]);
   
   // Populate from XML
   useEffect(() => {

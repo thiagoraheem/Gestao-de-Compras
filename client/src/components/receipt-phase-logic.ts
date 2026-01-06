@@ -48,3 +48,33 @@ export function getXmlNextValidationError(
   return null;
 }
 
+export function computeTabsVisibility(options: {
+  fromKanban: boolean;
+  activeTab: 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items';
+  mode?: 'view' | 'physical' | 'fiscal';
+  forcedShow?: boolean;
+}): boolean {
+  if (options.activeTab === 'items') return false;
+  if (options.forcedShow) return true;
+  if (options.fromKanban) {
+    return options.activeTab === 'xml' || options.activeTab === 'manual_nf' || options.activeTab === 'financeiro';
+  }
+  return options.mode !== 'physical';
+}
+
+export type ReceiptMode = 'view' | 'physical' | 'fiscal';
+
+export function isFiscalModeActive(mode: ReceiptMode | undefined): boolean {
+  return mode === 'fiscal';
+}
+
+export function isPhysicalModeActive(mode: ReceiptMode | undefined): boolean {
+  return mode === 'physical';
+}
+
+export function getInitialTabForMode(mode: ReceiptMode | undefined): 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items' {
+  if (mode === 'physical') return 'items';
+  if (mode === 'fiscal') return 'xml';
+  return 'fiscal';
+}
+

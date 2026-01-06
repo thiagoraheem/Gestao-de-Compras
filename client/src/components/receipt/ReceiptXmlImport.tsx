@@ -231,8 +231,9 @@ export function ReceiptXmlImport() {
                       <DialogTrigger asChild>
                         <Button variant="secondary">Visualização detalhada</Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-6xl">
+                      <DialogContent className="max-w-6xl" aria-describedby="nfe-viewer-desc">
                         <DialogTitle>NF-e</DialogTitle>
+                        <p id="nfe-viewer-desc" className="sr-only">Visualização detalhada da NF-e a partir do XML importado</p>
                         <div className="max-h-[75vh] overflow-y-auto">
                           <NFEViewer xmlString={xmlRaw} />
                         </div>
@@ -470,7 +471,11 @@ export function ReceiptXmlImport() {
                   <Select value={paymentMethodCode} onValueChange={setPaymentMethodCode}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
-                      {paymentMethods.map(pm => (<SelectItem key={pm.code} value={pm.code}>{pm.name}</SelectItem>))}
+                      {paymentMethods.map((pm, idx) => (
+                        <SelectItem key={`${pm.code}-${idx}`} value={pm.code}>
+                          {pm.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

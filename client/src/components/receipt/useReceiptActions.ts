@@ -149,7 +149,7 @@ export function useReceiptActions() {
       if (data?.receipt?.id) setNfReceiptId(data.receipt.id);
       queryClient.invalidateQueries({ queryKey: [`/api/purchase-requests/${request?.id}/nf-status`] });
       toast({ title: "NF confirmada", description: "Nota Fiscal validada com sucesso." });
-      setActiveTab("items");
+      setActiveTab("financeiro");
     },
     onError: (error: any) => {
       toast({
