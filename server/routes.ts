@@ -49,6 +49,7 @@ import path from "path";
 import fs from "fs";
 import mime from "mime-types";
 import { fileURLToPath } from "url";
+import { config as appConfig } from "./config";
 // Import modular routes
 import { registerAllRoutes } from "./routes/index";
 import {
@@ -125,10 +126,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       saveUninitialized: false,
       name: "sessionId", // Custom session name
       cookie: {
-        secure: false, // Set to true in production with HTTPS
+        secure: (() => {
+          const env = (process.env.COOKIE_SECURE || "").toLowerCase();
+          if (env === "true") return true;
+          if (env === "false") return false;
+          return appConfig.baseUrl.startsWith("https://");
+        })(),
         httpOnly: true,
         maxAge: 8 * 60 * 60 * 1000, // 8 hours
-        sameSite: "lax", // Protect against CSRF
+        sameSite: ((process.env.COOKIE_SAMESITE || "lax") as "lax" | "strict" | "none"),
       },
       rolling: true, // Reset expiration on activity
     }),

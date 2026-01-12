@@ -22,6 +22,29 @@ const approveA2WithRulesSchema = z.object({
   isFirstApproval: z.boolean().optional(), // For dual approval flow
 });
 
+// Helper to clean IP address (remove port if present)
+function cleanIpAddress(ip: string): string {
+  if (!ip) return "unknown";
+  
+  // Handle IPv4-mapped IPv6 addresses
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.substring(7);
+  }
+  
+  // Handle IPv4 with port (e.g. 1.2.3.4:5678)
+  if (ip.includes('.') && ip.includes(':')) {
+    const colonIndex = ip.lastIndexOf(':');
+    if (colonIndex !== -1) {
+        const port = ip.substring(colonIndex + 1);
+        if (/^\d+$/.test(port)) {
+            return ip.substring(0, colonIndex);
+        }
+    }
+  }
+  
+  return ip;
+}
+
 export function registerApprovalRulesRoutes(app: Express) {
   // Get current approval configuration
   app.get("/api/approval-rules/config", isAuthenticated, async (req, res) => {
@@ -231,7 +254,7 @@ export function registerApprovalRulesRoutes(app: Express) {
         approvalStep: requiresDualApproval ? (approvalStep === 1 ? "first" : "final") : "single",
         approvalValue: request.totalValue ?? "0",
         requiresDualApproval,
-        ipAddress: req.ip || req.connection.remoteAddress || "unknown",
+        ipAddress: cleanIpAddress(req.ip || req.connection.remoteAddress || "unknown"),
         userAgent: req.get("User-Agent") || "unknown",
       });
 
