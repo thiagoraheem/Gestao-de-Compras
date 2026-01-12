@@ -74,6 +74,7 @@ export function useAuth() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ username, password }),
       });
       if (!response.ok) {
@@ -101,12 +102,16 @@ export function useAuth() {
       });
 
       // Check for stored redirect path
-      const redirectPath = sessionStorage.getItem('redirectAfterLogin');
+      let redirectPath: string | null = null;
+      try {
+        redirectPath = sessionStorage.getItem('redirectAfterLogin');
+      } catch {}
       if (redirectPath) {
-        sessionStorage.removeItem('redirectAfterLogin');
+        try {
+          sessionStorage.removeItem('redirectAfterLogin');
+        } catch {}
         window.location.replace(redirectPath);
       } else {
-        // Default redirect to kanban
         window.location.replace('/kanban');
       }
     },

@@ -80,7 +80,9 @@ function Router() {
     if (typeof window !== 'undefined') {
       const currentPath = window.location.pathname + window.location.search;
       if (currentPath !== '/' && !currentPath.includes('login') && !currentPath.includes('forgot-password') && !currentPath.includes('reset-password') && !currentPath.includes('public')) {
-        sessionStorage.setItem('redirectAfterLogin', currentPath);
+        try {
+          sessionStorage.setItem('redirectAfterLogin', currentPath);
+        } catch {}
       }
     }
 
