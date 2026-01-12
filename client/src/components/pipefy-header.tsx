@@ -125,6 +125,13 @@ export default function PipefyHeader() {
         { label: "Dashboard", href: "/dashboard", icon: <BarChart3 className="w-4 h-4" /> }
       );
     }
+
+    if (user?.isManager || user?.isAdmin || user?.isBuyer || user?.isCEO) {
+      items.push(
+        { label: "Notas Fiscais", href: "/reports/invoices", icon: <FileText className="w-4 h-4" /> }
+      );
+    }
+
     items.push(
       { label: "Solicitações de Compra", href: "/reports/purchase-requests", icon: <ClipboardList className="w-4 h-4" /> }
     );

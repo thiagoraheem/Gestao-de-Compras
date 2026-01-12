@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import debug from "@/lib/debug";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, CheckCircle, CheckCircle2, ShoppingCart, Package, Truck, Archive } from "lucide-react";
+import { Plus, FileText, CheckCircle, CheckCircle2, ShoppingCart, Package, Truck, Archive, ClipboardCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import RFQCreation from "./rfq-creation";
 import PurchaseOrderPhase from "./purchase-order-phase";
 import ReceiptPhase from "./receipt-phase";
+import FiscalConferencePhase from "./fiscal-conference-phase";
 import RequestPhase from "./request-phase";
 import ApprovalA1Phase from "./approval-a1-phase";
 import ApprovalA2Phase from "./approval-a2-phase";
@@ -76,6 +77,7 @@ export default function KanbanBoard({
     [PURCHASE_PHASES.APROVACAO_A2]: CheckCircle2,
     [PURCHASE_PHASES.PEDIDO_COMPRA]: ShoppingCart,
     [PURCHASE_PHASES.RECEBIMENTO]: Truck,
+    [PURCHASE_PHASES.CONF_FISCAL]: ClipboardCheck,
     [PURCHASE_PHASES.CONCLUSAO_COMPRA]: Package,
     [PURCHASE_PHASES.ARQUIVADO]: Archive,
   };
@@ -378,10 +380,14 @@ export default function KanbanBoard({
     // Permission check for moving OUT of Recebimento phase
     if (
       phase === "recebimento" &&
-      targetPhase !== "solicitacao" &&
-      !user?.isReceiver
+      targetPhase !== "solicitacao"
     ) {
-      return false;
+       // Target Conf. Fiscal: Allow Admin, Manager, Buyer or Receiver
+       if (targetPhase === "conf_fiscal") {
+          return user?.isAdmin || user?.isManager || user?.isBuyer || user?.isReceiver;
+       }
+       // Other targets: existing logic (Receiver only?)
+       return user?.isReceiver;
     }
 
     return true;
@@ -496,6 +502,20 @@ export default function KanbanBoard({
         setActiveId(null);
         setActiveRequest(null);
         return;
+      }
+
+      // Check if moving from "Recebimento Físico" to "Conf. Fiscal" - validate physical receipt completion
+      if (request.currentPhase === PURCHASE_PHASES.RECEBIMENTO && newPhase === PURCHASE_PHASES.CONF_FISCAL) {
+        if (!request.physicalReceiptAt) {
+          toast({
+            title: "Recebimento Físico Pendente",
+            description: "Para avançar para Conferência Fiscal, é necessário confirmar o recebimento físico dos itens.",
+            variant: "destructive",
+          });
+          setActiveId(null);
+          setActiveRequest(null);
+          return;
+        }
       }
 
       // Check if moving from "Cotação" to "Aprovação A2" - validate quotation readiness
@@ -793,6 +813,7 @@ export default function KanbanBoard({
           open={isModalOpen && (
             modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA || 
             modalPhase === PURCHASE_PHASES.RECEBIMENTO ||
+            modalPhase === PURCHASE_PHASES.CONF_FISCAL ||
             modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA ||
             modalPhase === PURCHASE_PHASES.ARQUIVADO
           )} 
@@ -810,7 +831,8 @@ export default function KanbanBoard({
               <div className="flex justify-between items-center">
                 <DialogTitle className="text-base font-semibold">
                   {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && `Pedido de Compra - Solicitação #${activeRequest?.requestNumber}`}
-                  {modalPhase === PURCHASE_PHASES.RECEBIMENTO && `Recebimento de Material - Solicitação #${activeRequest?.requestNumber}`}
+                  {modalPhase === PURCHASE_PHASES.RECEBIMENTO && `Recebimento Físico - Solicitação #${activeRequest?.requestNumber}`}
+                  {modalPhase === PURCHASE_PHASES.CONF_FISCAL && `Conferência Fiscal - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && `Conclusão da Compra - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.ARQUIVADO && `Detalhes da Solicitação - #${activeRequest?.requestNumber}`}
                 </DialogTitle>
@@ -818,7 +840,8 @@ export default function KanbanBoard({
             </div>
             <p id="kanban-phase-desc" className="sr-only">
               {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && "Tela de Pedido de Compra da solicitação selecionada"}
-              {modalPhase === PURCHASE_PHASES.RECEBIMENTO && "Tela de Recebimento de Material para conferência fiscal e física"}
+              {modalPhase === PURCHASE_PHASES.RECEBIMENTO && "Tela de Recebimento Físico para conferência de itens"}
+              {modalPhase === PURCHASE_PHASES.CONF_FISCAL && "Tela de Conferência Fiscal para validação de notas"}
               {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && "Tela de Conclusão da Compra com resumo final"}
               {modalPhase === PURCHASE_PHASES.ARQUIVADO && "Tela de detalhes da solicitação arquivada"}
             </p>
@@ -834,6 +857,15 @@ export default function KanbanBoard({
                   onPreviewClose={() => setLockDialogClose(false)}
                   mode={modalMode}
                   hideTabsByDefault
+                />
+              )}
+              {modalPhase === PURCHASE_PHASES.CONF_FISCAL && activeRequest && (
+                <FiscalConferencePhase 
+                  request={activeRequest} 
+                  onClose={() => setIsModalOpen(false)} 
+                  onPreviewOpen={() => setLockDialogClose(true)} 
+                  onPreviewClose={() => setLockDialogClose(false)}
+                  mode={modalMode}
                 />
               )}
               {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && activeRequest && (

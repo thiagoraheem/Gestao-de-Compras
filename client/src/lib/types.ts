@@ -5,6 +5,7 @@ export const PURCHASE_PHASES = {
   APROVACAO_A2: 'aprovacao_a2',
   PEDIDO_COMPRA: 'pedido_compra',
   RECEBIMENTO: 'recebimento',
+  CONF_FISCAL: 'conf_fiscal',
   CONCLUSAO_COMPRA: 'conclusao_compra',
   ARQUIVADO: 'arquivado',
 } as const;
@@ -19,7 +20,8 @@ export const PHASE_LABELS = {
   [PURCHASE_PHASES.COTACAO]: 'Cotação (RFQ)',
   [PURCHASE_PHASES.APROVACAO_A2]: 'Aprovação A2',
   [PURCHASE_PHASES.PEDIDO_COMPRA]: 'Pedido de Compra',
-  [PURCHASE_PHASES.RECEBIMENTO]: 'Recebimento',
+  [PURCHASE_PHASES.RECEBIMENTO]: 'Recebimento Físico',
+  [PURCHASE_PHASES.CONF_FISCAL]: 'Conf. Fiscal',
   [PURCHASE_PHASES.CONCLUSAO_COMPRA]: 'Conclusão',
   [PURCHASE_PHASES.ARQUIVADO]: 'Arquivado',
 } as const;
@@ -31,6 +33,7 @@ export const PHASE_COLORS = {
   [PURCHASE_PHASES.APROVACAO_A2]: 'hsl(231, 48%, 48%)',
   [PURCHASE_PHASES.PEDIDO_COMPRA]: 'hsl(180, 25%, 25%)',
   [PURCHASE_PHASES.RECEBIMENTO]: 'hsl(152, 81%, 43%)',
+  [PURCHASE_PHASES.CONF_FISCAL]: 'hsl(25, 95%, 53%)',
   [PURCHASE_PHASES.CONCLUSAO_COMPRA]: 'hsl(142, 71%, 45%)',
   [PURCHASE_PHASES.ARQUIVADO]: 'hsl(210, 12%, 47%)',
 } as const;

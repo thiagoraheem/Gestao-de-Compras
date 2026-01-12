@@ -47,28 +47,71 @@ const xmlUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
+function sanitizeNfseXml(xml: string): string {
+  if (!xml) return xml;
+  let cleanXml = xml.trim();
+  
+  if (!cleanXml.startsWith("<?xml")) {
+    cleanXml = '<?xml version="1.0" encoding="UTF-8"?>' + cleanXml;
+  }
+  
+  // Ensure namespace in CompNfse if it's missing
+  if (cleanXml.includes("<CompNfse") && !cleanXml.includes("http://www.abrasf.org.br/nfse.xsd")) {
+    cleanXml = cleanXml.replace("<CompNfse", '<CompNfse xmlns="http://www.abrasf.org.br/nfse.xsd"');
+  }
+  
+  return cleanXml;
+}
+
 export function registerReceiptsRoutes(app: Express) {
   app.get("/api/receipts/search", async (req: Request, res: Response) => {
     try {
-      const { number, series, cnpj, accessKey } = req.query;
+      const { 
+        number, 
+        series, 
+        cnpj, 
+        accessKey, 
+        supplierName, 
+        startDate, 
+        endDate, 
+        page = "1", 
+        limit = "20" 
+      } = req.query;
+
+      const pageNum = Number(page);
+      const limitNum = Number(limit);
+      const offset = (pageNum - 1) * limitNum;
+
       const conditions = [];
 
       if (number) conditions.push(like(receipts.documentNumber, `%${String(number)}%`));
       if (series) conditions.push(eq(receipts.documentSeries, String(series)));
       if (accessKey) conditions.push(like(receipts.documentKey, `%${String(accessKey)}%`));
+      
+      if (startDate) {
+        conditions.push(sql`${receipts.documentIssueDate} >= ${new Date(String(startDate)).toISOString()}`);
+      }
+      if (endDate) {
+        // Adjust end date to include the full day
+        const end = new Date(String(endDate));
+        end.setHours(23, 59, 59, 999);
+        conditions.push(sql`${receipts.documentIssueDate} <= ${end.toISOString()}`);
+      }
 
-      let query = db.select({
+      let baseQuery = db.select({
         id: receipts.id,
         receiptNumber: receipts.receiptNumber,
         documentNumber: receipts.documentNumber,
         documentSeries: receipts.documentSeries,
         documentKey: receipts.documentKey,
         documentIssueDate: receipts.documentIssueDate,
+        documentEntryDate: receipts.documentEntryDate,
         totalAmount: receipts.totalAmount,
+        status: receipts.status,
+        receiptType: receipts.receiptType,
+        createdAt: receipts.createdAt,
         supplierName: suppliers.name,
         supplierCnpj: suppliers.cnpj,
-        status: receipts.status,
-        createdAt: receipts.createdAt
       })
       .from(receipts)
       .leftJoin(suppliers, eq(receipts.supplierId, suppliers.id));
@@ -76,17 +119,51 @@ export function registerReceiptsRoutes(app: Express) {
       if (cnpj) {
         conditions.push(like(suppliers.cnpj, `%${String(cnpj).replace(/\D/g, '')}%`));
       }
-
-      if (conditions.length === 0) {
-        return res.json([]);
+      
+      if (supplierName) {
+        conditions.push(like(suppliers.name, `%${String(supplierName)}%`));
       }
 
-      const results = await query.where(and(...conditions)).orderBy(desc(receipts.createdAt)).limit(20);
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-      res.json(results);
+      // Get total count for pagination
+      const [countResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(receipts)
+        .leftJoin(suppliers, eq(receipts.supplierId, suppliers.id))
+        .where(whereClause);
+
+      const total = Number(countResult.count);
+
+      // Get paginated results
+      const results = await baseQuery
+        .where(whereClause)
+        .orderBy(desc(receipts.createdAt))
+        .limit(limitNum)
+        .offset(offset);
+
+      res.json({
+        data: results,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum)
+        }
+      });
     } catch (error) {
        console.error("Error searching receipts:", error);
        res.status(500).json({ message: "Erro ao buscar notas fiscais" });
+    }
+  });
+
+  app.get("/api/recebimentos/:id/items", async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar itens da nota fiscal" });
     }
   });
 
@@ -472,7 +549,9 @@ export function registerReceiptsRoutes(app: Express) {
         ncm: it.ncm || null,
         cfop: it.cfop || null,
       })),
-      xml_nfe: xmlRow?.xmlContent || null,
+      xml_nfe: (rec.receiptType === "servico" && xmlRow?.xmlContent) 
+        ? sanitizeNfseXml(xmlRow.xmlContent) 
+        : (xmlRow?.xmlContent || null),
     };
 
     // Only include payment conditions (installments) if it's the first receipt

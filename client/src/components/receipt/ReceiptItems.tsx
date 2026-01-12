@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
 export function ReceiptItems() {
   const {
@@ -122,6 +123,7 @@ export function ReceiptItems() {
                   <TableRow>
                     <TableHead>Descrição</TableHead>
                     <TableHead className="text-center">Qtd Prevista</TableHead>
+                    <TableHead className="text-center">Qtd Já Confirmada</TableHead>
                     <TableHead className="text-center">Qtd Recebida</TableHead>
                     <TableHead className="text-center">Saldo a Receber</TableHead>
                     <TableHead className="text-center">Status</TableHead>
@@ -139,6 +141,7 @@ export function ReceiptItems() {
                       <TableRow key={it.id} className={invalid ? "bg-red-50 dark:bg-red-900/20" : ""}>
                         <TableCell>{it.description}</TableCell>
                         <TableCell className="text-center">{Number(max).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}</TableCell>
+                        <TableCell className="text-center text-muted-foreground">{Number(prev).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}</TableCell>
                         <TableCell className="text-center">
                           <Input type="number" min={0} step={0.001} value={current || ''} onChange={(e) => {
                             const v = Number(e.target.value || 0);
@@ -167,14 +170,23 @@ export function ReceiptItems() {
                         const totalReceivedNow = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(receivedQuantities[it.id] || 0), 0);
                         const total = totalReceivedPrev + totalReceivedNow;
                         const percent = totalExpected > 0 ? Math.min(100, (total / totalExpected) * 100) : 0;
-                        return `${percent.toFixed(1)}% (${total.toLocaleString('pt-BR')} / ${totalExpected.toLocaleString('pt-BR')})`;
+                        return `${Math.min(percent, 100).toFixed(1)}% (${total.toLocaleString('pt-BR')} / ${totalExpected.toLocaleString('pt-BR')})`;
                       })()}
                     </span>
                   </div>
                   
                   <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
                     <div 
-                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" 
+                      className={cn(
+                        "h-2.5 rounded-full transition-all duration-500",
+                        (() => {
+                          const totalExpected = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(it.quantity || 0), 0);
+                          const totalReceivedPrev = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(it.quantityReceived || 0), 0);
+                          const totalReceivedNow = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(receivedQuantities[it.id] || 0), 0);
+                          const total = totalReceivedPrev + totalReceivedNow;
+                          return total > totalExpected ? "bg-red-600" : "bg-blue-600";
+                        })()
+                      )}
                       style={{ width: `${(() => {
                         const totalExpected = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(it.quantity || 0), 0);
                         const totalReceivedPrev = itemsWithPrices.reduce((acc: number, it: any) => acc + Number(it.quantityReceived || 0), 0);
@@ -184,9 +196,20 @@ export function ReceiptItems() {
                     ></div>
                   </div>
 
-                  <div className="flex justify-between items-center mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-100 dark:border-blue-800">
-                     <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Status Previsto:</span>
+                  <div className="flex justify-between items-center mt-2 p-2 bg-slate-50 dark:bg-slate-900/20 rounded border border-slate-100 dark:border-slate-800">
+                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Status Previsto:</span>
                      {(() => {
+                        const hasExcess = itemsWithPrices.some((it: any) => {
+                          const prev = Number(it.quantityReceived || 0);
+                          const current = Number(receivedQuantities[it.id] || 0);
+                          const max = Number(it.quantity || 0);
+                          return (prev + current) > max;
+                        });
+
+                        if (hasExcess) {
+                          return <Badge variant="destructive">Divergência de Quantidade</Badge>;
+                        }
+
                         const isComplete = itemsWithPrices.every((it: any) => {
                           const prev = Number(it.quantityReceived || 0);
                           const current = Number(receivedQuantities[it.id] || 0);
@@ -199,6 +222,21 @@ export function ReceiptItems() {
                      })()}
                   </div>
                   {(() => {
+                        const hasExcess = itemsWithPrices.some((it: any) => {
+                          const prev = Number(it.quantityReceived || 0);
+                          const current = Number(receivedQuantities[it.id] || 0);
+                          const max = Number(it.quantity || 0);
+                          return (prev + current) > max;
+                        });
+
+                        if (hasExcess) {
+                          return (
+                            <p className="text-xs text-red-600 mt-1 font-medium">
+                              * Há itens com quantidade excedente. Corrija para prosseguir.
+                            </p>
+                          );
+                        }
+
                         const isComplete = itemsWithPrices.every((it: any) => {
                           const prev = Number(it.quantityReceived || 0);
                           const current = Number(receivedQuantities[it.id] || 0);

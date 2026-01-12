@@ -2179,6 +2179,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ]);
         const nfReceipt = receiptsList.find((rec) => confirmedStatuses.has(rec.status));
         if (!nfReceipt) {
+          const physicalReceipt = receiptsList.find((rec) => rec.status === "conf_fisica");
+          if (physicalReceipt) {
+             return res.json({
+               nfConfirmed: false,
+               status: "conf_fisica",
+               receiptId: physicalReceipt.id,
+               documentNumber: physicalReceipt.documentNumber,
+               documentSeries: physicalReceipt.documentSeries,
+             });
+           }
+
           const pendingReceipt = receiptsList.find((rec) => rec.status === "nf_pendente");
           return res.json({
             nfConfirmed: false,
@@ -2261,8 +2272,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } = req.body;
 
         const request = await storage.getPurchaseRequestById(id);
-        if (!request || request.currentPhase !== "recebimento") {
-          return res.status(400).json({ message: "Request must be in the receiving phase" });
+        if (!request || !["recebimento", "conf_fiscal"].includes(request.currentPhase)) {
+          return res.status(400).json({ message: "Request must be in the receiving or fiscal confirmation phase" });
         }
 
         const purchaseOrder =
@@ -2405,50 +2416,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const id = parseInt(req.params.id);
         const userId = req.session.userId!;
-        const { receivedQuantities, observations } = req.body;
+        const { receivedQuantities, observations, manualNFNumber, manualNFSeries } = req.body;
 
         const request = await storage.getPurchaseRequestById(id);
         if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
 
-        // Update Physical Receipt Status
+        // Update Physical Receipt Status and Move to Conf. Fiscal
         await db.update(purchaseRequests)
           .set({
             physicalReceiptAt: new Date(),
             physicalReceiptById: userId,
-            // We don't move phase yet
+            currentPhase: "conf_fiscal", // Move to next phase automatically
           })
           .where(eq(purchaseRequests.id, id));
 
-        // Save Quantities (Logic reused from confirm-receipt)
+        // Save Quantities and Create Receipt Record
         const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
-        if (purchaseOrder && receivedQuantities) {
-           // Ensure receipt record exists or create one?
-           // For now, we update purchase_order_items directly as per existing logic,
-           // or we should create a receipt record to track this specific event?
-           // Existing logic updates purchase_order_items.quantityReceived.
-           
-           const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
-           for (const it of poItems) {
-              const qty = Number(receivedQuantities[it.id] || 0);
-              if (qty > 0) {
-                 const currentQty = Number(it.quantityReceived || 0);
-                 const maxQty = Number(it.quantity || 0);
-                 // Note: logic might need adjustment if we allow multiple partial receipts. 
-                 // For now assuming cumulative or absolute? The input seems to be "current session received".
-                 // Existing logic seemed to take absolute or delta? 
-                 // "const currentQty = Number(it.quantityReceived || 0); ... quantityReceived: String(currentQty + qty)" -> It's delta.
-                 
-                 await db.update(purchaseOrderItems)
-                   .set({ quantityReceived: String(currentQty + qty) })
-                   .where(eq(purchaseOrderItems.id, it.id));
-              }
+        if (purchaseOrder) {
+           if (receivedQuantities) {
+             const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+             for (const it of poItems) {
+                const qty = Number(receivedQuantities[it.id] || 0);
+                if (qty > 0) {
+                   const currentQty = Number(it.quantityReceived || 0);
+                   
+                   await db.update(purchaseOrderItems)
+                     .set({ quantityReceived: String(currentQty + qty) })
+                     .where(eq(purchaseOrderItems.id, it.id));
+                }
+             }
+           }
+
+           // Create Receipt Record if NF data is provided
+           if (manualNFNumber) {
+             // Generate Receipt Number
+             const now = new Date();
+             const y = now.getFullYear();
+             const m = String(now.getMonth() + 1).padStart(2, "0");
+             const d = String(now.getDate()).padStart(2, "0");
+             const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+             const receiptNum = `REC-${y}${m}${d}-${rand}`;
+
+             await db.insert(receipts).values({
+               receiptNumber: receiptNum,
+               purchaseOrderId: purchaseOrder.id,
+               status: "conf_fisica",
+               receiptType: "produto",
+               documentNumber: manualNFNumber,
+               documentSeries: manualNFSeries,
+               supplierId: purchaseOrder.supplierId,
+               receivedBy: userId,
+               receivedAt: new Date(),
+               createdAt: new Date(),
+               observations: observations
+             });
            }
         }
 
-        const updatedReq = await storage.getPurchaseRequestById(id);
-        const isFullyComplete = !!(updatedReq?.physicalReceiptAt && updatedReq?.fiscalReceiptAt);
-
-        res.json({ success: true, physicalDone: true, isFullyComplete });
+        res.json({ success: true, physicalDone: true, nextPhase: "conf_fiscal" });
       } catch (error) {
         console.error("Error confirming physical receipt:", error);
         res.status(500).json({ message: "Erro ao confirmar recebimento físico" });
@@ -2479,13 +2504,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .set({
             fiscalReceiptAt: new Date(),
             fiscalReceiptById: userId,
+            currentPhase: "conclusao_compra", // Move to Conclusion automatically
+            receivedDate: new Date(), // Set received date as completion date
+            receivedById: userId
           })
           .where(eq(purchaseRequests.id, id));
 
-        const updatedReq = await storage.getPurchaseRequestById(id);
-        const isFullyComplete = !!(updatedReq?.physicalReceiptAt && updatedReq?.fiscalReceiptAt);
-
-        res.json({ success: true, fiscalDone: true, isFullyComplete });
+        res.json({ success: true, fiscalDone: true, nextPhase: "conclusao_compra" });
       } catch (error) {
         console.error("Error confirming fiscal receipt:", error);
         res.status(500).json({ message: "Erro ao confirmar recebimento fiscal" });
@@ -3988,17 +4013,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        if (
-          currentPhase === "recebimento" &&
-          !user.isReceiver &&
-          !user.isAdmin
-        ) {
-          return res
-            .status(403)
-            .json({
-              message:
-                "Você não possui permissão para mover cards da fase Recebimento",
-            });
+        if (currentPhase === "recebimento") {
+           if (newPhase === "conf_fiscal") {
+              // Admin, Manager, Buyer or Receiver can move to Fiscal Conference
+              const canMove = user.isAdmin || user.isManager || user.isBuyer || user.isReceiver;
+              if (!canMove) {
+                 return res.status(403).json({ message: "Sem permissão para mover para Conferência Fiscal" });
+              }
+              // Pre-condition: Physical Receipt must be done
+              if (!request.physicalReceiptAt) {
+                 return res.status(400).json({ message: "Recebimento Físico deve ser concluído antes da Conferência Fiscal" });
+              }
+           } else if (!user.isReceiver && !user.isAdmin) {
+              // Default check for other transitions from Recebimento
+              return res.status(403).json({
+                message: "Você não possui permissão para mover cards da fase Recebimento",
+              });
+           }
         }
 
         // Validate progression from "Cotação" to "Aprovação A2"

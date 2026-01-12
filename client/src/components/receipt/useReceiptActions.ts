@@ -43,6 +43,8 @@ export function useReceiptActions() {
           method: "POST",
           body: {
             receivedQuantities,
+            manualNFNumber,
+            manualNFSeries,
             observations: "Confirmado via Recebimento Físico"
           },
         }

@@ -1,30 +1,20 @@
 import React, { useState, forwardRef, useImperativeHandle, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PdfViewer from "./pdf-viewer";
-import { Eye, X, FileText, Check, Clock } from "lucide-react";
+import { Eye, X, Check, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { formatCurrency } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import PendencyModal from "./pendency-modal";
 import { ReceiptProvider, useReceipt } from "./receipt/ReceiptContext";
-import { ReceiptBasicInfo } from "./receipt/ReceiptBasicInfo";
-import { ReceiptManualEntry } from "./receipt/ReceiptManualEntry";
-import { ReceiptXmlImport } from "./receipt/ReceiptXmlImport";
-import { ReceiptFinancial } from "./receipt/ReceiptFinancial";
 import { ReceiptItems } from "./receipt/ReceiptItems";
-import { ReceiptSupplierInfo } from "./receipt/ReceiptSupplierInfo";
 import { useReceiptActions } from "./receipt/useReceiptActions";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Truck } from "lucide-react";
-import { computeTabsVisibility } from "./receipt-phase-logic";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export interface ReceiptPhaseProps {
   request: any;
@@ -51,11 +41,34 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
     onClose,
     canPerformReceiptActions,
     isPendencyModalOpen, setIsPendencyModalOpen,
-    approvalHistory,
     itemsWithPrices,
-    freightValue,
-    mode
+    receivedQuantities,
+    manualNFNumber, setManualNFNumber,
+    manualNFSeries, setManualNFSeries,
+    purchaseOrder,
   } = useReceipt();
+
+  const isAllItemsConfirmed = React.useMemo(() => {
+     if (!itemsWithPrices || itemsWithPrices.length === 0) return false;
+     
+     // Check if any item has excess
+     const hasExcess = itemsWithPrices.some((it: any) => {
+        const prev = Number(it.quantityReceived || 0);
+        const current = Number(receivedQuantities[it.id] || 0);
+        const max = Number(it.quantity || 0);
+        return (prev + current) > max;
+     });
+     
+     if (hasExcess) return false;
+
+     // Check if all items are fully received (exact match)
+     return itemsWithPrices.every((it: any) => {
+        const prev = Number(it.quantityReceived || 0);
+        const current = Number(receivedQuantities[it.id] || 0);
+        const max = Number(it.quantity || 0);
+        return (prev + current) === max;
+     });
+  }, [itemsWithPrices, receivedQuantities]);
 
   const { confirmPhysicalMutation, reportIssueMutation } = useReceiptActions();
   const { toast } = useToast();
@@ -158,59 +171,24 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
     downloadPDF: handleDownloadPDF
   }));
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "N/A";
-    try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: ptBR });
-    } catch {
-      return dateString;
-    }
-  };
-
-  const [showTabs, setShowTabs] = useState<boolean>(() => {
-    return computeTabsVisibility({
-      fromKanban: !!props.hideTabsByDefault,
-      activeTab,
-      mode
-    });
-  });
-
+  // Force active tab to items
   useEffect(() => {
-    const v = computeTabsVisibility({
-      fromKanban: !!props.hideTabsByDefault,
-      activeTab,
-      mode
-    });
-    setShowTabs(v);
-  }, [activeTab, mode, props.hideTabsByDefault]);
+    if (activeTab !== 'items') {
+      setActiveTab('items');
+    }
+  }, [activeTab, setActiveTab]);
 
   return (
     <div className={cn("flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 transition-all duration-300", className)}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Recebimento</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Recebimento Físico</h2>
           <p className="text-muted-foreground">
-            Gerencie o recebimento fiscal e físico dos itens do pedido.
+            Confirme o recebimento físico dos itens do pedido.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={cn(
-              "flex gap-1",
-              activeRequest?.fiscalReceiptAt
-                ? "bg-green-50 text-green-700 border-green-200"
-                : "bg-amber-50 text-amber-700 border-amber-200"
-            )}
-          >
-            {activeRequest?.fiscalReceiptAt ? (
-              <Check className="w-3 h-3" />
-            ) : (
-              <Clock className="w-3 h-3" />
-            )}
-            {activeRequest?.fiscalReceiptAt ? "Conf. Fiscal Concluída" : "Conf. Fiscal Pendente"}
-          </Badge>
           <Badge
             variant="outline"
             className={cn(
@@ -230,176 +208,74 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="space-y-4">
-        {showTabs && (
-          <TabsList className="grid w-full grid-cols-5 lg:w-[600px] transition-all duration-300">
-            <TabsTrigger value="fiscal">Info. Básicas</TabsTrigger>
-            <TabsTrigger value="xml">XML / Importação</TabsTrigger>
-            <TabsTrigger value="manual_nf">Inclusão Manual</TabsTrigger>
-            <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
-            <TabsTrigger value="items">Itens / Físico</TabsTrigger>
-          </TabsList>
-        )}
+      {/* Purchase Info Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-border">
+         <div>
+            <p className="text-xs text-muted-foreground uppercase font-bold">Solicitação / Pedido</p>
+            <p className="font-medium text-base text-blue-600">
+               #{request.requestNumber} {request.purchaseOrderNumber ? `/ ${request.purchaseOrderNumber}` : ''}
+            </p>
+         </div>
+         <div>
+            <p className="text-xs text-muted-foreground uppercase font-bold">Solicitante</p>
+            <p className="font-medium">
+               {request.requester?.firstName} {request.requester?.lastName}
+            </p>
+         </div>
+         <div>
+            <p className="text-xs text-muted-foreground uppercase font-bold">Fornecedor</p>
+            <p className="font-medium">
+               {request.chosenSupplier?.name || "Não informado"}
+            </p>
+         </div>
+         <div>
+            <p className="text-xs text-muted-foreground uppercase font-bold">Data do Pedido</p>
+            <p className="font-medium">
+               {request.purchaseOrderDate ? new Date(request.purchaseOrderDate).toLocaleDateString('pt-BR') : formatDistanceToNow(new Date(request.createdAt), { addSuffix: true, locale: ptBR })}
+            </p>
+         </div>
+         <div>
+            <p className="text-xs text-muted-foreground uppercase font-bold">Valor Total</p>
+            <p className="font-medium">
+               {request.purchaseOrderValue ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(request.purchaseOrderValue)) : 'R$ 0,00'}
+            </p>
+         </div>
+         <div>
+            <p className="text-xs text-muted-foreground uppercase font-bold">Status Atual</p>
+            <p className="font-medium">
+               <Badge variant="outline" className="capitalize">{request.currentPhase?.replace('_', ' ') || 'Pendente'}</Badge>
+            </p>
+         </div>
+      </div>
 
-        <TabsContent value="fiscal">
-          <div className="space-y-6">
-            <ReceiptBasicInfo />
-            <ReceiptSupplierInfo />
-            
-            {/* Purchase Order Observations */}
-            {(request.purchaseOrderObservations || request.purchaseObservations) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                    Observações do Pedido de Compra
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <p className="text-sm text-blue-800 dark:text-blue-300 whitespace-pre-wrap">
-                      {request.purchaseOrderObservations || request.purchaseObservations || 'Nenhuma observação encontrada'}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Items Summary Table for Basic Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Itens da Compra</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {itemsWithPrices && itemsWithPrices.length > 0 ? (
-                  <div className="rounded-md border border-border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead className="text-center">Qtd</TableHead>
-                          <TableHead className="text-center">Unidade</TableHead>
-                          <TableHead className="text-right">Valor Unit.</TableHead>
-                          <TableHead className="text-right">Valor Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {itemsWithPrices.map((item: any, index: number) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">
-                              {item.description}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {Number(item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {item.unit}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(item.unitPrice)}
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {formatCurrency(item.totalPrice)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    <div className="border-t border-border bg-slate-50 dark:bg-slate-900 p-4 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                          Subtotal ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
-                        </span>
-                        <span className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                          {formatCurrency(
-                            itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-blue-600 dark:text-blue-300 flex items-center gap-1">
-                          <Truck className="h-4 w-4" />
-                          Frete
-                        </span>
-                        <span className="text-base font-semibold text-blue-600 dark:text-blue-300">
-                          {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
-                        </span>
-                      </div>
-                      <div className="border-t pt-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-base font-bold text-slate-800 dark:text-slate-200">
-                            Total Geral
-                          </span>
-                          <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                            {formatCurrency(
-                              (itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0) || 0) + (freightValue || 0)
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                    <p>Nenhum item encontrado</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Approval History */}
-            {Array.isArray(approvalHistory) && approvalHistory.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Histórico de Aprovações</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {(approvalHistory as any[]).map((history: any, index: number) => (
-                      <div key={index} className="flex items-start space-x-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-border">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium">
-                              {history.approver?.firstName} {history.approver?.lastName}
-                            </p>
-                            <Badge variant={history.approved ? "default" : "destructive"}>
-                              {history.approved ? "Aprovado" : "Rejeitado"}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                            {formatDate(history.createdAt)}
-                          </p>
-                          {history.rejectionReason && (
-                            <p className="text-sm text-red-600 dark:text-red-400 mt-2">
-                              <strong>Motivo:</strong> {history.rejectionReason}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+      <div className="space-y-4">
+          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-800 mb-4">
+            <h3 className="text-sm font-semibold mb-3">Dados da Nota Fiscal</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="nf-number">Número da Nota Fiscal</Label>
+                <Input
+                  id="nf-number"
+                  placeholder="NF-00000000"
+                  value={manualNFNumber}
+                  onChange={(e) => setManualNFNumber(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="nf-series">Série</Label>
+                <Input
+                  id="nf-series"
+                  placeholder="S-000"
+                  value={manualNFSeries}
+                  onChange={(e) => setManualNFSeries(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
           </div>
-        </TabsContent>
-
-        <TabsContent value="manual_nf">
-          <ReceiptManualEntry />
-        </TabsContent>
-
-        <TabsContent value="xml">
-          <ReceiptXmlImport />
-        </TabsContent>
-
-        <TabsContent value="financeiro">
-          <ReceiptFinancial />
-        </TabsContent>
-
-        <TabsContent value="items">
           <ReceiptItems />
-        </TabsContent>
-      </Tabs>
+      </div>
 
       <Separator className="my-6" />
 
@@ -430,46 +306,27 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
 
           {canPerformReceiptActions && (
             <>
-              {activeTab === 'fiscal' && (
-                <>
-                  <Button
-                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
-                    onClick={() => { setShowTabs(false); setActiveTab('items'); }}
-                    disabled={!!activeRequest?.physicalReceiptAt}
-                  >
-                    {activeRequest?.physicalReceiptAt ? "Físico OK" : "Confirmar"}
-                  </Button>
-                  <Button
-                    className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600"
-                    onClick={() => { setShowTabs(true); setActiveTab('xml'); }}
-                    disabled={!!activeRequest?.fiscalReceiptAt}
-                  >
-                    {activeRequest?.fiscalReceiptAt ? "Fiscal OK" : "Conf. Fiscal"}
-                  </Button>
-                </>
-              )}
-
-              {activeTab === 'items' && (
-                <>
-                  <Button
-                    variant="destructive"
-                    onClick={() => setIsPendencyModalOpen(true)}
-                    disabled={reportIssueMutation.isPending}
-                    className="w-full sm:w-auto flex items-center justify-center"
-                  >
-                    <X className="mr-2 h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">Reportar Pendência</span>
-                  </Button>
-                  <Button
-                    onClick={() => confirmPhysicalMutation.mutate()}
-                    disabled={confirmPhysicalMutation.isPending || !!activeRequest?.physicalReceiptAt}
-                    className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 w-full sm:w-auto flex items-center justify-center"
-                  >
-                    <Check className="mr-2 h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">Confirmar Recebimento Físico</span>
-                  </Button>
-                </>
-              )}
+              <Button
+                variant="destructive"
+                onClick={() => setIsPendencyModalOpen(true)}
+                disabled={reportIssueMutation.isPending}
+                className="w-full sm:w-auto flex items-center justify-center"
+              >
+                <X className="mr-2 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Reportar Pendência</span>
+              </Button>
+              <Button
+                onClick={() => confirmPhysicalMutation.mutate()}
+                disabled={confirmPhysicalMutation.isPending || !!activeRequest?.physicalReceiptAt || !isAllItemsConfirmed}
+                className={cn(
+                  "w-full sm:w-auto flex items-center justify-center",
+                  isAllItemsConfirmed ? "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600" : "opacity-50 cursor-not-allowed"
+                )}
+                title={!isAllItemsConfirmed ? "Confirme a quantidade recebida de todos os itens para prosseguir" : ""}
+              >
+                <Check className="mr-2 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Confirmar Recebimento Físico</span>
+              </Button>
             </>
           )}
         </div>
@@ -500,7 +357,7 @@ const ReceiptPhaseContent = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((p
 
 const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>((props, ref) => {
   return (
-    <ReceiptProvider request={props.request} onClose={props.onClose} mode={props.mode}>
+    <ReceiptProvider request={props.request} onClose={props.onClose} mode="physical">
       <ReceiptPhaseContent {...props} ref={ref} />
     </ReceiptProvider>
   );

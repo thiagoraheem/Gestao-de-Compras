@@ -328,6 +328,18 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
   useEffect(() => {
     const receiptId = nfStatus?.receiptId;
     if (!receiptId) return;
+
+    // Ensure receiptId is set even if XML parse fails (e.g. manual physical receipt)
+    setNfReceiptId(receiptId);
+
+    // Pre-fill NF data from server if available and not yet set
+    if ((nfStatus as any)?.documentNumber && !manualNFNumber) {
+      setManualNFNumber((nfStatus as any).documentNumber);
+    }
+    if ((nfStatus as any)?.documentSeries && !manualNFSeries) {
+      setManualNFSeries((nfStatus as any).documentSeries);
+    }
+
     if (xmlPreview) return;
     (async () => {
       try {
@@ -336,13 +348,12 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
         if (preview) {
           setXmlPreview(preview);
           setXmlRecovered(true);
-          setNfReceiptId(receiptId);
         }
       } catch (error) {
         // Silent failure: keep screen usable even if preview fetch fails
       }
     })();
-  }, [nfStatus?.receiptId, xmlPreview]);
+  }, [nfStatus?.receiptId, xmlPreview, (nfStatus as any)?.documentNumber, (nfStatus as any)?.documentSeries]);
   
   // Populate from XML
   useEffect(() => {

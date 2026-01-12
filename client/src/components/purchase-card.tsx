@@ -1014,23 +1014,6 @@ export default function PurchaseCard({
                   >
                     {request.physicalReceiptAt ? "Físico OK" : "Confirmar"}
                   </button>
-
-                  {/* Fiscal Receipt Button */}
-                  <button
-                    className="px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 rounded-md hover:bg-orange-600 transition-colors disabled:opacity-50"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setReceiptMode('fiscal');
-                      if (onOpenRequest) {
-                        onOpenRequest(request, PURCHASE_PHASES.RECEBIMENTO, 'fiscal');
-                      } else {
-                        setIsEditModalOpen(true);
-                      }
-                    }}
-                    disabled={!!request.fiscalReceiptAt}
-                  >
-                    {request.fiscalReceiptAt ? "Fiscal OK" : "Conf. Fiscal"}
-                  </button>
                 </>
               )}
 
