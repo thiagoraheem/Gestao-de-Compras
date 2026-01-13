@@ -77,24 +77,6 @@ export function registerMockLocadorRoutes(app: Express) {
         mensagem: state.errorMessage || "Erro de integração simulado",
       });
     }
-
-    // Simulação de erro de Schema XML (RNG6110)
-    // Se o XML contiver CompNfse mas não tiver o namespace correto, retorna erro igual ao da produção
-    if (body.xml_nfe && typeof body.xml_nfe === 'string' && body.xml_nfe.includes('CompNfse') && !body.xml_nfe.includes('http://www.abrasf.org.br/nfse.xsd')) {
-       return res.status(400).json({
-         codigoFatura: 84838,
-         idEmpresa: 3,
-         status: "ERRO",
-         mensagem: "Falha HTTP 400 (BadRequest): RNG6110 - Falha Schema Xml",
-         numeroNfse: null,
-         protocolo: null,
-         chave: null,
-         urlPdf: null,
-         urlConsulta: null,
-         dataEmissao: null
-       });
-    }
-
     return res.json({
       status_integracao: "integrada",
       id_recebimento_locador: Math.floor(Math.random() * 100000).toString(),

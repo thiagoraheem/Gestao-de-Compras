@@ -47,22 +47,6 @@ const xmlUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-function sanitizeNfseXml(xml: string): string {
-  if (!xml) return xml;
-  let cleanXml = xml.trim();
-  
-  if (!cleanXml.startsWith("<?xml")) {
-    cleanXml = '<?xml version="1.0" encoding="UTF-8"?>' + cleanXml;
-  }
-  
-  // Ensure namespace in CompNfse if it's missing
-  if (cleanXml.includes("<CompNfse") && !cleanXml.includes("http://www.abrasf.org.br/nfse.xsd")) {
-    cleanXml = cleanXml.replace("<CompNfse", '<CompNfse xmlns="http://www.abrasf.org.br/nfse.xsd"');
-  }
-  
-  return cleanXml;
-}
-
 export function registerReceiptsRoutes(app: Express) {
   app.get("/api/receipts/search", async (req: Request, res: Response) => {
     try {
@@ -549,9 +533,7 @@ export function registerReceiptsRoutes(app: Express) {
         ncm: it.ncm || null,
         cfop: it.cfop || null,
       })),
-      xml_nfe: (rec.receiptType === "servico" && xmlRow?.xmlContent) 
-        ? sanitizeNfseXml(xmlRow.xmlContent) 
-        : (xmlRow?.xmlContent || null),
+      xml_nfe: xmlRow?.xmlContent || null,
     };
 
     // Only include payment conditions (installments) if it's the first receipt

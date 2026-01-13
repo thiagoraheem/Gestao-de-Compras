@@ -246,8 +246,7 @@ export type NFSeParams = {
 
 export function buildNFSeXml(params: NFSeParams) {
   const xml = [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<CompNfse xmlns="http://www.abrasf.org.br/nfse.xsd">',
+    '<CompNfse>',
     '<Nfse>',
     '<InfNfse>',
     `<Numero>${params.numero}</Numero>`,

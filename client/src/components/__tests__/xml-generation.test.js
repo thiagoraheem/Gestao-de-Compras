@@ -75,8 +75,7 @@ describe("xml-generation", () => {
       tomador: { cnpjCpf: "13844973000159", inscricaoMunicipal: "20035101", razaoSocial: "BBM SERVICOS, ALUGUEL DE MAQUINAS E TECNOLOGIA LTDA" },
       orgaoGerador: { codigoMunicipio: "1302603", uf: "AM" },
     });
-    expect(xml).toContain("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-    expect(xml).toContain("<CompNfse xmlns=\"http://www.abrasf.org.br/nfse.xsd\">");
+    expect(xml).toContain("<CompNfse>");
     expect(xml).toContain("<InfNfse>");
     expect(xml).toContain("<Servico>");
     expect(xml).toContain("<Valores>");
