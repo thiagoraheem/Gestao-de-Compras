@@ -855,7 +855,7 @@ export default function KanbanBoard({
                   onClose={() => setIsModalOpen(false)} 
                   onPreviewOpen={() => setLockDialogClose(true)} 
                   onPreviewClose={() => setLockDialogClose(false)}
-                  mode={modalMode}
+                  mode={modalMode || 'physical'}
                   hideTabsByDefault
                 />
               )}

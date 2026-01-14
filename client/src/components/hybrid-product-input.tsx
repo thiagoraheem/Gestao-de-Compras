@@ -208,10 +208,10 @@ export function HybridProductInput({
       {showResults && isSearchMode && (
         <div
           ref={resultsRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+          className="absolute z-50 w-full mt-1 max-h-60 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
         >
           {isLoading ? (
-            <div className="p-3 text-center text-gray-500">
+            <div className="p-3 text-center text-sm text-muted-foreground">
               <div className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full mr-2" />
               Buscando produtos...
             </div>
@@ -221,19 +221,19 @@ export function HybridProductInput({
                 <button
                   key={product.codigo}
                   type="button"
-                  className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                  className="w-full px-3 py-2 text-left outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
                   onClick={() => handleProductSelect(product)}
                 >
-                  <div className="font-medium text-sm">{product.codigo}</div>
-                  <div className="text-xs text-gray-600 truncate">
+                  <div className="text-sm font-medium">{product.codigo}</div>
+                  <div className="text-xs text-muted-foreground truncate">
                     {product.descricao}
                   </div>
-                  <div className="text-xs text-blue-600">{product.unidade}</div>
+                  <div className="text-xs text-primary">{product.unidade}</div>
                 </button>
               ))}
             </div>
           ) : searchTerm.length >= 2 ? (
-            <div className="p-3 text-center text-gray-500 text-sm">
+            <div className="p-3 text-center text-sm text-muted-foreground">
               Nenhum produto encontrado
             </div>
           ) : null}

@@ -67,6 +67,15 @@ interface Receipt {
   supplierCnpj: string;
 }
 
+interface InvoicesSearchResponse {
+  data: Receipt[];
+  pagination: {
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 interface ReceiptItem {
   id: number;
   description: string;
@@ -258,7 +267,7 @@ export default function InvoicesReportPage() {
   const [isVisualizerOpen, setIsVisualizerOpen] = useState(false);
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching } = useQuery<InvoicesSearchResponse>({
     queryKey: ["invoices-search", page, filters],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -268,9 +277,9 @@ export default function InvoicesReportPage() {
       });
       const res = await fetch(`/api/receipts/search?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch invoices");
-      return res.json();
+      const json: InvoicesSearchResponse = await res.json();
+      return json;
     },
-    keepPreviousData: true,
   });
 
   const handleFilterChange = (key: string, value: string) => {

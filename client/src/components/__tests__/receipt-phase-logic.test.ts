@@ -6,9 +6,18 @@ import {
   areManualAvulsaFieldsFilled,
   getXmlNextTab,
   getXmlNextValidationError,
+  canConfirmReceipt,
+  getInitialTabForMode
 } from "../../components/receipt-phase-logic";
 
 describe("receipt-phase-logic", () => {
+  test("getInitialTabForMode behavior", () => {
+    expect(getInitialTabForMode('physical')).toBe('items');
+    expect(getInitialTabForMode('fiscal')).toBe('xml');
+    expect(getInitialTabForMode('view')).toBe('items');
+    expect(getInitialTabForMode(undefined)).toBe('items');
+  });
+
   test("should show avulsa fields only when type is avulso", () => {
     expect(shouldShowAvulsaFields("avulso")).toBe(true);
     expect(shouldShowAvulsaFields("produto")).toBe(false);
@@ -50,5 +59,43 @@ describe("receipt-phase-logic", () => {
       getXmlNextValidationError("produto", true, false, false),
     ).toBe("Informe quantidades recebidas ou importe o XML da NF");
     expect(getXmlNextValidationError("produto", true, true, false)).toBeNull();
+  });
+
+  test("canConfirmReceipt physical mode", () => {
+    const baseParams = {
+      receivedQuantities: {},
+      typeCategoryError: false,
+      isReceiverOnly: false,
+      nfConfirmed: false,
+      isFiscalValid: true,
+      allocations: [],
+      allocationsSumOk: true,
+      receiptType: "produto" as const,
+      activeTab: "items",
+      manualNFNumber: "",
+      manualNFSeries: "",
+      manualNFAccessKey: "",
+      manualNFIssueDate: "",
+      manualNFEmitterCNPJ: "",
+      manualTotal: "",
+      manualItems: [],
+      manualItemsMissingLinks: [],
+      itemsWithPrices: [],
+      xmlPreview: null
+    };
+
+    // Physical mode: No quantities -> false
+    expect(canConfirmReceipt({
+      ...baseParams,
+      mode: 'physical',
+      receivedQuantities: {}
+    })).toBe(false);
+
+    // Physical mode: With quantities -> true
+    expect(canConfirmReceipt({
+      ...baseParams,
+      mode: 'physical',
+      receivedQuantities: { 1: 5 }
+    })).toBe(true);
   });
 });

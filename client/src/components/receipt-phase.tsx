@@ -50,6 +50,7 @@ import {
 import { validateAllocationsAgainstLocador, formatReceiptApiError } from "../utils/locador-validation";
 import { validateManualHeader, validateManualItems, validateEmitter, validateRecipient, validateTransport, validateProductTaxes, validateServiceData, computeIcms, computeIpi, computeIss, validateTotalConsistency } from "../utils/manual-nf-validation";
 import { buildNFeXml, buildNFSeXml } from "../utils/xml-generation";
+import { canConfirmReceipt, getInitialTabForMode } from "./receipt-phase-logic";
 
 export function buildCostCenterTreeData(listInput: any[]) {
   const list = Array.isArray(listInput) ? listInput : [];
@@ -97,9 +98,9 @@ const calculateTokenScore = (left: string, right: string) => {
   const rightTokens = new Set(right.split(" ").filter(Boolean));
   if (leftTokens.size === 0 || rightTokens.size === 0) return 0;
   let intersection = 0;
-  for (const token of leftTokens) {
+  leftTokens.forEach((token) => {
     if (rightTokens.has(token)) intersection += 1;
-  }
+  });
   const maxSize = Math.max(leftTokens.size, rightTokens.size);
   return maxSize > 0 ? intersection / maxSize : 0;
 };
@@ -147,6 +148,8 @@ interface ReceiptPhaseProps {
   className?: string;
   onPreviewOpen?: () => void;
   onPreviewClose?: () => void;
+  mode?: 'view' | 'physical' | 'fiscal';
+  hideTabsByDefault?: boolean;
 }
 
 export interface ReceiptPhaseHandle {
@@ -155,7 +158,7 @@ export interface ReceiptPhaseHandle {
 }
 
 const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<ReceiptPhaseHandle>) => {
-  const { request, onClose, className, onPreviewOpen, onPreviewClose } = props;
+  const { request, onClose, className, onPreviewOpen, onPreviewClose, mode = 'view', hideTabsByDefault } = props;
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -176,6 +179,10 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [xmlAttachmentId, setXmlAttachmentId] = useState<number | null>(null);
   const [nfReceiptId, setNfReceiptId] = useState<number | null>(null);
   const [xmlRecovered, setXmlRecovered] = useState(false);
+  useEffect(() => {
+    setActiveTab(getInitialTabForMode(mode));
+  }, [mode]);
+
   useEffect(() => {
     try {
       const key = `xml_state_${request?.id}`;
@@ -226,7 +233,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [manualNFStep, setManualNFStep] = useState<1 | 2 | 3>(1);
   const [manualErrors, setManualErrors] = useState<Record<string, string>>({});
   const [supplierMatch, setSupplierMatch] = useState<null | boolean>(null);
-  const [activeTab, setActiveTab] = useState<'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items'>('fiscal');
+  const [activeTab, setActiveTab] = useState<'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items'>(getInitialTabForMode(mode));
   const [allocations, setAllocations] = useState<Array<{ costCenterId?: number; chartOfAccountsId?: number; amount?: string; percentage?: string }>>([]);
   const [allocationMode, setAllocationMode] = useState<'manual' | 'proporcional'>('manual');
   const [paymentMethods, setPaymentMethods] = useState<Array<{ code: string; name: string }>>([]);
@@ -289,12 +296,15 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
   useEffect(() => {
     if (!isReceiverOnly) return;
+    // Se o modo for físico, permitir acesso à aba de itens para conferência
+    if (mode === 'physical') return;
+    
     if (nfConfirmed) {
       setActiveTab("items");
     } else {
       setActiveTab("fiscal");
     }
-  }, [isReceiverOnly, nfConfirmed]);
+  }, [isReceiverOnly, nfConfirmed, mode]);
 
   // Fetch approval history
   const { data: approvalHistory = [] } = useQuery<any[]>({
@@ -991,6 +1001,44 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         variant: "destructive",
       });
     },
+  });
+
+  const confirmPhysicalMutation = useMutation({
+    mutationFn: async () => {
+      const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
+      if (!hasAnyQty) throw new Error("Informe as quantidades recebidas");
+
+      const response = await apiRequest(
+        `/api/purchase-requests/${request?.id}/confirm-physical`,
+        {
+          method: "POST",
+          body: {
+            receivedQuantities,
+            manualNFNumber,
+            manualNFSeries,
+            observations: "Confirmado via Recebimento Físico"
+          },
+        }
+      );
+      return response;
+    },
+    onSuccess: async (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({ title: "Sucesso", description: "Recebimento físico confirmado!" });
+      
+      if (data.isFullyComplete) {
+         try {
+           await apiRequest(`/api/purchase-requests/${request?.id}/finalize-receipt`, { method: "POST" });
+           toast({ title: "Processo Concluído", description: "Recebimento finalizado e integrado!" });
+         } catch (e) {
+           console.error("Error finalizing", e);
+         }
+      }
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message || "Erro ao confirmar", variant: "destructive" });
+    }
   });
 
   const confirmReceiptMutation = useMutation({
@@ -1755,35 +1803,29 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       .filter((value): value is number => value !== null);
   }, [manualItems, purchaseOrderItems.length, receiptType]);
   const canConfirm = useMemo(() => {
-    if (typeCategoryError) return false;
-    if (isReceiverOnly && !nfConfirmed) return false;
-    if (!isFiscalValid) return false;
-    if (allocations.length > 0 && !allocationsSumOk) return false;
-    if (receiptType === "avulso" || activeTab === "manual_nf") {
-      const header = validateManualHeader({
-        number: manualNFNumber,
-        series: manualNFSeries,
-        accessKey: manualNFAccessKey,
-        issueDate: manualNFIssueDate,
-        emitterCnpj: manualNFEmitterCNPJ,
-        total: manualTotal,
-        kind: receiptType === "servico" ? "servico" : (receiptType === "avulso" ? "avulso" : "produto"),
-      });
-      if (!header.isValid) return false;
-      const itemsOk = validateManualItems(receiptType === "servico" ? "servico" : "produto", manualItems as any).isValid;
-      if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) return false;
-      return itemsOk;
-    }
-    const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
-      const current = Number(receivedQuantities[it.id] || 0);
-      const max = Number(it.quantity || 0);
-      return current > max;
-    }) : [];
-    if (invalids.length > 0) return false;
-    const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
-    if (!hasAnyQty && !xmlPreview) return false;
-    return true;
-  }, [typeCategoryError, isFiscalValid, allocations.length, allocationsSumOk, receiptType, manualNFNumber, manualNFSeries, manualNFIssueDate, manualNFEntryDate, manualNFEmitterCNPJ, manualNFAccessKey, manualTotal, manualItems.length, manualItemsMissingLinks, itemsWithPrices, receivedQuantities, xmlPreview, activeTab]);
+    return canConfirmReceipt({
+      mode,
+      receivedQuantities,
+      typeCategoryError,
+      isReceiverOnly,
+      nfConfirmed,
+      isFiscalValid,
+      allocations,
+      allocationsSumOk,
+      receiptType,
+      activeTab,
+      manualNFNumber,
+      manualNFSeries,
+      manualNFAccessKey,
+      manualNFIssueDate,
+      manualNFEmitterCNPJ,
+      manualTotal,
+      manualItems,
+      manualItemsMissingLinks,
+      itemsWithPrices,
+      xmlPreview
+    });
+  }, [mode, receivedQuantities, typeCategoryError, isReceiverOnly, nfConfirmed, isFiscalValid, allocations, allocationsSumOk, receiptType, activeTab, manualNFNumber, manualNFSeries, manualNFAccessKey, manualNFIssueDate, manualNFEmitterCNPJ, manualTotal, manualItems, manualItemsMissingLinks, itemsWithPrices, xmlPreview]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -1851,45 +1893,50 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             return;
           }
         }
+        if (mode === 'physical' && next !== 'items') {
+          return;
+        }
         setActiveTab(next);
       }}>
-        <TabsList className="w-full justify-between gap-2">
-          <TabsTrigger value="fiscal">Informações Básicas</TabsTrigger>
-          <TabsTrigger value="xml" disabled={isReceiverOnly}>Informações de Nota Fiscal</TabsTrigger>
-          {receiptType !== "avulso" && <TabsTrigger value="manual_nf" disabled={isReceiverOnly}>Inclusão Manual de NF</TabsTrigger>}
-          <TabsTrigger value="financeiro" disabled={isReceiverOnly}>Informações Financeiras</TabsTrigger>
-          <TabsTrigger value="items">Confirmação de Itens</TabsTrigger>
-          <div className="ml-auto">
-            <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reiniciar Formulário</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Tem certeza que deseja limpar todos os dados? Um backup temporário será criado na sessão e campos obrigatórios permanecerão destacados.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    onClick={handleResetConfirmed}
-                  >
-                    Limpar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-              <Button
-                variant="outline"
-                className="ml-2 border-destructive text-destructive hover:bg-destructive/10"
-                aria-label="Limpar dados do formulário"
-                onClick={() => setShowClearConfirm(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Limpar Dados
-              </Button>
-            </AlertDialog>
-          </div>
-        </TabsList>
+        {mode !== 'physical' && !hideTabsByDefault && (
+          <TabsList className="w-full justify-between gap-2">
+            <TabsTrigger value="fiscal">Informações Básicas</TabsTrigger>
+            <TabsTrigger value="xml" disabled={isReceiverOnly}>Informações de Nota Fiscal</TabsTrigger>
+            {receiptType !== "avulso" && <TabsTrigger value="manual_nf" disabled={isReceiverOnly}>Inclusão Manual de NF</TabsTrigger>}
+            <TabsTrigger value="financeiro" disabled={isReceiverOnly}>Informações Financeiras</TabsTrigger>
+            <TabsTrigger value="items">Confirmação de Itens</TabsTrigger>
+            <div className="ml-auto">
+              <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Reiniciar Formulário</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem certeza que deseja limpar todos os dados? Um backup temporário será criado na sessão e campos obrigatórios permanecerão destacados.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleResetConfirmed}
+                    >
+                      Limpar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+                <Button
+                  variant="outline"
+                  className="ml-2 border-destructive text-destructive hover:bg-destructive/10"
+                  aria-label="Limpar dados do formulário"
+                  onClick={() => setShowClearConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Limpar Dados
+                </Button>
+              </AlertDialog>
+            </div>
+          </TabsList>
+        )}
 
         <TabsContent value="fiscal">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -3552,6 +3599,14 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             <div className="flex justify-between gap-2">
               <Button variant="outline" onClick={() => setActiveTab('xml')}>Voltar</Button>
               <Button disabled={!canConfirm} onClick={() => {
+                if (mode === 'physical') {
+                   const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
+                   if (!hasAnyQty) {
+                      return toast({ title: "Validação", description: "Informe as quantidades recebidas", variant: "destructive" });
+                   }
+                   confirmPhysicalMutation.mutate();
+                   return;
+                }
                 if (typeCategoryError) {
                   return toast({ title: "Validação", description: typeCategoryError, variant: "destructive" });
                 }
