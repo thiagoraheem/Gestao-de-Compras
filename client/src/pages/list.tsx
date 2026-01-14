@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { PackageCheck } from "lucide-react";
 import { PURCHASE_PHASES } from "@/lib/types";
 
 export default function ListPage() {
@@ -95,6 +96,10 @@ export default function ListPage() {
             <p className="text-xs text-muted-foreground mt-0.5">Visualização compacta e elegante das solicitações de compra</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setLocation("/conferencia-material")} title="Conferência de Material">
+              <PackageCheck className="h-4 w-4 mr-2" />
+              Conferência
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setLocation("/kanban")}>Kanban</Button>
             <Button size="sm" className="bg-primary text-primary-foreground">Lista</Button>
           </div>

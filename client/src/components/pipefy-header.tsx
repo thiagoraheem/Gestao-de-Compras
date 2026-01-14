@@ -30,6 +30,7 @@ import {
   FolderOpen,
   ClipboardList,
   Truck,
+  PackageCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Filter } from "lucide-react";
@@ -91,6 +92,14 @@ export default function PipefyHeader() {
         icon: FileText,
       },
     ];
+
+    if (user?.isReceiver || user?.isBuyer || user?.isAdmin) {
+      baseNavigation.push({
+        name: "Conferência",
+        href: "/conferencia-material",
+        icon: PackageCheck,
+      });
+    }
 
     return baseNavigation;
   };

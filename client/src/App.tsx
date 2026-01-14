@@ -34,6 +34,7 @@ import PurchaseRequestsReportPage from "@/pages/purchase-requests-report";
 import SuppliersReportPage from "@/pages/suppliers-report";
 import RFQAnalysisPage from "@/pages/rfq-analysis";
 import ReceiptFormPage from "@/pages/receipt-form";
+import MaterialConferencePage from "@/pages/MaterialConferencePage";
 import InvoicesReportPage from "@/pages/invoices-report";
 import ManagerRoute from "@/components/manager-route";
 import AdminRoute from "@/components/admin-route";
@@ -136,6 +137,7 @@ function Router() {
         <Route path="/change-password" component={ChangePasswordPage} />
         <Route path="/manual" component={UserManualPage} />
         <Route path="/recebimentos/novo" component={ReceiptFormPage} />
+        <Route path="/conferencia-material" component={MaterialConferencePage} />
         <Route path="/reports/invoices" component={InvoicesReportPage} />
         <Route path="/reports/purchase-requests" component={PurchaseRequestsReportPage} />
         <Route path="/reports/suppliers" component={SuppliersReportPage} />
