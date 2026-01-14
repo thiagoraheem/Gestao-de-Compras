@@ -136,7 +136,7 @@ interface ReceiptContextType {
   nfConfirmed: boolean;
 }
 
-const ReceiptContext = createContext<ReceiptContextType | undefined>(undefined);
+export const ReceiptContext = createContext<ReceiptContextType | undefined>(undefined);
 
 export function useReceipt() {
   const context = useContext(ReceiptContext);

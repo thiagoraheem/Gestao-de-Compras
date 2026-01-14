@@ -1,6 +1,6 @@
 
-import React from "react";
-import { useReceipt } from "./ReceiptContext";
+import React, { useContext } from "react";
+import { ReceiptContext } from "./ReceiptContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Package, User } from "lucide-react";
@@ -9,8 +9,15 @@ import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-export function ReceiptBasicInfo() {
-  const { request } = useReceipt();
+interface ReceiptBasicInfoProps {
+  request?: any;
+}
+
+export function ReceiptBasicInfo({ request: propRequest }: ReceiptBasicInfoProps) {
+  const context = useContext(ReceiptContext);
+  const request = propRequest || context?.request;
+
+  if (!request) return null;
   
   const formatDate = (date: any) => {
     if (!date) return "N/A";

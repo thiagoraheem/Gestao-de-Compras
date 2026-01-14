@@ -47,6 +47,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ReceiptBasicInfo } from "./receipt/ReceiptBasicInfo";
 import { validateAllocationsAgainstLocador, formatReceiptApiError } from "../utils/locador-validation";
 import { validateManualHeader, validateManualItems, validateEmitter, validateRecipient, validateTransport, validateProductTaxes, validateServiceData, computeIcms, computeIpi, computeIss, validateTotalConsistency } from "../utils/manual-nf-validation";
 import { buildNFeXml, buildNFSeXml } from "../utils/xml-generation";
@@ -3487,6 +3488,16 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             )}
 
             {receiptType !== "avulso" && (user?.isReceiver || user?.isAdmin) && (
+              <>
+              <ReceiptBasicInfo request={request} />
+
+              <Card>
+                <CardHeader><CardTitle>Dados da Nota Fiscal</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><Label>Número da Nota Fiscal</Label><Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} placeholder="NF-00000000" /></div>
+                  <div><Label>Série</Label><Input value={manualNFSeries} onChange={(e) => setManualNFSeries(e.target.value)} placeholder="S-000" /></div>
+                </CardContent>
+              </Card>
               <Card>
                 <CardHeader><CardTitle>Confirmação de Itens</CardTitle></CardHeader>
                 <CardContent>
@@ -3594,6 +3605,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                   </div>
                 </CardContent>
               </Card>
+              </>
             )}
 
             <div className="flex justify-between gap-2">
@@ -4250,28 +4262,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle>Dados da Nota Fiscal</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {receiptType === "avulso" ? (
-                <>
-                  <div><Label>Número</Label><Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} /></div>
-                  <div><Label>Série</Label><Input value={manualNFSeries} onChange={(e) => setManualNFSeries(e.target.value)} /></div>
-                  <div><Label>Data de Emissão</Label><Input type="date" value={manualNFIssueDate} onChange={(e) => setManualNFIssueDate(e.target.value)} /></div>
-                  <div><Label>Data de Entrada</Label><Input type="date" value={manualNFEntryDate} onChange={(e) => setManualNFEntryDate(e.target.value)} /></div>
-                  <div className="md:col-span-2"><Label>Valor Total</Label><Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} /></div>
-                </>
-              ) : (
-                <>
-                  <div><Label>Número</Label><p className="mt-1">{xmlPreview?.header?.documentNumber || ""}</p></div>
-                  <div><Label>Série</Label><p className="mt-1">{xmlPreview?.header?.documentSeries || ""}</p></div>
-                  <div><Label>Data de Emissão</Label><p className="mt-1">{xmlPreview?.header?.issueDate || ""}</p></div>
-                  <div><Label>Data de Entrada</Label><p className="mt-1">{xmlPreview?.header?.entryDate || ""}</p></div>
-                  <div className="md:col-span-2"><Label>Valor Total</Label><p className="mt-1">{xmlPreview?.totals?.vNF || xmlPreview?.totals?.vProd || ""}</p></div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+
 
           <Card>
             <CardHeader><CardTitle>Tributos Destacados</CardTitle></CardHeader>
