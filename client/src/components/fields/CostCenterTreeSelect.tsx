@@ -12,6 +12,20 @@ interface Props {
 export function CostCenterTreeSelect({ options, value, onChange, placeholder }: Props) {
   const tree = useMemo(() => {
     const list = Array.isArray(options) ? options : [];
+    const hasHierarchy = list.some((cc: any) => cc.parentId != null);
+    if (!hasHierarchy) {
+      const flat = [...list].sort((a: any, b: any) => String(a.name || '').localeCompare(String(b.name || '')));
+      return [
+        {
+          parent: { idCostCenter: 0, id: 0, name: "Centros de Custo" },
+          children: flat.map((cc: any) => ({
+            node: cc,
+            grandchildren: [],
+            selectable: true,
+          })),
+        },
+      ];
+    }
     const parents = list.filter((cc: any) => cc.parentId == null);
     const childrenMap = new Map<number, any[]>();
     for (const cc of list) {

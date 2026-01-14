@@ -289,11 +289,11 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
   const nfConfirmed = !!nfStatus?.nfConfirmed;
 
   const { data: costCenters = [] } = useQuery<any[]>({
-    queryKey: ["/api/cost-centers"],
+    queryKey: ["/api/integracao-locador/centros-custo"],
   });
 
   const { data: chartAccounts = [] } = useQuery<any[]>({
-    queryKey: ["/api/chart-of-accounts"],
+    queryKey: ["/api/plano-contas"],
   });
 
   const { data: quotation } = useQuery<any>({
@@ -593,11 +593,37 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
   // Load Payment Methods
   useEffect(() => {
     async function loadPaymentMethods() {
+      setIsLoadingPaymentMethods(true);
       try {
-        const res = await apiRequest('/api/payment-methods');
-        if (Array.isArray(res)) setPaymentMethods(res);
+        const res = await apiRequest('/api/integracao-locador/formas-pagamento');
+        if (Array.isArray(res) && res.length > 0) {
+          const mapped = res.map((pm: any) => ({
+            code: pm.codigo?.toString() || pm.code || pm.id?.toString() || "",
+            name: pm.descricao || pm.name || pm.description || ""
+          })).filter((x: any) => x.code && x.name);
+          setPaymentMethods(mapped);
+        } else {
+          setPaymentMethods([
+            { code: "boleto", name: "Boleto" },
+            { code: "cheque", name: "Cheque" },
+            { code: "transferencia", name: "Transferência Bancária" },
+            { code: "cartao_credito", name: "Cartão de Crédito" },
+            { code: "dinheiro", name: "Dinheiro" },
+            { code: "pix", name: "Pix" },
+          ]);
+        }
       } catch (error) {
         console.error("Failed to load payment methods", error);
+        setPaymentMethods([
+          { code: "boleto", name: "Boleto" },
+          { code: "cheque", name: "Cheque" },
+          { code: "transferencia", name: "Transferência Bancária" },
+          { code: "cartao_credito", name: "Cartão de Crédito" },
+          { code: "dinheiro", name: "Dinheiro" },
+          { code: "pix", name: "Pix" },
+        ]);
+      } finally {
+        setIsLoadingPaymentMethods(false);
       }
     }
     loadPaymentMethods();
