@@ -1402,7 +1402,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const companyId = req.query.companyId
         ? parseInt(req.query.companyId as string)
         : undefined;
-      const requests = await storage.getAllPurchaseRequests(companyId, req.user);
+      const userId = req.session.userId;
+      const user = userId ? await storage.getUser(userId) : undefined;
+      const requests = await storage.getAllPurchaseRequests(companyId, user);
 
       res.json(requests);
     } catch (error) {

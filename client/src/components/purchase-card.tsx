@@ -110,7 +110,7 @@ export default function PurchaseCard({
   const [initialA2Action, setInitialA2Action] = useState<'approve' | 'reject' | null>(null);
   const receiptRef = useRef<ReceiptPhaseHandle | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [receiptMode, setReceiptMode] = useState<'view' | 'physical' | 'fiscal'>('view');
+  const [receiptMode, setReceiptMode] = useState<'view' | 'physical'>('view');
 
   
 

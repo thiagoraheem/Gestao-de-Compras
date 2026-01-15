@@ -148,7 +148,7 @@ interface ReceiptPhaseProps {
   className?: string;
   onPreviewOpen?: () => void;
   onPreviewClose?: () => void;
-  mode?: 'view' | 'physical' | 'fiscal';
+  mode?: 'view' | 'physical';
   hideTabsByDefault?: boolean;
   compactHeader?: boolean;
 }
@@ -234,7 +234,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [manualNFStep, setManualNFStep] = useState<1 | 2 | 3>(1);
   const [manualErrors, setManualErrors] = useState<Record<string, string>>({});
   const [supplierMatch, setSupplierMatch] = useState<null | boolean>(null);
-  const [activeTab, setActiveTab] = useState<'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items'>(getInitialTabForMode(mode));
+  const [activeTab, setActiveTab] = useState<'financeiro' | 'xml' | 'manual_nf' | 'items'>(getInitialTabForMode(mode));
   const [allocations, setAllocations] = useState<Array<{ costCenterId?: number; chartOfAccountsId?: number; amount?: string; percentage?: string }>>([]);
   const [allocationMode, setAllocationMode] = useState<'manual' | 'proporcional'>('manual');
   const [paymentMethods, setPaymentMethods] = useState<Array<{ code: string; name: string }>>([]);
@@ -303,7 +303,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     if (nfConfirmed) {
       setActiveTab("items");
     } else {
-      setActiveTab("fiscal");
+      setActiveTab("xml");
     }
   }, [isReceiverOnly, nfConfirmed, mode]);
 
@@ -743,7 +743,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       setAllocations([]);
       setAllocationMode("manual");
       setAutoFilledRows(new Set());
-      setActiveTab("fiscal");
+      setActiveTab("xml");
       setHasInstallments(false);
       setInstallmentCount(1);
       setInstallments([]);
@@ -1324,12 +1324,9 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
       toast({
         title: "Sucesso",
-        description: isComplete ? "Recebimento confirmado! Item movido para Conclusão." : "Recebimento parcial registrado com sucesso.",
+        description: isComplete ? "Recebimento confirmado!" : "Recebimento parcial registrado com sucesso.",
       });
       
-      if (isComplete) {
-        try { setLocation(`/kanban?request=${request?.id}&phase=conclusao_compra`); } catch {}
-      }
       onClose();
     },
     onError: (error: any) => {
@@ -1938,8 +1935,8 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       )}
 
       <Tabs value={activeTab} onValueChange={(v) => {
-        const next = v as 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items';
-        if (isReceiverOnly && !nfConfirmed && next !== 'fiscal') {
+        const next = v as 'financeiro' | 'xml' | 'manual_nf' | 'items';
+        if (isReceiverOnly && !nfConfirmed && next !== 'items') {
           toast({ title: "Acesso Bloqueado", description: "Aguardando preenchimento da Nota Fiscal e Informações Financeiras pelo Comprador.", variant: "destructive" });
           return;
         }
@@ -1974,9 +1971,6 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       }}>
         {mode !== 'physical' && !hideTabsByDefault && (
           <TabsList className="w-full justify-between gap-2">
-            <TabsTrigger value="xml" disabled={isReceiverOnly}>Informações de Nota Fiscal</TabsTrigger>
-            {receiptType !== "avulso" && <TabsTrigger value="manual_nf" disabled={isReceiverOnly}>Inclusão Manual de NF</TabsTrigger>}
-            <TabsTrigger value="financeiro" disabled={isReceiverOnly}>Informações Financeiras</TabsTrigger>
             <TabsTrigger value="items">Confirmação de Itens</TabsTrigger>
             <div className="ml-auto">
               <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
@@ -3642,99 +3636,6 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       </Tabs>
 
       {/* Selected Supplier Information */}
-      {activeTab === 'fiscal' && selectedSupplierQuotation && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5 text-green-600" />
-              Fornecedor Selecionado
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {selectedSupplier && !selectedSupplier.idSupplierERP && (
-               <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-3">
-                 <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                 <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                   Fornecedor não sincronizado com o ERP - não gerará registro no Contas a Pagar
-                 </span>
-               </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Nome do Fornecedor</p>
-                <p className="text-sm font-semibold mt-1">{selectedSupplierQuotation.supplier?.name || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">E-mail</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.email || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Contato</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.contact || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">CNPJ</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.cnpj || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Valor Total da Proposta</p>
-                <p className="text-lg font-bold text-green-600 mt-1">
-                  {formatCurrency(selectedSupplierQuotation.totalValue)}
-                </p>
-              </div>
-
-              {/* Freight Information - Highlighted */}
-              <div className="col-span-full">
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Truck className="h-5 w-5 text-blue-600 dark:text-blue-300" />
-                    <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Informações de Frete</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Frete Incluso</p>
-                      <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
-                        {selectedSupplierQuotation.includesFreight ? 'Sim' : 'Não'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Valor do Frete</p>
-                      <p className="text-lg font-bold text-blue-800 dark:text-blue-300 mt-1">
-                        {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Condições de Pagamento</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
-              </div>
-
-              {/* Desconto da Proposta */}
-              {(selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Desconto da Proposta</p>
-                  <p className="text-lg font-bold text-green-600 mt-1">
-                    {selectedSupplierQuotation.discountType === 'percentage'
-                      ? `${selectedSupplierQuotation.discountValue}%`
-                      : formatCurrency(selectedSupplierQuotation.discountValue)
-                    }
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {selectedSupplierQuotation.choiceReason && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm font-medium text-green-800">Justificativa da Escolha:</p>
-                <p className="text-sm text-green-700 mt-1">{selectedSupplierQuotation.choiceReason}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Purchase Order Observations */}
       {(request.purchaseOrderObservations || request.purchaseObservations) && (
         <Card>
@@ -3757,90 +3658,6 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
 
       {/* Items Table */}
-      {activeTab === 'fiscal' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Itens da Compra</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {itemsWithPrices.length > 0 ? (
-              <div className="rounded-md border border-border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="text-center">Qtd</TableHead>
-                      <TableHead className="text-center">Unidade</TableHead>
-                      <TableHead className="text-right">Valor Unit.</TableHead>
-                      <TableHead className="text-right">Valor Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {itemsWithPrices.map((item: any, index: number) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">
-                          {item.description}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {Number(item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.unit}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(item.unitPrice)}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(item.totalPrice)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <div className="border-t border-border bg-slate-50 dark:bg-slate-900 p-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                      Subtotal ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
-                    </span>
-                    <span className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                      {formatCurrency(
-                        itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-blue-600 dark:text-blue-300 flex items-center gap-1">
-                      <Truck className="h-4 w-4" />
-                      Frete
-                    </span>
-                    <span className="text-base font-semibold text-blue-600 dark:text-blue-300">
-                      {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
-                    </span>
-                  </div>
-                  <div className="border-t pt-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-base font-bold text-slate-800 dark:text-slate-200">
-                        Total Geral
-                      </span>
-                      <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                        {formatCurrency(
-                          (itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0) || 0) + (freightValue || 0)
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Nenhum item encontrado</p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Os dados dos itens serão carregados automaticamente</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Approval History */}
       {Array.isArray(approvalHistory) && approvalHistory.length > 0 && (

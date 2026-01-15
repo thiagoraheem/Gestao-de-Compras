@@ -52,8 +52,8 @@ export function getXmlNextValidationError(
 
 export function computeTabsVisibility(options: {
   fromKanban: boolean;
-  activeTab: 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items';
-  mode?: 'view' | 'physical' | 'fiscal';
+  activeTab: 'financeiro' | 'xml' | 'manual_nf' | 'items';
+  mode?: 'view' | 'physical';
   forcedShow?: boolean;
 }): boolean {
   if (options.activeTab === 'items') return false;
@@ -64,19 +64,14 @@ export function computeTabsVisibility(options: {
   return options.mode !== 'physical';
 }
 
-export type ReceiptMode = 'view' | 'physical' | 'fiscal';
-
-export function isFiscalModeActive(mode: ReceiptMode | undefined): boolean {
-  return mode === 'fiscal';
-}
+export type ReceiptMode = 'view' | 'physical';
 
 export function isPhysicalModeActive(mode: ReceiptMode | undefined): boolean {
   return mode === 'physical';
 }
 
-export function getInitialTabForMode(mode: ReceiptMode | undefined): 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items' {
+export function getInitialTabForMode(mode: ReceiptMode | undefined): 'financeiro' | 'xml' | 'manual_nf' | 'items' {
   if (mode === 'physical') return 'items';
-  if (mode === 'fiscal') return 'xml';
   return 'items'; // Default to items for view mode as well
 }
 
@@ -130,7 +125,6 @@ export function canConfirmReceipt(params: {
     return hasAnyQty;
   }
   if (typeCategoryError) return false;
-  if (isReceiverOnly && !nfConfirmed) return false;
   if (!isFiscalValid) return false;
   if (allocations.length > 0 && !allocationsSumOk) return false;
   if (receiptType === "avulso" || activeTab === "manual_nf") {

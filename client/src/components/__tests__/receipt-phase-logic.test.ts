@@ -13,7 +13,6 @@ import {
 describe("receipt-phase-logic", () => {
   test("getInitialTabForMode behavior", () => {
     expect(getInitialTabForMode('physical')).toBe('items');
-    expect(getInitialTabForMode('fiscal')).toBe('xml');
     expect(getInitialTabForMode('view')).toBe('items');
     expect(getInitialTabForMode(undefined)).toBe('items');
   });
@@ -64,7 +63,7 @@ describe("receipt-phase-logic", () => {
   test("canConfirmReceipt physical mode", () => {
     const baseParams = {
       receivedQuantities: {},
-      typeCategoryError: false,
+      typeCategoryError: "",
       isReceiverOnly: false,
       nfConfirmed: false,
       isFiscalValid: true,
