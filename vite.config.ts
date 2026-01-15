@@ -28,7 +28,13 @@ export default defineConfig(({ mode }) => {
       },
     },
     root: path.resolve(import.meta.dirname, "client"),
+    optimizeDeps: {
+      esbuildOptions: {
+        target: "esnext",
+      },
+    },
     build: {
+      target: "esnext",
       outDir: path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
     },

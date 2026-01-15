@@ -9,7 +9,7 @@ import {
   DragOverlay,
   closestCorners,
 } from "@dnd-kit/core";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import PurchaseCard from "./purchase-card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -25,16 +25,17 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import RFQCreation from "./rfq-creation";
-import PurchaseOrderPhase from "./purchase-order-phase";
-import ReceiptPhase from "./receipt-phase";
-import FiscalConferencePhase from "./fiscal-conference-phase";
-import RequestPhase from "./request-phase";
-import ApprovalA1Phase from "./approval-a1-phase";
-import ApprovalA2Phase from "./approval-a2-phase";
-import QuotationPhase from "./quotation-phase";
-import ConclusionPhase from "./conclusion-phase";
-import RequestView from "./request-view";
+
+const RFQCreation = lazy(() => import("./rfq-creation"));
+const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
+const ReceiptPhase = lazy(() => import("./receipt-phase"));
+const FiscalConferencePhase = lazy(() => import("./fiscal-conference-phase"));
+const RequestPhase = lazy(() => import("./request-phase"));
+const ApprovalA1Phase = lazy(() => import("./approval-a1-phase"));
+const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
+const QuotationPhase = lazy(() => import("./quotation-phase"));
+const ConclusionPhase = lazy(() => import("./conclusion-phase"));
+const RequestView = lazy(() => import("./request-view"));
 
 interface KanbanBoardProps {
   departmentFilter?: string;
@@ -788,26 +789,28 @@ export default function KanbanBoard({
           )}
         </DragOverlay>
 
-        <RFQCreation
-          purchaseRequest={selectedRequestForRFQ}
-          existingQuotation={null}
-          isOpen={showRFQCreation && !!selectedRequestForRFQ}
-          onOpenChange={(open) => {
-            setShowRFQCreation(open);
-            if (!open) setSelectedRequestForRFQ(null);
-          }}
-          onComplete={() => {
-            setShowRFQCreation(false);
-            setSelectedRequestForRFQ(null);
-            queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-            queryClient.invalidateQueries({
-              predicate: (query) =>
-                !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-                  query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
-            });
-          }}
-        />
+        <Suspense fallback={null}>
+          <RFQCreation
+            purchaseRequest={selectedRequestForRFQ}
+            existingQuotation={null}
+            isOpen={showRFQCreation && !!selectedRequestForRFQ}
+            onOpenChange={(open) => {
+              setShowRFQCreation(open);
+              if (!open) setSelectedRequestForRFQ(null);
+            }}
+            onComplete={() => {
+              setShowRFQCreation(false);
+              setSelectedRequestForRFQ(null);
+              queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+              queryClient.invalidateQueries({
+                predicate: (query) =>
+                  !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+                    query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
+              });
+            }}
+          />
+        </Suspense>
         {/* Central Modal for request phases */}
         <Dialog 
           open={isModalOpen && (
@@ -846,39 +849,42 @@ export default function KanbanBoard({
               {modalPhase === PURCHASE_PHASES.ARQUIVADO && "Tela de detalhes da solicitação arquivada"}
             </p>
             <div className="px-6 pt-0 pb-2">
-              {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && activeRequest && (
-                <PurchaseOrderPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
-              )}
-              {modalPhase === PURCHASE_PHASES.RECEBIMENTO && activeRequest && (
-                <ReceiptPhase 
-                  request={activeRequest} 
-                  onClose={() => setIsModalOpen(false)} 
-                  onPreviewOpen={() => setLockDialogClose(true)} 
-                  onPreviewClose={() => setLockDialogClose(false)}
-                  mode={modalMode || 'physical'}
-                  hideTabsByDefault
-                />
-              )}
-              {modalPhase === PURCHASE_PHASES.CONF_FISCAL && activeRequest && (
-                <FiscalConferencePhase 
-                  request={activeRequest} 
-                  onClose={() => setIsModalOpen(false)} 
-                  onPreviewOpen={() => setLockDialogClose(true)} 
-                  onPreviewClose={() => setLockDialogClose(false)}
-                  mode={modalMode}
-                />
-              )}
-              {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && activeRequest && (
-                <ConclusionPhase request={activeRequest} onClose={() => setIsModalOpen(false)} />
-              )}
-              {modalPhase === PURCHASE_PHASES.ARQUIVADO && activeRequest && (
-                <RequestView request={activeRequest} onClose={() => setIsModalOpen(false)} />
-              )}
+              <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && activeRequest && (
+                  <PurchaseOrderPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
+                )}
+                {modalPhase === PURCHASE_PHASES.RECEBIMENTO && activeRequest && (
+                  <ReceiptPhase 
+                    request={activeRequest} 
+                    onClose={() => setIsModalOpen(false)} 
+                    onPreviewOpen={() => setLockDialogClose(true)} 
+                    onPreviewClose={() => setLockDialogClose(false)}
+                    mode={modalMode || 'physical'}
+                    hideTabsByDefault
+                  />
+                )}
+                {modalPhase === PURCHASE_PHASES.CONF_FISCAL && activeRequest && (
+                  <FiscalConferencePhase 
+                    request={activeRequest} 
+                    onClose={() => setIsModalOpen(false)} 
+                    onPreviewOpen={() => setLockDialogClose(true)} 
+                    onPreviewClose={() => setLockDialogClose(false)}
+                    mode={modalMode}
+                  />
+                )}
+                {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && activeRequest && (
+                  <ConclusionPhase request={activeRequest} onClose={() => setIsModalOpen(false)} />
+                )}
+                {modalPhase === PURCHASE_PHASES.ARQUIVADO && activeRequest && (
+                  <RequestView request={activeRequest} onClose={() => setIsModalOpen(false)} />
+                )}
+              </Suspense>
             </div>
           </DialogContent>
         </Dialog>
 
         {/* Independent Modals for phases that handle their own dialogs */}
+        <Suspense fallback={null}>
         {modalPhase === PURCHASE_PHASES.SOLICITACAO && activeRequest && (
           <RequestPhase
             request={activeRequest}
@@ -907,6 +913,7 @@ export default function KanbanBoard({
             onOpenChange={(open) => setIsModalOpen(open)}
           />
         )}
+        </Suspense>
       </DndContext>
     </>
   );

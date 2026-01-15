@@ -36,16 +36,21 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState, useMemo, useRef, useEffect } from "react";
-import RequestPhase from "./request-phase";
-import ApprovalA1Phase from "./approval-a1-phase";
-import ApprovalA2Phase from "./approval-a2-phase";
-import QuotationPhase from "./quotation-phase";
-import PurchaseOrderPhase from "./purchase-order-phase";
-import ReceiptPhase, { ReceiptPhaseHandle } from "./receipt-phase";
-import ConclusionPhase, { ConclusionPhaseHandle } from "./conclusion-phase";
-import RequestView from "./request-view";
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
+
+const RequestPhase = lazy(() => import("./request-phase"));
+const ApprovalA1Phase = lazy(() => import("./approval-a1-phase"));
+const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
+const QuotationPhase = lazy(() => import("./quotation-phase"));
+const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
+const ReceiptPhase = lazy(() => import("./receipt-phase"));
+const ConclusionPhase = lazy(() => import("./conclusion-phase"));
+const RequestView = lazy(() => import("./request-view"));
+
+import type { ReceiptPhaseHandle } from "./receipt-phase";
+import type { ConclusionPhaseHandle } from "./conclusion-phase";
+
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertDialog,
@@ -1038,42 +1043,50 @@ export default function PurchaseCard({
       {/* Phase-specific Edit Modals */}
       {
         phase === PURCHASE_PHASES.SOLICITACAO && (
-          <RequestPhase
-            request={request}
-            open={isEditModalOpen}
-            onOpenChange={(open) => setIsEditModalOpen(open)}
-          />
+          <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+            <RequestPhase
+              request={request}
+              open={isEditModalOpen}
+              onOpenChange={(open) => setIsEditModalOpen(open)}
+            />
+          </Suspense>
         )
       }
       {
         phase === PURCHASE_PHASES.APROVACAO_A1 && (
-          <ApprovalA1Phase
-            request={request}
-            open={isEditModalOpen}
-            onOpenChange={(open) => setIsEditModalOpen(open)}
-          />
+          <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+            <ApprovalA1Phase
+              request={request}
+              open={isEditModalOpen}
+              onOpenChange={(open) => setIsEditModalOpen(open)}
+            />
+          </Suspense>
         )
       }
       {
         phase === PURCHASE_PHASES.APROVACAO_A2 && (
-          <ApprovalA2Phase
-            request={request}
-            open={isEditModalOpen}
-            onOpenChange={(open) => {
-              setIsEditModalOpen(open);
-              if (!open) setInitialA2Action(null);
-            }}
-            initialAction={initialA2Action}
-          />
+          <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+            <ApprovalA2Phase
+              request={request}
+              open={isEditModalOpen}
+              onOpenChange={(open) => {
+                setIsEditModalOpen(open);
+                if (!open) setInitialA2Action(null);
+              }}
+              initialAction={initialA2Action}
+            />
+          </Suspense>
         )
       }
       {
         phase === PURCHASE_PHASES.COTACAO && (
-          <QuotationPhase
-            request={request}
-            open={isEditModalOpen}
-            onOpenChange={(open) => setIsEditModalOpen(open)}
-          />
+          <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+            <QuotationPhase
+              request={request}
+              open={isEditModalOpen}
+              onOpenChange={(open) => setIsEditModalOpen(open)}
+            />
+          </Suspense>
         )
       }
       {
@@ -1110,12 +1123,14 @@ export default function PurchaseCard({
                 <p id="purchase-order-phase-desc" className="sr-only">Tela de pedido de compra da solicitação</p>
               </div>
               <div className="px-6 pt-0 pb-2">
-                <PurchaseOrderPhase
-                  request={request}
-                  onClose={() => setIsEditModalOpen(false)}
-                  onPreviewOpen={() => setIsPreviewOpen(true)}
-                  onPreviewClose={() => setIsPreviewOpen(false)}
-                />
+                <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                  <PurchaseOrderPhase
+                    request={request}
+                    onClose={() => setIsEditModalOpen(false)}
+                    onPreviewOpen={() => setIsPreviewOpen(true)}
+                    onPreviewClose={() => setIsPreviewOpen(false)}
+                  />
+                </Suspense>
               </div>
             </DialogContent>
           </Dialog>
@@ -1167,14 +1182,16 @@ export default function PurchaseCard({
                 <p id="receipt-phase-desc" className="sr-only">Tela de recebimento de material da solicitação</p>
               </div>
               <div className="px-6 pt-0 pb-2">
-                <ReceiptPhase
-                  request={request}
-                  onClose={() => setIsEditModalOpen(false)}
-                  ref={receiptRef}
-                  onPreviewOpen={() => setIsPreviewOpen(true)}
-                  onPreviewClose={() => setIsPreviewOpen(false)}
-                  mode={receiptMode}
-                />
+                <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                  <ReceiptPhase
+                    request={request}
+                    onClose={() => setIsEditModalOpen(false)}
+                    ref={receiptRef}
+                    onPreviewOpen={() => setIsPreviewOpen(true)}
+                    onPreviewClose={() => setIsPreviewOpen(false)}
+                    mode={receiptMode}
+                  />
+                </Suspense>
               </div>
             </DialogContent>
           </Dialog>
@@ -1223,11 +1240,13 @@ export default function PurchaseCard({
               </div>
               <p id="conclusion-phase-desc" className="sr-only">Tela de conclusão de compra da solicitação</p>
               <div className="px-6 pt-0 pb-2">
-                <ConclusionPhase
-                  request={request}
-                  onClose={() => setIsEditModalOpen(false)}
-                  ref={conclusionRef}
-                />
+                <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                  <ConclusionPhase
+                    request={request}
+                    onClose={() => setIsEditModalOpen(false)}
+                    ref={conclusionRef}
+                  />
+                </Suspense>
               </div>
             </DialogContent>
           </Dialog>
@@ -1245,10 +1264,12 @@ export default function PurchaseCard({
               className="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-y-auto w-full mx-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <RequestView
-                request={request}
-                onClose={() => setIsEditModalOpen(false)}
-              />
+              <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                <RequestView
+                  request={request}
+                  onClose={() => setIsEditModalOpen(false)}
+                />
+              </Suspense>
             </div>
           </div>
         )
