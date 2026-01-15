@@ -13,8 +13,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function KanbanPage() {
+  const { user } = useAuth();
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [selectedUrgency, setSelectedUrgency] = useState<string>("all");
   const [selectedRequester, setSelectedRequester] = useState<string>("all");
@@ -50,6 +52,14 @@ export default function KanbanPage() {
     staleTime: 1000 * 60 * 5, // 5 minutes - suppliers don't change frequently
     refetchOnWindowFocus: false,
   });
+
+  const isRestricted = user && !(
+    user.isAdmin ||
+    user.isBuyer ||
+    user.isReceiver ||
+    user.isApproverA1 ||
+    user.isApproverA2
+  );
 
   // Check for URL parameters to auto-open specific requests and apply search filters
   useEffect(() => {
@@ -414,6 +424,17 @@ export default function KanbanPage() {
             >
               Limpar filtro
             </button>
+          </div>
+        )}
+
+        {/* Restricted View Indicator */}
+        {isRestricted && (
+          <div className="mt-3 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-md flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-yellow-700 font-medium">
+                🔒 Visualizando apenas solicitações criadas por você ou do seu departamento.
+              </span>
+            </div>
           </div>
         )}
       </div>

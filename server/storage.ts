@@ -67,7 +67,7 @@ import {
   type InsertReceiptItem,
 } from "../shared/schema";
 import { db, pool } from "./db";
-import { eq, and, desc, like, sql, gt, count, or, isNull } from "drizzle-orm";
+import { eq, and, desc, like, sql, gt, count, or, isNull, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import bcrypt from "bcryptjs";
 
@@ -173,7 +173,7 @@ export interface IStorage {
   deleteDeliveryLocation(id: number): Promise<void>;
 
   // Purchase Request operations
-  getAllPurchaseRequests(): Promise<PurchaseRequest[]>;
+  getAllPurchaseRequests(companyId?: number, user?: User): Promise<PurchaseRequest[]>;
   getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined>;
   getPurchaseRequestByNumber(requestNumber: string): Promise<PurchaseRequest | undefined>;
   createPurchaseRequest(
@@ -814,7 +814,37 @@ export class DatabaseStorage implements IStorage {
       .where(eq(deliveryLocations.id, id));
   }
 
-  async getAllPurchaseRequests(companyId?: number): Promise<PurchaseRequest[]> {
+  async getAllPurchaseRequests(companyId?: number, user?: User): Promise<PurchaseRequest[]> {
+    const conditions = [];
+
+    if (companyId) {
+      conditions.push(eq(purchaseRequests.companyId, companyId));
+    }
+
+    if (user) {
+      const hasFullAccess =
+        user.isAdmin ||
+        user.isBuyer ||
+        user.isReceiver ||
+        user.isApproverA1 ||
+        user.isApproverA2;
+
+      if (!hasFullAccess) {
+        // Restricted access: Creator OR Department
+        const userDeptIds = await this.getUserDepartments(user.id);
+        
+        const restrictions = [eq(purchaseRequests.requesterId, user.id)];
+        
+        if (userDeptIds.length > 0) {
+             restrictions.push(inArray(departments.id, userDeptIds));
+        }
+        
+        conditions.push(or(...restrictions));
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     const requests = await db
       .select({
         id: purchaseRequests.id,
@@ -915,7 +945,7 @@ export class DatabaseStorage implements IStorage {
         purchaseOrders,
         eq(purchaseOrders.purchaseRequestId, purchaseRequests.id),
       )
-      .where(companyId ? eq(purchaseRequests.companyId, companyId) : undefined)
+      .where(whereClause)
       .orderBy(desc(purchaseRequests.createdAt));
 
     return requests as any[];
