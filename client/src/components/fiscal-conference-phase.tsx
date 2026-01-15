@@ -1,8 +1,6 @@
 import React, { useState, forwardRef, useImperativeHandle, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -10,21 +8,19 @@ import PdfViewer from "./pdf-viewer";
 import { Eye, X, FileText, Check, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { formatCurrency } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import PendencyModal from "./pendency-modal";
 import { ReceiptProvider, useReceipt } from "./receipt/ReceiptContext";
-import { ReceiptBasicInfo } from "./receipt/ReceiptBasicInfo";
 import { ReceiptManualEntry } from "./receipt/ReceiptManualEntry";
 import { ReceiptXmlImport } from "./receipt/ReceiptXmlImport";
 import { ReceiptFinancial } from "./receipt/ReceiptFinancial";
-import { ReceiptSupplierInfo } from "./receipt/ReceiptSupplierInfo";
 import { useReceiptActions } from "./receipt/useReceiptActions";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Truck } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import PurchaseRequestHeaderCard from "./purchase-request-header-card";
+import { PHASE_LABELS } from "@/lib/types";
+import { formatCurrency } from "@/lib/currency";
 
 export interface FiscalConferencePhaseProps {
   request: any;
@@ -53,7 +49,9 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     approvalHistory,
     itemsWithPrices,
     freightValue,
-    mode
+    mode,
+    purchaseOrder,
+    selectedSupplier
   } = useReceipt();
 
   const { reportIssueMutation } = useReceiptActions();
@@ -199,183 +197,34 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
   return (
     <div className={cn("flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 transition-all duration-300", className)}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Conferência Fiscal</h2>
-          <p className="text-muted-foreground">
-            Valide as notas fiscais e informações financeiras.
-          </p>
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Conferência Fiscal</h2>
+            <p className="text-muted-foreground">
+              Valide as notas fiscais e informações financeiras.
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={cn(
-              "flex gap-1",
-              activeRequest?.fiscalReceiptAt
-                ? "bg-green-50 text-green-700 border-green-200"
-                : "bg-amber-50 text-amber-700 border-amber-200"
-            )}
-          >
-            {activeRequest?.fiscalReceiptAt ? (
-              <Check className="w-3 h-3" />
-            ) : (
-              <Clock className="w-3 h-3" />
-            )}
-            {activeRequest?.fiscalReceiptAt ? "Conf. Fiscal Concluída" : "Conf. Fiscal Pendente"}
-          </Badge>
-        </div>
+
+        <PurchaseRequestHeaderCard
+          context="fiscal"
+          requestNumber={request?.requestNumber}
+          orderNumber={purchaseOrder?.orderNumber}
+          requesterName={request?.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "N/A"}
+          supplierName={selectedSupplier?.name || request?.chosenSupplier?.name || "Não definido"}
+          orderDate={formatDate(purchaseOrder?.createdAt || request?.createdAt || null)}
+          totalValue={typeof request?.totalValue === "number" ? formatCurrency(request.totalValue) : "R$ 0,00"}
+          status={(request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
+        />
       </div>
 
       <Tabs value={activeTab === 'items' ? 'fiscal' : activeTab} onValueChange={(v: any) => setActiveTab(v)} className="space-y-4">
         <TabsList className="grid w-full grid-cols-4 lg:w-[600px] transition-all duration-300">
-          <TabsTrigger value="fiscal">Info. Básicas</TabsTrigger>
           <TabsTrigger value="xml">XML / Importação</TabsTrigger>
           <TabsTrigger value="manual_nf">Inclusão Manual</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="fiscal">
-          <div className="space-y-6">
-            <ReceiptBasicInfo />
-            <ReceiptSupplierInfo />
-            
-            {/* Purchase Order Observations */}
-            {(request.purchaseOrderObservations || request.purchaseObservations) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                    Observações do Pedido de Compra
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <p className="text-sm text-blue-800 dark:text-blue-300 whitespace-pre-wrap">
-                      {request.purchaseOrderObservations || request.purchaseObservations || 'Nenhuma observação encontrada'}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Items Summary Table for Basic Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Itens da Compra</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {itemsWithPrices && itemsWithPrices.length > 0 ? (
-                  <div className="rounded-md border border-border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead className="text-center">Qtd</TableHead>
-                          <TableHead className="text-center">Unidade</TableHead>
-                          <TableHead className="text-right">Valor Unit.</TableHead>
-                          <TableHead className="text-right">Valor Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {itemsWithPrices.map((item: any, index: number) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">
-                              {item.description}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {Number(item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {item.unit}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(item.unitPrice)}
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {formatCurrency(item.totalPrice)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    <div className="border-t border-border bg-slate-50 dark:bg-slate-900 p-4 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                          Subtotal ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
-                        </span>
-                        <span className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                          {formatCurrency(
-                            itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-blue-600 dark:text-blue-300 flex items-center gap-1">
-                          <Truck className="h-4 w-4" />
-                          Frete
-                        </span>
-                        <span className="text-base font-semibold text-blue-600 dark:text-blue-300">
-                          {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
-                        </span>
-                      </div>
-                      <div className="border-t pt-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-base font-bold text-slate-800 dark:text-slate-200">
-                            Total Geral
-                          </span>
-                          <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                            {formatCurrency(
-                              (itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0) || 0) + (freightValue || 0)
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                    <p>Nenhum item encontrado</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Approval History */}
-            {Array.isArray(approvalHistory) && approvalHistory.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Histórico de Aprovações</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {(approvalHistory as any[]).map((history: any, index: number) => (
-                      <div key={index} className="flex items-start space-x-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-border">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium">
-                              {history.approver?.firstName} {history.approver?.lastName}
-                            </p>
-                            <Badge variant={history.approved ? "default" : "destructive"}>
-                              {history.approved ? "Aprovado" : "Rejeitado"}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                            {formatDate(history.createdAt)}
-                          </p>
-                          {history.rejectionReason && (
-                            <p className="text-sm text-red-600 dark:text-red-400 mt-2">
-                              <strong>Motivo:</strong> {history.rejectionReason}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
 
         <TabsContent value="manual_nf">
           <ReceiptManualEntry />

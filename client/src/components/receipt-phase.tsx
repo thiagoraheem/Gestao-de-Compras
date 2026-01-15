@@ -25,7 +25,7 @@ import { formatCurrency } from "@/lib/currency";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import PendencyModal from "./pendency-modal";
-import { getInitialTabForMode } from "./receipt-phase-logic";
+import PurchaseRequestHeaderCard from "./purchase-request-header-card";
 
 interface ReceiptPhaseProps {
   request: any;
@@ -415,76 +415,34 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         </div>
       </div>
 
-      <Card className="border border-slate-200 dark:border-slate-800 bg-slate-950/40 dark:bg-slate-900/60">
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 text-sm pt-4">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Solicitação / Pedido
-            </p>
-            <p className="font-medium text-slate-100">
-              {request?.requestNumber}
-              {purchaseOrder?.orderNumber && (
-                <> / {purchaseOrder.orderNumber}</>
-              )}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Solicitante
-            </p>
-            <p className="text-slate-100 truncate">
-              {request?.requester
-                ? `${request.requester.firstName} ${request.requester.lastName}`
-                : "N/A"}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Fornecedor
-            </p>
-            <p className="text-slate-100 truncate">
-              {selectedSupplier?.name ||
-                request?.chosenSupplier?.name ||
-                "Não definido"}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Data do Pedido
-            </p>
-            <p className="text-slate-100">
-              {formatDate(
-                purchaseOrder?.createdAt || request?.createdAt || null
-              )}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Valor Total
-            </p>
-            <p className="font-medium text-slate-100">
-              {typeof request?.totalValue === "number"
-                ? formatCurrency(request.totalValue)
-                : "R$ 0,00"}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Status Atual
-            </p>
-            <p className="text-slate-100">
-              {(request?.phase &&
-                (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) ||
-                "—"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <PurchaseRequestHeaderCard
+        context="physical"
+        requestNumber={request?.requestNumber}
+        orderNumber={purchaseOrder?.orderNumber}
+        requesterName={
+          request?.requester
+            ? `${request.requester.firstName} ${request.requester.lastName}`
+            : "N/A"
+        }
+        supplierName={
+          selectedSupplier?.name ||
+          request?.chosenSupplier?.name ||
+          "Não definido"
+        }
+        orderDate={formatDate(
+          purchaseOrder?.createdAt || request?.createdAt || null
+        )}
+        totalValue={
+          typeof request?.totalValue === "number"
+            ? formatCurrency(request.totalValue)
+            : "R$ 0,00"
+        }
+        status={
+          (request?.phase &&
+            (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) ||
+          "—"
+        }
+      />
 
       <div className="space-y-6">
         {(user?.isReceiver || user?.isAdmin) && (
