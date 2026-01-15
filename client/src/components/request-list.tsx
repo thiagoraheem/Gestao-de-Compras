@@ -402,7 +402,7 @@ export default function RequestList({
                     <PurchaseOrderPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />
                   )}
                   {activeRequest.currentPhase === PURCHASE_PHASES.RECEBIMENTO && (
-                    <ReceiptPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" hideTabsByDefault />
+                    <ReceiptPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" hideTabsByDefault compactHeader />
                   )}
                   {activeRequest.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
                     <ConclusionPhase request={activeRequest} onClose={() => setActiveRequest(null)} className="p-6" />

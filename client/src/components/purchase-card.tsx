@@ -1190,6 +1190,7 @@ export default function PurchaseCard({
                     onPreviewOpen={() => setIsPreviewOpen(true)}
                     onPreviewClose={() => setIsPreviewOpen(false)}
                     mode={receiptMode}
+                    compactHeader
                   />
                 </Suspense>
               </div>

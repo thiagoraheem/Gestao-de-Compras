@@ -111,7 +111,7 @@ export default function RequestManagementPage() {
       case PURCHASE_PHASES.PEDIDO_COMPRA:
         return <PurchaseOrderPhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.RECEBIMENTO:
-        return <ReceiptPhase request={selectedRequest} onClose={handleCloseModal} />;
+        return <ReceiptPhase request={selectedRequest} onClose={handleCloseModal} compactHeader />;
       case PURCHASE_PHASES.CONCLUSAO_COMPRA:
         return <ConclusionPhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.ARQUIVADO:

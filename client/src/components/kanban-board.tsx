@@ -861,6 +861,7 @@ export default function KanbanBoard({
                     onPreviewClose={() => setLockDialogClose(false)}
                     mode={modalMode || 'physical'}
                     hideTabsByDefault
+                    compactHeader
                   />
                 )}
                 {modalPhase === PURCHASE_PHASES.CONF_FISCAL && activeRequest && (
