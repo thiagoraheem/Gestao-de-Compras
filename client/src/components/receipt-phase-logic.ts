@@ -78,69 +78,17 @@ export function getInitialTabForMode(mode: ReceiptMode | undefined): 'financeiro
 export function canConfirmReceipt(params: {
   mode?: ReceiptMode;
   receivedQuantities: Record<number, number>;
-  typeCategoryError: string;
-  isReceiverOnly: boolean;
-  nfConfirmed: boolean;
-  isFiscalValid: boolean;
-  allocations: any[];
-  allocationsSumOk: boolean;
-  receiptType: ReceiptType;
-  activeTab: string;
-  manualNFNumber: string;
-  manualNFSeries: string;
-  manualNFAccessKey: string;
-  manualNFIssueDate: string;
-  manualNFEmitterCNPJ: string;
-  manualTotal: string;
-  manualItems: any[];
-  manualItemsMissingLinks: number[];
   itemsWithPrices: any[];
-  xmlPreview: any;
 }): boolean {
   const {
     mode,
     receivedQuantities,
-    typeCategoryError,
-    isReceiverOnly,
-    nfConfirmed,
-    isFiscalValid,
-    allocations,
-    allocationsSumOk,
-    receiptType,
-    activeTab,
-    manualNFNumber,
-    manualNFSeries,
-    manualNFAccessKey,
-    manualNFIssueDate,
-    manualNFEmitterCNPJ,
-    manualTotal,
-    manualItems,
-    manualItemsMissingLinks,
-    itemsWithPrices,
-    xmlPreview
+    itemsWithPrices
   } = params;
 
   if (mode === 'physical') {
     const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
     return hasAnyQty;
-  }
-  if (typeCategoryError) return false;
-  if (!isFiscalValid) return false;
-  if (allocations.length > 0 && !allocationsSumOk) return false;
-  if (receiptType === "avulso" || activeTab === "manual_nf") {
-    const header = validateManualHeader({
-      number: manualNFNumber,
-      series: manualNFSeries,
-      accessKey: manualNFAccessKey,
-      issueDate: manualNFIssueDate,
-      emitterCnpj: manualNFEmitterCNPJ,
-      total: manualTotal,
-      kind: receiptType === "servico" ? "servico" : (receiptType === "avulso" ? "avulso" : "produto"),
-    });
-    if (!header.isValid) return false;
-    const itemsOk = validateManualItems(receiptType === "servico" ? "servico" : "produto", manualItems as any).isValid;
-    if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) return false;
-    return itemsOk;
   }
   const invalids = Array.isArray(itemsWithPrices) ? itemsWithPrices.filter((it: any) => {
     const current = Number(receivedQuantities[it.id] || 0);
@@ -148,8 +96,6 @@ export function canConfirmReceipt(params: {
     return current > max;
   }) : [];
   if (invalids.length > 0) return false;
-  const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
-  if (!hasAnyQty && !xmlPreview) return false;
   return true;
 }
 
