@@ -307,6 +307,33 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     });
   };
 
+  const itemsWithPrices = Array.isArray(items) ? items.map(item => {
+    // Os itens do pedido de compra já vêm com os preços corretos da API
+    const unitPrice = Number(item.unitPrice) || 0;
+    const quantity = Number(item.quantity) || 0;
+    const totalPrice = Number(item.totalPrice) || 0;
+
+    return {
+      ...item,
+      unitPrice: unitPrice,
+      originalUnitPrice: unitPrice,
+      itemDiscount: 0, // Para pedidos de compra, não há desconto adicional
+      totalPrice: totalPrice,
+      originalTotalPrice: totalPrice,
+      brand: item.brand || '',
+      deliveryTime: item.deliveryTime || '',
+      isAvailable: true
+    };
+  }) : [];
+
+  const canConfirm = useMemo(() => {
+    return canConfirmReceipt({
+      mode,
+      receivedQuantities,
+      itemsWithPrices
+    });
+  }, [mode, receivedQuantities, itemsWithPrices]);
+
   if (showPreviewModal) {
     return (
       <div className={cn("flex flex-col h-full", className)}>
@@ -355,34 +382,6 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       </div>
     );
   }
-
-  // Para a fase de recebimento, usar diretamente os dados dos itens que já vêm com preços do pedido de compra
-  const itemsWithPrices = Array.isArray(items) ? items.map(item => {
-    // Os itens do pedido de compra já vêm com os preços corretos da API
-    const unitPrice = Number(item.unitPrice) || 0;
-    const quantity = Number(item.quantity) || 0;
-    const totalPrice = Number(item.totalPrice) || 0;
-
-    return {
-      ...item,
-      unitPrice: unitPrice,
-      originalUnitPrice: unitPrice,
-      itemDiscount: 0, // Para pedidos de compra, não há desconto adicional
-      totalPrice: totalPrice,
-      originalTotalPrice: totalPrice,
-      brand: item.brand || '',
-      deliveryTime: item.deliveryTime || '',
-      isAvailable: true
-    };
-  }) : [];
-
-  const canConfirm = useMemo(() => {
-    return canConfirmReceipt({
-      mode,
-      receivedQuantities,
-      itemsWithPrices
-    });
-  }, [mode, receivedQuantities, itemsWithPrices]);
 
   return (
     <div className={cn("space-y-6", className)}>
