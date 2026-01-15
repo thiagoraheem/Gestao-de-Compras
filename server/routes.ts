@@ -2493,32 +2493,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/purchase-requests/:id/confirm-fiscal",
     isAuthenticated,
-    isReceiver, // or isBuyer?
+    isReceiver,
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
         const userId = req.session.userId!;
-        // Fiscal data payload is handled by specific receipt endpoints or passed here?
-        // Usually fiscal data is complex (XML, etc).
-        // If the user uses the "Confirmar Fiscal" button, they might have already saved the NF via "validar" endpoint?
-        // Or we pass the data here. 
-        // For now, we assume data is saved via existing receipt endpoints (like /api/recebimentos/...) 
-        // and this endpoint marks the step as done.
-        
         const request = await storage.getPurchaseRequestById(id);
         if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
+
+        let integrationResult: any = null;
+        try {
+          const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+          if (purchaseOrder) {
+            const receiptsList = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+            const targetReceipt = receiptsList.find((rec: any) =>
+              ["validado_compras", "nf_confirmada", "recebimento_confirmado", "recebimento_parcial", "erro_integracao"].includes(rec.status),
+            );
+            if (targetReceipt) {
+              const resp = await fetch(
+                `${req.protocol}://${req.get("host")}/api/recebimentos/${targetReceipt.id}/enviar-locador`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: (req.headers.authorization as string) || "",
+                  },
+                },
+              );
+              try {
+                integrationResult = await resp.json();
+              } catch {
+                integrationResult = null;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Error sending receipt to Locador during fiscal confirmation:", e);
+        }
 
         await db.update(purchaseRequests)
           .set({
             fiscalReceiptAt: new Date(),
             fiscalReceiptById: userId,
-            currentPhase: "conclusao_compra", // Move to Conclusion automatically
-            receivedDate: new Date(), // Set received date as completion date
-            receivedById: userId
+            currentPhase: "conclusao_compra",
+            receivedDate: new Date(),
+            receivedById: userId,
           })
           .where(eq(purchaseRequests.id, id));
 
-        res.json({ success: true, fiscalDone: true, nextPhase: "conclusao_compra" });
+        res.json({
+          success: true,
+          fiscalDone: true,
+          nextPhase: "conclusao_compra",
+          integration: integrationResult,
+        });
       } catch (error) {
         console.error("Error confirming fiscal receipt:", error);
         res.status(500).json({ message: "Erro ao confirmar recebimento fiscal" });
