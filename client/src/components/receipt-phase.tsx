@@ -25,7 +25,7 @@ import { formatCurrency } from "@/lib/currency";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import PendencyModal from "./pendency-modal";
-import { canConfirmReceipt, getInitialTabForMode } from "./receipt-phase-logic";
+import { getInitialTabForMode } from "./receipt-phase-logic";
 
 interface ReceiptPhaseProps {
   request: any;
@@ -326,13 +326,36 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     };
   }) : [];
 
-  const canConfirm = useMemo(() => {
-    return canConfirmReceipt({
-      mode,
-      receivedQuantities,
-      itemsWithPrices
+  const isFullyMatched = useMemo(() => {
+    if (!Array.isArray(itemsWithPrices) || itemsWithPrices.length === 0) return false;
+    return itemsWithPrices.every((it: any) => {
+      const received = Number(receivedQuantities[it.id] || 0);
+      const prev = Number(it.quantityReceived || 0);
+      const expected = Number(it.quantity || 0);
+      // Check if total received equals expected quantity (exact match)
+      // Floating point comparison with small epsilon might be safer, but for now exact check
+      return Math.abs((prev + received) - expected) < 0.0001;
     });
-  }, [mode, receivedQuantities, itemsWithPrices]);
+  }, [itemsWithPrices, receivedQuantities]);
+
+  const canReportIssue = useMemo(() => {
+    if (!Array.isArray(itemsWithPrices) || itemsWithPrices.length === 0) return false;
+    
+    // Check if all items have a defined quantity in the current input
+    // The user must fill in all quantities to report an issue
+    const allItemsHaveInput = itemsWithPrices.every((it: any) => {
+      return receivedQuantities[it.id] !== undefined && receivedQuantities[it.id] !== null;
+    });
+
+    // Check if there is any divergence (not fully matched)
+    // If it is fully matched, they should use "Confirm", not "Report Issue"
+    return allItemsHaveInput && !isFullyMatched;
+  }, [itemsWithPrices, receivedQuantities, isFullyMatched]);
+
+  const canConfirm = useMemo(() => {
+    // Only allow confirmation if everything matches exactly
+    return isFullyMatched;
+  }, [isFullyMatched]);
 
   if (showPreviewModal) {
     return (
@@ -652,7 +675,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
               <Button
                 variant="destructive"
                 onClick={() => setIsPendencyModalOpen(true)}
-                disabled={reportIssueMutation.isPending}
+                disabled={reportIssueMutation.isPending || !canReportIssue}
                 className="w-full sm:w-auto flex items-center justify-center"
               >
                 <X className="mr-2 h-4 w-4 flex-shrink-0" />

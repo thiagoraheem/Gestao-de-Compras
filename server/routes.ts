@@ -2812,13 +2812,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
-        const { reportedById, pendencyReason } = req.body;
+        const { reportedById, pendencyReason, receivedQuantities } = req.body;
 
         const request = await storage.getPurchaseRequestById(id);
         if (!request || request.currentPhase !== "recebimento") {
           return res
             .status(400)
             .json({ message: "Request must be in the receiving phase" });
+        }
+
+        // Persist received quantities if provided
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (purchaseOrder && receivedQuantities) {
+           const { db } = await import("./db");
+           const { eq } = await import("drizzle-orm");
+           const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+           
+           for (const it of poItems) {
+              const qty = Number(receivedQuantities[it.id] || 0);
+              // Update even if 0? The user said "sistema persiste no banco de dados as quantidades informadas".
+              // Usually we add to quantityReceived.
+              // If we are reporting an issue, we are likely saying "this is what I got".
+              // So we should add it to the received count.
+              if (qty > 0) {
+                 const currentQty = Number(it.quantityReceived || 0);
+                 await db.update(purchaseOrderItems)
+                   .set({ quantityReceived: String(currentQty + qty) })
+                   .where(eq(purchaseOrderItems.id, it.id));
+              }
+           }
         }
 
         const updateData = {
