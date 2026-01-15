@@ -1071,11 +1071,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequest[]> {
-    return await db
-      .select()
+    const results = await db
+      .select({
+        request: purchaseRequests,
+        supplier: suppliers,
+      })
       .from(purchaseRequests)
+      .leftJoin(suppliers, eq(purchaseRequests.chosenSupplierId, suppliers.id))
       .where(eq(purchaseRequests.currentPhase, phase))
       .orderBy(desc(purchaseRequests.createdAt));
+
+    return results.map(({ request, supplier }) => ({
+      ...request,
+      chosenSupplier: supplier,
+    })) as unknown as PurchaseRequest[];
   }
 
   async getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]> {
