@@ -26,7 +26,7 @@ import { ReceiptSearchDialog } from "./receipt-search-dialog";
 import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck, ChevronDown, ChevronRight, Trash2, Search, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
+import { URGENCY_LABELS, CATEGORY_LABELS, PHASE_LABELS } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
 // import AttachmentsViewer from "./attachments-viewer";
 // import ItemsViewer from "./items-viewer";
@@ -151,6 +151,7 @@ interface ReceiptPhaseProps {
   onPreviewClose?: () => void;
   mode?: 'view' | 'physical' | 'fiscal';
   hideTabsByDefault?: boolean;
+  compactHeader?: boolean;
 }
 
 export interface ReceiptPhaseHandle {
@@ -159,7 +160,7 @@ export interface ReceiptPhaseHandle {
 }
 
 const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<ReceiptPhaseHandle>) => {
-  const { request, onClose, className, onPreviewOpen, onPreviewClose, mode = 'view', hideTabsByDefault } = props;
+  const { request, onClose, className, onPreviewOpen, onPreviewClose, mode = 'view', hideTabsByDefault, compactHeader } = props;
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1863,6 +1864,79 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           </div>
         )}
       </div>
+
+      {compactHeader && (
+        <Card className="border border-slate-200 dark:border-slate-800 bg-slate-950/40 dark:bg-slate-900/60">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 text-sm pt-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                Solicitação / Pedido
+              </p>
+              <p className="font-medium text-slate-100">
+                {request?.requestNumber}
+                {purchaseOrder?.orderNumber && (
+                  <> / {purchaseOrder.orderNumber}</>
+                )}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                Solicitante
+              </p>
+              <p className="text-slate-100 truncate">
+                {request?.requester
+                  ? `${request.requester.firstName} ${request.requester.lastName}`
+                  : "N/A"}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                Fornecedor
+              </p>
+              <p className="text-slate-100 truncate">
+                {selectedSupplier?.name ||
+                  request?.chosenSupplier?.name ||
+                  "Não definido"}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                Data do Pedido
+              </p>
+              <p className="text-slate-100">
+                {formatDate(
+                  purchaseOrder?.createdAt || request?.createdAt || null
+                )}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                Valor Total
+              </p>
+              <p className="font-medium text-slate-100">
+                {typeof request?.totalValue === "number"
+                  ? formatCurrency(request.totalValue)
+                  : "R$ 0,00"}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                Status Atual
+              </p>
+              <p className="text-slate-100">
+                {(request?.phase &&
+                  (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) ||
+                  "—"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs value={activeTab} onValueChange={(v) => {
         const next = v as 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items';

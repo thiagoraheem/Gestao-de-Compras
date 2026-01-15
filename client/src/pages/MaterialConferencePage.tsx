@@ -59,6 +59,8 @@ export default function MaterialConferencePage() {
               onClose={() => setSelectedRequest(null)} 
               className="p-6" 
               hideTabsByDefault 
+              mode="physical"
+              compactHeader
             />
           </div>
         </div>
