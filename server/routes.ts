@@ -3393,6 +3393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "aprovacao_a2",
           "pedido_compra",
           "recebimento",
+          "conf_fiscal",
           "conclusao_compra",
           "arquivado",
         ] as const;

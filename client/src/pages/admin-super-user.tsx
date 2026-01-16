@@ -16,30 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DataAudit from "@/components/data-audit";
-
-const PHASE_OPTIONS = [
-  { value: "solicitacao", label: "Solicitação" },
-  { value: "aprovacao_a1", label: "Aprovação A1" },
-  { value: "cotacao", label: "Cotação" },
-  { value: "aprovacao_a2", label: "Aprovação A2" },
-  { value: "pedido_compra", label: "Pedido de Compra" },
-  { value: "recebimento", label: "Recebimento" },
-  { value: "conclusao_compra", label: "Conclusão" },
-  { value: "arquivado", label: "Arquivado" }
-];
-
-const CATEGORY_OPTIONS = [
-  { value: "produto", label: "Produto" },
-  { value: "servico", label: "Serviço" },
-  { value: "outros", label: "Outros" }
-];
-
-const URGENCY_OPTIONS = [
-  { value: "baixo", label: "Baixo" },
-  { value: "medio", label: "Médio" },
-  { value: "alto", label: "Alto" },
-  { value: "alta_urgencia", label: "Crítico" }
-];
+import { PHASE_OPTIONS, CATEGORY_OPTIONS, URGENCY_OPTIONS } from "./admin-super-user-constants";
 
 export default function AdminSuperUserPage() {
   const { toast } = useToast();
@@ -105,6 +82,12 @@ export default function AdminSuperUserPage() {
       return response;
     },
     onSuccess: () => {
+      // Atualiza o estado local para refletir as mudanças imediatamente na UI (ex: badge no cabeçalho)
+      setCurrentRequest((prev: any) => ({
+        ...prev,
+        ...formData
+      }));
+
       toast({
         title: "Sucesso",
         description: "Solicitação atualizada com sucesso",

@@ -1037,6 +1037,7 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
     'aprovacao_a2',
     'pedido_compra',
     'recebimento',
+    'conf_fiscal',
     'conclusao_compra',
     'arquivado'
   ]).optional(),

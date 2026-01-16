@@ -2122,6 +2122,7 @@ export class PDFService {
                 'aprovacao_a2': 'Aprovação A2',
                 'pedido_compra': 'Pedido de Compra',
                 'recebimento': 'Recebimento',
+                'conf_fiscal': 'Conf. Fiscal',
                 'conclusao_compra': 'Conclusão',
                 'arquivado': 'Arquivado'
               };

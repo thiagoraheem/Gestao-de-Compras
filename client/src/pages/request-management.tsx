@@ -16,6 +16,7 @@ import ApprovalA2Phase from "@/components/approval-a2-phase";
 import QuotationPhase from "@/components/quotation-phase";
 import PurchaseOrderPhase from "@/components/purchase-order-phase";
 import ReceiptPhase from "@/components/receipt-phase";
+import FiscalConferencePhase from "@/components/fiscal-conference-phase";
 import ConclusionPhase from "@/components/conclusion-phase";
 import { 
   FileText, 
@@ -87,6 +88,8 @@ export default function RequestManagementPage() {
         return true; // Anyone can view purchase order details
       case PURCHASE_PHASES.RECEBIMENTO:
         return true; // Anyone can view receipt details
+      case PURCHASE_PHASES.CONF_FISCAL:
+        return user?.isBuyer || false; // Only buyers can view fiscal conference details
       case PURCHASE_PHASES.CONCLUSAO_COMPRA:
         return true; // Anyone can view conclusion details
       case PURCHASE_PHASES.ARQUIVADO:
@@ -111,7 +114,9 @@ export default function RequestManagementPage() {
       case PURCHASE_PHASES.PEDIDO_COMPRA:
         return <PurchaseOrderPhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.RECEBIMENTO:
-        return <ReceiptPhase request={selectedRequest} onClose={handleCloseModal} compactHeader />;
+        return <ReceiptPhase request={selectedRequest} onClose={handleCloseModal} />;
+      case PURCHASE_PHASES.CONF_FISCAL:
+        return <FiscalConferencePhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.CONCLUSAO_COMPRA:
         return <ConclusionPhase request={selectedRequest} onClose={handleCloseModal} />;
       case PURCHASE_PHASES.ARQUIVADO:
