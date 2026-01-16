@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PdfViewer from "./pdf-viewer";
-import { Eye, X, FileText, Check, Clock } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Eye, X, FileText, Check, Clock, ArrowLeft } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import PendencyModal from "./pendency-modal";
@@ -16,11 +16,13 @@ import { ReceiptXmlImport } from "./receipt/ReceiptXmlImport";
 import { ReceiptFinancial } from "./receipt/ReceiptFinancial";
 import { useReceiptActions } from "./receipt/useReceiptActions";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import PurchaseRequestHeaderCard from "./purchase-request-header-card";
 import { PHASE_LABELS } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export interface FiscalConferencePhaseProps {
   request: any;
@@ -38,8 +40,102 @@ export interface FiscalConferencePhaseHandle {
   downloadPDF: () => void;
 }
 
-const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, FiscalConferencePhaseProps>((props, ref) => {
-  const { onPreviewOpen, onPreviewClose, className } = props;
+const FiscalDashboard = ({ request, onClose, onSelectReceipt }: any) => {
+  const { data: purchaseOrder } = useQuery<any>({
+    queryKey: [`/api/purchase-orders/by-request/${request?.id}`],
+    enabled: !!request?.id,
+  });
+
+  const { data: receipts = [] } = useQuery<any[]>({
+    queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/receipts`],
+    enabled: !!purchaseOrder?.id,
+  });
+
+  // Filter receipts that need fiscal conference or are already done
+  const pendingReceipts = receipts.filter(r => r.status === 'conf_fisica');
+  const doneReceipts = receipts.filter(r => r.status === 'conferida' || r.status === 'fiscal_conferida');
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Conferência Fiscal</h2>
+          <p className="text-muted-foreground">Selecione uma Nota Fiscal para conferência</p>
+        </div>
+        <Button variant="outline" onClick={onClose}>Fechar</Button>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>Notas Pendentes de Conferência</CardTitle></CardHeader>
+        <CardContent>
+          {pendingReceipts.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">Nenhuma nota fiscal aguardando conferência.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Número NF</TableHead>
+                  <TableHead>Série</TableHead>
+                  <TableHead>Recebido Em</TableHead>
+                  <TableHead>Recebido Por</TableHead>
+                  <TableHead>Ação</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingReceipts.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell>{r.documentNumber || 'N/A'}</TableCell>
+                    <TableCell>{r.documentSeries || '-'}</TableCell>
+                    <TableCell>{format(new Date(r.receivedAt), "dd/MM/yyyy HH:mm")}</TableCell>
+                    <TableCell>{r.receivedByName || r.receivedBy || '-'}</TableCell>
+                    <TableCell>
+                      <Button size="sm" onClick={() => onSelectReceipt(r.id)}>
+                        Conferir
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Histórico de Conferências</CardTitle></CardHeader>
+        <CardContent>
+          {doneReceipts.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">Nenhuma nota fiscal conferida.</p>
+          ) : (
+             <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Número NF</TableHead>
+                  <TableHead>Série</TableHead>
+                  <TableHead>Conferido Em</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {doneReceipts.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell>{r.documentNumber || 'N/A'}</TableCell>
+                    <TableCell>{r.documentSeries || '-'}</TableCell>
+                    <TableCell>{r.approvedAt ? format(new Date(r.approvedAt), "dd/MM/yyyy HH:mm") : '-'}</TableCell>
+                    <TableCell><Badge className="bg-green-600">Conferida</Badge></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, FiscalConferencePhaseProps & { onBack: () => void }>((props, ref) => {
+  const { onPreviewOpen, onPreviewClose, className, onBack } = props;
   const {
     activeTab, setActiveTab,
     request,
@@ -51,29 +147,32 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     freightValue,
     mode,
     purchaseOrder,
-    selectedSupplier
+    selectedSupplier,
+    nfReceiptId // This comes from context, populated by receiptId prop
   } = useReceipt();
 
   const { reportIssueMutation } = useReceiptActions();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Custom Mutation for Fiscal Confirmation (Transitions to Conclusion)
+  // Custom Mutation for Fiscal Confirmation
   const confirmFiscalMutation = useMutation({
     mutationFn: async () => {
-      // Check if fiscal receipt is already done
-      if (activeRequest?.fiscalReceiptAt) return;
+      // Use the specific receipt ID if available
+      const targetReceiptId = nfReceiptId; 
+      if (!targetReceiptId) throw new Error("Nenhuma nota fiscal selecionada");
       
       const response = await apiRequest(
-        `/api/purchase-requests/${request.id}/confirm-fiscal`,
+        `/api/receipts/${targetReceiptId}/confirm-fiscal`,
         { method: "POST" }
       );
       return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      toast({ title: "Sucesso", description: "Conferência fiscal confirmada! Movendo para Conclusão." });
-      onClose();
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/receipts`] });
+      toast({ title: "Sucesso", description: "Conferência fiscal confirmada!" });
+      onBack(); // Go back to dashboard
     },
     onError: (err: any) => {
       toast({ title: "Erro", description: err.message || "Erro ao confirmar fiscal", variant: "destructive" });
@@ -119,23 +218,6 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
       const url = `data:application/pdf;base64,${base64}`;
       setPdfPreviewUrl(url);
       setShowPreviewModal(true);
-
-      if (contentType.includes('application/pdf')) {
-        toast({
-          title: "Sucesso",
-          description: "Pré-visualização do PDF carregada com sucesso!",
-        });
-      } else if (contentType.includes('text/html')) {
-        toast({
-          title: "Aviso",
-          description: "PDF não pôde ser gerado. Exibindo documento em HTML.",
-        });
-      } else {
-        toast({
-          title: "Aviso",
-          description: "Formato de arquivo inesperado na pré-visualização.",
-        });
-      }
     } catch (error) {
       toast({
         title: "Erro",
@@ -171,9 +253,7 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
   };
 
   useImperativeHandle(ref, () => ({
-    reset: () => {
-      // Logic to reset if needed
-    },
+    reset: () => {},
     previewPDF: handlePreviewPDF,
     downloadPDF: handleDownloadPDF
   }));
@@ -187,7 +267,6 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     }
   };
 
-  // Force active tab to fiscal if current tab is items
   useEffect(() => {
     if (activeTab === 'items') {
       setActiveTab('fiscal');
@@ -205,6 +284,9 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
               Valide as notas fiscais e informações financeiras.
             </p>
           </div>
+          <Button variant="ghost" onClick={onBack}>
+             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
+          </Button>
         </div>
 
         <PurchaseRequestHeaderCard
@@ -246,10 +328,10 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
         <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
           <Button
             variant="outline"
-            onClick={onClose}
+            onClick={onBack}
             className="w-full sm:w-auto order-last sm:order-first"
           >
-            Fechar
+            Voltar
           </Button>
           <Button
             type="button"
@@ -279,9 +361,9 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
           <Button
             className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600"
             onClick={() => confirmFiscalMutation.mutate()}
-            disabled={confirmFiscalMutation.isPending || !!activeRequest?.fiscalReceiptAt}
+            disabled={confirmFiscalMutation.isPending}
           >
-            {activeRequest?.fiscalReceiptAt ? "Fiscal OK" : "Concluir Conferência Fiscal"}
+            Concluir Conferência Fiscal
           </Button>
         </div>
       </div>
@@ -310,9 +392,15 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
 });
 
 const FiscalConferencePhase = forwardRef<FiscalConferencePhaseHandle, FiscalConferencePhaseProps>((props, ref) => {
+  const [selectedReceiptId, setSelectedReceiptId] = useState<number | null>(null);
+
+  if (!selectedReceiptId) {
+    return <FiscalDashboard request={props.request} onClose={props.onClose} onSelectReceipt={setSelectedReceiptId} />;
+  }
+
   return (
-    <ReceiptProvider request={props.request} onClose={props.onClose} mode="fiscal">
-      <FiscalConferencePhaseContent {...props} ref={ref} />
+    <ReceiptProvider request={props.request} onClose={props.onClose} mode="fiscal" receiptId={selectedReceiptId}>
+      <FiscalConferencePhaseContent {...props} ref={ref} onBack={() => setSelectedReceiptId(null)} />
     </ReceiptProvider>
   );
 });

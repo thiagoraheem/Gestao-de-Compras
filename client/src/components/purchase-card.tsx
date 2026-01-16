@@ -27,6 +27,7 @@ import {
   FileText,
   Printer,
   Mail,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -68,6 +69,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { useApprovalType } from "@/hooks/useApprovalType";
 
 interface ApprovalRules {
@@ -111,6 +118,7 @@ export default function PurchaseCard({
   const receiptRef = useRef<ReceiptPhaseHandle | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [receiptMode, setReceiptMode] = useState<'view' | 'physical'>('view');
+  const [returnToReceiptDialog, setReturnToReceiptDialog] = useState<{ isOpen: boolean; requestId: number | null }>({ isOpen: false, requestId: null });
 
   
 
@@ -631,8 +639,9 @@ export default function PurchaseCard({
       phase === PURCHASE_PHASES.APROVACAO_A1 || // Allow dragging from A1 (permission check happens in kanban-board)
       phase === PURCHASE_PHASES.APROVACAO_A2 || // Allow dragging from A2 (permission check happens in kanban-board)
       phase === PURCHASE_PHASES.PEDIDO_COMPRA || // Allow dragging from purchase order phase
-      phase === PURCHASE_PHASES.RECEBIMENTO;
-  }, [canDrag, phase]); // Allow dragging from receipt phase
+      phase === PURCHASE_PHASES.RECEBIMENTO || // Allow dragging from receipt phase
+      phase === PURCHASE_PHASES.CONF_FISCAL; // Allow dragging from fiscal confirmation phase
+  }, [canDrag, phase]);
 
   const canEditInApprovalPhase =
     phase === PURCHASE_PHASES.ARQUIVADO || // Always allow viewing history in archived phase
@@ -641,15 +650,64 @@ export default function PurchaseCard({
     (phase !== PURCHASE_PHASES.APROVACAO_A1 &&
       phase !== PURCHASE_PHASES.APROVACAO_A2);
 
+  const returnToReceiptMutation = useMutation({
+    mutationFn: async (requestId: number) => {
+      await apiRequest(`/api/requests/${requestId}/return-to-receipt`, {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Solicitação retornada para Recebimento Físico.",
+      });
+      setReturnToReceiptDialog({ isOpen: false, requestId: null });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao retornar solicitação",
+        variant: "destructive",
+      });
+      setReturnToReceiptDialog({ isOpen: false, requestId: null });
+    },
+  });
+
   return (
     <>
-      <Card
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-        data-request-id={request.id}
-        onClick={handleCardClick}
-        className={cn(
+      <AlertDialog open={returnToReceiptDialog.isOpen} onOpenChange={(open) => !open && setReturnToReceiptDialog({ isOpen: false, requestId: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Retorno de Fase</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta operação irá excluir permanentemente o processo de recebimento deste pedido e removerá todas as informações de nota fiscal cadastradas. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (returnToReceiptDialog.requestId) {
+                  returnToReceiptMutation.mutate(returnToReceiptDialog.requestId);
+                }
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ContextMenu>
+        <ContextMenuTrigger>
+          <Card
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            data-request-id={request.id}
+            onClick={handleCardClick}
+            className={cn(
           "mb-2 cursor-pointer select-none rounded-lg shadow-sm border-border",
           isDragging && "opacity-50",
           sortableIsDragging && "opacity-50",
@@ -1040,6 +1098,19 @@ export default function PurchaseCard({
           </div>
         </CardContent>
       </Card >
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        {phase === PURCHASE_PHASES.CONF_FISCAL && (user?.isAdmin || user?.isReceiver || user?.isBuyer || user?.isManager) && (
+          <ContextMenuItem
+            onClick={() => setReturnToReceiptDialog({ isOpen: true, requestId: request.id })}
+            className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Retornar para Recebimento
+          </ContextMenuItem>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
       {/* Phase-specific Edit Modals */}
       {
         phase === PURCHASE_PHASES.SOLICITACAO && (

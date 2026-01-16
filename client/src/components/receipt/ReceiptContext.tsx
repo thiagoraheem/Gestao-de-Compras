@@ -11,6 +11,7 @@ interface ReceiptContextType {
   request: any;
   mode: 'view' | 'physical' | 'fiscal';
   onClose: () => void;
+  receiptId?: number;
   
   // Tab State
   activeTab: 'fiscal' | 'financeiro' | 'xml' | 'manual_nf' | 'items';
@@ -150,10 +151,11 @@ interface ReceiptProviderProps {
   request: any;
   onClose: () => void;
   mode?: 'view' | 'physical' | 'fiscal';
+  receiptId?: number; // Optional receipt ID to load specific context
   children: ReactNode;
 }
 
-export function ReceiptProvider({ request, onClose, mode = 'view', children }: ReceiptProviderProps) {
+export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, children }: ReceiptProviderProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -274,6 +276,12 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
     }) : [];
   }, [purchaseOrderItems]);
 
+  // If receiptId is provided, fetch specific receipt, otherwise fallback to old behavior
+  const { data: specificReceipt } = useQuery<any>({
+    queryKey: [`/api/receipts/${receiptId}`],
+    enabled: !!receiptId
+  });
+
   const { data: nfStatus } = useQuery<{
     nfConfirmed: boolean;
     status: string;
@@ -283,10 +291,20 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
     financialData?: any;
   }>({
     queryKey: [`/api/purchase-requests/${request?.id}/nf-status`],
-    enabled: !!request?.id,
+    enabled: !!request?.id && !receiptId, // Only if NO receiptId provided
   });
 
-  const nfConfirmed = !!nfStatus?.nfConfirmed;
+  const nfConfirmed = !!(receiptId ? specificReceipt?.status === 'conferida' : nfStatus?.nfConfirmed);
+
+  // Populate from specific receipt
+  useEffect(() => {
+    if (specificReceipt) {
+      setNfReceiptId(specificReceipt.id);
+      if (specificReceipt.documentNumber) setManualNFNumber(specificReceipt.documentNumber);
+      if (specificReceipt.documentSeries) setManualNFSeries(specificReceipt.documentSeries);
+      // Logic to parse JSON fields if any (usually observations store complex data if needed, but here mostly manual)
+    }
+  }, [specificReceipt]);
 
   const { data: costCenters = [] } = useQuery<any[]>({
     queryKey: ["/api/integracao-locador/centros-custo"],
@@ -326,24 +344,27 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
 
   // Effects
   useEffect(() => {
-    const receiptId = nfStatus?.receiptId;
-    if (!receiptId) return;
+    // If we have a specific receipt ID from props, prioritize it
+    const idToUse = receiptId || nfStatus?.receiptId;
+    
+    if (!idToUse) return;
 
     // Ensure receiptId is set even if XML parse fails (e.g. manual physical receipt)
-    setNfReceiptId(receiptId);
+    setNfReceiptId(idToUse);
 
     // Pre-fill NF data from server if available and not yet set
-    if ((nfStatus as any)?.documentNumber && !manualNFNumber) {
+    // (This block handled mostly by specificReceipt effect, but keeping for nfStatus fallback)
+    if (!receiptId && (nfStatus as any)?.documentNumber && !manualNFNumber) {
       setManualNFNumber((nfStatus as any).documentNumber);
     }
-    if ((nfStatus as any)?.documentSeries && !manualNFSeries) {
+    if (!receiptId && (nfStatus as any)?.documentSeries && !manualNFSeries) {
       setManualNFSeries((nfStatus as any).documentSeries);
     }
 
     if (xmlPreview) return;
     (async () => {
       try {
-        const res = await apiRequest(`/api/recebimentos/parse-existing/${receiptId}`, { method: "POST" });
+        const res = await apiRequest(`/api/recebimentos/parse-existing/${idToUse}`, { method: "POST" });
         const preview = (res as any)?.preview || res;
         if (preview) {
           setXmlPreview(preview);
@@ -353,7 +374,7 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
         // Silent failure: keep screen usable even if preview fetch fails
       }
     })();
-  }, [nfStatus?.receiptId, xmlPreview, (nfStatus as any)?.documentNumber, (nfStatus as any)?.documentSeries]);
+  }, [nfStatus?.receiptId, receiptId, xmlPreview, (nfStatus as any)?.documentNumber, (nfStatus as any)?.documentSeries]);
   
   // Populate from XML
   useEffect(() => {
@@ -655,7 +676,7 @@ export function ReceiptProvider({ request, onClose, mode = 'view', children }: R
   }, [request?.id]);
 
   const value: ReceiptContextType = {
-    request, mode, onClose,
+    request, mode, onClose, receiptId,
     activeTab, setActiveTab,
     receiptType, setReceiptType, typeCategoryError,
     manualNFNumber, setManualNFNumber,

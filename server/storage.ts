@@ -22,6 +22,7 @@ import {
   approvalHistory,
   approvalConfigurations,
   configurationHistory,
+  auditLogs,
   quantityAdjustmentHistory,
   type User,
   type InsertUser,
@@ -65,6 +66,9 @@ import {
   type InsertReceipt,
   type ReceiptItem,
   type InsertReceiptItem,
+  receiptNfXmls,
+  receiptInstallments,
+  receiptAllocations,
 } from "../shared/schema";
 import { db, pool } from "./db";
 import { eq, and, desc, like, sql, gt, count, or, isNull, inArray } from "drizzle-orm";
@@ -278,7 +282,8 @@ export interface IStorage {
   createReceipt(receipt: InsertReceipt): Promise<Receipt>;
   createReceiptItem(item: InsertReceiptItem): Promise<ReceiptItem>;
   getReceiptsByPurchaseOrderId(purchaseOrderId: number): Promise<Receipt[]>;
-
+  getReceiptById(id: number): Promise<Receipt | undefined>;
+  returnToPhysicalReceipt(purchaseRequestId: number, userId: number): Promise<void>;
 
   // Approval History operations
   getApprovalHistory(purchaseRequestId: number): Promise<any[]>;
@@ -924,7 +929,10 @@ export class DatabaseStorage implements IStorage {
         purchaseOrder: {
           id: purchaseOrders.id,
           orderNumber: purchaseOrders.orderNumber,
+          fulfillmentStatus: purchaseOrders.fulfillmentStatus,
         },
+        // Check for pending fiscal receipts
+        hasPendingFiscal: sql<boolean>`EXISTS(SELECT 1 FROM ${receipts} WHERE ${receipts.purchaseOrderId} = ${purchaseOrders.id} AND ${receipts.status} = 'conf_fisica')`,
       })
       .from(purchaseRequests)
       .leftJoin(
@@ -2070,6 +2078,94 @@ export class DatabaseStorage implements IStorage {
       .from(receipts)
       .where(eq(receipts.purchaseOrderId, purchaseOrderId))
       .orderBy(desc(receipts.createdAt));
+  }
+
+  async getReceiptById(id: number): Promise<Receipt | undefined> {
+    const [receipt] = await db
+      .select()
+      .from(receipts)
+      .where(eq(receipts.id, id));
+    return receipt;
+  }
+
+  async returnToPhysicalReceipt(purchaseRequestId: number, userId: number): Promise<void> {
+    // 1. Get Purchase Order
+    const purchaseOrder = await this.getPurchaseOrderByRequestId(purchaseRequestId);
+    if (!purchaseOrder) throw new Error("Pedido de compra não encontrado");
+
+    // 2. Get Receipts
+    const allReceipts = await this.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+    
+    // 3. Identify receipts to delete
+    // If any receipt is confirmed (conferida or fiscal_conferida), we only delete unconfirmed ones.
+    // If no receipts are confirmed, we delete all.
+    const confirmedReceipts = allReceipts.filter(r => 
+      r.status === 'conferida' || r.status === 'fiscal_conferida'
+    );
+    
+    const isPartialReturn = confirmedReceipts.length > 0;
+    
+    const receiptsToDelete = isPartialReturn
+      ? allReceipts.filter(r => r.status !== 'conferida' && r.status !== 'fiscal_conferida')
+      : allReceipts;
+
+    // 4. Delete receipts and related data
+    for (const receipt of receiptsToDelete) {
+      await db.delete(receiptAllocations).where(eq(receiptAllocations.receiptId, receipt.id));
+      await db.delete(receiptInstallments).where(eq(receiptInstallments.receiptId, receipt.id));
+      await db.delete(receiptNfXmls).where(eq(receiptNfXmls.receiptId, receipt.id));
+      await db.delete(receiptItems).where(eq(receiptItems.receiptId, receipt.id));
+      await db.delete(receipts).where(eq(receipts.id, receipt.id));
+    }
+
+    // 5. Update Purchase Request
+    const updateData: Partial<PurchaseRequest> = {
+      currentPhase: 'recebimento',
+      // We clear fiscal receipt flags because we are leaving fiscal phase
+      fiscalReceiptAt: null, 
+      fiscalReceiptById: null,
+    };
+
+    if (!isPartialReturn) {
+      // If full return, we also clear physical receipt flags
+      updateData.physicalReceiptAt = null;
+      updateData.physicalReceiptById = null;
+      updateData.receivedDate = null;
+      updateData.receivedById = null;
+    }
+    
+    await db.update(purchaseRequests)
+      .set(updateData)
+      .where(eq(purchaseRequests.id, purchaseRequestId));
+
+    // Update Purchase Order fulfillment status
+    await db.update(purchaseOrders)
+      .set({
+        fulfillmentStatus: isPartialReturn ? 'partial' : 'pending'
+      })
+      .where(eq(purchaseOrders.id, purchaseOrder.id));
+
+    // 6. Log the operation in audit_logs
+    try {
+      await db.insert(auditLogs).values({
+        purchaseRequestId,
+        performedBy: userId,
+        actionType: "phase_rollback_receipt",
+        actionDescription: `Retorno da Conf. Fiscal para Recebimento Físico. Tipo: ${isPartialReturn ? "Parcial" : "Total"}. ${receiptsToDelete.length} recibos excluídos.`,
+        performedAt: new Date(),
+        beforeData: {
+          phase: "conf_fiscal",
+          isPartialReturn,
+        } as any,
+        afterData: {
+          phase: "recebimento",
+          receiptsDeleted: receiptsToDelete.map((r) => r.id),
+        } as any,
+        affectedTables: ["receipts", "purchase_requests", "purchase_orders"],
+      });
+    } catch (error) {
+      console.error("Error logging phase rollback in audit_logs:", error);
+    }
   }
 
   // Approval History operations

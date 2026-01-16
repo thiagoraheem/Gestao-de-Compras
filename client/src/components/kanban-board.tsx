@@ -23,6 +23,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -70,6 +80,7 @@ export default function KanbanBoard({
   const [modalPhase, setModalPhase] = useState<PurchasePhase | null>(null);
   const [lockDialogClose, setLockDialogClose] = useState(false);
   const [modalMode, setModalMode] = useState<'view' | 'physical' | 'fiscal' | undefined>(undefined);
+  const [returnToReceiptDialog, setReturnToReceiptDialog] = useState<{ isOpen: boolean; requestId: number | null }>({ isOpen: false, requestId: null });
 
   const phaseIcons: Record<PurchasePhase, any> = {
     [PURCHASE_PHASES.SOLICITACAO]: FileText,
@@ -505,6 +516,17 @@ export default function KanbanBoard({
         return;
       }
 
+      // Check if returning from "Conf. Fiscal" to "Recebimento Físico"
+      if (request.currentPhase === PURCHASE_PHASES.CONF_FISCAL && newPhase === PURCHASE_PHASES.RECEBIMENTO) {
+        setReturnToReceiptDialog({
+          isOpen: true,
+          requestId: requestId
+        });
+        setActiveId(null);
+        setActiveRequest(null);
+        return;
+      }
+
       // Check if moving from "Recebimento Físico" to "Conf. Fiscal" - validate physical receipt completion
       if (request.currentPhase === PURCHASE_PHASES.RECEBIMENTO && newPhase === PURCHASE_PHASES.CONF_FISCAL) {
         if (!request.physicalReceiptAt) {
@@ -648,8 +670,24 @@ export default function KanbanBoard({
   // Group filtered requests by phase and sort each phase
   const requestsByPhase = filteredRequests.reduce((acc: any, request: any) => {
     const phase = request.currentPhase || PURCHASE_PHASES.SOLICITACAO;
-    if (!acc[phase]) acc[phase] = [];
-    acc[phase].push(request);
+    
+    // Helper to add to a phase bucket
+    const addToPhase = (p: string) => {
+        if (!acc[p]) acc[p] = [];
+        if (!acc[p].find((r: any) => r.id === request.id)) {
+            acc[p].push(request);
+        }
+    };
+
+    // Add to current phase
+    addToPhase(phase);
+
+    // Parallel Flow: Show in Fiscal Conference if has pending receipts
+    // This allows the card to appear in both "Recebimento" and "Conf. Fiscal" simultaneously
+    if (request.hasPendingFiscal && phase !== PURCHASE_PHASES.CONF_FISCAL && phase !== PURCHASE_PHASES.CONCLUSAO_COMPRA && phase !== PURCHASE_PHASES.ARQUIVADO) {
+        addToPhase(PURCHASE_PHASES.CONF_FISCAL);
+    }
+
     return acc;
   }, {});
 
@@ -662,6 +700,30 @@ export default function KanbanBoard({
     setSelectedRequestForRFQ(request);
     setShowRFQCreation(true);
   };
+
+  const returnToReceiptMutation = useMutation({
+    mutationFn: async (requestId: number) => {
+      await apiRequest(`/api/requests/${requestId}/return-to-receipt`, {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Solicitação retornada para Recebimento Físico.",
+      });
+      setReturnToReceiptDialog({ isOpen: false, requestId: null });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao retornar solicitação",
+        variant: "destructive",
+      });
+      setReturnToReceiptDialog({ isOpen: false, requestId: null });
+    },
+  });
 
   // Render loading skeleton if data is loading
   if (isLoading) {
@@ -691,6 +753,28 @@ export default function KanbanBoard({
 
   return (
     <>
+      <AlertDialog open={returnToReceiptDialog.isOpen} onOpenChange={(open) => !open && setReturnToReceiptDialog({ isOpen: false, requestId: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Retorno de Fase</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta operação irá excluir permanentemente o processo de recebimento deste pedido e removerá todas as informações de nota fiscal cadastradas. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (returnToReceiptDialog.requestId) {
+                  returnToReceiptMutation.mutate(returnToReceiptDialog.requestId);
+                }
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <DndContext
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}

@@ -1,4 +1,6 @@
 import type { Express, Request, Response } from "express";
+import { isAuthenticated } from "./middleware";
+import { storage } from "../storage";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -581,5 +583,25 @@ export function registerReceiptsRoutes(app: Express) {
         VALUES (${0}, ${'recebimento_envio_locador'}, ${'Envio do recebimento ao Locador'}, ${null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
     } catch {}
     res.json({ status_integracao: updated.status === "integrado_locador" ? "integrada" : "erro", id_recebimento_locador: updated.locadorReceiptId, mensagem: updated.integrationMessage });
+  });
+
+  // Endpoint to return purchase request from fiscal conference to physical receipt
+  app.post("/api/requests/:id/return-to-receipt", isAuthenticated, async (req, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
+
+      // Permissions check: Admin, Manager, Buyer or Receiver
+      if (!user?.isAdmin && !user?.isReceiver && !user?.isBuyer && !user?.isManager) {
+        return res.status(403).json({ message: "Sem permissão para retornar solicitação" });
+      }
+
+      await storage.returnToPhysicalReceipt(requestId, userId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error returning request to receipt:", error);
+      res.status(500).json({ message: error.message || "Erro ao retornar solicitação" });
+    }
   });
 }

@@ -2252,6 +2252,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   }
 
+  // Get receipts for a purchase order
+  app.get("/api/purchase-orders/:id/receipts", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const receipts = await storage.getReceiptsByPurchaseOrderId(id);
+
+      // Enrich with receiver user name when available
+      const enriched = await Promise.all(
+        receipts.map(async (rec: any) => {
+          if (!rec.receivedBy) {
+            return rec;
+          }
+
+          try {
+            const user = await storage.getUser(rec.receivedBy);
+            if (!user) {
+              return rec;
+            }
+
+            const fullName =
+              (user.firstName && user.lastName
+                ? `${user.firstName} ${user.lastName}`.trim()
+                : user.firstName) ||
+              user.username ||
+              String(rec.receivedBy);
+
+            return {
+              ...rec,
+              receivedByName: fullName,
+            };
+          } catch {
+            return rec;
+          }
+        }),
+      );
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching receipts:", error);
+      res.status(500).json({ message: "Error fetching receipts" });
+    }
+  });
+
+  app.get("/api/receipts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const receipt = await storage.getReceiptById(id);
+      if (!receipt) return res.status(404).json({ message: "Receipt not found" });
+      res.json(receipt);
+    } catch (error) {
+       res.status(500).json({ message: "Error" });
+    }
+  });
+
+  app.post("/api/receipts/:id/confirm-fiscal", isAuthenticated, async (req, res) => {
+    try {
+      const receiptId = parseInt(req.params.id);
+      const userId = req.session.userId!;
+      
+      const receipt = await storage.getReceiptById(receiptId);
+      if (!receipt) return res.status(404).json({ message: "Receipt not found" });
+
+      // Update Receipt Status
+      await db.update(receipts)
+        .set({
+          status: "conferida",
+          approvedBy: userId,
+          approvedAt: new Date(),
+        })
+        .where(eq(receipts.id, receiptId));
+
+      // Check overall status
+      if (!receipt.purchaseOrderId) {
+        return res.json({ success: true, message: "Receipt has no purchase order" });
+      }
+      const purchaseOrder = await storage.getPurchaseOrderById(receipt.purchaseOrderId);
+      if (purchaseOrder) {
+          const allReceipts = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+          // Assuming 'conferida' is the final state for a receipt
+          const allConferred = allReceipts.every(r => r.status === 'conferida' || r.status === 'fiscal_conferida'); 
+          
+          // Check fulfillment
+          const isFulfilled = purchaseOrder.fulfillmentStatus === 'fulfilled';
+
+          if (allConferred && isFulfilled) {
+             // Find Request
+             const request = await storage.getPurchaseOrderByRequestId(purchaseOrder.purchaseRequestId); // wait, storage.getPurchaseRequestById logic
+             // Actually purchaseOrder has purchaseRequestId
+             // Wait, getPurchaseOrderById returns PO. PO has purchaseRequestId?
+             // Checking schema...
+             // purchaseOrders has purchaseRequestId.
+             
+             if (purchaseOrder.purchaseRequestId) {
+                 await db.update(purchaseRequests)
+                   .set({
+                     fiscalReceiptAt: new Date(),
+                     fiscalReceiptById: userId,
+                     currentPhase: "conclusao_compra"
+                   })
+                   .where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
+             }
+          }
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error confirming fiscal receipt:", error);
+      res.status(500).json({ message: "Error" });
+    }
+  });
+
   app.post(
     "/api/purchase-requests/:id/confirm-nf",
     isAuthenticated,
@@ -2429,35 +2540,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const request = await storage.getPurchaseRequestById(id);
         if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
 
-        // Update Physical Receipt Status and Move to Conf. Fiscal
-        await db.update(purchaseRequests)
-          .set({
-            physicalReceiptAt: new Date(),
-            physicalReceiptById: userId,
-            currentPhase: "conf_fiscal", // Move to next phase automatically
-          })
-          .where(eq(purchaseRequests.id, id));
-
-        // Save Quantities and Create Receipt Record
+        // Logic moved: Calculate totals FIRST
         const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
-        if (purchaseOrder) {
-           if (receivedQuantities) {
+        if (!purchaseOrder) return res.status(404).json({ message: "Pedido não encontrado" });
+
+        // Update Items and Calculate Fulfillment
+        let allFulfilled = true;
+        let anyReceived = false;
+
+        if (receivedQuantities) {
              const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
              for (const it of poItems) {
-                const qty = Number(receivedQuantities[it.id] || 0);
-                if (qty > 0) {
-                   const currentQty = Number(it.quantityReceived || 0);
-                   
+                const qtyReceivedNow = Number(receivedQuantities[it.id] || 0);
+                const currentQty = Number(it.quantityReceived || 0);
+                const orderedQty = Number(it.quantity || 0);
+                
+                if (qtyReceivedNow > 0) {
                    await db.update(purchaseOrderItems)
-                     .set({ quantityReceived: String(currentQty + qty) })
+                     .set({ quantityReceived: String(currentQty + qtyReceivedNow) })
                      .where(eq(purchaseOrderItems.id, it.id));
                 }
+                
+                // Check status AFTER update (approximation, real check should be fresh query but this is safe enough for logic)
+                const totalReceived = currentQty + qtyReceivedNow;
+                // Allow small epsilon for floating point
+                if (orderedQty - totalReceived > 0.001) allFulfilled = false;
+                if (totalReceived > 0) anyReceived = true;
              }
-           }
+        }
 
-           // Create Receipt Record if NF data is provided
-           if (manualNFNumber) {
-             // Generate Receipt Number
+        // Update PO Fulfillment Status
+        const fulfillmentStatus = allFulfilled ? 'fulfilled' : (anyReceived ? 'partial' : 'pending');
+        await db.update(purchaseOrders)
+            .set({ fulfillmentStatus })
+            .where(eq(purchaseOrders.id, purchaseOrder.id));
+
+        // Create Receipt Record
+        if (manualNFNumber) {
              const now = new Date();
              const y = now.getFullYear();
              const m = String(now.getMonth() + 1).padStart(2, "0");
@@ -2468,7 +2587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
              await db.insert(receipts).values({
                receiptNumber: receiptNum,
                purchaseOrderId: purchaseOrder.id,
-               status: "conf_fisica",
+               status: "conf_fisica", // Ready for Fiscal Conference
                receiptType: "produto",
                documentNumber: manualNFNumber,
                documentSeries: manualNFSeries,
@@ -2478,10 +2597,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
                createdAt: new Date(),
                observations: observations
              });
-           }
         }
 
-        res.json({ success: true, physicalDone: true, nextPhase: "conf_fiscal" });
+        // Update Request Phase ONLY if fully fulfilled
+        const updateData: any = {};
+        if (allFulfilled) {
+            updateData.physicalReceiptAt = new Date();
+            updateData.physicalReceiptById = userId;
+            updateData.currentPhase = "conf_fiscal"; 
+        }
+
+        if (Object.keys(updateData).length > 0) {
+            await db.update(purchaseRequests)
+                .set(updateData)
+                .where(eq(purchaseRequests.id, id));
+        }
+
+        res.json({ 
+            success: true, 
+            physicalDone: allFulfilled, 
+            nextPhase: allFulfilled ? "conf_fiscal" : "recebimento",
+            fulfillmentStatus
+        });
       } catch (error) {
         console.error("Error confirming physical receipt:", error);
         res.status(500).json({ message: "Erro ao confirmar recebimento físico" });
