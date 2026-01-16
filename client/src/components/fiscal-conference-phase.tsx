@@ -170,7 +170,7 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/receipts`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
       toast({ title: "Sucesso", description: "Conferência fiscal confirmada!" });
       onBack(); // Go back to dashboard
     },
@@ -296,7 +296,7 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
           requesterName={request?.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "N/A"}
           supplierName={selectedSupplier?.name || request?.chosenSupplier?.name || "Não definido"}
           orderDate={formatDate(purchaseOrder?.createdAt || request?.createdAt || null)}
-          totalValue={typeof request?.totalValue === "number" ? formatCurrency(request.totalValue) : "R$ 0,00"}
+          totalValue={formatCurrency(purchaseOrder?.totalValue ?? request?.totalValue ?? 0)}
           status={(request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
         />
       </div>

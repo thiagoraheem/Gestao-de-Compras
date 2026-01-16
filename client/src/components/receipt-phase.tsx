@@ -336,7 +336,8 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           requesterName={request?.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "N/A"}
           supplierName={selectedSupplier?.name || "Não definido"}
           orderDate={formatDate(purchaseOrder?.createdAt || request?.createdAt || null)}
-          totalValue={typeof request?.totalValue === "number" ? formatCurrency(request.totalValue) : "R$ 0,00"}
+          totalValue={formatCurrency(purchaseOrder?.totalValue ?? request?.totalValue ?? 0)}
+          //totalValue={typeof request?.totalValue === "number" ? formatCurrency(request.totalValue) : "R$ 0,00"}
           status={(request?.phase && (PHASE_LABELS as any)[request.phase]) || "—"}
         />
 
