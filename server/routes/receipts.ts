@@ -13,7 +13,12 @@ import {
   receiptItems,
   receiptInstallments,
   suppliers,
+  purchaseOrders,
+  purchaseRequests,
+  receiptAllocations,
+  companies,
 } from "../../shared/schema";
+import { purchaseReceiveService, PurchaseReceiveRequest } from "../integracao_locador/services/purchase-receive-service";
 import { parseNFeXml } from "../services/nfe-parser";
 import { parseNFSeXml } from "../services/nfse-parser";
 import { z } from "zod";
@@ -477,112 +482,130 @@ export function registerReceiptsRoutes(app: Express) {
       return res.status(400).json({ message: "Recebimento precisa estar validado ou com erro de integração para ser enviado" });
     }
 
-    const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
-    const installments = await db.select().from(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
-    const [xmlRow] = await db.select().from(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
-
-    // Logic to differentiate payload for ERP (First vs Subsequent receipt)
-    let isFirstReceipt = true;
-    if (rec.purchaseOrderId) {
-      const existingReceipts = await db.select()
-        .from(receipts)
-        .where(eq(receipts.purchaseOrderId, rec.purchaseOrderId))
-        .orderBy(asc(receipts.createdAt));
-      
-      if (existingReceipts.length > 0 && existingReceipts[0].id !== rec.id) {
-        isFirstReceipt = false;
-      }
-    }
-
-    const dto: any = {
-      tipo_documento: rec.receiptType,
-      identificacao: {
-        id_recebimento_compras: String(rec.id),
-        numero_documento: rec.documentNumber || "",
-        serie_documento: rec.documentSeries || "",
-        chave_nfe: rec.documentKey || "",
-        data_emissao: rec.documentIssueDate ? new Date(rec.documentIssueDate).toISOString() : null,
-        data_entrada: rec.documentEntryDate ? new Date(rec.documentEntryDate).toISOString() : null,
-      },
-      fornecedor: {
-        cnpj: null,
-        id_fornecedor_locador: rec.locadorSupplierId || null,
-      },
-      total: {
-        valor_total: Number(rec.totalAmount || 0),
-        valor_produtos: null,
-        valor_descontos: null,
-        valor_frete: null,
-        valor_ipi: null,
-      },
-      centro_custo: {
-        codigo: null,
-        id_locador: null,
-      },
-      plano_contas: {
-        codigo: null,
-        id_locador: null,
-      },
-      itens: items.map((it: any) => ({
-        numero_item: it.lineNumber || null,
-        descricao: it.description || null,
-        quantidade: it.quantity ? Number(it.quantity) : null,
-        unidade: it.unit || null,
-        valor_unitario: it.unitPrice ? Number(it.unitPrice) : null,
-        valor_total: it.totalPrice ? Number(it.totalPrice) : null,
-        codigo_produto_locador: it.locadorProductCode || null,
-        id_produto_locador: it.locadorProductId || null,
-        ncm: it.ncm || null,
-        cfop: it.cfop || null,
-      })),
-      xml_nfe: xmlRow?.xmlContent || null,
-    };
-
-    // Only include payment conditions (installments) if it's the first receipt
-    if (isFirstReceipt) {
-      dto.parcelas = installments.map((p: any) => ({
-        numero: p.installmentNumber,
-        data_vencimento: p.dueDate ? new Date(p.dueDate).toISOString().slice(0, 10) : null,
-        valor: p.amount ? Number(p.amount) : null,
-      }));
-    } else {
-      // For subsequent receipts, send stock-only info (implied by lack of parcelas/payment info)
-      // and keep reference to original if possible (already have id_recebimento_compras)
-      // The requirement "Manter referência ao recebimento original" might be satisfied by the PO number linkage on ERP side
-      // or we could add a field if the API supported it.
-      // For now, we follow "Excluir condições de pagamento".
-    }
-
-    let respJson: any;
-    let integStatus = "erro_integracao";
-    let integMessage = "Erro de integração";
-    let locadorId: string | null = null;
     try {
-      const resp = await fetch(`${req.protocol}://${req.get("host")}/api/v1/recebimentos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: req.headers.authorization || "" },
-        body: JSON.stringify(dto),
+      const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
+      const installments = await db.select().from(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
+      const allocations = await db.select().from(receiptAllocations).where(eq(receiptAllocations.receiptId, id));
+
+      let purchaseOrder: any = undefined;
+      if (rec.purchaseOrderId) {
+        [purchaseOrder] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
+      }
+
+      let purchaseRequest: any = undefined;
+      if (purchaseOrder?.purchaseRequestId) {
+        [purchaseRequest] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
+      }
+
+      let companyErpId: number | undefined = undefined;
+      if (purchaseRequest?.companyId) {
+        const [company] = await db.select().from(companies).where(eq(companies.id, purchaseRequest.companyId));
+        if (company && company.idCompanyERP != null) {
+          companyErpId = Number(company.idCompanyERP);
+        }
+      }
+
+      let obsData: any = null;
+      try {
+        obsData = rec.observations ? JSON.parse(String(rec.observations)) : null;
+      } catch {
+        obsData = null;
+      }
+
+      const paymentMethodCode = obsData?.financial?.paymentMethodCode;
+      const invoiceDueDate = obsData?.financial?.invoiceDueDate;
+
+      const fornecedorId = rec.locadorSupplierId ? Number(rec.locadorSupplierId) : undefined;
+
+      const payload: PurchaseReceiveRequest = {
+        pedido_id: purchaseOrder?.id || 0,
+        numero_pedido: purchaseOrder?.orderNumber || "",
+        numero_solicitacao: purchaseRequest?.requestNumber || "",
+        solicitacao_id: purchaseRequest?.id || 0,
+        data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : undefined,
+        justificativa: purchaseRequest?.justification || "",
+        fornecedor: {
+          fornecedor_id: Number.isFinite(fornecedorId as any) ? (fornecedorId as number) : undefined,
+          cnpj: undefined,
+          nome: undefined,
+        },
+        nota_fiscal: {
+          numero: rec.documentNumber || "",
+          serie: rec.documentSeries || "",
+          chave_nfe: rec.documentKey || "",
+          data_emissao: rec.documentIssueDate ? new Date(rec.documentIssueDate).toISOString() : undefined,
+          valor_total: Number(rec.totalAmount || 0),
+        },
+        condicoes_pagamento: {
+          empresa_id: companyErpId,
+          forma_pagamento: paymentMethodCode ? Number(paymentMethodCode) : undefined,
+          data_vencimento: invoiceDueDate
+            ? new Date(invoiceDueDate).toISOString()
+            : installments[0]?.dueDate
+            ? new Date(installments[0].dueDate as any).toISOString()
+            : undefined,
+          parcelas: installments.length || 1,
+          rateio: allocations.map((a) => ({
+            centro_custo_id: a.costCenterId ? Number(a.costCenterId) : undefined,
+            plano_conta_id: a.chartOfAccountsId ? Number(a.chartOfAccountsId) : undefined,
+            valor: Number(a.amount || 0),
+            percentual: a.percentage ? Number(a.percentage) : undefined,
+          })),
+          parcelas_detalhes: installments.map((dup, index) => {
+            const numeroParcelaRaw = dup.installmentNumber;
+            const numeroParcela = numeroParcelaRaw ? Number(numeroParcelaRaw) : index + 1;
+            return {
+              data_vencimento: dup.dueDate ? new Date(dup.dueDate as any).toISOString() : undefined,
+              valor: Number(dup.amount || 0),
+              forma_pagamento: paymentMethodCode ? Number(paymentMethodCode) : undefined,
+              numero_parcela: Number.isFinite(numeroParcela) ? numeroParcela : index + 1,
+            };
+          }),
+        },
+        itens: items.map((it) => ({
+          codigo_produto: it.locadorProductCode || undefined,
+          descricao: it.description || "",
+          unidade: it.unit || "UN",
+          quantidade: Number(it.quantity || 0),
+          preco_unitario: Number(it.unitPrice || 0),
+          ncm: it.ncm || undefined,
+          cest: undefined,
+        })),
+      };
+
+      await purchaseReceiveService.submit(payload);
+
+      const [updated] = await db.update(receipts)
+        .set({ status: "integrado_locador", integrationMessage: "Integrado com sucesso" })
+        .where(eq(receipts.id, id))
+        .returning();
+
+      try {
+        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+          VALUES (${purchaseRequest?.id || 0}, ${'recebimento_envio_locador'}, ${'Envio do recebimento ao Locador'}, ${null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+      } catch {}
+
+      res.json({ 
+        status_integracao: "integrada", 
+        id_recebimento_locador: null, // New endpoint doesn't return ID
+        mensagem: "Integrado com sucesso" 
       });
-      respJson = await resp.json();
-      if (resp.ok && respJson?.status_integracao === "integrada") {
-        integStatus = "integrado_locador";
-        integMessage = respJson?.mensagem || "Integrado";
-        locadorId = respJson?.id_recebimento_locador || null;
-      } else {
-        integStatus = "erro_integracao";
-        integMessage = respJson?.mensagem || `Erro ${resp.status}`;
-      }
-    } catch (e: any) {
-      integStatus = "erro_integracao";
-      integMessage = e?.message || "Erro de integração";
-    }
 
-    const [updated] = await db.update(receipts).set({ status: integStatus, integrationMessage: integMessage, locadorReceiptId: locadorId }).where(eq(receipts.id, id)).returning();
-    try {
-      await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-        VALUES (${0}, ${'recebimento_envio_locador'}, ${'Envio do recebimento ao Locador'}, ${null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
-    } catch {}
-    res.json({ status_integracao: updated.status === "integrado_locador" ? "integrada" : "erro", id_recebimento_locador: updated.locadorReceiptId, mensagem: updated.integrationMessage });
+    } catch (error: any) {
+      console.error("Erro na integração com Locador:", error);
+      const integMessage = error.message || "Erro de integração";
+      
+      const [updated] = await db.update(receipts)
+        .set({ status: "erro_integracao", integrationMessage: integMessage })
+        .where(eq(receipts.id, id))
+        .returning();
+
+      res.json({ 
+        status_integracao: "erro", 
+        id_recebimento_locador: null, 
+        mensagem: integMessage 
+      });
+    }
   });
 
   // Endpoint to return purchase request from fiscal conference to physical receipt
