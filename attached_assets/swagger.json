@@ -10,7 +10,9 @@
         "tags": [
           "Auth"
         ],
+        "summary": "Realiza a autenticação do usuário e retorna um Bearer JWT token.",
         "requestBody": {
+          "description": "Dados de login.",
           "content": {
             "application/json": {
               "schema": {
@@ -31,7 +33,64 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDTO"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDTO"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -41,6 +100,7 @@
         "tags": [
           "Auth"
         ],
+        "summary": "Endpoint protegido para testar a autenticação",
         "responses": {
           "200": {
             "description": "OK"
@@ -53,7 +113,9 @@
         "tags": [
           "Boleto"
         ],
+        "summary": "Registra boletos por uma lista de IDs.",
         "requestBody": {
+          "description": "Lista de IDs dos boletos a serem registrados.",
           "content": {
             "application/json": {
               "schema": {
@@ -96,10 +158,12 @@
         "tags": [
           "Boleto"
         ],
+        "summary": "Registra boletos associados a um usuário.",
         "parameters": [
           {
             "name": "usuarioId",
             "in": "path",
+            "description": "ID do usuário.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -119,6 +183,7 @@
         "tags": [
           "Boleto"
         ],
+        "summary": "Registra todos os boletos.",
         "responses": {
           "200": {
             "description": "OK"
@@ -131,6 +196,7 @@
         "tags": [
           "ChartOfAccounts"
         ],
+        "summary": "Obter todos os planos de contas",
         "responses": {
           "200": {
             "description": "OK",
@@ -156,6 +222,55 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ChartOfAccounts"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Clientes/Combo": {
+      "get": {
+        "tags": [
+          "Clientes"
+        ],
+        "summary": "Obtém lista de clientes para combobox",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Termo de busca (nome ou fantasia)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
                   }
                 }
               }
@@ -2175,6 +2290,7 @@
         "tags": [
           "ComissaoParametros"
         ],
+        "summary": "Obtém todos os parâmetros de comissão",
         "responses": {
           "200": {
             "description": "OK",
@@ -2211,7 +2327,9 @@
         "tags": [
           "ComissaoParametros"
         ],
+        "summary": "Cria um novo parâmetro de comissão",
         "requestBody": {
+          "description": "Dados do parâmetro",
           "content": {
             "application/json": {
               "schema": {
@@ -2259,10 +2377,12 @@
         "tags": [
           "ComissaoParametros"
         ],
+        "summary": "Obtém um parâmetro de comissão pelo ID",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "ID do parâmetro",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2297,10 +2417,12 @@
         "tags": [
           "ComissaoParametros"
         ],
+        "summary": "Atualiza um parâmetro de comissão existente",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "ID do parâmetro",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2309,6 +2431,7 @@
           }
         ],
         "requestBody": {
+          "description": "Dados atualizados",
           "content": {
             "application/json": {
               "schema": {
@@ -2337,10 +2460,12 @@
         "tags": [
           "ComissaoParametros"
         ],
+        "summary": "Remove um parâmetro de comissão",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "ID do parâmetro",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2360,6 +2485,7 @@
         "tags": [
           "CostCenter"
         ],
+        "summary": "Obter todos os centros de custo",
         "responses": {
           "200": {
             "description": "OK",
@@ -2398,6 +2524,7 @@
         "tags": [
           "Empresa"
         ],
+        "summary": "Obter todas as empresa",
         "responses": {
           "200": {
             "description": "OK",
@@ -2431,12 +2558,92 @@
         }
       }
     },
+    "/api/Endereco/Bairros": {
+      "get": {
+        "tags": [
+          "Endereco"
+        ],
+        "summary": "Obtém lista de bairros",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Endereco/TiposTarifa": {
+      "get": {
+        "tags": [
+          "Endereco"
+        ],
+        "summary": "Obtém tipos de tarifa",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Estoque/congelar": {
       "patch": {
         "tags": [
           "Estoque"
         ],
+        "summary": "Congela ou descongela o estoque.\r\nSe congelar for true, o estoque será congelado, caso contrário, será descongelado.",
         "requestBody": {
+          "description": "",
           "content": {
             "application/json": {
               "schema": {
@@ -2479,7 +2686,9 @@
         "tags": [
           "Estoque"
         ],
+        "summary": "Atualiza o estoque de um produto.\r\n/// O método recebe um objeto AtualizarEstoqueRequest contendo o código do produto, a quantidade, o local do estoque e o código do inventário.",
         "requestBody": {
+          "description": "",
           "content": {
             "application/json": {
               "schema": {
@@ -2510,7 +2719,9 @@
         "tags": [
           "Estoque"
         ],
+        "summary": "Atualiza o estoque de uma lista de produtos.\r\nO método recebe uma lista de objetos AtualizarEstoqueRequest, cada um contendo o código do produto, a quantidade, o local do estoque e o código do inventário.",
         "requestBody": {
+          "description": "",
           "content": {
             "application/json": {
               "schema": {
@@ -2590,6 +2801,7 @@
         "tags": [
           "Financeiro"
         ],
+        "summary": "Obter resumo do calendário financeiro",
         "parameters": [
           {
             "name": "datInicio",
@@ -2628,6 +2840,7 @@
         "tags": [
           "Financeiro"
         ],
+        "summary": "Obter lançamentos do período",
         "parameters": [
           {
             "name": "datInicio",
@@ -2666,6 +2879,7 @@
         "tags": [
           "FormaPagamento"
         ],
+        "summary": "Obter todas as formas de pagamento",
         "responses": {
           "200": {
             "description": "OK",
@@ -2704,6 +2918,7 @@
         "tags": [
           "Fornecedor"
         ],
+        "summary": "Obter todos os Fornecedor",
         "parameters": [
           {
             "name": "search",
@@ -2760,6 +2975,7 @@
         "tags": [
           "Fornecedor"
         ],
+        "summary": "Obter todos os Fornecedor",
         "parameters": [
           {
             "name": "search",
@@ -2810,6 +3026,7 @@
         "tags": [
           "Fornecedor"
         ],
+        "summary": "Obter todos os Fornecedor",
         "parameters": [
           {
             "name": "id",
@@ -2845,6 +3062,612 @@
         }
       }
     },
+    "/api/Nfse/emitirteste": {
+      "post": {
+        "tags": [
+          "Nfse"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Nfse/emitir": {
+      "post": {
+        "tags": [
+          "Nfse"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NfseEmitirRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NfseEmitirRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/NfseEmitirRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Nfse/atualizarInfos": {
+      "post": {
+        "tags": [
+          "Nfse"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseConsultaResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseConsultaResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseConsultaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Nfse/{codigoFatura}": {
+      "get": {
+        "tags": [
+          "Nfse"
+        ],
+        "parameters": [
+          {
+            "name": "codigoFatura",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "idEmpresa",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseConsultaResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseConsultaResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseConsultaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Nfse/{codFatura}/cancelar": {
+      "post": {
+        "tags": [
+          "Nfse"
+        ],
+        "parameters": [
+          {
+            "name": "codFatura",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NfseCancelarRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NfseCancelarRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/NfseCancelarRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEmitirResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Nfse/{chaveAcesso}/eventos": {
+      "post": {
+        "tags": [
+          "Nfse"
+        ],
+        "parameters": [
+          {
+            "name": "chaveAcesso",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NfseEventoRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NfseEventoRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/NfseEventoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEventoResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEventoResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEventoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEventoResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEventoResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NfseEventoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Nfse/{chaveAcesso}/danfe": {
+      "get": {
+        "tags": [
+          "Nfse"
+        ],
+        "parameters": [
+          {
+            "name": "chaveAcesso",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Obra/PorCliente/{idCliente}": {
+      "get": {
+        "tags": [
+          "Obra"
+        ],
+        "summary": "Obtém lista de obras de um cliente",
+        "parameters": [
+          {
+            "name": "idCliente",
+            "in": "path",
+            "description": "ID do Cliente",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Orcamento": {
       "get": {
         "tags": [
@@ -2852,7 +3675,33 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrcamentoDTO"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrcamentoDTO"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrcamentoDTO"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -2864,24 +3713,41 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/tbl_Orcamento"
+                "$ref": "#/components/schemas/CreateOrcamentoDTO"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/tbl_Orcamento"
+                "$ref": "#/components/schemas/CreateOrcamentoDTO"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/tbl_Orcamento"
+                "$ref": "#/components/schemas/CreateOrcamentoDTO"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrcamentoDTO"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrcamentoDTO"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrcamentoDTO"
+                }
+              }
+            }
           }
         }
       },
@@ -2938,7 +3804,24 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrcamentoDTO"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrcamentoDTO"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrcamentoDTO"
+                }
+              }
+            }
           }
         }
       },
@@ -2961,17 +3844,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/tbl_Orcamento"
+                "$ref": "#/components/schemas/CreateOrcamentoDTO"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/tbl_Orcamento"
+                "$ref": "#/components/schemas/CreateOrcamentoDTO"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/tbl_Orcamento"
+                "$ref": "#/components/schemas/CreateOrcamentoDTO"
               }
             }
           }
@@ -3009,6 +3892,7 @@
         "tags": [
           "Produtos"
         ],
+        "summary": "Obter todos os produtos",
         "parameters": [
           {
             "name": "search",
@@ -3080,6 +3964,7 @@
         "tags": [
           "Produtos"
         ],
+        "summary": "Obter todos os produtos",
         "parameters": [
           {
             "name": "search",
@@ -3151,7 +4036,42 @@
         "tags": [
           "Purchase"
         ],
+        "summary": "Receber e processar pedido de compra com nota fiscal",
         "requestBody": {
+          "description": "Dados do pedido de compra",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseReceiveRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseReceiveRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseReceiveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Purchase/PurchaseReceiveStock": {
+      "post": {
+        "tags": [
+          "Purchase"
+        ],
+        "summary": "Receber e processar pedido de compra com nota fiscal",
+        "requestBody": {
+          "description": "Dados do pedido de compra",
           "content": {
             "application/json": {
               "schema": {
@@ -3182,6 +4102,7 @@
         "tags": [
           "Receita"
         ],
+        "summary": "Consulta dados cadastrais de um CNPJ.",
         "parameters": [
           {
             "name": "cnpj",
@@ -3243,10 +4164,12 @@
         "tags": [
           "ReciboCobranca"
         ],
+        "summary": "Obter histórico de comentários de uma fatura",
         "parameters": [
           {
             "name": "idFatura",
             "in": "query",
+            "description": "ID da fatura",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -3291,10 +4214,12 @@
         "tags": [
           "ReciboCobranca"
         ],
+        "summary": "Obter um registro de comentário de uma fatura",
         "parameters": [
           {
             "name": "name",
             "in": "query",
+            "description": "Nome do registro (não utilizado)",
             "schema": {
               "type": "string"
             }
@@ -3302,6 +4227,7 @@
           {
             "name": "id",
             "in": "query",
+            "description": "ID do recibo",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -3337,6 +4263,7 @@
         "tags": [
           "ReciboCobranca"
         ],
+        "summary": "Cria um novo recibo de cobrança",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -3606,6 +4533,7 @@
         "tags": [
           "Util"
         ],
+        "summary": "Ping method para verificar se a API está online",
         "responses": {
           "200": {
             "description": "OK"
@@ -3618,6 +4546,7 @@
         "tags": [
           "Util"
         ],
+        "summary": "Método para retornar a data do último backup baseado na data da geração do arquivo",
         "responses": {
           "200": {
             "description": "OK"
@@ -3630,6 +4559,7 @@
         "tags": [
           "Util"
         ],
+        "summary": "Método para retornar a lista de arquivos de backup disponíveis",
         "responses": {
           "200": {
             "description": "OK"
@@ -3642,10 +4572,12 @@
         "tags": [
           "Util"
         ],
+        "summary": "Verifica se há uma versão mais recente do sistema disponível",
         "parameters": [
           {
             "name": "versaoCliente",
             "in": "query",
+            "description": "Versão atual do cliente",
             "schema": {
               "type": "string"
             }
@@ -3658,12 +4590,53 @@
         }
       }
     },
+    "/api/Vendedor": {
+      "get": {
+        "tags": [
+          "Vendedor"
+        ],
+        "summary": "Obtém lista de vendedores",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComboDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Zapsign": {
       "post": {
         "tags": [
           "Zapsign"
         ],
+        "summary": "Método para buscar dados de assinatura digital de PDF",
         "requestBody": {
+          "description": "Dados do retorno",
           "content": {
             "application/json": {
               "schema": {
@@ -3692,7 +4665,9 @@
         "tags": [
           "Zapsign"
         ],
+        "summary": "Método para buscar dados de assinatura digital de PDF",
         "requestBody": {
+          "description": "Dados do retorno",
           "content": {
             "application/json": {
               "schema": {
@@ -3880,6 +4855,20 @@
         },
         "additionalProperties": false
       },
+      "ComboDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ComboPadrao": {
         "type": "object",
         "properties": {
@@ -4053,6 +5042,118 @@
         },
         "additionalProperties": false
       },
+      "CreateOrcamentoDTO": {
+        "required": [
+          "codFormaPgto",
+          "datOrcamento",
+          "flgStatus",
+          "idProposalOrigin",
+          "itens"
+        ],
+        "type": "object",
+        "properties": {
+          "codCliente": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "desCliente": {
+            "type": "string",
+            "nullable": true
+          },
+          "codObra": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "desObra": {
+            "type": "string",
+            "nullable": true
+          },
+          "datOrcamento": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "prazoEntrega": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "validade": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codFormaPgto": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codVendedor": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "observacao": {
+            "type": "string",
+            "nullable": true
+          },
+          "itens": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrcamentoItemDTO"
+            }
+          },
+          "freteEntrega": {
+            "type": "boolean"
+          },
+          "freteRetirada": {
+            "type": "boolean"
+          },
+          "vlrFrete": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vlrSeguro": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vlrDesconto": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "percDesconto": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "idProposalOrigin": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idBairro": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "idTipoTarifa": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "flgStatus": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "codEmpresa": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "Email": {
         "type": "object",
         "properties": {
@@ -4179,6 +5280,28 @@
         ],
         "type": "integer",
         "format": "int32"
+      },
+      "InstallmentDetail": {
+        "type": "object",
+        "properties": {
+          "data_vencimento": {
+            "type": "string",
+            "nullable": true
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "forma_pagamento": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "numero_parcela": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
       },
       "Installments": {
         "type": "object",
@@ -4354,6 +5477,57 @@
         },
         "additionalProperties": false
       },
+      "LoginResponseDTO": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Bearer JWT token utilizado para autenticação nas requisições.",
+            "nullable": true
+          },
+          "expiresIn": {
+            "type": "integer",
+            "description": "Tempo, em segundos, até a expiração do token.",
+            "format": "int32"
+          },
+          "user": {
+            "$ref": "#/components/schemas/LoginUserDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoginUserDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Identificador do usuário.",
+            "format": "int32"
+          },
+          "nome": {
+            "type": "string",
+            "description": "Nome do usuário.",
+            "nullable": true
+          },
+          "login": {
+            "type": "string",
+            "description": "Login utilizado para autenticação.",
+            "nullable": true
+          },
+          "perfil": {
+            "type": "string",
+            "description": "Perfil ou papel principal do usuário.",
+            "nullable": true
+          },
+          "vendedorId": {
+            "type": "integer",
+            "description": "Identificador do vendedor associado, quando aplicável.",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "Member": {
         "type": "object",
         "properties": {
@@ -4370,9 +5544,403 @@
         },
         "additionalProperties": false
       },
+      "NfseCancelarRequest": {
+        "type": "object",
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          },
+          "idEmpresa": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "usuarioSolicitante": {
+            "type": "string",
+            "nullable": true
+          },
+          "ambiente": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "NfseConsultaResponse": {
+        "type": "object",
+        "properties": {
+          "codigoFatura": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idEmpresa": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "numeroNfse": {
+            "type": "string",
+            "nullable": true
+          },
+          "protocolo": {
+            "type": "string",
+            "nullable": true
+          },
+          "chave": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlPdf": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlConsulta": {
+            "type": "string",
+            "nullable": true
+          },
+          "dataEmissao": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "motivoErro": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "NfseEmitirRequest": {
+        "type": "object",
+        "properties": {
+          "codigoFatura": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idEmpresa": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "usuarioSolicitante": {
+            "type": "string",
+            "nullable": true
+          },
+          "ambiente": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "NfseEmitirResponse": {
+        "type": "object",
+        "properties": {
+          "codigoFatura": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idEmpresa": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "mensagem": {
+            "type": "string",
+            "nullable": true
+          },
+          "numeroNfse": {
+            "type": "string",
+            "nullable": true
+          },
+          "protocolo": {
+            "type": "string",
+            "nullable": true
+          },
+          "chave": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlPdf": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlConsulta": {
+            "type": "string",
+            "nullable": true
+          },
+          "dataEmissao": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "NfseEventoRequest": {
+        "type": "object",
+        "properties": {
+          "tipoEvento": {
+            "type": "string",
+            "nullable": true
+          },
+          "codigoEvento": {
+            "type": "string",
+            "nullable": true
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "idEmpresa": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "usuarioSolicitante": {
+            "type": "string",
+            "nullable": true
+          },
+          "ambiente": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "NfseEventoResponse": {
+        "type": "object",
+        "properties": {
+          "protocolo": {
+            "type": "string",
+            "nullable": true
+          },
+          "dataRegistro": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "mensagem": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "OrcamentoDTO": {
+        "required": [
+          "codFormaPgto",
+          "datOrcamento",
+          "flgStatus",
+          "idProposalOrigin",
+          "itens"
+        ],
+        "type": "object",
+        "properties": {
+          "codCliente": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "desCliente": {
+            "type": "string",
+            "nullable": true
+          },
+          "codObra": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "desObra": {
+            "type": "string",
+            "nullable": true
+          },
+          "datOrcamento": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "prazoEntrega": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "validade": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codFormaPgto": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codVendedor": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "observacao": {
+            "type": "string",
+            "nullable": true
+          },
+          "itens": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrcamentoItemDTO"
+            }
+          },
+          "freteEntrega": {
+            "type": "boolean"
+          },
+          "freteRetirada": {
+            "type": "boolean"
+          },
+          "vlrFrete": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vlrSeguro": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "vlrDesconto": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "percDesconto": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "idProposalOrigin": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idBairro": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "idTipoTarifa": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "flgStatus": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "codEmpresa": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "codOrcamento": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vlrTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "vlrFinal": {
+            "type": "number",
+            "format": "double"
+          },
+          "datCadastro": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "datAlteracao": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "nomUsuario": {
+            "type": "string",
+            "nullable": true
+          },
+          "discountNeedsApproval": {
+            "type": "boolean"
+          },
+          "datValidade": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "OrcamentoItemDTO": {
+        "type": "object",
+        "properties": {
+          "codOrcamentoItem": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codProduto": {
+            "type": "string",
+            "nullable": true
+          },
+          "nomeProduto": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantidade": {
+            "type": "number",
+            "format": "double"
+          },
+          "vlrUnitario": {
+            "type": "number",
+            "format": "double"
+          },
+          "vlrTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "periodo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tipoPeriodo": {
+            "type": "string",
+            "nullable": true
+          },
+          "isPromocional": {
+            "type": "boolean"
+          },
+          "vlrDesconto": {
+            "type": "number",
+            "format": "double"
+          },
+          "vlrFinal": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "PaymentConditions": {
         "type": "object",
         "properties": {
+          "empresa_id": {
+            "type": "integer",
+            "format": "int32"
+          },
           "forma_pagamento": {
             "type": "integer",
             "format": "int32"
@@ -4389,6 +5957,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AllocationDetail"
+            },
+            "nullable": true
+          },
+          "parcelas_detalhes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InstallmentDetail"
             },
             "nullable": true
           }
@@ -4561,7 +6136,19 @@
             "type": "string",
             "nullable": true
           },
+          "numero_solicitacao": {
+            "type": "string",
+            "nullable": true
+          },
+          "solicitacao_id": {
+            "type": "integer",
+            "format": "int32"
+          },
           "data_pedido": {
+            "type": "string",
+            "nullable": true
+          },
+          "justificativa": {
             "type": "string",
             "nullable": true
           },
@@ -4780,7 +6367,8 @@
         "properties": {
           "fornecedor_id": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "nullable": true
           },
           "cnpj": {
             "type": "string",
@@ -6392,6 +7980,11 @@
             "type": "integer",
             "format": "int32"
           },
+          "idFamilia": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
           "idCompany": {
             "type": "integer",
             "format": "int32"
@@ -6461,6 +8054,9 @@
           "idCostCenterNavigation": {
             "$ref": "#/components/schemas/tbl_CostCenters"
           },
+          "idFamiliaNavigation": {
+            "$ref": "#/components/schemas/tbl_Familia"
+          },
           "idIncomeCenterNavigation": {
             "$ref": "#/components/schemas/tbl_CostCenters"
           },
@@ -6497,6 +8093,10 @@
             "nullable": true
           },
           "companyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "familyName": {
             "type": "string",
             "nullable": true
           },
@@ -10165,6 +11765,20 @@
             },
             "nullable": true
           },
+          "tbl_NfseConfiguracao": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/tbl_NfseConfiguracao"
+            },
+            "nullable": true
+          },
+          "tbl_NfseEmissao": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/tbl_NfseEmissao"
+            },
+            "nullable": true
+          },
           "tbl_Orcamento": {
             "type": "array",
             "items": {
@@ -10176,6 +11790,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/tbl_Recibo"
+            },
+            "nullable": true
+          },
+          "tbl_ReciboMedicao": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/tbl_ReciboMedicao"
             },
             "nullable": true
           },
@@ -11506,6 +13127,49 @@
           "codEmpresaDestino": {
             "type": "integer",
             "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "tbl_Familia": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "desFamilia": {
+            "type": "string",
+            "nullable": true
+          },
+          "observacao": {
+            "type": "string",
+            "nullable": true
+          },
+          "idUserCreate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idUserAlter": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "dateCreate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateUpdate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "tbl_Categorias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/tbl_Categorias"
+            },
             "nullable": true
           }
         },
@@ -14861,6 +16525,221 @@
         },
         "additionalProperties": false
       },
+      "tbl_NfseConfiguracao": {
+        "type": "object",
+        "properties": {
+          "idNfseConfiguracao": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codEmpresa": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ambiente": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlEmissao": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlConsulta": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlCancelamento": {
+            "type": "string",
+            "nullable": true
+          },
+          "codigoServico": {
+            "type": "string",
+            "nullable": true
+          },
+          "itemListaServico": {
+            "type": "string",
+            "nullable": true
+          },
+          "codigoTributacaoMunicipio": {
+            "type": "string",
+            "nullable": true
+          },
+          "cnae": {
+            "type": "string",
+            "nullable": true
+          },
+          "regimeEspecialTributacao": {
+            "type": "string",
+            "nullable": true
+          },
+          "aliquotaIss": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "issRetido": {
+            "type": "boolean"
+          },
+          "optanteSimplesNacional": {
+            "type": "boolean"
+          },
+          "incentivadorCultural": {
+            "type": "boolean"
+          },
+          "serieRps": {
+            "type": "string",
+            "nullable": true
+          },
+          "codigoMunicipio": {
+            "type": "string",
+            "nullable": true
+          },
+          "municipioIncidencia": {
+            "type": "string",
+            "nullable": true
+          },
+          "descricaoServicoPadrao": {
+            "type": "string",
+            "nullable": true
+          },
+          "versaoAplicativo": {
+            "type": "string",
+            "nullable": true
+          },
+          "timeout": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "tentativas": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "idUserCreate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idUserAlter": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "dateCreate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateUpdate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "codEmpresaNavigation": {
+            "$ref": "#/components/schemas/tbl_Empresa"
+          },
+          "desEmpresa": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "tbl_NfseEmissao": {
+        "type": "object",
+        "properties": {
+          "idNfseEmissao": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codEmpresa": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codFatura": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestPayload": {
+            "type": "string",
+            "nullable": true
+          },
+          "responsePayload": {
+            "type": "string",
+            "nullable": true
+          },
+          "numeroNfse": {
+            "type": "string",
+            "nullable": true
+          },
+          "identificador": {
+            "type": "string",
+            "nullable": true
+          },
+          "protocolo": {
+            "type": "string",
+            "nullable": true
+          },
+          "chave": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlPdf": {
+            "type": "string",
+            "nullable": true
+          },
+          "urlConsulta": {
+            "type": "string",
+            "nullable": true
+          },
+          "dataEmissao": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "motivoErro": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "ambiente": {
+            "type": "string",
+            "nullable": true
+          },
+          "usuarioSolicitante": {
+            "type": "string",
+            "nullable": true
+          },
+          "idUserCreate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idUserAlter": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "dateCreate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateUpdate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "codEmpresaNavigation": {
+            "$ref": "#/components/schemas/tbl_Empresa"
+          }
+        },
+        "additionalProperties": false
+      },
       "tbl_NotaFiscal": {
         "type": "object",
         "properties": {
@@ -16448,6 +18327,13 @@
           "tbl_ProdutosVeiculos": {
             "$ref": "#/components/schemas/tbl_ProdutosVeiculos"
           },
+          "tbl_ReciboItens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/tbl_ReciboItens"
+            },
+            "nullable": true
+          },
           "tbl_Saidas": {
             "type": "array",
             "items": {
@@ -17212,6 +19098,9 @@
             "type": "string",
             "nullable": true
           },
+          "codProdutoNavigation": {
+            "$ref": "#/components/schemas/tbl_Produtos"
+          },
           "codReciboNavigation": {
             "$ref": "#/components/schemas/tbl_Recibo"
           },
@@ -17434,6 +19323,9 @@
           },
           "codContaNavigation": {
             "$ref": "#/components/schemas/tbl_Conta"
+          },
+          "codEmpresaNavigation": {
+            "$ref": "#/components/schemas/tbl_Empresa"
           },
           "codFormaPagtoFINNavigation": {
             "$ref": "#/components/schemas/tbl_FINFormaPagamento"
@@ -19013,6 +20905,16 @@
   "security": [
     {
       "Bearer": [ ]
+    }
+  ],
+  "tags": [
+    {
+      "name": "ComissaoParametros",
+      "description": "Controller para gerenciamento de parâmetros de comissão"
+    },
+    {
+      "name": "ReciboCobranca",
+      "description": "Controller para gerenciamento de recibos de cobrança"
     }
   ]
 }

@@ -2089,27 +2089,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async returnToPhysicalReceipt(purchaseRequestId: number, userId: number): Promise<void> {
-    // 1. Get Purchase Order
     const purchaseOrder = await this.getPurchaseOrderByRequestId(purchaseRequestId);
     if (!purchaseOrder) throw new Error("Pedido de compra não encontrado");
 
-    // 2. Get Receipts
     const allReceipts = await this.getReceiptsByPurchaseOrderId(purchaseOrder.id);
-    
-    // 3. Identify receipts to delete
-    // If any receipt is confirmed (conferida or fiscal_conferida), we only delete unconfirmed ones.
-    // If no receipts are confirmed, we delete all.
-    const confirmedReceipts = allReceipts.filter(r => 
-      r.status === 'conferida' || r.status === 'fiscal_conferida'
+
+    const confirmedReceipts = allReceipts.filter(
+      (r) => r.status === "conferida" || r.status === "fiscal_conferida",
     );
-    
+
     const isPartialReturn = confirmedReceipts.length > 0;
-    
+
     const receiptsToDelete = isPartialReturn
-      ? allReceipts.filter(r => r.status !== 'conferida' && r.status !== 'fiscal_conferida')
+      ? allReceipts.filter((r) => r.status !== "conferida" && r.status !== "fiscal_conferida")
       : allReceipts;
 
-    // 4. Delete receipts and related data
     for (const receipt of receiptsToDelete) {
       await db.delete(receiptAllocations).where(eq(receiptAllocations.receiptId, receipt.id));
       await db.delete(receiptInstallments).where(eq(receiptInstallments.receiptId, receipt.id));
@@ -2118,34 +2112,41 @@ export class DatabaseStorage implements IStorage {
       await db.delete(receipts).where(eq(receipts.id, receipt.id));
     }
 
-    // 5. Update Purchase Request
+    if (!isPartialReturn) {
+      const poItems = await this.getPurchaseOrderItems(purchaseOrder.id);
+      for (const item of poItems) {
+        await db
+          .update(purchaseOrderItems)
+          .set({ quantityReceived: "0" })
+          .where(eq(purchaseOrderItems.id, item.id));
+      }
+    }
+
     const updateData: Partial<PurchaseRequest> = {
-      currentPhase: 'recebimento',
-      // We clear fiscal receipt flags because we are leaving fiscal phase
-      fiscalReceiptAt: null, 
+      currentPhase: "recebimento",
+      fiscalReceiptAt: null,
       fiscalReceiptById: null,
     };
 
     if (!isPartialReturn) {
-      // If full return, we also clear physical receipt flags
       updateData.physicalReceiptAt = null;
       updateData.physicalReceiptById = null;
       updateData.receivedDate = null;
       updateData.receivedById = null;
     }
-    
-    await db.update(purchaseRequests)
+
+    await db
+      .update(purchaseRequests)
       .set(updateData)
       .where(eq(purchaseRequests.id, purchaseRequestId));
 
-    // Update Purchase Order fulfillment status
-    await db.update(purchaseOrders)
+    await db
+      .update(purchaseOrders)
       .set({
-        fulfillmentStatus: isPartialReturn ? 'partial' : 'pending'
+        fulfillmentStatus: isPartialReturn ? "partial" : "pending",
       })
       .where(eq(purchaseOrders.id, purchaseOrder.id));
 
-    // 6. Log the operation in audit_logs
     try {
       await db.insert(auditLogs).values({
         purchaseRequestId,
@@ -2161,7 +2162,7 @@ export class DatabaseStorage implements IStorage {
           phase: "recebimento",
           receiptsDeleted: receiptsToDelete.map((r) => r.id),
         } as any,
-        affectedTables: ["receipts", "purchase_requests", "purchase_orders"],
+        affectedTables: ["receipts", "purchase_requests", "purchase_orders", "purchase_order_items"],
       });
     } catch (error) {
       console.error("Error logging phase rollback in audit_logs:", error);
