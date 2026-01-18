@@ -1024,6 +1024,7 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
   createdAt: true,
   updatedAt: true,
 }).extend({
+  category: z.enum(["produto", "servico", "material", "outros"]),
   idealDeliveryDate: z.string().optional().transform((val) => val ? new Date(val) : null),
   deliveryDate: z.string().optional().transform((val) => val ? new Date(val) : null),
   availableBudget: z.union([z.string(), z.number()]).optional().transform((val) => val?.toString() || null),

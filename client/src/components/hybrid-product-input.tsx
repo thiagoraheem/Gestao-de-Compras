@@ -19,6 +19,7 @@ interface HybridProductInputProps {
   className?: string;
   resetTrigger?: number; // Prop para forçar reset do componente
   maintainSearchMode?: boolean; // Prop para manter modo de busca ativo
+  mode?: "hybrid" | "erp-only";
 }
 
 export function HybridProductInput({
@@ -29,8 +30,10 @@ export function HybridProductInput({
   className,
   resetTrigger,
   maintainSearchMode = false,
+  mode = "hybrid",
 }: HybridProductInputProps) {
-  const [isSearchMode, setIsSearchMode] = useState(false);
+  const isErpOnly = mode === "erp-only";
+  const [isSearchMode, setIsSearchMode] = useState(isErpOnly);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -98,14 +101,19 @@ export function HybridProductInput({
     if (resetTrigger !== undefined) {
       setSelectedProduct(null);
       if (!maintainSearchMode) {
-        setIsSearchMode(false);
+        setIsSearchMode(isErpOnly);
+      } else if (isErpOnly) {
+        setIsSearchMode(true);
       }
       setShowResults(false);
       setSearchTerm("");
     }
-  }, [resetTrigger, maintainSearchMode]);
+  }, [resetTrigger, maintainSearchMode, isErpOnly]);
 
   const handleInputChange = (inputValue: string) => {
+    if (isErpOnly && !isSearchMode) {
+      return;
+    }
     if (isSearchMode) {
       setSearchTerm(inputValue);
     } else {
@@ -133,6 +141,12 @@ export function HybridProductInput({
   };
 
   const toggleSearchMode = () => {
+    if (isErpOnly) {
+      setIsSearchMode((prev) => !prev);
+      setSearchTerm("");
+      setShowResults(false);
+      return;
+    }
     if (isSearchMode) {
       // Saindo do modo busca
       setIsSearchMode(false);
@@ -166,6 +180,7 @@ export function HybridProductInput({
               selectedProduct && "border-green-500 bg-green-50",
               isSearchMode && "border-blue-500"
             )}
+            readOnly={isErpOnly && !isSearchMode}
           />
           
           {selectedProduct && (

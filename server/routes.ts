@@ -1469,6 +1469,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      const invalidDescription = (value: string | null) => {
+        const trimmed = (value || "").trim();
+        if (!trimmed) return true;
+        if (trimmed.length < 10) return true;
+        if (/[<>]/.test(trimmed)) return true;
+        if (/(script|onerror|onload|javascript:)/i.test(trimmed)) return true;
+        return false;
+      };
+
+      if (!validatedItems.length) {
+        return res.status(400).json({
+          message: "Adicione pelo menos um item à solicitação",
+        });
+      }
+
+      if (validatedRequestData.category === "produto") {
+        const missingErpProduct = validatedItems.some(
+          (item) => !item.productCode || String(item.productCode).trim() === "",
+        );
+        if (missingErpProduct) {
+          return res.status(400).json({
+            message:
+              "Para a categoria Produto, todos os itens devem ser selecionados a partir da busca no ERP.",
+          });
+        }
+      } else if (
+        validatedRequestData.category === "servico" ||
+        validatedRequestData.category === "material" ||
+        validatedRequestData.category === "outros"
+      ) {
+        const invalidItem = validatedItems.some((item) =>
+          invalidDescription(item.description as string),
+        );
+        if (invalidItem) {
+          return res.status(400).json({
+            message:
+              "Para Serviço ou Material, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.",
+          });
+        }
+      }
+
       // Create the request
       const request = await storage.createPurchaseRequest(validatedRequestData);
 
@@ -1532,33 +1573,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const { items, ...requestData } = req.body;
 
-      // Validate request data
+      const existingRequest = await storage.getPurchaseRequestById(id);
+      if (!existingRequest) {
+        return res.status(404).json({ message: "Solicitação não encontrada" });
+      }
+
       const validatedRequestData = insertPurchaseRequestSchema
         .partial()
         .parse(requestData);
 
-      // Update the purchase request
-      const request = await storage.updatePurchaseRequest(
-        id,
-        validatedRequestData,
-      );
+      const category =
+        validatedRequestData.category || existingRequest.category;
 
-      // Handle items if provided
+      const invalidDescription = (value: string | null) => {
+        const trimmed = (value || "").trim();
+        if (!trimmed) return true;
+        if (trimmed.length < 10) return true;
+        if (/[<>]/.test(trimmed)) return true;
+        if (/(script|onerror|onload|javascript:)/i.test(trimmed)) return true;
+        return false;
+      };
+
+      let validatedItems: (typeof insertPurchaseRequestItemSchema._type)[] = [];
+
       if (items && Array.isArray(items)) {
-        // First, remove all existing items
-        const existingItems = await storage.getPurchaseRequestItems(id);
-        for (const item of existingItems) {
-          await storage.deletePurchaseRequestItem(item.id);
-        }
-
-        // Then, add new items
-        const validatedItems = items.map((item) =>
+        validatedItems = items.map((item) =>
           insertPurchaseRequestItemSchema.parse({
             ...item,
             purchaseRequestId: id,
           }),
         );
-        await storage.createPurchaseRequestItems(validatedItems);
+
+        if (!validatedItems.length) {
+          return res.status(400).json({
+            message: "Adicione pelo menos um item à solicitação",
+          });
+        }
+
+        if (category === "produto") {
+          const missingErpProduct = validatedItems.some(
+            (item) =>
+              !item.productCode || String(item.productCode).trim() === "",
+          );
+          if (missingErpProduct) {
+            return res.status(400).json({
+              message:
+                "Para a categoria Produto, todos os itens devem ser selecionados a partir da busca no ERP.",
+            });
+          }
+        } else if (
+          category === "servico" ||
+          category === "material" ||
+          category === "outros"
+        ) {
+          const invalidItem = validatedItems.some((item) =>
+            invalidDescription(item.description as string),
+          );
+          if (invalidItem) {
+            return res.status(400).json({
+              message:
+                "Para Serviço ou Material, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.",
+            });
+          }
+        }
+      }
+
+      const request = await storage.updatePurchaseRequest(
+        id,
+        validatedRequestData,
+      );
+
+      if (items && Array.isArray(items)) {
+        const existingItems = await storage.getPurchaseRequestItems(id);
+        for (const item of existingItems) {
+          await storage.deletePurchaseRequestItem(item.id);
+        }
+
+        if (validatedItems.length > 0) {
+          await storage.createPurchaseRequestItems(validatedItems);
+        }
       }
 
       // Invalidate cache for purchase requests
@@ -6496,11 +6589,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             if (originalRequest) {
               // Criar nova solicitação baseada na original para itens não selecionados
-              const nonSelectedRequestData = {
+              const nonSelectedRequestData: Omit<
+                typeof insertPurchaseRequestSchema._type,
+                "id" | "requestNumber" | "createdAt" | "updatedAt"
+              > = {
                 requesterId: originalRequest.requesterId,
                 companyId: originalRequest.companyId,
                 costCenterId: originalRequest.costCenterId,
-                category: originalRequest.category,
+                category:
+                  originalRequest.category === "produto" ||
+                  originalRequest.category === "servico" ||
+                  originalRequest.category === "material" ||
+                  originalRequest.category === "outros"
+                    ? (originalRequest.category as
+                        | "produto"
+                        | "servico"
+                        | "material"
+                        | "outros")
+                    : "material",
                 justification: `Itens não selecionados da solicitação ${originalRequest.requestNumber}`,
                 urgency: originalRequest.urgency,
                 idealDeliveryDate: originalRequest.idealDeliveryDate || null,
@@ -6593,11 +6699,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             if (originalRequest) {
               // Criar nova solicitação baseada na original
-              const newRequestData = {
+              const newRequestData: Omit<
+                typeof insertPurchaseRequestSchema._type,
+                "id" | "requestNumber" | "createdAt" | "updatedAt"
+              > = {
                 requesterId: originalRequest.requesterId,
                 companyId: originalRequest.companyId,
                 costCenterId: originalRequest.costCenterId,
-                category: originalRequest.category,
+                category:
+                  originalRequest.category === "produto" ||
+                  originalRequest.category === "servico" ||
+                  originalRequest.category === "material" ||
+                  originalRequest.category === "outros"
+                    ? (originalRequest.category as
+                        | "produto"
+                        | "servico"
+                        | "material"
+                        | "outros")
+                    : "material",
                 justification: `Recotação de itens indisponíveis da solicitação ${originalRequest.requestNumber}`,
                 urgency: originalRequest.urgency,
                 idealDeliveryDate: originalRequest.idealDeliveryDate || null,

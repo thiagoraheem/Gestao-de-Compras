@@ -55,9 +55,11 @@ export const URGENCY_LABELS = {
 export const CATEGORY_OPTIONS = {
   PRODUTO: 'produto',
   SERVICO: 'servico',
+  MATERIAL: 'material',
 } as const;
 
 export const CATEGORY_LABELS = {
   [CATEGORY_OPTIONS.PRODUTO]: 'Produto',
   [CATEGORY_OPTIONS.SERVICO]: 'Serviço',
+  [CATEGORY_OPTIONS.MATERIAL]: 'Material',
 } as const;

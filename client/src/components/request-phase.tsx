@@ -47,6 +47,7 @@ import { UnitSelect } from "./unit-select";
 import { useUnits } from "@/hooks/useUnits";
 
 const MAX_TITLE_LENGTH = 150;
+const MIN_ITEM_DESCRIPTION_LENGTH = 10;
 
 const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
@@ -125,6 +126,21 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
       additionalInfo: request?.additionalInfo || "",
     },
   });
+
+  const selectedCategory = form.watch("category");
+
+  const isServiceOrMaterialCategory =
+    selectedCategory === CATEGORY_OPTIONS.SERVICO ||
+    selectedCategory === CATEGORY_OPTIONS.MATERIAL;
+
+  const hasInvalidDescriptionChars = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return true;
+    if (trimmed.length < MIN_ITEM_DESCRIPTION_LENGTH) return true;
+    if (/[<>]/.test(trimmed)) return true;
+    if (/(script|onerror|onload|javascript:)/i.test(trimmed)) return true;
+    return false;
+  };
 
   // Carregar itens existentes quando disponíveis
   useEffect(() => {
@@ -377,6 +393,36 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
         variant: "destructive",
       });
       return;
+    }
+
+    if (data.category === CATEGORY_OPTIONS.PRODUTO) {
+      const invalidItem = manualItems.find((item) => !item.productCode);
+      if (invalidItem) {
+        toast({
+          title: "Produtos obrigatórios",
+          description: "Para a categoria Produto, todos os itens devem ser selecionados a partir da busca no ERP.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (
+      data.category === CATEGORY_OPTIONS.SERVICO ||
+      data.category === CATEGORY_OPTIONS.MATERIAL
+    ) {
+      const invalidItem = manualItems.find((item) =>
+        hasInvalidDescriptionChars(item.description || ""),
+      );
+      if (invalidItem) {
+        toast({
+          title: "Descrição inválida",
+          description:
+            "Para Serviço ou Material, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     createRequestMutation.mutate(data);
@@ -656,6 +702,7 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
                             Descrição do Item *
                           </label>
                           <HybridProductInput
+                            mode={selectedCategory === CATEGORY_OPTIONS.PRODUTO ? "erp-only" : "hybrid"}
                             value={item.description}
                             onChange={(value) =>
                               updateManualItem(item.id, "description", value)
