@@ -349,16 +349,6 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
           </Button>
 
           <Button
-            variant="destructive"
-            onClick={() => setIsPendencyModalOpen(true)}
-            disabled={reportIssueMutation.isPending}
-            className="w-full sm:w-auto flex items-center justify-center"
-          >
-            <X className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span className="truncate">Reportar Pendência</span>
-          </Button>
-          
-          <Button
             className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600"
             onClick={() => confirmFiscalMutation.mutate()}
             disabled={confirmFiscalMutation.isPending}

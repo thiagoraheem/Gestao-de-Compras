@@ -140,7 +140,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     mutationFn: async (pendencyReason: string) => {
       const response = await apiRequest(`/api/purchase-requests/${request.id}/report-issue`, {
         method: "POST",
-        body: { reportedById: user?.id, pendencyReason },
+        body: { reportedById: user?.id, pendencyReason, receivedQuantities },
       });
       return response;
     },
@@ -451,7 +451,6 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                     const current = Number(receivedQuantities[it.id] || 0);
                     const remaining = Math.max(0, max - prev);
                     
-                    // Allow over-delivery? Usually warning.
                     const isOver = (prev + current) > max;
 
                     return (
@@ -463,11 +462,27 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                           <Input 
                             type="number" 
                             min={0} 
-                            step={0.001}
+                            step={1}
                             className="w-24 mx-auto"
-                            value={current || ''} 
+                            value={current}
                             onChange={(e) => {
-                              const v = Number(e.target.value);
+                              const raw = e.target.value;
+
+                              if (raw === "") {
+                                setReceivedQuantities(p => ({ ...p, [it.id]: 0 }));
+                                return;
+                              }
+
+                              if (!/^\d+$/.test(raw)) {
+                                toast({
+                                  title: "Valor inválido",
+                                  description: "Informe apenas números inteiros (sem casas decimais).",
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+
+                              const v = Number(raw);
                               setReceivedQuantities(p => ({ ...p, [it.id]: v }));
                             }} 
                           />
@@ -484,8 +499,17 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           </Card>
       </div>
 
-      <div className="sticky bottom-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-6 flex justify-end gap-3">
-        <Button variant="outline" onClick={() => setViewMode('dashboard')}>Cancelar</Button>
+      <div className="sticky bottom-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-6 flex justify-between gap-3 flex-col sm:flex-row sm:items-center">
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => setViewMode('dashboard')}>Cancelar</Button>
+          <Button
+            variant="destructive"
+            onClick={() => setIsPendencyModalOpen(true)}
+          >
+            <X className="mr-2 h-4 w-4" />
+            Reportar Divergência
+          </Button>
+        </div>
         <Button 
           onClick={() => confirmPhysicalMutation.mutate()} 
           disabled={!canConfirm || confirmPhysicalMutation.isPending}

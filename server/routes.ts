@@ -2630,6 +2630,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = req.session.userId!;
         const { receivedQuantities, observations, manualNFNumber, manualNFSeries } = req.body;
 
+        if (receivedQuantities && typeof receivedQuantities === "object") {
+          for (const [key, value] of Object.entries(receivedQuantities)) {
+            const qty = Number(value);
+            if (!Number.isFinite(qty) || qty < 0 || !Number.isInteger(qty)) {
+              return res.status(400).json({
+                message: `Quantidade inválida para o item ${key}. Utilize apenas números inteiros maiores ou iguais a zero.`,
+              });
+            }
+          }
+        }
+
         const request = await storage.getPurchaseRequestById(id);
         if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
 
@@ -3077,6 +3088,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res
             .status(400)
             .json({ message: "Request must be in the receiving phase" });
+        }
+
+        if (receivedQuantities && typeof receivedQuantities === "object") {
+          for (const [key, value] of Object.entries(receivedQuantities)) {
+            const qty = Number(value);
+            if (!Number.isFinite(qty) || qty < 0 || !Number.isInteger(qty)) {
+              return res.status(400).json({
+                message: `Quantidade inválida para o item ${key}. Utilize apenas números inteiros maiores ou iguais a zero.`,
+              });
+            }
+          }
         }
 
         // Persist received quantities if provided

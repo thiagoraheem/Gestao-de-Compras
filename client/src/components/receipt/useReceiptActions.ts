@@ -72,16 +72,9 @@ export function useReceiptActions() {
 
   const reportIssueMutation = useMutation({
     mutationFn: async (pendencyReason: string) => {
-      // Assuming user ID is handled on backend via session or we need to pass it?
-      // Original code used user?.id. Context has user? No. Context has useAuth? 
-      // useReceipt uses useAuth internally but doesn't expose user.
-      // But apiRequest usually handles auth cookie.
-      // However, the backend endpoint expects reportedById in body?
-      // Let's check original code: body: { reportedById: user?.id, pendencyReason }
-      // If I don't have user here, I should get it from useAuth.
       const response = await apiRequest(`/api/purchase-requests/${request.id}/report-issue`, {
         method: "POST",
-        body: { reportedById: user?.id, pendencyReason },
+        body: { reportedById: user?.id, pendencyReason, receivedQuantities },
       });
       return response;
     },

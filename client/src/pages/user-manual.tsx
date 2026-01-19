@@ -619,6 +619,8 @@ const manualSections: ManualSection[] = [
                   <li>• ✅ Confirmar recebimento</li>
                   <li>• ⚠️ Registrar pendência</li>
                   <li>• 📊 Controle de qualidade</li>
+                  <li>• 🔢 Informar Qtd Atual (NF) apenas com números inteiros (0 ou positivos)</li>
+                  <li>• 🛑 Usar o botão “Reportar Divergência” para retornar o pedido à fase de Pedido de Compra quando houver divergência de quantidade</li>
                 </ul>
               </div>
             </CardContent>
