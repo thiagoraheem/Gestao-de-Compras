@@ -149,10 +149,25 @@ export default function PipefyHeader() {
       { label: "Relatório de Fornecedores", href: "/reports/suppliers", icon: <Truck className="w-4 h-4" /> }
     );
 
+    items.push(
+      { label: "Análise de Itens", href: "/reports/items-analysis", icon: <PackageCheck className="w-4 h-4" /> }
+    );
+
     return items;
   };
 
   const navigation = getNavigation();
+
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const handleLogout = async () => {
     // Provide immediate visual feedback
@@ -161,8 +176,16 @@ export default function PipefyHeader() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border shadow-sm">
-      <div className="flex items-center justify-between px-4 md:px-6 py-3 mobile-header">
+    <header 
+      role="banner"
+      className={cn(
+        "fixed top-0 left-0 right-0 z-50 w-full border-b border-border transition-all duration-300 ease-in-out",
+        isScrolled 
+          ? "bg-background/95 backdrop-blur shadow-md py-2" 
+          : "bg-background shadow-sm py-3"
+      )}
+    >
+      <div className="flex items-center justify-between px-4 md:px-6 mobile-header">
         {/* Logo e Nome */}
         <div className="flex items-center space-x-2 md:space-x-8 flex-1 min-w-0">
           <Link href="/">

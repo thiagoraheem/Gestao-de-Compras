@@ -31,6 +31,7 @@ import ApprovalConfigPage from "@/pages/approval-config";
 import DashboardPage from "@/pages/dashboard";
 import UserManualPage from "@/pages/user-manual";
 import PurchaseRequestsReportPage from "@/pages/purchase-requests-report";
+import ItemsAnalysisReportPage from "@/pages/items-analysis-report";
 import SuppliersReportPage from "@/pages/suppliers-report";
 import RFQAnalysisPage from "@/pages/rfq-analysis";
 import ReceiptFormPage from "@/pages/receipt-form";
@@ -140,6 +141,7 @@ function Router() {
         <Route path="/conferencia-material" component={MaterialConferencePage} />
         <Route path="/reports/invoices" component={InvoicesReportPage} />
         <Route path="/reports/purchase-requests" component={PurchaseRequestsReportPage} />
+        <Route path="/reports/items-analysis" component={ItemsAnalysisReportPage} />
         <Route path="/reports/suppliers" component={SuppliersReportPage} />
         <Route path="/rfq-analysis/:id" component={RFQAnalysisPage} />
         <Route component={NotFound} />
