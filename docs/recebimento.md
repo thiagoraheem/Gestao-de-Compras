@@ -601,12 +601,34 @@ Saída (JSON):
    * Não gera estoque.
    * Gera apenas lançamento financeiro no Locador.
    * CC e Plano de Contas são sempre obrigatórios.
+   * **Validação de Itens:** Ignora a validação de vínculo com itens do pedido (bypass). O sistema registra essa exceção no log de auditoria (`audit_logs`) para rastreabilidade.
 
 4. Integração com Locador só ocorre se:
    * status = `validado_compras`;
    * fornecedor mapeado;
    * se produto, produtos mapeados ou regra alternativa;
    * se serviço/avulso, CC/PC obrigatórios preenchidos.
+
+# 12. Fluxo de Validação e Tratamento de Erros
+
+## 12.1. Validação de Recebimento
+O processo de "Confirmar Conferência Fiscal" executa as seguintes validações:
+1. **Verificação de Itens:**
+   - Para tipos `produto` e `servico`, verifica se há itens vinculados e se as quantidades conferem.
+   - Para tipo `avulso`, esta validação é ignorada (bypass), permitindo o recebimento sem vínculo detalhado de itens.
+2. **Dados Financeiros:**
+   - Valida totais e parcelas.
+   - Valida preenchimento de Centro de Custo e Plano de Contas (obrigatório para serviço/avulso).
+
+## 12.2. Tratamento de Erros na Integração ERP
+Caso a integração com o ERP (Locador) falhe durante a confirmação:
+1. **Status:** O status do recebimento **não** é alterado para `conferida`. Ele permanece no estado anterior (ex: `conf_fisica`).
+2. **Logs:** O erro retornado pelo ERP é registrado no campo `observations` do recebimento, incluindo:
+   - Data/hora da tentativa.
+   - Mensagem de erro original.
+   - Código de erro HTTP (se houver).
+3. **Resposta da API:** O endpoint retorna status `400 Bad Request` com um JSON contendo os detalhes do erro, permitindo que o frontend exiba uma mensagem amigável ao usuário e habilite a opção de "Tentar Novamente".
+
 
 # 10. Diretrizes para Implementação pela IDE/Agente de IA
 
@@ -652,6 +674,7 @@ Saída (JSON):
 
 - Validações e erros:
   - Bloqueio de chave NF-e duplicada; mensagens amigáveis para XML inválido; obrigatoriedade de CC/PC para `servico` e `avulso` ao validar.
+  - Tratamento especial para tipo `avulso`: ignora validação de itens no `confirm-fiscal` e gera registro explícito em `audit_logs` (bypass).
 
 ---
 

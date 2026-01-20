@@ -28,5 +28,28 @@ export function registerAuditRoutes(app: Express) {
       res.status(500).json({ message: "Failed to write audit log" });
     }
   });
+
+  app.get("/api/audit/logs/:requestId", isAuthenticated, async (req, res) => {
+    try {
+      const requestId = Number(req.params.requestId);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "Invalid request ID" });
+      }
+
+      const logs = await pool.query(
+        `SELECT al.*, u.first_name, u.last_name, u.username 
+         FROM audit_logs al
+         LEFT JOIN users u ON al.performed_by = u.id
+         WHERE al.purchase_request_id = $1
+         ORDER BY al.performed_at DESC`,
+        [requestId]
+      );
+
+      res.json(logs.rows);
+    } catch (error: any) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ message: "Failed to fetch audit logs" });
+    }
+  });
 }
 

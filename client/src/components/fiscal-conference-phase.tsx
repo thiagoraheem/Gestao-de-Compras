@@ -1,11 +1,11 @@
-import React, { useState, forwardRef, useImperativeHandle, useEffect } from "react";
+import React, { useState, forwardRef, useImperativeHandle, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PdfViewer from "./pdf-viewer";
-import { Eye, X, FileText, Check, Clock, ArrowLeft } from "lucide-react";
+import { Eye, X, FileText, Check, Clock, ArrowLeft, RefreshCw, Edit } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -148,12 +148,76 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     mode,
     purchaseOrder,
     selectedSupplier,
-    nfReceiptId // This comes from context, populated by receiptId prop
+    nfReceiptId, // This comes from context, populated by receiptId prop
+    isFinancialValid,
+    setShowValidationErrors,
+    paymentMethodCode,
+    invoiceDueDate,
+    hasInstallments,
+    installmentCount,
+    installments,
+    allocations,
+    allocationMode
   } = useReceipt();
 
   const { reportIssueMutation } = useReceiptActions();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch current receipt data for status updates
+  const { data: currentReceipt } = useQuery<any>({
+    queryKey: [`/api/receipts/${nfReceiptId}`],
+    enabled: !!nfReceiptId,
+  });
+
+  const reopenFiscalMutation = useMutation({
+    mutationFn: async () => {
+        if (!nfReceiptId) throw new Error("ID da nota não encontrado");
+        return apiRequest(`/api/receipts/${nfReceiptId}/reopen-fiscal`, { method: "POST" });
+    },
+    onSuccess: () => {
+        toast({ title: "Sucesso", description: "Conferência reaberta para edição." });
+        queryClient.invalidateQueries({ queryKey: [`/api/receipts/${nfReceiptId}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+    },
+    onError: (err: any) => {
+        toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  });
+
+  // Extract ERP info
+  const receiptObs = useMemo(() => {
+      if (!currentReceipt?.observations) return {};
+      try {
+          return typeof currentReceipt.observations === 'string' ? JSON.parse(currentReceipt.observations) : currentReceipt.observations;
+      } catch { return {}; }
+  }, [currentReceipt]);
+
+  const lastErpAttempt = receiptObs.lastErpAttempt || receiptObs.erp;
+  const isConferred = currentReceipt?.status === 'conferida';
+
+  // ERP Logs State
+  const [erpLogs, setErpLogs] = useState<{ time: Date; message: string; type: 'info' | 'success' | 'error' }[]>([]);
+
+  // Update local logs from persisted data if available
+  useEffect(() => {
+      if (lastErpAttempt) {
+          setErpLogs(prev => {
+              // Avoid duplicate logs if already present
+              const isDuplicate = prev.some(l => l.message === lastErpAttempt.message && Math.abs(l.time.getTime() - new Date(lastErpAttempt.time).getTime()) < 1000);
+              if (isDuplicate) return prev;
+              
+              return [
+                  { 
+                      time: new Date(lastErpAttempt.time), 
+                      message: lastErpAttempt.message, 
+                      type: lastErpAttempt.success ? 'success' : 'error' 
+                  },
+                  ...prev
+              ];
+          });
+      }
+  }, [lastErpAttempt]);
 
   // Custom Mutation for Fiscal Confirmation
   const confirmFiscalMutation = useMutation({
@@ -161,21 +225,68 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
       // Use the specific receipt ID if available
       const targetReceiptId = nfReceiptId; 
       if (!targetReceiptId) throw new Error("Nenhuma nota fiscal selecionada");
+
+      // Validate before sending
+      if (!isFinancialValid) {
+        setShowValidationErrors(true);
+        throw new Error("Preencha todos os campos obrigatórios financeiros: Forma de Pagamento, Vencimento e Rateio.");
+      }
       
+      setErpLogs(prev => [{ time: new Date(), message: "Iniciando envio para o ERP...", type: 'info' }, ...prev]);
+
       const response = await apiRequest(
         `/api/receipts/${targetReceiptId}/confirm-fiscal`,
-        { method: "POST" }
+        { 
+          method: "POST",
+          body: {
+            paymentMethodCode,
+            invoiceDueDate,
+            hasInstallments,
+            installmentCount,
+            installments,
+            allocations,
+            allocationMode
+          }
+        }
       );
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
-      toast({ title: "Sucesso", description: "Conferência fiscal confirmada!" });
-      onBack(); // Go back to dashboard
+      queryClient.invalidateQueries({ queryKey: [`/api/receipts/${nfReceiptId}`] });
+      
+      if (data.erp) {
+        const erpStatus = data.erp.success ? 'success' : 'error';
+        setErpLogs(prev => [{ 
+           time: new Date(), 
+           message: `ERP Resposta: ${data.erp.code} - ${data.erp.message}`, 
+           type: erpStatus 
+        }, ...prev]);
+        
+        if (!data.erp.success) {
+           toast({ title: "Aviso ERP", description: `Erro na integração: ${data.erp.message}`, variant: "destructive" });
+        } else {
+           toast({ title: "Sucesso", description: "Conferência fiscal confirmada e enviada ao ERP!" });
+           setTimeout(() => onBack(), 2000); // Give time to read logs
+           return; 
+        }
+      } else {
+        toast({ title: "Sucesso", description: "Conferência fiscal confirmada!" });
+      }
+      
+      // Delay closing if there are logs to show
+      if (!data.erp?.success) {
+         // Stay open
+      } else {
+         setTimeout(() => onBack(), 2000);
+      }
     },
     onError: (err: any) => {
-      toast({ title: "Erro", description: err.message || "Erro ao confirmar fiscal", variant: "destructive" });
+      setErpLogs(prev => [{ time: new Date(), message: `Falha no envio: ${err.message}`, type: 'error' }, ...prev]);
+      toast({ title: "Erro na Validação", description: err.message || "Erro ao confirmar fiscal", variant: "destructive" });
+      // Refetch to show persistent status if updated in backend
+      queryClient.invalidateQueries({ queryKey: [`/api/receipts/${nfReceiptId}`] });
     }
   });
 
@@ -267,12 +378,6 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     }
   };
 
-  useEffect(() => {
-    if (activeTab === 'items') {
-      setActiveTab('fiscal');
-    }
-  }, [activeTab, setActiveTab]);
-
   return (
     <div className={cn("flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 transition-all duration-300", className)}>
       {/* Header */}
@@ -302,7 +407,7 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
       </div>
 
       <Tabs value={activeTab === 'items' ? 'fiscal' : activeTab} onValueChange={(v: any) => setActiveTab(v)} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px] transition-all duration-300">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[600px] transition-all duration-300">
           <TabsTrigger value="xml">XML / Importação</TabsTrigger>
           <TabsTrigger value="manual_nf">Inclusão Manual</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
@@ -322,6 +427,52 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
       </Tabs>
 
       <Separator className="my-6" />
+
+      {/* ERP Status Section - Persistent */}
+      {lastErpAttempt && (
+        <div className={cn("mb-4 px-4 py-3 border rounded-md shadow-sm mx-1", 
+            lastErpAttempt.success ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800" : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
+        )}>
+           <h4 className={cn("text-sm font-semibold mb-1 flex items-center gap-2",
+               lastErpAttempt.success ? "text-green-800 dark:text-green-300" : "text-red-800 dark:text-red-300"
+           )}>
+             {lastErpAttempt.success ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+             Status da Integração ERP
+           </h4>
+           <div className="text-xs space-y-1">
+              <p>
+                  <span className="font-medium">Tentativa:</span> {format(new Date(lastErpAttempt.time), "dd/MM/yyyy HH:mm:ss")}
+              </p>
+              <p>
+                  <span className="font-medium">Status:</span> {lastErpAttempt.success ? "Sucesso" : "Falha"}
+              </p>
+              <p>
+                  <span className="font-medium">Mensagem:</span> {lastErpAttempt.message}
+              </p>
+           </div>
+        </div>
+      )}
+
+      {/* ERP Logs */}
+      {erpLogs.length > 0 && (
+        <div className="mb-4 px-4 py-3 border rounded-md bg-white dark:bg-slate-800 shadow-sm mx-1">
+          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            Log de Integração ERP
+          </h4>
+          <div className="space-y-1 max-h-32 overflow-y-auto text-xs font-mono">
+            {erpLogs.map((log, i) => (
+              <div key={i} className={cn("flex items-center gap-2", 
+                log.type === 'success' ? "text-green-600 dark:text-green-400" : 
+                log.type === 'error' ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"
+              )}>
+                <span className="opacity-70">[{format(log.time, "HH:mm:ss")}]</span>
+                <span>{log.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="sticky bottom-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm pt-4 pb-2 border-t border-slate-200 dark:border-slate-800">
@@ -348,13 +499,39 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
             {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
           </Button>
 
-          <Button
-            className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600"
-            onClick={() => confirmFiscalMutation.mutate()}
-            disabled={confirmFiscalMutation.isPending}
-          >
-            Concluir Conferência Fiscal
-          </Button>
+          {isConferred && (
+             <Button
+                variant="outline"
+                className="w-full sm:w-auto border-blue-600 text-blue-600 hover:bg-blue-50"
+                onClick={() => reopenFiscalMutation.mutate()}
+                disabled={reopenFiscalMutation.isPending}
+             >
+                <Edit className="w-4 h-4 mr-2" />
+                {reopenFiscalMutation.isPending ? "Reabrindo..." : "Editar Conferência"}
+             </Button>
+          )}
+
+          {isConferred && !lastErpAttempt?.success && (
+             <Button
+                variant="outline"
+                className="w-full sm:w-auto border-orange-600 text-orange-600 hover:bg-orange-50"
+                onClick={() => confirmFiscalMutation.mutate()}
+                disabled={confirmFiscalMutation.isPending}
+             >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                {confirmFiscalMutation.isPending ? "Reenviando..." : "Reenviar ao ERP"}
+             </Button>
+          )}
+
+          {!isConferred && (
+            <Button
+                className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600"
+                onClick={() => confirmFiscalMutation.mutate()}
+                disabled={confirmFiscalMutation.isPending}
+            >
+                {confirmFiscalMutation.isPending ? "Processando..." : "Concluir Conferência Fiscal"}
+            </Button>
+          )}
         </div>
       </div>
 

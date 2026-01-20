@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { supplierIntegrationService } from "./services/supplier-integration";
+import { purchaseReceiveService, PurchaseReceiveRequest } from "./integracao_locador/services/purchase-receive-service";
 import {
   sendRFQToSuppliers,
   notifyNewRequest,
@@ -39,12 +40,13 @@ import {
   purchaseRequests,
   purchaseOrderItems,
   purchaseOrders,
+  suppliers,
 } from "../shared/schema";
 import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool, db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import mime from "mime-types";
@@ -2404,21 +2406,267 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const receiptId = parseInt(req.params.id);
       const userId = req.session.userId!;
       
+      const {
+        paymentMethodCode,
+        invoiceDueDate,
+        hasInstallments,
+        installmentCount,
+        installments,
+        allocations,
+        allocationMode
+      } = req.body;
+
+      // Server-side validation
+      if (!paymentMethodCode) return res.status(400).json({ message: "Forma de pagamento obrigatória" });
+      
+      if (hasInstallments) {
+        if (!installments || !Array.isArray(installments) || installments.length === 0) {
+           return res.status(400).json({ message: "Parcelas obrigatórias quando parcelamento está ativo" });
+        }
+      } else {
+        if (!invoiceDueDate) return res.status(400).json({ message: "Data de vencimento obrigatória" });
+      }
+
+      if (!allocations || !Array.isArray(allocations) || allocations.length === 0) {
+        return res.status(400).json({ message: "Rateio de centro de custo obrigatório" });
+      }
+      
+      const allocationsValid = allocations.every((r: any) => r.costCenterId && r.chartOfAccountsId);
+      if (!allocationsValid) {
+        return res.status(400).json({ message: "Centro de custo e plano de contas obrigatórios em todos os itens de rateio" });
+      }
+
       const receipt = await storage.getReceiptById(receiptId);
       if (!receipt) return res.status(404).json({ message: "Receipt not found" });
 
-      // Update Receipt Status
-      await db.update(receipts)
-        .set({
-          status: "conferida",
-          approvedBy: userId,
-          approvedAt: new Date(),
-        })
-        .where(eq(receipts.id, receiptId));
+      // Fetch items for validation and ERP
+      const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, receiptId));
+      
+      // Strict Validation: Items must exist
+      // Bypass validation for "avulso" type
+      // Normalize comparison: handle case sensitivity and potential whitespace
+      const isAvulso = String(receipt.receiptType || '').trim().toLowerCase() === 'avulso';
+
+      if (isAvulso) {
+        console.log(`[Fiscal Confirm] Validation skipped for Avulso receipt #${receiptId}`);
+        try {
+          // Log intentional validation bypass
+          await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+            VALUES (${0}, ${'recebimento_validacao_bypass'}, ${'Validação de itens ignorada para nota avulsa'}, ${userId}, ${null}, ${JSON.stringify({ receiptId })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+        } catch (e) { 
+          console.error("Failed to write audit log for bypass", e);
+        }
+      } else if (!items || items.length === 0) {
+        const errorMsg = "Erro de validação: A nota fiscal não possui itens vinculados. Verifique a importação ou inclusão manual.";
+        console.error(`[Fiscal Confirm] Failed: ${errorMsg}`);
+        
+        // Log attempt in observations even on failure, but keep status
+        let currentObs = {};
+        try {
+            currentObs = receipt.observations ? JSON.parse(receipt.observations as string) : {};
+        } catch (e) {
+            currentObs = { _legacy_content: receipt.observations };
+        }
+
+        const newObs = {
+            ...currentObs,
+            lastErpAttempt: {
+                success: false,
+                time: new Date(),
+                message: errorMsg,
+                payload: { items: [] } // Log empty payload context
+            }
+        };
+        
+        await db.update(receipts)
+           .set({ observations: JSON.stringify(newObs) })
+           .where(eq(receipts.id, receiptId));
+
+        return res.status(400).json({ 
+            message: errorMsg,
+            erp: { success: false, code: 400, message: errorMsg }
+        });
+      }
+
+      // ERP Integration
+      console.log(`[ERP Integration] Initiating transfer for Receipt #${receiptId}...`);
+      // Persist data regardless of ERP success/failure first (Draft save)
+            // Note: We update observations at the end or on error, but we should ensure we capture the intent here.
+            // The logic below updates observations on success or error. 
+            // We can add a log here to confirm we are about to attempt integration.
+            console.log(`[Fiscal Confirm] Validated successfully. Attempting ERP integration for #${receiptId}...`);
+
+            let erpResponse = { success: false, code: 0, message: "" };
+      
+      try {
+        if (receipt.purchaseOrderId) {
+          const purchaseOrder = await storage.getPurchaseOrderById(receipt.purchaseOrderId);
+          
+          if (purchaseOrder) {
+            // Fetch additional data needed for ERP integration
+            const [purchaseRequest] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
+            const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, receipt.supplierId!));
+            
+            if (purchaseRequest && supplier) {
+              const payload: PurchaseReceiveRequest = {
+                pedido_id: purchaseOrder.id,
+                numero_pedido: purchaseOrder.orderNumber,
+                solicitacao_id: purchaseRequest.id,
+                numero_solicitacao: purchaseRequest.requestNumber,
+                data_pedido: purchaseOrder.createdAt.toISOString(),
+                justificativa: purchaseRequest.justification,
+                fornecedor: {
+                  fornecedor_id: supplier.id,
+                  cnpj: supplier.cnpj || undefined,
+                  nome: supplier.name
+                },
+                nota_fiscal: {
+                  numero: receipt.documentNumber || undefined,
+                  serie: receipt.documentSeries || undefined,
+                  chave_nfe: receipt.documentKey || undefined,
+                  data_emissao: receipt.documentIssueDate?.toISOString(),
+                  valor_total: Number(receipt.totalAmount || 0)
+                },
+                condicoes_pagamento: {
+                  empresa_id: purchaseRequest.companyId || undefined,
+                  forma_pagamento: paymentMethodCode ? Number(paymentMethodCode) : undefined,
+                  data_vencimento: invoiceDueDate,
+                  parcelas: hasInstallments ? Number(installmentCount) : 1,
+                  rateio: allocations.map((a: any) => ({
+                    centro_custo_id: Number(a.costCenterId),
+                    plano_conta_id: Number(a.chartOfAccountsId),
+                    valor: Number(a.amount),
+                    percentual: a.percentage ? Number(a.percentage) : undefined
+                  })),
+                  parcelas_detalhes: hasInstallments && installments ? installments.map((i: any) => ({
+                    data_vencimento: i.dueDate,
+                    valor: Number(i.amount),
+                    numero_parcela: i.installmentNumber ? Number(i.installmentNumber) : undefined
+                  })) : []
+                },
+                itens: items.map(item => ({
+                  codigo_produto: item.locadorProductCode || undefined,
+                  descricao: item.description || undefined,
+                  unidade: item.unit || undefined,
+                  quantidade: Number(item.quantity || 0),
+                  preco_unitario: Number(item.unitPrice || 0),
+                  ncm: item.ncm || undefined
+                }))
+              };
+
+              console.log("[ERP Integration] Sending data:", JSON.stringify(payload, null, 2));
+              
+              // Validate items in payload again just to be safe
+              if (!payload.itens || payload.itens.length === 0) {
+                 throw new Error("Payload items array is empty");
+              }
+
+              const response = await purchaseReceiveService.submit(payload);
+              
+              // Strict check on ERP response
+              // Assuming response has { success: boolean, ... } or similar structure from service
+              // If service throws on 4xx/5xx, we catch it below.
+              // But if it returns 200 with { status: 'erro' }, we must check it.
+              // The log showed: { status: 'erro', mensagem: '...' }
+              
+              // We need to know what purchaseReceiveService.submit returns.
+              // Based on logs: "Purchase receive submitted successfully: { ... status: 'erro' ... }"
+              // It seems it returns the body directly.
+              
+              if (response && (response.status === 'erro' || response.success === false)) {
+                 throw new Error(response.mensagem || response.message || "Erro retornado pelo ERP");
+              }
+
+              erpResponse = { success: true, code: 200, message: "Integrated successfully with ERP" };
+            } else {
+               throw new Error("Missing critical data (Purchase Request or Supplier)");
+            }
+          } else {
+             throw new Error("Purchase Order not found");
+          }
+        } else {
+          console.log("[ERP Integration] Skipped: No purchase order linked");
+          erpResponse = { success: true, code: 200, message: "Skipped (No PO)" };
+        }
+
+        // Only Update Receipt Status if ERP Success (or skipped)
+        await db.update(receipts)
+                .set({
+                  status: "conferida",
+                  approvedBy: userId,
+                  approvedAt: new Date(),
+                  observations: JSON.stringify({
+                    financial: {
+                      paymentMethodCode,
+                      invoiceDueDate,
+                      hasInstallments,
+                      installmentCount,
+                      installments
+                    },
+                    rateio: {
+                      mode: allocationMode,
+                      allocations
+                    },
+                    erp: {
+                      success: true,
+                      time: new Date(),
+                      message: erpResponse.message
+                    }
+                  })
+                })
+                .where(eq(receipts.id, receiptId));
+                
+              console.log(`[Fiscal Confirm] Success. Status updated to 'conferida' for #${receiptId}. Data persisted.`);
+
+      } catch (err: any) {
+        console.error(`[ERP Integration] Failed: ${err.message}`);
+        
+        // Log failure in observations but DO NOT update status to 'conferida'
+        let currentObs = {};
+        try {
+            currentObs = receipt.observations ? JSON.parse(receipt.observations as string) : {};
+        } catch (e) {
+            currentObs = { _legacy_content: receipt.observations };
+        }
+        const newObs = {
+            ...currentObs,
+            financial: { // We might want to save financial data draft? User said "Manter status atual", didn't forbid saving draft data.
+                paymentMethodCode,
+                invoiceDueDate,
+                hasInstallments,
+                installmentCount,
+                installments
+             },
+             rateio: {
+                mode: allocationMode,
+                allocations
+             },
+            lastErpAttempt: {
+                success: false,
+                time: new Date(),
+                message: err.message,
+                code: err.response?.status || 500
+            }
+        };
+        
+        await db.update(receipts)
+           .set({ observations: JSON.stringify(newObs) })
+           .where(eq(receipts.id, receiptId));
+
+        if (err.response) {
+            console.error("[ERP Integration] Response data:", err.response.data);
+        }
+        
+        // Return error to frontend
+        return res.status(400).json({ 
+            message: `Erro na integração ERP: ${err.message}`,
+            erp: { success: false, code: err.response?.status || 500, message: err.message }
+        });
+      }
 
       // Check overall status
       if (!receipt.purchaseOrderId) {
-        return res.json({ success: true, message: "Receipt has no purchase order" });
+        return res.json({ success: true, message: "Receipt has no purchase order", erp: erpResponse });
       }
       const purchaseOrder = await storage.getPurchaseOrderById(receipt.purchaseOrderId);
       if (purchaseOrder) {
@@ -2431,12 +2679,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (allConferred && isFulfilled) {
              // Find Request
-             const request = await storage.getPurchaseOrderByRequestId(purchaseOrder.purchaseRequestId); // wait, storage.getPurchaseRequestById logic
-             // Actually purchaseOrder has purchaseRequestId
-             // Wait, getPurchaseOrderById returns PO. PO has purchaseRequestId?
-             // Checking schema...
-             // purchaseOrders has purchaseRequestId.
-             
              if (purchaseOrder.purchaseRequestId) {
                  await db.update(purchaseRequests)
                    .set({
@@ -2449,10 +2691,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
       }
 
-      res.json({ success: true });
+      res.json({ success: true, erp: erpResponse });
     } catch (error) {
       console.error("Error confirming fiscal receipt:", error);
       res.status(500).json({ message: "Error" });
+    }
+  });
+
+  app.post("/api/receipts/:id/reopen-fiscal", isAuthenticated, async (req, res) => {
+    try {
+      const receiptId = parseInt(req.params.id);
+      const userId = req.session.userId!;
+
+      const receipt = await storage.getReceiptById(receiptId);
+      if (!receipt) return res.status(404).json({ message: "Receipt not found" });
+
+      if (receipt.status !== "conferida") {
+          return res.status(400).json({ message: "Apenas notas conferidas podem ser reabertas." });
+      }
+
+      let currentObs = {};
+      try {
+        currentObs = receipt.observations ? JSON.parse(receipt.observations as string) : {};
+      } catch (e) {
+        currentObs = { _legacy_content: receipt.observations };
+      }
+
+      await db.update(receipts)
+        .set({
+          status: "conf_fisica",
+          observations: JSON.stringify({
+            ...currentObs,
+            reopenedAt: new Date(),
+            reopenedBy: userId
+          })
+        })
+        .where(eq(receipts.id, receiptId));
+
+      res.json({ success: true, message: "Conferência reaberta para edição" });
+    } catch (error) {
+      console.error("Error reopening fiscal receipt:", error);
+      res.status(500).json({ message: "Error reopening receipt" });
     }
   });
 
@@ -6427,28 +6706,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const selectedSupplierQuotation = supplierQuotations.find(
           (sq) => sq.supplierId === selectedSupplierId,
         );
+        
+        let finalTotalValue = totalValue;
+
         if (selectedSupplierQuotation) {
           await storage.updateSupplierQuotation(selectedSupplierQuotation.id, {
             isChosen: true,
             choiceReason: observations,
           });
 
-          // Processar produtos indisponíveis se houver
-          if (unavailableItems && unavailableItems.length > 0) {
-            const supplierQuotationItems =
-              await storage.getSupplierQuotationItems(
-                selectedSupplierQuotation.id,
-              );
+          // Buscar itens da cotação do fornecedor
+          const supplierQuotationItems = await storage.getSupplierQuotationItems(
+            selectedSupplierQuotation.id,
+          );
 
+          // Processar produtos indisponíveis (relatados pelo usuário ou selecionados como tal)
+          if (unavailableItems && unavailableItems.length > 0) {
             for (const unavailableItem of unavailableItems) {
-              // Encontrar o item correspondente na cotação do fornecedor
               const supplierItem = supplierQuotationItems.find(
-                (item) =>
-                  item.quotationItemId === unavailableItem.quotationItemId,
+                (item) => item.quotationItemId === unavailableItem.quotationItemId,
               );
 
               if (supplierItem) {
-                // Marcar item como indisponível
                 await storage.updateSupplierQuotationItem(supplierItem.id, {
                   isAvailable: false,
                   unavailabilityReason: unavailableItem.reason,
@@ -6456,6 +6735,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
+
+          // Processar itens NÃO selecionados (Seleção Simples)
+          // Se o usuário desmarcou itens, eles devem ser considerados indisponíveis para este pedido
+          if (nonSelectedItems && nonSelectedItems.length > 0) {
+            for (const nonSelectedItem of nonSelectedItems) {
+              const supplierItem = supplierQuotationItems.find(
+                (item) => item.quotationItemId === nonSelectedItem.quotationItemId,
+              );
+
+              // Só marca como indisponível se ainda estiver disponível (evita sobrescrever razão de indisponibilidade real)
+              if (supplierItem && supplierItem.isAvailable !== false) {
+                await storage.updateSupplierQuotationItem(supplierItem.id, {
+                  isAvailable: false,
+                  unavailabilityReason: "Item não selecionado pelo usuário",
+                });
+              }
+            }
+          }
+
+          // Recalcular valor total da cotação considerando apenas itens disponíveis
+          // É necessário buscar os itens novamente ou atualizar a lista local para refletir as mudanças
+          const updatedSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+          
+          const recalculatedTotal = updatedSupplierItems.reduce((total, item) => {
+            if (item.isAvailable === false) return total;
+            
+            const itemValue = item.discountedTotalPrice && parseFloat(item.discountedTotalPrice) > 0
+              ? parseFloat(item.discountedTotalPrice)
+              : parseFloat(item.totalPrice);
+              
+            return total + itemValue;
+          }, 0);
+
+          finalTotalValue = recalculatedTotal.toString();
+
+          // Atualizar o valor total na cotação do fornecedor
+          await storage.updateSupplierQuotation(selectedSupplierQuotation.id, {
+            totalValue: finalTotalValue,
+          });
         }
 
         // Atualizar a cotação (status e observações)
@@ -6463,8 +6781,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: "approved",
         });
 
-        // Para seleção individual, marcar itens não selecionados como transferidos
-        let recalculatedTotalValue = totalValue;
+        // Para seleção individual, marcar itens não selecionados como transferidos (se opção selecionada)
+        // Usamos finalTotalValue que já foi recalculado corretamente acima
         if (
           selectedItems &&
           selectedItems.length > 0 &&
@@ -6502,50 +6820,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
 
-          // Recalcular valor total apenas com itens selecionados
-          if (selectedSupplierQuotation) {
-            const supplierQuotationItems =
-              await storage.getSupplierQuotationItems(
-                selectedSupplierQuotation.id,
-              );
-            // Recalculando valor total com itens selecionados
-
-            recalculatedTotalValue = selectedItems.reduce(
-              (total: number, selectedItem: any) => {
-                const supplierItem = supplierQuotationItems.find(
-                  (item) =>
-                    item.quotationItemId === selectedItem.quotationItemId,
-                );
-                if (supplierItem) {
-                  // Usar discountedTotalPrice se existir, senão totalPrice
-                  const itemValue =
-                    supplierItem.discountedTotalPrice &&
-                    parseFloat(supplierItem.discountedTotalPrice) > 0
-                      ? parseFloat(supplierItem.discountedTotalPrice)
-                      : parseFloat(supplierItem.totalPrice);
-
-                  // Calculando valor do item
-                  return total + itemValue;
-                }
-                // Item não encontrado na cotação do fornecedor
-                return total;
-              },
-              0,
-            );
-          }
-
-          // Valor recalculado após transferência de itens
-
-          // Atualizar também o valor da cotação do fornecedor selecionado
-          if (selectedSupplierQuotation) {
-            await storage.updateSupplierQuotation(
-              selectedSupplierQuotation.id,
-              {
-                totalValue: recalculatedTotalValue.toString(),
-              },
-            );
-            // Cotação do fornecedor atualizada com novo valor
-          }
+          // Recalcular valor total apenas com itens selecionados (Removido - cálculo já feito globalmente acima)
+          // O valor correto já está em finalTotalValue
         }
 
         // SINCRONIZAÇÃO CRÍTICA: Sincronizar itens da RFQ com a solicitação original
@@ -6584,7 +6860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Avançar a solicitação para aprovação A2
         await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
           currentPhase: "aprovacao_a2",
-          totalValue: recalculatedTotalValue,
+          totalValue: finalTotalValue,
           chosenSupplierId: selectedSupplierId,
           choiceReason: observations,
         });

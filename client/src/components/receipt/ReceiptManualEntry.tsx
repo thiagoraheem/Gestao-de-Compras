@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Search, Trash, AlertCircle, Plus } from "lucide-react";
 import { useReceipt } from "./ReceiptContext";
+import { cn } from "@/lib/utils";
 import { ReceiptSearchDialog } from "../receipt-search-dialog";
 import { validateManualHeader, validateManualItems, validateTotalConsistency } from "../../utils/manual-nf-validation";
 import { findBestPurchaseOrderMatch, MANUAL_ITEM_MATCH_THRESHOLD } from "../../utils/item-matching-helper";
@@ -299,13 +300,18 @@ export function ReceiptManualEntry() {
                     <div className="flex items-center gap-2 pt-2 border-t mt-2">
                       <div className="flex-1">
                          <Select 
-                           value={it.purchaseOrderItemId ? String(it.purchaseOrderItemId) : "none"} 
-                           onValueChange={(v) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, purchaseOrderItemId: v === "none" ? undefined : Number(v), matchSource: "manual" } : row))}
-                         >
-                           <SelectTrigger className={!it.purchaseOrderItemId ? "border-red-300 bg-red-50" : "border-green-300 bg-green-50"}>
-                             <SelectValue placeholder="Vincular ao Item do Pedido" />
-                           </SelectTrigger>
-                           <SelectContent>
+                          value={it.purchaseOrderItemId ? String(it.purchaseOrderItemId) : "none"} 
+                          onValueChange={(v) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, purchaseOrderItemId: v === "none" ? undefined : Number(v), matchSource: "manual" } : row))}
+                        >
+                          <SelectTrigger className={cn(
+                            "transition-colors",
+                            !it.purchaseOrderItemId 
+                              ? "border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800" 
+                              : "border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-800"
+                          )}>
+                            <SelectValue placeholder="Vincular ao Item do Pedido" />
+                          </SelectTrigger>
+                          <SelectContent>
                              <SelectItem value="none">Sem vínculo</SelectItem>
                              {purchaseOrderItems.map((poItem: any) => (
                                <SelectItem key={poItem.id} value={String(poItem.id)}>

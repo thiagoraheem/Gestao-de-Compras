@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -135,6 +135,9 @@ interface ReceiptContextType {
   canPerformReceiptActions: boolean | undefined;
   canConfirmNf: boolean | undefined;
   nfConfirmed: boolean;
+  showValidationErrors: boolean;
+  setShowValidationErrors: (v: boolean) => void;
+  isFinancialValid: boolean;
 }
 
 export const ReceiptContext = createContext<ReceiptContextType | undefined>(undefined);
@@ -233,6 +236,7 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
   const canConfirmNf = user?.isBuyer || user?.isAdmin;
 
   const [receivedQuantities, setReceivedQuantities] = useState<Record<number, number>>({});
+  const [showValidationErrors, setShowValidationErrors] = useState<boolean>(false);
 
   // Queries
   const { data: freshRequest } = useQuery<any>({
@@ -302,7 +306,36 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
       setNfReceiptId(specificReceipt.id);
       if (specificReceipt.documentNumber) setManualNFNumber(specificReceipt.documentNumber);
       if (specificReceipt.documentSeries) setManualNFSeries(specificReceipt.documentSeries);
-      // Logic to parse JSON fields if any (usually observations store complex data if needed, but here mostly manual)
+      
+      // Restore Financial & Rateio Data from DB (Persistence Recovery)
+      if (specificReceipt.observations) {
+        try {
+          const obs = typeof specificReceipt.observations === 'string' 
+            ? JSON.parse(specificReceipt.observations) 
+            : specificReceipt.observations;
+
+          console.log("[ReceiptContext] Restoring persisted fiscal data:", obs);
+
+          if (obs.financial) {
+            if (obs.financial.paymentMethodCode) setPaymentMethodCode(obs.financial.paymentMethodCode);
+            if (obs.financial.invoiceDueDate) {
+               // Ensure correct date format if needed
+               const d = obs.financial.invoiceDueDate.split('T')[0];
+               setInvoiceDueDate(d);
+            }
+            if (typeof obs.financial.hasInstallments !== 'undefined') setHasInstallments(obs.financial.hasInstallments);
+            if (obs.financial.installmentCount) setInstallmentCount(Number(obs.financial.installmentCount));
+            if (Array.isArray(obs.financial.installments)) setInstallments(obs.financial.installments);
+          }
+
+          if (obs.rateio) {
+            if (obs.rateio.mode) setAllocationMode(obs.rateio.mode);
+            if (Array.isArray(obs.rateio.allocations)) setAllocations(obs.rateio.allocations);
+          }
+        } catch (e) {
+          console.error("[ReceiptContext] Error parsing receipt observations for restoration", e);
+        }
+      }
     }
   }, [specificReceipt]);
 
@@ -675,6 +708,29 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
     } catch {}
   }, [request?.id]);
 
+  const isFinancialValid = useMemo(() => {
+    // 1. Payment Method (*)
+    if (!paymentMethodCode) return false;
+
+    // 2. Allocations (*)
+    // Must have at least one allocation and all must have cost center and chart of accounts
+    if (!allocations || allocations.length === 0) return false;
+    const allocationsValid = allocations.every(r => !!r.costCenterId && !!r.chartOfAccountsId);
+    if (!allocationsValid) return false;
+
+    // 3. Due Date / Installments (*)
+    if (hasInstallments) {
+      if (!installments || installments.length === 0) return false;
+      // Check if all installments have due date and amount > 0
+      const allFilled = installments.every(r => !!r.dueDate && (parseFloat(String(r.amount || "0").replace(",", ".")) > 0));
+      if (!allFilled) return false;
+    } else {
+      if (!invoiceDueDate) return false;
+    }
+
+    return true;
+  }, [paymentMethodCode, allocations, hasInstallments, installments, invoiceDueDate]);
+
   const value: ReceiptContextType = {
     request, mode, onClose, receiptId,
     activeTab, setActiveTab,
@@ -724,7 +780,9 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
     quotation, supplierQuotations, selectedSupplierQuotation, selectedSupplier, freightValue,
     receivedQuantities, setReceivedQuantities, approvalHistory,
     activeRequest, companyData, isLoadingCompany,
-    canPerformReceiptActions, canConfirmNf, nfConfirmed
+    canPerformReceiptActions, canConfirmNf, nfConfirmed,
+    showValidationErrors, setShowValidationErrors,
+    isFinancialValid,
   };
 
   return (

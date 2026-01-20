@@ -158,6 +158,61 @@ export function registerReceiptsRoutes(app: Express) {
     }
   });
 
+  app.get("/api/receipts/request/:requestId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const requestId = Number(req.params.requestId);
+      
+      // 1. Find Purchase Order
+      const [purchaseOrder] = await db
+        .select()
+        .from(purchaseOrders)
+        .where(eq(purchaseOrders.purchaseRequestId, requestId))
+        .limit(1);
+
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Pedido de compra não encontrado" });
+      }
+
+      // 2. Find Receipts linked to this Purchase Order
+      // Since receipts are linked via items, we need to join tables or find receipts that have items linked to this PO's items.
+      // Or if there is a direct link I missed. Assuming link via items.
+      
+      const receiptsList = await db.execute(sql`
+        SELECT DISTINCT r.*, 
+               u_rec.first_name as receiver_first_name, u_rec.last_name as receiver_last_name,
+               u_app.first_name as approver_first_name, u_app.last_name as approver_last_name
+        FROM receipts r
+        JOIN receipt_items ri ON r.id = ri.receipt_id
+        JOIN purchase_order_items poi ON ri.purchase_order_item_id = poi.id
+        LEFT JOIN users u_rec ON r.received_by = u_rec.id
+        LEFT JOIN users u_app ON r.approved_by = u_app.id
+        WHERE poi.purchase_order_id = ${purchaseOrder.id}
+        ORDER BY r.created_at DESC
+        LIMIT 1
+      `);
+
+      if (receiptsList.rows.length === 0) {
+        return res.status(404).json({ message: "Nota fiscal não encontrada" });
+      }
+
+      const receipt = receiptsList.rows[0];
+      
+      // Parse observations if string
+      if (typeof receipt.observations === 'string') {
+          try {
+              receipt.observations = JSON.parse(receipt.observations);
+          } catch (e) {
+              // keep as string
+          }
+      }
+
+      res.json(receipt);
+    } catch (error) {
+      console.error("Error fetching receipt by request ID:", error);
+      res.status(500).json({ message: "Erro ao buscar nota fiscal" });
+    }
+  });
+
   app.post("/api/recebimentos/parse-existing/:id", async (req: Request, res: Response) => {
       try {
         const id = Number(req.params.id);

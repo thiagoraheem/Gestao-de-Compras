@@ -62,10 +62,13 @@ export interface PurchaseReceiveRequest {
 }
 
 class PurchaseReceiveService {
-  async submit(data: PurchaseReceiveRequest): Promise<void> {
+  async submit(data: PurchaseReceiveRequest): Promise<any> {
     const endpoints = getEndpoints();
     try {
-      await httpClient.post(endpoints.purchaseReceive, data);
+      console.log("Submitting purchase receive:", data);
+      var result = await httpClient.post(endpoints.purchaseReceive, data);
+      console.log("Purchase receive submitted successfully:", result);
+      return result;
     } catch (error) {
       console.error("Error submitting purchase receive:", error);
       throw error;

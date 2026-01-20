@@ -12,6 +12,7 @@ import { CostCenterTreeSelect } from "@/components/fields/CostCenterTreeSelect";
 import { ChartAccountTreeSelect } from "@/components/fields/ChartAccountTreeSelect";
 import { formatCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 export function ReceiptFinancial() {
   const {
@@ -31,6 +32,7 @@ export function ReceiptFinancial() {
     purchaseOrder,
     setActiveTab,
     nfConfirmed,
+    showValidationErrors,
   } = useReceipt();
 
   const { confirmNfMutation } = useReceiptActions();
@@ -54,6 +56,11 @@ export function ReceiptFinancial() {
     const round2 = (n: number) => Math.round(n * 100) / 100;
     return round2(allocationsSum) === round2(baseTotalForAllocation);
   }, [allocationsSum, baseTotalForAllocation]);
+
+  const allocationsValid = useMemo(() => {
+    if (allocations.length === 0) return false;
+    return allocations.every(r => r.costCenterId && r.chartOfAccountsId);
+  }, [allocations]);
 
   const isFiscalValid = (() => {
     if (!hasInstallments) return !!paymentMethodCode && !!invoiceDueDate;
@@ -129,9 +136,13 @@ export function ReceiptFinancial() {
         <CardHeader><CardTitle>Informações Financeiras</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>Forma de Pagamento</Label>
+            <Label className={cn(showValidationErrors && !paymentMethodCode && "text-red-500")}>
+              Forma de Pagamento <span className="text-red-500">*</span>
+            </Label>
             <Select value={paymentMethodCode || undefined} onValueChange={(v) => setPaymentMethodCode(v)}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectTrigger className={cn("w-full", showValidationErrors && !paymentMethodCode && "border-red-500")}>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
               <SelectContent>
                 {paymentMethods.length > 0 ? (
                   paymentMethods.map((pm) => (
@@ -142,10 +153,23 @@ export function ReceiptFinancial() {
                 )}
               </SelectContent>
             </Select>
+            {showValidationErrors && !paymentMethodCode && (
+              <p className="text-xs text-red-500 mt-1">Selecione uma forma de pagamento</p>
+            )}
           </div>
           <div>
-            <Label>Data de Vencimento da Fatura</Label>
-            <Input type="date" value={invoiceDueDate} onChange={(e) => setInvoiceDueDate(e.target.value)} />
+            <Label className={cn(showValidationErrors && !invoiceDueDate && "text-red-500")}>
+              Data de Vencimento da Fatura <span className="text-red-500">*</span>
+            </Label>
+            <Input 
+              type="date" 
+              value={invoiceDueDate} 
+              onChange={(e) => setInvoiceDueDate(e.target.value)} 
+              className={cn(showValidationErrors && !invoiceDueDate && "border-red-500")}
+            />
+            {showValidationErrors && !invoiceDueDate && (
+              <p className="text-xs text-red-500 mt-1">Informe a data de vencimento</p>
+            )}
           </div>
           <div>
             <Label>Parcelamento</Label>
@@ -236,8 +260,12 @@ export function ReceiptFinancial() {
           )}
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader><CardTitle>Rateio de Centro de Custo e Plano de Contas</CardTitle></CardHeader>
+      <Card className={cn(showValidationErrors && !allocationsValid && "border-red-500")}>
+        <CardHeader>
+          <CardTitle className={cn(showValidationErrors && !allocationsValid && "text-red-500")}>
+            Rateio de Centro de Custo e Plano de Contas <span className="text-red-500">*</span>
+          </CardTitle>
+        </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2 items-center">
             <Label>Modo</Label>
@@ -344,26 +372,16 @@ export function ReceiptFinancial() {
               <div className="text-sm">Soma: {formatCurrency(allocationsSum)} </div>
             </div>
           </div>
+          {showValidationErrors && allocations.length === 0 && (
+            <p className="text-sm text-red-500 font-medium">Adicione pelo menos um registro de rateio</p>
+          )}
+          {showValidationErrors && allocations.length > 0 && !allocations.every(r => r.costCenterId && r.chartOfAccountsId) && (
+            <p className="text-sm text-red-500 font-medium">Preencha Centro de Custo e Plano de Contas em todas as linhas</p>
+          )}
         </CardContent>
       </Card>
       <div className="flex justify-between gap-2">
         <Button variant="outline" onClick={() => setActiveTab('xml')}>Voltar</Button>
-        <Button disabled={confirmNfMutation.isPending} onClick={() => {
-          if (!isFiscalValid) {
-            return toast({ title: "Validação", description: "Informe Forma de Pagamento e Vencimento da Fatura", variant: "destructive" });
-          }
-          if (allocations.length > 0 && !allocationsSumOk) {
-            return toast({ title: "Validação", description: "A soma do rateio deve igualar o total", variant: "destructive" });
-          }
-          
-          if (!nfConfirmed) {
-            confirmNfMutation.mutate();
-          } else {
-            setActiveTab('items');
-          }
-        }}>
-          {confirmNfMutation.isPending ? "Confirmando..." : "Próxima"}
-        </Button>
       </div>
     </div>
   );

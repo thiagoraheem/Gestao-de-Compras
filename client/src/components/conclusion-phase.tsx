@@ -1,4 +1,4 @@
-import { useState, useMemo, forwardRef, useImperativeHandle } from "react";
+import { useState, useMemo, forwardRef, useImperativeHandle, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +41,8 @@ import {
   Phone,
   ExternalLink,
   Star,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from "lucide-react";
 import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -153,6 +154,88 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
   const { data: quotationAttachments = [], isLoading: quotationAttachmentsLoading } = useQuery<any[]>({
     queryKey: [`/api/quotations/${quotation?.id}/attachments`],
     enabled: !!quotation?.id,
+  });
+
+  // Fetch receipt linked to this request
+  const { data: receipt, isLoading: receiptLoading } = useQuery<any>({
+    queryKey: [`/api/receipts/request/${request.id}`],
+    enabled: !!request.id,
+    refetchInterval: 5000,
+  });
+
+  // Fetch audit logs for detailed history
+  const { data: auditLogs = [], isLoading: auditLogsLoading } = useQuery<any[]>({
+    queryKey: [`/api/audit/logs/${request.id}`],
+    enabled: !!request.id,
+    refetchInterval: 5000,
+  });
+
+  // ERP Logs State
+  const [erpLogs, setErpLogs] = useState<{ time: Date; message: string; type: 'info' | 'success' | 'error' }[]>([]);
+
+  // Parse receipt observations for ERP info
+  const receiptObs = useMemo(() => {
+    if (!receipt?.observations) return {};
+    try {
+      return typeof receipt.observations === 'string' ? JSON.parse(receipt.observations) : receipt.observations;
+    } catch { return {}; }
+  }, [receipt]);
+
+  const lastErpAttempt = receiptObs.lastErpAttempt || receiptObs.erp;
+
+  // Update local logs from persisted data if available
+  useEffect(() => {
+    if (lastErpAttempt) {
+      setErpLogs(prev => {
+        // Avoid duplicate logs if already present
+        const isDuplicate = prev.some(l => l.message === lastErpAttempt.message && Math.abs(l.time.getTime() - new Date(lastErpAttempt.time).getTime()) < 1000);
+        if (isDuplicate) return prev;
+
+        return [
+          {
+            time: new Date(lastErpAttempt.time),
+            message: lastErpAttempt.message,
+            type: lastErpAttempt.success ? 'success' : 'error'
+          },
+          ...prev
+        ];
+      });
+    }
+  }, [lastErpAttempt]);
+
+  // Retry ERP Mutation
+  const retryErpMutation = useMutation({
+    mutationFn: async () => {
+      if (!receipt?.id) throw new Error("Nota fiscal não encontrada");
+      
+      setErpLogs(prev => [{ time: new Date(), message: "Iniciando reenvio para o ERP...", type: 'info' }, ...prev]);
+      
+      return apiRequest(`/api/recebimentos/${receipt.id}/enviar-locador`, {
+        method: "POST",
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/receipts/request/${request.id}`] });
+      
+      const isSuccess = data.status_integracao === 'integrada' || data.status_integracao === 'sucesso';
+      const message = data.mensagem || (isSuccess ? "Integrado com sucesso" : "Erro na integração");
+      
+      setErpLogs(prev => [{ 
+         time: new Date(), 
+         message: `ERP Resposta: ${message}`, 
+         type: isSuccess ? 'success' : 'error' 
+      }, ...prev]);
+      
+      if (!isSuccess) {
+         toast({ title: "Aviso ERP", description: `Erro na integração: ${message}`, variant: "destructive" });
+      } else {
+         toast({ title: "Sucesso", description: "Reenvio ao ERP realizado com sucesso!" });
+      }
+    },
+    onError: (err: any) => {
+      setErpLogs(prev => [{ time: new Date(), message: `Falha no envio: ${err.message}`, type: 'error' }, ...prev]);
+      toast({ title: "Erro", description: err.message || "Erro ao reenviar para ERP", variant: "destructive" });
+    }
   });
 
   // Archive mutation
@@ -1138,43 +1221,211 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
           </CardContent>
         </Card>
 
-        {/* Receipt Data */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Dados do Recebimento
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Data do Recebimento</span>
-                  <p>{format(new Date(request.updatedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+        {/* Physical Receipt Section */}
+        {receipt && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="h-5 w-5" />
+                Recebimento Físico
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Data do Recebimento</span>
+                    <p>{receipt.created_at ? format(new Date(receipt.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Pendente'}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Responsável</span>
+                    <p>{receipt.receiver_first_name} {receipt.receiver_last_name}</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Responsável pelo Recebimento</span>
-                  <p>{request.receivedBy || 'Sistema Automático'}</p>
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Status</span>
+                    <Badge variant={receipt.status === 'completed' ? 'default' : 'secondary'} className={receipt.status === 'completed' ? "bg-green-100 text-green-800" : ""}>
+                      {receipt.status === 'completed' ? 'Concluído' : 'Pendente'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Observações</span>
+                    <p>{receiptObs?.physical || receiptObs?.general || 'Sem observações'}</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Status da Conferência</span>
-                  <Badge variant="default" className="bg-green-100 text-green-800">
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Conforme
-                  </Badge>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Observações</span>
-                  <p>{request.receiptObservations || 'Recebimento sem observações'}</p>
+              {/* Physical Receipt History */}
+              <div className="border rounded-md p-4 bg-muted/20">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Histórico de Recebimento
+                </h4>
+                <div className="space-y-3">
+                  {auditLogs
+                    .filter((log: any) => log.action.includes('receipt') || log.entity_type === 'receipt')
+                    .map((log: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-start text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
+                      <div>
+                        <span className="font-medium">{log.action}</span>
+                        <p className="text-muted-foreground text-xs">{log.first_name} {log.last_name}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(log.performed_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                  ))}
+                  {auditLogs.filter((log: any) => log.action.includes('receipt') || log.entity_type === 'receipt').length === 0 && (
+                    <p className="text-sm text-muted-foreground">Nenhum histórico registrado.</p>
+                  )}
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Fiscal Conference Section */}
+        {receipt && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Conferência Fiscal
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Data da Conferência</span>
+                    <p>{receipt.approval_date ? format(new Date(receipt.approval_date), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Pendente'}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Fiscal Responsável</span>
+                    <p>{receipt.approver_first_name ? `${receipt.approver_first_name} ${receipt.approver_last_name}` : 'Aguardando Aprovação'}</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Status</span>
+                    <Badge variant={receipt.approval_date ? 'default' : 'secondary'} className={receipt.approval_date ? "bg-green-100 text-green-800" : ""}>
+                      {receipt.approval_date ? 'Aprovado' : 'Pendente'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fiscal Conference History */}
+              <div className="border rounded-md p-4 bg-muted/20">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Histórico Fiscal
+                </h4>
+                <div className="space-y-3">
+                  {auditLogs
+                    .filter((log: any) => log.action.includes('fiscal') || log.action.includes('approv') || (log.details && JSON.stringify(log.details).includes('fiscal')))
+                    .map((log: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-start text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
+                      <div>
+                        <span className="font-medium">{log.action}</span>
+                        <p className="text-muted-foreground text-xs">{log.first_name} {log.last_name}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(log.performed_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                  ))}
+                  {auditLogs.filter((log: any) => log.action.includes('fiscal') || log.action.includes('approv') || (log.details && JSON.stringify(log.details).includes('fiscal'))).length === 0 && (
+                    <p className="text-sm text-muted-foreground">Nenhum histórico registrado.</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ERP Integration Section */}
+        {receipt && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Integração ERP
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Last Status */}
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Status da Integração</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {erpLogs.length > 0 && erpLogs[0].type === 'success' ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                      )}
+                      <span className="font-medium">
+                        {erpLogs.length > 0 ? (erpLogs[0].type === 'success' ? 'Integrado' : 'Erro na Integração') : 'Aguardando'}
+                      </span>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => retryErpMutation.mutate()} 
+                    disabled={retryErpMutation.isPending}
+                    variant={erpLogs.length > 0 && erpLogs[0].type === 'error' ? "destructive" : "outline"}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${retryErpMutation.isPending ? 'animate-spin' : ''}`} />
+                    {retryErpMutation.isPending ? 'Enviando...' : 'Tentar Novamente'}
+                  </Button>
+                </div>
+
+                {/* Integration Logs */}
+                <div className="border rounded-md overflow-hidden">
+                  <div className="bg-muted px-4 py-2 border-b flex justify-between items-center">
+                    <h4 className="text-sm font-semibold">Logs da API</h4>
+                    <Badge variant="outline" className="text-xs">{erpLogs.length} registros</Badge>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto p-0">
+                    {erpLogs.length > 0 ? (
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 sticky top-0">
+                          <tr>
+                            <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[150px]">Data/Hora</th>
+                            <th className="text-left py-2 px-4 font-medium text-muted-foreground">Mensagem</th>
+                            <th className="text-right py-2 px-4 font-medium text-muted-foreground w-[100px]">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {erpLogs.map((log, idx) => (
+                            <tr key={idx} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                              <td className="py-2 px-4 text-xs text-muted-foreground whitespace-nowrap">
+                                {format(log.time, "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                              </td>
+                              <td className="py-2 px-4 font-mono text-xs">
+                                {log.message}
+                              </td>
+                              <td className="py-2 px-4 text-right">
+                                <Badge variant={log.type === 'success' ? 'default' : log.type === 'error' ? 'destructive' : 'outline'} className="text-[10px] h-5">
+                                  {log.type.toUpperCase()}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="p-8 text-center text-muted-foreground">
+                        <p>Nenhum log de integração registrado.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Complete Process Timeline */}
         <ProcessTimeline timeline={completeTimeline} isLoading={timelineLoading} />
