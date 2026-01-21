@@ -3,8 +3,17 @@ import { getEndpoints } from "../config/endpoints-registry";
 
 export interface SupplierInfo {
   fornecedor_id?: number | null;
-  cnpj?: string;
   nome?: string;
+  type?: number | null;
+  cnpj?: string;
+  cpf?: string;
+  contact?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  address?: string;
+  paymentTerms?: string;
+  productsServices?: string;
 }
 
 export interface InvoiceInfo {

@@ -7,6 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import PdfViewer from "./pdf-viewer";
 import { ErrorBoundary } from "./error-boundary";
 import {
@@ -452,40 +458,55 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                     const remaining = Math.max(0, max - prev);
                     
                     const isOver = (prev + current) > max;
+                    const isFullyReceived = prev >= max;
 
                     return (
-                      <TableRow key={it.id} className={isOver ? "bg-red-50 dark:bg-red-900/10" : ""}>
+                      <TableRow key={it.id} className={cn(isOver ? "bg-red-50 dark:bg-red-900/10" : "", isFullyReceived && "bg-muted/50")}>
                         <TableCell>{it.description}</TableCell>
                         <TableCell className="text-center">{max}</TableCell>
                         <TableCell className="text-center text-muted-foreground">{prev}</TableCell>
                         <TableCell className="text-center">
-                          <Input 
-                            type="number" 
-                            min={0} 
-                            step={1}
-                            className="w-24 mx-auto"
-                            value={current}
-                            onChange={(e) => {
-                              const raw = e.target.value;
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div>
+                                  <Input 
+                                    type="number" 
+                                    min={0} 
+                                    step={1}
+                                    className={cn("w-24 mx-auto", isFullyReceived && "cursor-not-allowed opacity-50 bg-muted")}
+                                    value={isFullyReceived ? 0 : current}
+                                    disabled={isFullyReceived}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
 
-                              if (raw === "") {
-                                setReceivedQuantities(p => ({ ...p, [it.id]: 0 }));
-                                return;
-                              }
+                                      if (raw === "") {
+                                        setReceivedQuantities(p => ({ ...p, [it.id]: 0 }));
+                                        return;
+                                      }
 
-                              if (!/^\d+$/.test(raw)) {
-                                toast({
-                                  title: "Valor inválido",
-                                  description: "Informe apenas números inteiros (sem casas decimais).",
-                                  variant: "destructive",
-                                });
-                                return;
-                              }
+                                      if (!/^\d+$/.test(raw)) {
+                                        toast({
+                                          title: "Valor inválido",
+                                          description: "Informe apenas números inteiros (sem casas decimais).",
+                                          variant: "destructive",
+                                        });
+                                        return;
+                                      }
 
-                              const v = Number(raw);
-                              setReceivedQuantities(p => ({ ...p, [it.id]: v }));
-                            }} 
-                          />
+                                      const v = Number(raw);
+                                      setReceivedQuantities(p => ({ ...p, [it.id]: v }));
+                                    }} 
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              {isFullyReceived && (
+                                <TooltipContent>
+                                  <p>Este item já foi recebido em sua totalidade.</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
                         </TableCell>
                         <TableCell className="text-center font-medium">
                            {remaining - current}

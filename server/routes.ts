@@ -41,6 +41,7 @@ import {
   purchaseOrderItems,
   purchaseOrders,
   suppliers,
+  companies,
 } from "../shared/schema";
 import { z } from "zod";
 import session from "express-session";
@@ -2568,6 +2569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Fetch additional data needed for ERP integration
             const [purchaseRequest] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
             const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, receipt.supplierId!));
+            const [company] = await db.select().from(companies).where(eq(companies.id, purchaseRequest.companyId!));
             
             if (purchaseRequest && supplier) {
               const payload: PurchaseReceiveRequest = {
@@ -2578,9 +2580,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 data_pedido: purchaseOrder.createdAt.toISOString(),
                 justificativa: purchaseRequest.justification,
                 fornecedor: {
-                  fornecedor_id: supplier.id,
+                  fornecedor_id: supplier.idSupplierERP,
+                  nome: supplier.name,
+                  type: supplier.type || undefined,
                   cnpj: supplier.cnpj || undefined,
-                  nome: supplier.name
+                  cpf: supplier.cpf || undefined,
+                  contact: supplier.contact || undefined,
+                  email: supplier.email || undefined,
+                  phone: supplier.phone || undefined,
+                  website: supplier.website || undefined,
+                  address: supplier.address || undefined,
+                  paymentTerms: supplier.paymentTerms || undefined,
+                  productsServices: supplier.productsServices || undefined,
                 },
                 nota_fiscal: {
                   numero: receipt.documentNumber || undefined,
@@ -2590,7 +2601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   valor_total: Number(receipt.totalAmount || 0)
                 },
                 condicoes_pagamento: {
-                  empresa_id: purchaseRequest.companyId || undefined,
+                  empresa_id: company.idCompanyERP || undefined,
                   forma_pagamento: paymentMethodCode ? Number(paymentMethodCode) : undefined,
                   data_vencimento: invoiceDueDate,
                   parcelas: hasInstallments ? Number(installmentCount) : 1,
@@ -3002,6 +3013,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const orderedQty = Number(it.quantity || 0);
                 
                 if (qtyReceivedNow > 0) {
+                   if (currentQty >= orderedQty) {
+                       return res.status(400).json({ message: `O item "${it.description}" já foi totalmente recebido.` });
+                   }
+                   if (currentQty + qtyReceivedNow > orderedQty) {
+                       return res.status(400).json({ message: `A quantidade informada para o item "${it.description}" excede o saldo restante.` });
+                   }
+
                    await db.update(purchaseOrderItems)
                      .set({ quantityReceived: String(currentQty + qtyReceivedNow) })
                      .where(eq(purchaseOrderItems.id, it.id));

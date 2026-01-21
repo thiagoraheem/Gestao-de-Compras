@@ -173,7 +173,6 @@ export const paymentMethods = pgTable("payment_methods", {
   active: boolean("active").default(true),
 });
 
-
 // Purchase Requests table
 export const purchaseRequests = pgTable("purchase_requests", {
   id: serial("id").primaryKey(),
@@ -262,8 +261,6 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
-
-
 
 // Approval History table
 export const approvalHistory = pgTable("approval_history", {
