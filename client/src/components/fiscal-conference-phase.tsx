@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PdfViewer from "./pdf-viewer";
-import { Eye, X, FileText, Check, Clock, ArrowLeft, RefreshCw, Edit } from "lucide-react";
+import { Eye, X, FileText, Check, Clock, ArrowLeft, RefreshCw, Edit, Undo2 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,16 @@ import { ReceiptXmlImport } from "./receipt/ReceiptXmlImport";
 import { ReceiptFinancial } from "./receipt/ReceiptFinancial";
 import { useReceiptActions } from "./receipt/useReceiptActions";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import PurchaseRequestHeaderCard from "./purchase-request-header-card";
@@ -41,6 +51,10 @@ export interface FiscalConferencePhaseHandle {
 }
 
 const FiscalDashboard = ({ request, onClose, onSelectReceipt }: any) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [undoReceiptId, setUndoReceiptId] = useState<number | null>(null);
+
   const { data: purchaseOrder } = useQuery<any>({
     queryKey: [`/api/purchase-orders/by-request/${request?.id}`],
     enabled: !!request?.id,
@@ -49,6 +63,24 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt }: any) => {
   const { data: receipts = [] } = useQuery<any[]>({
     queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/receipts`],
     enabled: !!purchaseOrder?.id,
+  });
+
+  const undoConferenceMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest(`/api/receipts/${id}/undo-physical-conference`, { method: "POST" });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: "Sucesso", description: "Conferência física desfeita com sucesso." });
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/receipts`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/items`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-orders/by-request/${request?.id}`] });
+      setUndoReceiptId(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message || "Erro ao desfazer conferência.", variant: "destructive" });
+      setUndoReceiptId(null);
+    }
   });
 
   // Filter receipts that need fiscal conference or are already done
@@ -89,9 +121,21 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt }: any) => {
                     <TableCell>{format(new Date(r.receivedAt), "dd/MM/yyyy HH:mm")}</TableCell>
                     <TableCell>{r.receivedByName || r.receivedBy || '-'}</TableCell>
                     <TableCell>
-                      <Button size="sm" onClick={() => onSelectReceipt(r.id)}>
-                        Conferir
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" onClick={() => onSelectReceipt(r.id)}>
+                          Conferir
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/20"
+                          onClick={() => setUndoReceiptId(r.id)}
+                          title="Desfazer conferência física"
+                        >
+                          <Undo2 className="w-4 h-4 mr-2" />
+                          Desfazer
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -130,6 +174,28 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt }: any) => {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!undoReceiptId} onOpenChange={(open) => !open && setUndoReceiptId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desfazer Conferência Física?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá remover completamente o registro de recebimento e reverter a quantidade dos itens para "Pendente".
+              Caso seja o único recebimento, a solicitação voltará para a fase de Recebimento.
+              Esta ação será registrada no log de auditoria e não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => undoReceiptId && undoConferenceMutation.mutate(undoReceiptId)}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              Confirmar Reversão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -157,7 +223,14 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     installmentCount,
     installments,
     allocations,
-    allocationMode
+    allocationMode,
+    // Destructure manual entry fields for fiscal confirmation
+    receiptType,
+    manualNFNumber,
+    manualNFSeries,
+    manualNFIssueDate,
+    manualTotal,
+    manualNFEmitterCNPJ
   } = useReceipt();
 
   const { reportIssueMutation } = useReceiptActions();
@@ -245,7 +318,14 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
             installmentCount,
             installments,
             allocations,
-            allocationMode
+            allocationMode,
+            // Pass header data to ensure DB is updated before validation
+            receiptType,
+            documentNumber: manualNFNumber,
+            documentSeries: manualNFSeries,
+            issueDate: manualNFIssueDate,
+            totalAmount: manualTotal,
+            emitterCnpj: manualNFEmitterCNPJ
           }
         }
       );

@@ -7,4 +7,9 @@ module.exports = {
   },
   roots: ['<rootDir>/client', '<rootDir>/server'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/client/src/$1",
+    "^@shared/(.*)$": "<rootDir>/shared/$1",
+    "^canvas$": "<rootDir>/client/src/test/mocks/canvasMock.js"
+  }
 };

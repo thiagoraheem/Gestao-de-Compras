@@ -17,6 +17,8 @@ import {
   purchaseRequests,
   receiptAllocations,
   companies,
+  purchaseOrderItems,
+  purchaseRequestItems,
 } from "../../shared/schema";
 import { purchaseReceiveService, PurchaseReceiveRequest } from "../integracao_locador/services/purchase-receive-service";
 import { parseNFeXml } from "../services/nfe-parser";
@@ -682,4 +684,98 @@ export function registerReceiptsRoutes(app: Express) {
       res.status(500).json({ message: error.message || "Erro ao retornar solicitação" });
     }
   });
+
+  // New Endpoint: Undo Physical Conference
+  app.post("/api/receipts/:id/undo-physical-conference", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const userId = req.session.userId!;
+
+      const receipt = await db.query.receipts.findFirst({
+        where: eq(receipts.id, id),
+        with: {
+          items: true
+        }
+      });
+
+      if (!receipt) {
+        return res.status(404).json({ message: "Recebimento não encontrado" });
+      }
+
+      // Check permissions (Receiver or Admin)
+      const user = await storage.getUser(userId);
+      if (!user?.isReceiver && !user?.isAdmin && !user?.isManager) {
+        return res.status(403).json({ message: "Sem permissão para desfazer conferência" });
+      }
+
+      // 1. Revert quantities in purchaseOrderItems
+      if (receipt.items && receipt.items.length > 0) {
+        for (const item of receipt.items) {
+          if (item.purchaseOrderItemId) {
+             // Decrement quantityReceived
+             // Using sql to ensure atomic update and handle potential nulls if any
+             await db.execute(sql`
+               UPDATE purchase_order_items 
+               SET quantity_received = GREATEST(0, COALESCE(quantity_received, 0) - ${item.quantityReceived})
+               WHERE id = ${item.purchaseOrderItemId}
+             `);
+          }
+        }
+      }
+
+      // 2. Delete related records
+      // Receipt items
+      await db.delete(receiptItems).where(eq(receiptItems.receiptId, id));
+      // Allocations
+      await db.delete(receiptAllocations).where(eq(receiptAllocations.receiptId, id));
+      // XMLs
+      await db.delete(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
+      // Installments
+      await db.delete(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
+      
+      // 3. Delete the receipt itself
+      await db.delete(receipts).where(eq(receipts.id, id));
+
+      // 4. Check if any receipts remain for the PO
+      let requestUpdated = false;
+      let requestId = 0;
+      if (receipt.purchaseOrderId) {
+        const remainingReceipts = await db.select().from(receipts).where(eq(receipts.purchaseOrderId, receipt.purchaseOrderId));
+        
+        // Find Request ID from Order
+        const order = await db.query.purchaseOrders.findFirst({
+            where: eq(purchaseOrders.id, receipt.purchaseOrderId),
+            columns: { purchaseRequestId: true }
+        });
+        requestId = order?.purchaseRequestId || 0;
+
+        if (remainingReceipts.length === 0 && order) {
+             // Revert Request Phase to 'recebimento' (Waiting for Receipt)
+             // And clear physicalReceiptAt
+             await db.update(purchaseRequests)
+               .set({ 
+                   currentPhase: "recebimento", 
+                   physicalReceiptAt: null,
+                   physicalReceiptById: null,
+                   updatedAt: new Date()
+               })
+               .where(eq(purchaseRequests.id, order.purchaseRequestId));
+            requestUpdated = true;
+        }
+      }
+
+      // 5. Audit Log
+      try {
+        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+          VALUES (${requestId}, ${'desfazer_conferencia_fisica'}, ${`Desfazer conferência física e exclusão - NF ${receipt.documentNumber || receipt.receiptNumber}`}, ${userId}, ${JSON.stringify({ receiptId: id, status: receipt.status })}::jsonb, ${JSON.stringify({ deleted: true, requestPhaseReverted: requestUpdated })}::jsonb, ${sql`ARRAY['receipts', 'purchase_order_items', 'purchase_requests']`} );`);
+      } catch {}
+
+      res.json({ success: true, message: "Conferência física desfeita e registro removido com sucesso" });
+
+    } catch (error) {
+      console.error("Error undoing physical conference:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao desfazer conferência" });
+    }
+  });
+
 }

@@ -32,6 +32,12 @@ jest.mock('../integracao_locador/services/purchase-receive-service', () => ({
 }));
 jest.mock('../db', () => ({ 
   db: mockDb,
+  pool: {
+    query: jest.fn(),
+    connect: jest.fn(),
+    on: jest.fn(),
+    end: jest.fn().mockResolvedValue(true),
+  },
   receipts: { id: 'id', observations: 'observations', status: 'status' },
   receiptItems: { receiptId: 'receipt_id' },
   eq: jest.fn(),
@@ -143,6 +149,54 @@ describe('Fiscal Data Persistence & Recovery', () => {
     expect(savedObs.lastErpAttempt.message).toBe('Simulated ERP Error');
   });
 
+  it('should update receiptType to avulso and bypass item validation', async () => {
+    // Setup: We simulate that the DB *will* return the updated type after our update call
+    mockStorage.getReceiptById.mockResolvedValue({ 
+      id: 300, 
+      status: 'conf_fisica', 
+      observations: '{}', 
+      receiptType: 'avulso', // The route fetches this AFTER the update we expect
+      purchaseOrderId: null,
+      supplierId: null,
+      documentIssueDate: new Date('2023-01-01')
+    });
+    
+    // Mock NO items found
+    mockDb.where.mockResolvedValue([]); 
+
+    // Mock successful ERP
+    mockPurchaseReceiveService.submit.mockResolvedValue({ success: true, message: 'Integrated' });
+
+    const payload = { 
+        paymentMethodCode: '001', 
+        allocations: [{ costCenterId: 1, chartOfAccountsId: 1, amount: 100 }],
+        invoiceDueDate: '2023-01-01',
+        hasInstallments: false,
+        installmentCount: 1,
+        installments: [],
+        receiptType: 'avulso',
+        documentNumber: '12345',
+        totalAmount: '100.00'
+    };
+
+    const res = await request(app)
+      .post('/api/receipts/300/confirm-fiscal')
+      .send(payload);
+
+    // Should be success
+    expect(res.status).toBe(200);
+
+    // Check if db.update was called to update receipt type
+    const setCalls = mockDb.set.mock.calls;
+    // We expect one of the update calls to contain receiptType: 'avulso'
+    const typeUpdate = setCalls.find(call => call[0].receiptType === 'avulso');
+    expect(typeUpdate).toBeDefined();
+    
+    // Also verify manual fields update
+    expect(typeUpdate[0].documentNumber).toBe('12345');
+    expect(typeUpdate[0].totalAmount).toBe('100.00');
+  });
+
   it('should persist financial data and update status on success', async () => {
     // Setup
     mockStorage.getReceiptById.mockResolvedValue({ 
@@ -190,5 +244,81 @@ describe('Fiscal Data Persistence & Recovery', () => {
     const savedObs = JSON.parse(updateCall[0].observations);
     expect(savedObs.financial.paymentMethodCode).toBe('002');
     expect(savedObs.erp.success).toBe(true);
+  });
+
+  it('should use linked receipt items for avulso receipt and not fallback', async () => {
+    // Reset mocks to avoid interference
+    mockDb.where.mockReset();
+    mockDb.where.mockReturnThis();
+
+    // Setup: Receipt is Avulso, has PO
+    mockStorage.getReceiptById.mockResolvedValue({ 
+      id: 400, 
+      status: 'conf_fisica', 
+      observations: '{}',
+      receiptType: 'avulso', 
+      purchaseOrderId: 10,
+      supplierId: 10,
+      documentIssueDate: new Date('2023-01-01')
+    });
+    
+    // Mock items found in receipt_items (simulating correct Physical Receipt behavior)
+    mockDb.select.mockReturnThis();
+    mockDb.from.mockReturnThis();
+    
+    // Mock PO
+    mockStorage.getPurchaseOrderById.mockResolvedValue({ 
+        id: 10, 
+        purchaseRequestId: 10, 
+        orderNumber: 'PO-10',
+        createdAt: new Date('2023-01-01')
+    });
+    
+    // Mock DB response for PR and Supplier (ERP integration)
+    mockDb.where
+      .mockResolvedValueOnce([{ affectedRows: 1 }]) // 1. update call (receiptType update)
+      .mockResolvedValueOnce([ // 2. receiptItems (FOUND!)
+          { 
+              id: 500,
+              receiptId: 400,
+              purchaseOrderItemId: 99, 
+              locadorProductCode: 'ITEM-RECEIVED', 
+              description: 'Received Item',
+              quantity: 5,        // Correct quantity for this receipt
+              unitPrice: 100,
+              totalPrice: 500
+          }
+      ])
+      // Fallback query (purchaseOrderItems) should NOT happen now
+      .mockResolvedValueOnce([{ id: 10 }]) // 3. PR Existence Check (Audit Log)
+      .mockResolvedValueOnce([{ id: 10, requestNumber: 'PR-10', companyId: 1 }]) // 4. purchaseRequest (ERP)
+      .mockResolvedValueOnce([{ id: 10, name: 'Supplier', cnpj: '123' }]); // 5. supplier
+
+    // Mock ERP success
+    mockPurchaseReceiveService.submit.mockResolvedValue({ success: true, message: 'OK' });
+
+    const payload = { 
+        paymentMethodCode: '002', 
+        allocations: [{ costCenterId: 2, chartOfAccountsId: 2, amount: 200 }],
+        invoiceDueDate: '2023-02-02',
+        hasInstallments: false,
+        installmentCount: 1,
+        installments: [],
+        receiptType: 'avulso'
+    };
+
+    const res = await request(app)
+      .post('/api/receipts/400/confirm-fiscal')
+      .send(payload);
+
+    expect(res.status).toBe(200);
+    
+    // Check if ERP submit was called with the receipt items
+    expect(mockPurchaseReceiveService.submit).toHaveBeenCalled();
+    const submitCall = mockPurchaseReceiveService.submit.mock.calls[0][0];
+    
+    expect(submitCall.itens).toHaveLength(1);
+    expect(submitCall.itens[0].codigo_produto).toBe('ITEM-RECEIVED');
+    expect(submitCall.itens[0].quantidade).toBe(5); 
   });
 });

@@ -166,7 +166,8 @@ export default function EnhancedNewRequestModal({
 
   const isServiceOrMaterialCategory =
     selectedCategory === CATEGORY_OPTIONS.SERVICO ||
-    selectedCategory === CATEGORY_OPTIONS.MATERIAL;
+    selectedCategory === CATEGORY_OPTIONS.MATERIAL ||
+    selectedCategory === CATEGORY_OPTIONS.OUTROS;
 
   const hasInvalidDescriptionChars = (value: string) => {
     const trimmed = value.trim();
@@ -320,13 +321,14 @@ export default function EnhancedNewRequestModal({
       }
     } else if (
       category === CATEGORY_OPTIONS.SERVICO ||
-      category === CATEGORY_OPTIONS.MATERIAL
+      category === CATEGORY_OPTIONS.MATERIAL ||
+      category === CATEGORY_OPTIONS.OUTROS
     ) {
       const description = newItemForm.description?.trim() || "";
       if (description.length < MIN_ITEM_DESCRIPTION_LENGTH) {
         toast({
           title: "Descrição obrigatória",
-          description: "Para Serviço ou Material, a descrição deve ter pelo menos 10 caracteres.",
+          description: `Para ${CATEGORY_LABELS[category]}, a descrição deve ter pelo menos ${MIN_ITEM_DESCRIPTION_LENGTH} caracteres.`,
           variant: "destructive",
         });
         return;
@@ -470,16 +472,18 @@ export default function EnhancedNewRequestModal({
 
     if (
       category === CATEGORY_OPTIONS.SERVICO ||
-      category === CATEGORY_OPTIONS.MATERIAL
+      category === CATEGORY_OPTIONS.MATERIAL ||
+      category === CATEGORY_OPTIONS.OUTROS
     ) {
-      const invalidItem = manualItems.find((item) =>
-        hasInvalidDescriptionChars(item.description || ""),
+      const hasInvalidDescription = manualItems.some(
+        (item) => hasInvalidDescriptionChars(item.description)
       );
-      if (invalidItem) {
+
+      if (hasInvalidDescription) {
         toast({
-          title: "Descrição inválida",
+          title: "Erro",
           description:
-            "Para Serviço ou Material, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.",
+            `Para ${CATEGORY_LABELS[category]}, a descrição dos itens deve ter pelo menos ${MIN_ITEM_DESCRIPTION_LENGTH} caracteres e não pode conter caracteres inválidos.`,
           variant: "destructive",
         });
         return;
@@ -610,13 +614,10 @@ export default function EnhancedNewRequestModal({
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {Object.entries(CATEGORY_OPTIONS).map(
-                                ([key, value]) => (
-                                  <SelectItem key={value} value={value}>
-                                    {CATEGORY_LABELS[value]}
-                                  </SelectItem>
-                                ),
-                              )}
+                              <SelectItem value={CATEGORY_OPTIONS.PRODUTO}>{CATEGORY_LABELS[CATEGORY_OPTIONS.PRODUTO]}</SelectItem>
+                              <SelectItem value={CATEGORY_OPTIONS.SERVICO}>{CATEGORY_LABELS[CATEGORY_OPTIONS.SERVICO]}</SelectItem>
+                              <SelectItem value={CATEGORY_OPTIONS.MATERIAL}>{CATEGORY_LABELS[CATEGORY_OPTIONS.MATERIAL]}</SelectItem>
+                              <SelectItem value={CATEGORY_OPTIONS.OUTROS}>{CATEGORY_LABELS[CATEGORY_OPTIONS.OUTROS]}</SelectItem>
                             </SelectContent>
                           </Select>
                         </FormControl>
@@ -804,7 +805,7 @@ export default function EnhancedNewRequestModal({
                           }
                           placeholder={
                             isServiceOrMaterialCategory
-                              ? "Descreva detalhadamente o serviço ou material..."
+                              ? "Descreva detalhadamente o item..."
                               : "Informe a descrição do item..."
                           }
                           className="h-9 text-sm"

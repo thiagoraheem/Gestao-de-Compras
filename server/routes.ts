@@ -1505,9 +1505,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           invalidDescription(item.description as string),
         );
         if (invalidItem) {
+          const catLabel =
+            validatedRequestData.category === "servico"
+              ? "Serviço"
+              : validatedRequestData.category === "material"
+              ? "Material"
+              : "Outros";
           return res.status(400).json({
-            message:
-              "Para Serviço ou Material, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.",
+            message: `Para ${catLabel}, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.`,
           });
         }
       }
@@ -1632,9 +1637,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             invalidDescription(item.description as string),
           );
           if (invalidItem) {
+            const catLabel =
+              category === "servico"
+                ? "Serviço"
+                : category === "material"
+                ? "Material"
+                : "Outros";
             return res.status(400).json({
-              message:
-                "Para Serviço ou Material, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.",
+              message: `Para ${catLabel}, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.`,
             });
           }
         }
@@ -2413,8 +2423,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         installmentCount,
         installments,
         allocations,
-        allocationMode
+        allocationMode,
+        // Header fields for update
+        receiptType: reqReceiptType,
+        documentNumber,
+        documentSeries,
+        issueDate,
+        totalAmount,
+        emitterCnpj
       } = req.body;
+
+      // Update receipt header data if provided (crucial for Avulso type)
+      if (reqReceiptType) {
+         console.log(`[Fiscal Confirm] Updating receipt #${receiptId} header data from request...`);
+         const updateData: any = { receiptType: reqReceiptType };
+         if (documentNumber) updateData.documentNumber = documentNumber;
+         if (documentSeries) updateData.documentSeries = documentSeries;
+         if (issueDate) updateData.documentIssueDate = new Date(issueDate);
+         if (totalAmount) updateData.totalAmount = String(totalAmount).replace(',', '.');
+         
+         await db.update(receipts)
+           .set(updateData)
+           .where(eq(receipts.id, receiptId));
+      }
 
       // Server-side validation
       if (!paymentMethodCode) return res.status(400).json({ message: "Forma de pagamento obrigatória" });
@@ -2436,25 +2467,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Centro de custo e plano de contas obrigatórios em todos os itens de rateio" });
       }
 
+      // Reload receipt after update to get latest type and data
       const receipt = await storage.getReceiptById(receiptId);
       if (!receipt) return res.status(404).json({ message: "Receipt not found" });
 
-      // Fetch items for validation and ERP
-      const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, receiptId));
+      // Fetch Items from receipt_items first
+      let items: any[] = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, receiptId));
       
       // Strict Validation: Items must exist
       // Bypass validation for "avulso" type
       // Normalize comparison: handle case sensitivity and potential whitespace
       const isAvulso = String(receipt.receiptType || '').trim().toLowerCase() === 'avulso';
 
+      // Pre-fetch Purchase Request ID for Audit Log and ERP
+      let purchaseRequestId: number | null = null;
+      let linkedPurchaseOrder: any = null;
+
+      if (receipt.purchaseOrderId) {
+          linkedPurchaseOrder = await storage.getPurchaseOrderById(receipt.purchaseOrderId);
+          if (linkedPurchaseOrder && linkedPurchaseOrder.purchaseRequestId) {
+             purchaseRequestId = linkedPurchaseOrder.purchaseRequestId;
+          }
+      }
+
+      // Fallback removed: Receipt items should now be correctly populated during Physical Receipt phase
+      if (isAvulso && (!items || items.length === 0)) {
+         console.warn(`[Fiscal Confirm] Avulso receipt #${receiptId} has no items linked. This might be a legacy receipt or an error in Physical Receipt.`);
+         // We do NOT fallback to purchaseOrderItems anymore to avoid incorrect partial receipt handling.
+      }
+
       if (isAvulso) {
         console.log(`[Fiscal Confirm] Validation skipped for Avulso receipt #${receiptId}`);
-        try {
-          // Log intentional validation bypass
-          await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-            VALUES (${0}, ${'recebimento_validacao_bypass'}, ${'Validação de itens ignorada para nota avulsa'}, ${userId}, ${null}, ${JSON.stringify({ receiptId })}::jsonb, ${sql`ARRAY['receipts']`} );`);
-        } catch (e) { 
-          console.error("Failed to write audit log for bypass", e);
+        if (purchaseRequestId) {
+            try {
+              // Verify PR exists to avoid FK violation
+              const [prExists] = await db.select({ id: purchaseRequests.id })
+                .from(purchaseRequests)
+                .where(eq(purchaseRequests.id, purchaseRequestId));
+
+              if (prExists) {
+                // Log intentional validation bypass
+                await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+                  VALUES (${purchaseRequestId}, ${'recebimento_validacao_bypass'}, ${'Validação de itens ignorada para nota avulsa'}, ${userId}, ${null}, ${JSON.stringify({ receiptId })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+              } else {
+                console.warn(`[Fiscal Confirm] Skipped audit log: Purchase Request #${purchaseRequestId} not found in DB.`);
+              }
+            } catch (e) { 
+              console.error("Failed to write audit log for bypass", e);
+            }
+        } else {
+             console.warn("[Fiscal Confirm] Skipped audit log for bypass: No Purchase Request ID found.");
         }
       } else if (!items || items.length === 0) {
         const errorMsg = "Erro de validação: A nota fiscal não possui itens vinculados. Verifique a importação ou inclusão manual.";
@@ -2930,6 +2992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update Items and Calculate Fulfillment
         let allFulfilled = true;
         let anyReceived = false;
+        const itemsToInsert: any[] = [];
 
         if (receivedQuantities) {
              const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
@@ -2942,6 +3005,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                    await db.update(purchaseOrderItems)
                      .set({ quantityReceived: String(currentQty + qtyReceivedNow) })
                      .where(eq(purchaseOrderItems.id, it.id));
+                   
+                   // Prepare receipt item for Avulso/Manual receipt creation
+                   itemsToInsert.push({
+                      purchaseOrderItemId: it.id,
+                      description: it.description,
+                      unit: it.unit,
+                      quantity: String(qtyReceivedNow), // Document quantity matches what was received in this batch
+                      unitPrice: String(it.unitPrice),
+                      totalPrice: String(qtyReceivedNow * Number(it.unitPrice)),
+                      locadorProductCode: it.itemCode,
+                      quantityReceived: String(qtyReceivedNow),
+                      condition: "conf_fisica"
+                   });
                 }
                 
                 // Check status AFTER update (approximation, real check should be fresh query but this is safe enough for logic)
@@ -2967,11 +3043,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
              const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
              const receiptNum = `REC-${y}${m}${d}-${rand}`;
 
-             await db.insert(receipts).values({
+             const [createdReceipt] = await db.insert(receipts).values({
                receiptNumber: receiptNum,
                purchaseOrderId: purchaseOrder.id,
                status: "conf_fisica", // Ready for Fiscal Conference
-               receiptType: "produto",
+               receiptType: "produto", // Default to produto, changed to avulso later if needed? Or should we allow passing it? 
+                                       // Frontend seems to treat this as Avulso or just Manual NF.
                documentNumber: manualNFNumber,
                documentSeries: manualNFSeries,
                supplierId: purchaseOrder.supplierId,
@@ -2979,7 +3056,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                receivedAt: new Date(),
                createdAt: new Date(),
                observations: observations
-             });
+             } as any).returning();
+
+             // Insert Receipt Items
+             if (itemsToInsert.length > 0) {
+                for (const item of itemsToInsert) {
+                   await db.insert(receiptItems).values({
+                      ...item,
+                      receiptId: createdReceipt.id,
+                      createdAt: new Date()
+                   });
+                }
+             }
         }
 
         // Update Request Phase ONLY if fully fulfilled

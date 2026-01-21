@@ -13,7 +13,7 @@ import { ReceiptSearchDialog } from "../receipt-search-dialog";
 import { validateManualHeader, validateManualItems, validateTotalConsistency } from "../../utils/manual-nf-validation";
 import { findBestPurchaseOrderMatch, MANUAL_ITEM_MATCH_THRESHOLD } from "../../utils/item-matching-helper";
 import { apiRequest } from "@/lib/queryClient";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useReceiptActions } from "./useReceiptActions";
 
@@ -38,10 +38,45 @@ export function ReceiptManualEntry() {
     purchaseOrderItems,
     nfConfirmed, canConfirmNf, nfStatus,
     setNfReceiptId,
+    nfReceiptId, // Ensure this is available from context
     setXmlPreview, setNfReceiptId: setContextNfReceiptId, // Rename to avoid conflict if needed
     setProductTransp,
   } = useReceipt();
-  
+
+  // Fetch items specifically received in this receipt (Physical Phase)
+  const { data: receiptItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/recebimentos/${nfReceiptId}/items`],
+    enabled: !!nfReceiptId,
+  });
+
+  // Auto-fill items for "Avulso" type
+  React.useEffect(() => {
+    if (receiptType === 'avulso' && receiptItems.length > 0) {
+      const autoItems = receiptItems.map(ri => ({
+        code: ri.locadorProductCode || String(ri.purchaseOrderItemId),
+        description: ri.description,
+        unit: ri.unit || 'UN',
+        quantity: Number(ri.quantityReceived || 0),
+        unitPrice: Number(ri.unitPrice || 0),
+        ncm: ri.ncm || "",
+        purchaseOrderItemId: ri.purchaseOrderItemId,
+        matchSource: 'auto',
+        isReadOnly: true
+      }));
+      
+      // Only update if different to avoid infinite loop
+      if (JSON.stringify(autoItems) !== JSON.stringify(manualItems)) {
+        setManualItems(autoItems);
+        
+        // Auto-calculate total if not set
+        if (!manualTotal || manualTotal === "0,00" || manualTotal === "0") {
+            const total = autoItems.reduce((acc, it) => acc + (it.quantity * it.unitPrice), 0);
+            setManualTotal(total.toFixed(2).replace('.', ','));
+        }
+      }
+    }
+  }, [receiptType, receiptItems, setManualItems, manualItems, manualTotal, setManualTotal]);
+
   const { confirmNfMutation } = useReceiptActions();
 
   const handleExistingReceiptSelect = async (receiptId: number) => {
@@ -190,14 +225,20 @@ export function ReceiptManualEntry() {
           <CardHeader><CardTitle>Itens da Nota ({receiptType === "servico" ? "Serviços" : "Produtos"})</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">Adicione múltiplos itens e valide os dados</div>
-              <Button type="button" variant="secondary" onClick={() => {
-                if (receiptType === "servico") {
-                  setManualItems(prev => [...prev, { description: "", serviceCode: "", netValue: 0, issValue: 0, quantity: 1, unitPrice: 0 }]);
-                } else {
-                  setManualItems(prev => [...prev, { code: "", description: "", unit: "UN", quantity: 1, unitPrice: 0, ncm: "" }]);
-                }
-              }}><Plus className="h-4 w-4 mr-2" />Adicionar Item</Button>
+              <div className="text-sm text-muted-foreground">
+                {receiptType === 'avulso' 
+                  ? "Itens carregados automaticamente do recebimento físico" 
+                  : "Adicione múltiplos itens e valide os dados"}
+              </div>
+              {receiptType !== "avulso" && (
+                <Button type="button" variant="secondary" onClick={() => {
+                  if (receiptType === "servico") {
+                    setManualItems(prev => [...prev, { description: "", serviceCode: "", netValue: 0, issValue: 0, quantity: 1, unitPrice: 0 }]);
+                  } else {
+                    setManualItems(prev => [...prev, { code: "", description: "", unit: "UN", quantity: 1, unitPrice: 0, ncm: "" }]);
+                  }
+                }}><Plus className="h-4 w-4 mr-2" />Adicionar Item</Button>
+              )}
             </div>
             
             <div className="space-y-4">
@@ -209,6 +250,7 @@ export function ReceiptManualEntry() {
                         <div className="md:col-span-3">
                           <Label>Descrição do Serviço</Label>
                           <Input
+                            disabled={it.isReadOnly}
                             value={it.description || ""}
                             onChange={(e) => setManualItems(prev => prev.map((row, i) => {
                               if (i !== idx) return row;
@@ -226,18 +268,20 @@ export function ReceiptManualEntry() {
                         </div>
                         <div>
                           <Label>Código de Serviço</Label>
-                          <Input value={it.serviceCode || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, serviceCode: e.target.value } : row))} />
+                          <Input disabled={it.isReadOnly} value={it.serviceCode || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, serviceCode: e.target.value } : row))} />
                         </div>
                         <div>
                           <Label>Valor Líquido</Label>
-                          <Input type="number" value={it.netValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, netValue: Number(e.target.value) } : row))} />
+                          <Input disabled={it.isReadOnly} type="number" value={it.netValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, netValue: Number(e.target.value) } : row))} />
                         </div>
                         <div>
                           <Label>ISS</Label>
-                          <Input type="number" value={it.issValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, issValue: Number(e.target.value) } : row))} />
+                          <Input disabled={it.isReadOnly} type="number" value={it.issValue ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, issValue: Number(e.target.value) } : row))} />
                         </div>
                         <div className="flex items-end">
-                          <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
+                          {!it.isReadOnly && (
+                            <Button type="button" variant="destructive" onClick={() => setManualItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
+                          )}
                         </div>
                       </>
                     ) : (
@@ -245,6 +289,7 @@ export function ReceiptManualEntry() {
                         <div>
                           <Label>Código</Label>
                           <Input
+                            disabled={it.isReadOnly}
                             value={it.code || ""}
                             onChange={(e) => setManualItems(prev => prev.map((row, i) => {
                               if (i !== idx) return row;
@@ -263,6 +308,7 @@ export function ReceiptManualEntry() {
                         <div className="md:col-span-2">
                           <Label>Descrição</Label>
                           <Input
+                            disabled={it.isReadOnly}
                             value={it.description || ""}
                             onChange={(e) => setManualItems(prev => prev.map((row, i) => {
                               if (i !== idx) return row;
@@ -280,28 +326,64 @@ export function ReceiptManualEntry() {
                         </div>
                         <div>
                           <Label>NCM</Label>
-                          <Input value={it.ncm || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, ncm: e.target.value } : row))} />
+                          <Input disabled={it.isReadOnly} value={it.ncm || ""} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, ncm: e.target.value } : row))} />
                         </div>
                         <div>
                           <Label>Qtd</Label>
-                          <Input type="number" value={it.quantity ?? 1} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity: Number(e.target.value) } : row))} />
+                          <Input 
+                            disabled={it.isReadOnly} 
+                            type="number" 
+                            value={it.quantity ?? 1} 
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity: val } : row));
+                              
+                              // Validate against linked item
+                              if (it.purchaseOrderItemId && receiptItems.length > 0) {
+                                const ri = receiptItems.find(r => r.purchaseOrderItemId === it.purchaseOrderItemId);
+                                if (ri) {
+                                  const received = Number(ri.quantityReceived || 0);
+                                  if (val > received) {
+                                    toast({ title: "Validação", description: `Quantidade informada (${val}) maior que recebida (${received}).`, variant: "destructive" });
+                                  }
+                                }
+                              }
+                            }} 
+                          />
                         </div>
                         <div>
                           <Label>Valor Unit.</Label>
-                          <Input type="number" value={it.unitPrice ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, unitPrice: Number(e.target.value) } : row))} />
+                          <Input disabled={it.isReadOnly} type="number" value={it.unitPrice ?? 0} onChange={(e) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, unitPrice: Number(e.target.value) } : row))} />
                         </div>
                         {/* Taxes fields skipped for brevity, should be included ideally */}
                       </>
                     )}
                   </div>
                   
-                  {/* Link to Purchase Order Item */}
+                  {/* Link to Purchase Order Item or Receipt Item */}
                   {receiptType !== "avulso" && (
                     <div className="flex items-center gap-2 pt-2 border-t mt-2">
                       <div className="flex-1">
                          <Select 
                           value={it.purchaseOrderItemId ? String(it.purchaseOrderItemId) : "none"} 
-                          onValueChange={(v) => setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, purchaseOrderItemId: v === "none" ? undefined : Number(v), matchSource: "manual" } : row))}
+                          onValueChange={(v) => {
+                             // Validate Quantity if linking to a receipt item
+                             const targetId = v === "none" ? undefined : Number(v);
+                             let warning = "";
+                             if (targetId && receiptItems.length > 0) {
+                               const ri = receiptItems.find(r => r.purchaseOrderItemId === targetId);
+                               if (ri) {
+                                 const received = Number(ri.quantityReceived || 0);
+                                 const current = Number(it.quantity || 0);
+                                 if (current > received) {
+                                   warning = `Atenção: Quantidade informada (${current}) é maior que a recebida (${received}).`;
+                                   toast({ title: "Validação", description: warning, variant: "destructive" });
+                                 }
+                               }
+                             }
+                             
+                             setManualItems(prev => prev.map((row, i) => i === idx ? { ...row, purchaseOrderItemId: targetId, matchSource: "manual" } : row));
+                          }}
                         >
                           <SelectTrigger className={cn(
                             "transition-colors",
@@ -309,15 +391,23 @@ export function ReceiptManualEntry() {
                               ? "border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800" 
                               : "border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-800"
                           )}>
-                            <SelectValue placeholder="Vincular ao Item do Pedido" />
+                            <SelectValue placeholder="Vincular ao Item Recebido" />
                           </SelectTrigger>
                           <SelectContent>
                              <SelectItem value="none">Sem vínculo</SelectItem>
-                             {purchaseOrderItems.map((poItem: any) => (
-                               <SelectItem key={poItem.id} value={String(poItem.id)}>
-                                 {poItem.itemCode} - {poItem.description} ({poItem.quantity} {poItem.unit})
-                               </SelectItem>
-                             ))}
+                             {/* If we have receipt items (physical receipt confirmed), show them. Otherwise show PO items */}
+                             {receiptItems.length > 0 
+                               ? receiptItems.map((ri: any) => (
+                                   <SelectItem key={ri.id} value={String(ri.purchaseOrderItemId)}>
+                                     {ri.description} (Recebido: {ri.quantityReceived} {ri.unit})
+                                   </SelectItem>
+                                 ))
+                               : purchaseOrderItems.map((poItem: any) => (
+                                   <SelectItem key={poItem.id} value={String(poItem.id)}>
+                                     {poItem.itemCode} - {poItem.description} (Solicitado: {poItem.quantity} {poItem.unit})
+                                   </SelectItem>
+                                 ))
+                             }
                            </SelectContent>
                          </Select>
                       </div>
@@ -361,6 +451,19 @@ export function ReceiptManualEntry() {
                     if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) {
                       return toast({ title: "Validação", description: "Vincule todos os itens da nota aos itens do pedido antes de confirmar.", variant: "destructive" });
                     }
+
+                    if (receiptItems.length > 0) {
+                       const invalidQty = manualItems.find(it => {
+                         if (!it.purchaseOrderItemId) return false;
+                         const ri = receiptItems.find(r => r.purchaseOrderItemId === it.purchaseOrderItemId);
+                         if (!ri) return false;
+                         return (it.quantity || 0) > (ri.quantityReceived || 0);
+                       });
+                       if (invalidQty) {
+                         return toast({ title: "Validação", description: "Existem itens com quantidade superior ao recebido.", variant: "destructive" });
+                       }
+                    }
+
                     const totCheck = validateTotalConsistency(manualTotal, kind as any, manualItems as any);
                     if (!totCheck.isValid) {
                       return toast({ title: "Validação", description: `Valor total (${totCheck.provided.toFixed(2)}) não confere com soma dos itens (${totCheck.expected.toFixed(2)})`, variant: "destructive" });
@@ -389,6 +492,19 @@ export function ReceiptManualEntry() {
                 if (receiptType !== "avulso" && manualItemsMissingLinks.length > 0) {
                   return toast({ title: "Validação", description: "Vincule todos os itens da nota aos itens do pedido antes de avançar.", variant: "destructive" });
                 }
+
+                if (receiptItems.length > 0) {
+                   const invalidQty = manualItems.find(it => {
+                     if (!it.purchaseOrderItemId) return false;
+                     const ri = receiptItems.find(r => r.purchaseOrderItemId === it.purchaseOrderItemId);
+                     if (!ri) return false;
+                     return (it.quantity || 0) > (ri.quantityReceived || 0);
+                   });
+                   if (invalidQty) {
+                     return toast({ title: "Validação", description: "Existem itens com quantidade superior ao recebido.", variant: "destructive" });
+                   }
+                }
+
                 const totCheck = validateTotalConsistency(manualTotal, kind as any, manualItems as any);
                 if (!totCheck.isValid) {
                   return toast({ title: "Validação", description: `Valor total (${totCheck.provided.toFixed(2)}) não confere com soma dos itens (${totCheck.expected.toFixed(2)})`, variant: "destructive" });

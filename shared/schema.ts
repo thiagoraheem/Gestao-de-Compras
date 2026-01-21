@@ -559,7 +559,7 @@ export const receiptItems = pgTable("receipt_items", {
   pisAmount: decimal("pis_amount", { precision: 18, scale: 2 }),
   cofinsRate: decimal("cofins_rate", { precision: 5, scale: 2 }),
   cofinsAmount: decimal("cofins_amount", { precision: 18, scale: 2 }),
-  createdAt: timestamp("created_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const receiptNfXmls = pgTable("receipt_nf_xmls", {

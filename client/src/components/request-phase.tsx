@@ -409,7 +409,8 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
 
     if (
       data.category === CATEGORY_OPTIONS.SERVICO ||
-      data.category === CATEGORY_OPTIONS.MATERIAL
+      data.category === CATEGORY_OPTIONS.MATERIAL ||
+      data.category === CATEGORY_OPTIONS.OUTROS
     ) {
       const invalidItem = manualItems.find((item) =>
         hasInvalidDescriptionChars(item.description || ""),
@@ -418,7 +419,7 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
         toast({
           title: "Descrição inválida",
           description:
-            "Para Serviço ou Material, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.",
+            `Para ${CATEGORY_LABELS[data.category]}, a descrição dos itens deve ter pelo menos ${MIN_ITEM_DESCRIPTION_LENGTH} caracteres e não pode conter caracteres inválidos.`,
           variant: "destructive",
         });
         return;
@@ -505,13 +506,10 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(CATEGORY_OPTIONS).map(
-                              ([key, value]) => (
-                                <SelectItem key={value} value={value}>
-                                  {CATEGORY_LABELS[value]}
-                                </SelectItem>
-                              ),
-                            )}
+                            <SelectItem value={CATEGORY_OPTIONS.PRODUTO}>{CATEGORY_LABELS[CATEGORY_OPTIONS.PRODUTO]}</SelectItem>
+                            <SelectItem value={CATEGORY_OPTIONS.SERVICO}>{CATEGORY_LABELS[CATEGORY_OPTIONS.SERVICO]}</SelectItem>
+                            <SelectItem value={CATEGORY_OPTIONS.MATERIAL}>{CATEGORY_LABELS[CATEGORY_OPTIONS.MATERIAL]}</SelectItem>
+                            <SelectItem value={CATEGORY_OPTIONS.OUTROS}>{CATEGORY_LABELS[CATEGORY_OPTIONS.OUTROS]}</SelectItem>
                           </SelectContent>
                         </Select>
                       </FormControl>

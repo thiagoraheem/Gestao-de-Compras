@@ -300,6 +300,62 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
 
   const nfConfirmed = !!(receiptId ? specificReceipt?.status === 'conferida' : nfStatus?.nfConfirmed);
 
+  // Effect to populate state from specificReceipt or nfStatus
+  useEffect(() => {
+    const data = specificReceipt || nfStatus?.financialData;
+    if (data) {
+      if (data.receiptType) setReceiptType(data.receiptType as any);
+      
+      // Load financial data
+      if (data.paymentMethodCode) setPaymentMethodCode(data.paymentMethodCode);
+      if (data.invoiceDueDate) setInvoiceDueDate(data.invoiceDueDate.split('T')[0]);
+      
+      if (data.hasInstallments !== undefined) setHasInstallments(data.hasInstallments);
+      if (data.installmentCount) setInstallmentCount(data.installmentCount);
+      
+      if (data.installments && Array.isArray(data.installments)) {
+        setInstallments(data.installments.map((i: any) => ({
+          dueDate: i.dueDate ? i.dueDate.split('T')[0] : '',
+          amount: String(i.amount),
+          method: i.method || i.paymentMethodCode
+        })));
+      }
+
+      if (data.allocations && Array.isArray(data.allocations)) {
+        setAllocations(data.allocations.map((a: any) => ({
+          costCenterId: a.costCenterId,
+          chartOfAccountsId: a.chartOfAccountsId,
+          amount: String(a.amount),
+          percentage: String(a.percentage || '')
+        })));
+      }
+
+      // Load Manual Entry Data if available (e.g. from observations or specific fields)
+      if (data.documentNumber) setManualNFNumber(data.documentNumber);
+      if (data.documentSeries) setManualNFSeries(data.documentSeries);
+      if (data.documentIssueDate) setManualNFIssueDate(data.documentIssueDate.split('T')[0]);
+      if (data.documentEntryDate) setManualNFEntryDate(data.documentEntryDate.split('T')[0]);
+      if (data.totalAmount) setManualTotal(String(data.totalAmount).replace('.', ','));
+      if (data.documentKey) setManualNFAccessKey(data.documentKey);
+      
+      // Parse observations for other fields if needed
+      if (data.observations) {
+        try {
+          const obs = typeof data.observations === 'string' ? JSON.parse(data.observations) : data.observations;
+          if (obs.emitterCnpj) setManualNFEmitterCNPJ(obs.emitterCnpj);
+          if (obs.manualProductsValue) setManualProductsValue(obs.manualProductsValue);
+          if (obs.manualFreightValue) setManualFreightValue(obs.manualFreightValue);
+          if (obs.manualDiscountValue) setManualDiscountValue(obs.manualDiscountValue);
+          if (obs.manualIcmsBase) setManualIcmsBase(obs.manualIcmsBase);
+          if (obs.manualIcmsValue) setManualIcmsValue(obs.manualIcmsValue);
+          if (obs.manualOtherTaxes) setManualOtherTaxes(obs.manualOtherTaxes);
+        } catch (e) {
+          // ignore parsing error
+        }
+      }
+    }
+  }, [specificReceipt, nfStatus]);
+
   // Populate from specific receipt
   useEffect(() => {
     if (specificReceipt) {
