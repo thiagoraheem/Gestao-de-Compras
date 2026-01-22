@@ -177,7 +177,7 @@ export function HybridProductInput({
             placeholder={isSearchMode ? "Digite para buscar no ERP..." : placeholder}
             className={cn(
               "pr-10",
-              selectedProduct && "border-green-500 bg-green-50",
+              selectedProduct && "border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600",
               isSearchMode && "border-blue-500"
             )}
             readOnly={isErpOnly && !isSearchMode}
@@ -188,7 +188,7 @@ export function HybridProductInput({
               type="button"
               variant="ghost"
               size="sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-green-600 hover:text-green-700"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
               onClick={clearSelection}
             >
               <X className="h-4 w-4" />
@@ -212,8 +212,8 @@ export function HybridProductInput({
 
       {/* Indicador de produto selecionado */}
       {selectedProduct && (
-        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
-          <p className="text-sm text-green-800 font-medium">
+        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md dark:bg-green-900/20 dark:border-green-800">
+          <p className="text-sm text-green-800 font-medium dark:text-green-300">
             ✓ Produto do ERP: {selectedProduct.codigo}
           </p>
         </div>

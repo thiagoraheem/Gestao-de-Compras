@@ -1264,11 +1264,11 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                 </h4>
                 <div className="space-y-3">
                   {auditLogs
-                    .filter((log: any) => log.action.includes('receipt') || log.entity_type === 'receipt')
+                    .filter((log: any) => (log.action && log.action.includes('receipt')) || log.entity_type === 'receipt')
                     .map((log: any, idx: number) => (
                     <div key={idx} className="flex justify-between items-start text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
                       <div>
-                        <span className="font-medium">{log.action}</span>
+                        <span className="font-medium">{log.action || 'Ação desconhecida'}</span>
                         <p className="text-muted-foreground text-xs">{log.first_name} {log.last_name}</p>
                       </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -1276,7 +1276,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                       </span>
                     </div>
                   ))}
-                  {auditLogs.filter((log: any) => log.action.includes('receipt') || log.entity_type === 'receipt').length === 0 && (
+                  {auditLogs.filter((log: any) => (log.action && log.action.includes('receipt')) || log.entity_type === 'receipt').length === 0 && (
                     <p className="text-sm text-muted-foreground">Nenhum histórico registrado.</p>
                   )}
                 </div>
@@ -1324,11 +1324,11 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                 </h4>
                 <div className="space-y-3">
                   {auditLogs
-                    .filter((log: any) => log.action.includes('fiscal') || log.action.includes('approv') || (log.details && JSON.stringify(log.details).includes('fiscal')))
+                    .filter((log: any) => (log.action && (log.action.includes('fiscal') || log.action.includes('approv'))) || (log.details && JSON.stringify(log.details).includes('fiscal')))
                     .map((log: any, idx: number) => (
                     <div key={idx} className="flex justify-between items-start text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
                       <div>
-                        <span className="font-medium">{log.action}</span>
+                        <span className="font-medium">{log.action || 'Ação desconhecida'}</span>
                         <p className="text-muted-foreground text-xs">{log.first_name} {log.last_name}</p>
                       </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -1336,7 +1336,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                       </span>
                     </div>
                   ))}
-                  {auditLogs.filter((log: any) => log.action.includes('fiscal') || log.action.includes('approv') || (log.details && JSON.stringify(log.details).includes('fiscal'))).length === 0 && (
+                  {auditLogs.filter((log: any) => (log.action && (log.action.includes('fiscal') || log.action.includes('approv'))) || (log.details && JSON.stringify(log.details).includes('fiscal'))).length === 0 && (
                     <p className="text-sm text-muted-foreground">Nenhum histórico registrado.</p>
                   )}
                 </div>

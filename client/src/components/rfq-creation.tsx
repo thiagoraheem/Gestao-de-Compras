@@ -35,6 +35,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { SupplierSelector } from "./supplier-selector";
 import { UnitSelect } from "./unit-select";
 import { useUnits } from "@/hooks/useUnits";
+import HybridProductInput from "./hybrid-product-input";
 import debug from "@/lib/debug";
 
 const quotationItemSchema = z.object({
@@ -798,7 +799,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                           </Badge>
                         )}
                         <Badge variant="secondary" className="text-xs">
-                          {purchaseRequestItems[index]?.productCode || ""}
+                          {form.watch(`items.${index}.itemCode`) || purchaseRequestItems[index]?.productCode || ""}
                         </Badge>
                       </h4>
                       {fields.length > 1 && (
@@ -886,10 +887,16 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                           <FormItem>
                             <FormLabel className="text-gray-700 dark:text-slate-300 font-medium">Descrição do Item</FormLabel>
                             <FormControl>
-                              <Textarea 
-                                placeholder="Descrição detalhada do item (carregada da solicitação original)"
-                                rows={2}
-                                {...field}
+                              <HybridProductInput 
+                                value={field.value}
+                                onChange={field.onChange}
+                                onProductSelect={(product) => {
+                                  const processedUnit = processERPUnit(product.unidade);
+                                  form.setValue(`items.${index}.description`, product.descricao);
+                                  form.setValue(`items.${index}.itemCode`, product.codigo);
+                                  form.setValue(`items.${index}.unit`, processedUnit);
+                                }}
+                                placeholder="Descrição detalhada do item ou busque no ERP..."
                                 className="text-sm"
                               />
                             </FormControl>

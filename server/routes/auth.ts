@@ -46,6 +46,7 @@ export function registerAuthRoutes(app: Express) {
         isApproverA1: user.isApproverA1,
         isApproverA2: user.isApproverA2,
         isReceiver: user.isReceiver,
+        forceChangePassword: user.forceChangePassword,
         departmentId: user.departmentId,
         companyId: user.companyId,
         company: company ? {
@@ -92,6 +93,7 @@ export function registerAuthRoutes(app: Express) {
         isApproverA1: user.isApproverA1,
         isApproverA2: user.isApproverA2,
         isReceiver: user.isReceiver,
+        forceChangePassword: user.forceChangePassword,
         departmentId: user.departmentId,
         companyId: user.companyId,
         company: company ? {

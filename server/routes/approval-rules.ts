@@ -290,6 +290,9 @@ export function registerApprovalRulesRoutes(app: Express) {
 
         updatedRequest = await storage.updatePurchaseRequest(requestId, updateData);
 
+        console.log("Verificar se vai entrar no createPurchaseOrder")
+        console.log(data.approved, newPhase);
+
         // Create purchase order if fully approved
         if (data.approved && newPhase === "pedido_compra") {
           try {

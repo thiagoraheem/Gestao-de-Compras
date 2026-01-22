@@ -70,6 +70,7 @@ export const users = pgTable("users", {
   isReceiver: boolean("is_receiver").default(false),
   isCEO: boolean("is_ceo").default(false),
   isDirector: boolean("is_director").default(false),
+  forceChangePassword: boolean("force_change_password").default(false),
   passwordResetToken: text("password_reset_token"),
   passwordResetExpires: timestamp("password_reset_expires"),
   createdAt: timestamp("created_at").defaultNow(),

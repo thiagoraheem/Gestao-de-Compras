@@ -133,14 +133,14 @@ export default function ApprovalItemsViewer({ items, requestId, requestNumber, c
           </Table>
         </div>
         
-        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+        <div className="mt-4 p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg">
           <div className="flex justify-between items-center">
-            <span className="font-medium text-gray-700">Total de Itens:</span>
-            <span className="font-bold text-lg">{items.length}</span>
+            <span className="font-medium text-gray-700 dark:text-slate-300">Total de Itens:</span>
+            <span className="font-bold text-lg dark:text-slate-100">{items.length}</span>
           </div>
           <div className="flex justify-between items-center mt-2">
-            <span className="font-medium text-gray-700">Qtd. Total Requisitada:</span>
-            <span className="font-bold text-lg">{formatNumber(getTotalRequested())}</span>
+            <span className="font-medium text-gray-700 dark:text-slate-300">Qtd. Total Requisitada:</span>
+            <span className="font-bold text-lg dark:text-slate-100">{formatNumber(getTotalRequested())}</span>
           </div>
         </div>
       </CardContent>

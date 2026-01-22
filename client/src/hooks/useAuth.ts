@@ -32,6 +32,7 @@ interface User {
   isReceiver: boolean;
   isDirector: boolean;
   isCEO: boolean;
+  forceChangePassword?: boolean;
 }
 
 export function useAuth() {

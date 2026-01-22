@@ -389,6 +389,81 @@ export async function notifyApprovalA2(
   }
 }
 
+export async function notifyRejection(
+  purchaseRequest: PurchaseRequest,
+  rejectionReason: string,
+  phase?: string,
+): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de rejeição para solicitação ${purchaseRequest.requestNumber} não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
+  try {
+    if (!purchaseRequest.requesterId) return;
+    
+    const requester = await storage.getUser(purchaseRequest.requesterId);
+    if (!requester || !requester.email) return;
+
+    const transporter = createTransporter();
+    
+    const phaseText = phase ? ` na fase ${phase}` : "";
+    
+    const mailOptions = {
+      from: config.email.from,
+      to: requester.email,
+      replyTo: config.email.from,
+      subject: `Solicitação Rejeitada${phaseText} - ${purchaseRequest.requestNumber}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #fee2e2; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+            .content { margin-bottom: 20px; }
+            .reason { background-color: #f8f9fa; padding: 15px; border-left: 4px solid #dc2626; margin: 15px 0; }
+            .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h2 style="color: #dc2626; margin: 0;">Solicitação Rejeitada</h2>
+              <p style="margin: 5px 0 0 0;">Número: <strong>${purchaseRequest.requestNumber}</strong></p>
+            </div>
+            <div class="content">
+              <p>Olá ${requester.firstName || requester.username},</p>
+              <p>Sua solicitação de compra foi devolvida/rejeitada${phaseText}.</p>
+              
+              <div class="reason">
+                <strong>Motivo da rejeição:</strong><br>
+                ${rejectionReason}
+              </div>
+
+              <p>
+                <a href="${buildRequestUrl(purchaseRequest.id)}" style="background-color: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                  Ver Detalhes
+                </a>
+              </p>
+            </div>
+            <div class="footer">
+              <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error("Erro ao notificar rejeição:", error);
+  }
+}
+
 // Email templates for notifications
 function generateNewRequestEmailHTML(
   buyer: User,
@@ -399,48 +474,32 @@ function generateNewRequestEmailHTML(
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset="utf-8">
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .header { background: #10b981; color: white; padding: 20px; text-align: center; }
-        .content { padding: 20px; }
-        .details { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
-        .button { background: #10b981; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .content { margin-bottom: 20px; }
+        .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>Nova Solicitação de Compra</h1>
-        <h2>${purchaseRequest.requestNumber}</h2>
-      </div>
-      
-      <div class="content">
-        <p>Olá <strong>${buyer.firstName || buyer.username}</strong>,</p>
-        
-        <p>Uma nova solicitação de compra foi criada e está aguardando processamento.</p>
-        
-        <div class="details">
-          <h3>Detalhes da Solicitação:</h3>
-          <ul>
-            <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
-            <li><strong>Solicitante:</strong> ${requesterName}</li>
-            <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
-            <li><strong>Urgência:</strong> ${purchaseRequest.urgency}</li>
-            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : "N/A"}</li>
-          </ul>
+      <div class="container">
+        <div class="header">
+          <h2>Nova Solicitação de Compra</h2>
+          <p>Número: <strong>${purchaseRequest.requestNumber}</strong></p>
         </div>
-        
-        <p>Acesse o sistema para processar esta solicitação.</p>
-        
-        <a href="${buildRequestUrl(purchaseRequest.id, "solicitacao")}" class="button">
-          Ver Solicitação
-        </a>
-      </div>
-      
-      <div class="footer">
-        <p>Sistema de Gestão de Compras</p>
-        <p>Este é um e-mail automático, não responda.</p>
+        <div class="content">
+          <p>Olá ${buyer.firstName || buyer.username},</p>
+          <p>Uma nova solicitação de compra foi criada por <strong>${requesterName}</strong> e precisa de sua atenção.</p>
+          <p>
+            <a href="${buildRequestUrl(purchaseRequest.id)}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              Ver Solicitação
+            </a>
+          </p>
+        </div>
+        <div class="footer">
+          <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
+        </div>
       </div>
     </body>
     </html>
@@ -456,53 +515,32 @@ function generateApprovalA1EmailHTML(
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset="utf-8">
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .header { background: #f59e0b; color: white; padding: 20px; text-align: center; }
-        .content { padding: 20px; }
-        .details { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
-        .button { background: #f59e0b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
-        .priority { background: #fef3c7; border: 1px solid #f59e0b; padding: 10px; border-radius: 4px; margin: 15px 0; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .content { margin-bottom: 20px; }
+        .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>Solicitação Pendente de Aprovação A1</h1>
-        <h2>${purchaseRequest.requestNumber}</h2>
-      </div>
-      
-      <div class="content">
-        <p>Olá <strong>${approver.firstName || approver.username}</strong>,</p>
-        
-        <p>Uma solicitação de compra está aguardando sua aprovação (Nível A1).</p>
-        
-        <div class="priority">
-          <strong>⚠️ Urgência: ${purchaseRequest.urgency}</strong>
+      <div class="container">
+        <div class="header">
+          <h2>Solicitação Aguardando Aprovação A1</h2>
+          <p>Número: <strong>${purchaseRequest.requestNumber}</strong></p>
         </div>
-        
-        <div class="details">
-          <h3>Detalhes da Solicitação:</h3>
-          <ul>
-            <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
-            <li><strong>Solicitante:</strong> ${requesterName}</li>
-            <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
-            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(4) : "N/A"}</li>
-            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : "N/A"}</li>
-          </ul>
+        <div class="content">
+          <p>Olá ${approver.firstName || approver.username},</p>
+          <p>A solicitação criada por <strong>${requesterName}</strong> aguarda sua aprovação técnica.</p>
+          <p>
+            <a href="${buildRequestUrl(purchaseRequest.id)}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              Revisar e Aprovar
+            </a>
+          </p>
         </div>
-        
-        <p>Por favor, analise a solicitação e tome a decisão de aprovação.</p>
-        
-        <a href="${buildRequestUrl(purchaseRequest.id, "aprovacao_a1")}" class="button">
-          Revisar e Aprovar A1
-        </a>
-      </div>
-      
-      <div class="footer">
-        <p>Sistema de Gestão de Compras</p>
-        <p>Este é um e-mail automático, não responda.</p>
+        <div class="footer">
+          <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
+        </div>
       </div>
     </body>
     </html>
@@ -519,270 +557,31 @@ function generateApprovalA2EmailHTML(
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset="utf-8">
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .header { background: #dc2626; color: white; padding: 20px; text-align: center; }
-        .content { padding: 20px; }
-        .details { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
-        .button { background: #dc2626; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
-        .priority { background: #fef3c7; border: 1px solid #f59e0b; padding: 10px; border-radius: 4px; margin: 15px 0; }
-        .high-priority { background: #fef2f2; border: 1px solid #dc2626; padding: 10px; border-radius: 4px; margin: 15px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>Solicitação Pendente de Aprovação A2</h1>
-        <h2>${purchaseRequest.requestNumber}</h2>
-      </div>
-      
-      <div class="content">
-        <p>Olá <strong>${approver.firstName || approver.username}</strong>,</p>
-        
-        <p>Uma solicitação de compra passou pela primeira aprovação e está aguardando sua aprovação final (Nível A2).</p>
-        
-        <div class="${purchaseRequest.urgency === "Alta" ? "high-priority" : "priority"}">
-          <strong>⚠️ Urgência: ${purchaseRequest.urgency}</strong>
-        </div>
-        
-        <div class="details">
-          <h3>Detalhes da Solicitação:</h3>
-          <ul>
-            <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
-            <li><strong>Solicitante:</strong> ${requesterName}</li>
-            <li><strong>Justificativa:</strong> ${purchaseRequest.justification}</li>
-            <li><strong>Valor Estimado:</strong> R$ ${purchaseRequest.totalValue ? parseFloat(purchaseRequest.totalValue).toFixed(4) : "N/A"}</li>
-            <li><strong>Data de Criação:</strong> ${purchaseRequest.createdAt ? new Date(purchaseRequest.createdAt).toLocaleDateString("pt-BR") : "N/A"}</li>
-            <li><strong>Aprovador A1:</strong> ${approverA1Name}</li>
-          </ul>
-        </div>
-        
-        <p>Esta solicitação passou pela primeira aprovação e agora aguarda sua aprovação final.</p>
-        
-        <a href="${buildRequestUrl(purchaseRequest.id, "aprovacao_a2")}" class="button">
-          Revisar e Aprovar A2
-        </a>
-      </div>
-      
-      <div class="footer">
-        <p>Sistema de Gestão de Compras</p>
-        <p>Este é um e-mail automático, não responda.</p>
-      </div>
-    </body>
-    </html>
-  `;
-}
-
-// Test email configuration
-export async function notifyRejection(
-  purchaseRequest: PurchaseRequest,
-  rejectionReason: string,
-  approverLevel: "A1" | "A2",
-): Promise<void> {
-  // Verificar se o envio de e-mails está habilitado
-  if (!isEmailEnabled()) {
-    console.log(`📧 [EMAIL DISABLED] Notificação de rejeição ${approverLevel} para solicitação ${purchaseRequest.requestNumber} não foi enviada - envio de e-mails desabilitado`);
-    return;
-  }
-
-  try {
-    // Get requester details
-    let requester = null;
-    if (purchaseRequest.requesterId) {
-      requester = await storage.getUser(purchaseRequest.requesterId);
-    }
-
-    if (!requester || !requester.email) {
-      return;
-    }
-
-    const transporter = createTransporter();
-
-    const mailOptions = {
-      from: config.email.from,
-      to: requester.email,
-      replyTo: config.email.from,
-      subject: `Solicitação Reprovada - ${purchaseRequest.requestNumber}`,
-      html: generateRejectionEmailHTML(
-        requester,
-        purchaseRequest,
-        rejectionReason,
-        approverLevel,
-      ),
-    };
-
-    await transporter.sendMail(mailOptions);
-  } catch (error) {
-    console.error("Erro ao notificar reprovação:", error);
-  }
-}
-
-function generateRejectionEmailHTML(
-  requester: any,
-  purchaseRequest: PurchaseRequest,
-  rejectionReason: string,
-  approverLevel: "A1" | "A2",
-): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .header { background: #dc2626; color: white; padding: 20px; text-align: center; }
-        .content { padding: 20px; }
-        .details { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
-        .rejection-box { background: #fef2f2; border: 1px solid #dc2626; padding: 15px; border-radius: 4px; margin: 15px 0; }
-        .next-steps { background: #f0f9ff; border: 1px solid #3b82f6; padding: 15px; border-radius: 4px; margin: 15px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>Solicitação Reprovada</h1>
-        <h2>${purchaseRequest.requestNumber}</h2>
-      </div>
-      
-      <div class="content">
-        <p>Olá <strong>${requester.firstName || requester.username}</strong>,</p>
-        
-        <p>Sua solicitação de compra foi <strong>reprovada</strong> na fase de Aprovação ${approverLevel}.</p>
-        
-        <div class="rejection-box">
-          <h3>📋 Motivo da Reprovação:</h3>
-          <p><strong>${rejectionReason}</strong></p>
-        </div>
-        
-        <div class="details">
-          <h3>📄 Detalhes da Solicitação:</h3>
-          <ul>
-            <li><strong>Número:</strong> ${purchaseRequest.requestNumber}</li>
-            <li><strong>Categoria:</strong> ${purchaseRequest.category}</li>
-            <li><strong>Urgência:</strong> ${purchaseRequest.urgency}</li>
-            <li><strong>Data da Reprovação:</strong> ${new Date().toLocaleDateString("pt-BR")}</li>
-          </ul>
-        </div>
-        
-        <div class="next-steps">
-          <h3>🔄 Próximos Passos:</h3>
-          <p>Você pode:</p>
-          <ul>
-            <li>Revisar os motivos da reprovação e fazer as correções necessárias</li>
-            <li>Criar uma nova solicitação com as informações atualizadas</li>
-            <li>Entrar em contato com o aprovador para esclarecimentos</li>
-          </ul>
-          <p><a href="${buildRequestUrl(purchaseRequest.id, "arquivado")}" style="background: #dc2626; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0;">Ver Solicitação</a></p>
-        </div>
-        
-        <p>Em caso de dúvidas, entre em contato com a equipe de compras.</p>
-      </div>
-      
-      <div class="footer">
-        <p>Este é um e-mail automático, não responda.</p>
-        <p>Sistema de Gestão de Compras</p>
-      </div>
-    </body>
-    </html>
-  `;
-}
-
-export async function sendPasswordResetEmail(
-  user: User,
-  resetToken: string,
-): Promise<void> {
-  // Verificar se o envio de e-mails está habilitado
-  if (!isEmailEnabled()) {
-    console.log(`📧 [EMAIL DISABLED] E-mail de recuperação de senha para ${user.email} não foi enviado - envio de e-mails desabilitado`);
-    throw new Error("Envio de e-mails está desabilitado globalmente");
-  }
-
-  const transporter = createTransporter();
-
-  const resetUrl = `${config.baseUrl}/reset-password?token=${resetToken}`;
-
-  const emailHtml = generatePasswordResetEmailHTML(user, resetUrl);
-
-  const mailOptions = {
-    from: config.email.from,
-    to: user.email,
-    replyTo: config.email.from,
-    subject: "Recuperação de Senha - Sistema LOCADOR",
-    html: emailHtml,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-  } catch (error) {
-    console.error(
-      `Erro ao enviar e-mail de recuperação para ${user.email}:`,
-      error,
-    );
-    throw new Error("Falha ao enviar e-mail de recuperação");
-  }
-}
-
-function generatePasswordResetEmailHTML(user: User, resetUrl: string): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 0 auto; background: #f8f9fa; }
-        .header { background: linear-gradient(135deg, #f97316, #ea580c); color: white; padding: 30px 20px; text-align: center; }
-        .content { background: white; padding: 30px 20px; margin: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .button { display: inline-block; background: linear-gradient(135deg, #f97316, #ea580c); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }
-        .button:hover { opacity: 0.9; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
-        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 4px; color: #856404; }
-        .logo { font-size: 24px; font-weight: bold; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .content { margin-bottom: 20px; }
+        .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">Sistema LOCADOR</div>
-          <h1>Recuperação de Senha</h1>
+          <h2>Solicitação Aguardando Aprovação A2</h2>
+          <p>Número: <strong>${purchaseRequest.requestNumber}</strong></p>
         </div>
-        
         <div class="content">
-          <p>Olá, <strong>${user.firstName || user.username}</strong>!</p>
-          
-          <p>Recebemos uma solicitação para redefinir a senha da sua conta no Sistema LOCADOR.</p>
-          
-          <p>Para criar uma nova senha, clique no botão abaixo:</p>
-          
-          <div style="text-align: center;">
-            <a href="${resetUrl}" class="button">Redefinir Senha</a>
-          </div>
-          
-          <p>Ou copie e cole este link no seu navegador:</p>
-          <p style="word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;">
-            ${resetUrl}
+          <p>Olá ${approver.firstName || approver.username},</p>
+          <p>A solicitação criada por <strong>${requesterName}</strong> foi aprovada tecnicamente por <strong>${approverA1Name}</strong> e agora aguarda sua aprovação final.</p>
+          <p>
+            <a href="${buildRequestUrl(purchaseRequest.id)}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              Revisar e Aprovar
+            </a>
           </p>
-          
-          <div class="warning">
-            <strong>⚠️ Importante:</strong>
-            <ul>
-              <li>Este link expira em 1 hora por motivos de segurança</li>
-              <li>Se você não solicitou esta alteração, ignore este e-mail</li>
-              <li>Sua senha atual permanece inalterada até que você defina uma nova</li>
-            </ul>
-          </div>
-          
-          <p>Se você precisar de ajuda, entre em contato com nossa equipe de suporte.</p>
-          
-          <p>Atenciosamente,<br>
-          <strong>Equipe Sistema LOCADOR</strong></p>
         </div>
-        
         <div class="footer">
-          <p>Sistema LOCADOR - Gestão de Compras</p>
-          <p>Equipamentos • Plataformas Elevatórias • Imóveis • Veículos</p>
-          <p>Este é um e-mail automático, não responda a esta mensagem.</p>
+          <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
         </div>
       </div>
     </body>
@@ -790,13 +589,7 @@ function generatePasswordResetEmailHTML(user: User, resetUrl: string): string {
   `;
 }
 
-export async function testEmailConfiguration(): Promise<boolean> {
-  // Verificar se o envio de e-mails está habilitado
-  if (!isEmailEnabled()) {
-    console.log('📧 [EMAIL DISABLED] Teste de configuração de e-mail não executado - envio de e-mails desabilitado');
-    return false;
-  }
-
+export async function verifyEmailConfig(): Promise<boolean> {
   try {
     const transporter = createTransporter();
     await transporter.verify();
@@ -806,3 +599,151 @@ export async function testEmailConfiguration(): Promise<boolean> {
     return false;
   }
 }
+
+export async function notifyPasswordReset(user: User, newPassword: string): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de redefinição de senha para ${user.email} não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
+  if (!user.email) {
+    console.log(`📧 Usuário ${user.username} não possui e-mail cadastrado para notificação de redefinição de senha`);
+    return;
+  }
+
+  const transporter = createTransporter();
+  
+  const mailOptions = {
+    from: config.email.from,
+    to: user.email,
+    subject: "Redefinição de Senha - Sistema Locador",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; }
+          .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
+          .password-box { background: #f4f4f4; border: 1px solid #ddd; padding: 15px; margin: 15px 0; border-radius: 4px; text-align: center; font-size: 1.2em; font-family: monospace; letter-spacing: 2px; }
+          .warning { color: #d32f2f; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Redefinição de Senha</h1>
+        </div>
+        
+        <div class="content">
+          <p>Prezado(a) <strong>${user.firstName || user.username}</strong>,</p>
+          
+          <p>Sua senha de acesso ao Sistema de Gestão de Compras foi redefinida por um administrador.</p>
+          
+          <p>Sua nova senha temporária é:</p>
+          
+          <div class="password-box">
+            ${newPassword}
+          </div>
+          
+          <p class="warning">Por segurança, você será solicitado a alterar esta senha no próximo login.</p>
+          
+          <p>Se você não solicitou esta alteração, entre em contato imediatamente com o suporte.</p>
+          
+          <p>Atenciosamente,<br>
+          <strong>Administração do Sistema</strong></p>
+        </div>
+        
+        <div class="footer">
+          <p>Esta é uma mensagem automática do sistema.</p>
+        </div>
+      </body>
+      </html>
+    `
+  };
+  
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`📧 Notificação de redefinição de senha enviada para ${user.email}`);
+  } catch (error) {
+    console.error("Erro ao enviar notificação de redefinição de senha:", error);
+  }
+}
+
+export async function sendPasswordResetEmail(user: User, token: string): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Email de recuperação para ${user.email} não foi enviado - envio de e-mails desabilitado`);
+    return;
+  }
+
+  if (!user.email) {
+    console.log(`📧 Usuário ${user.username} não possui e-mail cadastrado para recuperação de senha`);
+    return;
+  }
+
+  const transporter = createTransporter();
+  const resetLink = `${config.baseUrl}/reset-password?token=${token}`;
+  
+  const mailOptions = {
+    from: config.email.from,
+    to: user.email,
+    subject: "Recuperação de Senha - Sistema Locador",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; }
+          .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
+          .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Recuperação de Senha</h1>
+        </div>
+        
+        <div class="content">
+          <p>Prezado(a) <strong>${user.firstName || user.username}</strong>,</p>
+          
+          <p>Recebemos uma solicitação de recuperação de senha para sua conta.</p>
+          
+          <p>Para redefinir sua senha, clique no botão abaixo:</p>
+          
+          <div style="text-align: center;">
+            <a href="${resetLink}" class="button">Redefinir Senha</a>
+          </div>
+          
+          <p>Se o botão não funcionar, copie e cole o link abaixo no seu navegador:</p>
+          <p><a href="${resetLink}">${resetLink}</a></p>
+          
+          <p>Se você não solicitou esta recuperação, ignore este e-mail.</p>
+          
+          <p>Atenciosamente,<br>
+          <strong>Equipe do Sistema</strong></p>
+        </div>
+        
+        <div class="footer">
+          <p>Este é uma mensagem automática do sistema.</p>
+        </div>
+      </body>
+      </html>
+    `
+  };
+  
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`📧 Email de recuperação enviado para ${user.email}`);
+  } catch (error) {
+    console.error("Erro ao enviar email de recuperação:", error);
+    throw error;
+  }
+}
+
+export const testEmailConfiguration = verifyEmailConfig;

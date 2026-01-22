@@ -462,7 +462,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
                     return (
                       <TableRow key={it.id} className={cn(isOver ? "bg-red-50 dark:bg-red-900/10" : "", isFullyReceived && "bg-muted/50")}>
-                        <TableCell>{it.description}</TableCell>
+                        <TableCell>{it.itemCode || ""} - {it.description}</TableCell>
                         <TableCell className="text-center">{max}</TableCell>
                         <TableCell className="text-center text-muted-foreground">{prev}</TableCell>
                         <TableCell className="text-center">

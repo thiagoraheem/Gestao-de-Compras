@@ -10,6 +10,7 @@ import {
   notifyApprovalA2,
   notifyRejection,
   testEmailConfiguration,
+  notifyPasswordReset,
 } from "./email-service";
 import { isEmailEnabled } from "./config";
 import { invalidateCache } from "./cache";
@@ -725,7 +726,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Hash new password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        await storage.updateUser(userId, { password: hashedPassword });
+        await storage.updateUser(userId, { 
+          password: hashedPassword,
+          forceChangePassword: false 
+        });
 
         res.json({ message: "Password changed successfully" });
       } catch (error) {
@@ -733,6 +737,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(400).json({ message: "Failed to change password" });
       }
     },
+  );
+
+  // Admin reset password
+  app.post(
+    "/api/users/:id/reset-password",
+    isAuthenticated,
+    isAdmin,
+    async (req, res) => {
+      try {
+        const userId = parseInt(req.params.id);
+        const adminId = (req.session as any).userId;
+
+        const targetUser = await storage.getUser(userId);
+        if (!targetUser) {
+          return res.status(404).json({ message: "Usuário não encontrado" });
+        }
+
+        // Check hierarchy: Admin cannot reset another Admin
+        if (targetUser.isAdmin && targetUser.id !== adminId) {
+             return res.status(403).json({ message: "Não é permitido redefinir a senha de outro Administrador." });
+        }
+        
+        const newPassword = "Locador@" + Math.floor(1000 + Math.random() * 9000);
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await storage.updateUser(userId, { 
+            password: hashedPassword,
+            forceChangePassword: true
+        });
+
+        // Send email
+        await notifyPasswordReset(targetUser, newPassword);
+
+        res.json({ message: "Senha redefinida com sucesso", tempPassword: newPassword });
+      } catch (error) {
+        console.error("Error resetting password:", error);
+        res.status(500).json({ message: "Erro ao redefinir senha" });
+      }
+    }
   );
 
   app.get("/api/users/:id/cost-centers", isAuthenticated, async (req, res) => {
