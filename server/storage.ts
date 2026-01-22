@@ -2350,6 +2350,8 @@ export class DatabaseStorage implements IStorage {
 
     // 4. Purchase Order
     const po = await this.getPurchaseOrderByRequestId(purchaseRequestId);
+    let hasDetailedReceipts = false;
+
     if (po) {
       let poCreatorName = 'Sistema';
       if (po.createdBy) {
@@ -2372,9 +2374,66 @@ export class DatabaseStorage implements IStorage {
         icon: 'shopping-cart',
         description: po.observations || request.purchaseObservations || 'Pedido de compra oficial gerado'
       });
+
+      // 4.1 Detailed Receipts (Physical & Fiscal)
+      const linkedReceipts = await db.select().from(receipts).where(eq(receipts.purchaseOrderId, po.id));
+      if (linkedReceipts.length > 0) {
+        hasDetailedReceipts = true;
+        for (const receipt of linkedReceipts) {
+          // Physical Receipt Event
+          let receiverName = 'Sistema';
+          if (receipt.receivedBy) {
+            const receiver = await this.getUserById(receipt.receivedBy);
+            if (receiver) {
+              receiverName = receiver.firstName && receiver.lastName
+                ? `${receiver.firstName} ${receiver.lastName}`
+                : receiver.username || 'Sistema';
+            }
+          }
+
+          timeline.push({
+            id: `receipt_${receipt.id}_physical`,
+            type: 'receipt',
+            phase: 'recebimento',
+            action: `Recebimento Físico - NF ${receipt.documentNumber || 'S/N'}`,
+            userId: receipt.receivedBy,
+            userName: receiverName,
+            timestamp: receipt.receivedAt || receipt.createdAt,
+            status: 'completed',
+            icon: 'package',
+            description: `Recebimento da Nota Fiscal ${receipt.documentNumber || 'S/N'} (Série: ${receipt.documentSeries || '-'})`
+          });
+
+          // Fiscal Conference Event
+          if (receipt.approvedAt || ['conferida', 'nf_confirmada', 'fiscal_conferida'].includes(receipt.status || '')) {
+            let approverName = 'Sistema';
+            if (receipt.approvedBy) {
+              const approver = await this.getUserById(receipt.approvedBy);
+              if (approver) {
+                approverName = approver.firstName && approver.lastName
+                  ? `${approver.firstName} ${approver.lastName}`
+                  : approver.username || 'Sistema';
+              }
+            }
+
+            timeline.push({
+              id: `receipt_${receipt.id}_fiscal`,
+              type: 'fiscal_conference',
+              phase: 'conf_fiscal',
+              action: `Conferência Fiscal - NF ${receipt.documentNumber || 'S/N'}`,
+              userId: receipt.approvedBy,
+              userName: approverName,
+              timestamp: receipt.approvedAt || receipt.createdAt || new Date(),
+              status: 'completed',
+              icon: 'file-check',
+              description: `Conferência Fiscal realizada com sucesso.`
+            });
+          }
+        }
+      }
     }
 
-    if (request.receivedDate) {
+    if (request.receivedDate && !hasDetailedReceipts) {
       let receiverName = 'Sistema';
       if (request.receivedById) {
         const receiver = await this.getUserById(request.receivedById);

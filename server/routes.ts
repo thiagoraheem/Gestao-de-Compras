@@ -2408,33 +2408,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const receipts = await storage.getReceiptsByPurchaseOrderId(id);
 
-      // Enrich with receiver user name when available
+      // Enrich with receiver user name when available and items
       const enriched = await Promise.all(
         receipts.map(async (rec: any) => {
-          if (!rec.receivedBy) {
-            return rec;
-          }
+          // Fetch items for the receipt
+          const items = await db
+            .select()
+            .from(receiptItems)
+            .where(eq(receiptItems.receiptId, rec.id));
 
-          try {
-            const user = await storage.getUser(rec.receivedBy);
-            if (!user) {
-              return rec;
+          // Map items to include requestedQuantity for frontend compatibility
+          const mappedItems = items.map(item => ({
+            ...item,
+            requestedQuantity: item.quantity // Map quantity to requestedQuantity for frontend
+          }));
+
+          let receivedByName = String(rec.receivedBy);
+
+          if (rec.receivedBy) {
+            try {
+              const user = await storage.getUser(rec.receivedBy);
+              if (user) {
+                receivedByName =
+                  (user.firstName && user.lastName
+                    ? `${user.firstName} ${user.lastName}`.trim()
+                    : user.firstName) ||
+                  user.username ||
+                  String(rec.receivedBy);
+              }
+            } catch {
+              // Ignore error
             }
-
-            const fullName =
-              (user.firstName && user.lastName
-                ? `${user.firstName} ${user.lastName}`.trim()
-                : user.firstName) ||
-              user.username ||
-              String(rec.receivedBy);
-
-            return {
-              ...rec,
-              receivedByName: fullName,
-            };
-          } catch {
-            return rec;
           }
+
+          return {
+            ...rec,
+            items: mappedItems,
+            approval_date: rec.approvedAt, // Map approvedAt to approval_date for frontend
+            receivedByName,
+          };
         }),
       );
 
@@ -2948,6 +2960,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(404).json({ message: "Recebimento XML não encontrado" });
           }
           receipt = updated;
+
+          // Update items linkage and quantities if manualItems provided
+          if (Array.isArray(manualItems) && manualItems.length > 0) {
+            const { and } = await import("drizzle-orm");
+            for (const item of manualItems) {
+               if (item.purchaseOrderItemId) {
+                   await db.update(receiptItems)
+                     .set({ 
+                        purchaseOrderItemId: item.purchaseOrderItemId,
+                        quantityReceived: String(item.quantity || 0)
+                     })
+                     .where(
+                        item.id 
+                           ? eq(receiptItems.id, item.id)
+                           : and(eq(receiptItems.receiptId, receipt.id), eq(receiptItems.lineNumber, item.lineNumber))
+                     );
+
+                   const [poItem] = await db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.id, item.purchaseOrderItemId));
+                   if (poItem) {
+                      const current = Number(poItem.quantityReceived || 0);
+                      const received = Number(item.quantity || 0);
+                      
+                      await db.update(purchaseOrderItems)
+                        .set({ quantityReceived: String(current + received) })
+                        .where(eq(purchaseOrderItems.id, item.purchaseOrderItemId));
+                   }
+               }
+            }
+          }
         } else {
           const [created] = await db
             .insert(receipts)
@@ -3003,7 +3044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { sql } = await import("drizzle-orm");
           await db.execute(
             sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-              VALUES (${id}, ${"nf_confirmada"}, ${"Nota Fiscal confirmada"}, ${req.session.userId}, ${null}, ${JSON.stringify({ receiptId: receipt.id, receiptType })}::jsonb, ${sql`ARRAY['receipts','receipt_items']`} );`,
+              VALUES (${id}, ${"conferencia_fiscal"}, ${"Nota Fiscal confirmada"}, ${req.session.userId}, ${null}, ${JSON.stringify({ receiptId: receipt.id, receiptType })}::jsonb, ${sql`ARRAY['receipts','receipt_items']`} );`,
           );
         } catch {}
 
@@ -3144,6 +3185,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await db.update(purchaseRequests)
                 .set(updateData)
                 .where(eq(purchaseRequests.id, id));
+        }
+
+        try {
+          const { sql } = await import("drizzle-orm");
+          await db.execute(
+            sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+              VALUES (${id}, ${"recebimento_fisico"}, ${"Recebimento físico realizado"}, ${req.session.userId}, ${null}, ${JSON.stringify({ fulfillmentStatus })}::jsonb, ${sql`ARRAY['purchase_orders','purchase_order_items','receipts']`} );`,
+          );
+        } catch (e) {
+          console.error("Error logging physical receipt:", e);
         }
 
         res.json({ 
