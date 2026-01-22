@@ -356,6 +356,7 @@ export default function EnhancedNewRequestModal({
       unit: newItemForm.unit,
       requestedQuantity: newItemForm.requestedQuantity,
       technicalSpecification: newItemForm.technicalSpecification,
+      productCode: newItemForm.productCode,
       estimatedPrice: 0,
     };
     setManualItems([...manualItems, newItem]);

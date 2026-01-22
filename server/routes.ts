@@ -1767,6 +1767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isTransferred: item.isTransferred,
           transferReason: item.transferReason,
           transferredToRequestId: item.transferredToRequestId,
+          productCode: item.productCode || "",
         }));
 
         res.json(mappedItems);
@@ -2554,12 +2555,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ERP Integration
       console.log(`[ERP Integration] Initiating transfer for Receipt #${receiptId}...`);
       // Persist data regardless of ERP success/failure first (Draft save)
-            // Note: We update observations at the end or on error, but we should ensure we capture the intent here.
-            // The logic below updates observations on success or error. 
-            // We can add a log here to confirm we are about to attempt integration.
-            console.log(`[Fiscal Confirm] Validated successfully. Attempting ERP integration for #${receiptId}...`);
+      // Note: We update observations at the end or on error, but we should ensure we capture the intent here.
+      // The logic below updates observations on success or error. 
+      // We can add a log here to confirm we are about to attempt integration.
+      console.log(`[Fiscal Confirm] Validated successfully. Attempting ERP integration for #${receiptId}...`);
 
-            let erpResponse = { success: false, code: 0, message: "" };
+      let erpResponse = { success: false, code: 0, message: "" };
       
       try {
         if (receipt.purchaseOrderId) {
