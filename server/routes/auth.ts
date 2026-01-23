@@ -67,7 +67,7 @@ export function registerAuthRoutes(app: Express) {
       if (err) {
         return res.status(500).json({ message: "Could not log out" });
       }
-      res.clearCookie('sessionId');
+      res.clearCookie(process.env.NODE_ENV === 'production' ? 'sessionId' : 'sessionIdDev');
       res.json({ message: "Logged out successfully" });
     });
   });

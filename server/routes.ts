@@ -64,6 +64,7 @@ import {
 } from "./routes/middleware";
 import { quotationUpload } from "./routes/upload-config";
 import { QuantityValidationMiddleware } from "./middleware/quantity-validation";
+import { createCacheMiddleware } from "./cache";
 import { quotationSyncService } from './services/quotation-sync';
 import { quotationVersionService } from './services/quotation-versioning';
 import { notificationService } from './services/notification-service';
@@ -128,7 +129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
-      name: "sessionId", // Custom session name
+      name: process.env.NODE_ENV === 'production' ? "sessionId" : "sessionIdDev", // Distinct session names
       cookie: {
         secure: (() => {
           const env = (process.env.COOKIE_SECURE || "").toLowerCase();
@@ -143,6 +144,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       rolling: true, // Reset expiration on activity
     }),
   );
+
+  // Apply cache middleware AFTER session is configured so we can use session ID in cache keys
+  app.use('/api', createCacheMiddleware());
 
   // Multer configuration removed - was specific to purchase request attachments
   // Supplier uploads now use a different approach

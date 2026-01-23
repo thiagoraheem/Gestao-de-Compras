@@ -11,15 +11,22 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Cache middleware for API routes
-app.use('/api', createCacheMiddleware());
-
 // Environment-based log configuration
 const LOG_CONFIG = {
   level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'error' : 'info'),
   enableRequestLogs: process.env.ENABLE_REQUEST_LOGS !== 'false',
   verboseMode: process.env.LOG_VERBOSE === 'true'
 };
+
+// GLOBAL NO-CACHE MIDDLEWARE
+// Forces browsers and proxies to always check with the server
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
 
 // Log filtering configuration
 const LOG_FILTERS = {
