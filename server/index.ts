@@ -1,11 +1,8 @@
+import "./env";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { createCacheMiddleware } from "./cache";
-import dotenv from "dotenv";
-
-// Load environment variables from .env and override existing ones
-dotenv.config({ override: true });
 
 const app = express();
 if (process.env.NODE_ENV === 'production') {
