@@ -59,7 +59,7 @@ export function ReceiptFinancial() {
 
   const allocationsValid = useMemo(() => {
     if (allocations.length === 0) return false;
-    return allocations.every(r => r.costCenterId && r.chartOfAccountsId);
+    return allocations.every(r => r.chartOfAccountsId);
   }, [allocations]);
 
   const isFiscalValid = (() => {
@@ -83,7 +83,7 @@ export function ReceiptFinancial() {
     };
     const validRows = allocations
       .map((r, i) => ({ r, i }))
-      .filter(({ r }) => r.costCenterId && r.chartOfAccountsId);
+      .filter(({ r }) => r.chartOfAccountsId);
     if (validRows.length === 0) {
       toast({ title: "Validação", description: "Nenhuma linha válida para preenchimento automático", variant: "destructive" });
       return;
@@ -375,8 +375,8 @@ export function ReceiptFinancial() {
           {showValidationErrors && allocations.length === 0 && (
             <p className="text-sm text-red-500 font-medium">Adicione pelo menos um registro de rateio</p>
           )}
-          {showValidationErrors && allocations.length > 0 && !allocations.every(r => r.costCenterId && r.chartOfAccountsId) && (
-            <p className="text-sm text-red-500 font-medium">Preencha Centro de Custo e Plano de Contas em todas as linhas</p>
+          {showValidationErrors && allocations.length > 0 && !allocations.every(r => r.chartOfAccountsId) && (
+            <p className="text-sm text-red-500 font-medium">Preencha o Plano de Contas em todas as linhas</p>
           )}
         </CardContent>
       </Card>

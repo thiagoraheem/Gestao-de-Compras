@@ -2523,9 +2523,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Rateio de centro de custo obrigatório" });
       }
       
-      const allocationsValid = allocations.every((r: any) => r.costCenterId && r.chartOfAccountsId);
+      const allocationsValid = allocations.every((r: any) => r.chartOfAccountsId);
       if (!allocationsValid) {
-        return res.status(400).json({ message: "Centro de custo e plano de contas obrigatórios em todos os itens de rateio" });
+        return res.status(400).json({ message: "Plano de contas obrigatório em todos os itens de rateio" });
       }
 
       // Reload receipt after update to get latest type and data
@@ -2666,7 +2666,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   data_vencimento: invoiceDueDate,
                   parcelas: hasInstallments ? Number(installmentCount) : 1,
                   rateio: allocations.map((a: any) => ({
-                    centro_custo_id: Number(a.costCenterId),
+                    centro_custo_id: a.costCenterId ? Number(a.costCenterId) : undefined,
                     plano_conta_id: Number(a.chartOfAccountsId),
                     valor: Number(a.amount),
                     percentual: a.percentage ? Number(a.percentage) : undefined
