@@ -753,7 +753,7 @@ export class PDFService {
   }
 
   private static async generateApprovalA2HTML(data: any): Promise<string> {
-    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company, requester } = data;
+    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, supplierQuotations, deliveryLocation, company, requester } = data;
     
     // Função para formatar data brasileira
     const formatBrazilianDate = (dateString: string | null | undefined): string => {
@@ -795,7 +795,9 @@ export class PDFService {
     // Carregar logo da empresa como base64
     let companyLogoBase64 = null;
     if (company?.logoBase64) {
-      companyLogoBase64 = company.logoBase64;
+      companyLogoBase64 = company.logoBase64.startsWith('data:') 
+        ? company.logoBase64 
+        : `data:image/png;base64,${company.logoBase64}`;
     }
     
     // Calcular totais
@@ -959,13 +961,24 @@ export class PDFService {
       background-color: #f8d7da;
       color: #721c24;
     }
+    .supplier-comparison-row.selected {
+      background-color: #e8f5e9;
+    }
+    .badge-selected {
+      background-color: #28a745;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      margin-left: 5px;
+    }
   </style>
 </head>
 <body>
   <div class="header">
     ${companyLogoBase64 ? `
     <div class="header-logo">
-      <img src="data:image/png;base64,${companyLogoBase64}" alt="Logo da Empresa">
+      <img src="${companyLogoBase64}" alt="Logo da Empresa">
     </div>
     ` : ''}
     <div class="header-info">
@@ -1071,7 +1084,7 @@ export class PDFService {
         <tr>
           <td class="text-center">${index + 1}</td>
           <td>${item.description}</td>
-          <td class="text-center">${parseInt(item.quantity) || 0}</td>
+          <td class="text-center">${Number(item.quantity) || 0}</td>
           <td class="text-center">${item.unit || 'UN'}</td>
           <td>${item.brand || 'N/A'}</td>
           <td class="text-right">${formatCurrency(item.unitPrice)}</td>
@@ -1155,6 +1168,45 @@ export class PDFService {
       </tbody>
     </table>
   </div>
+
+  ${supplierQuotations && supplierQuotations.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Comparação de Fornecedores</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Fornecedor</th>
+          <th class="text-right">Valor Total</th>
+          <th>Prazo</th>
+          <th>Pagamento</th>
+          <th>Garantia</th>
+          <th class="text-right">Desconto</th>
+          <th class="text-right">Frete</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${supplierQuotations.map((sq: any) => `
+        <tr class="${sq.isChosen ? 'supplier-comparison-row selected' : 'supplier-comparison-row'}">
+          <td>
+            ${sq.supplierName}
+            ${sq.isChosen ? '<span class="badge-selected">Selecionado</span>' : ''}
+          </td>
+          <td class="text-right">${formatCurrency(Number(sq.totalValue))}</td>
+          <td>${sq.deliveryTerms || '-'}</td>
+          <td>${sq.paymentTerms || '-'}</td>
+          <td>${sq.warrantyPeriod || '-'}</td>
+          <td class="text-right">
+            ${sq.discountType === 'percentage' 
+              ? `${sq.discountValue}%` 
+              : (sq.discountValue && Number(sq.discountValue) > 0) ? formatCurrency(Number(sq.discountValue)) : '-'}
+          </td>
+          <td class="text-right">${Number(sq.freightValue) > 0 ? formatCurrency(Number(sq.freightValue)) : '-'}</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+  ` : ''}
 
   <div class="footer">
     <p><strong>Documento gerado automaticamente pelo Sistema de Gestão de Compras</strong></p>
@@ -1673,6 +1725,7 @@ export class PDFService {
     let selectedSupplierQuotation = null;
     let itemsWithPrices = items;
     let deliveryLocation = null;
+    let enrichedSupplierQuotations: any[] = [];
     
     const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
     
@@ -1683,6 +1736,19 @@ export class PDFService {
     
     if (quotation) {
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+      
+      // Enriquecer cotações com nomes dos fornecedores
+      enrichedSupplierQuotations = await Promise.all(supplierQuotations.map(async (sq) => {
+        const s = await storage.getSupplierById(sq.supplierId);
+        return {
+          ...sq,
+          supplierName: s?.name || 'Fornecedor Desconhecido',
+          cnpj: s?.cnpj || '',
+          email: s?.email || '',
+          phone: s?.phone || ''
+        };
+      }));
+
       selectedSupplierQuotation = supplierQuotations.find(sq => sq.isChosen) || supplierQuotations[0];
       
       if (selectedSupplierQuotation) {
@@ -1726,6 +1792,7 @@ export class PDFService {
               
               return {
                 ...item,
+                quantity: quantity,
                 unitPrice: unitPrice,
                 originalUnitPrice: unitPrice,
                 itemDiscount: itemDiscount,
@@ -1739,6 +1806,7 @@ export class PDFService {
           
           return {
             ...item,
+            quantity: Number((item as any).requestedQuantity ?? (item as any).quantity) || 0,
             unitPrice: 0,
             originalUnitPrice: 0,
             itemDiscount: 0,
@@ -1764,6 +1832,7 @@ export class PDFService {
       supplier,
       approvalHistory,
       selectedSupplierQuotation,
+      supplierQuotations: enrichedSupplierQuotations,
       deliveryLocation,
       company,
       requester
