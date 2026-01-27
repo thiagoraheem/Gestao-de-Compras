@@ -89,63 +89,115 @@ O sistema utiliza um menu lateral ou superior dependendo do dispositivo. As prin
 O sistema utiliza um workflow Kanban com **9 fases** sequenciais.
 
 ### 📝 Fase 1: Solicitação
-- **Ação**: Usuário cria a necessidade de compra.
-- **Detalhes**: Define itens, quantidades, justificativa, centro de custo e urgência.
-- **Categorias**: Produto, Serviço, Material, Outros.
+- **Objetivo:** Formalizar a necessidade de compra de produtos ou serviços para a empresa.
+- **Ações do Solicitante:**
+  - Preencher formulário com descrição detalhada dos itens.
+  - Indicar quantidade, unidade de medida e urgência.
+  - Selecionar o Centro de Custo apropriado.
+  - Justificar a necessidade da compra.
+- **Ações do Sistema/Backend:**
+  - Validação de campos obrigatórios.
+  - Associação automática da solicitação ao usuário logado.
+  - Notificação aos aprovadores do centro de custo selecionado.
+- **Resultado Esperado:** Solicitação criada e aguardando aprovação técnica (Status: Pendente A1).
 
-### ✅ Fase 2: Aprovação A1
-- **Responsável**: Gestor do Centro de Custo.
-- **Ação**: Aprova a necessidade técnica ou reprova (volta para Solicitação).
-- **Validação**: Sistema impede aprovação se o usuário não tiver permissão no centro de custo.
+### ✅ Fase 2: Aprovação A1 (Técnica)
+- **Objetivo:** Validar tecnicamente a necessidade e a adequação ao orçamento do centro de custo.
+- **Ações do Gestor:**
+  - Revisar itens, quantidades e justificativa.
+  - **Aprovar:** Autoriza o início da cotação.
+  - **Reprovar:** Devolve ao solicitante com motivo obrigatório.
+- **Ações do Sistema/Backend:**
+  - Verificação de permissões por Centro de Custo.
+  - Registro de log de aprovação (quem e quando).
+  - Bloqueio de edição dos itens após aprovação.
+- **Resultado Esperado:** Solicitação aprovada e encaminhada para o setor de compras.
 
 ### 💰 Fase 3: Cotação (RFQ)
-- **Responsável**: Comprador.
-- **Ação**: Seleciona fornecedores, envia RFQ (Request for Quotation), recebe propostas e seleciona o vencedor.
-- **Requisito**: Mínimo de 3 fornecedores recomendados. Obrigatório upload das propostas e justificativa de escolha.
+- **Objetivo:** Obter os melhores preços e condições comerciais com fornecedores homologados.
+- **Ações do Comprador:**
+  - Selecionar fornecedores para envio de RFQ.
+  - Registrar propostas recebidas (Preço, Prazo, Pagamento).
+  - Fazer upload dos orçamentos (PDF/Imagem).
+  - Selecionar o fornecedor vencedor.
+- **Ações do Sistema/Backend:**
+  - Cálculo automático do valor total por fornecedor.
+  - Destaque visual para a melhor oferta (menor preço).
+  - Validação de anexos obrigatórios antes de avançar.
+- **Resultado Esperado:** Fornecedor definido e valores registrados para validação financeira.
 
-### ✅ Fase 4: Aprovação A2
-- **Responsável**: Diretoria / Financeiro.
-- **Ação**: Valida a escolha do fornecedor e valores negociados.
-- **Fluxo**:
-  - **Aprovar**: Segue para Pedido de Compra.
-  - **Arquivar**: Cancela a solicitação definitivamente.
-  - **Nova Cotação**: Devolve para a fase de Cotação para renegociação.
+### ✅ Fase 4: Aprovação A2 (Financeira)
+- **Objetivo:** Validação final da diretoria/financeiro sobre os valores negociados e impacto no fluxo de caixa.
+- **Ações do Aprovador:**
+  - Analisar quadro comparativo de preços.
+  - Verificar condições de pagamento.
+  - **Aprovar:** Autoriza compra.
+  - **Nova Cotação:** Exige renegociação.
+- **Ações do Sistema/Backend:**
+  - Verificação de alçadas de valor (Aprovação Simples vs Dupla).
+  - Encaminhamento para CEO se valor exceder limite configurado.
+- **Resultado Esperado:** Compra autorizada financeiramente.
 
 ### 🛒 Fase 5: Pedido de Compra
-- **Responsável**: Comprador.
-- **Ação**: Gera o Pedido de Compra (PDF) oficial.
-- **Detalhes**: Pode adicionar observações de entrega. O PDF é assinado eletronicamente pelo sistema.
-- **Transição**: Ao confirmar, o pedido é enviado para o fornecedor e o processo move para Recebimento.
+- **Objetivo:** Oficializar o compromisso de compra junto ao fornecedor através de documento formal.
+- **Ações do Comprador:**
+  - Revisar dados finais de faturamento e entrega.
+  - Gerar documento PDF do pedido.
+  - Enviar pedido ao fornecedor (E-mail/WhatsApp).
+  - Confirmar envio no sistema.
+- **Ações do Sistema/Backend:**
+  - Geração de número sequencial de PO (Purchase Order).
+  - Criação de PDF com assinatura eletrônica interna.
+  - Disparo de e-mail automático (se configurado).
+- **Resultado Esperado:** Pedido enviado ao fornecedor e aguardando entrega.
 
 ### 📦 Fase 6: Recebimento Físico
-- **Responsável**: Recebedor / Almoxarifado.
-- **Objetivo**: Conferir se o material chegou fisicamente e se as quantidades estão corretas.
-- **Validação Estrita**:
-  - O sistema **bloqueia** a entrada de quantidades superiores ao pedido.
-  - Itens totalmente recebidos ficam bloqueados para edição.
-  - Permite recebimento parcial (o item permanece pendente até completar a quantidade).
-- **Ações**:
-  - **Confirmar Recebimento**: Registra a entrada física.
-  - **Reportar Divergência**: Abre uma pendência e pode retornar o item para fases anteriores se necessário.
+- **Objetivo:** Garantir que os produtos recebidos fisicamente correspondem exatamente ao que foi pedido.
+- **Ações do Recebedor:**
+  - Conferir mercadoria física vs Nota Fiscal.
+  - Informar quantidade recebida para cada item.
+  - Anexar foto do canhoto ou mercadoria.
+  - Reportar avarias ou divergências.
+- **Ações do Sistema/Backend:**
+  - **Validação Estrita:** Bloqueia entrada se Qtd > Pedido.
+  - Controle de saldo parcial (permite múltiplas entregas).
+  - Atualização automática de status de estoque.
+- **Resultado Esperado:** Entrada física confirmada e registrada.
 
-### 📋 Fase 7: Conferência Fiscal (NOVO)
-- **Responsável**: Fiscal / Financeiro.
-- **Objetivo**: Validar a Nota Fiscal (NF-e) e dados financeiros antes da integração com ERP.
-- **Funcionalidades**:
-  - **Abas**: XML / Importação, Inclusão Manual, Financeiro.
-  - **Importação de XML**: Permite carregar o XML da nota para preenchimento automático.
-  - **Dados Financeiros**: Obrigatório informar Condição de Pagamento, Vencimento e Parcelas.
-  - **Integração ERP**: Ao confirmar, o sistema tenta enviar os dados para o ERP e exibe o log de sucesso ou erro.
-- **Status**: Itens ficam nesta fase até que a conferência fiscal seja concluída com sucesso.
+### 📋 Fase 7: Conferência Fiscal
+- **Objetivo:** Validação tributária, lançamento da Nota Fiscal e integração com o sistema ERP.
+- **Ações do Fiscal:**
+  - Importar XML da NF-e ou digitar chave de acesso.
+  - Conferir impostos e valores totais.
+  - Preencher dados financeiros (Vencimento, Parcelas).
+  - Confirmar integração.
+- **Ações do Sistema/Backend:**
+  - Leitura automática de dados do XML.
+  - Envio de dados via API para o ERP.
+  - Validação de consistência (Soma dos itens = Total NF).
+  - Exibição de logs de erro/sucesso da integração.
+- **Resultado Esperado:** Nota fiscal lançada no ERP e contas a pagar gerado.
 
 ### 🏁 Fase 8: Conclusão
-- **Visualização**: Resumo de todo o processo.
-- **Dados**: Exibe timeline completa, totais, fornecedor escolhido e links para todos os documentos (Pedido, Cotações, NFs).
-- **Ação**: Arquivar o processo.
+- **Objetivo:** Revisão final e consolidação de todos os documentos do processo para auditoria.
+- **Ações do Usuário:**
+  - Visualizar resumo executivo do processo.
+  - Baixar "Kit de Auditoria" (Zip com todos os docs).
+  - Clicar em "Arquivar Processo".
+- **Ações do Sistema/Backend:**
+  - Compilação da timeline completa.
+  - Verificação de pendências finais.
+- **Resultado Esperado:** Processo pronto para arquivamento definitivo.
 
 ### 🗃️ Fase 9: Arquivado
-- **Acesso**: Histórico para auditoria.
-- **Permissão**: Somente leitura.
+- **Objetivo:** Manter um registro histórico seguro e imutável para fins de auditoria e consulta futura.
+- **Ações do Usuário:**
+  - Consulta em modo somente leitura.
+  - Recuperação de histórico.
+- **Ações do Sistema/Backend:**
+  - Garantia de integridade dos dados (bloqueio total de edição).
+  - Indexação para busca rápida em relatórios.
+- **Resultado Esperado:** Registro histórico preservado.
 
 ---
 

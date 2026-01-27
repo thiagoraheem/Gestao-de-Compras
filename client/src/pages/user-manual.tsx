@@ -774,6 +774,347 @@ const manualSections: ManualSection[] = [
     )
   },
   {
+    id: "configuracoes-pessoais",
+    title: "Configurações Pessoais",
+    icon: User,
+    description: "Perfil e senha",
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold mb-4">🔧 Configurações Pessoais</h2>
+          <p className="text-muted-foreground mb-6">
+            Gerencie seus dados de acesso e preferências.
+          </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Perfil e Segurança</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ul className="space-y-2 text-sm text-muted-foreground list-disc ml-4">
+              <li><strong>Perfil:</strong> Atualize nome, e-mail e telefone.</li>
+              <li><strong>Alterar Senha:</strong> Recomendado periodicamente.</li>
+              <li><strong>Recuperação:</strong> Via e-mail na tela de login.</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  },
+  {
+    id: "aprovacao-valor",
+    title: "Aprovação por Valor",
+    icon: DollarSign,
+    description: "Regras de alçada (Admin)",
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold mb-4">⚙️ Configuração de Aprovação por Valor</h2>
+          <p className="text-muted-foreground mb-6">
+            Recurso exclusivo para Administradores definirem a política de alçadas.
+          </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Regras de Limite</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ul className="space-y-2 text-sm text-muted-foreground list-disc ml-4">
+              <li><strong>Limite de Valor:</strong> Define o teto para Aprovação Simples (apenas A2).</li>
+              <li><strong>Regra:</strong> Solicitações acima deste valor exigem fluxo de Dupla Aprovação (Diretor + CEO).</li>
+              <li><strong>Justificativa:</strong> Obrigatória para qualquer alteração no limite, garantindo auditoria.</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  },
+  {
+    id: "mobile",
+    title: "Dispositivos Móveis",
+    icon: Smartphone,
+    description: "Uso em celulares e tablets",
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold mb-4">📱 Uso em Dispositivos Móveis</h2>
+          <p className="text-muted-foreground mb-6">
+            O sistema é totalmente responsivo e adaptado para uso em qualquer lugar.
+          </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Funcionalidades Mobile</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ul className="space-y-2 text-sm text-muted-foreground list-disc ml-4">
+              <li><strong>Kanban Mobile:</strong> Visualização adaptada em lista ou colunas deslizáveis.</li>
+              <li><strong>Aprovações:</strong> Gestores podem aprovar/reprovar facilmente pelo celular.</li>
+              <li><strong>Upload:</strong> Tire fotos de notas ou produtos direto da câmera.</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  },
+  {
+    id: "notificacoes",
+    title: "Notificações",
+    icon: Bell,
+    description: "Alertas automáticos",
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold mb-4">🔔 Sistema de Notificações</h2>
+          <p className="text-muted-foreground mb-6">
+            Mantenha-se informado sobre o andamento das solicitações.
+          </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Tipos de Alerta</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ul className="space-y-2 text-sm text-muted-foreground list-disc ml-4">
+              <li><strong>Nova Solicitação:</strong> Para Aprovadores A1.</li>
+              <li><strong>Aprovação Realizada:</strong> Para Compradores (iniciar cotação/pedido).</li>
+              <li><strong>Pedido Enviado:</strong> Para Recebedores.</li>
+              <li><strong>Reprovação:</strong> Para o Solicitante.</li>
+              <li><strong>Integração ERP:</strong> Alertas de falha ou sucesso.</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  },
+  {
+    id: "visualizacao-publica",
+    title: "Visualização Pública",
+    icon: Eye,
+    description: "Transparência e acesso externo",
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold mb-4">🔓 Visualização Pública</h2>
+          <p className="text-muted-foreground mb-6">
+            Compartilhe o status das solicitações com facilidade.
+          </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Recursos de Transparência</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ul className="space-y-2 text-sm text-muted-foreground list-disc ml-4">
+              <li><strong>Acesso:</strong> Via QR Code ou Link gerado na solicitação.</li>
+              <li><strong>Conteúdo:</strong> Status atual, itens e timeline básica.</li>
+              <li><strong>Privacidade:</strong> Valores sensíveis podem ser ocultados.</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  },
+  {
+    id: "auditoria",
+    title: "Auditoria e Compliance",
+    icon: Lock,
+    description: "Controles e rastreabilidade",
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold mb-4">🔍 Auditoria e Controles Internos</h2>
+          <p className="text-muted-foreground mb-6">
+            Garantia de segurança, rastreabilidade e conformidade.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Rastreabilidade</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <ul className="space-y-1 text-sm text-muted-foreground list-disc ml-4">
+                  <li><strong>Log de Ações:</strong> Registro imutável de quem fez o quê.</li>
+                  <li><strong>Versionamento:</strong> Histórico de cotações e pedidos.</li>
+                  <li><strong>Trilha:</strong> Registro claro de todos os aprovadores.</li>
+                </ul>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Compliance (SoD)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <ul className="space-y-1 text-sm text-muted-foreground list-disc ml-4">
+                  <li>Solicitantes não aprovam próprias requisições.</li>
+                  <li>Aprovadores restritos aos seus centros de custo.</li>
+                  <li>Separação entre Compras e Financeiro.</li>
+                </ul>
+              </CardContent>
+            </Card>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "dicas",
+    title: "Dicas e Boas Práticas",
+    icon: Zap,
+    description: "Melhore seu uso do sistema",
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold mb-4">💡 Dicas e Boas Práticas</h2>
+          <p className="text-muted-foreground mb-6">
+            Recomendações para tornar o processo mais ágil e eficiente.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+                <div className="border-l-4 border-blue-500 pl-4 py-1">
+                    <h4 className="font-semibold text-sm">Solicitantes</h4>
+                    <p className="text-sm text-muted-foreground">Detalhem bem as especificações técnicas para evitar dúvidas e devoluções.</p>
+                </div>
+                <div className="border-l-4 border-green-500 pl-4 py-1">
+                    <h4 className="font-semibold text-sm">Aprovadores</h4>
+                    <p className="text-sm text-muted-foreground">Verifiquem o saldo orçamentário antes de aprovar. Usem observações para correções.</p>
+                </div>
+                <div className="border-l-4 border-yellow-500 pl-4 py-1">
+                    <h4 className="font-semibold text-sm">Compradores</h4>
+                    <p className="text-sm text-muted-foreground">Anexem todas as propostas recebidas, não apenas a vencedora.</p>
+                </div>
+                <div className="border-l-4 border-orange-500 pl-4 py-1">
+                    <h4 className="font-semibold text-sm">Recebedores</h4>
+                    <p className="text-sm text-muted-foreground">Tirem fotos de avarias ou embalagens danificadas no ato do recebimento.</p>
+                </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  },
+  {
+    id: "metricas",
+    title: "Métricas e Indicadores",
+    icon: TrendingUp,
+    description: "KPIs e performance",
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold mb-4">📊 Métricas e Indicadores</h2>
+          <p className="text-muted-foreground mb-6">
+            O sistema monitora automaticamente o desempenho do processo.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">SLA de Atendimento</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">Tempo</div>
+                    <p className="text-xs text-muted-foreground">Médio em cada fase</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Savings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">Economia</div>
+                    <p className="text-xs text-muted-foreground">Orçado vs Comprado</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Volumetria</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">Volume</div>
+                    <p className="text-xs text-muted-foreground">Por departamento</p>
+                </CardContent>
+            </Card>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "exemplo-pratico",
+    title: "Exemplo Prático",
+    icon: CheckSquare,
+    description: "Fluxo completo passo a passo",
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold mb-4">🔄 Fluxo Completo - Exemplo Prático</h2>
+          <p className="text-muted-foreground mb-6">
+            Acompanhe um cenário real de compra de computadores.
+          </p>
+        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Cenário: Compra de 5 Desktops</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ol className="relative border-l border-muted-foreground/20 ml-3 space-y-6">
+                    <li className="ml-6">
+                        <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 ring-8 ring-white dark:ring-gray-900 dark:bg-blue-900">
+                            <span className="text-xs font-bold text-blue-600 dark:text-blue-300">1</span>
+                        </span>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Solicitação (João/TI)</h3>
+                        <p className="text-sm text-muted-foreground">Cria solicitação de 5 Desktops com especificação técnica.</p>
+                    </li>
+                    <li className="ml-6">
+                        <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-green-100 ring-8 ring-white dark:ring-gray-900 dark:bg-green-900">
+                            <span className="text-xs font-bold text-green-600 dark:text-green-300">2</span>
+                        </span>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Aprovação A1 (Maria/Gerente)</h3>
+                        <p className="text-sm text-muted-foreground">Valida a necessidade técnica e aprova.</p>
+                    </li>
+                    <li className="ml-6">
+                        <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-yellow-100 ring-8 ring-white dark:ring-gray-900 dark:bg-yellow-900">
+                            <span className="text-xs font-bold text-yellow-600 dark:text-yellow-300">3</span>
+                        </span>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Cotação (Carlos/Compras)</h3>
+                        <p className="text-sm text-muted-foreground">Realiza 3 cotações e seleciona a melhor oferta (Dell).</p>
+                    </li>
+                    <li className="ml-6">
+                        <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-green-100 ring-8 ring-white dark:ring-gray-900 dark:bg-green-900">
+                            <span className="text-xs font-bold text-green-600 dark:text-green-300">4</span>
+                        </span>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Aprovação A2 (Roberto/Diretor)</h3>
+                        <p className="text-sm text-muted-foreground">Aprova o valor de R$ 15.000,00.</p>
+                    </li>
+                    <li className="ml-6">
+                        <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 ring-8 ring-white dark:ring-gray-900 dark:bg-purple-900">
+                            <span className="text-xs font-bold text-purple-600 dark:text-purple-300">5</span>
+                        </span>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Pedido (Carlos/Compras)</h3>
+                        <p className="text-sm text-muted-foreground">Gera o Pedido #1234 e envia para o fornecedor.</p>
+                    </li>
+                    <li className="ml-6">
+                        <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-orange-100 ring-8 ring-white dark:ring-gray-900 dark:bg-orange-900">
+                            <span className="text-xs font-bold text-orange-600 dark:text-orange-300">6</span>
+                        </span>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Recebimento (Pedro/Almoxarifado)</h3>
+                        <p className="text-sm text-muted-foreground">Recebe as 5 caixas, confere e anexa foto.</p>
+                    </li>
+                    <li className="ml-6">
+                        <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 ring-8 ring-white dark:ring-gray-900 dark:bg-indigo-900">
+                            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300">7</span>
+                        </span>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Conferência Fiscal (Ana/Fiscal)</h3>
+                        <p className="text-sm text-muted-foreground">Lança a NF e integra com o ERP.</p>
+                    </li>
+                </ol>
+            </CardContent>
+        </Card>
+      </div>
+    )
+  },
+  {
     id: "suporte",
     title: "Suporte e Contato",
     icon: Phone,
