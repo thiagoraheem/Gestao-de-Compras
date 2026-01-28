@@ -203,9 +203,28 @@ function registerPublicRoutes(app: Express) {
       
       console.log(`[A2 PDF] PDF generated successfully for request ${requestId}`);
       
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="Aprovacao_A2_${purchaseRequest.requestNumber}.pdf"`);
-      res.send(pdfBuffer);
+      const bufferStart = pdfBuffer.toString(
+        'utf8',
+        0,
+        Math.min(1000, pdfBuffer.length),
+      );
+      const isHtmlContent =
+        bufferStart.includes('HTML_FALLBACK_MARKER') ||
+        bufferStart.includes('<!DOCTYPE html>') ||
+        bufferStart.includes('<html>') ||
+        bufferStart.includes('<HTML>') ||
+        bufferStart.trim().startsWith('<');
+
+      if (isHtmlContent) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="Aprovacao_A2_${purchaseRequest.requestNumber}.html"`);
+        res.send(pdfBuffer);
+      } else {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Aprovacao_A2_${purchaseRequest.requestNumber}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
+      }
     } catch (error) {
       console.error("[A2 PDF] Error generating approval A2 PDF:", error);
       res.status(500).json({ message: "Error generating approval A2 PDF" });
