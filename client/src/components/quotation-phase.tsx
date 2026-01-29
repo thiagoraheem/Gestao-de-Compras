@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Building2, Package, Calendar, Eye, Plus, Clock, CheckCircle, X } from "lucide-react";
 import { format } from "date-fns";
@@ -131,8 +131,9 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="quotation-phase-desc">
+    <Suspense fallback={<div className="flex items-center justify-center p-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg" aria-describedby="quotation-phase-desc">
         <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-6 py-3">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-base font-semibold">Gestão de Cotações</DialogTitle>
@@ -490,63 +491,67 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
         )}
 
         {/* Modais auxiliares */}
-        <RFQCreation
-          purchaseRequest={request}
-          existingQuotation={isCreatingNewVersion ? null : quotation}
-          baseQuotation={isCreatingNewVersion ? quotation : null}
-          isOpen={showRFQCreation}
-          onOpenChange={(open) => {
-            setShowRFQCreation(open);
-            if (!open) setIsCreatingNewVersion(false);
-          }}
-          onComplete={() => {
-            setShowRFQCreation(false);
-            setIsCreatingNewVersion(false);
-          }}
-        />
+        <Suspense fallback={null}>
+          {showRFQCreation && (
+            <RFQCreation
+              purchaseRequest={request}
+              existingQuotation={isCreatingNewVersion ? null : quotation}
+              baseQuotation={isCreatingNewVersion ? quotation : null}
+              isOpen={showRFQCreation}
+              onOpenChange={(open) => {
+                setShowRFQCreation(open);
+                if (!open) setIsCreatingNewVersion(false);
+              }}
+              onComplete={() => {
+                setShowRFQCreation(false);
+                setIsCreatingNewVersion(false);
+              }}
+            />
+          )}
 
-        {showRFQAnalysis && quotation && (
-          <RFQAnalysis
-            quotation={quotation}
-            quotationItems={quotationItems}
-            supplierQuotations={supplierQuotations}
-            isOpen={showRFQAnalysis}
-            onOpenChange={setShowRFQAnalysis}
-            onClose={() => setShowRFQAnalysis(false)}
-          />
-        )}
+          {showRFQAnalysis && quotation && (
+            <RFQAnalysis
+              quotation={quotation}
+              quotationItems={quotationItems}
+              supplierQuotations={supplierQuotations}
+              isOpen={showRFQAnalysis}
+              onOpenChange={setShowRFQAnalysis}
+              onClose={() => setShowRFQAnalysis(false)}
+            />
+          )}
 
-        {showSupplierComparison && quotation && (
-          <SupplierComparison
-            quotationId={quotation.id}
-            isOpen={showSupplierComparison}
-            onOpenChange={setShowSupplierComparison}
-            onClose={() => setShowSupplierComparison(false)}
-            onComplete={() => {
-              setShowSupplierComparison(false);
-              onOpenChange(false);
-            }}
-          />
-        )}
+          {showSupplierComparison && quotation && (
+            <SupplierComparison
+              quotationId={quotation.id}
+              isOpen={showSupplierComparison}
+              onOpenChange={setShowSupplierComparison}
+              onClose={() => setShowSupplierComparison(false)}
+              onComplete={() => {
+                setShowSupplierComparison(false);
+                onOpenChange(false);
+              }}
+            />
+          )}
 
-        {showUpdateQuotation && selectedSupplierForUpdate && quotation && (
-          <UpdateSupplierQuotation
-            isOpen={showUpdateQuotation}
-            onClose={() => {
-              setShowUpdateQuotation(false);
-              setSelectedSupplierForUpdate(null);
-            }}
-            quotationId={quotation.id}
-            supplierId={selectedSupplierForUpdate.id}
-            supplierName={selectedSupplierForUpdate.name}
-            onSuccess={() => {
-              const key1 = [`/api/quotations/${quotation.id}/supplier-quotations`];
-              const key2 = [`/api/quotations/${quotation.id}/items`];
-              queryClient.invalidateQueries({ queryKey: key1 });
-              queryClient.invalidateQueries({ queryKey: key2 });
-            }}
-          />
-        )}
+          {showUpdateQuotation && selectedSupplierForUpdate && quotation && (
+            <UpdateSupplierQuotation
+              isOpen={showUpdateQuotation}
+              onClose={() => {
+                setShowUpdateQuotation(false);
+                setSelectedSupplierForUpdate(null);
+              }}
+              quotationId={quotation.id}
+              supplierId={selectedSupplierForUpdate.id}
+              supplierName={selectedSupplierForUpdate.name}
+              onSuccess={() => {
+                const key1 = [`/api/quotations/${quotation.id}/supplier-quotations`];
+                const key2 = [`/api/quotations/${quotation.id}/items`];
+                queryClient.invalidateQueries({ queryKey: key1 });
+                queryClient.invalidateQueries({ queryKey: key2 });
+              }}
+            />
+          )}
+        </Suspense>
 
         {/* RFQ History Dialog */}
         <Dialog open={showRFQHistory} onOpenChange={setShowRFQHistory}>
@@ -618,5 +623,6 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
       </div>
       </DialogContent>
     </Dialog>
+    </Suspense>
   );
 }

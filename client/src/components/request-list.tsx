@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -12,14 +12,15 @@ import { ptBR } from "date-fns/locale";
 import { Eye } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ApprovalTypeBadge, ApprovalProgressBadge } from "@/components/ApprovalTypeBadge";
-import RequestPhase from "./request-phase";
-import ApprovalA1Phase from "./approval-a1-phase";
-import ApprovalA2Phase from "./approval-a2-phase";
-import QuotationPhase from "./quotation-phase";
-import PurchaseOrderPhase from "./purchase-order-phase";
-import ReceiptPhase from "./receipt-phase";
-import ConclusionPhase from "./conclusion-phase";
-import RequestView from "./request-view";
+
+const RequestPhase = lazy(() => import("./request-phase"));
+const ApprovalA1Phase = lazy(() => import("./approval-a1-phase"));
+const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
+const QuotationPhase = lazy(() => import("./quotation-phase"));
+const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
+const ReceiptPhase = lazy(() => import("./receipt-phase"));
+const ConclusionPhase = lazy(() => import("./conclusion-phase"));
+const RequestView = lazy(() => import("./request-view"));
 
 interface RequestListProps {
   departmentFilter?: string;
@@ -355,7 +356,7 @@ export default function RequestList({
       </div>
 
       {activeRequest && (
-        <>
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>}>
           {/* Dialog-based components (handle their own modal state) */}
           {activeRequest.currentPhase === PURCHASE_PHASES.SOLICITACAO && (
             <RequestPhase
@@ -412,8 +413,8 @@ export default function RequestList({
                   )}
                 </div>
               </div>
-            )}
-        </>
+          )}
+        </Suspense>
       )}
     </div>
   );

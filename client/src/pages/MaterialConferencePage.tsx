@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import ConferenceDashboard from "@/components/conference/ConferenceDashboard";
 import ConferenceOrderList from "@/components/conference/ConferenceOrderList";
-import ReceiptPhase from "@/components/receipt-phase";
+const ReceiptPhase = lazy(() => import("@/components/receipt-phase"));
 import { PackageCheck } from "lucide-react";
 
 export default function MaterialConferencePage() {
@@ -54,14 +54,16 @@ export default function MaterialConferencePage() {
       {selectedRequest && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedRequest(null)}>
           <div className="bg-background dark:bg-slate-900 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto shadow-xl animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <ReceiptPhase 
-              request={selectedRequest} 
-              onClose={() => setSelectedRequest(null)} 
-              className="p-6" 
-              hideTabsByDefault 
-              mode="physical"
-              compactHeader
-            />
+            <Suspense fallback={<div className="flex justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+              <ReceiptPhase 
+                request={selectedRequest} 
+                onClose={() => setSelectedRequest(null)} 
+                className="p-6" 
+                hideTabsByDefault 
+                mode="physical"
+                compactHeader
+              />
+            </Suspense>
           </div>
         </div>
       )}

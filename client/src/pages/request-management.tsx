@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,15 +9,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { PURCHASE_PHASES, PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
-import RequestPhase from "@/components/request-phase";
-import RequestView from "@/components/request-view";
-import ApprovalA1Phase from "@/components/approval-a1-phase";
-import ApprovalA2Phase from "@/components/approval-a2-phase";
-import QuotationPhase from "@/components/quotation-phase";
-import PurchaseOrderPhase from "@/components/purchase-order-phase";
-import ReceiptPhase from "@/components/receipt-phase";
-import FiscalConferencePhase from "@/components/fiscal-conference-phase";
-import ConclusionPhase from "@/components/conclusion-phase";
+
+const RequestPhase = lazy(() => import("@/components/request-phase"));
+const RequestView = lazy(() => import("@/components/request-view"));
+const ApprovalA1Phase = lazy(() => import("@/components/approval-a1-phase"));
+const ApprovalA2Phase = lazy(() => import("@/components/approval-a2-phase"));
+const QuotationPhase = lazy(() => import("@/components/quotation-phase"));
+const PurchaseOrderPhase = lazy(() => import("@/components/purchase-order-phase"));
+const ReceiptPhase = lazy(() => import("@/components/receipt-phase"));
+const FiscalConferencePhase = lazy(() => import("@/components/fiscal-conference-phase"));
+const ConclusionPhase = lazy(() => import("@/components/conclusion-phase"));
 import { 
   FileText, 
   CheckCircle, 
@@ -102,35 +103,41 @@ export default function RequestManagementPage() {
   const getPhaseComponent = () => {
     if (!selectedRequest || !selectedPhase) return null;
 
-    switch (selectedPhase) {
-      case PURCHASE_PHASES.SOLICITACAO:
-        return <RequestPhase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
-      case PURCHASE_PHASES.APROVACAO_A1:
-        return <ApprovalA1Phase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
-      case PURCHASE_PHASES.APROVACAO_A2:
-        return <ApprovalA2Phase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
-      case PURCHASE_PHASES.COTACAO:
-        return <QuotationPhase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
-      case PURCHASE_PHASES.PEDIDO_COMPRA:
-        return <PurchaseOrderPhase request={selectedRequest} onClose={handleCloseModal} />;
-      case PURCHASE_PHASES.RECEBIMENTO:
-        return <ReceiptPhase request={selectedRequest} onClose={handleCloseModal} />;
-      case PURCHASE_PHASES.CONF_FISCAL:
-        return <FiscalConferencePhase request={selectedRequest} onClose={handleCloseModal} />;
-      case PURCHASE_PHASES.CONCLUSAO_COMPRA:
-        return <ConclusionPhase request={selectedRequest} onClose={handleCloseModal} />;
-      case PURCHASE_PHASES.ARQUIVADO:
-        return <RequestView request={selectedRequest} />;
-      default:
-        return (
-          <div className="p-8 text-center">
-            <h3 className="text-lg font-medium mb-2">Fase em desenvolvimento</h3>
-            <p className="text-muted-foreground">
-              Esta fase ainda está sendo implementada.
-            </p>
-          </div>
-        );
-    }
+    return (
+      <Suspense fallback={<div className="flex justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+        {(() => {
+          switch (selectedPhase) {
+            case PURCHASE_PHASES.SOLICITACAO:
+              return <RequestPhase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
+            case PURCHASE_PHASES.APROVACAO_A1:
+              return <ApprovalA1Phase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
+            case PURCHASE_PHASES.APROVACAO_A2:
+              return <ApprovalA2Phase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
+            case PURCHASE_PHASES.COTACAO:
+              return <QuotationPhase request={selectedRequest} open={modalOpen} onOpenChange={setModalOpen} />;
+            case PURCHASE_PHASES.PEDIDO_COMPRA:
+              return <PurchaseOrderPhase request={selectedRequest} onClose={handleCloseModal} />;
+            case PURCHASE_PHASES.RECEBIMENTO:
+              return <ReceiptPhase request={selectedRequest} onClose={handleCloseModal} />;
+            case PURCHASE_PHASES.CONF_FISCAL:
+              return <FiscalConferencePhase request={selectedRequest} onClose={handleCloseModal} />;
+            case PURCHASE_PHASES.CONCLUSAO_COMPRA:
+              return <ConclusionPhase request={selectedRequest} onClose={handleCloseModal} />;
+            case PURCHASE_PHASES.ARQUIVADO:
+              return <RequestView request={selectedRequest} />;
+            default:
+              return (
+                <div className="p-8 text-center">
+                  <h3 className="text-lg font-medium mb-2">Fase em desenvolvimento</h3>
+                  <p className="text-muted-foreground">
+                    Esta fase ainda está sendo implementada.
+                  </p>
+                </div>
+              );
+          }
+        })()}
+      </Suspense>
+    );
   };
 
   const getRequestsByPhase = (phase: string) => {
