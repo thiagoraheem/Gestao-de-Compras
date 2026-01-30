@@ -1089,10 +1089,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(purchaseRequests.currentPhase, phase))
       .orderBy(desc(purchaseRequests.createdAt));
 
-    return results.map(({ request, supplier }) => ({
-      ...request,
-      chosenSupplier: supplier,
-    })) as unknown as PurchaseRequest[];
+    const requestsWithItems = await Promise.all(
+      results.map(async ({ request, supplier }) => {
+        const items = await this.getPurchaseRequestItems(request.id);
+        return {
+          ...request,
+          chosenSupplier: supplier,
+          items,
+        };
+      })
+    );
+
+    return requestsWithItems as unknown as PurchaseRequest[];
   }
 
   async getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]> {

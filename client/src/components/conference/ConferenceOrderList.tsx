@@ -18,10 +18,14 @@ export default function ConferenceOrderList({ requests, onSelect }: ConferenceOr
   const [searchTerm, setSearchTerm] = useState("");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
 
   // Extract unique suppliers for filter
   const suppliers = Array.from(new Set(requests.map(r => r.chosenSupplier?.name).filter(Boolean))).sort();
+
+  // Extract unique categories for filter
+  const categories = Array.from(new Set(requests.map(r => r.category).filter(Boolean))).sort();
 
   const filteredRequests = requests.filter(r => {
     const matchesSearch = 
@@ -33,16 +37,19 @@ export default function ConferenceOrderList({ requests, onSelect }: ConferenceOr
     
     const matchesSupplier = supplierFilter === "all" || r.chosenSupplier?.name === supplierFilter;
 
-    return matchesSearch && matchesUrgency && matchesSupplier;
+    const matchesCategory = categoryFilter === "all" || r.category === categoryFilter;
+
+    return matchesSearch && matchesUrgency && matchesSupplier && matchesCategory;
   });
 
   const clearFilters = () => {
     setSearchTerm("");
     setUrgencyFilter("all");
     setSupplierFilter("all");
+    setCategoryFilter("all");
   };
 
-  const hasActiveFilters = searchTerm || urgencyFilter !== "all" || supplierFilter !== "all";
+  const hasActiveFilters = searchTerm || urgencyFilter !== "all" || supplierFilter !== "all" || categoryFilter !== "all";
 
   return (
     <div className="space-y-6">
@@ -67,6 +74,18 @@ export default function ConferenceOrderList({ requests, onSelect }: ConferenceOr
             <SelectItem value="alto">Alta</SelectItem>
             <SelectItem value="medio">Média</SelectItem>
             <SelectItem value="baixo">Baixa</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-full md:w-[180px]">
+            <SelectValue placeholder="Tipo de Solicitação" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos Tipos</SelectItem>
+            {categories.map((c: any) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

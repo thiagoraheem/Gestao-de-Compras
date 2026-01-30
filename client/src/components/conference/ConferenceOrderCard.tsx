@@ -31,9 +31,16 @@ export default function ConferenceOrderCard({ request, onSelect }: ConferenceOrd
               {request.justification || "Sem descrição"}
             </p>
           </div>
-          <Badge variant={isUrgent ? "destructive" : "secondary"} className="shrink-0">
-            {(URGENCY_LABELS as any)[request.urgency] || request.urgency}
-          </Badge>
+          <div className="flex gap-2 shrink-0">
+            {request.category && (
+              <Badge variant="outline">
+                {request.category}
+              </Badge>
+            )}
+            <Badge variant={isUrgent ? "destructive" : "secondary"}>
+              {(URGENCY_LABELS as any)[request.urgency] || request.urgency}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pb-2 text-sm">
