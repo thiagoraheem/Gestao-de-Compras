@@ -1807,7 +1807,48 @@ export class PDFService {
     }
 
     // Buscar histórico de aprovações
-    const approvalHistory = await storage.getApprovalHistory(purchaseRequestId);
+    let approvalHistory = await storage.getApprovalHistory(purchaseRequestId);
+
+    // Fallback: Se o histórico estiver vazio ou incompleto, verificar colunas da solicitação
+    const hasA1 = approvalHistory.some(h => h.approverType === 'A1');
+    const hasA2 = approvalHistory.some(h => h.approverType === 'A2');
+    
+    // Check A1 Fallback
+    if (!hasA1 && purchaseRequest.approvalDateA1) {
+      let approverA1 = null;
+      if (purchaseRequest.approverA1Id) {
+        approverA1 = await storage.getUser(purchaseRequest.approverA1Id);
+      }
+      
+      approvalHistory.push({
+        id: -1, // ID fictício
+        approverType: 'A1',
+        approved: purchaseRequest.approvedA1,
+        rejectionReason: purchaseRequest.rejectionReasonA1,
+        createdAt: purchaseRequest.approvalDateA1,
+        approver: approverA1
+      });
+    }
+
+    // Check A2 Fallback
+    if (!hasA2 && purchaseRequest.approvalDateA2) {
+      let approverA2 = null;
+      if (purchaseRequest.approverA2Id) {
+        approverA2 = await storage.getUser(purchaseRequest.approverA2Id);
+      }
+      
+      approvalHistory.push({
+        id: -2, // ID fictício
+        approverType: 'A2',
+        approved: purchaseRequest.approvedA2,
+        rejectionReason: purchaseRequest.rejectionReasonA2,
+        createdAt: purchaseRequest.approvalDateA2,
+        approver: approverA2
+      });
+    }
+
+    // Ordenar por data (decrescente)
+    approvalHistory.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const data = {
       purchaseRequest: {
