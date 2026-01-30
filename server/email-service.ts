@@ -401,67 +401,111 @@ export async function notifyRejection(
   }
 
   try {
-    if (!purchaseRequest.requesterId) return;
-    
-    const requester = await storage.getUser(purchaseRequest.requesterId);
-    if (!requester || !requester.email) return;
-
     const transporter = createTransporter();
-    
     const phaseText = phase ? ` na fase ${phase}` : "";
-    
-    const mailOptions = {
-      from: config.email.from,
-      to: requester.email,
-      replyTo: config.email.from,
-      subject: `Solicitação Rejeitada${phaseText} - ${purchaseRequest.requestNumber}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #fee2e2; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-            .content { margin-bottom: 20px; }
-            .reason { background-color: #f8f9fa; padding: 15px; border-left: 4px solid #dc2626; margin: 15px 0; }
-            .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h2 style="color: #dc2626; margin: 0;">Solicitação Rejeitada</h2>
-              <p style="margin: 5px 0 0 0;">Número: <strong>${purchaseRequest.requestNumber}</strong></p>
-            </div>
-            <div class="content">
-              <p>Olá ${requester.firstName || requester.username},</p>
-              <p>Sua solicitação de compra foi devolvida/rejeitada${phaseText}.</p>
-              
-              <div class="reason">
-                <strong>Motivo da rejeição:</strong><br>
-                ${rejectionReason}
-              </div>
+    const subject = `Solicitação Rejeitada${phaseText} - ${purchaseRequest.requestNumber}`;
 
-              <p>
-                <a href="${buildRequestUrl(purchaseRequest.id)}" style="background-color: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                  Ver Detalhes
-                </a>
-              </p>
-            </div>
-            <div class="footer">
-              <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    };
+    // 1. Notificar Solicitante
+    if (purchaseRequest.requesterId) {
+      const requester = await storage.getUser(purchaseRequest.requesterId);
+      if (requester && requester.email) {
+        const mailOptions = {
+          from: config.email.from,
+          to: requester.email,
+          replyTo: config.email.from,
+          subject: subject,
+          html: generateRejectionEmailHTML(
+            requester,
+            purchaseRequest,
+            rejectionReason,
+            phaseText,
+            false
+          ),
+        };
+        await transporter.sendMail(mailOptions);
+      }
+    }
 
-    await transporter.sendMail(mailOptions);
+    // 2. Notificar Gestor (Aprovador A1) se a rejeição ocorrer na fase A2
+    // Isso mantém o gestor informado sobre rejeições da diretoria
+    if (phase === "A2" && purchaseRequest.approverA1Id) {
+      const approverA1 = await storage.getUser(purchaseRequest.approverA1Id);
+      // Evitar enviar duas vezes se o aprovador for o mesmo que o solicitante (improvável mas possível)
+      if (approverA1 && approverA1.email && approverA1.id !== purchaseRequest.requesterId) {
+        const mailOptions = {
+          from: config.email.from,
+          to: approverA1.email,
+          replyTo: config.email.from,
+          subject: subject,
+          html: generateRejectionEmailHTML(
+            approverA1,
+            purchaseRequest,
+            rejectionReason,
+            phaseText,
+            true
+          ),
+        };
+        await transporter.sendMail(mailOptions);
+      }
+    }
+
   } catch (error) {
     console.error("Erro ao notificar rejeição:", error);
   }
+}
+
+function generateRejectionEmailHTML(
+  user: User,
+  purchaseRequest: PurchaseRequest,
+  rejectionReason: string,
+  phaseText: string,
+  isManager: boolean
+): string {
+  const introText = isManager 
+    ? `A solicitação de compra <strong>${purchaseRequest.requestNumber}</strong>, aprovada tecnicamente por você, foi devolvida/rejeitada${phaseText}.`
+    : `Sua solicitação de compra foi devolvida/rejeitada${phaseText}.`;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #fee2e2; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .content { margin-bottom: 20px; }
+        .reason { background-color: #f8f9fa; padding: 15px; border-left: 4px solid #dc2626; margin: 15px 0; }
+        .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h2 style="color: #dc2626; margin: 0;">Solicitação Rejeitada</h2>
+          <p style="margin: 5px 0 0 0;">Número: <strong>${purchaseRequest.requestNumber}</strong></p>
+        </div>
+        <div class="content">
+          <p>Olá ${user.firstName || user.username},</p>
+          <p>${introText}</p>
+          
+          <div class="reason">
+            <strong>Motivo da rejeição:</strong><br>
+            ${rejectionReason}
+          </div>
+
+          <p>
+            <a href="${buildRequestUrl(purchaseRequest.id)}" style="background-color: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              Ver Detalhes
+            </a>
+          </p>
+        </div>
+        <div class="footer">
+          <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
 }
 
 // Email templates for notifications
