@@ -753,7 +753,7 @@ export class PDFService {
   }
 
   private static async generateApprovalA2HTML(data: any): Promise<string> {
-    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, supplierQuotations, deliveryLocation, company, requester } = data;
+    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, supplierQuotations, deliveryLocation, company, requester, quotationItems } = data;
     
     // Função para formatar data brasileira
     const formatBrazilianDate = (dateString: string | null | undefined): string => {
@@ -972,6 +972,97 @@ export class PDFService {
       font-size: 10px;
       margin-left: 5px;
     }
+      .comparison-matrix {
+        margin-top: 15px;
+        overflow-x: auto;
+      }
+      .matrix-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 10px;
+        table-layout: fixed;
+      }
+      .matrix-table th, .matrix-table td {
+        padding: 8px;
+        border: 1px solid #e2e8f0;
+        vertical-align: top;
+      }
+      .matrix-table th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #475569;
+        text-align: center;
+      }
+      .matrix-table .item-col {
+        width: 20%;
+        text-align: left;
+        background-color: #f1f5f9;
+      }
+      .matrix-table .supplier-col {
+        text-align: center;
+      }
+      .matrix-table .item-name {
+        font-weight: 600;
+        color: #1e293b;
+      }
+      .supplier-cell {
+        text-align: center;
+      }
+      .selected-header {
+        background-color: #f0fdf4 !important;
+        border-bottom: 2px solid #22c55e !important;
+      }
+      .selected-cell {
+        background-color: #f0fdf4;
+      }
+      .selected-badge {
+        display: inline-block;
+        font-size: 9px;
+        color: #166534;
+        margin-top: 4px;
+        font-weight: normal;
+      }
+      .price-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 4px;
+      }
+      .lowest-price {
+        border: 1px solid #22c55e;
+        background-color: #dcfce7;
+      }
+      .best-value-badge {
+        font-size: 8px;
+        background-color: #166534;
+        color: white;
+        padding: 2px 4px;
+        border-radius: 2px;
+        align-self: center;
+        margin-bottom: 4px;
+      }
+      .qty-row {
+        color: #64748b;
+        font-size: 9px;
+      }
+      .unit-row {
+        color: #475569;
+      }
+      .total-row {
+        font-weight: 700;
+        color: #0f172a;
+        margin-top: 2px;
+        font-size: 11px;
+      }
+      .lowest-price .total-row {
+        color: #166534;
+      }
+      .no-quote {
+        color: #94a3b8;
+        font-style: italic;
+        padding: 10px;
+      }
   </style>
 </head>
 <body>
@@ -1191,6 +1282,93 @@ export class PDFService {
         `).join('')}
       </tbody>
     </table>
+  </div>
+  ` : ''}
+
+  ${supplierQuotations.length > 0 && items.length > 0 ? `
+  <div class="section-title" style="margin-top: 20px;">Comparação Detalhada de Itens</div>
+  <div class="comparison-matrix">
+      <table class="matrix-table">
+          <thead>
+              <tr>
+                  <th class="item-col">Item</th>
+                  ${supplierQuotations.map((sq: any) => `
+                      <th class="supplier-col ${sq.isChosen ? 'selected-header' : ''}">
+                          ${sq.supplierName}
+                          ${sq.isChosen ? '<div class="selected-badge">Selecionado</div>' : ''}
+                      </th>
+                  `).join('')}
+              </tr>
+          </thead>
+          <tbody>
+              ${items.map((item: any) => {
+                  // Encontrar item da cotação correspondente
+                  let quotationItem = quotationItems && quotationItems.find((qi: any) => 
+                      qi.purchaseRequestItemId === item.id
+                  );
+                  
+                  // Fallback match by description
+                  if (!quotationItem && item.description && quotationItems) {
+                      quotationItem = quotationItems.find((qi: any) => 
+                          qi.description && qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()
+                      );
+                  }
+
+                  // Encontrar o menor preço para este item entre todos os fornecedores
+                  let lowestPrice = Infinity;
+                  
+                  supplierQuotations.forEach((sq: any) => {
+                      const sqItem = sq.items && sq.items.find((i: any) => 
+                        (quotationItem && i.quotationItemId === quotationItem.id) || 
+                        (i.description && i.description.trim() === item.description.trim())
+                      );
+                      
+                      if (sqItem) {
+                          const quantity = Number(sqItem.availableQuantity || item.quantity);
+                          const unitPrice = Number(sqItem.unitPrice) || 0;
+                          const totalPrice = Number(sqItem.totalPrice) || (unitPrice * quantity);
+                          
+                          if (totalPrice > 0 && totalPrice < lowestPrice) {
+                            lowestPrice = totalPrice;
+                          }
+                      }
+                  });
+
+                  return `
+                  <tr>
+                      <td class="item-name">${item.description}</td>
+                      ${supplierQuotations.map((sq: any) => {
+                          const sqItem = sq.items && sq.items.find((i: any) => 
+                            (quotationItem && i.quotationItemId === quotationItem.id) || 
+                            (i.description && i.description.trim() === item.description.trim())
+                          );
+                          
+                          const quantity = sqItem ? Number(sqItem.availableQuantity || item.quantity) : item.quantity;
+                          const unitPrice = sqItem ? Number(sqItem.unitPrice) : 0;
+                          const totalPrice = sqItem ? (Number(sqItem.totalPrice) || (unitPrice * quantity)) : 0;
+                          
+                          // Verificar se é o menor preço (com margem de erro pequena para float)
+                          const isLowest = totalPrice > 0 && Math.abs(totalPrice - lowestPrice) < 0.01;
+                          const isSelected = sq.isChosen;
+
+                          return `
+                          <td class="supplier-cell ${isSelected ? 'selected-cell' : ''}">
+                              ${sqItem ? `
+                                  <div class="price-container ${isLowest ? 'lowest-price' : ''}">
+                                      ${isLowest ? '<div class="best-value-badge">Melhor valor</div>' : ''}
+                                      <div class="qty-row">Quantidade: ${quantity} ${item.unit}</div>
+                                      <div class="unit-row">Vlr. Unit.: ${formatCurrency(unitPrice)}</div>
+                                      <div class="total-row">Vlr Final: ${formatCurrency(totalPrice)}</div>
+                                  </div>
+                              ` : '<div class="no-quote">-</div>'}
+                          </td>
+                          `;
+                      }).join('')}
+                  </tr>
+                  `;
+              }).join('')}
+          </tbody>
+      </table>
   </div>
   ` : ''}
 
@@ -1712,6 +1890,7 @@ export class PDFService {
     let itemsWithPrices = items;
     let deliveryLocation = null;
     let enrichedSupplierQuotations: any[] = [];
+    let quotationItems: any[] = [];
     
     const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
     
@@ -1723,15 +1902,21 @@ export class PDFService {
     if (quotation) {
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
       
+      // Buscar items da cotação
+      quotationItems = await storage.getQuotationItems(quotation.id);
+
       // Enriquecer cotações com nomes dos fornecedores
       enrichedSupplierQuotations = await Promise.all(supplierQuotations.map(async (sq) => {
         const s = await storage.getSupplierById(sq.supplierId);
+        const sqItems = await storage.getSupplierQuotationItems(sq.id);
+        
         return {
           ...sq,
           supplierName: s?.name || 'Fornecedor Desconhecido',
           cnpj: s?.cnpj || '',
           email: s?.email || '',
-          phone: s?.phone || ''
+          phone: s?.phone || '',
+          items: sqItems // Adicionar items para comparação detalhada
         };
       }));
 
@@ -1863,7 +2048,8 @@ export class PDFService {
       supplierQuotations: enrichedSupplierQuotations,
       deliveryLocation,
       company,
-      requester
+      requester,
+      quotationItems
     };
 
     // Gerar HTML
