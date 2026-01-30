@@ -1003,7 +1003,7 @@ export class PDFService {
           <span class="info-label">Número:</span> ${purchaseRequest.requestNumber}
         </div>
         <div class="info-item">
-          <span class="info-label">Solicitante:</span> ${requester?.name || 'Não informado'}
+          <span class="info-label">Solicitante:</span> ${requester?.firstName ? `${requester.firstName} ${requester.lastName || ''}`.trim() : requester?.username || 'Não informado'}
         </div>
         <div class="info-item">
           <span class="info-label">Departamento:</span> ${purchaseRequest.departmentName}
@@ -1054,12 +1054,6 @@ export class PDFService {
         <div class="info-item">
           <span class="info-label">Telefone:</span> ${supplier.phone || 'Não informado'}
         </div>
-        <div class="info-item">
-          <span class="info-label">Cidade:</span> ${supplier.city || 'Não informado'}
-        </div>
-        <div class="info-item">
-          <span class="info-label">Estado:</span> ${supplier.state || 'Não informado'}
-        </div>
       </div>
     </div>
   </div>
@@ -1074,7 +1068,7 @@ export class PDFService {
           <th>Descrição</th>
           <th>Qtd</th>
           <th>Unidade</th>
-          <th>Marca</th>
+          <th>Desconto</th>
           <th>Valor Unit.</th>
           <th>Valor Total</th>
         </tr>
@@ -1086,7 +1080,7 @@ export class PDFService {
           <td>${item.description}</td>
           <td class="text-center">${Number(item.quantity) || 0}</td>
           <td class="text-center">${item.unit || 'UN'}</td>
-          <td>${item.brand || 'N/A'}</td>
+          <td class="text-right">${item.discountPercentage ? item.discountPercentage + '%' : (item.itemDiscount ? formatCurrency(item.itemDiscount) : '-')}</td>
           <td class="text-right">${formatCurrency(item.unitPrice)}</td>
           <td class="text-right">${formatCurrency(item.totalPrice)}</td>
         </tr>
@@ -1127,14 +1121,6 @@ export class PDFService {
           <span class="info-label">Endereço:</span> ${deliveryLocation.address}
         </div>
       </div>
-      <div>
-        <div class="info-item">
-          <span class="info-label">Cidade:</span> ${deliveryLocation.city}
-        </div>
-        <div class="info-item">
-          <span class="info-label">CEP:</span> ${deliveryLocation.zipCode}
-        </div>
-      </div>
     </div>
   </div>
   ` : ''}
@@ -1155,14 +1141,14 @@ export class PDFService {
         ${approvalHistory.map((approval: any) => `
         <tr>
           <td>${approval.approverType}</td>
-          <td>${approval.approverName || 'N/A'}</td>
+          <td>${approval.approver ? `${approval.approver.firstName} ${approval.approver.lastName || ''}`.trim() : 'N/A'}</td>
           <td>${formatBrazilianDate(approval.createdAt)}</td>
           <td>
-            <span class="approval-status ${approval.action === 'approved' ? '' : approval.action === 'rejected' ? 'approval-rejected' : 'approval-pending'}">
-              ${approval.action === 'approved' ? 'Aprovado' : approval.action === 'rejected' ? 'Rejeitado' : 'Pendente'}
+            <span class="approval-status ${approval.approved === true ? '' : approval.approved === false ? 'approval-rejected' : 'approval-pending'}">
+              ${approval.approved === true ? 'Aprovado' : approval.approved === false ? 'Rejeitado' : 'Pendente'}
             </span>
           </td>
-          <td>${approval.comments || '-'}</td>
+          <td>${approval.rejectionReason || '-'}</td>
         </tr>
         `).join('')}
       </tbody>
@@ -1796,6 +1782,7 @@ export class PDFService {
                 unitPrice: unitPrice,
                 originalUnitPrice: unitPrice,
                 itemDiscount: itemDiscount,
+                discountPercentage: supplierItem.discountPercentage ? Number(supplierItem.discountPercentage) : 0,
                 brand: supplierItem.brand || '',
                 deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
                 totalPrice: discountedTotal,
