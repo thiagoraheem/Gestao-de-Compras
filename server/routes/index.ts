@@ -10,6 +10,8 @@ import { registerAuditRoutes } from "./audit";
 import { registerMasterDataRoutes } from "./master-data";
 import { registerMockLocadorRoutes } from "./mock-locador";
 import { registerOpenApiRoute } from "./openapi";
+import { registerConfigRoutes } from "./configRoutes";
+import { registerLocadorIntegrationRoutes } from "./locadorIntegrationRoutes";
 import { PDFService } from "../pdf-service";
 import { storage } from "../storage";
 // Import other route modules as they are created
@@ -246,6 +248,8 @@ export function registerAllRoutes(app: Express) {
   registerNotificationRoutes(app);
   registerReceiptsRoutes(app);
   registerMasterDataRoutes(app);
+  registerLocadorIntegrationRoutes(app);
+  registerConfigRoutes(app);
   registerAuditRoutes(app);
   registerMockLocadorRoutes(app);
   registerOpenApiRoute(app);

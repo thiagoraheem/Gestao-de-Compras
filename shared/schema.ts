@@ -35,6 +35,16 @@ export const session = pgTable("session", {
   expire: timestamp("expire").notNull(),
 });
 
+export const appSettings = pgTable("app_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: jsonb("value").notNull(),
+  isSecret: boolean("is_secret").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Companies table
 export const companies = pgTable("companies", {
   id: serial("id").primaryKey(),

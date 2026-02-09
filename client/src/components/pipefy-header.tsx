@@ -306,6 +306,14 @@ export default function PipefyHeader() {
                     <span>Manual do Usuário</span>
                   </Link>
                 </DropdownMenuItem>
+                {user?.isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/locador-config">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Configurações do Sistema</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
@@ -434,6 +442,15 @@ export default function PipefyHeader() {
                   <span>Manual do Usuário</span>
                 </div>
               </Link>
+
+              {user?.isAdmin && (
+                <Link href="/admin/locador-config">
+                  <div className="flex items-center space-x-3 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg">
+                    <Settings className="w-5 h-5" />
+                    <span>Configurações do Sistema</span>
+                  </div>
+                </Link>
+              )}
 
               <button
                 onClick={handleLogout}

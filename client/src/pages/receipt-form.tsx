@@ -55,8 +55,8 @@ export default function ReceiptFormPage() {
   });
 
   useEffect(() => {
-    fetch("/api/centros-custo").then(r => r.json()).then(setCostCenters).catch(() => setCostCenters([]));
-    fetch("/api/plano-contas").then(r => r.json()).then(setChartAccounts).catch(() => setChartAccounts([]));
+    fetch("/api/integration/locador/combos/centros-custo").then(r => r.json()).then(setCostCenters).catch(() => setCostCenters([]));
+    fetch("/api/integration/locador/combos/planos-conta").then(r => r.json()).then(setChartAccounts).catch(() => setChartAccounts([]));
   }, []);
 
   useEffect(() => {

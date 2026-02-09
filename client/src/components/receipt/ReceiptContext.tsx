@@ -396,11 +396,11 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
   }, [specificReceipt]);
 
   const { data: costCenters = [] } = useQuery<any[]>({
-    queryKey: ["/api/integracao-locador/centros-custo"],
+    queryKey: ["/api/integration/locador/combos/centros-custo"],
   });
 
   const { data: chartAccounts = [] } = useQuery<any[]>({
-    queryKey: ["/api/plano-contas"],
+    queryKey: ["/api/integration/locador/combos/planos-conta"],
   });
 
   const { data: quotation } = useQuery<any>({
@@ -705,7 +705,7 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
     async function loadPaymentMethods() {
       setIsLoadingPaymentMethods(true);
       try {
-        const res = await apiRequest('/api/integracao-locador/formas-pagamento');
+        const res = await apiRequest('/api/integration/locador/combos/formas-pagamento');
         if (Array.isArray(res) && res.length > 0) {
           const mapped = res.map((pm: any) => ({
             code: pm.codigo?.toString() || pm.code || pm.id?.toString() || "",

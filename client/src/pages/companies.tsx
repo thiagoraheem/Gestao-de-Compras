@@ -73,9 +73,9 @@ export default function Companies() {
   const queryClient = useQueryClient();
 
   const { data: erpCompanies, isLoading: isLoadingERP } = useQuery({
-    queryKey: ["/api/integracao-locador/empresas"],
+    queryKey: ["/api/integration/locador/combos/empresas"],
     queryFn: async () => {
-      return await apiRequest("/api/integracao-locador/empresas") as EmpresaERP[];
+      return await apiRequest("/api/integration/locador/combos/empresas") as EmpresaERP[];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });

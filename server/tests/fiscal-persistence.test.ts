@@ -292,7 +292,9 @@ describe('Fiscal Data Persistence & Recovery', () => {
       // Fallback query (purchaseOrderItems) should NOT happen now
       .mockResolvedValueOnce([{ id: 10 }]) // 3. PR Existence Check (Audit Log)
       .mockResolvedValueOnce([{ id: 10, requestNumber: 'PR-10', companyId: 1 }]) // 4. purchaseRequest (ERP)
-      .mockResolvedValueOnce([{ id: 10, name: 'Supplier', cnpj: '123' }]); // 5. supplier
+      .mockResolvedValueOnce([{ id: 10, name: 'Supplier', cnpj: '123' }]) // 5. supplier
+      .mockResolvedValueOnce([{ id: 1, idCompanyERP: 1 }]) // 6. company
+      .mockResolvedValueOnce([{ affectedRows: 1 }]); // 7. update receipt status/observations
 
     // Mock ERP success
     mockPurchaseReceiveService.submit.mockResolvedValue({ success: true, message: 'OK' });
