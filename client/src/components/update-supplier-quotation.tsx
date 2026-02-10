@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -1008,44 +1009,14 @@ export default function UpdateSupplierQuotation({
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="1.000,00"
+                                      <DecimalInput
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        precision={4}
+                                        placeholder="0,0000"
                                         readOnly={viewMode === 'view'}
                                         className="text-xs h-6"
                                         autoComplete="off"
-                                        onChange={(e) => {
-                                          if (viewMode === 'view') return;
-                                          let inputValue = e.target.value;
-                                          if (/^\d+$/.test(inputValue)) {
-                                            field.onChange(inputValue);
-                                          } else {
-                                            const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                            field.onChange(cleanValue);
-                                          }
-                                        }}
-                                        onBlur={(e) => {
-                                          if (viewMode === 'view') return;
-                                          const value = e.target.value;
-                                          if (value) {
-                                            let number;
-                                            if (/^\d+$/.test(value)) {
-                                              number = parseFloat(value);
-                                            } else if (/^\d+[.,]\d+$/.test(value)) {
-                                              number = parseFloat(value.replace(",", "."));
-                                            } else {
-                                              const cleanValue = value.replace(/[^\d.,]/g, "");
-                                              number = parseFloat(cleanValue.replace(",", "."));
-                                            }
-                                            if (!isNaN(number)) {
-                                            const formatted = number.toLocaleString("pt-BR", {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 4,
-                                            });
-                                            field.onChange(formatted);
-                                            }
-                                          }
-                                        }}
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -1109,48 +1080,18 @@ export default function UpdateSupplierQuotation({
                                   <FormItem>
                                     <FormControl>
                                       <div className="relative">
-                                        <Input
-                                          {...field}
-                                          placeholder="0,00"
+                                        <DecimalInput
+                                          value={field.value}
+                                          onChange={(val) => {
+                                            field.onChange(val);
+                                            if (val) form.setValue(`items.${index}.discountPercentage`, "");
+                                          }}
+                                          precision={4}
+                                          placeholder="0,0000"
                                           readOnly={viewMode === 'view'}
                                           disabled={!!form.watch(`items.${index}.discountPercentage`)}
                                           className="text-xs h-6 text-right pr-6"
                                           autoComplete="off"
-                                          onChange={(e) => {
-                                            if (viewMode === 'view') return;
-                                            let inputValue = e.target.value;
-                                            if (/^\d+$/.test(inputValue)) {
-                                              field.onChange(inputValue);
-                                            } else {
-                                              const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                              field.onChange(cleanValue);
-                                            }
-                                            if (e.target.value) {
-                                              form.setValue(`items.${index}.discountPercentage`, "");
-                                            }
-                                          }}
-                                          onBlur={(e) => {
-                                            if (viewMode === 'view') return;
-                                            const value = e.target.value;
-                                            if (value) {
-                                              let number;
-                                              if (/^\d+$/.test(value)) {
-                                                number = parseFloat(value);
-                                              } else if (/^\d+[.,]\d+$/.test(value)) {
-                                                number = parseFloat(value.replace(",", "."));
-                                              } else {
-                                                const cleanValue = value.replace(/[^\d.,]/g, "");
-                                                number = parseFloat(cleanValue.replace(",", "."));
-                                              }
-                                              if (!isNaN(number)) {
-                                                const formatted = number.toLocaleString("pt-BR", {
-                                                  minimumFractionDigits: 2,
-                                                  maximumFractionDigits: 4,
-                                                });
-                                                field.onChange(formatted);
-                                              }
-                                            }
-                                          }}
                                         />
                                         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
                                       </div>
@@ -1438,57 +1379,31 @@ export default function UpdateSupplierQuotation({
                                 : "Valor do Desconto (R$)"}
                             </FormLabel>
                             <FormControl>
-                              <Input
-                                {...field}
-                                placeholder={form.watch("discountType") === "percentage" ? "0" : "0,00"}
-                                type={form.watch("discountType") === "percentage" ? "number" : "text"}
-                                min="0"
-                                max={form.watch("discountType") === "percentage" ? "100" : undefined}
-                                step={form.watch("discountType") === "percentage" ? "0.01" : undefined}
-                                readOnly={viewMode === 'view' || form.watch("discountType") === "none"}
-                                className="w-full"
-                                autoComplete="off"
-                                onChange={(e) => {
-                                  if (viewMode === 'view' || form.watch("discountType") === "none") return;
-                                  
-                                  if (form.watch("discountType") === "percentage") {
-                                    field.onChange(e.target.value);
-                                  } else {
-                                    // Handle currency input for fixed discount
-                                    let inputValue = e.target.value;
-                                    if (/^\d+$/.test(inputValue)) {
-                                      field.onChange(inputValue);
-                                    } else {
-                                      const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                      field.onChange(cleanValue);
-                                    }
-                                  }
-                                }}
-                                onBlur={(e) => {
-                                  if (viewMode === 'view' || form.watch("discountType") !== "fixed") return;
-                                  
-                                  const value = e.target.value;
-                                  if (value) {
-                                    let number;
-                                    if (/^\d+$/.test(value)) {
-                                      number = parseFloat(value);
-                                    } else if (/^\d+[.,]\d+$/.test(value)) {
-                                      number = parseFloat(value.replace(",", "."));
-                                    } else {
-                                      const cleanValue = value.replace(/[^\d.,]/g, "");
-                                      number = parseFloat(cleanValue.replace(",", "."));
-                                    }
-                                    if (!isNaN(number)) {
-                                      const formatted = number.toLocaleString("pt-BR", {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 4,
-                                      });
-                                      field.onChange(formatted);
-                                    }
-                                  }
-                                }}
-                              />
-                            </FormControl>
+                                {form.watch("discountType") === "percentage" ? (
+                                  <Input
+                                    {...field}
+                                    placeholder="0"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    readOnly={viewMode === 'view' || form.watch("discountType") === "none"}
+                                    className="w-full"
+                                    autoComplete="off"
+                                    onChange={(e) => field.onChange(e.target.value)}
+                                  />
+                                ) : (
+                                  <DecimalInput
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    precision={4}
+                                    placeholder="0,0000"
+                                    readOnly={viewMode === 'view' || form.watch("discountType") === "none"}
+                                    className="w-full"
+                                    autoComplete="off"
+                                  />
+                                )}
+                              </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1528,47 +1443,14 @@ export default function UpdateSupplierQuotation({
                             <FormItem>
                               <FormLabel>Valor do Frete (R$)</FormLabel>
                               <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder="0,00"
-                                  type="text"
+                                <DecimalInput
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  precision={4}
+                                  placeholder="0,0000"
                                   readOnly={viewMode === 'view'}
                                   className="w-full"
                                   autoComplete="off"
-                                  onChange={(e) => {
-                                    if (viewMode === 'view') return;
-                                    
-                                    let inputValue = e.target.value;
-                                    if (/^\d+$/.test(inputValue)) {
-                                      field.onChange(inputValue);
-                                    } else {
-                                      const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                      field.onChange(cleanValue);
-                                    }
-                                  }}
-                                  onBlur={(e) => {
-                                    if (viewMode === 'view') return;
-                                    
-                                    const value = e.target.value;
-                                    if (value) {
-                                      let number;
-                                      if (/^\d+$/.test(value)) {
-                                        number = parseFloat(value);
-                                      } else if (/^\d+[.,]\d+$/.test(value)) {
-                                        number = parseFloat(value.replace(",", "."));
-                                      } else {
-                                        const cleanValue = value.replace(/[^\d.,]/g, "");
-                                        number = parseFloat(cleanValue.replace(",", "."));
-                                      }
-                                      if (!isNaN(number)) {
-                                        const formatted = number.toLocaleString("pt-BR", {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        });
-                                        field.onChange(formatted);
-                                      }
-                                    }
-                                  }}
                                 />
                               </FormControl>
                               <FormMessage />

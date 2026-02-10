@@ -405,7 +405,7 @@ export const supplierQuotationItems = pgTable("supplier_quotation_items", {
   availableQuantity: decimal("available_quantity", { precision: 10, scale: 3 }),
   confirmedUnit: text("confirmed_unit"),
   quantityAdjustmentReason: text("quantity_adjustment_reason"),
-  fulfillmentPercentage: decimal("fulfillment_percentage", { precision: 5, scale: 2 }),
+  fulfillmentPercentage: decimal("fulfillment_percentage", { precision: 12, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

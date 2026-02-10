@@ -101,6 +101,8 @@ declare module "express-session" {
 // All middleware functions have been moved to ./routes/middleware.ts
 // This includes: isAuthenticated, canApproveRequest, isAdmin, isAdminOrBuyer
 
+import { NumberParser } from "./utils/number-parser";
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Validate required environment variables
   if (!process.env.SESSION_SECRET) {
@@ -6542,15 +6544,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subtotalValue: subtotalValue || null,
           finalValue: finalValue || null,
           discountType: discountType || null,
-          discountValue: discountValue || null,
+          discountValue: discountValue ? String(discountType === 'fixed' ? NumberParser.parse(discountValue) : discountValue) : null,
           paymentTerms: paymentTerms || null,
           deliveryTerms: deliveryTerms || null,
           warrantyPeriod: warrantyPeriod || null,
           observations: observations || null,
           includesFreight: includesFreight || false,
-          freightValue: freightValue || null,
+          freightValue: freightValue ? String(NumberParser.parse(freightValue)) : null,
           receivedAt: new Date(),
         };
+
+        console.log(`[Audit] Supplier Quotation Update - ID: ${req.params.quotationId}`, {
+          rawBody: req.body,
+          processedUpdate: updateData
+        });
 
         await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
 
@@ -6574,7 +6581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 (qi) => qi.id === item.quotationItemId,
               );
               const quantity = Number(quotationItem?.quantity || 1);
-              const unitPriceNum = Number(item.unitPrice ?? 0);
+              const unitPriceNum = NumberParser.parse(item.unitPrice);
               const totalNum = unitPriceNum * quantity;
 
               // Validar e transformar dados do item usando o schema
@@ -6586,7 +6593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   ? String(item.discountPercentage) 
                   : null,
                 discountValue: item.discountValue !== null && item.discountValue !== undefined 
-                  ? String(item.discountValue) 
+                  ? String(NumberParser.parse(item.discountValue)) 
                   : null,
                 discountedTotalPrice: item.discountedTotalPrice !== null && item.discountedTotalPrice !== undefined 
                   ? String(item.discountedTotalPrice) 
@@ -6612,7 +6619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 (qi) => qi.id === item.quotationItemId,
               );
               const quantity = Number(quotationItem?.quantity || 1);
-              const unitPriceNum = Number(item.unitPrice ?? 0);
+              const unitPriceNum = NumberParser.parse(item.unitPrice);
               const totalNum = unitPriceNum * quantity;
 
               // Validar e transformar dados do item usando o schema
@@ -6626,7 +6633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   ? String(item.discountPercentage) 
                   : null,
                 discountValue: item.discountValue !== null && item.discountValue !== undefined 
-                  ? String(item.discountValue) 
+                  ? String(NumberParser.parse(item.discountValue)) 
                   : null,
                 discountedTotalPrice: item.discountedTotalPrice !== null && item.discountedTotalPrice !== undefined 
                   ? String(item.discountedTotalPrice) 
