@@ -1,5 +1,20 @@
 # Estrutura Atual do Banco (public)
 
+## Tabela: app_settings
+- Colunas:
+  - id: integer NOT NULL (precision=32)
+  - key: text NOT NULL
+  - value: jsonb NOT NULL
+  - is_secret: boolean NOT NULL
+  - updated_at: timestamp without time zone NOT NULL
+  - updated_by: integer NULL (precision=32)
+  - created_at: timestamp without time zone NOT NULL
+- PK: id
+- UNIQUE app_settings_key_unique: key
+- FK app_settings_updated_by_users_id_fk: updated_by → users(id)
+- IDX app_settings_pkey: CREATE UNIQUE INDEX app_settings_pkey ON public.app_settings USING btree (id)
+- IDX app_settings_key_unique: CREATE UNIQUE INDEX app_settings_key_unique ON public.app_settings USING btree (key)
+
 ## Tabela: approval_configurations
 - Colunas:
   - id: integer NOT NULL (precision=32)
@@ -11,10 +26,8 @@
   - created_at: timestamp with time zone NULL
   - updated_at: timestamp with time zone NULL
 - PK: id
-- FK approval_configurations_created_by_fkey: created_by → users(id)
+- FK approval_configurations_created_by_users_id_fk: created_by → users(id)
 - IDX approval_configurations_pkey: CREATE UNIQUE INDEX approval_configurations_pkey ON public.approval_configurations USING btree (id)
-- IDX idx_approval_config_active: CREATE INDEX idx_approval_config_active ON public.approval_configurations USING btree (is_active, effective_date)
-- IDX idx_approval_config_threshold: CREATE INDEX idx_approval_config_threshold ON public.approval_configurations USING btree (value_threshold)
 
 ## Tabela: approval_history
 - Colunas:
@@ -25,18 +38,31 @@
   - approved: boolean NOT NULL
   - rejection_reason: text NULL
   - created_at: timestamp without time zone NOT NULL
-  - approval_step: character varying NULL (maxlen=20)
+  - approval_step: text NULL
   - approval_value: numeric NULL (precision=15, scale=2)
   - requires_dual_approval: boolean NULL
-  - ip_address: inet NULL
+  - ip_address: text NULL
   - user_agent: text NULL
 - PK: id
-- FK approval_history_purchase_request_id_fkey: purchase_request_id → purchase_requests(id)
-- FK approval_history_approver_id_fkey: approver_id → users(id)
+- FK approval_history_purchase_request_id_purchase_requests_id_fk: purchase_request_id → purchase_requests(id)
+- FK approval_history_approver_id_users_id_fk: approver_id → users(id)
 - IDX approval_history_pkey: CREATE UNIQUE INDEX approval_history_pkey ON public.approval_history USING btree (id)
-- IDX idx_approval_history_dual: CREATE INDEX idx_approval_history_dual ON public.approval_history USING btree (requires_dual_approval)
-- IDX idx_approval_history_step: CREATE INDEX idx_approval_history_step ON public.approval_history USING btree (approval_step)
-- IDX idx_approval_history_value: CREATE INDEX idx_approval_history_value ON public.approval_history USING btree (approval_value)
+
+## Tabela: approved_quotation_items
+- Colunas:
+  - id: integer NOT NULL (precision=32)
+  - quotation_id: integer NOT NULL (precision=32)
+  - supplier_quotation_item_id: integer NOT NULL (precision=32)
+  - purchase_request_item_id: integer NOT NULL (precision=32)
+  - approved_quantity: numeric NOT NULL (precision=10, scale=3)
+  - unit_price: numeric NOT NULL (precision=15, scale=4)
+  - total_price: numeric NOT NULL (precision=15, scale=4)
+  - created_at: timestamp without time zone NOT NULL
+- PK: id
+- FK approved_quotation_items_quotation_id_quotations_id_fk: quotation_id → quotations(id)
+- FK approved_quotation_items_supplier_quotation_item_id_supplier_qu: supplier_quotation_item_id → supplier_quotation_items(id)
+- FK approved_quotation_items_purchase_request_item_id_purchase_requ: purchase_request_item_id → purchase_request_items(id)
+- IDX approved_quotation_items_pkey: CREATE UNIQUE INDEX approved_quotation_items_pkey ON public.approved_quotation_items USING btree (id)
 
 ## Tabela: attachments
 - Colunas:
@@ -51,34 +77,41 @@
   - attachment_type: text NOT NULL
   - uploaded_at: timestamp without time zone NULL
 - PK: id
-- FK attachments_purchase_request_id_fkey: purchase_request_id → purchase_requests(id)
-- FK attachments_quotation_id_fkey: quotation_id → quotations(id)
-- FK attachments_supplier_quotation_id_fkey: supplier_quotation_id → supplier_quotations(id)
+- FK attachments_purchase_request_id_purchase_requests_id_fk: purchase_request_id → purchase_requests(id)
+- FK attachments_quotation_id_quotations_id_fk: quotation_id → quotations(id)
+- FK attachments_supplier_quotation_id_supplier_quotations_id_fk: supplier_quotation_id → supplier_quotations(id)
 - IDX attachments_pkey: CREATE UNIQUE INDEX attachments_pkey ON public.attachments USING btree (id)
 
 ## Tabela: audit_logs
 - Colunas:
   - id: integer NOT NULL (precision=32)
   - purchase_request_id: integer NOT NULL (precision=32)
-  - action_type: character varying NOT NULL (maxlen=50)
-  - action_description: text NOT NULL
+  - action_type: character varying NOT NULL (maxlen=100)
+  - action_description: text NULL
   - performed_by: integer NULL (precision=32)
-  - performed_at: timestamp with time zone NULL
-  - dry_run: boolean NULL
+  - performed_at: timestamp without time zone NOT NULL
   - before_data: jsonb NULL
   - after_data: jsonb NULL
   - affected_tables: ARRAY NULL
-  - success: boolean NULL
-  - error_message: text NULL
   - metadata: jsonb NULL
 - PK: id
-- FK audit_logs_performed_by_fkey: performed_by → users(id)
-- FK audit_logs_purchase_request_id_fkey: purchase_request_id → purchase_requests(id)
+- FK audit_logs_purchase_request_id_purchase_requests_id_fk: purchase_request_id → purchase_requests(id)
+- FK audit_logs_performed_by_users_id_fk: performed_by → users(id)
 - IDX audit_logs_pkey: CREATE UNIQUE INDEX audit_logs_pkey ON public.audit_logs USING btree (id)
+- IDX idx_audit_logs_purchase_request_id: CREATE INDEX idx_audit_logs_purchase_request_id ON public.audit_logs USING btree (purchase_request_id)
 - IDX idx_audit_logs_action_type: CREATE INDEX idx_audit_logs_action_type ON public.audit_logs USING btree (action_type)
 - IDX idx_audit_logs_performed_at: CREATE INDEX idx_audit_logs_performed_at ON public.audit_logs USING btree (performed_at)
-- IDX idx_audit_logs_performed_by: CREATE INDEX idx_audit_logs_performed_by ON public.audit_logs USING btree (performed_by)
-- IDX idx_audit_logs_purchase_request_id: CREATE INDEX idx_audit_logs_purchase_request_id ON public.audit_logs USING btree (purchase_request_id)
+
+## Tabela: chart_of_accounts
+- Colunas:
+  - id: integer NOT NULL (precision=32)
+  - external_id: character varying NOT NULL (maxlen=50)
+  - code: character varying NOT NULL (maxlen=50)
+  - description: character varying NOT NULL (maxlen=255)
+  - is_active: boolean NULL
+  - updated_at: timestamp without time zone NULL
+- PK: id
+- IDX chart_of_accounts_pkey: CREATE UNIQUE INDEX chart_of_accounts_pkey ON public.chart_of_accounts USING btree (id)
 
 ## Tabela: companies
 - Colunas:
@@ -94,10 +127,11 @@
   - created_at: timestamp without time zone NULL
   - updated_at: timestamp without time zone NULL
   - logo_base64: text NULL
+  - id_company_erp: integer NULL (precision=32)
 - PK: id
-- UNIQUE companies_cnpj_key: cnpj
-- IDX companies_cnpj_key: CREATE UNIQUE INDEX companies_cnpj_key ON public.companies USING btree (cnpj)
+- UNIQUE companies_cnpj_unique: cnpj
 - IDX companies_pkey: CREATE UNIQUE INDEX companies_pkey ON public.companies USING btree (id)
+- IDX companies_cnpj_unique: CREATE UNIQUE INDEX companies_cnpj_unique ON public.companies USING btree (cnpj)
 
 ## Tabela: configuration_history
 - Colunas:
@@ -111,13 +145,9 @@
   - user_agent: text NULL
   - changed_at: timestamp with time zone NULL
 - PK: id
-- FK configuration_history_changed_by_fkey: changed_by → users(id)
-- FK configuration_history_configuration_id_fkey: configuration_id → approval_configurations(id)
+- FK configuration_history_configuration_id_approval_configurations_: configuration_id → approval_configurations(id)
+- FK configuration_history_changed_by_users_id_fk: changed_by → users(id)
 - IDX configuration_history_pkey: CREATE UNIQUE INDEX configuration_history_pkey ON public.configuration_history USING btree (id)
-- IDX idx_config_history_change_type: CREATE INDEX idx_config_history_change_type ON public.configuration_history USING btree (change_type)
-- IDX idx_config_history_changed_at: CREATE INDEX idx_config_history_changed_at ON public.configuration_history USING btree (changed_at DESC)
-- IDX idx_config_history_changed_by: CREATE INDEX idx_config_history_changed_by ON public.configuration_history USING btree (changed_by)
-- IDX idx_config_history_config_id: CREATE INDEX idx_config_history_config_id ON public.configuration_history USING btree (configuration_id)
 
 ## Tabela: cost_centers
 - Colunas:
@@ -126,11 +156,14 @@
   - name: text NOT NULL
   - department_id: integer NULL (precision=32)
   - created_at: timestamp without time zone NULL
+  - external_id: character varying NULL (maxlen=50)
+  - is_active: boolean NULL
+  - updated_at: timestamp without time zone NULL
 - PK: id
-- UNIQUE cost_centers_code_key: code
-- IDX cost_centers_code_key: CREATE UNIQUE INDEX cost_centers_code_key ON public.cost_centers USING btree (code)
+- UNIQUE cost_centers_code_unique: code
+- FK cost_centers_department_id_departments_id_fk: department_id → departments(id)
 - IDX cost_centers_pkey: CREATE UNIQUE INDEX cost_centers_pkey ON public.cost_centers USING btree (id)
-- IDX idx_cost_centers_department: CREATE INDEX idx_cost_centers_department ON public.cost_centers USING btree (department_id, name)
+- IDX cost_centers_code_unique: CREATE UNIQUE INDEX cost_centers_code_unique ON public.cost_centers USING btree (code)
 
 ## Tabela: delivery_locations
 - Colunas:
@@ -145,9 +178,9 @@
   - created_at: timestamp without time zone NULL
   - updated_at: timestamp without time zone NULL
 - PK: id
-- UNIQUE delivery_locations_name_key: name
-- IDX delivery_locations_name_key: CREATE UNIQUE INDEX delivery_locations_name_key ON public.delivery_locations USING btree (name)
+- UNIQUE delivery_locations_name_unique: name
 - IDX delivery_locations_pkey: CREATE UNIQUE INDEX delivery_locations_pkey ON public.delivery_locations USING btree (id)
+- IDX delivery_locations_name_unique: CREATE UNIQUE INDEX delivery_locations_name_unique ON public.delivery_locations USING btree (name)
 
 ## Tabela: departments
 - Colunas:
@@ -157,36 +190,26 @@
   - created_at: timestamp without time zone NULL
   - company_id: integer NULL (precision=32)
 - PK: id
-- FK departments_company_id_fkey: company_id → companies(id)
+- FK departments_company_id_companies_id_fk: company_id → companies(id)
 - IDX departments_pkey: CREATE UNIQUE INDEX departments_pkey ON public.departments USING btree (id)
-- IDX idx_departments_name: CREATE INDEX idx_departments_name ON public.departments USING btree (name)
 
 ## Tabela: detailed_audit_log
 - Colunas:
   - id: integer NOT NULL (precision=32)
-  - table_name: character varying NOT NULL (maxlen=50)
+  - table_name: character varying NOT NULL (maxlen=100)
   - record_id: integer NOT NULL (precision=32)
-  - field_name: character varying NOT NULL (maxlen=50)
-  - old_value: text NULL
-  - new_value: text NULL
-  - changed_by: integer NULL (precision=32)
-  - changed_at: timestamp with time zone NULL
   - change_reason: text NULL
-  - session_id: character varying NULL (maxlen=255)
-  - ip_address: inet NULL
-  - user_agent: text NULL
-  - operation_type: character varying NOT NULL (maxlen=10)
-  - transaction_id: bigint NULL (precision=64)
+  - operation_type: character varying NOT NULL (maxlen=50)
+  - transaction_id: character varying NOT NULL (maxlen=100)
   - metadata: jsonb NULL
+  - user_id: integer NULL (precision=32)
+  - created_at: timestamp without time zone NOT NULL
 - PK: id
-- FK detailed_audit_log_changed_by_fkey: changed_by → users(id)
+- FK detailed_audit_log_user_id_users_id_fk: user_id → users(id)
 - IDX detailed_audit_log_pkey: CREATE UNIQUE INDEX detailed_audit_log_pkey ON public.detailed_audit_log USING btree (id)
-- IDX idx_detailed_audit_log_changed_at: CREATE INDEX idx_detailed_audit_log_changed_at ON public.detailed_audit_log USING btree (changed_at)
-- IDX idx_detailed_audit_log_changed_by: CREATE INDEX idx_detailed_audit_log_changed_by ON public.detailed_audit_log USING btree (changed_by)
-- IDX idx_detailed_audit_log_field_name: CREATE INDEX idx_detailed_audit_log_field_name ON public.detailed_audit_log USING btree (field_name)
-- IDX idx_detailed_audit_log_table_operation: CREATE INDEX idx_detailed_audit_log_table_operation ON public.detailed_audit_log USING btree (table_name, operation_type)
-- IDX idx_detailed_audit_log_table_record: CREATE INDEX idx_detailed_audit_log_table_record ON public.detailed_audit_log USING btree (table_name, record_id)
-- IDX idx_detailed_audit_log_transaction_id: CREATE INDEX idx_detailed_audit_log_transaction_id ON public.detailed_audit_log USING btree (transaction_id)
+- IDX idx_detailed_audit_transaction_id: CREATE INDEX idx_detailed_audit_transaction_id ON public.detailed_audit_log USING btree (transaction_id)
+- IDX idx_detailed_audit_table_record: CREATE INDEX idx_detailed_audit_table_record ON public.detailed_audit_log USING btree (table_name, record_id)
+- IDX idx_detailed_audit_created_at: CREATE INDEX idx_detailed_audit_created_at ON public.detailed_audit_log USING btree (created_at)
 
 ## Tabela: payment_methods
 - Colunas:
@@ -210,12 +233,11 @@
   - cost_center_id: integer NULL (precision=32)
   - account_code: text NULL
   - created_at: timestamp without time zone NOT NULL
+  - quantity_received: numeric NULL (precision=10, scale=3)
 - PK: id
-- FK purchase_order_items_cost_center_id_fkey: cost_center_id → cost_centers(id)
-- FK purchase_order_items_purchase_order_id_fkey: purchase_order_id → purchase_orders(id)
+- FK purchase_order_items_purchase_order_id_purchase_orders_id_fk: purchase_order_id → purchase_orders(id)
+- FK purchase_order_items_cost_center_id_cost_centers_id_fk: cost_center_id → cost_centers(id)
 - IDX purchase_order_items_pkey: CREATE UNIQUE INDEX purchase_order_items_pkey ON public.purchase_order_items USING btree (id)
-- IDX idx_purchase_order_items_cost_center_id: CREATE INDEX idx_purchase_order_items_cost_center_id ON public.purchase_order_items USING btree (cost_center_id)
-- IDX idx_purchase_order_items_purchase_order_id: CREATE INDEX idx_purchase_order_items_purchase_order_id ON public.purchase_order_items USING btree (purchase_order_id)
 
 ## Tabela: purchase_orders
 - Colunas:
@@ -237,20 +259,16 @@
   - created_by: integer NOT NULL (precision=32)
   - created_at: timestamp without time zone NOT NULL
   - updated_at: timestamp without time zone NOT NULL
+  - fulfillment_status: text NULL
 - PK: id
-- UNIQUE purchase_orders_order_number_key: order_number
-- FK purchase_orders_approved_by_fkey: approved_by → users(id)
-- FK purchase_orders_created_by_fkey: created_by → users(id)
-- FK purchase_orders_purchase_request_id_fkey: purchase_request_id → purchase_requests(id)
-- FK purchase_orders_quotation_id_fkey: quotation_id → quotations(id)
-- FK purchase_orders_supplier_id_fkey: supplier_id → suppliers(id)
-- IDX purchase_orders_order_number_key: CREATE UNIQUE INDEX purchase_orders_order_number_key ON public.purchase_orders USING btree (order_number)
+- UNIQUE purchase_orders_order_number_unique: order_number
+- FK purchase_orders_purchase_request_id_purchase_requests_id_fk: purchase_request_id → purchase_requests(id)
+- FK purchase_orders_supplier_id_suppliers_id_fk: supplier_id → suppliers(id)
+- FK purchase_orders_quotation_id_quotations_id_fk: quotation_id → quotations(id)
+- FK purchase_orders_approved_by_users_id_fk: approved_by → users(id)
+- FK purchase_orders_created_by_users_id_fk: created_by → users(id)
 - IDX purchase_orders_pkey: CREATE UNIQUE INDEX purchase_orders_pkey ON public.purchase_orders USING btree (id)
-- IDX idx_purchase_orders_created_at: CREATE INDEX idx_purchase_orders_created_at ON public.purchase_orders USING btree (created_at)
-- IDX idx_purchase_orders_created_by: CREATE INDEX idx_purchase_orders_created_by ON public.purchase_orders USING btree (created_by)
-- IDX idx_purchase_orders_purchase_request_id: CREATE INDEX idx_purchase_orders_purchase_request_id ON public.purchase_orders USING btree (purchase_request_id)
-- IDX idx_purchase_orders_status: CREATE INDEX idx_purchase_orders_status ON public.purchase_orders USING btree (status)
-- IDX idx_purchase_orders_supplier_id: CREATE INDEX idx_purchase_orders_supplier_id ON public.purchase_orders USING btree (supplier_id)
+- IDX purchase_orders_order_number_unique: CREATE UNIQUE INDEX purchase_orders_order_number_unique ON public.purchase_orders USING btree (order_number)
 
 ## Tabela: purchase_request_items
 - Colunas:
@@ -271,11 +289,9 @@
   - transfer_reason: text NULL
   - transferred_at: timestamp without time zone NULL
 - PK: id
-- FK fk_transferred_to_request: transferred_to_request_id → purchase_requests(id)
-- FK purchase_request_items_purchase_request_id_fkey: purchase_request_id → purchase_requests(id)
+- FK purchase_request_items_purchase_request_id_purchase_requests_id: purchase_request_id → purchase_requests(id)
+- FK purchase_request_items_transferred_to_request_id_purchase_reque: transferred_to_request_id → purchase_requests(id)
 - IDX purchase_request_items_pkey: CREATE UNIQUE INDEX purchase_request_items_pkey ON public.purchase_request_items USING btree (id)
-- IDX idx_purchase_request_items_description_search: CREATE INDEX idx_purchase_request_items_description_search ON public.purchase_request_items USING gin (to_tsvector('portuguese'::regconfig, description))
-- IDX idx_purchase_request_items_request_id: CREATE INDEX idx_purchase_request_items_request_id ON public.purchase_request_items USING btree (purchase_request_id)
 
 ## Tabela: purchase_requests
 - Colunas:
@@ -322,32 +338,39 @@
   - first_approval_date: timestamp with time zone NULL
   - final_approval_date: timestamp with time zone NULL
   - approval_configuration_id: integer NULL (precision=32)
+  - physical_receipt_at: timestamp without time zone NULL
+  - physical_receipt_by_id: integer NULL (precision=32)
+  - fiscal_receipt_at: timestamp without time zone NULL
+  - fiscal_receipt_by_id: integer NULL (precision=32)
 - PK: id
-- UNIQUE purchase_requests_request_number_key: request_number
-- FK purchase_requests_approval_configuration_id_fkey: approval_configuration_id → approval_configurations(id)
-- FK purchase_requests_approver_a1_id_fkey: approver_a1_id → users(id)
-- FK purchase_requests_approver_a2_id_fkey: approver_a2_id → users(id)
-- FK purchase_requests_buyer_id_fkey: buyer_id → users(id)
-- FK purchase_requests_chosen_supplier_id_fkey: chosen_supplier_id → suppliers(id)
-- FK purchase_requests_company_id_fkey: company_id → companies(id)
-- FK purchase_requests_final_approver_id_fkey: final_approver_id → users(id)
-- FK purchase_requests_first_approver_a2_id_fkey: first_approver_a2_id → users(id)
-- FK purchase_requests_payment_method_id_fkey: payment_method_id → payment_methods(id)
-- FK purchase_requests_received_by_id_fkey: received_by_id → users(id)
+- UNIQUE purchase_requests_request_number_unique: request_number
+- FK purchase_requests_requester_id_users_id_fk: requester_id → users(id)
+- FK purchase_requests_company_id_companies_id_fk: company_id → companies(id)
+- FK purchase_requests_cost_center_id_cost_centers_id_fk: cost_center_id → cost_centers(id)
+- FK purchase_requests_approver_a1_id_users_id_fk: approver_a1_id → users(id)
+- FK purchase_requests_buyer_id_users_id_fk: buyer_id → users(id)
+- FK purchase_requests_payment_method_id_payment_methods_id_fk: payment_method_id → payment_methods(id)
+- FK purchase_requests_approver_a2_id_users_id_fk: approver_a2_id → users(id)
+- FK purchase_requests_chosen_supplier_id_suppliers_id_fk: chosen_supplier_id → suppliers(id)
+- FK purchase_requests_first_approver_a2_id_users_id_fk: first_approver_a2_id → users(id)
+- FK purchase_requests_final_approver_id_users_id_fk: final_approver_id → users(id)
+- FK purchase_requests_received_by_id_users_id_fk: received_by_id → users(id)
+- FK purchase_requests_physical_receipt_by_id_users_id_fk: physical_receipt_by_id → users(id)
+- FK purchase_requests_fiscal_receipt_by_id_users_id_fk: fiscal_receipt_by_id → users(id)
 - IDX purchase_requests_pkey: CREATE UNIQUE INDEX purchase_requests_pkey ON public.purchase_requests USING btree (id)
-- IDX purchase_requests_request_number_key: CREATE UNIQUE INDEX purchase_requests_request_number_key ON public.purchase_requests USING btree (request_number)
-- IDX idx_purchase_requests_cost_center_phase: CREATE INDEX idx_purchase_requests_cost_center_phase ON public.purchase_requests USING btree (cost_center_id, current_phase)
-- IDX idx_purchase_requests_created_at_phase: CREATE INDEX idx_purchase_requests_created_at_phase ON public.purchase_requests USING btree (created_at, current_phase)
-- IDX idx_purchase_requests_dual_approval: CREATE INDEX idx_purchase_requests_dual_approval ON public.purchase_requests USING btree (requires_dual_approval)
-- IDX idx_purchase_requests_final_approver: CREATE INDEX idx_purchase_requests_final_approver ON public.purchase_requests USING btree (final_approver_id)
-- IDX idx_purchase_requests_first_approver: CREATE INDEX idx_purchase_requests_first_approver ON public.purchase_requests USING btree (first_approver_a2_id)
-- IDX idx_purchase_requests_justification_search: CREATE INDEX idx_purchase_requests_justification_search ON public.purchase_requests USING gin (to_tsvector('portuguese'::regconfig, justification))
-- IDX idx_purchase_requests_kanban_main: CREATE INDEX idx_purchase_requests_kanban_main ON public.purchase_requests USING btree (current_phase, created_at DESC)
-- IDX idx_purchase_requests_number_search: CREATE INDEX idx_purchase_requests_number_search ON public.purchase_requests USING gin (to_tsvector('portuguese'::regconfig, request_number))
-- IDX idx_purchase_requests_requester_phase: CREATE INDEX idx_purchase_requests_requester_phase ON public.purchase_requests USING btree (requester_id, current_phase)
-- IDX idx_purchase_requests_supplier_phase: CREATE INDEX idx_purchase_requests_supplier_phase ON public.purchase_requests USING btree (chosen_supplier_id, current_phase)
-- IDX idx_purchase_requests_updated_at: CREATE INDEX idx_purchase_requests_updated_at ON public.purchase_requests USING btree (updated_at DESC)
-- IDX idx_purchase_requests_urgency_phase: CREATE INDEX idx_purchase_requests_urgency_phase ON public.purchase_requests USING btree (urgency, current_phase)
+- IDX purchase_requests_request_number_unique: CREATE UNIQUE INDEX purchase_requests_request_number_unique ON public.purchase_requests USING btree (request_number)
+
+## Tabela: push_subscriptions
+- Colunas:
+  - id: integer NOT NULL (precision=32)
+  - user_id: integer NOT NULL (precision=32)
+  - endpoint: text NOT NULL
+  - p256dh: text NOT NULL
+  - auth: text NOT NULL
+  - created_at: timestamp without time zone NULL
+- PK: id
+- FK push_subscriptions_user_id_users_id_fk: user_id → users(id)
+- IDX push_subscriptions_pkey: CREATE UNIQUE INDEX push_subscriptions_pkey ON public.push_subscriptions USING btree (id)
 
 ## Tabela: quantity_adjustment_history
 - Colunas:
@@ -367,14 +390,11 @@
   - created_at: timestamp without time zone NOT NULL
   - severity_level: text NULL
 - PK: id
-- FK quantity_adjustment_history_adjusted_by_fkey: adjusted_by → users(id)
-- FK quantity_adjustment_history_quotation_id_fkey: quotation_id → quotations(id)
-- FK quantity_adjustment_history_supplier_id_fkey: supplier_id → suppliers(id)
-- FK quantity_adjustment_history_supplier_quotation_item_id_fkey: supplier_quotation_item_id → supplier_quotation_items(id)
+- FK quantity_adjustment_history_supplier_quotation_item_id_supplier: supplier_quotation_item_id → supplier_quotation_items(id)
+- FK quantity_adjustment_history_quotation_id_quotations_id_fk: quotation_id → quotations(id)
+- FK quantity_adjustment_history_supplier_id_suppliers_id_fk: supplier_id → suppliers(id)
+- FK quantity_adjustment_history_adjusted_by_users_id_fk: adjusted_by → users(id)
 - IDX quantity_adjustment_history_pkey: CREATE UNIQUE INDEX quantity_adjustment_history_pkey ON public.quantity_adjustment_history USING btree (id)
-- IDX idx_quantity_adjustment_history_quotation: CREATE INDEX idx_quantity_adjustment_history_quotation ON public.quantity_adjustment_history USING btree (quotation_id)
-- IDX idx_quantity_adjustment_history_supplier: CREATE INDEX idx_quantity_adjustment_history_supplier ON public.quantity_adjustment_history USING btree (supplier_id)
-- IDX idx_quantity_adjustment_history_supplier_quotation_item: CREATE INDEX idx_quantity_adjustment_history_supplier_quotation_item ON public.quantity_adjustment_history USING btree (supplier_quotation_item_id)
 
 ## Tabela: quotation_items
 - Colunas:
@@ -389,9 +409,35 @@
   - created_at: timestamp without time zone NOT NULL
   - purchase_request_item_id: integer NULL (precision=32)
 - PK: id
-- FK quotation_items_purchase_request_item_id_fkey: purchase_request_item_id → purchase_request_items(id)
-- FK quotation_items_quotation_id_fkey: quotation_id → quotations(id)
+- FK quotation_items_purchase_request_item_id_purchase_request_items: purchase_request_item_id → purchase_request_items(id)
+- FK quotation_items_quotation_id_quotations_id_fk: quotation_id → quotations(id)
 - IDX quotation_items_pkey: CREATE UNIQUE INDEX quotation_items_pkey ON public.quotation_items USING btree (id)
+
+## Tabela: quotation_version_history
+- Colunas:
+  - id: integer NOT NULL (precision=32)
+  - quotation_id: integer NOT NULL (precision=32)
+  - previous_version: integer NULL (precision=32)
+  - new_version: integer NOT NULL (precision=32)
+  - change_type: text NOT NULL
+  - change_description: text NULL
+  - changed_fields: jsonb NULL
+  - previous_values: jsonb NULL
+  - new_values: jsonb NULL
+  - items_affected: jsonb NULL
+  - reason_for_change: text NULL
+  - impact_assessment: text NULL
+  - changed_by: integer NOT NULL (precision=32)
+  - changed_at: timestamp without time zone NOT NULL
+  - approved_by: integer NULL (precision=32)
+  - approved_at: timestamp without time zone NULL
+  - notifications_sent: boolean NULL
+  - created_at: timestamp without time zone NOT NULL
+- PK: id
+- FK quotation_version_history_quotation_id_quotations_id_fk: quotation_id → quotations(id)
+- FK quotation_version_history_changed_by_users_id_fk: changed_by → users(id)
+- FK quotation_version_history_approved_by_users_id_fk: approved_by → users(id)
+- IDX quotation_version_history_pkey: CREATE UNIQUE INDEX quotation_version_history_pkey ON public.quotation_version_history USING btree (id)
 
 ## Tabela: quotations
 - Colunas:
@@ -410,50 +456,130 @@
   - rfq_version: integer NULL (precision=32)
   - parent_quotation_id: integer NULL (precision=32)
 - PK: id
-- UNIQUE quotations_quotation_number_key: quotation_number
-- FK quotations_created_by_fkey: created_by → users(id)
-- FK quotations_delivery_location_id_fkey: delivery_location_id → delivery_locations(id)
-- FK quotations_parent_quotation_id_fkey: parent_quotation_id → quotations(id)
-- FK quotations_purchase_request_id_fkey: purchase_request_id → purchase_requests(id)
+- UNIQUE quotations_quotation_number_unique: quotation_number
+- FK quotations_purchase_request_id_purchase_requests_id_fk: purchase_request_id → purchase_requests(id)
+- FK quotations_delivery_location_id_delivery_locations_id_fk: delivery_location_id → delivery_locations(id)
+- FK quotations_created_by_users_id_fk: created_by → users(id)
+- FK quotations_parent_quotation_id_quotations_id_fk: parent_quotation_id → quotations(id)
 - IDX quotations_pkey: CREATE UNIQUE INDEX quotations_pkey ON public.quotations USING btree (id)
-- IDX quotations_quotation_number_key: CREATE UNIQUE INDEX quotations_quotation_number_key ON public.quotations USING btree (quotation_number)
-- IDX idx_quotations_purchase_request: CREATE INDEX idx_quotations_purchase_request ON public.quotations USING btree (purchase_request_id, status)
+- IDX quotations_quotation_number_unique: CREATE UNIQUE INDEX quotations_quotation_number_unique ON public.quotations USING btree (quotation_number)
+
+## Tabela: receipt_allocations
+- Colunas:
+  - id: integer NOT NULL (precision=32)
+  - receipt_id: integer NOT NULL (precision=32)
+  - cost_center_id: integer NOT NULL (precision=32)
+  - chart_of_accounts_id: integer NOT NULL (precision=32)
+  - amount: numeric NOT NULL (precision=18, scale=2)
+  - percentage: numeric NULL (precision=7, scale=4)
+  - mode: text NOT NULL
+  - created_at: timestamp without time zone NULL
+  - updated_at: timestamp without time zone NULL
+- PK: id
+- FK receipt_allocations_chart_of_accounts_id_chart_of_accounts_id_f: chart_of_accounts_id → chart_of_accounts(id)
+- FK receipt_allocations_receipt_id_receipts_id_fk: receipt_id → receipts(id)
+- FK receipt_allocations_cost_center_id_cost_centers_id_fk: cost_center_id → cost_centers(id)
+- IDX receipt_allocations_pkey: CREATE UNIQUE INDEX receipt_allocations_pkey ON public.receipt_allocations USING btree (id)
+
+## Tabela: receipt_installments
+- Colunas:
+  - id: integer NOT NULL (precision=32)
+  - receipt_id: integer NOT NULL (precision=32)
+  - installment_number: character varying NOT NULL (maxlen=50)
+  - due_date: timestamp without time zone NOT NULL
+  - amount: numeric NOT NULL (precision=18, scale=2)
+- PK: id
+- FK receipt_installments_receipt_id_receipts_id_fk: receipt_id → receipts(id)
+- IDX receipt_installments_pkey: CREATE UNIQUE INDEX receipt_installments_pkey ON public.receipt_installments USING btree (id)
 
 ## Tabela: receipt_items
 - Colunas:
   - id: integer NOT NULL (precision=32)
   - receipt_id: integer NOT NULL (precision=32)
-  - purchase_order_item_id: integer NOT NULL (precision=32)
+  - purchase_order_item_id: integer NULL (precision=32)
   - quantity_received: numeric NOT NULL (precision=10, scale=3)
   - quantity_approved: numeric NULL (precision=10, scale=3)
   - condition: text NOT NULL
   - observations: text NULL
   - created_at: timestamp without time zone NOT NULL
+  - line_number: integer NULL (precision=32)
+  - description: character varying NULL (maxlen=300)
+  - unit: character varying NULL (maxlen=20)
+  - quantity: numeric NULL (precision=18, scale=4)
+  - unit_price: numeric NULL (precision=18, scale=6)
+  - total_price: numeric NULL (precision=18, scale=2)
+  - locador_product_id: character varying NULL (maxlen=50)
+  - locador_product_code: character varying NULL (maxlen=50)
+  - remaining_quantity: numeric NULL (precision=10, scale=3)
+  - ncm: character varying NULL (maxlen=20)
+  - cfop: character varying NULL (maxlen=10)
+  - icms_rate: numeric NULL (precision=5, scale=2)
+  - icms_amount: numeric NULL (precision=18, scale=2)
+  - ipi_rate: numeric NULL (precision=5, scale=2)
+  - ipi_amount: numeric NULL (precision=18, scale=2)
+  - pis_rate: numeric NULL (precision=5, scale=2)
+  - pis_amount: numeric NULL (precision=18, scale=2)
+  - cofins_rate: numeric NULL (precision=5, scale=2)
+  - cofins_amount: numeric NULL (precision=18, scale=2)
 - PK: id
-- FK receipt_items_purchase_order_item_id_fkey: purchase_order_item_id → purchase_order_items(id)
-- FK receipt_items_receipt_id_fkey: receipt_id → receipts(id)
+- FK receipt_items_receipt_id_receipts_id_fk: receipt_id → receipts(id)
+- FK receipt_items_purchase_order_item_id_purchase_order_items_id_fk: purchase_order_item_id → purchase_order_items(id)
 - IDX receipt_items_pkey: CREATE UNIQUE INDEX receipt_items_pkey ON public.receipt_items USING btree (id)
+
+## Tabela: receipt_nf_xmls
+- Colunas:
+  - id: integer NOT NULL (precision=32)
+  - receipt_id: integer NOT NULL (precision=32)
+  - xml_content: text NOT NULL
+  - xml_hash: character varying NOT NULL (maxlen=64)
+  - created_at: timestamp without time zone NULL
+- PK: id
+- UNIQUE receipt_nf_xmls_xml_hash_unique: xml_hash
+- FK receipt_nf_xmls_receipt_id_receipts_id_fk: receipt_id → receipts(id)
+- IDX receipt_nf_xmls_xml_hash_unique: CREATE UNIQUE INDEX receipt_nf_xmls_xml_hash_unique ON public.receipt_nf_xmls USING btree (xml_hash)
+- IDX receipt_nf_xmls_pkey: CREATE UNIQUE INDEX receipt_nf_xmls_pkey ON public.receipt_nf_xmls USING btree (id)
 
 ## Tabela: receipts
 - Colunas:
   - id: integer NOT NULL (precision=32)
   - receipt_number: text NOT NULL
-  - purchase_order_id: integer NOT NULL (precision=32)
+  - purchase_order_id: integer NULL (precision=32)
   - status: text NOT NULL
-  - received_by: integer NOT NULL (precision=32)
-  - received_at: timestamp without time zone NOT NULL
+  - received_by: integer NULL (precision=32)
+  - received_at: timestamp without time zone NULL
   - observations: text NULL
   - quality_approved: boolean NULL
   - approved_by: integer NULL (precision=32)
   - approved_at: timestamp without time zone NULL
   - created_at: timestamp without time zone NOT NULL
+  - receipt_type: receipt_type NOT NULL
+  - supplier_id: integer NULL (precision=32)
+  - locador_supplier_id: character varying NULL (maxlen=50)
+  - document_number: character varying NULL (maxlen=50)
+  - document_series: character varying NULL (maxlen=20)
+  - document_key: character varying NULL (maxlen=100)
+  - document_issue_date: timestamp without time zone NULL
+  - document_entry_date: timestamp without time zone NULL
+  - total_amount: numeric NULL (precision=18, scale=2)
+  - installments_count: integer NULL (precision=32)
+  - payment_terms: character varying NULL (maxlen=200)
+  - cost_center_id: integer NULL (precision=32)
+  - chart_of_accounts_id: integer NULL (precision=32)
+  - locador_receipt_id: character varying NULL (maxlen=50)
+  - integration_message: text NULL
 - PK: id
-- UNIQUE receipts_receipt_number_key: receipt_number
-- FK receipts_approved_by_fkey: approved_by → users(id)
-- FK receipts_purchase_order_id_fkey: purchase_order_id → purchase_orders(id)
-- FK receipts_received_by_fkey: received_by → users(id)
+- UNIQUE receipts_receipt_number_unique: receipt_number
+- FK receipts_purchase_order_id_purchase_orders_id_fk: purchase_order_id → purchase_orders(id)
+- FK receipts_supplier_id_suppliers_id_fk: supplier_id → suppliers(id)
+- FK receipts_cost_center_id_cost_centers_id_fk: cost_center_id → cost_centers(id)
+- FK receipts_received_by_users_id_fk: received_by → users(id)
+- FK receipts_approved_by_users_id_fk: approved_by → users(id)
 - IDX receipts_pkey: CREATE UNIQUE INDEX receipts_pkey ON public.receipts USING btree (id)
-- IDX receipts_receipt_number_key: CREATE UNIQUE INDEX receipts_receipt_number_key ON public.receipts USING btree (receipt_number)
+- IDX idx_receipts_document_number: CREATE INDEX idx_receipts_document_number ON public.receipts USING btree (document_number)
+- IDX idx_receipts_document_key: CREATE INDEX idx_receipts_document_key ON public.receipts USING btree (document_key)
+- IDX idx_receipts_document_series: CREATE INDEX idx_receipts_document_series ON public.receipts USING btree (document_series)
+- IDX idx_receipts_supplier_id: CREATE INDEX idx_receipts_supplier_id ON public.receipts USING btree (supplier_id)
+- IDX receipts_receipt_number_unique: CREATE UNIQUE INDEX receipts_receipt_number_unique ON public.receipts USING btree (receipt_number)
 
 ## Tabela: session
 - Colunas:
@@ -462,7 +588,6 @@
   - expire: timestamp without time zone NOT NULL
 - PK: sid
 - IDX session_pkey: CREATE UNIQUE INDEX session_pkey ON public.session USING btree (sid)
-- IDX IDX_session_expire: CREATE INDEX "IDX_session_expire" ON public.session USING btree (expire)
 
 ## Tabela: sessions
 - Colunas:
@@ -471,6 +596,7 @@
   - expire: timestamp without time zone NOT NULL
 - PK: sid
 - IDX sessions_pkey: CREATE UNIQUE INDEX sessions_pkey ON public.sessions USING btree (sid)
+- IDX IDX_session_expire: CREATE INDEX "IDX_session_expire" ON public.sessions USING btree (expire)
 
 ## Tabela: supplier_integration_items
 - Colunas:
@@ -489,12 +615,9 @@
   - issues: jsonb NULL
   - created_at: timestamp without time zone NULL
 - PK: id
-- FK supplier_integration_items_local_supplier_id_fkey: local_supplier_id → suppliers(id)
-- FK supplier_integration_items_run_id_fkey: run_id → supplier_integration_runs(id)
+- FK supplier_integration_items_run_id_supplier_integration_runs_id_: run_id → supplier_integration_runs(id)
+- FK supplier_integration_items_local_supplier_id_suppliers_id_fk: local_supplier_id → suppliers(id)
 - IDX supplier_integration_items_pkey: CREATE UNIQUE INDEX supplier_integration_items_pkey ON public.supplier_integration_items USING btree (id)
-- IDX supplier_integration_items_erp_idx: CREATE INDEX supplier_integration_items_erp_idx ON public.supplier_integration_items USING btree (erp_id)
-- IDX supplier_integration_items_run_idx: CREATE INDEX supplier_integration_items_run_idx ON public.supplier_integration_items USING btree (run_id)
-- IDX supplier_integration_items_status_idx: CREATE INDEX supplier_integration_items_status_idx ON public.supplier_integration_items USING btree (status)
 
 ## Tabela: supplier_integration_runs
 - Colunas:
@@ -513,8 +636,8 @@
   - cancelled_by: integer NULL (precision=32)
   - metadata: jsonb NULL
 - PK: id
-- FK supplier_integration_runs_cancelled_by_fkey: cancelled_by → users(id)
-- FK supplier_integration_runs_created_by_fkey: created_by → users(id)
+- FK supplier_integration_runs_created_by_users_id_fk: created_by → users(id)
+- FK supplier_integration_runs_cancelled_by_users_id_fk: cancelled_by → users(id)
 - IDX supplier_integration_runs_pkey: CREATE UNIQUE INDEX supplier_integration_runs_pkey ON public.supplier_integration_runs USING btree (id)
 
 ## Tabela: supplier_quotation_items
@@ -538,12 +661,11 @@
   - available_quantity: numeric NULL (precision=10, scale=3)
   - confirmed_unit: text NULL
   - quantity_adjustment_reason: text NULL
-  - fulfillment_percentage: numeric NULL (precision=5, scale=2)
+  - fulfillment_percentage: numeric NULL (precision=12, scale=2)
 - PK: id
-- FK supplier_quotation_items_quotation_item_id_fkey: quotation_item_id → quotation_items(id)
-- FK supplier_quotation_items_supplier_quotation_id_fkey: supplier_quotation_id → supplier_quotations(id)
+- FK supplier_quotation_items_supplier_quotation_id_supplier_quotati: supplier_quotation_id → supplier_quotations(id)
+- FK supplier_quotation_items_quotation_item_id_quotation_items_id_f: quotation_item_id → quotation_items(id)
 - IDX supplier_quotation_items_pkey: CREATE UNIQUE INDEX supplier_quotation_items_pkey ON public.supplier_quotation_items USING btree (id)
-- IDX idx_supplier_quotation_items_available_quantity: CREATE INDEX idx_supplier_quotation_items_available_quantity ON public.supplier_quotation_items USING btree (available_quantity) WHERE (available_quantity IS NOT NULL)
 
 ## Tabela: supplier_quotations
 - Colunas:
@@ -568,8 +690,8 @@
   - includes_freight: boolean NULL
   - freight_value: numeric NULL (precision=15, scale=2)
 - PK: id
-- FK supplier_quotations_quotation_id_fkey: quotation_id → quotations(id)
-- FK supplier_quotations_supplier_id_fkey: supplier_id → suppliers(id)
+- FK supplier_quotations_quotation_id_quotations_id_fk: quotation_id → quotations(id)
+- FK supplier_quotations_supplier_id_suppliers_id_fk: supplier_id → suppliers(id)
 - IDX supplier_quotations_pkey: CREATE UNIQUE INDEX supplier_quotations_pkey ON public.supplier_quotations USING btree (id)
 
 ## Tabela: suppliers
@@ -590,19 +712,8 @@
   - cpf: text NULL
   - idsuppliererp: integer NULL (precision=32)
 - PK: id
-- FK suppliers_company_id_fkey: company_id → companies(id)
+- FK suppliers_company_id_companies_id_fk: company_id → companies(id)
 - IDX suppliers_pkey: CREATE UNIQUE INDEX suppliers_pkey ON public.suppliers USING btree (id)
-- IDX idx_suppliers_cpf: CREATE INDEX idx_suppliers_cpf ON public.suppliers USING btree (cpf)
-- IDX idx_suppliers_idsuppliererp: CREATE INDEX idx_suppliers_idsuppliererp ON public.suppliers USING btree (idsuppliererp)
-- IDX idx_suppliers_name_cnpj: CREATE INDEX idx_suppliers_name_cnpj ON public.suppliers USING btree (name, cnpj)
-- IDX idx_suppliers_type: CREATE INDEX idx_suppliers_type ON public.suppliers USING btree (type)
-
-## Tabela: test_table
-- Colunas:
-  - id: integer NOT NULL (precision=32)
-  - name: text NOT NULL
-- PK: id
-- IDX test_table_pkey: CREATE UNIQUE INDEX test_table_pkey ON public.test_table USING btree (id)
 
 ## Tabela: user_cost_centers
 - Colunas:
@@ -610,8 +721,8 @@
   - user_id: integer NULL (precision=32)
   - cost_center_id: integer NULL (precision=32)
 - PK: id
-- FK user_cost_centers_cost_center_id_fkey: cost_center_id → cost_centers(id)
-- FK user_cost_centers_user_id_fkey: user_id → users(id)
+- FK user_cost_centers_user_id_users_id_fk: user_id → users(id)
+- FK user_cost_centers_cost_center_id_cost_centers_id_fk: cost_center_id → cost_centers(id)
 - IDX user_cost_centers_pkey: CREATE UNIQUE INDEX user_cost_centers_pkey ON public.user_cost_centers USING btree (id)
 
 ## Tabela: user_departments
@@ -620,8 +731,8 @@
   - user_id: integer NULL (precision=32)
   - department_id: integer NULL (precision=32)
 - PK: id
-- FK user_departments_department_id_fkey: department_id → departments(id)
-- FK user_departments_user_id_fkey: user_id → users(id)
+- FK user_departments_user_id_users_id_fk: user_id → users(id)
+- FK user_departments_department_id_departments_id_fk: department_id → departments(id)
 - IDX user_departments_pkey: CREATE UNIQUE INDEX user_departments_pkey ON public.user_departments USING btree (id)
 
 ## Tabela: users
@@ -646,28 +757,62 @@
   - company_id: integer NULL (precision=32)
   - is_ceo: boolean NULL
   - is_director: boolean NULL
+  - force_change_password: boolean NULL
 - PK: id
-- UNIQUE users_email_key: email
-- UNIQUE users_username_key: username
-- FK users_company_id_fkey: company_id → companies(id)
-- IDX users_email_key: CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)
+- UNIQUE users_email_unique: email
+- UNIQUE users_username_unique: username
+- FK users_company_id_companies_id_fk: company_id → companies(id)
+- FK users_department_id_departments_id_fk: department_id → departments(id)
 - IDX users_pkey: CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)
-- IDX users_username_key: CREATE UNIQUE INDEX users_username_key ON public.users USING btree (username)
-- IDX idx_users_approver_a2: CREATE INDEX idx_users_approver_a2 ON public.users USING btree (is_approver_a2) WHERE (is_approver_a2 = true)
-- IDX idx_users_ceo: CREATE INDEX idx_users_ceo ON public.users USING btree (is_ceo) WHERE (is_ceo = true)
-- IDX idx_users_director: CREATE INDEX idx_users_director ON public.users USING btree (is_director) WHERE (is_director = true)
-- IDX idx_users_name_search: CREATE INDEX idx_users_name_search ON public.users USING btree (first_name, last_name)
+- IDX users_username_unique: CREATE UNIQUE INDEX users_username_unique ON public.users USING btree (username)
+- IDX users_email_unique: CREATE UNIQUE INDEX users_email_unique ON public.users USING btree (email)
 
 ## Procedimentos/Funções
+- armor
+- armor
 - atomic_update_supplier_quotation_quantities
 - audit_configuration_changes
 - audit_trigger_function
 - calculate_fulfillment_percentage
+- crypt
+- dearmor
+- decrypt
+- decrypt_iv
 - determine_approval_type
+- digest
+- digest
+- encrypt
+- encrypt_iv
 - enhanced_log_quantity_adjustment
+- gen_random_bytes
+- gen_random_uuid
+- gen_salt
+- gen_salt
 - get_audit_context
+- hmac
+- hmac
 - log_phase_transition
 - log_quantity_adjustment
+- pgp_armor_headers
+- pgp_key_id
+- pgp_pub_decrypt
+- pgp_pub_decrypt
+- pgp_pub_decrypt
+- pgp_pub_decrypt_bytea
+- pgp_pub_decrypt_bytea
+- pgp_pub_decrypt_bytea
+- pgp_pub_encrypt
+- pgp_pub_encrypt
+- pgp_pub_encrypt_bytea
+- pgp_pub_encrypt_bytea
+- pgp_sym_decrypt
+- pgp_sym_decrypt
+- pgp_sym_decrypt_bytea
+- pgp_sym_decrypt_bytea
+- pgp_sym_encrypt
+- pgp_sym_encrypt
+- pgp_sym_encrypt_bytea
+- pgp_sym_encrypt_bytea
 - rollback_quantity_transaction
 - set_approval_type_on_value_change
 - validate_quantity_integrity
