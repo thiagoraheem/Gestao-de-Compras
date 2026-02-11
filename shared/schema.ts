@@ -409,6 +409,21 @@ export const supplierQuotationItems = pgTable("supplier_quotation_items", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Approved Quotation Items table (Snapshot for A2 Approval & PO Generation)
+export const approvedQuotationItems = pgTable("approved_quotation_items", {
+  id: serial("id").primaryKey(),
+  quotationId: integer("quotation_id").references(() => quotations.id).notNull(),
+  supplierQuotationItemId: integer("supplier_quotation_item_id").references(() => supplierQuotationItems.id).notNull(),
+  purchaseRequestItemId: integer("purchase_request_item_id").references(() => purchaseRequestItems.id).notNull(),
+  
+  // Snapshot values
+  approvedQuantity: decimal("approved_quantity", { precision: 10, scale: 3 }).notNull(),
+  unitPrice: decimal("unit_price", { precision: 15, scale: 4 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 15, scale: 4 }).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Quantity Adjustment History table for auditing
 export const quantityAdjustmentHistory = pgTable("quantity_adjustment_history", {
   id: serial("id").primaryKey(),
@@ -1135,6 +1150,15 @@ export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuot
   fulfillmentPercentage: z.string().optional().nullable().transform((val) => val || null),
 });
 
+export const insertApprovedQuotationItemSchema = createInsertSchema(approvedQuotationItems).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  approvedQuantity: z.string().transform((val) => val),
+  unitPrice: z.string().transform((val) => val),
+  totalPrice: z.string().transform((val) => val),
+});
+
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
   id: true,
   createdAt: true,
@@ -1238,6 +1262,8 @@ export type SupplierQuotation = typeof supplierQuotations.$inferSelect;
 export type InsertSupplierQuotation = z.infer<typeof insertSupplierQuotationSchema>;
 export type SupplierQuotationItem = typeof supplierQuotationItems.$inferSelect;
 export type InsertSupplierQuotationItem = z.infer<typeof insertSupplierQuotationItemSchema>;
+export type ApprovedQuotationItem = typeof approvedQuotationItems.$inferSelect;
+export type InsertApprovedQuotationItem = z.infer<typeof insertApprovedQuotationItemSchema>;
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
 export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;

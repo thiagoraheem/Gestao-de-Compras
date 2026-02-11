@@ -69,6 +69,10 @@ import {
   receiptNfXmls,
   receiptInstallments,
   receiptAllocations,
+  approvedQuotationItems,
+  quotationVersionHistory,
+  type ApprovedQuotationItem,
+  type InsertApprovedQuotationItem,
 } from "../shared/schema";
 import { db, pool } from "./db";
 import { eq, and, desc, like, sql, gt, count, or, isNull, inArray } from "drizzle-orm";
@@ -255,6 +259,11 @@ export interface IStorage {
     id: number,
     item: Partial<InsertSupplierQuotationItem>,
   ): Promise<SupplierQuotationItem>;
+
+  // Approved Quotation Items (Snapshot) operations
+  getApprovedQuotationItems(quotationId: number): Promise<ApprovedQuotationItem[]>;
+  createApprovedQuotationItem(item: InsertApprovedQuotationItem): Promise<ApprovedQuotationItem>;
+  clearApprovedQuotationItems(quotationId: number): Promise<void>;
 
   // Quantity Adjustment History operations
   createQuantityAdjustmentHistory(
@@ -1952,13 +1961,109 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
+  // Approved Quotation Items operations
+  async getApprovedQuotationItems(quotationId: number): Promise<ApprovedQuotationItem[]> {
+    return await db
+      .select()
+      .from(approvedQuotationItems)
+      .where(eq(approvedQuotationItems.quotationId, quotationId));
+  }
+
+  async createApprovedQuotationItem(item: InsertApprovedQuotationItem): Promise<ApprovedQuotationItem> {
+    const [created] = await db
+      .insert(approvedQuotationItems)
+      .values(item)
+      .returning();
+    return created;
+  }
+
+  async clearApprovedQuotationItems(quotationId: number): Promise<void> {
+    await db
+      .delete(approvedQuotationItems)
+      .where(eq(approvedQuotationItems.quotationId, quotationId));
+  }
+
   async deletePurchaseRequest(id: number): Promise<void> {
-    // Primeiro, deletar todos os itens associados
+    // 1. Get all quotations for this PR
+    const prQuotations = await db
+      .select()
+      .from(quotations)
+      .where(eq(quotations.purchaseRequestId, id));
+
+    for (const quotation of prQuotations) {
+      // 2. Get all supplier quotations for each quotation
+      const prSupplierQuotations = await db
+        .select()
+        .from(supplierQuotations)
+        .where(eq(supplierQuotations.quotationId, quotation.id));
+
+      for (const supplierQuotation of prSupplierQuotations) {
+        // 3. Get all supplier quotation items IDs
+        const sqItems = await db
+          .select({ id: supplierQuotationItems.id })
+          .from(supplierQuotationItems)
+          .where(eq(supplierQuotationItems.supplierQuotationId, supplierQuotation.id));
+        
+        const sqItemIds = sqItems.map(i => i.id);
+
+        if (sqItemIds.length > 0) {
+            // 4. Delete quantity adjustment history for these items
+            await db.delete(quantityAdjustmentHistory)
+                .where(inArray(quantityAdjustmentHistory.supplierQuotationItemId, sqItemIds));
+        }
+
+        // 5. Delete attachments linked to supplier quotation
+        await db.delete(attachments)
+            .where(eq(attachments.supplierQuotationId, supplierQuotation.id));
+
+        // 6. Delete supplier quotation items
+        await db.delete(supplierQuotationItems)
+            .where(eq(supplierQuotationItems.supplierQuotationId, supplierQuotation.id));
+      }
+
+      // 7. Delete supplier quotations
+      await db.delete(supplierQuotations)
+        .where(eq(supplierQuotations.quotationId, quotation.id));
+
+      // 8. Delete approved quotation items (snapshot)
+      await db.delete(approvedQuotationItems)
+        .where(eq(approvedQuotationItems.quotationId, quotation.id));
+
+      // 9. Delete quotation version history
+      await db.delete(quotationVersionHistory)
+        .where(eq(quotationVersionHistory.quotationId, quotation.id));
+
+      // 10. Delete quotation items
+      await db.delete(quotationItems)
+        .where(eq(quotationItems.quotationId, quotation.id));
+
+      // 11. Delete attachments linked to quotation
+      await db.delete(attachments)
+        .where(eq(attachments.quotationId, quotation.id));
+    }
+
+    // 12. Delete quotations
+    await db.delete(quotations)
+      .where(eq(quotations.purchaseRequestId, id));
+
+    // 13. Delete approval history
+    await db.delete(approvalHistory)
+      .where(eq(approvalHistory.purchaseRequestId, id));
+
+    // 14. Delete audit logs
+    await db.delete(auditLogs)
+      .where(eq(auditLogs.purchaseRequestId, id));
+
+    // 15. Delete attachments linked to PR
+    await db.delete(attachments)
+      .where(eq(attachments.purchaseRequestId, id));
+
+    // 16. Delete PR items
     await db
       .delete(purchaseRequestItems)
       .where(eq(purchaseRequestItems.purchaseRequestId, id));
 
-    // Depois, deletar a requisição
+    // 17. Delete PR
     await db.delete(purchaseRequests).where(eq(purchaseRequests.id, id));
   }
 

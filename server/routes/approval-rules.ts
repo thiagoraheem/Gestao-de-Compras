@@ -400,38 +400,71 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
 
   const quotationItems = await storage.getQuotationItems(quotation.id);
 
+  // ------------------------------------------------------------------
+  // NOVA LÓGICA: Prioriza itens do Snapshot (ApprovedQuotationItems)
+  // ------------------------------------------------------------------
+  const approvedItems = await storage.getApprovedQuotationItems(quotation.id);
   let itemsTotal = 0;
-  for (const si of supplierQuotationItems) {
-    if (si.isAvailable === false) continue;
-    const qi = quotationItems.find(q => q.id === si.quotationItemId);
-    const description = qi?.description || "";
-    const unit = si.confirmedUnit || qi?.unit || "UN";
-    const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
-    const unitPrice = si.unitPrice || "0";
-    const baseTotal = (parseFloat(unitPrice) || 0) * (parseFloat(quantity as any) || 0);
-    let itemDiscount = 0;
-    let totalPrice = baseTotal;
-    if (si.discountPercentage && parseFloat(si.discountPercentage as any) > 0) {
-      itemDiscount = (baseTotal * parseFloat(si.discountPercentage as any)) / 100;
-    } else if (si.discountValue && parseFloat(si.discountValue as any) > 0) {
-      itemDiscount = parseFloat(si.discountValue as any);
-    }
-    totalPrice = Math.max(0, baseTotal - itemDiscount);
-    itemsTotal += totalPrice;
-    const purchaseOrderItemData = {
-      purchaseOrderId: purchaseOrder.id,
-      itemCode: qi?.itemCode || `ITEM-${si.id}`,
-      description,
-      quantity,
-      unit,
-      unitPrice,
-      totalPrice: totalPrice.toFixed(4),
-      deliveryDeadline: null,
-      costCenterId: null,
-      accountCode: null,
-    };
 
-    await storage.createPurchaseOrderItem(purchaseOrderItemData);
+  if (approvedItems.length > 0) {
+    // CAMINHO NOVO: Usa dados snapshotados (Garante integridade e seleção parcial)
+    // Necessário buscar supplier items apenas para recuperar informações auxiliares (unidade confirmada, etc)
+    const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
+
+    for (const item of approvedItems) {
+      const qi = quotationItems.find(q => q.purchaseRequestItemId === item.purchaseRequestItemId);
+      const si = supplierQuotationItems.find(s => s.id === item.supplierQuotationItemId);
+
+      const totalPrice = parseFloat(item.totalPrice);
+      itemsTotal += totalPrice;
+
+      await storage.createPurchaseOrderItem({
+        purchaseOrderId: purchaseOrder.id,
+        itemCode: qi?.itemCode || `ITEM-${item.id}`,
+        description: qi?.description || "",
+        quantity: item.approvedQuantity,
+        unit: si?.confirmedUnit || qi?.unit || "UN",
+        unitPrice: item.unitPrice,
+        totalPrice: totalPrice.toFixed(4),
+        deliveryDeadline: null,
+        costCenterId: null,
+        accountCode: null,
+      });
+    }
+  } else {
+    // CAMINHO LEGADO: Fallback para cotações antigas sem snapshot
+    for (const si of supplierQuotationItems) {
+      if (si.isAvailable === false) continue;
+      const qi = quotationItems.find(q => q.id === si.quotationItemId);
+      const description = qi?.description || "";
+      const unit = si.confirmedUnit || qi?.unit || "UN";
+      const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
+      const unitPrice = si.unitPrice || "0";
+      const baseTotal = (parseFloat(unitPrice) || 0) * (parseFloat(quantity as any) || 0);
+      let itemDiscount = 0;
+      let totalPrice = baseTotal;
+      if (si.discountPercentage && parseFloat(si.discountPercentage as any) > 0) {
+        itemDiscount = (baseTotal * parseFloat(si.discountPercentage as any)) / 100;
+      } else if (si.discountValue && parseFloat(si.discountValue as any) > 0) {
+        itemDiscount = parseFloat(si.discountValue as any);
+      }
+      totalPrice = Math.max(0, baseTotal - itemDiscount);
+      itemsTotal += totalPrice;
+      const purchaseOrderItemData = {
+        purchaseOrderId: purchaseOrder.id,
+        itemCode: qi?.itemCode || `ITEM-${si.id}`,
+        description,
+        quantity,
+        unit,
+        unitPrice,
+        totalPrice: totalPrice.toFixed(4),
+        deliveryDeadline: null,
+        costCenterId: null,
+        accountCode: null,
+      };
+
+      await storage.createPurchaseOrderItem(purchaseOrderItemData);
+    }
   }
   try {
     const supplierTotal = parseFloat(chosenSupplierQuotation.totalValue || "0");

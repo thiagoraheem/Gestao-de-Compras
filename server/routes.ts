@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { supplierIntegrationService } from "./services/supplier-integration";
+import { quotationSyncService } from "./services/quotation-sync";
 import { purchaseReceiveService, PurchaseReceiveRequest } from "./integracao_locador/services/purchase-receive-service";
 import {
   sendRFQToSuppliers,
@@ -65,7 +66,6 @@ import {
 import { quotationUpload } from "./routes/upload-config";
 import { QuantityValidationMiddleware } from "./middleware/quantity-validation";
 import { createCacheMiddleware } from "./cache";
-import { quotationSyncService } from './services/quotation-sync';
 import { quotationVersionService } from './services/quotation-versioning';
 import { notificationService } from './services/notification-service';
 import { initRealtime, realtime } from "./realtime";
@@ -5224,7 +5224,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           observations,
         });
       } catch (error) {
-        console.error("Error creating quotation:", error);
+        console.error("Error creating quotation:", error instanceof Error ? error.message : String(error));
+      if (error instanceof Error && error.stack) {
+        console.error(error.stack);
+      }
         res.status(400).json({ message: "Failed to create quotation" });
       }
     },
@@ -5433,7 +5436,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.status(201).json(quotation);
     } catch (error) {
-      console.error("Error creating quotation:", error);
+      console.error("Error creating quotation:", error instanceof Error ? error.message : String(error));
+      if (error instanceof Error && error.stack) {
+        console.error(error.stack);
+      }
       res.status(400).json({ message: "Invalid quotation data" });
     }
   });
@@ -5762,7 +5768,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const item = await storage.createQuotationItem(itemData);
         res.status(201).json(item);
       } catch (error) {
-        console.error("Error creating quotation item:", error);
+        console.error("Error creating quotation item:", error instanceof Error ? error.message : String(error));
+        if (error && typeof error === 'object' && 'issues' in error) {
+          console.error("Validation issues:", JSON.stringify((error as any).issues));
+        }
         res.status(400).json({ message: "Invalid quotation item data" });
       }
     },
@@ -5850,6 +5859,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const supplierQuotation = await storage.createSupplierQuotation(
           supplierQuotationData,
         );
+
+        // Sync items for the new supplier quotation
+        await quotationSyncService.syncSupplierQuotationItems(supplierQuotation.id);
+
         res.status(201).json(supplierQuotation);
       } catch (error) {
         console.error("Error creating supplier quotation:", error);
@@ -6993,47 +7006,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: "approved",
         });
 
-        // Para seleção individual, marcar itens não selecionados como transferidos (se opção selecionada)
-        // Usamos finalTotalValue que já foi recalculado corretamente acima
-        if (
-          selectedItems &&
-          selectedItems.length > 0 &&
-          nonSelectedItems &&
-          nonSelectedItems.length > 0 &&
-          nonSelectedItemsOption === "separate-quotation"
-        ) {
-          // Buscar os itens da solicitação original
-          const quotationItems = await storage.getQuotationItems(quotationId);
-          const originalItems = await storage.getPurchaseRequestItems(
-            quotation.purchaseRequestId,
-          );
+        let newRequestId = null;
 
-          // Marcar itens não selecionados como transferidos
-          for (const nonSelectedItem of nonSelectedItems) {
-            // Encontrar o quotation item correspondente
-            const quotationItem = quotationItems.find(
-              (qi) => qi.id === nonSelectedItem.quotationItemId,
-            );
-            if (quotationItem) {
-              // Encontrar o item original usando o purchaseRequestItemId do quotation_item
-              const originalItem = originalItems.find(
-                (item) => item.id === quotationItem.purchaseRequestItemId,
-              );
+        // ---------------------------------------------------------
+        // GESTÃO DE INDISPONIBILIDADE E ITENS NÃO SELECIONADOS (REQ-002)
+        // Verificar itens indisponíveis/não selecionados e criar nova solicitação
+        // Substitui a lógica anterior de "separate-quotation" para ser mais abrangente
+        // ---------------------------------------------------------
+        if (selectedSupplierQuotation) {
+          // Buscar itens atualizados para pegar status isAvailable correto
+          const currentSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+          
+          console.log('DEBUG: Checking unavailability for Supplier Quotation:', selectedSupplierQuotation.id);
+          console.log('DEBUG: Items:', JSON.stringify(currentSupplierItems.map(i => ({id: i.id, isAvailable: i.isAvailable, type: typeof i.isAvailable}))));
 
-              if (originalItem) {
-                // Marcar como transferido (será atualizado com o ID da nova solicitação depois)
-                await storage.updatePurchaseRequestItem(originalItem.id, {
-                  isTransferred: true,
-                  transferReason:
-                    "Item não selecionado - movido para cotação separada",
-                  transferredAt: new Date(),
-                });
+          // Considerar indisponível se isAvailable for falso explicitamente
+          // Isso cobre tanto unavailableItems quanto nonSelectedItems (que foram marcados como false acima)
+          const unavailableSupplierItems = currentSupplierItems.filter(item => item.isAvailable === false);
+
+          if (unavailableSupplierItems.length > 0) {
+            console.log(`Encontrados ${unavailableSupplierItems.length} itens indisponíveis. Iniciando divisão de solicitação...`);
+
+            // 1. Criar Nova Solicitação (Clone da Original)
+            const originalPR = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+            
+            if (originalPR) {
+              // Preparar dados da nova solicitação
+              const newPRData: any = {
+                requesterId: originalPR.requesterId,
+                companyId: originalPR.companyId,
+                costCenterId: originalPR.costCenterId,
+                category: originalPR.category,
+                urgency: originalPR.urgency,
+                justification: `[Item Indisponível] Derivado da solicitação ${originalPR.requestNumber}. ` + (originalPR.justification || ""),
+                currentPhase: "solicitacao", // Reinicia o processo
+                idealDeliveryDate: originalPR.idealDeliveryDate,
+                availableBudget: originalPR.availableBudget,
+                additionalInfo: originalPR.additionalInfo,
+                // parentRequestId: originalPR.id // TODO: Adicionar campo no schema se necessário para rastreabilidade
+              };
+
+              const newPR = await storage.createPurchaseRequest(newPRData);
+              newRequestId = newPR.id;
+              console.log(`Nova solicitação criada automaticamente: ${newPR.id} (${newPR.requestNumber})`);
+
+              // 2. Mover Itens Indisponíveis para a Nova Solicitação
+              const quotationItems = await storage.getQuotationItems(quotationId);
+              // Buscar itens originais (incluindo transferidos para garantir que acharemos)
+              const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+
+              for (const supplierItem of unavailableSupplierItems) {
+                // Encontrar o item da cotação
+                const quotationItem = quotationItems.find(qi => qi.id === supplierItem.quotationItemId);
+                
+                if (quotationItem && quotationItem.purchaseRequestItemId) {
+                  const originalItem = originalItems.find(pi => pi.id === quotationItem.purchaseRequestItemId);
+                  
+                  // Verificar se item existe e ainda não foi transferido (para evitar duplicidade se rodar 2x)
+                  if (originalItem && !originalItem.isTransferred) {
+                    
+                    // Criar item na nova solicitação
+                    await storage.createPurchaseRequestItem({
+                      purchaseRequestId: newPR.id,
+                      productCode: originalItem.productCode || '',
+                      description: originalItem.description,
+                      technicalSpecification: originalItem.technicalSpecification || '',
+                      requestedQuantity: originalItem.requestedQuantity,
+                      unit: originalItem.unit,
+                      stockQuantity: originalItem.stockQuantity || '0',
+                      averageMonthlyQuantity: originalItem.averageMonthlyQuantity || '0',
+                      approvedQuantity: null // Resetar aprovação
+                    });
+
+                    // Marcar item original como transferido
+                    await storage.updatePurchaseRequestItem(originalItem.id, {
+                      isTransferred: true,
+                      transferredToRequestId: newPR.id,
+                      transferReason: supplierItem.unavailabilityReason || "Item indisponível no fornecedor selecionado",
+                      transferredAt: new Date()
+                    });
+                    
+                    console.log(`Item movido: ${originalItem.description} -> Nova Solicitação ${newPR.requestNumber}`);
+                  }
+                }
+              }
+
+              // 3. Log de Auditoria
+              try {
+                await pool.query(
+                  `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at, before_data, after_data)
+                   VALUES ($1, $2, $3, $4, NOW(), $5, $6)`,
+                  [
+                    quotation.purchaseRequestId,
+                    req.session.userId,
+                    "SPLIT_UNAVAILABLE",
+                    `Itens indisponíveis movidos para nova solicitação ${newPR.requestNumber}`,
+                    JSON.stringify({ count: unavailableSupplierItems.length }),
+                    JSON.stringify({ newRequestId: newPR.id, newRequestNumber: newPR.requestNumber })
+                  ]
+                );
+              } catch (logError) {
+                console.error("Erro ao criar log de auditoria para split:", logError);
               }
             }
           }
-
-          // Recalcular valor total apenas com itens selecionados (Removido - cálculo já feito globalmente acima)
-          // O valor correto já está em finalTotalValue
         }
 
         // SINCRONIZAÇÃO CRÍTICA: Sincronizar itens da RFQ com a solicitação original
@@ -7069,6 +7145,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
+        // CHECKPOINT DE VALIDAÇÃO RIGOROSA (REQ-001)
+        // Impedir avanço se houver itens indisponíveis que não foram tratados (não transferidos)
+        if (selectedSupplierQuotation) {
+          const currentSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+          const prItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+          const qItems = await storage.getQuotationItems(quotationId);
+          
+          const untreatedItems = [];
+
+          for (const sItem of currentSupplierItems) {
+             if (sItem.isAvailable === false) {
+                const qItem = qItems.find(qi => qi.id === sItem.quotationItemId);
+                if (qItem && qItem.purchaseRequestItemId) {
+                   const prItem = prItems.find(pi => pi.id === qItem.purchaseRequestItemId);
+                   if (prItem && !prItem.isTransferred) {
+                      untreatedItems.push(prItem);
+                   }
+                }
+             }
+          }
+
+          if (untreatedItems.length > 0) {
+             console.error(`BLOQUEIO A2: Tentativa de avançar com itens indisponíveis não tratados: ${untreatedItems.map(i => i.description).join(', ')}`);
+             await storage.updateQuotation(quotationId, { status: "open" });
+             return res.status(400).json({ 
+                message: "Não é possível avançar para aprovação. Existem itens indisponíveis que não foram movidos para uma nova cotação.",
+                untreatedItems: untreatedItems.map(i => i.description)
+             });
+          }
+        }
+
         // Avançar a solicitação para aprovação A2
         await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
           currentPhase: "aprovacao_a2",
@@ -7077,214 +7184,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           choiceReason: observations,
         });
 
-        let newRequestId = null;
-        let nonSelectedRequestId = null;
+        // ---------------------------------------------------------
+        // NOVA ARQUITETURA: Criar Snapshot de Itens Aprovados
+        // Garante isolamento entre Cotação e Pedido de Compra
+        // ---------------------------------------------------------
+        if (selectedSupplierQuotation) {
+          await storage.clearApprovedQuotationItems(quotationId);
+          
+          // Buscar itens atualizados para garantir links corretos
+          const finalQuotationItems = await storage.getQuotationItems(quotationId);
+          const finalSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
 
-        // Criar nova solicitação para itens NÃO selecionados se solicitado
-        if (
-          nonSelectedItems &&
-          nonSelectedItems.length > 0 &&
-          nonSelectedItemsOption === "separate-quotation"
-        ) {
-          try {
-            // Buscar a solicitação original
-            const originalRequest = await storage.getPurchaseRequestById(
-              quotation.purchaseRequestId,
-            );
-            const originalItems = await storage.getPurchaseRequestItems(
-              quotation.purchaseRequestId,
-              true,
-            ); // Incluir itens transferidos
-            const quotationItems = await storage.getQuotationItems(quotationId);
-
-            if (originalRequest) {
-              // Criar nova solicitação baseada na original para itens não selecionados
-              const nonSelectedRequestData: Omit<
-                typeof insertPurchaseRequestSchema._type,
-                "id" | "requestNumber" | "createdAt" | "updatedAt"
-              > = {
-                requesterId: originalRequest.requesterId,
-                companyId: originalRequest.companyId,
-                costCenterId: originalRequest.costCenterId,
-                category:
-                  originalRequest.category === "produto" ||
-                  originalRequest.category === "servico" ||
-                  originalRequest.category === "material" ||
-                  originalRequest.category === "outros"
-                    ? (originalRequest.category as
-                        | "produto"
-                        | "servico"
-                        | "material"
-                        | "outros")
-                    : "material",
-                justification: `Itens não selecionados da solicitação ${originalRequest.requestNumber}`,
-                urgency: originalRequest.urgency,
-                idealDeliveryDate: originalRequest.idealDeliveryDate || null,
-                availableBudget: originalRequest.availableBudget ?? null,
-                totalValue: null,
-                negotiatedValue: null,
-                discountsObtained: null,
-                deliveryDate: null,
-                currentPhase: "cotacao" as const,
-                approvedA1: true,
-                approverA1Id: originalRequest.approverA1Id || null,
-                approvalDateA1: new Date(),
-              };
-
-              const nonSelectedRequest = await storage.createPurchaseRequest(
-                nonSelectedRequestData,
-              );
-              nonSelectedRequestId = nonSelectedRequest.id;
-
-              // Adicionar apenas os itens NÃO selecionados à nova solicitação
-              for (const nonSelectedItem of nonSelectedItems) {
-                // Encontrar o quotation_item pelo quotationItemId
-                const quotationItem = quotationItems.find(
-                  (qi) => qi.id === nonSelectedItem.quotationItemId,
-                );
-
-                if (quotationItem) {
-                  // Encontrar o item original usando o purchaseRequestItemId do quotation_item
-                  const originalItem = originalItems.find(
-                    (item) => item.id === quotationItem.purchaseRequestItemId,
-                  );
-
-                  if (originalItem) {
-                    // Copiando item original para nova solicitação
-
-                    await storage.createPurchaseRequestItem({
-                      purchaseRequestId: nonSelectedRequest.id,
-                      productCode: originalItem.productCode,
-                      description: originalItem.description,
-                      technicalSpecification:
-                        originalItem.technicalSpecification,
-                      requestedQuantity: originalItem.requestedQuantity,
-                      approvedQuantity: originalItem.approvedQuantity,
-                      unit: originalItem.unit,
-                      stockQuantity: originalItem.stockQuantity?.toString() || "0",
-                      averageMonthlyQuantity: originalItem.averageMonthlyQuantity?.toString() || "0",
-                    });
-
-                    // Atualizar o item original para referenciar a nova solicitação
-                    await storage.updatePurchaseRequestItem(originalItem.id, {
-                      transferredToRequestId: nonSelectedRequest.id,
-                    });
-                  } else {
-                    console.error(
-                      `Item original não encontrado para quotation item ${quotationItem.id}`,
-                    );
-                  }
-                } else {
-                  console.error(
-                    `Quotation item não encontrado para ${nonSelectedItem.quotationItemId}`,
-                  );
-                }
+          for (const item of finalSupplierItems) {
+            // Apenas itens marcados como disponíveis (selecionados) entram no snapshot
+            if (item.isAvailable !== false) {
+              const qItem = finalQuotationItems.find(qi => qi.id === item.quotationItemId);
+              
+              if (qItem && qItem.purchaseRequestItemId) {
+                // Determinar quantidade: prioriza availableQuantity (fornecedor), depois quantity (solicitada)
+                const quantity = item.availableQuantity || qItem.quantity;
+                
+                await storage.createApprovedQuotationItem({
+                  quotationId: quotationId,
+                  supplierQuotationItemId: item.id,
+                  purchaseRequestItemId: qItem.purchaseRequestItemId,
+                  approvedQuantity: quantity.toString(),
+                  unitPrice: item.unitPrice,
+                  totalPrice: item.discountedTotalPrice || item.totalPrice,
+                });
               }
             }
-          } catch (nonSelectedRequestError) {
-            console.error(
-              "Erro ao criar nova solicitação para itens não selecionados:",
-              nonSelectedRequestError,
-            );
-            // Não falhar a seleção do fornecedor se houver erro na criação da nova solicitação
           }
         }
 
-        // Criar nova solicitação para itens indisponíveis se solicitado
-        if (
-          createNewRequest &&
-          unavailableItems &&
-          unavailableItems.length > 0
-        ) {
-          try {
-            // Buscar a solicitação original
-            const originalRequest = await storage.getPurchaseRequestById(
-              quotation.purchaseRequestId,
-            );
-            const originalItems = await storage.getPurchaseRequestItems(
-              quotation.purchaseRequestId,
-              true,
-            ); // Incluir itens transferidos
-            const quotationItems = await storage.getQuotationItems(quotationId);
-
-            if (originalRequest) {
-              // Criar nova solicitação baseada na original
-              const newRequestData: Omit<
-                typeof insertPurchaseRequestSchema._type,
-                "id" | "requestNumber" | "createdAt" | "updatedAt"
-              > = {
-                requesterId: originalRequest.requesterId,
-                companyId: originalRequest.companyId,
-                costCenterId: originalRequest.costCenterId,
-                category:
-                  originalRequest.category === "produto" ||
-                  originalRequest.category === "servico" ||
-                  originalRequest.category === "material" ||
-                  originalRequest.category === "outros"
-                    ? (originalRequest.category as
-                        | "produto"
-                        | "servico"
-                        | "material"
-                        | "outros")
-                    : "material",
-                justification: `Recotação de itens indisponíveis da solicitação ${originalRequest.requestNumber}`,
-                urgency: originalRequest.urgency,
-                idealDeliveryDate: originalRequest.idealDeliveryDate || null,
-                availableBudget: originalRequest.availableBudget ?? null,
-                totalValue: null,
-                negotiatedValue: null,
-                discountsObtained: null,
-                deliveryDate: null,
-                currentPhase: "aprovacao_a1" as const,
-                approvedA1: true,
-                approverA1Id: originalRequest.approverA1Id || null,
-                approvalDateA1: new Date(),
-              };
-
-              const newRequest =
-                await storage.createPurchaseRequest(newRequestData);
-              newRequestId = newRequest.id;
-
-              // Adicionar apenas os itens indisponíveis à nova solicitação
-              for (const unavailableItem of unavailableItems) {
-                // Encontrar o quotation_item pelo quotationItemId
-                const quotationItem = quotationItems.find(
-                  (qi) => qi.id === unavailableItem.quotationItemId,
-                );
-
-                if (quotationItem) {
-                  // Encontrar o item original usando o purchaseRequestItemId do quotation_item
-                  const originalItem = originalItems.find(
-                    (item) => item.id === quotationItem.purchaseRequestItemId,
-                  );
-
-                  if (originalItem) {
-                    await storage.createPurchaseRequestItem({
-                      purchaseRequestId: newRequest.id,
-                      productCode: originalItem.productCode,
-                      description: originalItem.description,
-                      requestedQuantity: originalItem.requestedQuantity,
-                      approvedQuantity: originalItem.approvedQuantity,
-                      unit: originalItem.unit,
-                      stockQuantity: originalItem.stockQuantity?.toString() || "0",
-                      averageMonthlyQuantity: originalItem.averageMonthlyQuantity?.toString() || "0",
-                    });
-                  }
-                }
-              }
-
-              // Avançar automaticamente para fase de cotação
-              await storage.updatePurchaseRequest(newRequest.id, {
-                currentPhase: "cotacao" as const,
-              });
-            }
-          } catch (newRequestError) {
-            console.error(
-              "Erro ao criar nova solicitação para itens indisponíveis:",
-              newRequestError,
-            );
-            // Não falhar a seleção do fornecedor se houver erro na criação da nova solicitação
-          }
+        // Lógica legada de separate-quotation substituída pelo auto-split (REQ-002) acima
+        let nonSelectedRequestId = null;
+        if (newRequestId) {
+           nonSelectedRequestId = newRequestId;
         }
 
         res.json({
