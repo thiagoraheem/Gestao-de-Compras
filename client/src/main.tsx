@@ -1,12 +1,11 @@
-import eruda from 'eruda';
-
-if (import.meta.env.MODE === 'development' || window.location.href.includes('debug=true')) {
-  eruda.init();
-}
-
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+
+// Conditionally load Eruda only in development environment
+if (import.meta.env.DEV) {
+  import('eruda').then((eruda) => eruda.default.init());
+}
 
 createRoot(document.getElementById("root")!).render(<App />);
 
