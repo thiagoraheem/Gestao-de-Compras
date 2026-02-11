@@ -73,6 +73,7 @@ import {
   quotationVersionHistory,
   type ApprovedQuotationItem,
   type InsertApprovedQuotationItem,
+  type PurchaseRequestWithDetails,
 } from "../shared/schema";
 import { db, pool } from "./db";
 import { eq, and, desc, like, sql, gt, count, or, isNull, inArray } from "drizzle-orm";
@@ -191,7 +192,7 @@ export interface IStorage {
     id: number,
     request: Partial<InsertPurchaseRequest>,
   ): Promise<PurchaseRequest>;
-  getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequest[]>;
+  getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequestWithDetails[]>;
   getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]>;
   getPurchaseRequestsForReport(filters: any): Promise<any[]>;
   deletePurchaseRequest(id: number): Promise<void>;
@@ -1087,7 +1088,7 @@ export class DatabaseStorage implements IStorage {
     return updatedRequest;
   }
 
-  async getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequest[]> {
+  async getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequestWithDetails[]> {
     const results = await db
       .select({
         request: purchaseRequests,
@@ -1101,15 +1102,24 @@ export class DatabaseStorage implements IStorage {
     const requestsWithItems = await Promise.all(
       results.map(async ({ request, supplier }) => {
         const items = await this.getPurchaseRequestItems(request.id);
+        
+        // Buscar pedido de compra associado
+        const [purchaseOrder] = await db
+          .select()
+          .from(purchaseOrders)
+          .where(eq(purchaseOrders.purchaseRequestId, request.id))
+          .limit(1);
+
         return {
           ...request,
           chosenSupplier: supplier,
           items,
+          purchaseOrder,
         };
       })
     );
 
-    return requestsWithItems as unknown as PurchaseRequest[];
+    return requestsWithItems as unknown as PurchaseRequestWithDetails[];
   }
 
   async getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]> {

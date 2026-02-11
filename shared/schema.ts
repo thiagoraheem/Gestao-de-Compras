@@ -1326,3 +1326,10 @@ export type ApprovalConfiguration = typeof approvalConfigurations.$inferSelect;
 export type InsertApprovalConfiguration = z.infer<typeof insertApprovalConfigurationSchema>;
 export type ConfigurationHistory = typeof configurationHistory.$inferSelect;
 export type InsertConfigurationHistory = z.infer<typeof insertConfigurationHistorySchema>;
+
+// Extended Types
+export type PurchaseRequestWithDetails = PurchaseRequest & {
+  items?: PurchaseRequestItem[];
+  chosenSupplier?: Supplier | null;
+  purchaseOrder?: PurchaseOrder;
+};

@@ -1,7 +1,13 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Truck, Package, AlertTriangle, ArrowRight } from "lucide-react";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Calendar, Truck, Package, AlertTriangle, ArrowRight, FileText, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS } from "@/lib/types";
@@ -49,6 +55,36 @@ export default function ConferenceOrderCard({ request, onSelect }: ConferenceOrd
             <Truck className="h-4 w-4" />
             <span className="font-medium text-foreground truncate">{request.chosenSupplier?.name || "Fornecedor não definido"}</span>
           </div>
+
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <FileText className="h-4 w-4" />
+            {request.purchaseOrder?.orderNumber ? (
+              <span className="font-bold text-foreground">{request.purchaseOrder.orderNumber}</span>
+            ) : (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-amber-600 italic cursor-help flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Pedido pendente
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>O número do pedido ainda não foi gerado</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+
+          {request.purchaseOrder?.totalValue && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <DollarSign className="h-4 w-4" />
+              <span className="font-medium text-foreground">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(request.purchaseOrder.totalValue))}
+              </span>
+            </div>
+          )}
           
           <div className="flex items-center gap-2 text-muted-foreground">
             <Package className="h-4 w-4" />
