@@ -40,7 +40,8 @@ describe('Conference Persistence', () => {
       orderBy: jest.fn().mockResolvedValue([
         { 
           request: { id: 1, currentPhase: 'recebimento' }, 
-          supplier: { id: 10, name: 'Fornecedor A' } 
+          supplier: { id: 10, name: 'Fornecedor A' },
+          requester: { id: 5, firstName: 'João', lastName: 'Silva' }
         }
       ])
     };
@@ -69,6 +70,9 @@ describe('Conference Persistence', () => {
       totalValue: '5000.00' 
     });
     
+    expect(results[0]).toHaveProperty('requester');
+    expect(results[0].requester).toEqual({ id: 5, firstName: 'João', lastName: 'Silva' });
+
     // Verify db interaction
     expect(mockSelect).toHaveBeenCalledTimes(2);
   });

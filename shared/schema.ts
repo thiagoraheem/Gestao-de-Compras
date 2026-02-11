@@ -1332,4 +1332,5 @@ export type PurchaseRequestWithDetails = PurchaseRequest & {
   items?: PurchaseRequestItem[];
   chosenSupplier?: Supplier | null;
   purchaseOrder?: PurchaseOrder;
+  requester?: User | null;
 };

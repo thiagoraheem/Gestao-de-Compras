@@ -1093,14 +1093,16 @@ export class DatabaseStorage implements IStorage {
       .select({
         request: purchaseRequests,
         supplier: suppliers,
+        requester: users,
       })
       .from(purchaseRequests)
       .leftJoin(suppliers, eq(purchaseRequests.chosenSupplierId, suppliers.id))
+      .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
       .where(eq(purchaseRequests.currentPhase, phase))
       .orderBy(desc(purchaseRequests.createdAt));
 
     const requestsWithItems = await Promise.all(
-      results.map(async ({ request, supplier }) => {
+      results.map(async ({ request, supplier, requester }) => {
         const items = await this.getPurchaseRequestItems(request.id);
         
         // Buscar pedido de compra associado
@@ -1113,6 +1115,7 @@ export class DatabaseStorage implements IStorage {
         return {
           ...request,
           chosenSupplier: supplier,
+          requester,
           items,
           purchaseOrder,
         };
