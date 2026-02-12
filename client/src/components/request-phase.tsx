@@ -23,9 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateInput } from "@/components/ui/date-input";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -44,12 +42,12 @@ import {
 } from "@/lib/types";
 import { Plus, X, Edit3, FileText, Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import ProductSearch from "./product-search";
 import HybridProductInput from "./hybrid-product-input";
 import { UnitSelect } from "./unit-select";
 import { useUnits } from "@/hooks/useUnits";
 
 const MAX_TITLE_LENGTH = 150;
+const MIN_ITEM_DESCRIPTION_LENGTH = 10;
 
 const requestSchema = z.object({
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
@@ -128,6 +126,21 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
       additionalInfo: request?.additionalInfo || "",
     },
   });
+
+  const selectedCategory = form.watch("category");
+
+  const isServiceOrMaterialCategory =
+    selectedCategory === CATEGORY_OPTIONS.SERVICO ||
+    selectedCategory === CATEGORY_OPTIONS.MATERIAL;
+
+  const hasInvalidDescriptionChars = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return true;
+    if (trimmed.length < MIN_ITEM_DESCRIPTION_LENGTH) return true;
+    if (/[<>]/.test(trimmed)) return true;
+    if (/(script|onerror|onload|javascript:)/i.test(trimmed)) return true;
+    return false;
+  };
 
   // Carregar itens existentes quando disponíveis
   useEffect(() => {
@@ -382,6 +395,37 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
       return;
     }
 
+    if (data.category === CATEGORY_OPTIONS.PRODUTO) {
+      const invalidItem = manualItems.find((item) => !item.productCode);
+      if (invalidItem) {
+        toast({
+          title: "Produtos obrigatórios",
+          description: "Para a categoria Produto, todos os itens devem ser selecionados a partir da busca no ERP.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (
+      data.category === CATEGORY_OPTIONS.SERVICO ||
+      data.category === CATEGORY_OPTIONS.MATERIAL ||
+      data.category === CATEGORY_OPTIONS.OUTROS
+    ) {
+      const invalidItem = manualItems.find((item) =>
+        hasInvalidDescriptionChars(item.description || ""),
+      );
+      if (invalidItem) {
+        toast({
+          title: "Descrição inválida",
+          description:
+            `Para ${CATEGORY_LABELS[data.category]}, a descrição dos itens deve ter pelo menos ${MIN_ITEM_DESCRIPTION_LENGTH} caracteres e não pode conter caracteres inválidos.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     createRequestMutation.mutate(data);
   };
 
@@ -462,13 +506,10 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(CATEGORY_OPTIONS).map(
-                              ([key, value]) => (
-                                <SelectItem key={value} value={value}>
-                                  {CATEGORY_LABELS[value]}
-                                </SelectItem>
-                              ),
-                            )}
+                            <SelectItem value={CATEGORY_OPTIONS.PRODUTO}>{CATEGORY_LABELS[CATEGORY_OPTIONS.PRODUTO]}</SelectItem>
+                            <SelectItem value={CATEGORY_OPTIONS.SERVICO}>{CATEGORY_LABELS[CATEGORY_OPTIONS.SERVICO]}</SelectItem>
+                            <SelectItem value={CATEGORY_OPTIONS.MATERIAL}>{CATEGORY_LABELS[CATEGORY_OPTIONS.MATERIAL]}</SelectItem>
+                            <SelectItem value={CATEGORY_OPTIONS.OUTROS}>{CATEGORY_LABELS[CATEGORY_OPTIONS.OUTROS]}</SelectItem>
                           </SelectContent>
                         </Select>
                       </FormControl>
@@ -659,6 +700,7 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
                             Descrição do Item *
                           </label>
                           <HybridProductInput
+                            mode={selectedCategory === CATEGORY_OPTIONS.PRODUTO ? "erp-only" : "hybrid"}
                             value={item.description}
                             onChange={(value) =>
                               updateManualItem(item.id, "description", value)

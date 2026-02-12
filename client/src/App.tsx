@@ -1,10 +1,11 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 import LoginPage from "@/pages/login";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
@@ -28,11 +29,16 @@ import FloatingHelpButton from "@/components/floating-help-button";
 import AdminCleanupPage from "@/pages/admin-cleanup";
 import AdminSuperUserPage from "@/pages/admin-super-user";
 import ApprovalConfigPage from "@/pages/approval-config";
+import AdminLocadorConfigPage from "@/pages/admin-locador-config";
 import DashboardPage from "@/pages/dashboard";
 import UserManualPage from "@/pages/user-manual";
 import PurchaseRequestsReportPage from "@/pages/purchase-requests-report";
+import ItemsAnalysisReportPage from "@/pages/items-analysis-report";
 import SuppliersReportPage from "@/pages/suppliers-report";
 import RFQAnalysisPage from "@/pages/rfq-analysis";
+import ReceiptFormPage from "@/pages/receipt-form";
+import MaterialConferencePage from "@/pages/MaterialConferencePage";
+import InvoicesReportPage from "@/pages/invoices-report";
 import ManagerRoute from "@/components/manager-route";
 import AdminRoute from "@/components/admin-route";
 import { RealtimeSyncProvider } from "@/components/realtime-sync";
@@ -62,7 +68,14 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 }
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (isAuthenticated && user?.forceChangePassword && location !== '/change-password') {
+      setLocation('/change-password');
+    }
+  }, [isAuthenticated, user, location, setLocation]);
 
   if (isLoading) {
     return (
@@ -130,10 +143,19 @@ function Router() {
             <ApprovalConfigPage />
           </AdminRoute>
         </Route>
+        <Route path="/admin/locador-config">
+          <AdminRoute>
+            <AdminLocadorConfigPage />
+          </AdminRoute>
+        </Route>
         <Route path="/profile" component={ProfilePage} />
         <Route path="/change-password" component={ChangePasswordPage} />
         <Route path="/manual" component={UserManualPage} />
+        <Route path="/recebimentos/novo" component={ReceiptFormPage} />
+        <Route path="/conferencia-material" component={MaterialConferencePage} />
+        <Route path="/reports/invoices" component={InvoicesReportPage} />
         <Route path="/reports/purchase-requests" component={PurchaseRequestsReportPage} />
+        <Route path="/reports/items-analysis" component={ItemsAnalysisReportPage} />
         <Route path="/reports/suppliers" component={SuppliersReportPage} />
         <Route path="/rfq-analysis/:id" component={RFQAnalysisPage} />
         <Route component={NotFound} />

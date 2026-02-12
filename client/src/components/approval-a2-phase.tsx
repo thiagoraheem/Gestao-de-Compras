@@ -746,14 +746,14 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
             <CardContent>
               <div className="space-y-3">
                 {supplierAttachments.map((attachment: any) => (
-                  <div key={attachment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                  <div key={attachment.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg border dark:border-slate-700">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded-full">
-                        <Paperclip className="h-4 w-4 text-blue-600" />
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-full">
+                        <Paperclip className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
-                        <p className="font-medium text-sm">{attachment.fileName}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="font-medium text-sm text-foreground">{attachment.fileName}</p>
+                        <p className="text-xs text-muted-foreground">
                           {attachment.supplierName} • {attachment.fileType}
                         </p>
                       </div>
@@ -765,7 +765,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-blue-600 hover:text-blue-700"
+                        className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                         onClick={() => {
                           // Extract filename from filePath
                           const filename = attachment.filePath.split('/').pop();

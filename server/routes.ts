@@ -2,6 +2,8 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { supplierIntegrationService } from "./services/supplier-integration";
+import { quotationSyncService } from "./services/quotation-sync";
+import { purchaseReceiveService, PurchaseReceiveRequest } from "./integracao_locador/services/purchase-receive-service";
 import {
   sendRFQToSuppliers,
   notifyNewRequest,
@@ -9,6 +11,7 @@ import {
   notifyApprovalA2,
   notifyRejection,
   testEmailConfiguration,
+  notifyPasswordReset,
 } from "./email-service";
 import { isEmailEnabled } from "./config";
 import { invalidateCache } from "./cache";
@@ -30,11 +33,23 @@ import {
   insertSupplierQuotationItemSchema,
   insertPurchaseOrderSchema,
   insertPurchaseOrderItemSchema,
-} from "@shared/schema";
+  insertReceiptAllocationSchema,
+  costCenters,
+  chartOfAccounts,
+  receiptAllocations,
+  receipts,
+  receiptItems,
+  purchaseRequests,
+  purchaseOrderItems,
+  purchaseOrders,
+  suppliers,
+  companies,
+} from "../shared/schema";
 import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
-import { pool } from "./db";
+import { pool, db } from "./db";
+import { eq, sql } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import mime from "mime-types";
@@ -50,15 +65,26 @@ import {
 } from "./routes/middleware";
 import { quotationUpload } from "./routes/upload-config";
 import { QuantityValidationMiddleware } from "./middleware/quantity-validation";
-import { quotationSyncService } from './services/quotation-sync';
+import { createCacheMiddleware } from "./cache";
 import { quotationVersionService } from './services/quotation-versioning';
 import { notificationService } from './services/notification-service';
 import { initRealtime, realtime } from "./realtime";
-import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "@shared/realtime-events";
+import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../shared/realtime-events";
+import { costCenterService } from "./integracao_locador/services/cost-center-service";
+import { chartOfAccountsService } from "./integracao_locador/services/chart-of-accounts-service";
+
+function generateReceiptNumber() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+  return `REC-${y}${m}${d}-${rand}`;
+}
 
 // ES modules compatibility
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 
 // Multer configuration now handled in modular routes
 
@@ -74,6 +100,8 @@ declare module "express-session" {
 
 // All middleware functions have been moved to ./routes/middleware.ts
 // This includes: isAuthenticated, canApproveRequest, isAdmin, isAdminOrBuyer
+
+import { NumberParser } from "./utils/number-parser";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Validate required environment variables
@@ -103,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
-      name: "sessionId", // Custom session name
+      name: process.env.NODE_ENV === 'production' ? "sessionId" : "sessionIdDev", // Distinct session names
       cookie: {
         secure: (() => {
           const env = (process.env.COOKIE_SECURE || "").toLowerCase();
@@ -119,11 +147,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }),
   );
 
+  // Apply cache middleware AFTER session is configured so we can use session ID in cache keys
+  app.use('/api', createCacheMiddleware());
+
   // Multer configuration removed - was specific to purchase request attachments
   // Supplier uploads now use a different approach
 
   // Initialize default data
   await storage.initializeDefaultData();
+
+  try {
+    await pool.query(`
+      CREATE EXTENSION IF NOT EXISTS pgcrypto;
+      CREATE OR REPLACE FUNCTION audit_trigger_function()
+      RETURNS TRIGGER AS $$
+      DECLARE
+          audit_context JSONB;
+          old_record JSONB;
+          new_record JSONB;
+          field_name TEXT;
+          old_val TEXT;
+          new_val TEXT;
+          current_tx BIGINT;
+          current_tx_uuid UUID;
+      BEGIN
+          audit_context := get_audit_context();
+          current_tx := txid_current();
+          current_tx_uuid := gen_random_uuid();
+          IF TG_OP = 'DELETE' THEN
+              old_record := to_jsonb(OLD);
+              new_record := NULL;
+          ELSIF TG_OP = 'INSERT' THEN
+              old_record := NULL;
+              new_record := to_jsonb(NEW);
+          ELSE
+              old_record := to_jsonb(OLD);
+              new_record := to_jsonb(NEW);
+          END IF;
+          IF TG_OP = 'INSERT' THEN
+              FOR field_name IN SELECT key FROM jsonb_each_text(new_record) LOOP
+                  new_val := new_record ->> field_name;
+                  INSERT INTO detailed_audit_log (
+                      table_name, record_id, operation_type, user_id, transaction_id, metadata
+                  ) VALUES (
+                      TG_TABLE_NAME,
+                      (new_record ->> 'id')::INTEGER,
+                      TG_OP,
+                      (audit_context ->> 'user_id')::INTEGER,
+                      current_tx_uuid,
+                      jsonb_build_object(
+                        'operation','field_insert',
+                        'table',TG_TABLE_NAME,
+                        'txid_current',current_tx,
+                        'field',field_name,
+                        'new_value',new_val
+                      )
+                  );
+              END LOOP;
+          END IF;
+          IF TG_OP = 'DELETE' THEN
+              FOR field_name IN SELECT key FROM jsonb_each_text(old_record) LOOP
+                  old_val := old_record ->> field_name;
+                  INSERT INTO detailed_audit_log (
+                      table_name, record_id, operation_type, user_id, transaction_id, metadata
+                  ) VALUES (
+                      TG_TABLE_NAME,
+                      (old_record ->> 'id')::INTEGER,
+                      TG_OP,
+                      (audit_context ->> 'user_id')::INTEGER,
+                      current_tx_uuid,
+                      jsonb_build_object(
+                        'operation','field_delete',
+                        'table',TG_TABLE_NAME,
+                        'txid_current',current_tx,
+                        'field',field_name,
+                        'old_value',old_val
+                      )
+                  );
+              END LOOP;
+          END IF;
+          IF TG_OP = 'UPDATE' THEN
+              FOR field_name IN SELECT key FROM jsonb_each_text(new_record) LOOP
+                  old_val := old_record ->> field_name;
+                  new_val := new_record ->> field_name;
+                  IF old_val IS DISTINCT FROM new_val THEN
+                      INSERT INTO detailed_audit_log (
+                          table_name, record_id, operation_type, user_id, transaction_id, metadata, change_reason
+                      ) VALUES (
+                          TG_TABLE_NAME,
+                          (new_record ->> 'id')::INTEGER,
+                          TG_OP,
+                          (audit_context ->> 'user_id')::INTEGER,
+                          current_tx_uuid,
+                          jsonb_build_object(
+                            'operation','field_update',
+                            'table',TG_TABLE_NAME,
+                            'txid_current',current_tx,
+                            'field',field_name,
+                            'old_value',old_val,
+                            'new_value',new_val
+                          ),
+                          CASE 
+                              WHEN field_name LIKE '%quantity%' THEN 'Quantity adjustment'
+                              WHEN field_name LIKE '%price%' THEN 'Price adjustment'
+                              WHEN field_name LIKE '%approved%' THEN 'Approval status change'
+                              ELSE 'Data update'
+                          END
+                      );
+                  END IF;
+              END LOOP;
+          END IF;
+          IF TG_OP = 'DELETE' THEN
+              RETURN OLD;
+          ELSE
+              RETURN NEW;
+          END IF;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+  } catch {}
 
   // Register modular routes (includes authentication, etc.)
   registerAllRoutes(app);
@@ -149,7 +291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/companies/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/companies/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const company = await storage.getCompanyById(id);
@@ -590,7 +732,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Hash new password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        await storage.updateUser(userId, { password: hashedPassword });
+        await storage.updateUser(userId, { 
+          password: hashedPassword,
+          forceChangePassword: false 
+        });
 
         res.json({ message: "Password changed successfully" });
       } catch (error) {
@@ -598,6 +743,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(400).json({ message: "Failed to change password" });
       }
     },
+  );
+
+  // Admin reset password
+  app.post(
+    "/api/users/:id/reset-password",
+    isAuthenticated,
+    isAdmin,
+    async (req, res) => {
+      try {
+        const userId = parseInt(req.params.id);
+        const adminId = (req.session as any).userId;
+
+        const targetUser = await storage.getUser(userId);
+        if (!targetUser) {
+          return res.status(404).json({ message: "Usuário não encontrado" });
+        }
+
+        // Check hierarchy: Admin cannot reset another Admin
+        if (targetUser.isAdmin && targetUser.id !== adminId) {
+             return res.status(403).json({ message: "Não é permitido redefinir a senha de outro Administrador." });
+        }
+        
+        const newPassword = "Locador@" + Math.floor(1000 + Math.random() * 9000);
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await storage.updateUser(userId, { 
+            password: hashedPassword,
+            forceChangePassword: true
+        });
+
+        // Send email
+        await notifyPasswordReset(targetUser, newPassword);
+
+        res.json({ message: "Senha redefinida com sucesso", tempPassword: newPassword });
+      } catch (error) {
+        console.error("Error resetting password:", error);
+        res.status(500).json({ message: "Erro ao redefinir senha" });
+      }
+    }
   );
 
   app.get("/api/users/:id/cost-centers", isAuthenticated, async (req, res) => {
@@ -851,6 +1035,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       res.status(500).json({ message: "Failed to fetch suppliers" });
+    }
+  });
+
+  app.get("/api/suppliers/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid supplier ID" });
+      }
+
+      const supplier = await storage.getSupplierById(id);
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+
+      res.json(supplier);
+    } catch (error) {
+      console.error("Error fetching supplier:", error);
+      res.status(500).json({ message: "Failed to fetch supplier" });
     }
   });
 
@@ -1251,7 +1454,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const companyId = req.query.companyId
         ? parseInt(req.query.companyId as string)
         : undefined;
-      const requests = await storage.getAllPurchaseRequests(companyId);
+      const userId = req.session.userId;
+      const user = userId ? await storage.getUser(userId) : undefined;
+      const requests = await storage.getAllPurchaseRequests(companyId, user);
 
       res.json(requests);
     } catch (error) {
@@ -1314,6 +1519,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           return processedItem;
         });
+      }
+
+      const invalidDescription = (value: string | null) => {
+        const trimmed = (value || "").trim();
+        if (!trimmed) return true;
+        if (trimmed.length < 10) return true;
+        if (/[<>]/.test(trimmed)) return true;
+        if (/(script|onerror|onload|javascript:)/i.test(trimmed)) return true;
+        return false;
+      };
+
+      if (!validatedItems.length) {
+        return res.status(400).json({
+          message: "Adicione pelo menos um item à solicitação",
+        });
+      }
+
+      if (validatedRequestData.category === "produto") {
+        const missingErpProduct = validatedItems.some(
+          (item) => !item.productCode || String(item.productCode).trim() === "",
+        );
+        if (missingErpProduct) {
+          return res.status(400).json({
+            message:
+              "Para a categoria Produto, todos os itens devem ser selecionados a partir da busca no ERP.",
+          });
+        }
+      } else if (
+        validatedRequestData.category === "servico" ||
+        validatedRequestData.category === "material" ||
+        validatedRequestData.category === "outros"
+      ) {
+        const invalidItem = validatedItems.some((item) =>
+          invalidDescription(item.description as string),
+        );
+        if (invalidItem) {
+          const catLabel =
+            validatedRequestData.category === "servico"
+              ? "Serviço"
+              : validatedRequestData.category === "material"
+              ? "Material"
+              : "Outros";
+          return res.status(400).json({
+            message: `Para ${catLabel}, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.`,
+          });
+        }
       }
 
       // Create the request
@@ -1379,33 +1630,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const { items, ...requestData } = req.body;
 
-      // Validate request data
+      const existingRequest = await storage.getPurchaseRequestById(id);
+      if (!existingRequest) {
+        return res.status(404).json({ message: "Solicitação não encontrada" });
+      }
+
       const validatedRequestData = insertPurchaseRequestSchema
         .partial()
         .parse(requestData);
 
-      // Update the purchase request
-      const request = await storage.updatePurchaseRequest(
-        id,
-        validatedRequestData,
-      );
+      const category =
+        validatedRequestData.category || existingRequest.category;
 
-      // Handle items if provided
+      const invalidDescription = (value: string | null) => {
+        const trimmed = (value || "").trim();
+        if (!trimmed) return true;
+        if (trimmed.length < 10) return true;
+        if (/[<>]/.test(trimmed)) return true;
+        if (/(script|onerror|onload|javascript:)/i.test(trimmed)) return true;
+        return false;
+      };
+
+      let validatedItems: (typeof insertPurchaseRequestItemSchema._type)[] = [];
+
       if (items && Array.isArray(items)) {
-        // First, remove all existing items
-        const existingItems = await storage.getPurchaseRequestItems(id);
-        for (const item of existingItems) {
-          await storage.deletePurchaseRequestItem(item.id);
-        }
-
-        // Then, add new items
-        const validatedItems = items.map((item) =>
+        validatedItems = items.map((item) =>
           insertPurchaseRequestItemSchema.parse({
             ...item,
             purchaseRequestId: id,
           }),
         );
-        await storage.createPurchaseRequestItems(validatedItems);
+
+        if (!validatedItems.length) {
+          return res.status(400).json({
+            message: "Adicione pelo menos um item à solicitação",
+          });
+        }
+
+        if (category === "produto") {
+          const missingErpProduct = validatedItems.some(
+            (item) =>
+              !item.productCode || String(item.productCode).trim() === "",
+          );
+          if (missingErpProduct) {
+            return res.status(400).json({
+              message:
+                "Para a categoria Produto, todos os itens devem ser selecionados a partir da busca no ERP.",
+            });
+          }
+        } else if (
+          category === "servico" ||
+          category === "material" ||
+          category === "outros"
+        ) {
+          const invalidItem = validatedItems.some((item) =>
+            invalidDescription(item.description as string),
+          );
+          if (invalidItem) {
+            const catLabel =
+              category === "servico"
+                ? "Serviço"
+                : category === "material"
+                ? "Material"
+                : "Outros";
+            return res.status(400).json({
+              message: `Para ${catLabel}, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.`,
+            });
+          }
+        }
+      }
+
+      const request = await storage.updatePurchaseRequest(
+        id,
+        validatedRequestData,
+      );
+
+      if (items && Array.isArray(items)) {
+        const existingItems = await storage.getPurchaseRequestItems(id);
+        for (const item of existingItems) {
+          await storage.deletePurchaseRequestItem(item.id);
+        }
+
+        if (validatedItems.length > 0) {
+          await storage.createPurchaseRequestItems(validatedItems);
+        }
       }
 
       // Invalidate cache for purchase requests
@@ -1508,6 +1816,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isTransferred: item.isTransferred,
           transferReason: item.transferReason,
           transferredToRequestId: item.transferredToRequestId,
+          productCode: item.productCode || "",
         }));
 
         res.json(mappedItems);
@@ -2010,6 +2319,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  app.get(
+    "/api/purchase-requests/:id/nf-status",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        if (!Number.isFinite(id)) {
+          return res.status(400).json({ message: "ID inválido" });
+        }
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (!purchaseOrder) {
+          return res.json({ nfConfirmed: false, status: "nf_pendente" });
+        }
+        const receiptsList = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+        const confirmedStatuses = new Set([
+          "nf_confirmada",
+          "recebimento_confirmado",
+          "recebimento_parcial",
+          "complete",
+          "partial",
+          "validado_compras",
+        ]);
+        const nfReceipt = receiptsList.find((rec) => confirmedStatuses.has(rec.status));
+        if (!nfReceipt) {
+          const physicalReceipt = receiptsList.find((rec) => rec.status === "conf_fisica");
+          if (physicalReceipt) {
+             return res.json({
+               nfConfirmed: false,
+               status: "conf_fisica",
+               receiptId: physicalReceipt.id,
+               documentNumber: physicalReceipt.documentNumber,
+               documentSeries: physicalReceipt.documentSeries,
+             });
+           }
+
+          const pendingReceipt = receiptsList.find((rec) => rec.status === "nf_pendente");
+          return res.json({
+            nfConfirmed: false,
+            status: pendingReceipt ? pendingReceipt.status : "nf_pendente",
+          });
+        }
+        const confirmedBy = nfReceipt.approvedBy ? await storage.getUser(nfReceipt.approvedBy) : null;
+        let financialData = null;
+        if (nfReceipt.observations) {
+          try {
+            financialData = typeof nfReceipt.observations === 'string' 
+              ? JSON.parse(nfReceipt.observations) 
+              : nfReceipt.observations;
+          } catch {}
+        }
+        return res.json({
+          nfConfirmed: true,
+          status: nfReceipt.status,
+          receiptId: nfReceipt.id,
+          confirmedAt: nfReceipt.approvedAt || nfReceipt.createdAt,
+          financialData,
+          confirmedBy: confirmedBy
+            ? {
+                id: confirmedBy.id,
+                name: `${confirmedBy.firstName} ${confirmedBy.lastName}`.trim(),
+                email: confirmedBy.email,
+              }
+            : null,
+        });
+      } catch (error) {
+        console.error("Error fetching NF status:", error);
+        res.status(500).json({ message: "Erro ao buscar status da NF" });
+      }
+    },
+  );
+
   // Add isReceiver permission check middleware
   async function isReceiver(req: Request, res: Response, next: Function) {
     if (!req.session.userId) {
@@ -2028,6 +2408,906 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   }
 
+  // Get receipts for a purchase order
+  app.get("/api/purchase-orders/:id/receipts", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const receipts = await storage.getReceiptsByPurchaseOrderId(id);
+
+      // Enrich with receiver user name when available and items
+      const enriched = await Promise.all(
+        receipts.map(async (rec: any) => {
+          // Fetch items for the receipt
+          const items = await db
+            .select()
+            .from(receiptItems)
+            .where(eq(receiptItems.receiptId, rec.id));
+
+          // Map items to include requestedQuantity for frontend compatibility
+          const mappedItems = items.map(item => ({
+            ...item,
+            requestedQuantity: item.quantity // Map quantity to requestedQuantity for frontend
+          }));
+
+          let receivedByName = String(rec.receivedBy);
+
+          if (rec.receivedBy) {
+            try {
+              const user = await storage.getUser(rec.receivedBy);
+              if (user) {
+                receivedByName =
+                  (user.firstName && user.lastName
+                    ? `${user.firstName} ${user.lastName}`.trim()
+                    : user.firstName) ||
+                  user.username ||
+                  String(rec.receivedBy);
+              }
+            } catch {
+              // Ignore error
+            }
+          }
+
+          return {
+            ...rec,
+            items: mappedItems,
+            approval_date: rec.approvedAt, // Map approvedAt to approval_date for frontend
+            receivedByName,
+          };
+        }),
+      );
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching receipts:", error);
+      res.status(500).json({ message: "Error fetching receipts" });
+    }
+  });
+
+  app.get("/api/receipts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const receipt = await storage.getReceiptById(id);
+      if (!receipt) return res.status(404).json({ message: "Receipt not found" });
+      res.json(receipt);
+    } catch (error) {
+       res.status(500).json({ message: "Error" });
+    }
+  });
+
+  app.post("/api/receipts/:id/confirm-fiscal", isAuthenticated, async (req, res) => {
+    try {
+      const receiptId = parseInt(req.params.id);
+      const userId = req.session.userId!;
+      
+      const {
+        paymentMethodCode,
+        invoiceDueDate,
+        hasInstallments,
+        installmentCount,
+        installments,
+        allocations,
+        allocationMode,
+        // Header fields for update
+        receiptType: reqReceiptType,
+        documentNumber,
+        documentSeries,
+        issueDate,
+        totalAmount,
+        emitterCnpj
+      } = req.body;
+
+      // Update receipt header data if provided (crucial for Avulso type)
+      if (reqReceiptType) {
+         console.log(`[Fiscal Confirm] Updating receipt #${receiptId} header data from request...`);
+         const updateData: any = { receiptType: reqReceiptType };
+         if (documentNumber) updateData.documentNumber = documentNumber;
+         if (documentSeries) updateData.documentSeries = documentSeries;
+         if (issueDate) updateData.documentIssueDate = new Date(issueDate);
+         if (totalAmount) updateData.totalAmount = String(totalAmount).replace(',', '.');
+         
+         await db.update(receipts)
+           .set(updateData)
+           .where(eq(receipts.id, receiptId));
+      }
+
+      // Server-side validation
+      if (!paymentMethodCode) return res.status(400).json({ message: "Forma de pagamento obrigatória" });
+      
+      if (hasInstallments) {
+        if (!installments || !Array.isArray(installments) || installments.length === 0) {
+           return res.status(400).json({ message: "Parcelas obrigatórias quando parcelamento está ativo" });
+        }
+      } else {
+        if (!invoiceDueDate) return res.status(400).json({ message: "Data de vencimento obrigatória" });
+      }
+
+      if (!allocations || !Array.isArray(allocations) || allocations.length === 0) {
+        return res.status(400).json({ message: "Rateio de centro de custo obrigatório" });
+      }
+      
+      const allocationsValid = allocations.every((r: any) => r.chartOfAccountsId);
+      if (!allocationsValid) {
+        return res.status(400).json({ message: "Plano de contas obrigatório em todos os itens de rateio" });
+      }
+
+      // Reload receipt after update to get latest type and data
+      const receipt = await storage.getReceiptById(receiptId);
+      if (!receipt) return res.status(404).json({ message: "Receipt not found" });
+
+      // Fetch Items from receipt_items first
+      let items: any[] = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, receiptId));
+      
+      // Strict Validation: Items must exist
+      // Bypass validation for "avulso" type
+      // Normalize comparison: handle case sensitivity and potential whitespace
+      const isAvulso = String(receipt.receiptType || '').trim().toLowerCase() === 'avulso';
+
+      // Pre-fetch Purchase Request ID for Audit Log and ERP
+      let purchaseRequestId: number | null = null;
+      let linkedPurchaseOrder: any = null;
+
+      if (receipt.purchaseOrderId) {
+          linkedPurchaseOrder = await storage.getPurchaseOrderById(receipt.purchaseOrderId);
+          if (linkedPurchaseOrder && linkedPurchaseOrder.purchaseRequestId) {
+             purchaseRequestId = linkedPurchaseOrder.purchaseRequestId;
+          }
+      }
+
+      // Fallback removed: Receipt items should now be correctly populated during Physical Receipt phase
+      if (isAvulso && (!items || items.length === 0)) {
+         console.warn(`[Fiscal Confirm] Avulso receipt #${receiptId} has no items linked. This might be a legacy receipt or an error in Physical Receipt.`);
+         // We do NOT fallback to purchaseOrderItems anymore to avoid incorrect partial receipt handling.
+      }
+
+      if (isAvulso) {
+        console.log(`[Fiscal Confirm] Validation skipped for Avulso receipt #${receiptId}`);
+        if (purchaseRequestId) {
+            try {
+              // Verify PR exists to avoid FK violation
+              const [prExists] = await db.select({ id: purchaseRequests.id })
+                .from(purchaseRequests)
+                .where(eq(purchaseRequests.id, purchaseRequestId));
+
+              if (prExists) {
+                // Log intentional validation bypass
+                await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+                  VALUES (${purchaseRequestId}, ${'recebimento_validacao_bypass'}, ${'Validação de itens ignorada para nota avulsa'}, ${userId}, ${null}, ${JSON.stringify({ receiptId })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+              } else {
+                console.warn(`[Fiscal Confirm] Skipped audit log: Purchase Request #${purchaseRequestId} not found in DB.`);
+              }
+            } catch (e) { 
+              console.error("Failed to write audit log for bypass", e);
+            }
+        } else {
+             console.warn("[Fiscal Confirm] Skipped audit log for bypass: No Purchase Request ID found.");
+        }
+      } else if (!items || items.length === 0) {
+        const errorMsg = "Erro de validação: A nota fiscal não possui itens vinculados. Verifique a importação ou inclusão manual.";
+        console.error(`[Fiscal Confirm] Failed: ${errorMsg}`);
+        
+        // Log attempt in observations even on failure, but keep status
+        let currentObs = {};
+        try {
+            currentObs = receipt.observations ? JSON.parse(receipt.observations as string) : {};
+        } catch (e) {
+            currentObs = { _legacy_content: receipt.observations };
+        }
+
+        const newObs = {
+            ...currentObs,
+            lastErpAttempt: {
+                success: false,
+                time: new Date(),
+                message: errorMsg,
+                payload: { items: [] } // Log empty payload context
+            }
+        };
+        
+        await db.update(receipts)
+           .set({ observations: JSON.stringify(newObs) })
+           .where(eq(receipts.id, receiptId));
+
+        return res.status(400).json({ 
+            message: errorMsg,
+            erp: { success: false, code: 400, message: errorMsg }
+        });
+      }
+
+      // ERP Integration
+      console.log(`[ERP Integration] Initiating transfer for Receipt #${receiptId}...`);
+      // Persist data regardless of ERP success/failure first (Draft save)
+      // Note: We update observations at the end or on error, but we should ensure we capture the intent here.
+      // The logic below updates observations on success or error. 
+      // We can add a log here to confirm we are about to attempt integration.
+      console.log(`[Fiscal Confirm] Validated successfully. Attempting ERP integration for #${receiptId}...`);
+
+      let erpResponse = { success: false, code: 0, message: "" };
+      
+      try {
+        if (receipt.purchaseOrderId) {
+          const purchaseOrder = await storage.getPurchaseOrderById(receipt.purchaseOrderId);
+          
+          if (purchaseOrder) {
+            // Fetch additional data needed for ERP integration
+            const [purchaseRequest] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
+            const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, receipt.supplierId!));
+            const [company] = await db.select().from(companies).where(eq(companies.id, purchaseRequest.companyId!));
+            
+            if (purchaseRequest && supplier) {
+              const payload: PurchaseReceiveRequest = {
+                pedido_id: purchaseOrder.id,
+                numero_pedido: purchaseOrder.orderNumber,
+                solicitacao_id: purchaseRequest.id,
+                numero_solicitacao: purchaseRequest.requestNumber,
+                data_pedido: purchaseOrder.createdAt.toISOString(),
+                justificativa: purchaseRequest.justification,
+                fornecedor: {
+                  fornecedor_id: supplier.idSupplierERP,
+                  nome: supplier.name,
+                  type: supplier.type || undefined,
+                  cnpj: supplier.cnpj || undefined,
+                  cpf: supplier.cpf || undefined,
+                  contact: supplier.contact || undefined,
+                  email: supplier.email || undefined,
+                  phone: supplier.phone || undefined,
+                  website: supplier.website || undefined,
+                  address: supplier.address || undefined,
+                  paymentTerms: supplier.paymentTerms || undefined,
+                  productsServices: supplier.productsServices || undefined,
+                },
+                nota_fiscal: {
+                  numero: receipt.documentNumber || undefined,
+                  serie: receipt.documentSeries || undefined,
+                  chave_nfe: receipt.documentKey || undefined,
+                  data_emissao: receipt.documentIssueDate?.toISOString(),
+                  valor_total: Number(receipt.totalAmount || 0)
+                },
+                condicoes_pagamento: {
+                  empresa_id: company.idCompanyERP || undefined,
+                  forma_pagamento: paymentMethodCode ? Number(paymentMethodCode) : undefined,
+                  data_vencimento: invoiceDueDate,
+                  parcelas: hasInstallments ? Number(installmentCount) : 1,
+                  rateio: allocations.map((a: any) => ({
+                    centro_custo_id: a.costCenterId ? Number(a.costCenterId) : undefined,
+                    plano_conta_id: Number(a.chartOfAccountsId),
+                    valor: Number(a.amount),
+                    percentual: a.percentage ? Number(a.percentage) : undefined
+                  })),
+                  parcelas_detalhes: hasInstallments && installments ? installments.map((i: any) => ({
+                    data_vencimento: i.dueDate,
+                    valor: Number(i.amount),
+                    numero_parcela: i.installmentNumber ? Number(i.installmentNumber) : undefined
+                  })) : []
+                },
+                itens: items.map(item => ({
+                  codigo_produto: item.locadorProductCode || undefined,
+                  descricao: item.description || undefined,
+                  unidade: item.unit || undefined,
+                  quantidade: Number(item.quantity || 0),
+                  preco_unitario: Number(item.unitPrice || 0),
+                  ncm: item.ncm || undefined
+                }))
+              };
+
+              console.log("[ERP Integration] Sending data:", JSON.stringify(payload, null, 2));
+              
+              // Validate items in payload again just to be safe
+              if (!payload.itens || payload.itens.length === 0) {
+                 throw new Error("Payload items array is empty");
+              }
+
+              const response = await purchaseReceiveService.submit(payload);
+              
+              // Strict check on ERP response
+              // Assuming response has { success: boolean, ... } or similar structure from service
+              // If service throws on 4xx/5xx, we catch it below.
+              // But if it returns 200 with { status: 'erro' }, we must check it.
+              // The log showed: { status: 'erro', mensagem: '...' }
+              
+              // We need to know what purchaseReceiveService.submit returns.
+              // Based on logs: "Purchase receive submitted successfully: { ... status: 'erro' ... }"
+              // It seems it returns the body directly.
+              
+              if (response && (response.status === 'erro' || response.success === false)) {
+                 throw new Error(response.mensagem || response.message || "Erro retornado pelo ERP");
+              }
+
+              erpResponse = { success: true, code: 200, message: "Integrated successfully with ERP" };
+            } else {
+               throw new Error("Missing critical data (Purchase Request or Supplier)");
+            }
+          } else {
+             throw new Error("Purchase Order not found");
+          }
+        } else {
+          console.log("[ERP Integration] Skipped: No purchase order linked");
+          erpResponse = { success: true, code: 200, message: "Skipped (No PO)" };
+        }
+
+        // Only Update Receipt Status if ERP Success (or skipped)
+        await db.update(receipts)
+                .set({
+                  status: "conferida",
+                  approvedBy: userId,
+                  approvedAt: new Date(),
+                  observations: JSON.stringify({
+                    financial: {
+                      paymentMethodCode,
+                      invoiceDueDate,
+                      hasInstallments,
+                      installmentCount,
+                      installments
+                    },
+                    rateio: {
+                      mode: allocationMode,
+                      allocations
+                    },
+                    erp: {
+                      success: true,
+                      time: new Date(),
+                      message: erpResponse.message
+                    }
+                  })
+                })
+                .where(eq(receipts.id, receiptId));
+                
+              console.log(`[Fiscal Confirm] Success. Status updated to 'conferida' for #${receiptId}. Data persisted.`);
+
+      } catch (err: any) {
+        console.error(`[ERP Integration] Failed: ${err.message}`);
+        
+        // Log failure in observations but DO NOT update status to 'conferida'
+        let currentObs = {};
+        try {
+            currentObs = receipt.observations ? JSON.parse(receipt.observations as string) : {};
+        } catch (e) {
+            currentObs = { _legacy_content: receipt.observations };
+        }
+        const newObs = {
+            ...currentObs,
+            financial: { // We might want to save financial data draft? User said "Manter status atual", didn't forbid saving draft data.
+                paymentMethodCode,
+                invoiceDueDate,
+                hasInstallments,
+                installmentCount,
+                installments
+             },
+             rateio: {
+                mode: allocationMode,
+                allocations
+             },
+            lastErpAttempt: {
+                success: false,
+                time: new Date(),
+                message: err.message,
+                code: err.response?.status || 500
+            }
+        };
+        
+        await db.update(receipts)
+           .set({ observations: JSON.stringify(newObs) })
+           .where(eq(receipts.id, receiptId));
+
+        if (err.response) {
+            console.error("[ERP Integration] Response data:", err.response.data);
+        }
+        
+        // Return error to frontend
+        return res.status(400).json({ 
+            message: `Erro na integração ERP: ${err.message}`,
+            erp: { success: false, code: err.response?.status || 500, message: err.message }
+        });
+      }
+
+      // Check overall status
+      if (!receipt.purchaseOrderId) {
+        return res.json({ success: true, message: "Receipt has no purchase order", erp: erpResponse });
+      }
+      const purchaseOrder = await storage.getPurchaseOrderById(receipt.purchaseOrderId);
+      if (purchaseOrder) {
+          const allReceipts = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+          // Assuming 'conferida' is the final state for a receipt
+          const allConferred = allReceipts.every(r => r.status === 'conferida' || r.status === 'fiscal_conferida'); 
+          
+          // Check fulfillment
+          const isFulfilled = purchaseOrder.fulfillmentStatus === 'fulfilled';
+
+          if (allConferred && isFulfilled) {
+             // Find Request
+             if (purchaseOrder.purchaseRequestId) {
+                 await db.update(purchaseRequests)
+                   .set({
+                     fiscalReceiptAt: new Date(),
+                     fiscalReceiptById: userId,
+                     currentPhase: "conclusao_compra"
+                   })
+                   .where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
+             }
+          }
+      }
+
+      res.json({ success: true, erp: erpResponse });
+    } catch (error) {
+      console.error("Error confirming fiscal receipt:", error);
+      res.status(500).json({ message: "Error" });
+    }
+  });
+
+  app.post("/api/receipts/:id/reopen-fiscal", isAuthenticated, async (req, res) => {
+    try {
+      const receiptId = parseInt(req.params.id);
+      const userId = req.session.userId!;
+
+      const receipt = await storage.getReceiptById(receiptId);
+      if (!receipt) return res.status(404).json({ message: "Receipt not found" });
+
+      if (receipt.status !== "conferida") {
+          return res.status(400).json({ message: "Apenas notas conferidas podem ser reabertas." });
+      }
+
+      let currentObs = {};
+      try {
+        currentObs = receipt.observations ? JSON.parse(receipt.observations as string) : {};
+      } catch (e) {
+        currentObs = { _legacy_content: receipt.observations };
+      }
+
+      await db.update(receipts)
+        .set({
+          status: "conf_fisica",
+          observations: JSON.stringify({
+            ...currentObs,
+            reopenedAt: new Date(),
+            reopenedBy: userId
+          })
+        })
+        .where(eq(receipts.id, receiptId));
+
+      res.json({ success: true, message: "Conferência reaberta para edição" });
+    } catch (error) {
+      console.error("Error reopening fiscal receipt:", error);
+      res.status(500).json({ message: "Error reopening receipt" });
+    }
+  });
+
+  app.post(
+    "/api/purchase-requests/:id/confirm-nf",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        if (!Number.isFinite(id)) {
+          return res.status(400).json({ message: "ID inválido" });
+        }
+        const {
+          receiptType,
+          purchaseOrderId,
+          nfNumber,
+          nfSeries,
+          nfIssueDate,
+          nfEntryDate,
+          nfTotal,
+          nfAccessKey,
+          manualItems,
+          xmlReceiptId,
+          paymentMethodCode,
+          invoiceDueDate,
+          allocations,
+          allocationMode,
+        } = req.body;
+
+        const request = await storage.getPurchaseRequestById(id);
+        if (!request || !["recebimento", "conf_fiscal"].includes(request.currentPhase)) {
+          return res.status(400).json({ message: "Request must be in the receiving or fiscal confirmation phase" });
+        }
+
+        const purchaseOrder =
+          (purchaseOrderId ? await storage.getPurchaseOrderById(Number(purchaseOrderId)) : undefined) ||
+          (await storage.getPurchaseOrderByRequestId(id));
+
+        if (!purchaseOrder) {
+          return res.status(400).json({ message: "Pedido de compra não encontrado" });
+        }
+
+        if (receiptType !== "avulso") {
+          if (!nfNumber || !nfIssueDate || nfTotal === undefined || nfTotal === null || String(nfTotal).trim() === "") {
+            return res.status(400).json({ message: "Dados da NF incompletos para confirmação" });
+          }
+          if (Array.isArray(manualItems) && manualItems.length > 0) {
+            const missingLinks = manualItems.some((item: any) => !item.purchaseOrderItemId);
+            if (missingLinks) {
+              return res.status(400).json({ message: "Vincule todos os itens da NF ao pedido de compra" });
+            }
+          }
+        }
+
+        const existingReceipts = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+        const alreadyConfirmed = existingReceipts.find((rec) => rec.status === "nf_confirmada");
+        if (alreadyConfirmed) {
+          return res.json({ receipt: alreadyConfirmed, nfConfirmed: true });
+        }
+
+        const { db } = await import("./db");
+        const { eq } = await import("drizzle-orm");
+        const now = new Date();
+        let receipt;
+
+        if (xmlReceiptId) {
+          const xmlId = Number(xmlReceiptId);
+          const [updated] = await db
+            .update(receipts)
+            .set({
+              purchaseOrderId: purchaseOrder.id,
+              receiptType: receiptType || "produto",
+              documentNumber: nfNumber,
+              documentSeries: nfSeries || null,
+              documentKey: nfAccessKey || null,
+              documentIssueDate: nfIssueDate ? new Date(nfIssueDate) : null,
+              documentEntryDate: nfEntryDate ? new Date(nfEntryDate) : null,
+              totalAmount: nfTotal,
+              status: "nf_confirmada",
+              approvedBy: req.session.userId,
+              approvedAt: now,
+              observations: JSON.stringify({
+                financial: {
+                  paymentMethodCode: paymentMethodCode || null,
+                  invoiceDueDate: invoiceDueDate || null
+                },
+                rateio: {
+                  mode: allocationMode || null,
+                  allocations: allocations || []
+                }
+              }),
+            })
+            .where(eq(receipts.id, xmlId))
+            .returning();
+          if (!updated) {
+            return res.status(404).json({ message: "Recebimento XML não encontrado" });
+          }
+          receipt = updated;
+
+          // Update items linkage and quantities if manualItems provided
+          if (Array.isArray(manualItems) && manualItems.length > 0) {
+            const { and } = await import("drizzle-orm");
+            for (const item of manualItems) {
+               if (item.purchaseOrderItemId) {
+                   await db.update(receiptItems)
+                     .set({ 
+                        purchaseOrderItemId: item.purchaseOrderItemId,
+                        quantityReceived: String(item.quantity || 0)
+                     })
+                     .where(
+                        item.id 
+                           ? eq(receiptItems.id, item.id)
+                           : and(eq(receiptItems.receiptId, receipt.id), eq(receiptItems.lineNumber, item.lineNumber))
+                     );
+
+                   const [poItem] = await db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.id, item.purchaseOrderItemId));
+                   if (poItem) {
+                      const current = Number(poItem.quantityReceived || 0);
+                      const received = Number(item.quantity || 0);
+                      
+                      await db.update(purchaseOrderItems)
+                        .set({ quantityReceived: String(current + received) })
+                        .where(eq(purchaseOrderItems.id, item.purchaseOrderItemId));
+                   }
+               }
+            }
+          }
+        } else {
+          const [created] = await db
+            .insert(receipts)
+            .values({
+              receiptNumber: generateReceiptNumber(),
+              purchaseOrderId: purchaseOrder.id,
+              status: "nf_confirmada",
+              receiptType: receiptType || "produto",
+              documentNumber: nfNumber || null,
+              documentSeries: nfSeries || null,
+              documentKey: nfAccessKey || null,
+              documentIssueDate: nfIssueDate ? new Date(nfIssueDate) : null,
+              documentEntryDate: nfEntryDate ? new Date(nfEntryDate) : null,
+              totalAmount: nfTotal || "0",
+              approvedBy: req.session.userId,
+              approvedAt: now,
+              createdAt: now,
+              observations: JSON.stringify({
+                financial: {
+                  paymentMethodCode: paymentMethodCode || null,
+                  invoiceDueDate: invoiceDueDate || null
+                },
+                rateio: {
+                  mode: allocationMode || null,
+                  allocations: allocations || []
+                }
+              }),
+            } as any)
+            .returning();
+          receipt = created;
+
+          if (Array.isArray(manualItems) && manualItems.length > 0) {
+            for (const item of manualItems) {
+              await db.insert(receiptItems).values({
+                receiptId: receipt.id,
+                purchaseOrderItemId: item.purchaseOrderItemId || null,
+                lineNumber: item.lineNumber || null,
+                description: item.description || "",
+                unit: item.unit || null,
+                quantity: item.quantity ?? "0",
+                unitPrice: item.unitPrice ?? "0",
+                totalPrice: item.totalPrice ?? "0",
+                ncm: item.ncm || null,
+                quantityReceived: "0",
+                condition: "nf_confirmada",
+                createdAt: now,
+              } as any);
+            }
+          }
+        }
+
+        try {
+          const { sql } = await import("drizzle-orm");
+          await db.execute(
+            sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+              VALUES (${id}, ${"conferencia_fiscal"}, ${"Nota Fiscal confirmada"}, ${req.session.userId}, ${null}, ${JSON.stringify({ receiptId: receipt.id, receiptType })}::jsonb, ${sql`ARRAY['receipts','receipt_items']`} );`,
+          );
+        } catch {}
+
+        res.json({ receipt, nfConfirmed: true });
+      } catch (error) {
+        console.error("Error confirming NF:", error);
+        res.status(400).json({ message: "Falha ao confirmar a Nota Fiscal" });
+      }
+    },
+  );
+
+  // New Endpoint: Confirm Physical Receipt
+  app.post(
+    "/api/purchase-requests/:id/confirm-physical",
+    isAuthenticated,
+    isReceiver,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const userId = req.session.userId!;
+        const { receivedQuantities, observations, manualNFNumber, manualNFSeries } = req.body;
+
+        if (receivedQuantities && typeof receivedQuantities === "object") {
+          for (const [key, value] of Object.entries(receivedQuantities)) {
+            const qty = Number(value);
+            if (!Number.isFinite(qty) || qty < 0 || !Number.isInteger(qty)) {
+              return res.status(400).json({
+                message: `Quantidade inválida para o item ${key}. Utilize apenas números inteiros maiores ou iguais a zero.`,
+              });
+            }
+          }
+        }
+
+        const request = await storage.getPurchaseRequestById(id);
+        if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
+
+        // Logic moved: Calculate totals FIRST
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (!purchaseOrder) return res.status(404).json({ message: "Pedido não encontrado" });
+
+        // Update Items and Calculate Fulfillment
+        let allFulfilled = true;
+        let anyReceived = false;
+        const itemsToInsert: any[] = [];
+
+        if (receivedQuantities) {
+             const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+             for (const it of poItems) {
+                const qtyReceivedNow = Number(receivedQuantities[it.id] || 0);
+                const currentQty = Number(it.quantityReceived || 0);
+                const orderedQty = Number(it.quantity || 0);
+                
+                if (qtyReceivedNow > 0) {
+                   if (currentQty >= orderedQty) {
+                       return res.status(400).json({ message: `O item "${it.description}" já foi totalmente recebido.` });
+                   }
+                   if (currentQty + qtyReceivedNow > orderedQty) {
+                       return res.status(400).json({ message: `A quantidade informada para o item "${it.description}" excede o saldo restante.` });
+                   }
+
+                   await db.update(purchaseOrderItems)
+                     .set({ quantityReceived: String(currentQty + qtyReceivedNow) })
+                     .where(eq(purchaseOrderItems.id, it.id));
+                   
+                   // Prepare receipt item for Avulso/Manual receipt creation
+                   itemsToInsert.push({
+                      purchaseOrderItemId: it.id,
+                      description: it.description,
+                      unit: it.unit,
+                      quantity: String(qtyReceivedNow), // Document quantity matches what was received in this batch
+                      unitPrice: String(it.unitPrice),
+                      totalPrice: String(qtyReceivedNow * Number(it.unitPrice)),
+                      locadorProductCode: it.itemCode,
+                      quantityReceived: String(qtyReceivedNow),
+                      condition: "conf_fisica"
+                   });
+                }
+                
+                // Check status AFTER update (approximation, real check should be fresh query but this is safe enough for logic)
+                const totalReceived = currentQty + qtyReceivedNow;
+                // Allow small epsilon for floating point
+                if (orderedQty - totalReceived > 0.001) allFulfilled = false;
+                if (totalReceived > 0) anyReceived = true;
+             }
+        }
+
+        // Update PO Fulfillment Status
+        const fulfillmentStatus = allFulfilled ? 'fulfilled' : (anyReceived ? 'partial' : 'pending');
+        await db.update(purchaseOrders)
+            .set({ fulfillmentStatus })
+            .where(eq(purchaseOrders.id, purchaseOrder.id));
+
+        // Create Receipt Record
+        if (manualNFNumber) {
+             const now = new Date();
+             const y = now.getFullYear();
+             const m = String(now.getMonth() + 1).padStart(2, "0");
+             const d = String(now.getDate()).padStart(2, "0");
+             const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+             const receiptNum = `REC-${y}${m}${d}-${rand}`;
+
+             const [createdReceipt] = await db.insert(receipts).values({
+               receiptNumber: receiptNum,
+               purchaseOrderId: purchaseOrder.id,
+               status: "conf_fisica", // Ready for Fiscal Conference
+               receiptType: "produto", // Default to produto, changed to avulso later if needed? Or should we allow passing it? 
+                                       // Frontend seems to treat this as Avulso or just Manual NF.
+               documentNumber: manualNFNumber,
+               documentSeries: manualNFSeries,
+               supplierId: purchaseOrder.supplierId,
+               receivedBy: userId,
+               receivedAt: new Date(),
+               createdAt: new Date(),
+               observations: observations
+             } as any).returning();
+
+             // Insert Receipt Items
+             if (itemsToInsert.length > 0) {
+                for (const item of itemsToInsert) {
+                   await db.insert(receiptItems).values({
+                      ...item,
+                      receiptId: createdReceipt.id,
+                      createdAt: new Date()
+                   });
+                }
+             }
+        }
+
+        // Update Request Phase ONLY if fully fulfilled
+        const updateData: any = {};
+        if (allFulfilled) {
+            updateData.physicalReceiptAt = new Date();
+            updateData.physicalReceiptById = userId;
+            updateData.currentPhase = "conf_fiscal"; 
+        }
+
+        if (Object.keys(updateData).length > 0) {
+            await db.update(purchaseRequests)
+                .set(updateData)
+                .where(eq(purchaseRequests.id, id));
+        }
+
+        try {
+          const { sql } = await import("drizzle-orm");
+          await db.execute(
+            sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+              VALUES (${id}, ${"recebimento_fisico"}, ${"Recebimento físico realizado"}, ${req.session.userId}, ${null}, ${JSON.stringify({ fulfillmentStatus })}::jsonb, ${sql`ARRAY['purchase_orders','purchase_order_items','receipts']`} );`,
+          );
+        } catch (e) {
+          console.error("Error logging physical receipt:", e);
+        }
+
+        res.json({ 
+            success: true, 
+            physicalDone: allFulfilled, 
+            nextPhase: allFulfilled ? "conf_fiscal" : "recebimento",
+            fulfillmentStatus
+        });
+      } catch (error) {
+        console.error("Error confirming physical receipt:", error);
+        res.status(500).json({ message: "Erro ao confirmar recebimento físico" });
+      }
+    }
+  );
+
+  // New Endpoint: Confirm Fiscal Receipt
+  app.post(
+    "/api/purchase-requests/:id/confirm-fiscal",
+    isAuthenticated,
+    isReceiver,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const userId = req.session.userId!;
+        const request = await storage.getPurchaseRequestById(id);
+        if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
+
+        let integrationResult: any = null;
+        try {
+          const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+          if (purchaseOrder) {
+            const receiptsList = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+            const targetReceipt = receiptsList.find((rec: any) =>
+              ["validado_compras", "nf_confirmada", "recebimento_confirmado", "recebimento_parcial", "erro_integracao"].includes(rec.status),
+            );
+            if (targetReceipt) {
+              const resp = await fetch(
+                `${req.protocol}://${req.get("host")}/api/recebimentos/${targetReceipt.id}/enviar-locador`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: (req.headers.authorization as string) || "",
+                  },
+                },
+              );
+              try {
+                integrationResult = await resp.json();
+              } catch {
+                integrationResult = null;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Error sending receipt to Locador during fiscal confirmation:", e);
+        }
+
+        await db.update(purchaseRequests)
+          .set({
+            fiscalReceiptAt: new Date(),
+            fiscalReceiptById: userId,
+            currentPhase: "conclusao_compra",
+            receivedDate: new Date(),
+            receivedById: userId,
+          })
+          .where(eq(purchaseRequests.id, id));
+
+        res.json({
+          success: true,
+          fiscalDone: true,
+          nextPhase: "conclusao_compra",
+          integration: integrationResult,
+        });
+      } catch (error) {
+        console.error("Error confirming fiscal receipt:", error);
+        res.status(500).json({ message: "Erro ao confirmar recebimento fiscal" });
+      }
+    }
+  );
+
+  // New Endpoint: Finalize Receipt (Move to Conclusion)
+  app.post(
+    "/api/purchase-requests/:id/finalize-receipt",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const request = await storage.getPurchaseRequestById(id);
+        
+        if (!request?.physicalReceiptAt || !request?.fiscalReceiptAt) {
+           return res.status(400).json({ message: "É necessário concluir as etapas Física e Fiscal antes de finalizar." });
+        }
+
+        await storage.updatePurchaseRequest(id, {
+          currentPhase: "conclusao_compra",
+          receivedDate: new Date(),
+          receivedById: req.session.userId
+        });
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error finalizing receipt:", error);
+        res.status(500).json({ message: "Erro ao finalizar recebimento" });
+      }
+    }
+  );
+
   app.post(
     "/api/purchase-requests/:id/confirm-receipt",
     isAuthenticated,
@@ -2035,7 +3315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
-        const { receivedById } = req.body;
+        const { receivedById, receiptMode, paymentMethodCode, invoiceDueDate, nfNumber, nfSeries, nfIssueDate, nfEntryDate, nfTotal, manualCostCenterId, manualChartOfAccountsId, manualItems, allocations: rawAllocations, allocationMode, finalStatus } = req.body;
 
         const request = await storage.getPurchaseRequestById(id);
         if (!request || request.currentPhase !== "recebimento") {
@@ -2044,18 +3324,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ message: "Request must be in the receiving phase" });
         }
 
-        const updateData = {
-          receivedById: receivedById,
-          receivedDate: new Date(),
-          currentPhase: "conclusao_compra" as any,
-          updatedAt: new Date(),
-        };
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (!purchaseOrder) {
+          return res.status(400).json({ message: "Pedido de compra não encontrado para a solicitação" });
+        }
 
-        const updatedRequest = await storage.updatePurchaseRequest(
-          id,
-          updateData,
-        );
-        res.json(updatedRequest);
+        if (receiptMode !== "avulso") {
+          const receiptsList = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+          const confirmedReceipt = receiptsList.find((rec) =>
+            ["nf_confirmada", "recebimento_confirmado", "recebimento_parcial", "validado_compras"].includes(rec.status),
+          );
+          if (!confirmedReceipt) {
+            return res.status(400).json({ message: "Necessário cadastro prévio da NF para confirmar o recebimento." });
+          }
+        }
+
+        const receipt = await storage.createReceipt({
+          purchaseOrderId: purchaseOrder.id,
+          status: finalStatus ? "recebimento_confirmado" : "recebimento_parcial",
+          receivedBy: receivedById,
+          receivedAt: new Date(),
+          observations: JSON.stringify({
+            mode: receiptMode,
+            financial: { paymentMethodCode: paymentMethodCode || null, invoiceDueDate: invoiceDueDate || null },
+            nf: { number: nfNumber, series: nfSeries, issueDate: nfIssueDate, entryDate: nfEntryDate, total: nfTotal },
+            accounting: { costCenterId: manualCostCenterId, chartOfAccountsId: manualChartOfAccountsId },
+            itemsCount: Array.isArray(manualItems) ? manualItems.length : 0,
+            rateio: { mode: allocationMode || null }
+          }),
+        } as any);
+
+        const receivedQuantities: Record<number, number> | undefined = (req.body as any).receivedQuantities;
+        if (receiptMode !== "avulso" && receivedQuantities && typeof receivedQuantities === "object") {
+          const { db } = await import("./db");
+          const { eq } = await import("drizzle-orm");
+          const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+          
+          for (const it of poItems) {
+            const qty = Number((receivedQuantities as any)[it.id] || 0);
+            if (qty > 0) {
+              const currentQty = Number(it.quantityReceived || 0);
+              const maxQty = Number(it.quantity || 0);
+              
+              if ((currentQty + qty) > maxQty) {
+                // Allow a small tolerance for floating point errors if needed, or strictly reject
+                // For now, strict rejection as requested: "Validar que as quantidades recebidas não excedam as solicitadas"
+                 return res.status(400).json({ 
+                   message: `Quantidade recebida excede a solicitada para o item: ${it.description || it.id}. Recebido: ${currentQty + qty}, Solicitado: ${maxQty}` 
+                 });
+              }
+
+              await storage.createReceiptItem({
+                receiptId: receipt.id,
+                purchaseOrderItemId: it.id,
+                quantityReceived: String(qty),
+                quantityApproved: null,
+                condition: "good",
+                observations: null,
+              } as any);
+
+              // Update quantityReceived in purchase_order_items
+              await db.update(purchaseOrderItems)
+                .set({ quantityReceived: String(currentQty + qty) })
+                .where(eq(purchaseOrderItems.id, it.id));
+            }
+          }
+
+          // Update fulfillmentStatus in purchase_orders
+          const updatedItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+          let totalOrdered = 0;
+          let totalReceived = 0;
+          
+          for (const item of updatedItems) {
+            totalOrdered += Number(item.quantity || 0);
+            totalReceived += Number(item.quantityReceived || 0);
+          }
+
+          let newFulfillmentStatus = "pending";
+          if (totalReceived >= totalOrdered && totalReceived > 0) {
+            newFulfillmentStatus = "fulfilled";
+          } else if (totalReceived > 0) {
+            newFulfillmentStatus = "partial";
+          }
+
+          await db.update(purchaseOrders)
+            .set({ fulfillmentStatus: newFulfillmentStatus })
+            .where(eq(purchaseOrders.id, purchaseOrder.id));
+        }
+
+        const baseTotal = (() => {
+          if (receiptMode === "avulso" && nfTotal) return Number(nfTotal || 0);
+          return Number(purchaseOrder.totalValue || 0);
+        })();
+        if (Array.isArray(rawAllocations) && rawAllocations.length > 0) {
+          const { db } = await import("./db");
+          const { eq } = await import("drizzle-orm");
+          const resolveCostCenterId = async (rawId: number): Promise<number | null> => {
+            const byId = await db.select().from(costCenters).where(eq(costCenters.id, rawId)).limit(1);
+            if (Array.isArray(byId) && byId.length > 0) return Number(byId[0].id);
+            const byExt = await db.select().from(costCenters).where(eq(costCenters.externalId, String(rawId))).limit(1);
+            if (Array.isArray(byExt) && byExt.length > 0) return Number(byExt[0].id);
+            try {
+              const remote = await costCenterService.list();
+              const found = (remote || []).find((cc: any) => Number(cc.idCostCenter ?? cc.id) === Number(rawId));
+              if (!found) return null;
+              const code = `CC-${String(rawId)}`;
+              const name = String(found.name || `Centro ${String(rawId)}`);
+              const [inserted] = await db.insert(costCenters).values({
+                externalId: String(rawId),
+                code,
+                name,
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              } as any).returning();
+              return inserted ? Number(inserted.id) : null;
+            } catch {
+              return null;
+            }
+          };
+          const resolveChartAccountId = async (rawId: number): Promise<number | null> => {
+            const byId = await db.select().from(chartOfAccounts).where(eq(chartOfAccounts.id, rawId)).limit(1);
+            if (Array.isArray(byId) && byId.length > 0) return Number(byId[0].id);
+            const byExt = await db.select().from(chartOfAccounts).where(eq(chartOfAccounts.externalId, String(rawId))).limit(1);
+            if (Array.isArray(byExt) && byExt.length > 0) return Number(byExt[0].id);
+            try {
+              const remote = await chartOfAccountsService.list();
+              const found = (remote || []).find((pc: any) => Number(pc.idChartOfAccounts ?? pc.id) === Number(rawId));
+              if (!found) return null;
+              const code = `PC-${String(rawId)}`;
+              const description = String(found.accountName || `Conta ${String(rawId)}`);
+              const [inserted] = await db.insert(chartOfAccounts).values({
+                externalId: String(rawId),
+                code,
+                description,
+                isActive: true,
+                updatedAt: new Date(),
+              } as any).returning();
+              return inserted ? Number(inserted.id) : null;
+            } catch {
+              return null;
+            }
+          };
+
+          const itemsParsed: Array<{
+            receiptId: number;
+            costCenterId: number;
+            chartOfAccountsId: number;
+            amount: string;
+            percentage: string | null;
+            mode: string;
+          }> = [];
+
+          for (const a of rawAllocations) {
+            const resolvedCC = await resolveCostCenterId(Number(a.costCenterId));
+            if (!resolvedCC) {
+              return res.status(400).json({ message: "Centro de Custo inválido ou não sincronizado" });
+            }
+            const resolvedCOA = await resolveChartAccountId(Number(a.chartOfAccountsId));
+            if (!resolvedCOA) {
+              return res.status(400).json({ message: "Plano de Contas inválido ou não sincronizado" });
+            }
+            const parsed = insertReceiptAllocationSchema.parse({
+              receiptId: receipt.id,
+              costCenterId: resolvedCC,
+              chartOfAccountsId: resolvedCOA,
+              amount: String(a.amount),
+              percentage: a.percentage ? String(a.percentage) : null,
+              mode: allocationMode === "proporcional" ? "proporcional" : "manual",
+            });
+            itemsParsed.push({
+              receiptId: receipt.id,
+              costCenterId: Number(parsed.costCenterId),
+              chartOfAccountsId: Number(parsed.chartOfAccountsId),
+              amount: parsed.amount,
+              percentage: parsed.percentage,
+              mode: parsed.mode,
+            });
+          }
+          const sum = itemsParsed.reduce((acc: number, it: any) => acc + Number(it.amount || 0), 0);
+          const round2 = (n: number) => Math.round(n * 100) / 100;
+          if (round2(sum) !== round2(baseTotal)) {
+            return res.status(400).json({ message: "Soma do rateio deve ser igual ao valor total do pedido" });
+          }
+          const { sql } = await import("drizzle-orm");
+          await db.transaction(async (tx) => {
+            await tx.delete(receiptAllocations).where(sql`${receiptAllocations.receiptId} = ${receipt.id}`);
+            for (const it of itemsParsed) {
+              await tx.insert(receiptAllocations).values({
+                receiptId: receipt.id,
+                costCenterId: it.costCenterId,
+                chartOfAccountsId: it.chartOfAccountsId,
+                amount: it.amount,
+                percentage: it.percentage,
+                mode: it.mode,
+              } as any);
+            }
+          });
+          try {
+            const { db } = await import("./db");
+            const { sql } = await import("drizzle-orm");
+            await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+              VALUES (${id}, ${'recebimento_rateio_salvo'}, ${'Rateio de CC/Plano de Contas salvo'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id, allocations: itemsParsed })}::jsonb, ${sql`ARRAY['receipt_allocations']`} );`);
+          } catch {}
+        }
+
+        if (finalStatus) {
+            const updatedRequest = await storage.updatePurchaseRequest(id, {
+              receivedById: receivedById,
+              receivedDate: new Date(),
+              currentPhase: "conclusao_compra" as any,
+            });
+            try {
+              const { db } = await import("./db");
+              const { sql } = await import("drizzle-orm");
+              await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+                VALUES (${id}, ${'recebimento_confirmado'}, ${'Confirmação de recebimento e avanço de fase'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id, newPhase: 'conclusao_compra' })}::jsonb, ${sql`ARRAY['receipts','purchase_requests']`} );`);
+            } catch {}
+            res.json({ request: updatedRequest, receipt });
+        } else {
+             // Partial receipt - stay in receiving phase
+             const updatedRequest = await storage.getPurchaseRequestById(id);
+             try {
+                const { db } = await import("./db");
+                const { sql } = await import("drizzle-orm");
+                await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+                  VALUES (${id}, ${'recebimento_parcial'}, ${'Recebimento parcial registrado'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id, status: 'partial' })}::jsonb, ${sql`ARRAY['receipts','purchase_requests']`} );`);
+              } catch {}
+             res.json({ request: updatedRequest, receipt });
+        }
+
       } catch (error) {
         console.error("Error confirming receipt:", error);
         res.status(400).json({ message: "Failed to confirm receipt" });
@@ -2069,13 +3567,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
-        const { reportedById, pendencyReason } = req.body;
+        const { reportedById, pendencyReason, receivedQuantities } = req.body;
 
         const request = await storage.getPurchaseRequestById(id);
         if (!request || request.currentPhase !== "recebimento") {
           return res
             .status(400)
             .json({ message: "Request must be in the receiving phase" });
+        }
+
+        if (receivedQuantities && typeof receivedQuantities === "object") {
+          for (const [key, value] of Object.entries(receivedQuantities)) {
+            const qty = Number(value);
+            if (!Number.isFinite(qty) || qty < 0 || !Number.isInteger(qty)) {
+              return res.status(400).json({
+                message: `Quantidade inválida para o item ${key}. Utilize apenas números inteiros maiores ou iguais a zero.`,
+              });
+            }
+          }
+        }
+
+        // Persist received quantities if provided
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (purchaseOrder && receivedQuantities) {
+           const { db } = await import("./db");
+           const { eq } = await import("drizzle-orm");
+           const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+           
+           for (const it of poItems) {
+              const qty = Number(receivedQuantities[it.id] || 0);
+              // Update even if 0? The user said "sistema persiste no banco de dados as quantidades informadas".
+              // Usually we add to quantityReceived.
+              // If we are reporting an issue, we are likely saying "this is what I got".
+              // So we should add it to the received count.
+              if (qty > 0) {
+                 const currentQty = Number(it.quantityReceived || 0);
+                 await db.update(purchaseOrderItems)
+                   .set({ quantityReceived: String(currentQty + qty) })
+                   .where(eq(purchaseOrderItems.id, it.id));
+              }
+           }
         }
 
         const updateData = {
@@ -2463,6 +3994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "aprovacao_a2",
           "pedido_compra",
           "recebimento",
+          "conf_fiscal",
           "conclusao_compra",
           "arquivado",
         ] as const;
@@ -3278,17 +4810,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        if (
-          currentPhase === "recebimento" &&
-          !user.isReceiver &&
-          !user.isAdmin
-        ) {
-          return res
-            .status(403)
-            .json({
-              message:
-                "Você não possui permissão para mover cards da fase Recebimento",
-            });
+        if (currentPhase === "recebimento") {
+           if (newPhase === "conf_fiscal") {
+              // Admin, Manager, Buyer or Receiver can move to Fiscal Conference
+              const canMove = user.isAdmin || user.isManager || user.isBuyer || user.isReceiver;
+              if (!canMove) {
+                 return res.status(403).json({ message: "Sem permissão para mover para Conferência Fiscal" });
+              }
+              // Pre-condition: Physical Receipt must be done
+              if (!request.physicalReceiptAt) {
+                 return res.status(400).json({ message: "Recebimento Físico deve ser concluído antes da Conferência Fiscal" });
+              }
+           } else if (!user.isReceiver && !user.isAdmin) {
+              // Default check for other transitions from Recebimento
+              return res.status(403).json({
+                message: "Você não possui permissão para mover cards da fase Recebimento",
+              });
+           }
         }
 
         // Validate progression from "Cotação" to "Aprovação A2"
@@ -3686,7 +5224,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           observations,
         });
       } catch (error) {
-        console.error("Error creating quotation:", error);
+        console.error("Error creating quotation:", error instanceof Error ? error.message : String(error));
+      if (error instanceof Error && error.stack) {
+        console.error(error.stack);
+      }
         res.status(400).json({ message: "Failed to create quotation" });
       }
     },
@@ -3895,7 +5436,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.status(201).json(quotation);
     } catch (error) {
-      console.error("Error creating quotation:", error);
+      console.error("Error creating quotation:", error instanceof Error ? error.message : String(error));
+      if (error instanceof Error && error.stack) {
+        console.error(error.stack);
+      }
       res.status(400).json({ message: "Invalid quotation data" });
     }
   });
@@ -4224,7 +5768,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const item = await storage.createQuotationItem(itemData);
         res.status(201).json(item);
       } catch (error) {
-        console.error("Error creating quotation item:", error);
+        console.error("Error creating quotation item:", error instanceof Error ? error.message : String(error));
+        if (error && typeof error === 'object' && 'issues' in error) {
+          console.error("Validation issues:", JSON.stringify((error as any).issues));
+        }
         res.status(400).json({ message: "Invalid quotation item data" });
       }
     },
@@ -4312,6 +5859,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const supplierQuotation = await storage.createSupplierQuotation(
           supplierQuotationData,
         );
+
+        // Sync items for the new supplier quotation
+        await quotationSyncService.syncSupplierQuotationItems(supplierQuotation.id);
+
         res.status(201).json(supplierQuotation);
       } catch (error) {
         console.error("Error creating supplier quotation:", error);
@@ -5006,15 +6557,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subtotalValue: subtotalValue || null,
           finalValue: finalValue || null,
           discountType: discountType || null,
-          discountValue: discountValue || null,
+          discountValue: discountValue ? String(discountType === 'fixed' ? NumberParser.parse(discountValue) : discountValue) : null,
           paymentTerms: paymentTerms || null,
           deliveryTerms: deliveryTerms || null,
           warrantyPeriod: warrantyPeriod || null,
           observations: observations || null,
           includesFreight: includesFreight || false,
-          freightValue: freightValue || null,
+          freightValue: freightValue ? String(NumberParser.parse(freightValue)) : null,
           receivedAt: new Date(),
         };
+
+        console.log(`[Audit] Supplier Quotation Update - ID: ${req.params.quotationId}`, {
+          rawBody: req.body,
+          processedUpdate: updateData
+        });
 
         await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
 
@@ -5038,7 +6594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 (qi) => qi.id === item.quotationItemId,
               );
               const quantity = Number(quotationItem?.quantity || 1);
-              const unitPriceNum = Number(item.unitPrice ?? 0);
+              const unitPriceNum = NumberParser.parse(item.unitPrice);
               const totalNum = unitPriceNum * quantity;
 
               // Validar e transformar dados do item usando o schema
@@ -5050,7 +6606,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   ? String(item.discountPercentage) 
                   : null,
                 discountValue: item.discountValue !== null && item.discountValue !== undefined 
-                  ? String(item.discountValue) 
+                  ? String(NumberParser.parse(item.discountValue)) 
                   : null,
                 discountedTotalPrice: item.discountedTotalPrice !== null && item.discountedTotalPrice !== undefined 
                   ? String(item.discountedTotalPrice) 
@@ -5076,7 +6632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 (qi) => qi.id === item.quotationItemId,
               );
               const quantity = Number(quotationItem?.quantity || 1);
-              const unitPriceNum = Number(item.unitPrice ?? 0);
+              const unitPriceNum = NumberParser.parse(item.unitPrice);
               const totalNum = unitPriceNum * quantity;
 
               // Validar e transformar dados do item usando o schema
@@ -5090,7 +6646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   ? String(item.discountPercentage) 
                   : null,
                 discountValue: item.discountValue !== null && item.discountValue !== undefined 
-                  ? String(item.discountValue) 
+                  ? String(NumberParser.parse(item.discountValue)) 
                   : null,
                 discountedTotalPrice: item.discountedTotalPrice !== null && item.discountedTotalPrice !== undefined 
                   ? String(item.discountedTotalPrice) 
@@ -5375,28 +6931,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const selectedSupplierQuotation = supplierQuotations.find(
           (sq) => sq.supplierId === selectedSupplierId,
         );
+        
+        let finalTotalValue = totalValue;
+
         if (selectedSupplierQuotation) {
           await storage.updateSupplierQuotation(selectedSupplierQuotation.id, {
             isChosen: true,
             choiceReason: observations,
           });
 
-          // Processar produtos indisponíveis se houver
-          if (unavailableItems && unavailableItems.length > 0) {
-            const supplierQuotationItems =
-              await storage.getSupplierQuotationItems(
-                selectedSupplierQuotation.id,
-              );
+          // Buscar itens da cotação do fornecedor
+          const supplierQuotationItems = await storage.getSupplierQuotationItems(
+            selectedSupplierQuotation.id,
+          );
 
+          // Processar produtos indisponíveis (relatados pelo usuário ou selecionados como tal)
+          if (unavailableItems && unavailableItems.length > 0) {
             for (const unavailableItem of unavailableItems) {
-              // Encontrar o item correspondente na cotação do fornecedor
               const supplierItem = supplierQuotationItems.find(
-                (item) =>
-                  item.quotationItemId === unavailableItem.quotationItemId,
+                (item) => item.quotationItemId === unavailableItem.quotationItemId,
               );
 
               if (supplierItem) {
-                // Marcar item como indisponível
                 await storage.updateSupplierQuotationItem(supplierItem.id, {
                   isAvailable: false,
                   unavailabilityReason: unavailableItem.reason,
@@ -5404,6 +6960,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
+
+          // Processar itens NÃO selecionados (Seleção Simples)
+          // Se o usuário desmarcou itens, eles devem ser considerados indisponíveis para este pedido
+          if (nonSelectedItems && nonSelectedItems.length > 0) {
+            for (const nonSelectedItem of nonSelectedItems) {
+              const supplierItem = supplierQuotationItems.find(
+                (item) => item.quotationItemId === nonSelectedItem.quotationItemId,
+              );
+
+              // Só marca como indisponível se ainda estiver disponível (evita sobrescrever razão de indisponibilidade real)
+              if (supplierItem && supplierItem.isAvailable !== false) {
+                await storage.updateSupplierQuotationItem(supplierItem.id, {
+                  isAvailable: false,
+                  unavailabilityReason: "Item não selecionado pelo usuário",
+                });
+              }
+            }
+          }
+
+          // Recalcular valor total da cotação considerando apenas itens disponíveis
+          // É necessário buscar os itens novamente ou atualizar a lista local para refletir as mudanças
+          const updatedSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+          
+          const recalculatedTotal = updatedSupplierItems.reduce((total, item) => {
+            if (item.isAvailable === false) return total;
+            
+            const itemValue = item.discountedTotalPrice && parseFloat(item.discountedTotalPrice) > 0
+              ? parseFloat(item.discountedTotalPrice)
+              : parseFloat(item.totalPrice);
+              
+            return total + itemValue;
+          }, 0);
+
+          finalTotalValue = recalculatedTotal.toString();
+
+          // Atualizar o valor total na cotação do fornecedor
+          await storage.updateSupplierQuotation(selectedSupplierQuotation.id, {
+            totalValue: finalTotalValue,
+          });
         }
 
         // Atualizar a cotação (status e observações)
@@ -5411,88 +7006,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: "approved",
         });
 
-        // Para seleção individual, marcar itens não selecionados como transferidos
-        let recalculatedTotalValue = totalValue;
-        if (
-          selectedItems &&
-          selectedItems.length > 0 &&
-          nonSelectedItems &&
-          nonSelectedItems.length > 0 &&
-          nonSelectedItemsOption === "separate-quotation"
-        ) {
-          // Buscar os itens da solicitação original
-          const quotationItems = await storage.getQuotationItems(quotationId);
-          const originalItems = await storage.getPurchaseRequestItems(
-            quotation.purchaseRequestId,
-          );
+        let newRequestId = null;
 
-          // Marcar itens não selecionados como transferidos
-          for (const nonSelectedItem of nonSelectedItems) {
-            // Encontrar o quotation item correspondente
-            const quotationItem = quotationItems.find(
-              (qi) => qi.id === nonSelectedItem.quotationItemId,
-            );
-            if (quotationItem) {
-              // Encontrar o item original usando o purchaseRequestItemId do quotation_item
-              const originalItem = originalItems.find(
-                (item) => item.id === quotationItem.purchaseRequestItemId,
-              );
+        // ---------------------------------------------------------
+        // GESTÃO DE INDISPONIBILIDADE E ITENS NÃO SELECIONADOS (REQ-002)
+        // Verificar itens indisponíveis/não selecionados e criar nova solicitação
+        // Substitui a lógica anterior de "separate-quotation" para ser mais abrangente
+        // ---------------------------------------------------------
+        if (selectedSupplierQuotation) {
+          // Buscar itens atualizados para pegar status isAvailable correto
+          const currentSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+          
+          console.log('DEBUG: Checking unavailability for Supplier Quotation:', selectedSupplierQuotation.id);
+          console.log('DEBUG: Items:', JSON.stringify(currentSupplierItems.map(i => ({id: i.id, isAvailable: i.isAvailable, type: typeof i.isAvailable}))));
 
-              if (originalItem) {
-                // Marcar como transferido (será atualizado com o ID da nova solicitação depois)
-                await storage.updatePurchaseRequestItem(originalItem.id, {
-                  isTransferred: true,
-                  transferReason:
-                    "Item não selecionado - movido para cotação separada",
-                  transferredAt: new Date(),
-                });
+          // Considerar indisponível se isAvailable for falso explicitamente
+          // Isso cobre tanto unavailableItems quanto nonSelectedItems (que foram marcados como false acima)
+          const unavailableSupplierItems = currentSupplierItems.filter(item => item.isAvailable === false);
+
+          if (unavailableSupplierItems.length > 0) {
+            console.log(`Encontrados ${unavailableSupplierItems.length} itens indisponíveis. Iniciando divisão de solicitação...`);
+
+            // 1. Criar Nova Solicitação (Clone da Original)
+            const originalPR = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+            
+            if (originalPR) {
+              // Preparar dados da nova solicitação
+              const newPRData: any = {
+                requesterId: originalPR.requesterId,
+                companyId: originalPR.companyId,
+                costCenterId: originalPR.costCenterId,
+                category: originalPR.category,
+                urgency: originalPR.urgency,
+                justification: `[Item Indisponível] Derivado da solicitação ${originalPR.requestNumber}. ` + (originalPR.justification || ""),
+                currentPhase: "solicitacao", // Reinicia o processo
+                idealDeliveryDate: originalPR.idealDeliveryDate,
+                availableBudget: originalPR.availableBudget,
+                additionalInfo: originalPR.additionalInfo,
+                // parentRequestId: originalPR.id // TODO: Adicionar campo no schema se necessário para rastreabilidade
+              };
+
+              const newPR = await storage.createPurchaseRequest(newPRData);
+              newRequestId = newPR.id;
+              console.log(`Nova solicitação criada automaticamente: ${newPR.id} (${newPR.requestNumber})`);
+
+              // 2. Mover Itens Indisponíveis para a Nova Solicitação
+              const quotationItems = await storage.getQuotationItems(quotationId);
+              // Buscar itens originais (incluindo transferidos para garantir que acharemos)
+              const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+
+              for (const supplierItem of unavailableSupplierItems) {
+                // Encontrar o item da cotação
+                const quotationItem = quotationItems.find(qi => qi.id === supplierItem.quotationItemId);
+                
+                if (quotationItem && quotationItem.purchaseRequestItemId) {
+                  const originalItem = originalItems.find(pi => pi.id === quotationItem.purchaseRequestItemId);
+                  
+                  // Verificar se item existe e ainda não foi transferido (para evitar duplicidade se rodar 2x)
+                  if (originalItem && !originalItem.isTransferred) {
+                    
+                    // Criar item na nova solicitação
+                    await storage.createPurchaseRequestItem({
+                      purchaseRequestId: newPR.id,
+                      productCode: originalItem.productCode || '',
+                      description: originalItem.description,
+                      technicalSpecification: originalItem.technicalSpecification || '',
+                      requestedQuantity: originalItem.requestedQuantity,
+                      unit: originalItem.unit,
+                      stockQuantity: originalItem.stockQuantity || '0',
+                      averageMonthlyQuantity: originalItem.averageMonthlyQuantity || '0',
+                      approvedQuantity: null // Resetar aprovação
+                    });
+
+                    // Marcar item original como transferido
+                    await storage.updatePurchaseRequestItem(originalItem.id, {
+                      isTransferred: true,
+                      transferredToRequestId: newPR.id,
+                      transferReason: supplierItem.unavailabilityReason || "Item indisponível no fornecedor selecionado",
+                      transferredAt: new Date()
+                    });
+                    
+                    console.log(`Item movido: ${originalItem.description} -> Nova Solicitação ${newPR.requestNumber}`);
+                  }
+                }
+              }
+
+              // 3. Log de Auditoria
+              try {
+                await pool.query(
+                  `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at, before_data, after_data)
+                   VALUES ($1, $2, $3, $4, NOW(), $5, $6)`,
+                  [
+                    quotation.purchaseRequestId,
+                    req.session.userId,
+                    "SPLIT_UNAVAILABLE",
+                    `Itens indisponíveis movidos para nova solicitação ${newPR.requestNumber}`,
+                    JSON.stringify({ count: unavailableSupplierItems.length }),
+                    JSON.stringify({ newRequestId: newPR.id, newRequestNumber: newPR.requestNumber })
+                  ]
+                );
+              } catch (logError) {
+                console.error("Erro ao criar log de auditoria para split:", logError);
               }
             }
-          }
-
-          // Recalcular valor total apenas com itens selecionados
-          if (selectedSupplierQuotation) {
-            const supplierQuotationItems =
-              await storage.getSupplierQuotationItems(
-                selectedSupplierQuotation.id,
-              );
-            // Recalculando valor total com itens selecionados
-
-            recalculatedTotalValue = selectedItems.reduce(
-              (total: number, selectedItem: any) => {
-                const supplierItem = supplierQuotationItems.find(
-                  (item) =>
-                    item.quotationItemId === selectedItem.quotationItemId,
-                );
-                if (supplierItem) {
-                  // Usar discountedTotalPrice se existir, senão totalPrice
-                  const itemValue =
-                    supplierItem.discountedTotalPrice &&
-                    parseFloat(supplierItem.discountedTotalPrice) > 0
-                      ? parseFloat(supplierItem.discountedTotalPrice)
-                      : parseFloat(supplierItem.totalPrice);
-
-                  // Calculando valor do item
-                  return total + itemValue;
-                }
-                // Item não encontrado na cotação do fornecedor
-                return total;
-              },
-              0,
-            );
-          }
-
-          // Valor recalculado após transferência de itens
-
-          // Atualizar também o valor da cotação do fornecedor selecionado
-          if (selectedSupplierQuotation) {
-            await storage.updateSupplierQuotation(
-              selectedSupplierQuotation.id,
-              {
-                totalValue: recalculatedTotalValue.toString(),
-              },
-            );
-            // Cotação do fornecedor atualizada com novo valor
           }
         }
 
@@ -5529,196 +7145,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
+        // CHECKPOINT DE VALIDAÇÃO RIGOROSA (REQ-001)
+        // Impedir avanço se houver itens indisponíveis que não foram tratados (não transferidos)
+        if (selectedSupplierQuotation) {
+          const currentSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+          const prItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+          const qItems = await storage.getQuotationItems(quotationId);
+          
+          const untreatedItems = [];
+
+          for (const sItem of currentSupplierItems) {
+             if (sItem.isAvailable === false) {
+                const qItem = qItems.find(qi => qi.id === sItem.quotationItemId);
+                if (qItem && qItem.purchaseRequestItemId) {
+                   const prItem = prItems.find(pi => pi.id === qItem.purchaseRequestItemId);
+                   if (prItem && !prItem.isTransferred) {
+                      untreatedItems.push(prItem);
+                   }
+                }
+             }
+          }
+
+          if (untreatedItems.length > 0) {
+             console.error(`BLOQUEIO A2: Tentativa de avançar com itens indisponíveis não tratados: ${untreatedItems.map(i => i.description).join(', ')}`);
+             await storage.updateQuotation(quotationId, { status: "open" });
+             return res.status(400).json({ 
+                message: "Não é possível avançar para aprovação. Existem itens indisponíveis que não foram movidos para uma nova cotação.",
+                untreatedItems: untreatedItems.map(i => i.description)
+             });
+          }
+        }
+
         // Avançar a solicitação para aprovação A2
         await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
           currentPhase: "aprovacao_a2",
-          totalValue: recalculatedTotalValue,
+          totalValue: finalTotalValue,
           chosenSupplierId: selectedSupplierId,
           choiceReason: observations,
         });
 
-        let newRequestId = null;
-        let nonSelectedRequestId = null;
+        // ---------------------------------------------------------
+        // NOVA ARQUITETURA: Criar Snapshot de Itens Aprovados
+        // Garante isolamento entre Cotação e Pedido de Compra
+        // ---------------------------------------------------------
+        if (selectedSupplierQuotation) {
+          await storage.clearApprovedQuotationItems(quotationId);
+          
+          // Buscar itens atualizados para garantir links corretos
+          const finalQuotationItems = await storage.getQuotationItems(quotationId);
+          const finalSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
 
-        // Criar nova solicitação para itens NÃO selecionados se solicitado
-        if (
-          nonSelectedItems &&
-          nonSelectedItems.length > 0 &&
-          nonSelectedItemsOption === "separate-quotation"
-        ) {
-          try {
-            // Buscar a solicitação original
-            const originalRequest = await storage.getPurchaseRequestById(
-              quotation.purchaseRequestId,
-            );
-            const originalItems = await storage.getPurchaseRequestItems(
-              quotation.purchaseRequestId,
-              true,
-            ); // Incluir itens transferidos
-            const quotationItems = await storage.getQuotationItems(quotationId);
-
-            if (originalRequest) {
-              // Criar nova solicitação baseada na original para itens não selecionados
-              const nonSelectedRequestData = {
-                requesterId: originalRequest.requesterId,
-                companyId: originalRequest.companyId,
-                costCenterId: originalRequest.costCenterId,
-                category: originalRequest.category,
-                justification: `Itens não selecionados da solicitação ${originalRequest.requestNumber}`,
-                urgency: originalRequest.urgency,
-                idealDeliveryDate: originalRequest.idealDeliveryDate || null,
-                availableBudget: originalRequest.availableBudget ?? null,
-                totalValue: null,
-                negotiatedValue: null,
-                discountsObtained: null,
-                deliveryDate: null,
-                currentPhase: "cotacao" as const,
-                approvedA1: true,
-                approverA1Id: originalRequest.approverA1Id || null,
-                approvalDateA1: new Date(),
-              };
-
-              const nonSelectedRequest = await storage.createPurchaseRequest(
-                nonSelectedRequestData,
-              );
-              nonSelectedRequestId = nonSelectedRequest.id;
-
-              // Adicionar apenas os itens NÃO selecionados à nova solicitação
-              for (const nonSelectedItem of nonSelectedItems) {
-                // Encontrar o quotation_item pelo quotationItemId
-                const quotationItem = quotationItems.find(
-                  (qi) => qi.id === nonSelectedItem.quotationItemId,
-                );
-
-                if (quotationItem) {
-                  // Encontrar o item original usando o purchaseRequestItemId do quotation_item
-                  const originalItem = originalItems.find(
-                    (item) => item.id === quotationItem.purchaseRequestItemId,
-                  );
-
-                  if (originalItem) {
-                    // Copiando item original para nova solicitação
-
-                    await storage.createPurchaseRequestItem({
-                      purchaseRequestId: nonSelectedRequest.id,
-                      productCode: originalItem.productCode,
-                      description: originalItem.description,
-                      technicalSpecification:
-                        originalItem.technicalSpecification,
-                      requestedQuantity: originalItem.requestedQuantity,
-                      approvedQuantity: originalItem.approvedQuantity,
-                      unit: originalItem.unit,
-                      stockQuantity: originalItem.stockQuantity?.toString() || "0",
-                      averageMonthlyQuantity: originalItem.averageMonthlyQuantity?.toString() || "0",
-                    });
-
-                    // Atualizar o item original para referenciar a nova solicitação
-                    await storage.updatePurchaseRequestItem(originalItem.id, {
-                      transferredToRequestId: nonSelectedRequest.id,
-                    });
-                  } else {
-                    console.error(
-                      `Item original não encontrado para quotation item ${quotationItem.id}`,
-                    );
-                  }
-                } else {
-                  console.error(
-                    `Quotation item não encontrado para ${nonSelectedItem.quotationItemId}`,
-                  );
-                }
+          for (const item of finalSupplierItems) {
+            // Apenas itens marcados como disponíveis (selecionados) entram no snapshot
+            if (item.isAvailable !== false) {
+              const qItem = finalQuotationItems.find(qi => qi.id === item.quotationItemId);
+              
+              if (qItem && qItem.purchaseRequestItemId) {
+                // Determinar quantidade: prioriza availableQuantity (fornecedor), depois quantity (solicitada)
+                const quantity = item.availableQuantity || qItem.quantity;
+                
+                await storage.createApprovedQuotationItem({
+                  quotationId: quotationId,
+                  supplierQuotationItemId: item.id,
+                  purchaseRequestItemId: qItem.purchaseRequestItemId,
+                  approvedQuantity: quantity.toString(),
+                  unitPrice: item.unitPrice,
+                  totalPrice: item.discountedTotalPrice || item.totalPrice,
+                });
               }
             }
-          } catch (nonSelectedRequestError) {
-            console.error(
-              "Erro ao criar nova solicitação para itens não selecionados:",
-              nonSelectedRequestError,
-            );
-            // Não falhar a seleção do fornecedor se houver erro na criação da nova solicitação
           }
         }
 
-        // Criar nova solicitação para itens indisponíveis se solicitado
-        if (
-          createNewRequest &&
-          unavailableItems &&
-          unavailableItems.length > 0
-        ) {
-          try {
-            // Buscar a solicitação original
-            const originalRequest = await storage.getPurchaseRequestById(
-              quotation.purchaseRequestId,
-            );
-            const originalItems = await storage.getPurchaseRequestItems(
-              quotation.purchaseRequestId,
-              true,
-            ); // Incluir itens transferidos
-            const quotationItems = await storage.getQuotationItems(quotationId);
-
-            if (originalRequest) {
-              // Criar nova solicitação baseada na original
-              const newRequestData = {
-                requesterId: originalRequest.requesterId,
-                companyId: originalRequest.companyId,
-                costCenterId: originalRequest.costCenterId,
-                category: originalRequest.category,
-                justification: `Recotação de itens indisponíveis da solicitação ${originalRequest.requestNumber}`,
-                urgency: originalRequest.urgency,
-                idealDeliveryDate: originalRequest.idealDeliveryDate || null,
-                availableBudget: originalRequest.availableBudget ?? null,
-                totalValue: null,
-                negotiatedValue: null,
-                discountsObtained: null,
-                deliveryDate: null,
-                currentPhase: "aprovacao_a1" as const,
-                approvedA1: true,
-                approverA1Id: originalRequest.approverA1Id || null,
-                approvalDateA1: new Date(),
-              };
-
-              const newRequest =
-                await storage.createPurchaseRequest(newRequestData);
-              newRequestId = newRequest.id;
-
-              // Adicionar apenas os itens indisponíveis à nova solicitação
-              for (const unavailableItem of unavailableItems) {
-                // Encontrar o quotation_item pelo quotationItemId
-                const quotationItem = quotationItems.find(
-                  (qi) => qi.id === unavailableItem.quotationItemId,
-                );
-
-                if (quotationItem) {
-                  // Encontrar o item original usando o purchaseRequestItemId do quotation_item
-                  const originalItem = originalItems.find(
-                    (item) => item.id === quotationItem.purchaseRequestItemId,
-                  );
-
-                  if (originalItem) {
-                    await storage.createPurchaseRequestItem({
-                      purchaseRequestId: newRequest.id,
-                      productCode: originalItem.productCode,
-                      description: originalItem.description,
-                      requestedQuantity: originalItem.requestedQuantity,
-                      approvedQuantity: originalItem.approvedQuantity,
-                      unit: originalItem.unit,
-                      stockQuantity: originalItem.stockQuantity?.toString() || "0",
-                      averageMonthlyQuantity: originalItem.averageMonthlyQuantity?.toString() || "0",
-                    });
-                  }
-                }
-              }
-
-              // Avançar automaticamente para fase de cotação
-              await storage.updatePurchaseRequest(newRequest.id, {
-                currentPhase: "cotacao" as const,
-              });
-            }
-          } catch (newRequestError) {
-            console.error(
-              "Erro ao criar nova solicitação para itens indisponíveis:",
-              newRequestError,
-            );
-            // Não falhar a seleção do fornecedor se houver erro na criação da nova solicitação
-          }
+        // Lógica legada de separate-quotation substituída pelo auto-split (REQ-002) acima
+        let nonSelectedRequestId = null;
+        if (newRequestId) {
+           nonSelectedRequestId = newRequestId;
         }
 
         res.json({

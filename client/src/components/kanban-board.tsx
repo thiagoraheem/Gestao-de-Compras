@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { PURCHASE_PHASES, PHASE_LABELS, type PurchasePhase } from "@/lib/types";
+import { PURCHASE_PHASES, PHASE_LABELS, type PurchasePhase, type ReceiptMode } from "@/lib/types";
 import KanbanColumn from "./kanban-column";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -9,31 +9,43 @@ import {
   DragOverlay,
   closestCorners,
 } from "@dnd-kit/core";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import PurchaseCard from "./purchase-card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import debug from "@/lib/debug";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, CheckCircle, CheckCircle2, ShoppingCart, Package, Truck, Archive } from "lucide-react";
+import { Plus, FileText, CheckCircle, CheckCircle2, ShoppingCart, Package, Truck, Archive, ClipboardCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import RFQCreation from "./rfq-creation";
-import PurchaseOrderPhase from "./purchase-order-phase";
-import ReceiptPhase from "./receipt-phase";
-import RequestPhase from "./request-phase";
-import ApprovalA1Phase from "./approval-a1-phase";
-import ApprovalA2Phase from "./approval-a2-phase";
-import QuotationPhase from "./quotation-phase";
-import ConclusionPhase from "./conclusion-phase";
-import RequestView from "./request-view";
+
+const RFQCreation = lazy(() => import("./rfq-creation"));
+const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
+const ReceiptPhase = lazy(() => import("./receipt-phase"));
+const FiscalConferencePhase = lazy(() => import("./fiscal-conference-phase"));
+const RequestPhase = lazy(() => import("./request-phase"));
+const ApprovalA1Phase = lazy(() => import("./approval-a1-phase"));
+const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
+const QuotationPhase = lazy(() => import("./quotation-phase"));
+const ConclusionPhase = lazy(() => import("./conclusion-phase"));
+const RequestView = lazy(() => import("./request-view"));
 
 interface KanbanBoardProps {
   departmentFilter?: string;
@@ -67,6 +79,8 @@ export default function KanbanBoard({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPhase, setModalPhase] = useState<PurchasePhase | null>(null);
   const [lockDialogClose, setLockDialogClose] = useState(false);
+  const [modalMode, setModalMode] = useState<'view' | 'physical' | 'fiscal' | undefined>(undefined);
+  const [returnToReceiptDialog, setReturnToReceiptDialog] = useState<{ isOpen: boolean; requestId: number | null }>({ isOpen: false, requestId: null });
 
   const phaseIcons: Record<PurchasePhase, any> = {
     [PURCHASE_PHASES.SOLICITACAO]: FileText,
@@ -75,6 +89,7 @@ export default function KanbanBoard({
     [PURCHASE_PHASES.APROVACAO_A2]: CheckCircle2,
     [PURCHASE_PHASES.PEDIDO_COMPRA]: ShoppingCart,
     [PURCHASE_PHASES.RECEBIMENTO]: Truck,
+    [PURCHASE_PHASES.CONF_FISCAL]: ClipboardCheck,
     [PURCHASE_PHASES.CONCLUSAO_COMPRA]: Package,
     [PURCHASE_PHASES.ARQUIVADO]: Archive,
   };
@@ -88,9 +103,10 @@ export default function KanbanBoard({
     enabled: !!user, // Only fetch when user is authenticated
   });
 
-  const handleOpenRequest = (request: any, phase: PurchasePhase) => {
+  const handleOpenRequest = (request: any, phase: PurchasePhase, mode?: ReceiptMode) => {
     setActiveRequest(request);
     setModalPhase(phase);
+    setModalMode(mode);
     setIsModalOpen(true);
   };
 
@@ -376,10 +392,14 @@ export default function KanbanBoard({
     // Permission check for moving OUT of Recebimento phase
     if (
       phase === "recebimento" &&
-      targetPhase !== "solicitacao" &&
-      !user?.isReceiver
+      targetPhase !== "solicitacao"
     ) {
-      return false;
+       // Target Conf. Fiscal: Allow Admin, Manager, Buyer or Receiver
+       if (targetPhase === "conf_fiscal") {
+          return user?.isAdmin || user?.isManager || user?.isBuyer || user?.isReceiver;
+       }
+       // Other targets: existing logic (Receiver only?)
+       return user?.isReceiver;
     }
 
     return true;
@@ -494,6 +514,31 @@ export default function KanbanBoard({
         setActiveId(null);
         setActiveRequest(null);
         return;
+      }
+
+      // Check if returning from "Conf. Fiscal" to "Recebimento Físico"
+      if (request.currentPhase === PURCHASE_PHASES.CONF_FISCAL && newPhase === PURCHASE_PHASES.RECEBIMENTO) {
+        setReturnToReceiptDialog({
+          isOpen: true,
+          requestId: requestId
+        });
+        setActiveId(null);
+        setActiveRequest(null);
+        return;
+      }
+
+      // Check if moving from "Recebimento Físico" to "Conf. Fiscal" - validate physical receipt completion
+      if (request.currentPhase === PURCHASE_PHASES.RECEBIMENTO && newPhase === PURCHASE_PHASES.CONF_FISCAL) {
+        if (!request.physicalReceiptAt) {
+          toast({
+            title: "Recebimento Físico Pendente",
+            description: "Para avançar para Conferência Fiscal, é necessário confirmar o recebimento físico dos itens.",
+            variant: "destructive",
+          });
+          setActiveId(null);
+          setActiveRequest(null);
+          return;
+        }
       }
 
       // Check if moving from "Cotação" to "Aprovação A2" - validate quotation readiness
@@ -625,8 +670,24 @@ export default function KanbanBoard({
   // Group filtered requests by phase and sort each phase
   const requestsByPhase = filteredRequests.reduce((acc: any, request: any) => {
     const phase = request.currentPhase || PURCHASE_PHASES.SOLICITACAO;
-    if (!acc[phase]) acc[phase] = [];
-    acc[phase].push(request);
+    
+    // Helper to add to a phase bucket
+    const addToPhase = (p: string) => {
+        if (!acc[p]) acc[p] = [];
+        if (!acc[p].find((r: any) => r.id === request.id)) {
+            acc[p].push(request);
+        }
+    };
+
+    // Add to current phase
+    addToPhase(phase);
+
+    // Parallel Flow: Show in Fiscal Conference if has pending receipts
+    // This allows the card to appear in both "Recebimento" and "Conf. Fiscal" simultaneously
+    if (request.hasPendingFiscal && phase !== PURCHASE_PHASES.CONF_FISCAL && phase !== PURCHASE_PHASES.CONCLUSAO_COMPRA && phase !== PURCHASE_PHASES.ARQUIVADO) {
+        addToPhase(PURCHASE_PHASES.CONF_FISCAL);
+    }
+
     return acc;
   }, {});
 
@@ -639,6 +700,30 @@ export default function KanbanBoard({
     setSelectedRequestForRFQ(request);
     setShowRFQCreation(true);
   };
+
+  const returnToReceiptMutation = useMutation({
+    mutationFn: async (requestId: number) => {
+      await apiRequest(`/api/requests/${requestId}/return-to-receipt`, {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Solicitação retornada para Recebimento Físico.",
+      });
+      setReturnToReceiptDialog({ isOpen: false, requestId: null });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao retornar solicitação",
+        variant: "destructive",
+      });
+      setReturnToReceiptDialog({ isOpen: false, requestId: null });
+    },
+  });
 
   // Render loading skeleton if data is loading
   if (isLoading) {
@@ -668,6 +753,28 @@ export default function KanbanBoard({
 
   return (
     <>
+      <AlertDialog open={returnToReceiptDialog.isOpen} onOpenChange={(open) => !open && setReturnToReceiptDialog({ isOpen: false, requestId: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Retorno de Fase</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta operação irá excluir permanentemente o processo de recebimento deste pedido e removerá todas as informações de nota fiscal cadastradas. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (returnToReceiptDialog.requestId) {
+                  returnToReceiptMutation.mutate(returnToReceiptDialog.requestId);
+                }
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <DndContext
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
@@ -766,31 +873,34 @@ export default function KanbanBoard({
           )}
         </DragOverlay>
 
-        <RFQCreation
-          purchaseRequest={selectedRequestForRFQ}
-          existingQuotation={null}
-          isOpen={showRFQCreation && !!selectedRequestForRFQ}
-          onOpenChange={(open) => {
-            setShowRFQCreation(open);
-            if (!open) setSelectedRequestForRFQ(null);
-          }}
-          onComplete={() => {
-            setShowRFQCreation(false);
-            setSelectedRequestForRFQ(null);
-            queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-            queryClient.invalidateQueries({
-              predicate: (query) =>
-                !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
-                  query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
-            });
-          }}
-        />
+        <Suspense fallback={null}>
+          <RFQCreation
+            purchaseRequest={selectedRequestForRFQ}
+            existingQuotation={null}
+            isOpen={showRFQCreation && !!selectedRequestForRFQ}
+            onOpenChange={(open) => {
+              setShowRFQCreation(open);
+              if (!open) setSelectedRequestForRFQ(null);
+            }}
+            onComplete={() => {
+              setShowRFQCreation(false);
+              setSelectedRequestForRFQ(null);
+              queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+              queryClient.invalidateQueries({
+                predicate: (query) =>
+                  !!(query.queryKey[0]?.toString().includes(`/api/quotations/`) ||
+                    query.queryKey[0]?.toString().includes(`/api/purchase-requests`))
+              });
+            }}
+          />
+        </Suspense>
         {/* Central Modal for request phases */}
         <Dialog 
           open={isModalOpen && (
             modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA || 
             modalPhase === PURCHASE_PHASES.RECEBIMENTO ||
+            modalPhase === PURCHASE_PHASES.CONF_FISCAL ||
             modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA ||
             modalPhase === PURCHASE_PHASES.ARQUIVADO
           )} 
@@ -808,30 +918,58 @@ export default function KanbanBoard({
               <div className="flex justify-between items-center">
                 <DialogTitle className="text-base font-semibold">
                   {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && `Pedido de Compra - Solicitação #${activeRequest?.requestNumber}`}
-                  {modalPhase === PURCHASE_PHASES.RECEBIMENTO && `Recebimento de Material - Solicitação #${activeRequest?.requestNumber}`}
+                  {modalPhase === PURCHASE_PHASES.RECEBIMENTO && `Recebimento Físico - Solicitação #${activeRequest?.requestNumber}`}
+                  {modalPhase === PURCHASE_PHASES.CONF_FISCAL && `Conferência Fiscal - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && `Conclusão da Compra - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.ARQUIVADO && `Detalhes da Solicitação - #${activeRequest?.requestNumber}`}
                 </DialogTitle>
               </div>
             </div>
+            <p id="kanban-phase-desc" className="sr-only">
+              {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && "Tela de Pedido de Compra da solicitação selecionada"}
+              {modalPhase === PURCHASE_PHASES.RECEBIMENTO && "Tela de Recebimento Físico para conferência de itens"}
+              {modalPhase === PURCHASE_PHASES.CONF_FISCAL && "Tela de Conferência Fiscal para validação de notas"}
+              {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && "Tela de Conclusão da Compra com resumo final"}
+              {modalPhase === PURCHASE_PHASES.ARQUIVADO && "Tela de detalhes da solicitação arquivada"}
+            </p>
             <div className="px-6 pt-0 pb-2">
-              {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && activeRequest && (
-                <PurchaseOrderPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
-              )}
-              {modalPhase === PURCHASE_PHASES.RECEBIMENTO && activeRequest && (
-                <ReceiptPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
-              )}
-              {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && activeRequest && (
-                <ConclusionPhase request={activeRequest} onClose={() => setIsModalOpen(false)} />
-              )}
-              {modalPhase === PURCHASE_PHASES.ARQUIVADO && activeRequest && (
-                <RequestView request={activeRequest} onClose={() => setIsModalOpen(false)} />
-              )}
+              <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && activeRequest && (
+                  <PurchaseOrderPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
+                )}
+                {modalPhase === PURCHASE_PHASES.RECEBIMENTO && activeRequest && (
+                  <ReceiptPhase 
+                    request={activeRequest} 
+                    onClose={() => setIsModalOpen(false)} 
+                    onPreviewOpen={() => setLockDialogClose(true)} 
+                    onPreviewClose={() => setLockDialogClose(false)}
+                    mode={(modalMode === 'view' || modalMode === 'physical') ? modalMode : 'physical'}
+                    hideTabsByDefault
+                    compactHeader
+                  />
+                )}
+                {modalPhase === PURCHASE_PHASES.CONF_FISCAL && activeRequest && (
+                  <FiscalConferencePhase 
+                    request={activeRequest} 
+                    onClose={() => setIsModalOpen(false)} 
+                    onPreviewOpen={() => setLockDialogClose(true)} 
+                    onPreviewClose={() => setLockDialogClose(false)}
+                    mode={modalMode}
+                  />
+                )}
+                {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && activeRequest && (
+                  <ConclusionPhase request={activeRequest} onClose={() => setIsModalOpen(false)} />
+                )}
+                {modalPhase === PURCHASE_PHASES.ARQUIVADO && activeRequest && (
+                  <RequestView request={activeRequest} onClose={() => setIsModalOpen(false)} />
+                )}
+              </Suspense>
             </div>
           </DialogContent>
         </Dialog>
 
         {/* Independent Modals for phases that handle their own dialogs */}
+        <Suspense fallback={null}>
         {modalPhase === PURCHASE_PHASES.SOLICITACAO && activeRequest && (
           <RequestPhase
             request={activeRequest}
@@ -860,6 +998,7 @@ export default function KanbanBoard({
             onOpenChange={(open) => setIsModalOpen(open)}
           />
         )}
+        </Suspense>
       </DndContext>
     </>
   );

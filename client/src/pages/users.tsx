@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Shield, User, Building, Shield as ShieldIcon, Trash2, AlertTriangle, Crown, UserCheck } from "lucide-react";
+import { Plus, Edit, Shield, User, Building, Shield as ShieldIcon, Trash2, AlertTriangle, Crown, UserCheck, Key } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminRoute from "@/components/AdminRoute";
@@ -278,6 +278,45 @@ export default function UsersPage() {
     },
   });
 
+  const [resettingUser, setResettingUser] = useState<any>(null);
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
+  const [newTemporaryPassword, setNewTemporaryPassword] = useState<string | null>(null);
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      const response = await apiRequest(`/api/users/${userId}/reset-password`, { method: "POST" });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setNewTemporaryPassword(data.tempPassword);
+      toast({
+        title: "Sucesso",
+        description: "Senha redefinida com sucesso.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description: "Falha ao redefinir senha: " + (error as Error).message,
+        variant: "destructive",
+      });
+      setIsResetPasswordDialogOpen(false);
+      setResettingUser(null);
+    },
+  });
+
+  const handleResetPassword = (user: any) => {
+    setResettingUser(user);
+    setNewTemporaryPassword(null);
+    setIsResetPasswordDialogOpen(true);
+  };
+
+  const confirmResetPassword = () => {
+    if (resettingUser) {
+      resetPasswordMutation.mutate(resettingUser.id);
+    }
+  };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingUser(null);
@@ -447,6 +486,14 @@ export default function UsersPage() {
                                   onClick={() => handleEditUser(user)}
                                 >
                                   <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleResetPassword(user)}
+                                  title="Redefinir Senha"
+                                >
+                                  <Key className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -902,6 +949,56 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Reset Password Dialog */}
+      <Dialog open={isResetPasswordDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+            setIsResetPasswordDialogOpen(false);
+            setResettingUser(null);
+            setNewTemporaryPassword(null);
+        }
+      }}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Redefinir Senha</DialogTitle>
+                <DialogDescription>
+                    {newTemporaryPassword ? (
+                        <div className="space-y-4">
+                            <p>A senha foi redefinida com sucesso.</p>
+                            <div className="p-4 bg-muted rounded-md text-center">
+                                <span className="font-mono text-lg font-bold">{newTemporaryPassword}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Esta senha é temporária. O usuário deverá alterá-la no próximo login.
+                                Um email também foi enviado para o usuário.
+                            </p>
+                        </div>
+                    ) : (
+                        <span>
+                            Tem certeza que deseja redefinir a senha do usuário <strong>{resettingUser?.username}</strong>?
+                            <br/><br/>
+                            Uma nova senha aleatória será gerada e enviada por email.
+                            O usuário será forçado a alterar a senha no próximo login.
+                        </span>
+                    )}
+                </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end space-x-2">
+                {newTemporaryPassword ? (
+                    <Button onClick={() => setIsResetPasswordDialogOpen(false)}>Fechar</Button>
+                ) : (
+                    <>
+                        <Button variant="outline" onClick={() => setIsResetPasswordDialogOpen(false)}>Cancelar</Button>
+                        <Button 
+                            onClick={confirmResetPassword} 
+                            disabled={resetPasswordMutation.isPending}
+                        >
+                            {resetPasswordMutation.isPending ? "Redefinindo..." : "Confirmar Redefinição"}
+                        </Button>
+                    </>
+                )}
+            </div>
+        </DialogContent>
+      </Dialog>
       </div>
     </AdminRoute>
   );

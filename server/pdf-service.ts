@@ -753,7 +753,7 @@ export class PDFService {
   }
 
   private static async generateApprovalA2HTML(data: any): Promise<string> {
-    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company, requester } = data;
+    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, supplierQuotations, deliveryLocation, company, requester, quotationItems } = data;
     
     // Função para formatar data brasileira
     const formatBrazilianDate = (dateString: string | null | undefined): string => {
@@ -795,7 +795,9 @@ export class PDFService {
     // Carregar logo da empresa como base64
     let companyLogoBase64 = null;
     if (company?.logoBase64) {
-      companyLogoBase64 = company.logoBase64;
+      companyLogoBase64 = company.logoBase64.startsWith('data:') 
+        ? company.logoBase64 
+        : `data:image/png;base64,${company.logoBase64}`;
     }
     
     // Calcular totais
@@ -959,13 +961,115 @@ export class PDFService {
       background-color: #f8d7da;
       color: #721c24;
     }
+    .supplier-comparison-row.selected {
+      background-color: #e8f5e9;
+    }
+    .badge-selected {
+      background-color: #28a745;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      margin-left: 5px;
+    }
+      .comparison-matrix {
+        margin-top: 15px;
+        overflow-x: auto;
+      }
+      .matrix-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 10px;
+        table-layout: fixed;
+      }
+      .matrix-table th, .matrix-table td {
+        padding: 8px;
+        border: 1px solid #e2e8f0;
+        vertical-align: top;
+      }
+      .matrix-table th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #475569;
+        text-align: center;
+      }
+      .matrix-table .item-col {
+        width: 20%;
+        text-align: left;
+        background-color: #f1f5f9;
+      }
+      .matrix-table .supplier-col {
+        text-align: center;
+      }
+      .matrix-table .item-name {
+        font-weight: 600;
+        color: #1e293b;
+      }
+      .supplier-cell {
+        text-align: center;
+      }
+      .selected-header {
+        background-color: #f0fdf4 !important;
+        border-bottom: 2px solid #22c55e !important;
+      }
+      .selected-cell {
+        background-color: #f0fdf4;
+      }
+      .selected-badge {
+        display: inline-block;
+        font-size: 9px;
+        color: #166534;
+        margin-top: 4px;
+        font-weight: normal;
+      }
+      .price-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 4px;
+      }
+      .lowest-price {
+        border: 1px solid #22c55e;
+        background-color: #dcfce7;
+      }
+      .best-value-badge {
+        font-size: 8px;
+        background-color: #166534;
+        color: white;
+        padding: 2px 4px;
+        border-radius: 2px;
+        align-self: center;
+        margin-bottom: 4px;
+      }
+      .qty-row {
+        color: #64748b;
+        font-size: 9px;
+      }
+      .unit-row {
+        color: #475569;
+      }
+      .total-row {
+        font-weight: 700;
+        color: #0f172a;
+        margin-top: 2px;
+        font-size: 11px;
+      }
+      .lowest-price .total-row {
+        color: #166534;
+      }
+      .no-quote {
+        color: #94a3b8;
+        font-style: italic;
+        padding: 10px;
+      }
   </style>
 </head>
 <body>
   <div class="header">
     ${companyLogoBase64 ? `
     <div class="header-logo">
-      <img src="data:image/png;base64,${companyLogoBase64}" alt="Logo da Empresa">
+      <img src="${companyLogoBase64}" alt="Logo da Empresa">
     </div>
     ` : ''}
     <div class="header-info">
@@ -990,7 +1094,7 @@ export class PDFService {
           <span class="info-label">Número:</span> ${purchaseRequest.requestNumber}
         </div>
         <div class="info-item">
-          <span class="info-label">Solicitante:</span> ${requester?.name || 'Não informado'}
+          <span class="info-label">Solicitante:</span> ${requester?.firstName ? `${requester.firstName} ${requester.lastName || ''}`.trim() : requester?.username || 'Não informado'}
         </div>
         <div class="info-item">
           <span class="info-label">Departamento:</span> ${purchaseRequest.departmentName}
@@ -1041,12 +1145,6 @@ export class PDFService {
         <div class="info-item">
           <span class="info-label">Telefone:</span> ${supplier.phone || 'Não informado'}
         </div>
-        <div class="info-item">
-          <span class="info-label">Cidade:</span> ${supplier.city || 'Não informado'}
-        </div>
-        <div class="info-item">
-          <span class="info-label">Estado:</span> ${supplier.state || 'Não informado'}
-        </div>
       </div>
     </div>
   </div>
@@ -1061,7 +1159,7 @@ export class PDFService {
           <th>Descrição</th>
           <th>Qtd</th>
           <th>Unidade</th>
-          <th>Marca</th>
+          <th>Desconto</th>
           <th>Valor Unit.</th>
           <th>Valor Total</th>
         </tr>
@@ -1071,9 +1169,9 @@ export class PDFService {
         <tr>
           <td class="text-center">${index + 1}</td>
           <td>${item.description}</td>
-          <td class="text-center">${parseInt(item.quantity) || 0}</td>
+          <td class="text-center">${Number(item.quantity) || 0}</td>
           <td class="text-center">${item.unit || 'UN'}</td>
-          <td>${item.brand || 'N/A'}</td>
+          <td class="text-right">${item.discountPercentage ? item.discountPercentage + '%' : (item.itemDiscount ? formatCurrency(item.itemDiscount) : '-')}</td>
           <td class="text-right">${formatCurrency(item.unitPrice)}</td>
           <td class="text-right">${formatCurrency(item.totalPrice)}</td>
         </tr>
@@ -1114,14 +1212,6 @@ export class PDFService {
           <span class="info-label">Endereço:</span> ${deliveryLocation.address}
         </div>
       </div>
-      <div>
-        <div class="info-item">
-          <span class="info-label">Cidade:</span> ${deliveryLocation.city}
-        </div>
-        <div class="info-item">
-          <span class="info-label">CEP:</span> ${deliveryLocation.zipCode}
-        </div>
-      </div>
     </div>
   </div>
   ` : ''}
@@ -1142,19 +1232,145 @@ export class PDFService {
         ${approvalHistory.map((approval: any) => `
         <tr>
           <td>${approval.approverType}</td>
-          <td>${approval.approverName || 'N/A'}</td>
+          <td>${approval.approver ? `${approval.approver.firstName} ${approval.approver.lastName || ''}`.trim() : 'N/A'}</td>
           <td>${formatBrazilianDate(approval.createdAt)}</td>
           <td>
-            <span class="approval-status ${approval.action === 'approved' ? '' : approval.action === 'rejected' ? 'approval-rejected' : 'approval-pending'}">
-              ${approval.action === 'approved' ? 'Aprovado' : approval.action === 'rejected' ? 'Rejeitado' : 'Pendente'}
+            <span class="approval-status ${approval.approved === true ? '' : approval.approved === false ? 'approval-rejected' : 'approval-pending'}">
+              ${approval.approved === true ? 'Aprovado' : approval.approved === false ? 'Rejeitado' : 'Pendente'}
             </span>
           </td>
-          <td>${approval.comments || '-'}</td>
+          <td>${approval.rejectionReason || '-'}</td>
         </tr>
         `).join('')}
       </tbody>
     </table>
   </div>
+
+  ${supplierQuotations && supplierQuotations.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Comparação de Fornecedores</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Fornecedor</th>
+          <th class="text-right">Valor Total</th>
+          <th>Prazo</th>
+          <th>Pagamento</th>
+          <th>Garantia</th>
+          <th class="text-right">Desconto</th>
+          <th class="text-right">Frete</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${supplierQuotations.map((sq: any) => `
+        <tr class="${sq.isChosen ? 'supplier-comparison-row selected' : 'supplier-comparison-row'}">
+          <td>
+            ${sq.supplierName}
+            ${sq.isChosen ? '<span class="badge-selected">Selecionado</span>' : ''}
+          </td>
+          <td class="text-right">${formatCurrency(Number(sq.totalValue))}</td>
+          <td>${sq.deliveryTerms || '-'}</td>
+          <td>${sq.paymentTerms || '-'}</td>
+          <td>${sq.warrantyPeriod || '-'}</td>
+          <td class="text-right">
+            ${sq.discountType === 'percentage' 
+              ? `${sq.discountValue}%` 
+              : (sq.discountValue && Number(sq.discountValue) > 0) ? formatCurrency(Number(sq.discountValue)) : '-'}
+          </td>
+          <td class="text-right">${Number(sq.freightValue) > 0 ? formatCurrency(Number(sq.freightValue)) : '-'}</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+  ` : ''}
+
+  ${supplierQuotations.length > 0 && items.length > 0 ? `
+  <div class="section-title" style="margin-top: 20px;">Comparação Detalhada de Itens</div>
+  <div class="comparison-matrix">
+      <table class="matrix-table">
+          <thead>
+              <tr>
+                  <th class="item-col">Item</th>
+                  ${supplierQuotations.map((sq: any) => `
+                      <th class="supplier-col ${sq.isChosen ? 'selected-header' : ''}">
+                          ${sq.supplierName}
+                          ${sq.isChosen ? '<div class="selected-badge">Selecionado</div>' : ''}
+                      </th>
+                  `).join('')}
+              </tr>
+          </thead>
+          <tbody>
+              ${items.map((item: any) => {
+                  // Encontrar item da cotação correspondente
+                  let quotationItem = quotationItems && quotationItems.find((qi: any) => 
+                      qi.purchaseRequestItemId === item.id
+                  );
+                  
+                  // Fallback match by description
+                  if (!quotationItem && item.description && quotationItems) {
+                      quotationItem = quotationItems.find((qi: any) => 
+                          qi.description && qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()
+                      );
+                  }
+
+                  // Encontrar o menor preço para este item entre todos os fornecedores
+                  let lowestPrice = Infinity;
+                  
+                  supplierQuotations.forEach((sq: any) => {
+                      const sqItem = sq.items && sq.items.find((i: any) => 
+                        (quotationItem && i.quotationItemId === quotationItem.id) || 
+                        (i.description && i.description.trim() === item.description.trim())
+                      );
+                      
+                      if (sqItem) {
+                          const quantity = Number(sqItem.availableQuantity || item.quantity);
+                          const unitPrice = Number(sqItem.unitPrice) || 0;
+                          const totalPrice = Number(sqItem.totalPrice) || (unitPrice * quantity);
+                          
+                          if (totalPrice > 0 && totalPrice < lowestPrice) {
+                            lowestPrice = totalPrice;
+                          }
+                      }
+                  });
+
+                  return `
+                  <tr>
+                      <td class="item-name">${item.description}</td>
+                      ${supplierQuotations.map((sq: any) => {
+                          const sqItem = sq.items && sq.items.find((i: any) => 
+                            (quotationItem && i.quotationItemId === quotationItem.id) || 
+                            (i.description && i.description.trim() === item.description.trim())
+                          );
+                          
+                          const quantity = sqItem ? Number(sqItem.availableQuantity || item.quantity) : item.quantity;
+                          const unitPrice = sqItem ? Number(sqItem.unitPrice) : 0;
+                          const totalPrice = sqItem ? (Number(sqItem.totalPrice) || (unitPrice * quantity)) : 0;
+                          
+                          // Verificar se é o menor preço (com margem de erro pequena para float)
+                          const isLowest = totalPrice > 0 && Math.abs(totalPrice - lowestPrice) < 0.01;
+                          const isSelected = sq.isChosen;
+
+                          return `
+                          <td class="supplier-cell ${isSelected ? 'selected-cell' : ''}">
+                              ${sqItem ? `
+                                  <div class="price-container ${isLowest ? 'lowest-price' : ''}">
+                                      ${isLowest ? '<div class="best-value-badge">Melhor valor</div>' : ''}
+                                      <div class="qty-row">Quantidade: ${quantity} ${item.unit}</div>
+                                      <div class="unit-row">Vlr. Unit.: ${formatCurrency(unitPrice)}</div>
+                                      <div class="total-row">Vlr Final: ${formatCurrency(totalPrice)}</div>
+                                  </div>
+                              ` : '<div class="no-quote">-</div>'}
+                          </td>
+                          `;
+                      }).join('')}
+                  </tr>
+                  `;
+              }).join('')}
+          </tbody>
+      </table>
+  </div>
+  ` : ''}
 
   <div class="footer">
     <p><strong>Documento gerado automaticamente pelo Sistema de Gestão de Compras</strong></p>
@@ -1673,6 +1889,8 @@ export class PDFService {
     let selectedSupplierQuotation = null;
     let itemsWithPrices = items;
     let deliveryLocation = null;
+    let enrichedSupplierQuotations: any[] = [];
+    let quotationItems: any[] = [];
     
     const quotation = await storage.getQuotationByPurchaseRequestId(purchaseRequestId);
     
@@ -1683,6 +1901,25 @@ export class PDFService {
     
     if (quotation) {
       const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
+      
+      // Buscar items da cotação
+      quotationItems = await storage.getQuotationItems(quotation.id);
+
+      // Enriquecer cotações com nomes dos fornecedores
+      enrichedSupplierQuotations = await Promise.all(supplierQuotations.map(async (sq) => {
+        const s = await storage.getSupplierById(sq.supplierId);
+        const sqItems = await storage.getSupplierQuotationItems(sq.id);
+        
+        return {
+          ...sq,
+          supplierName: s?.name || 'Fornecedor Desconhecido',
+          cnpj: s?.cnpj || '',
+          email: s?.email || '',
+          phone: s?.phone || '',
+          items: sqItems // Adicionar items para comparação detalhada
+        };
+      }));
+
       selectedSupplierQuotation = supplierQuotations.find(sq => sq.isChosen) || supplierQuotations[0];
       
       if (selectedSupplierQuotation) {
@@ -1726,9 +1963,11 @@ export class PDFService {
               
               return {
                 ...item,
+                quantity: quantity,
                 unitPrice: unitPrice,
                 originalUnitPrice: unitPrice,
                 itemDiscount: itemDiscount,
+                discountPercentage: supplierItem.discountPercentage ? Number(supplierItem.discountPercentage) : 0,
                 brand: supplierItem.brand || '',
                 deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
                 totalPrice: discountedTotal,
@@ -1739,6 +1978,7 @@ export class PDFService {
           
           return {
             ...item,
+            quantity: Number((item as any).requestedQuantity ?? (item as any).quantity) || 0,
             unitPrice: 0,
             originalUnitPrice: 0,
             itemDiscount: 0,
@@ -1752,7 +1992,48 @@ export class PDFService {
     }
 
     // Buscar histórico de aprovações
-    const approvalHistory = await storage.getApprovalHistory(purchaseRequestId);
+    let approvalHistory = await storage.getApprovalHistory(purchaseRequestId);
+
+    // Fallback: Se o histórico estiver vazio ou incompleto, verificar colunas da solicitação
+    const hasA1 = approvalHistory.some(h => h.approverType === 'A1');
+    const hasA2 = approvalHistory.some(h => h.approverType === 'A2');
+    
+    // Check A1 Fallback
+    if (!hasA1 && purchaseRequest.approvalDateA1) {
+      let approverA1 = null;
+      if (purchaseRequest.approverA1Id) {
+        approverA1 = await storage.getUser(purchaseRequest.approverA1Id);
+      }
+      
+      approvalHistory.push({
+        id: -1, // ID fictício
+        approverType: 'A1',
+        approved: purchaseRequest.approvedA1,
+        rejectionReason: purchaseRequest.rejectionReasonA1,
+        createdAt: purchaseRequest.approvalDateA1,
+        approver: approverA1
+      });
+    }
+
+    // Check A2 Fallback
+    if (!hasA2 && purchaseRequest.approvalDateA2) {
+      let approverA2 = null;
+      if (purchaseRequest.approverA2Id) {
+        approverA2 = await storage.getUser(purchaseRequest.approverA2Id);
+      }
+      
+      approvalHistory.push({
+        id: -2, // ID fictício
+        approverType: 'A2',
+        approved: purchaseRequest.approvedA2,
+        rejectionReason: purchaseRequest.rejectionReasonA2,
+        createdAt: purchaseRequest.approvalDateA2,
+        approver: approverA2
+      });
+    }
+
+    // Ordenar por data (decrescente)
+    approvalHistory.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const data = {
       purchaseRequest: {
@@ -1764,9 +2045,11 @@ export class PDFService {
       supplier,
       approvalHistory,
       selectedSupplierQuotation,
+      supplierQuotations: enrichedSupplierQuotations,
       deliveryLocation,
       company,
-      requester
+      requester,
+      quotationItems
     };
 
     // Gerar HTML
@@ -2122,6 +2405,7 @@ export class PDFService {
                 'aprovacao_a2': 'Aprovação A2',
                 'pedido_compra': 'Pedido de Compra',
                 'recebimento': 'Recebimento',
+                'conf_fiscal': 'Conf. Fiscal',
                 'conclusao_compra': 'Conclusão',
                 'arquivado': 'Arquivado'
               };

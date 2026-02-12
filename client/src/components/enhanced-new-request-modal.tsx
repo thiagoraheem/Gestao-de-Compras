@@ -53,6 +53,7 @@ import { useUnits } from "@/hooks/useUnits";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const MAX_TITLE_LENGTH = 150;
+const MIN_ITEM_DESCRIPTION_LENGTH = 10;
 
 const requestSchema = z.object({
   companyId: z.coerce.number().min(1, "Empresa é obrigatória"),
@@ -160,6 +161,22 @@ export default function EnhancedNewRequestModal({
       additionalInfo: "",
     },
   });
+
+  const selectedCategory = form.watch("category");
+
+  const isServiceOrMaterialCategory =
+    selectedCategory === CATEGORY_OPTIONS.SERVICO ||
+    selectedCategory === CATEGORY_OPTIONS.MATERIAL ||
+    selectedCategory === CATEGORY_OPTIONS.OUTROS;
+
+  const hasInvalidDescriptionChars = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return true;
+    if (trimmed.length < MIN_ITEM_DESCRIPTION_LENGTH) return true;
+    if (/[<>]/.test(trimmed)) return true;
+    if (/(script|onerror|onload|javascript:)/i.test(trimmed)) return true;
+    return false;
+  };
 
   // Set default company to user's company but allow selection for all users
   React.useEffect(() => {
@@ -273,10 +290,61 @@ export default function EnhancedNewRequestModal({
   });
 
   const addManualItem = () => {
-    if (!newItemForm.description || !newItemForm.description.trim() || !newItemForm.unit) {
+    const category = form.getValues("category");
+
+    if (!category) {
       toast({
         title: "Erro",
-        description: "Preencha pelo menos a descrição e unidade do item.",
+        description: "Selecione a categoria de compra antes de adicionar itens.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newItemForm.unit) {
+      toast({
+        title: "Erro",
+        description: "Informe a unidade do item.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (category === CATEGORY_OPTIONS.PRODUTO) {
+      if (!newItemForm.productCode) {
+        toast({
+          title: "Produto obrigatório",
+          description: "Para a categoria Produto, selecione um item do ERP antes de adicionar.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (
+      category === CATEGORY_OPTIONS.SERVICO ||
+      category === CATEGORY_OPTIONS.MATERIAL ||
+      category === CATEGORY_OPTIONS.OUTROS
+    ) {
+      const description = newItemForm.description?.trim() || "";
+      if (description.length < MIN_ITEM_DESCRIPTION_LENGTH) {
+        toast({
+          title: "Descrição obrigatória",
+          description: `Para ${CATEGORY_LABELS[category]}, a descrição deve ter pelo menos ${MIN_ITEM_DESCRIPTION_LENGTH} caracteres.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      if (hasInvalidDescriptionChars(description)) {
+        toast({
+          title: "Descrição inválida",
+          description: "A descrição não pode conter caracteres inválidos ou código potencialmente malicioso.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (!newItemForm.description || !newItemForm.description.trim()) {
+      toast({
+        title: "Erro",
+        description: "Preencha pelo menos a descrição do item.",
         variant: "destructive",
       });
       return;
@@ -288,6 +356,7 @@ export default function EnhancedNewRequestModal({
       unit: newItemForm.unit,
       requestedQuantity: newItemForm.requestedQuantity,
       technicalSpecification: newItemForm.technicalSpecification,
+      productCode: newItemForm.productCode,
       estimatedPrice: 0,
     };
     setManualItems([...manualItems, newItem]);
@@ -388,13 +457,38 @@ export default function EnhancedNewRequestModal({
       return;
     }
 
-    if (itemsMethod === "upload" && !uploadedFile) {
-      toast({
-        title: "Arquivo obrigatório",
-        description: "Anexe uma planilha com os itens da solicitação",
-        variant: "destructive",
-      });
-      return;
+    const category = data.category;
+
+    if (category === CATEGORY_OPTIONS.PRODUTO) {
+      const invalidItem = manualItems.find((item) => !item.productCode);
+      if (invalidItem) {
+        toast({
+          title: "Produtos obrigatórios",
+          description: "Para a categoria Produto, todos os itens devem ser selecionados a partir da busca no ERP.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (
+      category === CATEGORY_OPTIONS.SERVICO ||
+      category === CATEGORY_OPTIONS.MATERIAL ||
+      category === CATEGORY_OPTIONS.OUTROS
+    ) {
+      const hasInvalidDescription = manualItems.some(
+        (item) => hasInvalidDescriptionChars(item.description)
+      );
+
+      if (hasInvalidDescription) {
+        toast({
+          title: "Erro",
+          description:
+            `Para ${CATEGORY_LABELS[category]}, a descrição dos itens deve ter pelo menos ${MIN_ITEM_DESCRIPTION_LENGTH} caracteres e não pode conter caracteres inválidos.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     createRequestMutation.mutate(data);
@@ -521,13 +615,10 @@ export default function EnhancedNewRequestModal({
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {Object.entries(CATEGORY_OPTIONS).map(
-                                ([key, value]) => (
-                                  <SelectItem key={value} value={value}>
-                                    {CATEGORY_LABELS[value]}
-                                  </SelectItem>
-                                ),
-                              )}
+                              <SelectItem value={CATEGORY_OPTIONS.PRODUTO}>{CATEGORY_LABELS[CATEGORY_OPTIONS.PRODUTO]}</SelectItem>
+                              <SelectItem value={CATEGORY_OPTIONS.SERVICO}>{CATEGORY_LABELS[CATEGORY_OPTIONS.SERVICO]}</SelectItem>
+                              <SelectItem value={CATEGORY_OPTIONS.MATERIAL}>{CATEGORY_LABELS[CATEGORY_OPTIONS.MATERIAL]}</SelectItem>
+                              <SelectItem value={CATEGORY_OPTIONS.OUTROS}>{CATEGORY_LABELS[CATEGORY_OPTIONS.OUTROS]}</SelectItem>
                             </SelectContent>
                           </Select>
                         </FormControl>
@@ -669,31 +760,57 @@ export default function EnhancedNewRequestModal({
                   <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Adicionar Novo Item</h4>
                   <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-12">
                     <div className="sm:col-span-7">
-                      <HybridProductInput
-                        value={newItemForm.description}
-                        onChange={(value) => setNewItemForm(prev => ({ ...prev, description: value }))}
-                        onProductSelect={(product) => {
-                          const processedUnit = processERPUnit(product.unidade);
-                          setNewItemForm(prev => ({
-                            ...prev,
-                            description: product.descricao,
-                            unit: processedUnit,
-                            productCode: product.codigo
-                          }));
-                          // Manter modo de busca ativo após selecionar produto do ERP
-                          setMaintainSearchMode(true);
-                        }}
-                        placeholder="Digite a descrição ou busque no ERP..."
-                        className="h-9 text-sm"
-                        resetTrigger={resetTrigger}
-                        maintainSearchMode={maintainSearchMode}
-                      />
-                      {newItemForm.productCode && (
-                        <div className="mt-1">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            ERP: {newItemForm.productCode}
-                          </span>
-                        </div>
+                      {selectedCategory === CATEGORY_OPTIONS.PRODUTO ? (
+                        <>
+                          <HybridProductInput
+                            value={newItemForm.description}
+                            onChange={(value) =>
+                              setNewItemForm((prev) => ({
+                                ...prev,
+                                description: value,
+                              }))
+                            }
+                            onProductSelect={(product) => {
+                              const processedUnit = processERPUnit(product.unidade);
+                              setNewItemForm((prev) => ({
+                                ...prev,
+                                description: product.descricao,
+                                unit: processedUnit,
+                                productCode: product.codigo,
+                              }));
+                              setMaintainSearchMode(true);
+                            }}
+                            placeholder="Digite para buscar no ERP..."
+                            className="h-9 text-sm"
+                            resetTrigger={resetTrigger}
+                            maintainSearchMode={maintainSearchMode}
+                            mode="erp-only"
+                          />
+                          {newItemForm.productCode && (
+                            <div className="mt-1">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                ERP: {newItemForm.productCode}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <Input
+                          ref={descriptionInputRef}
+                          value={newItemForm.description}
+                          onChange={(e) =>
+                            setNewItemForm((prev) => ({
+                              ...prev,
+                              description: e.target.value,
+                            }))
+                          }
+                          placeholder={
+                            isServiceOrMaterialCategory
+                              ? "Descreva detalhadamente o item..."
+                              : "Informe a descrição do item..."
+                          }
+                          className="h-9 text-sm"
+                        />
                       )}
                     </div>
                     <div className="sm:col-span-3">

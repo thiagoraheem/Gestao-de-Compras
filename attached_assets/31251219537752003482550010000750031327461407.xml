@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+    <NFe>
+        <infNFe Id="NFe31251219537752003482550010000750031327461407" versao="4.00">
+            <ide>
+                <cUF>31</cUF>
+                <cNF>32746140</cNF>
+                <natOp>DOACAO/ BONIFICACAO</natOp>
+                <mod>55</mod>
+                <serie>1</serie>
+                <nNF>75003</nNF>
+                <dhEmi>2025-12-04T11:53:00-03:00</dhEmi>
+                <dhSaiEnt>2025-12-04T11:53:00-03:00</dhSaiEnt>
+                <tpNF>1</tpNF>
+                <idDest>2</idDest>
+                <cMunFG>3171204</cMunFG>
+                <tpImp>1</tpImp>
+                <tpEmis>1</tpEmis>
+                <cDV>7</cDV>
+                <tpAmb>1</tpAmb>
+                <finNFe>1</finNFe>
+                <indFinal>1</indFinal>
+                <indPres>0</indPres>
+                <procEmi>0</procEmi>
+                <verProc>12.1.2310 | 3.0</verProc>
+            </ide>
+            <emit>
+                <CNPJ>19537752003482</CNPJ>
+                <xNome>ORGUEL INDUSTRIA E LOCACAO DE EQUIPAMENTOS S/A</xNome>
+                <xFant>BELO HORIZONTE</xFant>
+                <enderEmit>
+                    <xLgr>RODOVIA MG-010</xLgr>
+                    <nro>SN</nro>
+                    <xBairro>ANGICOS</xBairro>
+                    <cMun>3171204</cMun>
+                    <xMun>VESPASIANO</xMun>
+                    <UF>MG</UF>
+                    <CEP>33206240</CEP>
+                    <cPais>1058</cPais>
+                    <xPais>BRASIL</xPais>
+                    <fone>3136294000</fone>
+                </enderEmit>
+                <IE>0622061071588</IE>
+                <IM>0090144897</IM>
+                <CNAE>7732201</CNAE>
+                <CRT>3</CRT>
+            </emit>
+            <dest>
+                <CNPJ>13844973000159</CNPJ>
+                <xNome>BBM SERVICOS, ALUGUEL DE MAQUINAS E TECNOLOGIA LTDA</xNome>
+                <enderDest>
+                    <xLgr>RUA FRANCISCO ARRUDA</xLgr>
+                    <nro>265</nro>
+                    <xBairro>ALEIXO</xBairro>
+                    <cMun>1302603</cMun>
+                    <xMun>MANAUS</xMun>
+                    <UF>AM</UF>
+                    <CEP>69083060</CEP>
+                    <cPais>1058</cPais>
+                    <xPais>BRASIL</xPais>
+                    <fone>9232330634</fone>
+                </enderDest>
+                <indIEDest>1</indIEDest>
+                <IE>042351979</IE>
+                <email>nfe@blomaq.com.br</email>
+            </dest>
+            <det nItem="1">
+                <prod>
+                    <cProd>0901030046</cProd>
+                    <cEAN>SEM GTIN</cEAN>
+                    <xProd>S/ ACAB - CONJUNTO PARAFUSO CURVO PARA ABRACADEIRA 48MM</xProd>
+                    <NCM>73084000</NCM>
+                    <CEST>1004800</CEST>
+                    <cBenef/>
+                    <CFOP>6910</CFOP>
+                    <uCom>PC</uCom>
+                    <qCom>2.0000</qCom>
+                    <vUnCom>13.8500000000</vUnCom>
+                    <vProd>27.70</vProd>
+                    <cEANTrib>SEM GTIN</cEANTrib>
+                    <uTrib>PC</uTrib>
+                    <qTrib>2.0000</qTrib>
+                    <vUnTrib>13.8500000000</vUnTrib>
+                    <indTot>1</indTot>
+                </prod>
+                <imposto>
+                    <vTotTrib>1.94</vTotTrib>
+                    <ICMS>
+                        <ICMS00>
+                            <orig>0</orig>
+                            <CST>00</CST>
+                            <modBC>3</modBC>
+                            <vBC>27.70</vBC>
+                            <pICMS>7.0000</pICMS>
+                            <vICMS>1.94</vICMS>
+                        </ICMS00>
+                    </ICMS>
+                    <IPI>
+                        <cEnq>999</cEnq>
+                        <IPITrib>
+                            <CST>99</CST>
+                            <vBC>0</vBC>
+                            <pIPI>0</pIPI>
+                            <vIPI>0</vIPI>
+                        </IPITrib>
+                    </IPI>
+                    <PIS>
+                        <PISNT>
+                            <CST>08</CST>
+                        </PISNT>
+                    </PIS>
+                    <COFINS>
+                        <COFINSNT>
+                            <CST>08</CST>
+                        </COFINSNT>
+                    </COFINS>
+                </imposto>
+            </det>
+            <total>
+                <ICMSTot>
+                    <vBC>27.70</vBC>
+                    <vICMS>1.94</vICMS>
+                    <vICMSDeson>0</vICMSDeson>
+                    <vFCPUFDest>0</vFCPUFDest>
+                    <vICMSUFDest>0</vICMSUFDest>
+                    <vICMSUFRemet>0</vICMSUFRemet>
+                    <vFCP>0</vFCP>
+                    <vBCST>0</vBCST>
+                    <vST>0</vST>
+                    <vFCPST>0</vFCPST>
+                    <vFCPSTRet>0</vFCPSTRet>
+                    <vProd>27.70</vProd>
+                    <vFrete>0</vFrete>
+                    <vSeg>0</vSeg>
+                    <vDesc>0</vDesc>
+                    <vII>0</vII>
+                    <vIPI>0</vIPI>
+                    <vIPIDevol>0</vIPIDevol>
+                    <vPIS>0</vPIS>
+                    <vCOFINS>0</vCOFINS>
+                    <vOutro>0</vOutro>
+                    <vNF>27.70</vNF>
+                    <vTotTrib>1.94</vTotTrib>
+                </ICMSTot>
+            </total>
+            <transp>
+                <modFrete>0</modFrete>
+                <transporta>
+                    <CNPJ>16561409000206</CNPJ>
+                    <xNome>CORREIO / MALOTE</xNome>
+                    <IE>0620949730180</IE>
+                    <xEnder>RUA CURITIBA, 715</xEnder>
+                    <xMun>BELO HORIZONTE</xMun>
+                    <UF>MG</UF>
+                </transporta>
+                <vol>
+                    <qVol>2</qVol>
+                    <esp>VOLUME</esp>
+                </vol>
+            </transp>
+            <pag>
+                <detPag>
+                    <indPag>0</indPag>
+                    <tPag>18</tPag>
+                    <vPag>27.70</vPag>
+                </detPag>
+            </pag>
+            <infAdic>
+                <infCpl>- NF REFERENTE AO MATERIAL FALTANTE DA NF 000073097 - VAAJFJ Valor Aproximado do(s) Tributo(s): R$ 1.94 (7.00%) Estadual</infCpl>
+            </infAdic>
+            <infRespTec>
+                <CNPJ>53113791000122</CNPJ>
+                <xContato>Rodrigo de Almeida Sartorio</xContato>
+                <email>resp_tecnico_dfe_protheus@totvs.com.br</email>
+                <fone>1128593904</fone>
+            </infRespTec>
+        </infNFe>
+        <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+            <SignedInfo>
+                <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+                <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+                <Reference URI="#NFe31251219537752003482550010000750031327461407">
+                    <Transforms>
+                        <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+                        <Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+                    </Transforms>
+                    <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+                    <DigestValue>MqYzPGqmQuj4kuMFgNjsrvGaVKg=</DigestValue>
+                </Reference>
+            </SignedInfo>
+            <SignatureValue>jwg0tJjQf4IDcpjgWNgiqogIu/mWN7AoDzWdl1On5tQ987L+jXKvdLrdXM2/7iStntj+v0rUngN4Zw0CrLK071VCwLulpS+sBQIdeq1Bkh9RuwCP+5moYIwVllfXywGJKSOCm8kqyqdVoKr4Xsu8kD1obz0blmH3VAKUK/M66WnVfoVWfMwzLzdlVJWn90s9opzntjqjJgxLwZcY3ksisbfGhtJm/H212OO2HzwIpOozj5yfbiDtgms/VvPfzghqpfGl0UADE601+wJAFFrOOUq7XnNJZFMmPISWiGSB1w40opDIAae3fMlOlJkDzyJJ0yansw7S6ZJP7T9qdGCvyA==</SignatureValue>
+            <KeyInfo>
+                <X509Data>
+                    <X509Certificate>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</X509Certificate>
+                </X509Data>
+            </KeyInfo>
+        </Signature>
+    </NFe>
+    <protNFe versao="4.00">
+        <infProt>
+            <tpAmb>1</tpAmb>
+            <verAplic>W-3.3.23</verAplic>
+            <chNFe>31251219537752003482550010000750031327461407</chNFe>
+            <dhRecbto>2025-12-04T11:54:05-03:00</dhRecbto>
+            <nProt>131257134697262</nProt>
+            <digVal>MqYzPGqmQuj4kuMFgNjsrvGaVKg=</digVal>
+            <cStat>100</cStat>
+            <xMotivo>Autorizado o uso da NF-e</xMotivo>
+        </infProt>
+    </protNFe>
+</nfeProc>

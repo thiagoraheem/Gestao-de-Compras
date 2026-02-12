@@ -1,0 +1,108 @@
+
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<SOAP-ENV:Body>
+		<ConsultarLoteRps.ExecuteResponse xmlns="http://www.e-nfs.com.br">
+			<Outputxml xmlns="http://www.e-nfs.com.br"><ConsultarLoteRpsResposta>
+  <ListaNfse>
+<CompNfse>
+<Nfse>
+	<InfNfse id="12738">
+		<Numero>12738</Numero>
+		<CodigoVerificacao>2B9B.5DE5.C27E</CodigoVerificacao>
+		<DataEmissao>2025-12-01T12:58:26</DataEmissao>
+		<IdentificacaoRps>
+			<Numero>6585</Numero>
+			<Serie>2</Serie>
+			<Tipo>1</Tipo>
+		</IdentificacaoRps>
+		<DataEmissaoRps>2025-12-01</DataEmissaoRps>
+		<NaturezaOperacao>0</NaturezaOperacao>
+		
+		<OptanteSimplesNacional>1</OptanteSimplesNacional>
+		<IncentivadorCultural>2</IncentivadorCultural>
+		<Competencia>2025-12-01</Competencia>
+		
+		<OutrasInformacoes>REFERENTE AO SERVIÃO DE MONITORAMENTO DE ALARMEVENCIMENTO: 15/12/2025PERÃODO: DEZEMBRO</OutrasInformacoes>
+		<Servico>
+			<Valores>
+				<ValorServicos>346.00</ValorServicos>
+				<ValorDeducoes>0.00</ValorDeducoes>
+				<ValorPis>0.00</ValorPis>
+				<ValorCofins>0.00</ValorCofins>
+				<ValorInss>0.00</ValorInss>
+				<ValorIr>0.00</ValorIr>
+				<ValorCsll>0.00</ValorCsll>
+				<IssRetido>2</IssRetido>
+				<ValorIss>0.00</ValorIss>
+				<ValorIssRetido>0.00</ValorIssRetido>
+				<OutrasRetencoes>0.00</OutrasRetencoes>
+				<BaseCalculo>346.00</BaseCalculo>
+				<Aliquota>0.0000</Aliquota>
+				<ValorLiquidoNfse>346.00</ValorLiquidoNfse>
+				<DescontoIncondicionado>0.00</DescontoIncondicionado>
+				<DescontoCondicionado>0.00</DescontoCondicionado>
+			</Valores>
+			<ItemListaServico>1102</ItemListaServico>
+			
+			<CodigoTributacaoMunicipio>1102</CodigoTributacaoMunicipio>
+			<Discriminacao>REFERENTE AO SERVIÃO DE MONITORAMENTO DE ALARMEVENCIMENTO: 15/12/2025PERÃODO: DEZEMBRO</Discriminacao>
+			<CodigoMunicipio>1302603</CodigoMunicipio>
+		</Servico>
+		<ValorCredito>0.00</ValorCredito>
+		<PrestadorServico>
+			<IdentificacaoPrestador>
+				<Cnpj>13684457000104</Cnpj>
+				<InscricaoMunicipal>13822201</InscricaoMunicipal>
+			</IdentificacaoPrestador>
+			<RazaoSocial>3D SERVICOS EMPRESARIAIS LTDA</RazaoSocial>
+			<NomeFantasia>3D SERVICOS</NomeFantasia>
+			<Endereco>
+				<Endereco/>
+				<Numero>11</Numero>
+				<Complemento>CONJ CAMPOS ELISEOS QUADRA30 SALA B</Complemento>
+				<Bairro>PLANALTO</Bairro>
+				<CodigoMunicipio>1302603</CodigoMunicipio>
+				<Uf>AM</Uf>
+				<Cep>69045000</Cep>
+			</Endereco>
+			<Contato>
+				<Telefone>92 33044206</Telefone>
+				<Email>FINANCEIRO@3DALARMES.COM.BR</Email>
+			</Contato>
+		</PrestadorServico>
+		<TomadorServico>
+			<IdentificacaoTomador>
+				<CpfCnpj>
+					<Cnpj>13844973000159</Cnpj>
+				</CpfCnpj>
+				<InscricaoMunicipal>20035101</InscricaoMunicipal>
+			</IdentificacaoTomador>
+			<RazaoSocial>BBM SERVICOS, ALUGUEL DE MAQUINAS E TECNOLOGIA LTDA</RazaoSocial>
+			<Endereco>
+				<Endereco>Rua Joaquim UchÃ´a</Endereco>
+				<Numero>102</Numero>
+				<Complemento>CONJ. RES. ESPANHA</Complemento>
+				<Bairro>Aleixo</Bairro>
+				<CodigoMunicipio>1302603</CodigoMunicipio>
+				<Uf>AM</Uf>
+				<Cep>69060103</Cep>
+			</Endereco>
+			<Contato>
+				<Telefone/>
+				<Email>PROCESSOS@DANTASENASSERALA.COM</Email>
+			</Contato>
+		</TomadorServico>
+		<OrgaoGerador>
+			<CodigoMunicipio>1302603</CodigoMunicipio>
+			<Uf>AM</Uf>
+		</OrgaoGerador>
+	</InfNfse>
+	
+</Nfse>
+</CompNfse>
+  </ListaNfse>
+</ConsultarLoteRpsResposta>
+</Outputxml>
+		</ConsultarLoteRps.ExecuteResponse>
+	</SOAP-ENV:Body>
+</SOAP-ENV:Envelope>

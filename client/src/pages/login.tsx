@@ -28,7 +28,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background"
+      className="min-h-[100dvh] flex items-center justify-center relative overflow-hidden bg-background"
       style={{
         backgroundImage:
           "linear-gradient(135deg, var(--login-bg-start), var(--login-bg-middle), var(--login-bg-end))",

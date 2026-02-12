@@ -10,3 +10,5 @@ vite.config.ts.*
 .env
 .env.backup
 .env.production
+.env.development
+/.vs

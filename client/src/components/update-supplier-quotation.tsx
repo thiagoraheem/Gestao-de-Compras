@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -19,14 +20,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { updateSupplierQuotationSchema, type UpdateSupplierQuotationData } from "./update-supplier-quotation-schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -60,78 +53,7 @@ import {
   Truck,
 } from "lucide-react";
 import debug from "@/lib/debug";
-
-const updateSupplierQuotationSchema = z.object({
-  items: z.array(
-    z.object({
-      quotationItemId: z.number(),
-      unitPrice: z.string().optional(),
-      deliveryDays: z.string().optional(),
-      brand: z.string().optional(),
-      model: z.string().optional(),
-      observations: z.string().optional(),
-      discountPercentage: z.string().optional(),
-      discountValue: z.string().optional(),
-      isAvailable: z.boolean().default(true),
-      unavailabilityReason: z.string().optional(),
-      availableQuantity: z.string().optional(),
-      confirmedUnit: z.string().optional(),
-      quantityAdjustmentReason: z.string().optional(),
-    })
-    .refine((data) => {
-      // Se o produto estiver disponível, o preço unitário é obrigatório
-      if (data.isAvailable) {
-        return data.unitPrice && data.unitPrice.trim().length > 0;
-      }
-      return true; // Para produtos indisponíveis, não validamos o preço
-    }, {
-      message: "Preço unitário é obrigatório para produtos disponíveis",
-      path: ["unitPrice"],
-    })
-    .refine((data) => {
-      // Se o produto estiver indisponível, o motivo da indisponibilidade é obrigatório
-      if (!data.isAvailable) {
-        return data.unavailabilityReason && data.unavailabilityReason.trim().length > 0;
-      }
-      return true; // Para produtos disponíveis, não validamos o motivo
-    }, {
-      message: "Motivo da indisponibilidade é obrigatório para produtos indisponíveis",
-      path: ["unavailabilityReason"],
-    })
-    .refine((data) => {
-      // Se quantidade disponível for diferente da solicitada, motivo é obrigatório
-      if (data.availableQuantity && data.availableQuantity.trim().length > 0) {
-        const availableQty = parseFloat(data.availableQuantity);
-        if (!isNaN(availableQty) && availableQty > 0) {
-          return true; // Quantidade válida
-        }
-      }
-      return true; // Sem quantidade disponível especificada
-    }, {
-      message: "Quantidade disponível deve ser um número válido",
-      path: ["availableQuantity"],
-    })
-    .refine((data) => {
-      // Somente um tipo de desconto pode ser preenchido por item
-      return !(data.discountPercentage && data.discountValue);
-    }, {
-      message: "Preencha apenas um tipo de desconto (percentual ou valor)",
-      path: ["discountPercentage"],
-    })
-  ),
-  paymentTerms: z.string().optional(),
-  deliveryTerms: z.string().optional(),
-  warrantyPeriod: z.string().optional(),
-  observations: z.string().optional(),
-  discountType: z.enum(["none", "percentage", "fixed"]).default("none"),
-  discountValue: z.string().optional(),
-  includesFreight: z.boolean().default(false),
-  freightValue: z.string().optional(),
-});
-
-type UpdateSupplierQuotationData = z.infer<
-  typeof updateSupplierQuotationSchema
->;
+import { SupplierQuotationDataGrid } from "./supplier-quotation-data-grid";
 
 interface QuotationItem {
   id: number;
@@ -307,8 +229,8 @@ export default function UpdateSupplierQuotation({
           brand: existingItem?.brand || "",
           model: existingItem?.model || "",
           observations: existingItem?.observations || "",
-          discountPercentage: existingItem?.discountPercentage || "",
-          discountValue: existingItem?.discountValue || "",
+          discountPercentage: (existingItem?.discountPercentage && parseFloat(existingItem.discountPercentage) !== 0) ? existingItem.discountPercentage : "",
+          discountValue: (existingItem?.discountValue && parseFloat(existingItem.discountValue) !== 0) ? existingItem.discountValue : "",
           isAvailable: existingItem?.isAvailable !== false,
           unavailabilityReason: existingItem?.unavailabilityReason || "",
           availableQuantity: existingItem?.availableQuantity || "",
@@ -340,7 +262,7 @@ export default function UpdateSupplierQuotation({
       );
       form.setValue(
         "discountValue",
-        existingSupplierQuotation.discountValue || "",
+        (existingSupplierQuotation.discountValue && parseFloat(existingSupplierQuotation.discountValue) !== 0) ? existingSupplierQuotation.discountValue : "",
       );
       form.setValue(
         "includesFreight",
@@ -822,8 +744,8 @@ export default function UpdateSupplierQuotation({
 
   if (isLoadingItems) {
     return (
-    <Dialog open={internalOpen} modal={false} onOpenChange={(open) => { setInternalOpen(open); if (!open) onClose(); }}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={internalOpen} onOpenChange={(open) => { setInternalOpen(open); if (!open) onClose(); }}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto block">
           <div className="flex items-center justify-center p-8">
             <div className="text-center">
               <Package className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
@@ -836,9 +758,9 @@ export default function UpdateSupplierQuotation({
   }
 
   return (
-      <Dialog open={internalOpen} modal={false} onOpenChange={(open) => { setInternalOpen(open); if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg">
-        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-border sticky top-0 z-30 px-6 py-3">
+      <Dialog open={internalOpen} onOpenChange={(open) => { setInternalOpen(open); if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-lg block">
+        <div className="flex-shrink-0 bg-white dark:bg-slate-900/80 backdrop-blur-sm border-b border-border sticky top-0 z-30 px-2 py-1">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2 text-base font-semibold">
               {viewMode === 'view' ? (
@@ -881,7 +803,7 @@ export default function UpdateSupplierQuotation({
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(handleSubmit)}
-            className="space-y-6 px-6 pt-6 pb-24"
+            className="space-y-6 px-2 pt-2 pb-24"
           >
             {/* Items Section */}
             <Card>
@@ -892,483 +814,11 @@ export default function UpdateSupplierQuotation({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[180px]">Item</th>
-                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[120px]">Marca / Modelo</th>
-                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[100px]">Preço + Original</th>
-                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[140px]">Desconto</th>
-                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[60px]">Prazo (dias)</th>
-                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[110px]">Quantidade Disponível</th>
-                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[100px]">Disponibilidade</th>
-                        <th className="text-left p-2 text-xs font-medium text-muted-foreground min-w-[90px]">Total Final</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {quotationItems.map((item, index) => (
-                        <tr key={item.id} className="border-b border-border hover:bg-muted/50 dark:hover:bg-slate-800">
-                          <td className="p-2 align-top">
-                            <div className="space-y-1">
-                              <div className="font-medium text-xs break-words">{item.description}</div>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Badge variant="secondary" className="text-xs px-1 py-0">
-                                  Solicitado: {parseFloat(item.quantity).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} {item.unit}
-                                </Badge>
-                                {(() => {
-                                  const availableQty = form.watch(`items.${index}.availableQuantity`);
-                                  const requestedQty = parseFloat(item.quantity);
-                                  
-                                  if (availableQty && !isNaN(parseFloat(availableQty))) {
-                                    const available = parseFloat(availableQty);
-                                    const isDifferent = available !== requestedQty;
-                                    
-                                    return (
-                                      <Badge 
-                                        variant={isDifferent ? "destructive" : "default"} 
-                                        className={`text-xs px-1 py-0 ${isDifferent ? "bg-orange-100 text-orange-800 border-orange-300" : "bg-green-100 text-green-800 border-green-300"}`}
-                                      >
-                                        Disponível: {available.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} {form.watch(`items.${index}.confirmedUnit`) || item.unit}
-                                      </Badge>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-                              </div>
-                              {item.specifications && (
-                                <div className="text-xs text-muted-foreground italic bg-muted p-1 rounded">
-                                  {item.specifications}
-                                </div>
-                              )}
-                              <div className="space-y-1">
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.observations`}
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormControl>
-                                        <Input
-                                          {...field}
-                                          placeholder="Observações"
-                                          readOnly={viewMode === 'view'}
-                                          className="text-xs h-6"
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-2 align-top">
-                            <div className="space-y-1">
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.brand`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="Marca"
-                                        readOnly={viewMode === 'view'}
-                                        className="text-xs h-6"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.model`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="Modelo"
-                                        readOnly={viewMode === 'view'}
-                                        className="text-xs h-6"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          </td>
-                          <td className="p-2 align-top">
-                            <div className="space-y-1">
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.unitPrice`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="1.000,00"
-                                        readOnly={viewMode === 'view'}
-                                        className="text-xs h-6"
-                                        autoComplete="off"
-                                        onChange={(e) => {
-                                          if (viewMode === 'view') return;
-                                          let inputValue = e.target.value;
-                                          if (/^\d+$/.test(inputValue)) {
-                                            field.onChange(inputValue);
-                                          } else {
-                                            const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                            field.onChange(cleanValue);
-                                          }
-                                        }}
-                                        onBlur={(e) => {
-                                          if (viewMode === 'view') return;
-                                          const value = e.target.value;
-                                          if (value) {
-                                            let number;
-                                            if (/^\d+$/.test(value)) {
-                                              number = parseFloat(value);
-                                            } else if (/^\d+[.,]\d+$/.test(value)) {
-                                              number = parseFloat(value.replace(",", "."));
-                                            } else {
-                                              const cleanValue = value.replace(/[^\d.,]/g, "");
-                                              number = parseFloat(cleanValue.replace(",", "."));
-                                            }
-                                            if (!isNaN(number)) {
-                                            const formatted = number.toLocaleString("pt-BR", {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 4,
-                                            });
-                                            field.onChange(formatted);
-                                            }
-                                          }
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <div className="text-xs text-muted-foreground">
-                                Orig.: R$ {(() => {
-                                  const unitPrice = form.watch(`items.${index}.unitPrice`);
-                                  if (!unitPrice) return "0,00";
-                                  const quantity = parseFloat(item.quantity);
-                                  const price = parseNumberFromCurrency(unitPrice);
-                                  const total = quantity * price;
-                                  return isNaN(total) ? "0,00" : total.toLocaleString("pt-BR", {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 4,
-                                  });
-                                })()}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-2 align-top">
-                            <div className="space-y-1">
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.discountPercentage`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <div className="relative">
-                                        <Input
-                                          {...field}
-                                          placeholder="0"
-                                          type="number"
-                                          min="0"
-                                          max="100"
-                                          step="0.01"
-                                          readOnly={viewMode === 'view'}
-                                          disabled={!!form.watch(`items.${index}.discountValue`)}
-                                          className="text-xs h-6 text-right pr-6"
-                                          autoComplete="off"
-                                          onChange={(e) => {
-                                            if (viewMode === 'view') return;
-                                            field.onChange(e.target.value);
-                                            if (e.target.value) {
-                                              form.setValue(`items.${index}.discountValue`, "");
-                                            }
-                                          }}
-                                        />
-                                        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
-                                      </div>
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.discountValue`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <div className="relative">
-                                        <Input
-                                          {...field}
-                                          placeholder="0,00"
-                                          readOnly={viewMode === 'view'}
-                                          disabled={!!form.watch(`items.${index}.discountPercentage`)}
-                                          className="text-xs h-6 text-right pr-6"
-                                          autoComplete="off"
-                                          onChange={(e) => {
-                                            if (viewMode === 'view') return;
-                                            let inputValue = e.target.value;
-                                            if (/^\d+$/.test(inputValue)) {
-                                              field.onChange(inputValue);
-                                            } else {
-                                              const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                              field.onChange(cleanValue);
-                                            }
-                                            if (e.target.value) {
-                                              form.setValue(`items.${index}.discountPercentage`, "");
-                                            }
-                                          }}
-                                          onBlur={(e) => {
-                                            if (viewMode === 'view') return;
-                                            const value = e.target.value;
-                                            if (value) {
-                                              let number;
-                                              if (/^\d+$/.test(value)) {
-                                                number = parseFloat(value);
-                                              } else if (/^\d+[.,]\d+$/.test(value)) {
-                                                number = parseFloat(value.replace(",", "."));
-                                              } else {
-                                                const cleanValue = value.replace(/[^\d.,]/g, "");
-                                                number = parseFloat(cleanValue.replace(",", "."));
-                                              }
-                                              if (!isNaN(number)) {
-                                                const formatted = number.toLocaleString("pt-BR", {
-                                                  minimumFractionDigits: 2,
-                                                  maximumFractionDigits: 4,
-                                                });
-                                                field.onChange(formatted);
-                                              }
-                                            }
-                                          }}
-                                        />
-                                        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
-                                      </div>
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          </td>
-                          <td className="p-2 align-top">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.deliveryDays`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="30"
-                                      type="number"
-                                      readOnly={viewMode === 'view'}
-                                      className="text-xs h-6"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </td>
-                          <td className="p-2 align-top">
-                            <div className="space-y-1">
-                              {/* Quantidade Disponível */}
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.availableQuantity`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder={item.quantity}
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        readOnly={viewMode === 'view'}
-                                        className="text-xs h-6"
-                                        onChange={(e) => {
-                                          if (viewMode === 'view') return;
-                                          field.onChange(e.target.value);
-                                          // Auto-fill confirmed unit if not set
-                                          const confirmedUnit = form.watch(`items.${index}.confirmedUnit`);
-                                          if (!confirmedUnit) {
-                                            form.setValue(`items.${index}.confirmedUnit`, item.unit);
-                                          }
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              
-                              {/* Unidade Confirmada */}
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.confirmedUnit`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder={item.unit}
-                                        readOnly={viewMode === 'view'}
-                                        className="text-xs h-6"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              {/* Percentual de Atendimento */}
-                              {(() => {
-                                const availableQty = form.watch(`items.${index}.availableQuantity`);
-                                const requestedQty = parseFloat(item.quantity);
-                                
-                                if (availableQty && !isNaN(parseFloat(availableQty))) {
-                                  const available = parseFloat(availableQty);
-                                  const fulfillmentPercentage = (available / requestedQty) * 100;
-                                  
-                                  let badgeVariant: "default" | "secondary" | "destructive" = "default";
-                                  let badgeColor = "text-green-600";
-                                  
-                                  if (fulfillmentPercentage < 50) {
-                                    badgeVariant = "destructive";
-                                    badgeColor = "text-red-600";
-                                  } else if (fulfillmentPercentage < 100) {
-                                    badgeVariant = "secondary";
-                                    badgeColor = "text-yellow-600";
-                                  }
-                                  
-                                  return (
-                                    <div className="flex items-center gap-1">
-                                      <Badge variant={badgeVariant} className={`text-xs ${badgeColor}`}>
-                                        {fulfillmentPercentage.toFixed(1)}%
-                                      </Badge>
-                                      {fulfillmentPercentage !== 100 && (
-                                        <span className="text-xs text-muted-foreground">
-                                          ({available.toLocaleString('pt-BR')} de {requestedQty.toLocaleString('pt-BR')})
-                                        </span>
-                                      )}
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              })()}
-
-                              {/* Motivo do Ajuste de Quantidade */}
-                              {(() => {
-                                const availableQty = form.watch(`items.${index}.availableQuantity`);
-                                const requestedQty = parseFloat(item.quantity);
-                                
-                                if (availableQty && !isNaN(parseFloat(availableQty))) {
-                                  const available = parseFloat(availableQty);
-                                  if (available !== requestedQty) {
-                                    return (
-                                      <FormField
-                                        control={form.control}
-                                        name={`items.${index}.quantityAdjustmentReason`}
-                                        render={({ field }) => (
-                                          <FormItem>
-                                            <FormControl>
-                                              <Input
-                                                {...field}
-                                                placeholder="Motivo do ajuste de quantidade"
-                                                readOnly={viewMode === 'view'}
-                                                className="text-xs h-7 border-yellow-300 bg-yellow-50"
-                                              />
-                                            </FormControl>
-                                            <FormMessage />
-                                          </FormItem>
-                                        )}
-                                      />
-                                    );
-                                  }
-                                }
-                                return null;
-                              })()}
-                            </div>
-                          </td>
-                          <td className="p-2 align-top">
-                                <div className="space-y-1">
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.isAvailable`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <div className="flex items-center space-x-2">
-                                      <input
-                                        type="checkbox"
-                                        checked={field.value !== false}
-                                        onChange={(e) => {
-                                          if (viewMode === 'view') return;
-                                          field.onChange(e.target.checked);
-                                          if (e.target.checked) {
-                                            form.setValue(`items.${index}.unavailabilityReason`, "");
-                                          }
-                                        }}
-                                        disabled={viewMode === 'view'}
-                                        className="h-4 w-4"
-                                      />
-                                      <label className="text-xs font-medium">
-                                        Disponível
-                                      </label>
-                                    </div>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              {form.watch(`items.${index}.isAvailable`) === false && (
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.unavailabilityReason`}
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormControl>
-                                        <Input
-                                          {...field}
-                                          placeholder="Motivo da indisponibilidade"
-                                          readOnly={viewMode === 'view'}
-                                          className="text-xs h-6"
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-2 align-top">
-                            <div className="font-bold text-green-600">
-                              R$ {(() => {
-                                const watchedItem = form.watch(`items.${index}`);
-                                const finalTotal = calculateItemTotal(watchedItem, index);
-                                return isNaN(finalTotal) ? "0,00" : finalTotal.toLocaleString("pt-BR", {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 4,
-                                });
-                              })()}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <SupplierQuotationDataGrid
+                  form={form}
+                  quotationItems={quotationItems}
+                  viewMode={viewMode}
+                />
 
                 {/* Subtotal */}
                 <div className="mt-4 pt-4 border-t border-gray-200">
@@ -1438,57 +888,31 @@ export default function UpdateSupplierQuotation({
                                 : "Valor do Desconto (R$)"}
                             </FormLabel>
                             <FormControl>
-                              <Input
-                                {...field}
-                                placeholder={form.watch("discountType") === "percentage" ? "0" : "0,00"}
-                                type={form.watch("discountType") === "percentage" ? "number" : "text"}
-                                min="0"
-                                max={form.watch("discountType") === "percentage" ? "100" : undefined}
-                                step={form.watch("discountType") === "percentage" ? "0.01" : undefined}
-                                readOnly={viewMode === 'view' || form.watch("discountType") === "none"}
-                                className="w-full"
-                                autoComplete="off"
-                                onChange={(e) => {
-                                  if (viewMode === 'view' || form.watch("discountType") === "none") return;
-                                  
-                                  if (form.watch("discountType") === "percentage") {
-                                    field.onChange(e.target.value);
-                                  } else {
-                                    // Handle currency input for fixed discount
-                                    let inputValue = e.target.value;
-                                    if (/^\d+$/.test(inputValue)) {
-                                      field.onChange(inputValue);
-                                    } else {
-                                      const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                      field.onChange(cleanValue);
-                                    }
-                                  }
-                                }}
-                                onBlur={(e) => {
-                                  if (viewMode === 'view' || form.watch("discountType") !== "fixed") return;
-                                  
-                                  const value = e.target.value;
-                                  if (value) {
-                                    let number;
-                                    if (/^\d+$/.test(value)) {
-                                      number = parseFloat(value);
-                                    } else if (/^\d+[.,]\d+$/.test(value)) {
-                                      number = parseFloat(value.replace(",", "."));
-                                    } else {
-                                      const cleanValue = value.replace(/[^\d.,]/g, "");
-                                      number = parseFloat(cleanValue.replace(",", "."));
-                                    }
-                                    if (!isNaN(number)) {
-                                      const formatted = number.toLocaleString("pt-BR", {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 4,
-                                      });
-                                      field.onChange(formatted);
-                                    }
-                                  }
-                                }}
-                              />
-                            </FormControl>
+                                {form.watch("discountType") === "percentage" ? (
+                                  <Input
+                                    {...field}
+                                    placeholder="0"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    readOnly={viewMode === 'view' || form.watch("discountType") === "none"}
+                                    className="w-full"
+                                    autoComplete="off"
+                                    onChange={(e) => field.onChange(e.target.value)}
+                                  />
+                                ) : (
+                                  <DecimalInput
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    precision={4}
+                                    placeholder="0,0000"
+                                    readOnly={viewMode === 'view' || form.watch("discountType") === "none"}
+                                    className="w-full"
+                                    autoComplete="off"
+                                  />
+                                )}
+                              </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1528,47 +952,14 @@ export default function UpdateSupplierQuotation({
                             <FormItem>
                               <FormLabel>Valor do Frete (R$)</FormLabel>
                               <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder="0,00"
-                                  type="text"
+                                <DecimalInput
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  precision={4}
+                                  placeholder="0,0000"
                                   readOnly={viewMode === 'view'}
                                   className="w-full"
                                   autoComplete="off"
-                                  onChange={(e) => {
-                                    if (viewMode === 'view') return;
-                                    
-                                    let inputValue = e.target.value;
-                                    if (/^\d+$/.test(inputValue)) {
-                                      field.onChange(inputValue);
-                                    } else {
-                                      const cleanValue = inputValue.replace(/[^\d.,]/g, "");
-                                      field.onChange(cleanValue);
-                                    }
-                                  }}
-                                  onBlur={(e) => {
-                                    if (viewMode === 'view') return;
-                                    
-                                    const value = e.target.value;
-                                    if (value) {
-                                      let number;
-                                      if (/^\d+$/.test(value)) {
-                                        number = parseFloat(value);
-                                      } else if (/^\d+[.,]\d+$/.test(value)) {
-                                        number = parseFloat(value.replace(",", "."));
-                                      } else {
-                                        const cleanValue = value.replace(/[^\d.,]/g, "");
-                                        number = parseFloat(cleanValue.replace(",", "."));
-                                      }
-                                      if (!isNaN(number)) {
-                                        const formatted = number.toLocaleString("pt-BR", {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        });
-                                        field.onChange(formatted);
-                                      }
-                                    }
-                                  }}
                                 />
                               </FormControl>
                               <FormMessage />

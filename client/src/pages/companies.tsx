@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2, Building, CheckCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Building, CheckCircle, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,11 +8,45 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Company, InsertCompany } from "@shared/schema";
 import { CNPJInput } from "@/components/cnpj-input";
 import { LogoUpload } from "@/components/logo-upload";
+import { cn } from "@/lib/utils";
+
+interface EmpresaERP {
+  idCompany: number;
+  companyName: string | null;
+  companyTrading: string | null;
+  cnpj: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+}
 
 export default function Companies() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -27,10 +61,24 @@ export default function Companies() {
     phone: "",
     email: "",
     active: true,
+    idCompanyERP: null,
   });
+
+  // State for ERP integration
+  const [openCombobox, setOpenCombobox] = useState(false);
+  const [pendingERPCompany, setPendingERPCompany] = useState<EmpresaERP | null>(null);
+  const [isOverwriteDialogOpen, setIsOverwriteDialogOpen] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: erpCompanies, isLoading: isLoadingERP } = useQuery({
+    queryKey: ["/api/integration/locador/combos/empresas"],
+    queryFn: async () => {
+      return await apiRequest("/api/integration/locador/combos/empresas") as EmpresaERP[];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
 
   const { data: allCompanies, isLoading, error } = useQuery({
     queryKey: ["/api/companies"],
@@ -114,17 +162,70 @@ export default function Companies() {
       phone: "",
       email: "",
       active: true,
+      idCompanyERP: null,
     });
+    setPendingERPCompany(null);
+  };
+
+  const handleSelectERPCompany = (company: EmpresaERP | null) => {
+    if (!company) {
+      // "Nenhuma" selected
+      setFormData(prev => ({ ...prev, idCompanyERP: null }));
+      setOpenCombobox(false);
+      return;
+    }
+
+    // Check for overwrite
+    const hasData = formData.name || formData.tradingName || formData.cnpj || formData.address;
+    
+    if (hasData) {
+      // Update the combobox selection immediately, but ask for confirmation before overwriting data
+      setFormData(prev => ({ ...prev, idCompanyERP: company.idCompany }));
+      setPendingERPCompany(company);
+      setIsOverwriteDialogOpen(true);
+    } else {
+      applyERPData(company);
+    }
+    setOpenCombobox(false);
+  };
+
+  const applyERPData = (company: EmpresaERP) => {
+    setFormData(prev => ({
+      ...prev,
+      name: company.companyName || prev.name,
+      tradingName: company.companyTrading || prev.tradingName || "",
+      cnpj: company.cnpj || prev.cnpj || "",
+      address: company.address || prev.address || "",
+      phone: company.phone || prev.phone || "",
+      email: company.email || prev.email || "",
+      idCompanyERP: company.idCompany,
+    }));
   };
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.idCompanyERP) {
+      toast({
+        title: "Erro de validação",
+        description: "O campo 'Empresa no ERP' é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
     createMutation.mutate(formData);
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingCompany) {
+      if (!formData.idCompanyERP) {
+        toast({
+          title: "Erro de validação",
+          description: "O campo 'Empresa no ERP' é obrigatório.",
+          variant: "destructive",
+        });
+        return;
+      }
       updateMutation.mutate({ id: editingCompany.id, data: formData });
     }
   };
@@ -139,6 +240,7 @@ export default function Companies() {
       phone: company.phone || "",
       email: company.email || "",
       active: company.active,
+      idCompanyERP: company.idCompanyERP || null,
     });
     setIsEditModalOpen(true);
   };
@@ -154,6 +256,138 @@ export default function Companies() {
       updateMutation.mutate({ id, data: { active: true } });
     }
   };
+
+  const CompanyForm = ({ onSubmit, submitLabel, isPending, children }: { onSubmit: (e: React.FormEvent) => void, submitLabel: string, isPending: boolean, children?: React.ReactNode }) => (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="name">Razão Social</Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="tradingName">Nome Fantasia</Label>
+        <Input
+          id="tradingName"
+          value={formData.tradingName || ""}
+          onChange={(e) => setFormData({ ...formData, tradingName: e.target.value })}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <CNPJInput
+            value={formData.cnpj || ""}
+            onChange={(value) => setFormData({ ...formData, cnpj: value })}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Empresa ERP</Label>
+          <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openCombobox}
+                className="w-full justify-between"
+              >
+                {formData.idCompanyERP
+                  ? erpCompanies?.find((c) => c.idCompany === formData.idCompanyERP)?.companyName
+                  : "Selecione o ERP"}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[400px] p-0">
+              <Command>
+                <CommandInput placeholder="Buscar empresa..." />
+                <CommandList>
+                  <CommandEmpty>Nenhuma empresa encontrada.</CommandEmpty>
+                  <CommandGroup>
+                     <CommandItem
+                      value="nenhuma"
+                      onSelect={() => handleSelectERPCompany(null)}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          !formData.idCompanyERP ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      Nenhuma
+                    </CommandItem>
+                    {erpCompanies?.map((company) => (
+                      <CommandItem
+                        key={company.idCompany}
+                        value={company.companyName || ""}
+                        onSelect={() => handleSelectERPCompany(company)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            formData.idCompanyERP === company.idCompany ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {company.companyName}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="address">Endereço</Label>
+        <Input
+          id="address"
+          value={formData.address || ""}
+          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="phone">Telefone</Label>
+          <Input
+            id="phone"
+            value={formData.phone || ""}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+          />
+        </div>
+        <div>
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            value={formData.email || ""}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {children}
+
+      <div className="flex justify-end space-x-2 pt-4">
+        <Button type="button" variant="outline" onClick={() => {
+          setIsCreateModalOpen(false);
+          setIsEditModalOpen(false);
+        }}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Salvando..." : submitLabel}
+        </Button>
+      </div>
+    </form>
+  );
 
   if (isLoading) {
     return (
@@ -208,67 +442,18 @@ export default function Companies() {
               Nova Empresa
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Nova Empresa</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5 text-primary" />
+                Nova Empresa
+              </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Razão Social</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="tradingName">Nome Fantasia</Label>
-                <Input
-                  id="tradingName"
-                  value={formData.tradingName || ""}
-                  onChange={(e) => setFormData({ ...formData, tradingName: e.target.value })}
-                />
-              </div>
-              <CNPJInput
-                value={formData.cnpj || ""}
-                onChange={(value) => setFormData({ ...formData, cnpj: value })}
-                required
-              />
-              <div>
-                <Label htmlFor="address">Endereço</Label>
-                <Input
-                  id="address"
-                  value={formData.address || ""}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Telefone</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone || ""}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email || ""}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Criando..." : "Criar"}
-                </Button>
-              </div>
-            </form>
+            <CompanyForm
+              onSubmit={handleCreateSubmit}
+              submitLabel="Criar"
+              isPending={createMutation.isPending}
+            />
           </DialogContent>
         </Dialog>
         </div>
@@ -367,94 +552,74 @@ export default function Companies() {
       </div>
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Editar Empresa</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5 text-primary" />
+              Editar Empresa
+            </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleEditSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="edit-name">Razão Social</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-tradingName">Nome Fantasia</Label>
-              <Input
-                id="edit-tradingName"
-                value={formData.tradingName || ""}
-                onChange={(e) => setFormData({ ...formData, tradingName: e.target.value })}
-              />
-            </div>
-            <CNPJInput
-              value={formData.cnpj || ""}
-              onChange={(value) => setFormData({ ...formData, cnpj: value })}
-              required
-            />
-            <div>
-              <Label htmlFor="edit-address">Endereço</Label>
-              <Input
-                id="edit-address"
-                value={formData.address || ""}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-phone">Telefone</Label>
-              <Input
-                id="edit-phone"
-                value={formData.phone || ""}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={formData.email || ""}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
+          <CompanyForm
+            onSubmit={handleEditSubmit}
+            submitLabel="Atualizar"
+            isPending={updateMutation.isPending}
+          >
             {editingCompany && (
-              <LogoUpload
-                companyId={editingCompany.id}
-                currentLogoBase64={editingCompany.logoBase64 || undefined}
-                onUploadSuccess={(logoBase64) => {
-                  // Atualizar o estado local e invalidar o cache
-                  queryClient.invalidateQueries({ queryKey: ['/api/companies'] });
-                  toast({
-                    title: "Sucesso",
-                    description: "Logo atualizado com sucesso!",
-                  });
-                }}
-              />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                   <LogoUpload
+                    companyId={editingCompany.id}
+                    currentLogoBase64={editingCompany.logoBase64 || undefined}
+                    onUploadSuccess={(logoBase64) => {
+                      queryClient.invalidateQueries({ queryKey: ['/api/companies'] });
+                      toast({
+                        title: "Sucesso",
+                        description: "Logo atualizado com sucesso!",
+                      });
+                    }}
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="edit-active"
+                    checked={formData.active || false}
+                    onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                    className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <Label htmlFor="edit-active" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Empresa ativa
+                  </Label>
+                </div>
+              </div>
             )}
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="edit-active"
-                checked={formData.active || false}
-                onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-              />
-              <Label htmlFor="edit-active" className="text-sm">
-                Empresa ativa
-              </Label>
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? "Atualizando..." : "Atualizar"}
-              </Button>
-            </div>
-          </form>
+          </CompanyForm>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isOverwriteDialogOpen} onOpenChange={setIsOverwriteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sobrescrever dados?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Os dados da empresa selecionada no ERP (Razão Social, Nome Fantasia, CNPJ, Endereço, etc.) substituirão os dados atuais do formulário. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setPendingERPCompany(null);
+              setIsOverwriteDialogOpen(false);
+            }}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (pendingERPCompany) {
+                applyERPData(pendingERPCompany);
+              }
+              setPendingERPCompany(null);
+              setIsOverwriteDialogOpen(false);
+            }}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

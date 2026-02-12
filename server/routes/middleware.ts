@@ -29,7 +29,11 @@ export async function canApproveRequest(req: Request, res: Response, next: Funct
 
 export async function isAdmin(req: Request, res: Response, next: Function) {
   try {
-    const user = await storage.getUser(req.session.userId!);
+    if (!req.session?.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const user = await storage.getUser(req.session.userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }

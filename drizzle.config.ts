@@ -18,4 +18,7 @@ export default defineConfig({
     url: databaseUrl,
     ssl: false
   },
+  introspect: {
+    out: "./shared/schema.introspected.ts"
+  }
 });

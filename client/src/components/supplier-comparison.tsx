@@ -150,8 +150,8 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
     const selectedSupplier = suppliersData.find(s => s.supplier.id === selectedSupplierId);
     if (!selectedSupplier) return;
 
-    // Preparar lista de itens indisponíveis se necessário
-    const unavailableItemsData = hasUnavailableItems && unavailableItemsOption !== 'none'
+    // Preparar lista de itens indisponíveis
+    const unavailableItemsData = hasUnavailableItems
       ? unavailableItems.map(item => ({
         quotationItemId: item.quotationItemId,
         reason: item.unavailabilityReason || "Item indisponível"
@@ -165,8 +165,8 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
         .map(([itemId, _]) => ({ quotationItemId: parseInt(itemId) }))
       : undefined;
 
-    // Preparar lista de itens NÃO selecionados para cotação separada
-    const nonSelectedItemsData = showItemSelection && nonSelectedItemsOption === 'separate-quotation'
+    // Preparar lista de itens NÃO selecionados
+    const nonSelectedItemsData = showItemSelection
       ? Object.entries(selectedItems)
         .filter(([_, isSelected]) => !isSelected) // Itens NÃO selecionados
         .map(([itemId, _]) => ({ quotationItemId: parseInt(itemId) }))
@@ -339,7 +339,7 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
               )}
               {/* Parametrização de Pesos (colapsável) */}
               <Collapsible open={paramsOpen} onOpenChange={setParamsOpen}>
-                <Card className="mb-6">
+                <Card className="mb-6 transition-colors duration-200">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center gap-1">
@@ -728,12 +728,12 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                                     {item ? (
                                       item.isAvailable === false ? (
                                         <div className="space-y-1">
-                                          <div className="flex items-center justify-center gap-1 text-red-600">
+                                          <div className="flex items-center justify-center gap-1 text-red-600 dark:text-red-400">
                                             <XCircle className="h-4 w-4" />
                                             <span className="font-bold">Indisponível</span>
                                           </div>
                                           {item.unavailabilityReason && (
-                                            <div className="text-xs text-red-600 italic">
+                                            <div className="text-xs text-red-600 dark:text-red-400 italic">
                                               {item.unavailabilityReason}
                                             </div>
                                           )}
@@ -779,21 +779,21 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                                             })}
                                           </div>
                                           {(item.discountPercentage || item.discountValue) && (
-                                            <div className="text-xs text-orange-600">
+                                            <div className="text-xs text-orange-600 dark:text-orange-400">
                                               Vlr. Desconto: {item.discountPercentage
                                                 ? `${item.discountPercentage}%`
                                                 : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
                                               }
                                             </div>
                                           )}
-                                          <div className="text-sm font-bold text-green-700">
+                                          <div className="text-sm font-bold text-green-700 dark:text-green-400">
                                             Vlr Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', {
                                               minimumFractionDigits: 4,
                                               maximumFractionDigits: 4
                                             })}
                                           </div>
                                           {item.deliveryDays && (
-                                            <div className="text-xs text-blue-600">Prazo: {item.deliveryDays} dias</div>
+                                            <div className="text-xs text-blue-600 dark:text-blue-400">Prazo: {item.deliveryDays} dias</div>
                                           )}
                                           {item.brand && (
                                             <div className="text-xs text-muted-foreground">
@@ -808,7 +808,7 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                                         </div>
                                       )
                                     ) : (
-                                      <span className="text-gray-400 text-sm">Não cotado</span>
+                                      <span className="text-muted-foreground text-sm">Não cotado</span>
                                     )}
                                   </td>
                                 );
@@ -823,7 +823,7 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
               </Card>
 
               {/* Observações da Decisão */}
-              <Card className="mb-6">
+              <Card className="mb-6 transition-colors duration-200">
                 <CardHeader>
                   <CardTitle>Observações da Decisão</CardTitle>
                 </CardHeader>
@@ -844,9 +844,9 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
 
               {/* Opções para itens indisponíveis */}
               {selectedSupplierId && hasUnavailableItems && (
-                <Card className="mb-6 border-orange-200 bg-orange-50">
+                <Card className="mb-6 border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 transition-colors duration-200">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-orange-800">
+                    <CardTitle className="flex items-center gap-2 text-orange-800 dark:text-orange-200">
                       <AlertCircle className="h-5 w-5" />
                       Itens Indisponíveis Encontrados
                     </CardTitle>
@@ -854,17 +854,17 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                   <CardContent>
                     <div className="space-y-4">
                       <div>
-                        <p className="font-medium text-orange-800 mb-2">
+                        <p className="font-medium text-orange-800 dark:text-orange-200 mb-2">
                           {unavailableItems.length} item(ns) indisponível(is):
                         </p>
-                        <ul className="list-disc list-inside space-y-1 text-sm text-orange-700">
+                        <ul className="list-disc list-inside space-y-1 text-sm text-orange-700 dark:text-orange-300">
                           {unavailableItems.map((item, index) => {
                             const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
                             return (
                               <li key={index}>
                                 {quotationItem?.description || `Item ${item.quotationItemId}`}
                                 {item.unavailabilityReason && (
-                                  <span className="text-orange-600"> - {item.unavailabilityReason}</span>
+                                  <span className="text-orange-600 dark:text-orange-400"> - {item.unavailabilityReason}</span>
                                 )}
                               </li>
                             );
@@ -873,10 +873,10 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                       </div>
 
                       <div className="space-y-3">
-                        <p className="font-medium text-gray-900">Escolha uma opção para os itens indisponíveis:</p>
+                        <p className="font-medium text-foreground">Escolha uma opção para os itens indisponíveis:</p>
 
                         <div className="space-y-2">
-                          <label className="flex items-start space-x-3 cursor-pointer">
+                          <label className="flex items-start space-x-3 cursor-pointer group">
                             <input
                               type="radio"
                               name="unavailableOption"
@@ -886,12 +886,12 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                               className="mt-1"
                             />
                             <div>
-                              <span className="font-medium">Não realizar nenhuma ação</span>
-                              <p className="text-sm text-gray-600">Prosseguir para Aprovação A2 sem os itens indisponíveis</p>
+                              <span className="font-medium text-foreground group-hover:text-primary transition-colors">Não realizar nenhuma ação</span>
+                              <p className="text-sm text-muted-foreground">Prosseguir para Aprovação A2 sem os itens indisponíveis</p>
                             </div>
                           </label>
 
-                          <label className="flex items-start space-x-3 cursor-pointer">
+                          <label className="flex items-start space-x-3 cursor-pointer group">
                             <input
                               type="radio"
                               name="unavailableOption"
@@ -901,14 +901,14 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                               className="mt-1"
                             />
                             <div>
-                              <span className="font-medium">Criar solicitação aprovada A1 com RFQ gerada</span>
-                              <p className="text-sm text-gray-600">
+                              <span className="font-medium text-foreground group-hover:text-primary transition-colors">Criar solicitação aprovada A1 com RFQ gerada</span>
+                              <p className="text-sm text-muted-foreground">
                                 Mantém fornecedores selecionados anteriormente (exceto o atual) e gera RFQ automaticamente
                               </p>
                             </div>
                           </label>
 
-                          <label className="flex items-start space-x-3 cursor-pointer">
+                          <label className="flex items-start space-x-3 cursor-pointer group">
                             <input
                               type="radio"
                               name="unavailableOption"
@@ -918,8 +918,8 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                               className="mt-1"
                             />
                             <div>
-                              <span className="font-medium">Criar solicitação aprovada A1 aguardando nova RFQ</span>
-                              <p className="text-sm text-gray-600">
+                              <span className="font-medium text-foreground group-hover:text-primary transition-colors">Criar solicitação aprovada A1 aguardando nova RFQ</span>
+                              <p className="text-sm text-muted-foreground">
                                 Criará solicitação na fase de Cotação aguardando criação de nova RFQ
                               </p>
                             </div>
@@ -952,7 +952,7 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                   <CardContent>
                     {showItemSelection ? (
                       <div className="space-y-4">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           Selecione individualmente os itens que deseja adquirir do fornecedor escolhido:
                         </p>
 
@@ -962,7 +962,7 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                             .map((item) => {
                               const quotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
                               return (
-                                <label key={item.id} className="flex items-center space-x-3 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                                <label key={item.id} className="flex items-center space-x-3 p-2 border rounded hover:bg-muted cursor-pointer transition-colors">
                                   <input
                                     type="checkbox"
                                     checked={selectedItems[item.quotationItemId] || false}
@@ -973,10 +973,10 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                                     className="rounded"
                                   />
                                   <div className="flex-1">
-                                    <span className="font-medium">
+                                    <span className="font-medium text-foreground">
                                       {quotationItem?.description || `Item ${item.quotationItemId}`}
                                     </span>
-                                    <div className="text-sm text-gray-600">
+                                    <div className="text-sm text-muted-foreground">
                                       R$ {Number(item.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                                       {item.brand && ` - ${item.brand} ${item.model}`}
                                     </div>
@@ -988,12 +988,12 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
 
                         {/* Opções para itens não selecionados */}
                         <div className="border-t pt-4 space-y-3">
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-foreground">
                             O que fazer com os itens não selecionados?
                           </p>
 
                           <div className="space-y-2">
-                            <label className="flex items-start space-x-3 cursor-pointer">
+                            <label className="flex items-start space-x-3 cursor-pointer group">
                               <input
                                 type="radio"
                                 name="nonSelectedOption"
@@ -1003,12 +1003,12 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                                 className="mt-1"
                               />
                               <div>
-                                <span className="font-medium">Não realizar nenhuma ação</span>
-                                <p className="text-sm text-gray-600">Prosseguir para Aprovação A2 apenas com itens selecionados</p>
+                                <span className="font-medium text-foreground group-hover:text-primary transition-colors">Não realizar nenhuma ação</span>
+                                <p className="text-sm text-muted-foreground">Prosseguir para Aprovação A2 apenas com itens selecionados</p>
                               </div>
                             </label>
 
-                            <label className="flex items-start space-x-3 cursor-pointer">
+                            <label className="flex items-start space-x-3 cursor-pointer group">
                               <input
                                 type="radio"
                                 name="nonSelectedOption"
@@ -1018,15 +1018,15 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                                 className="mt-1"
                               />
                               <div>
-                                <span className="font-medium">Gerar cotação separada para itens não selecionados</span>
-                                <p className="text-sm text-gray-600">
+                                <span className="font-medium text-foreground group-hover:text-primary transition-colors">Gerar cotação separada para itens não selecionados</span>
+                                <p className="text-sm text-muted-foreground">
                                   Criar nova solicitação aprovada A1 com os itens NÃO selecionados,
                                   na fase de Cotação aguardando nova RFQ
                                 </p>
                               </div>
                             </label>
 
-                            <label className="flex items-start space-x-3 cursor-pointer">
+                            <label className="flex items-start space-x-3 cursor-pointer group">
                               <input
                                 type="radio"
                                 name="nonSelectedOption"
@@ -1036,15 +1036,15 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                                 className="mt-1"
                               />
                               <div>
-                                <span className="font-medium">Manter apenas como informação</span>
-                                <p className="text-sm text-gray-600">Salvar informações para ações futuras, sem criar nova solicitação</p>
+                                <span className="font-medium text-foreground group-hover:text-primary transition-colors">Manter apenas como informação</span>
+                                <p className="text-sm text-muted-foreground">Salvar informações para ações futuras, sem criar nova solicitação</p>
                               </div>
                             </label>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Todos os itens disponíveis do fornecedor selecionado serão incluídos na compra.
                         Clique em "Seleção Individual" para escolher itens específicos.
                       </p>
@@ -1054,7 +1054,7 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
               )}
 
 
-              <div className="flex-shrink-0 bg-white/80 border-t sticky bottom-0 z-30 -mx-6 px-6 py-3">
+              <div className="flex-shrink-0 bg-background/80 backdrop-blur-sm border-t sticky bottom-0 z-30 -mx-6 px-6 py-3">
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={onClose}>Cancelar</Button>
                   <Button

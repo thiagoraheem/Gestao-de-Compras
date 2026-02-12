@@ -1,17 +1,19 @@
 export default {
+  rootDir: '..',
   preset: 'ts-jest/presets/default-esm',
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
-  globals: {
-    'ts-jest': {
-      useESM: true
-    }
-  },
-  moduleNameMapping: {
-    '^(\\.{1,2}/.*)\\.js$': '$1'
+  moduleNameMapper: {
+    '^@shared/(.*)$': '<rootDir>/shared/$1'
   },
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
-      useESM: true
+      useESM: true,
+      diagnostics: {
+        ignoreCodes: [1343]
+      },
+      tsconfig: {
+        module: 'es2022'
+      }
     }],
     '^.+\\.(js|jsx)$': ['babel-jest', {
       presets: [

@@ -19,6 +19,7 @@ interface HybridProductInputProps {
   className?: string;
   resetTrigger?: number; // Prop para forçar reset do componente
   maintainSearchMode?: boolean; // Prop para manter modo de busca ativo
+  mode?: "hybrid" | "erp-only";
 }
 
 export function HybridProductInput({
@@ -29,8 +30,10 @@ export function HybridProductInput({
   className,
   resetTrigger,
   maintainSearchMode = false,
+  mode = "hybrid",
 }: HybridProductInputProps) {
-  const [isSearchMode, setIsSearchMode] = useState(false);
+  const isErpOnly = mode === "erp-only";
+  const [isSearchMode, setIsSearchMode] = useState(isErpOnly);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -98,14 +101,19 @@ export function HybridProductInput({
     if (resetTrigger !== undefined) {
       setSelectedProduct(null);
       if (!maintainSearchMode) {
-        setIsSearchMode(false);
+        setIsSearchMode(isErpOnly);
+      } else if (isErpOnly) {
+        setIsSearchMode(true);
       }
       setShowResults(false);
       setSearchTerm("");
     }
-  }, [resetTrigger, maintainSearchMode]);
+  }, [resetTrigger, maintainSearchMode, isErpOnly]);
 
   const handleInputChange = (inputValue: string) => {
+    if (isErpOnly && !isSearchMode) {
+      return;
+    }
     if (isSearchMode) {
       setSearchTerm(inputValue);
     } else {
@@ -133,6 +141,12 @@ export function HybridProductInput({
   };
 
   const toggleSearchMode = () => {
+    if (isErpOnly) {
+      setIsSearchMode((prev) => !prev);
+      setSearchTerm("");
+      setShowResults(false);
+      return;
+    }
     if (isSearchMode) {
       // Saindo do modo busca
       setIsSearchMode(false);
@@ -163,9 +177,10 @@ export function HybridProductInput({
             placeholder={isSearchMode ? "Digite para buscar no ERP..." : placeholder}
             className={cn(
               "pr-10",
-              selectedProduct && "border-green-500 bg-green-50",
+              selectedProduct && "border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600",
               isSearchMode && "border-blue-500"
             )}
+            readOnly={isErpOnly && !isSearchMode}
           />
           
           {selectedProduct && (
@@ -173,7 +188,7 @@ export function HybridProductInput({
               type="button"
               variant="ghost"
               size="sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-green-600 hover:text-green-700"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
               onClick={clearSelection}
             >
               <X className="h-4 w-4" />
@@ -197,8 +212,8 @@ export function HybridProductInput({
 
       {/* Indicador de produto selecionado */}
       {selectedProduct && (
-        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
-          <p className="text-sm text-green-800 font-medium">
+        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md dark:bg-green-900/20 dark:border-green-800">
+          <p className="text-sm text-green-800 font-medium dark:text-green-300">
             ✓ Produto do ERP: {selectedProduct.codigo}
           </p>
         </div>
@@ -208,10 +223,10 @@ export function HybridProductInput({
       {showResults && isSearchMode && (
         <div
           ref={resultsRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+          className="absolute z-50 w-full mt-1 max-h-60 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
         >
           {isLoading ? (
-            <div className="p-3 text-center text-gray-500">
+            <div className="p-3 text-center text-sm text-muted-foreground">
               <div className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full mr-2" />
               Buscando produtos...
             </div>
@@ -221,19 +236,19 @@ export function HybridProductInput({
                 <button
                   key={product.codigo}
                   type="button"
-                  className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                  className="w-full px-3 py-2 text-left outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
                   onClick={() => handleProductSelect(product)}
                 >
-                  <div className="font-medium text-sm">{product.codigo}</div>
-                  <div className="text-xs text-gray-600 truncate">
+                  <div className="text-sm font-medium">{product.codigo}</div>
+                  <div className="text-xs text-muted-foreground truncate">
                     {product.descricao}
                   </div>
-                  <div className="text-xs text-blue-600">{product.unidade}</div>
+                  <div className="text-xs text-primary">{product.unidade}</div>
                 </button>
               ))}
             </div>
           ) : searchTerm.length >= 2 ? (
-            <div className="p-3 text-center text-gray-500 text-sm">
+            <div className="p-3 text-center text-sm text-muted-foreground">
               Nenhum produto encontrado
             </div>
           ) : null}

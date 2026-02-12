@@ -7,6 +7,7 @@ import {
   PurchasePhase,
   PURCHASE_PHASES,
   PHASE_LABELS,
+  ReceiptMode,
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
 import {
@@ -26,6 +27,7 @@ import {
   FileText,
   Printer,
   Mail,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -35,16 +37,21 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState, useMemo, useRef, useEffect } from "react";
-import RequestPhase from "./request-phase";
-import ApprovalA1Phase from "./approval-a1-phase";
-import ApprovalA2Phase from "./approval-a2-phase";
-import QuotationPhase from "./quotation-phase";
-import PurchaseOrderPhase from "./purchase-order-phase";
-import ReceiptPhase, { ReceiptPhaseHandle } from "./receipt-phase";
-import ConclusionPhase, { ConclusionPhaseHandle } from "./conclusion-phase";
-import RequestView from "./request-view";
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
+
+const RequestPhase = lazy(() => import("./request-phase"));
+const ApprovalA1Phase = lazy(() => import("./approval-a1-phase"));
+const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
+const QuotationPhase = lazy(() => import("./quotation-phase"));
+const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
+const ReceiptPhase = lazy(() => import("./receipt-phase"));
+const ConclusionPhase = lazy(() => import("./conclusion-phase"));
+const RequestView = lazy(() => import("./request-view"));
+
+import type { ReceiptPhaseHandle } from "./receipt-phase";
+import type { ConclusionPhaseHandle } from "./conclusion-phase";
+
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertDialog,
@@ -62,6 +69,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { useApprovalType } from "@/hooks/useApprovalType";
 
 interface ApprovalRules {
@@ -84,7 +97,7 @@ interface PurchaseCardProps {
   isDragging?: boolean;
   onCreateRFQ?: (request: any) => void;
   isSearchHighlighted?: boolean;
-  onOpenRequest?: (request: any, phase: PurchasePhase) => void;
+  onOpenRequest?: (request: any, phase: PurchasePhase, mode?: ReceiptMode) => void;
 }
 
 export default function PurchaseCard({
@@ -104,6 +117,8 @@ export default function PurchaseCard({
   const [initialA2Action, setInitialA2Action] = useState<'approve' | 'reject' | null>(null);
   const receiptRef = useRef<ReceiptPhaseHandle | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [receiptMode, setReceiptMode] = useState<'view' | 'physical'>('view');
+  const [returnToReceiptDialog, setReturnToReceiptDialog] = useState<{ isOpen: boolean; requestId: number | null }>({ isOpen: false, requestId: null });
 
   
 
@@ -121,6 +136,7 @@ export default function PurchaseCard({
       onOpenRequest(request, phase);
       return;
     }
+    setReceiptMode('view');
     setIsEditModalOpen(true);
   };
 
@@ -387,65 +403,9 @@ export default function PurchaseCard({
     },
   });
 
-  const confirmReceiptMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest(
-        `/api/purchase-requests/${request.id}/confirm-receipt`,
-        {
-          method: "POST",
-          body: {
-            receivedById: user?.id,
-          },
-        },
-      );
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      toast({
-        title: "Sucesso",
-        description: "Recebimento confirmado! Item movido para Conclusão.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível confirmar o recebimento",
-        variant: "destructive",
-      });
-    },
-  });
 
-  const reportIssueMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest(
-        `/api/purchase-requests/${request.id}/report-issue`,
-        {
-          method: "POST",
-          body: {
-            reportedById: user?.id,
-          },
-        },
-      );
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      toast({
-        title: "Pendência Reportada",
-        description:
-          "Item retornado para Pedido de Compra com tag de pendência.",
-        variant: "destructive",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível reportar a pendência",
-        variant: "destructive",
-      });
-    },
-  });
+
+
 
   const advanceToReceiptMutation = useMutation({
     mutationFn: async () => {
@@ -679,8 +639,9 @@ export default function PurchaseCard({
       phase === PURCHASE_PHASES.APROVACAO_A1 || // Allow dragging from A1 (permission check happens in kanban-board)
       phase === PURCHASE_PHASES.APROVACAO_A2 || // Allow dragging from A2 (permission check happens in kanban-board)
       phase === PURCHASE_PHASES.PEDIDO_COMPRA || // Allow dragging from purchase order phase
-      phase === PURCHASE_PHASES.RECEBIMENTO;
-  }, [canDrag, phase]); // Allow dragging from receipt phase
+      phase === PURCHASE_PHASES.RECEBIMENTO || // Allow dragging from receipt phase
+      phase === PURCHASE_PHASES.CONF_FISCAL; // Allow dragging from fiscal confirmation phase
+  }, [canDrag, phase]);
 
   const canEditInApprovalPhase =
     phase === PURCHASE_PHASES.ARQUIVADO || // Always allow viewing history in archived phase
@@ -689,15 +650,64 @@ export default function PurchaseCard({
     (phase !== PURCHASE_PHASES.APROVACAO_A1 &&
       phase !== PURCHASE_PHASES.APROVACAO_A2);
 
+  const returnToReceiptMutation = useMutation({
+    mutationFn: async (requestId: number) => {
+      await apiRequest(`/api/requests/${requestId}/return-to-receipt`, {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Sucesso",
+        description: "Solicitação retornada para Recebimento Físico.",
+      });
+      setReturnToReceiptDialog({ isOpen: false, requestId: null });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao retornar solicitação",
+        variant: "destructive",
+      });
+      setReturnToReceiptDialog({ isOpen: false, requestId: null });
+    },
+  });
+
   return (
     <>
-      <Card
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-        data-request-id={request.id}
-        onClick={handleCardClick}
-        className={cn(
+      <AlertDialog open={returnToReceiptDialog.isOpen} onOpenChange={(open) => !open && setReturnToReceiptDialog({ isOpen: false, requestId: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Retorno de Fase</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta operação irá excluir permanentemente o processo de recebimento deste pedido e removerá todas as informações de nota fiscal cadastradas. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (returnToReceiptDialog.requestId) {
+                  returnToReceiptMutation.mutate(returnToReceiptDialog.requestId);
+                }
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ContextMenu>
+        <ContextMenuTrigger>
+          <Card
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            data-request-id={request.id}
+            onClick={handleCardClick}
+            className={cn(
           "mb-2 cursor-pointer select-none rounded-lg shadow-sm border-border",
           isDragging && "opacity-50",
           sortableIsDragging && "opacity-50",
@@ -1049,25 +1059,23 @@ export default function PurchaseCard({
               {/* Receipt Actions */}
               {phase === PURCHASE_PHASES.RECEBIMENTO && canPerformReceiptActions && (
                 <>
+
+                  
+                  {/* Physical Receipt Button */}
                   <button
-                    className="px-3 py-1.5 text-xs font-semibold text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/40 rounded-md hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
+                    className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
                     onClick={(e) => {
                       e.stopPropagation();
-                      reportIssueMutation.mutate();
+                      setReceiptMode('physical');
+                      if (onOpenRequest) {
+                        onOpenRequest(request, PURCHASE_PHASES.RECEBIMENTO, 'physical');
+                      } else {
+                        setIsEditModalOpen(true);
+                      }
                     }}
-                    disabled={reportIssueMutation.isPending}
+                    disabled={!!request.physicalReceiptAt}
                   >
-                    Pendência
-                  </button>
-                  <button
-                    className="px-3 py-1.5 text-xs font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 rounded-md hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      confirmReceiptMutation.mutate();
-                    }}
-                    disabled={confirmReceiptMutation.isPending}
-                  >
-                    Confirmar
+                    {request.physicalReceiptAt ? "Físico OK" : "Confirmar"}
                   </button>
                 </>
               )}
@@ -1090,45 +1098,66 @@ export default function PurchaseCard({
           </div>
         </CardContent>
       </Card >
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        {phase === PURCHASE_PHASES.CONF_FISCAL && (user?.isAdmin || user?.isReceiver || user?.isBuyer || user?.isManager) && (
+          <ContextMenuItem
+            onClick={() => setReturnToReceiptDialog({ isOpen: true, requestId: request.id })}
+            className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Retornar para Recebimento
+          </ContextMenuItem>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
       {/* Phase-specific Edit Modals */}
       {
         phase === PURCHASE_PHASES.SOLICITACAO && (
-          <RequestPhase
-            request={request}
-            open={isEditModalOpen}
-            onOpenChange={(open) => setIsEditModalOpen(open)}
-          />
+          <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+            <RequestPhase
+              request={request}
+              open={isEditModalOpen}
+              onOpenChange={(open) => setIsEditModalOpen(open)}
+            />
+          </Suspense>
         )
       }
       {
         phase === PURCHASE_PHASES.APROVACAO_A1 && (
-          <ApprovalA1Phase
-            request={request}
-            open={isEditModalOpen}
-            onOpenChange={(open) => setIsEditModalOpen(open)}
-          />
+          <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+            <ApprovalA1Phase
+              request={request}
+              open={isEditModalOpen}
+              onOpenChange={(open) => setIsEditModalOpen(open)}
+            />
+          </Suspense>
         )
       }
       {
         phase === PURCHASE_PHASES.APROVACAO_A2 && (
-          <ApprovalA2Phase
-            request={request}
-            open={isEditModalOpen}
-            onOpenChange={(open) => {
-              setIsEditModalOpen(open);
-              if (!open) setInitialA2Action(null);
-            }}
-            initialAction={initialA2Action}
-          />
+          <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+            <ApprovalA2Phase
+              request={request}
+              open={isEditModalOpen}
+              onOpenChange={(open) => {
+                setIsEditModalOpen(open);
+                if (!open) setInitialA2Action(null);
+              }}
+              initialAction={initialA2Action}
+            />
+          </Suspense>
         )
       }
       {
         phase === PURCHASE_PHASES.COTACAO && (
-          <QuotationPhase
-            request={request}
-            open={isEditModalOpen}
-            onOpenChange={(open) => setIsEditModalOpen(open)}
-          />
+          <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+            <QuotationPhase
+              request={request}
+              open={isEditModalOpen}
+              onOpenChange={(open) => setIsEditModalOpen(open)}
+            />
+          </Suspense>
         )
       }
       {
@@ -1165,12 +1194,14 @@ export default function PurchaseCard({
                 <p id="purchase-order-phase-desc" className="sr-only">Tela de pedido de compra da solicitação</p>
               </div>
               <div className="px-6 pt-0 pb-2">
-                <PurchaseOrderPhase
-                  request={request}
-                  onClose={() => setIsEditModalOpen(false)}
-                  onPreviewOpen={() => setIsPreviewOpen(true)}
-                  onPreviewClose={() => setIsPreviewOpen(false)}
-                />
+                <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                  <PurchaseOrderPhase
+                    request={request}
+                    onClose={() => setIsEditModalOpen(false)}
+                    onPreviewOpen={() => setIsPreviewOpen(true)}
+                    onPreviewClose={() => setIsPreviewOpen(false)}
+                  />
+                </Suspense>
               </div>
             </DialogContent>
           </Dialog>
@@ -1222,13 +1253,17 @@ export default function PurchaseCard({
                 <p id="receipt-phase-desc" className="sr-only">Tela de recebimento de material da solicitação</p>
               </div>
               <div className="px-6 pt-0 pb-2">
-                <ReceiptPhase
-                  request={request}
-                  onClose={() => setIsEditModalOpen(false)}
-                  ref={receiptRef}
-                  onPreviewOpen={() => setIsPreviewOpen(true)}
-                  onPreviewClose={() => setIsPreviewOpen(false)}
-                />
+                <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                  <ReceiptPhase
+                    request={request}
+                    onClose={() => setIsEditModalOpen(false)}
+                    ref={receiptRef}
+                    onPreviewOpen={() => setIsPreviewOpen(true)}
+                    onPreviewClose={() => setIsPreviewOpen(false)}
+                    mode={receiptMode}
+                    compactHeader
+                  />
+                </Suspense>
               </div>
             </DialogContent>
           </Dialog>
@@ -1277,11 +1312,13 @@ export default function PurchaseCard({
               </div>
               <p id="conclusion-phase-desc" className="sr-only">Tela de conclusão de compra da solicitação</p>
               <div className="px-6 pt-0 pb-2">
-                <ConclusionPhase
-                  request={request}
-                  onClose={() => setIsEditModalOpen(false)}
-                  ref={conclusionRef}
-                />
+                <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                  <ConclusionPhase
+                    request={request}
+                    onClose={() => setIsEditModalOpen(false)}
+                    ref={conclusionRef}
+                  />
+                </Suspense>
               </div>
             </DialogContent>
           </Dialog>
@@ -1299,10 +1336,12 @@ export default function PurchaseCard({
               className="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-y-auto w-full mx-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <RequestView
-                request={request}
-                onClose={() => setIsEditModalOpen(false)}
-              />
+              <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                <RequestView
+                  request={request}
+                  onClose={() => setIsEditModalOpen(false)}
+                />
+              </Suspense>
             </div>
           </div>
         )

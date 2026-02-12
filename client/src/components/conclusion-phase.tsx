@@ -1,4 +1,4 @@
-import { useState, useMemo, forwardRef, useImperativeHandle } from "react";
+import { useState, useMemo, forwardRef, useImperativeHandle, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +41,10 @@ import {
   Phone,
   ExternalLink,
   Star,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw,
+  Activity,
+  PieChart
 } from "lucide-react";
 import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -153,6 +156,124 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
   const { data: quotationAttachments = [], isLoading: quotationAttachmentsLoading } = useQuery<any[]>({
     queryKey: [`/api/quotations/${quotation?.id}/attachments`],
     enabled: !!quotation?.id,
+  });
+
+  // Fetch receipts linked to this request (now returns an array)
+  const { data: receipts = [], isLoading: receiptsLoading } = useQuery<any[]>({
+    queryKey: [`/api/receipts/request/${request.id}`],
+    enabled: !!request.id,
+    refetchInterval: 5000,
+  });
+
+  // Data Integrity Validation
+  const [dataIntegrityIssues, setDataIntegrityIssues] = useState<string[]>([]);
+  
+  useEffect(() => {
+    if (itemsLoading || receiptsLoading) return;
+
+    const issues: string[] = [];
+    const totalOrdered = purchaseOrderItems.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0), 0);
+    const totalReceived = purchaseOrderItems.reduce((acc, item) => acc + (parseFloat(item.quantityReceived) || 0), 0);
+    
+    // 1. Validation: Check if received quantity matches recorded receipts
+    if (receipts.length > 0) {
+       const totalInReceipts = receipts.reduce((acc: number, r: any) => {
+          return acc + (r.items?.reduce((iAcc: number, item: any) => iAcc + (parseFloat(item.quantity) || 0), 0) || 0);
+       }, 0);
+       
+       if (Math.abs(totalReceived - totalInReceipts) > 0.01) {
+          console.warn(`Discrepância de quantidade: Total recebido no pedido (${totalReceived}) difere da soma das notas fiscais (${totalInReceipts})`);
+       }
+    } else if (totalReceived > 0) {
+       issues.push("Atenção: Existem registros de recebimento legados sem notas fiscais vinculadas. Os dados foram preservados e estão exibidos abaixo.");
+    }
+
+    setDataIntegrityIssues(issues);
+  }, [itemsLoading, receiptsLoading, purchaseOrderItems, receipts]);
+
+  // Derived state for backward compatibility and summary
+  const latestReceipt = useMemo(() => {
+    if (!receipts || receipts.length === 0) return null;
+    return receipts[0]; // Backend sorts by created_at DESC
+  }, [receipts]);
+
+  // Use latest receipt for legacy checks or default to first
+  const receipt = latestReceipt;
+  const receiptLoading = receiptsLoading;
+
+  // Fetch audit logs for detailed history
+  const { data: auditLogs = [], isLoading: auditLogsLoading } = useQuery<any[]>({
+    queryKey: [`/api/audit/logs/${request.id}`],
+    enabled: !!request.id,
+    refetchInterval: 5000,
+  });
+
+  // ERP Logs State
+  const [erpLogs, setErpLogs] = useState<{ time: Date; message: string; type: 'info' | 'success' | 'error' }[]>([]);
+
+  // Parse receipt observations for ERP info
+  const receiptObs = useMemo(() => {
+    if (!receipt?.observations) return {};
+    try {
+      return typeof receipt.observations === 'string' ? JSON.parse(receipt.observations) : receipt.observations;
+    } catch { return {}; }
+  }, [receipt]);
+
+  const lastErpAttempt = receiptObs.lastErpAttempt || receiptObs.erp;
+
+  // Update local logs from persisted data if available
+  useEffect(() => {
+    if (lastErpAttempt) {
+      setErpLogs(prev => {
+        // Avoid duplicate logs if already present
+        const isDuplicate = prev.some(l => l.message === lastErpAttempt.message && Math.abs(l.time.getTime() - new Date(lastErpAttempt.time).getTime()) < 1000);
+        if (isDuplicate) return prev;
+
+        return [
+          {
+            time: new Date(lastErpAttempt.time),
+            message: lastErpAttempt.message,
+            type: lastErpAttempt.success ? 'success' : 'error'
+          },
+          ...prev
+        ];
+      });
+    }
+  }, [lastErpAttempt]);
+
+  // Retry ERP Mutation
+  const retryErpMutation = useMutation({
+    mutationFn: async () => {
+      if (!receipt?.id) throw new Error("Nota fiscal não encontrada");
+      
+      setErpLogs(prev => [{ time: new Date(), message: "Iniciando reenvio para o ERP...", type: 'info' }, ...prev]);
+      
+      return apiRequest(`/api/recebimentos/${receipt.id}/enviar-locador`, {
+        method: "POST",
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/receipts/request/${request.id}`] });
+      
+      const isSuccess = data.status_integracao === 'integrada' || data.status_integracao === 'sucesso';
+      const message = data.mensagem || (isSuccess ? "Integrado com sucesso" : "Erro na integração");
+      
+      setErpLogs(prev => [{ 
+         time: new Date(), 
+         message: `ERP Resposta: ${message}`, 
+         type: isSuccess ? 'success' : 'error' 
+      }, ...prev]);
+      
+      if (!isSuccess) {
+         toast({ title: "Aviso ERP", description: `Erro na integração: ${message}`, variant: "destructive" });
+      } else {
+         toast({ title: "Sucesso", description: "Reenvio ao ERP realizado com sucesso!" });
+      }
+    },
+    onError: (err: any) => {
+      setErpLogs(prev => [{ time: new Date(), message: `Falha no envio: ${err.message}`, type: 'error' }, ...prev]);
+      toast({ title: "Erro", description: err.message || "Erro ao reenviar para ERP", variant: "destructive" });
+    }
   });
 
   // Archive mutation
@@ -753,7 +874,17 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
 
   // Get status indicators
   const getItemStatus = (item: any) => {
-    // Mock status based on item data - in real app this would come from receipt data
+    // If we have explicit quantityReceived (from backend fix), use it
+    if (item.quantityReceived !== undefined && item.quantityReceived !== null) {
+      const received = Number(item.quantityReceived);
+      const requested = Number(item.requestedQuantity || item.quantity || 0);
+      
+      if (received >= requested && requested > 0) return 'received';
+      if (received > 0) return 'pending'; // Partial receipt
+      return 'pending';
+    }
+
+    // Fallback logic if needed
     return item.requestedQuantity > 0 ? 'received' : 'pending';
   };
 
@@ -904,6 +1035,23 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
         </div>
       ) : (
       <div className="space-y-6">
+        {/* Data Integrity Warnings */}
+        {dataIntegrityIssues.length > 0 && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <h4 className="flex items-center gap-2 font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+              <AlertTriangle className="h-4 w-4" />
+              Avisos de Integridade de Dados
+            </h4>
+            <ul className="list-disc list-inside space-y-1">
+              {dataIntegrityIssues.map((issue, idx) => (
+                <li key={idx} className="text-sm text-yellow-700 dark:text-yellow-300">
+                  {issue}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Process Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
@@ -1138,43 +1286,255 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
           </CardContent>
         </Card>
 
-        {/* Receipt Data */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Dados do Recebimento
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Data do Recebimento</span>
-                  <p>{format(new Date(request.updatedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Responsável pelo Recebimento</span>
-                  <p>{request.receivedBy || 'Sistema Automático'}</p>
-                </div>
-              </div>
+        {/* Physical Receipt Section */}
+        {receipts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="h-5 w-5" />
+                Recebimento Físico
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-8">
+                {receipts.map((currentReceipt: any, index: number) => (
+                  <div key={currentReceipt.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4 bg-muted/30 p-2 rounded">
+                        <div className="flex items-center gap-3">
+                            <Badge variant="outline">#{index + 1}</Badge>
+                            <h3 className="font-semibold text-sm flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                Nota Fiscal: {currentReceipt.documentNumber} (Série: {currentReceipt.documentSeries})
+                            </h3>
+                        </div>
+                         <Badge 
+                            variant={['conf_fisica', 'nf_confirmada', 'conferida', 'completed', 'fiscal_conferida'].includes(currentReceipt.status) ? 'default' : 'secondary'} 
+                            className={['conf_fisica', 'nf_confirmada', 'conferida', 'completed', 'fiscal_conferida'].includes(currentReceipt.status) ? "bg-green-100 text-green-800" : ""}
+                        >
+                            {['conf_fisica', 'nf_confirmada', 'conferida', 'completed', 'fiscal_conferida'].includes(currentReceipt.status) ? 'Concluído' : 'Pendente'}
+                        </Badge>
+                    </div>
 
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Status da Conferência</span>
-                  <Badge variant="default" className="bg-green-100 text-green-800">
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Conforme
-                  </Badge>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Observações</span>
-                  <p>{request.receiptObservations || 'Recebimento sem observações'}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div className="space-y-4">
+                        <div>
+                            <span className="text-sm font-medium text-muted-foreground">Data do Recebimento</span>
+                            <p>{currentReceipt.received_at ? format(new Date(currentReceipt.received_at), "dd/MM/yyyy HH:mm", { locale: ptBR }) : (currentReceipt.created_at ? format(new Date(currentReceipt.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Pendente')}</p>
+                        </div>
+                        <div>
+                            <span className="text-sm font-medium text-muted-foreground">Responsável pelo Recebimento</span>
+                            <p>{currentReceipt.receiver_first_name} {currentReceipt.receiver_last_name}</p>
+                        </div>
+                        </div>
+                        <div className="space-y-4">
+                        <div>
+                            <span className="text-sm font-medium text-muted-foreground">Observações</span>
+                            <p>{(typeof currentReceipt.observations === 'string' ? JSON.parse(currentReceipt.observations) : currentReceipt.observations)?.physical || (typeof currentReceipt.observations === 'string' ? JSON.parse(currentReceipt.observations) : currentReceipt.observations)?.general || 'Sem observações'}</p>
+                        </div>
+                        </div>
+                    </div>
+
+                    {/* Nested Items Received Table */}
+                    <div className="mt-4">
+                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                            <Package className="h-4 w-4" /> Itens desta Nota
+                        </h4>
+                        <div className="overflow-x-auto border rounded-md">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/50">
+                                    <tr className="border-b">
+                                        <th className="text-left py-2 px-3">Item</th>
+                                        <th className="text-left py-2 px-3">Unidade</th>
+                                        <th className="text-right py-2 px-3">Qtd. Recebida</th>
+                                        <th className="text-right py-2 px-3">Preço Unit.</th>
+                                        <th className="text-right py-2 px-3">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {currentReceipt.items?.map((item: any) => (
+                                        <tr key={item.id} className="border-b last:border-0">
+                                            <td className="py-2 px-3">{item.description}</td>
+                                            <td className="py-2 px-3">{item.unit}</td>
+                                            <td className="text-right py-2 px-3 font-medium">{formatQuantity(item.quantity)}</td>
+                                            <td className="text-right py-2 px-3">{parseFloat(item.unitPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                            <td className="text-right py-2 px-3">{parseFloat(item.totalPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                        </tr>
+                                    ))}
+                                    {(!currentReceipt.items || currentReceipt.items.length === 0) && (
+                                        <tr><td colSpan={5} className="text-center py-4 text-muted-foreground">Nenhum item encontrado nesta nota.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                  </div>
+                ))}
+
+                {/* Physical Receipt History */}
+                <div className="border rounded-md p-4 bg-muted/20">
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <History className="h-4 w-4" />
+                    Histórico Completo de Recebimento
+                    </h4>
+                    <div className="space-y-3">
+                    {auditLogs
+                        .filter((log: any) => 
+                        (log.actionType && (log.actionType.includes('receipt') || log.actionType === 'recebimento_fisico')) || 
+                        (log.action && log.action.includes('receipt')) || 
+                        log.entityType === 'receipt'
+                        )
+                        .map((log: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-start text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
+                        <div>
+                            <span className="font-medium">{log.action || 'Ação desconhecida'}</span>
+                            <p className="text-muted-foreground text-xs">{log.first_name} {log.last_name}</p>
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(log.performed_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </span>
+                        </div>
+                    ))}
+                    {auditLogs.filter((log: any) => 
+                        (log.actionType && (log.actionType.includes('receipt') || log.actionType === 'recebimento_fisico')) || 
+                        (log.action && log.action.includes('receipt')) || 
+                        log.entityType === 'receipt'
+                    ).length === 0 && (
+                        <p className="text-sm text-muted-foreground">Nenhum histórico registrado.</p>
+                    )}
+                    </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Fiscal Conference Section */}
+        {receipts.some((r: any) => ['conferida', 'nf_confirmada', 'fiscal_conferida'].includes(r.status)) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Conferência Fiscal
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-8">
+              {receipts
+                .filter((r: any) => ['conferida', 'nf_confirmada', 'fiscal_conferida'].includes(r.status))
+                .map((currentReceipt: any, index: number) => {
+                  const obs = typeof currentReceipt.observations === 'string' ? JSON.parse(currentReceipt.observations) : currentReceipt.observations;
+                  
+                  return (
+                  <div key={currentReceipt.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4 bg-muted/30 p-2 rounded">
+                        <div className="flex items-center gap-3">
+                            <Badge variant="outline">#{index + 1}</Badge>
+                            <h3 className="font-semibold text-sm flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                Nota Fiscal: {currentReceipt.documentNumber} (Série: {currentReceipt.documentSeries})
+                            </h3>
+                        </div>
+                        <Badge 
+                            variant="default" 
+                            className="bg-green-100 text-green-800"
+                        >
+                            Conferido
+                        </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div className="space-y-4">
+                        <div>
+                            <span className="text-sm font-medium text-muted-foreground">Data da Conferência</span>
+                            <p>{currentReceipt.approval_date ? format(new Date(currentReceipt.approval_date), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Data não registrada'}</p>
+                        </div>
+                        <div>
+                            <span className="text-sm font-medium text-muted-foreground">Fiscal Responsável</span>
+                            <p>{currentReceipt.approver_first_name ? `${currentReceipt.approver_first_name} ${currentReceipt.approver_last_name}` : 'Usuário não identificado'}</p>
+                        </div>
+                        </div>
+                        <div className="space-y-4">
+                             <div>
+                                <span className="text-sm font-medium text-muted-foreground">Observações Fiscais</span>
+                                <p>{obs?.fiscal || obs?.general || 'Sem observações'}</p>
+                             </div>
+                        </div>
+                    </div>
+
+                    {/* ERP Integration Details */}
+                    {obs?.erp && (
+                      <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-md border">
+                        <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <Activity className="h-4 w-4" /> Integração ERP
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Status:</span>
+                            <span className={`ml-2 font-medium ${obs.erp.success ? 'text-green-600' : 'text-red-600'}`}>
+                              {obs.erp.success ? 'Sucesso' : 'Erro'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Mensagem:</span>
+                            <span className="ml-2">{obs.erp.message || '-'}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Data:</span>
+                            <span className="ml-2">{obs.erp.time ? format(new Date(obs.erp.time), "dd/MM/yyyy HH:mm", { locale: ptBR }) : '-'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rateio Information */}
+                    {obs?.rateio && (
+                      <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-md border">
+                         <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                           <PieChart className="h-4 w-4" /> Dados de Rateio
+                         </h4>
+                         <div className="space-y-2">
+                            {obs.rateio.allocations?.map((alloc: any, i: number) => (
+                                <div key={i} className="flex justify-between text-sm border-b last:border-0 pb-1">
+                                    <span>{alloc.costCenterName || `Centro de Custo ${alloc.costCenterId}`}</span>
+                                    <span className="font-mono">
+                                        {parseFloat(alloc.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        {alloc.percentage && ` (${alloc.percentage}%)`}
+                                    </span>
+                                </div>
+                            ))}
+                         </div>
+                      </div>
+                    )}
+                    
+                    {/* Financial Info */}
+                     {obs?.financial && (
+                      <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-md border">
+                         <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                           <DollarSign className="h-4 w-4" /> Dados Financeiros
+                         </h4>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <span className="text-muted-foreground">Vencimento:</span>
+                                <span className="ml-2">{obs.financial.invoiceDueDate ? format(new Date(obs.financial.invoiceDueDate), "dd/MM/yyyy", { locale: ptBR }) : '-'}</span>
+                            </div>
+                            {obs.financial.paymentMethodCode && (
+                                <div>
+                                    <span className="text-muted-foreground">Forma de Pagamento:</span>
+                                    <span className="ml-2">{obs.financial.paymentMethodCode}</span>
+                                </div>
+                            )}
+                         </div>
+                      </div>
+                    )}
+
+                  </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Complete Process Timeline */}
         <ProcessTimeline timeline={completeTimeline} isLoading={timelineLoading} />
@@ -1308,152 +1668,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
           </CardContent>
         </Card>
 
-        {/* Items Received */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Itens Recebidos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">Item</th>
-                    <th className="text-left py-2">Unidade</th>
-                    <th className="text-right py-2">Qtd. Solicitada</th>
-                    <th className="text-right py-2">Qtd. do Pedido</th>
-                    <th className="text-right py-2">Qtd. Recebida</th>
-                    <th className="text-right py-2">Preço Unitário</th>
-                    <th className="text-right py-2">Total</th>
-                    <th className="text-center py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {purchaseOrderItems.length > 0 ? purchaseOrderItems.map((purchaseItem: any) => {
-                    // Encontrar o item original da solicitação para comparação
-                    const originalItem = items.find((item: any) =>
-                      item.description === purchaseItem.description ||
-                      item.id === purchaseItem.purchaseRequestItemId
-                    );
 
-                    const status = getItemStatus(purchaseItem);
-
-                    // Usar dados do pedido de compra
-                    const unitPrice = parseFloat(purchaseItem.unitPrice) || 0;
-                    const purchaseQuantity = parseFloat(purchaseItem.quantity) || 0;
-                    const originalQuantity = originalItem ? parseFloat(originalItem.requestedQuantity) || 0 : purchaseQuantity;
-                    const total = parseFloat(purchaseItem.totalPrice) || (purchaseQuantity * unitPrice);
-
-                    return (
-                      <tr key={purchaseItem.id} className="border-b border-border">
-                        <td className="py-2">
-                          <div>
-                            <p className="font-medium">{purchaseItem.description}</p>
-                            {purchaseItem.specifications && (
-                              <p className="text-sm text-muted-foreground">{purchaseItem.specifications}</p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-2">{purchaseItem.unit}</td>
-                        <td className="text-right py-2">{formatQuantity(originalQuantity)}</td>
-                        <td className="text-right py-2 font-medium text-blue-600 dark:text-blue-400">{formatQuantity(purchaseQuantity)}</td>
-                        <td className="text-right py-2 font-medium text-green-600 dark:text-green-400">{formatQuantity(purchaseQuantity)}</td>
-                        <td className="text-right py-2">
-                          {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </td>
-                        <td className="text-right py-2 font-medium">
-                          {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </td>
-                        <td className="text-center py-2">
-                          <div className="flex items-center justify-center gap-1">
-                            {getStatusIcon(status)}
-                            {getStatusBadge(status)}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }) : (
-                    // Fallback para usar itens da solicitação se não houver itens do pedido de compra
-                    items.filter((item: any) => {
-                      // Filter out unavailable items
-                      const supplierItem = supplierQuotationItems.find((sqi: any) => {
-                        if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
-                          return true;
-                        }
-                        return sqi.description === item.description ||
-                          sqi.itemCode === item.itemCode ||
-                          sqi.quotationItemId === item.id ||
-                          (sqi.description && item.description &&
-                            sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
-                      });
-                      return !supplierItem || supplierItem.isAvailable !== false;
-                    }).map((item: any) => {
-                      const status = getItemStatus(item);
-
-                      // Find matching supplier quotation item with multiple criteria
-                      const supplierItem = supplierQuotationItems.find((sqi: any) => {
-                        // First try by purchaseRequestItemId (most reliable)
-                        if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
-                          return true;
-                        }
-                        // Fallback: try by description, item code, quotationItemId, or normalized description
-                        return sqi.description === item.description ||
-                          sqi.itemCode === item.itemCode ||
-                          sqi.quotationItemId === item.id ||
-                          (sqi.description && item.description &&
-                            sqi.description.toLowerCase().trim() === item.description.toLowerCase().trim());
-                      });
-
-                      // Get unit price with better fallback logic
-                      let unitPrice = 0;
-                      if (supplierItem) {
-                        unitPrice = parseFloat(supplierItem.unitPrice) || 0;
-                      } else if (selectedSupplierQuotation?.totalValue && items.length === 1) {
-                        // If only one item and we have total value, use it as unit price
-                        unitPrice = parseFloat(selectedSupplierQuotation.totalValue) || 0;
-                      }
-
-                      const quantity = parseFloat(item.requestedQuantity) || 0;
-                      const total = quantity * unitPrice;
-
-                      return (
-                        <tr key={item.id} className="border-b border-border">
-                          <td className="py-2">
-                            <div>
-                              <p className="font-medium">{item.description}</p>
-                              {item.specifications && (
-                                <p className="text-sm text-muted-foreground">{item.specifications}</p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-2">{item.unit}</td>
-                          <td className="text-right py-2">{formatQuantity(quantity)}</td>
-                          <td className="text-right py-2 font-medium text-blue-600 dark:text-blue-400">{formatQuantity(quantity)}</td>
-                          <td className="text-right py-2 font-medium text-green-600 dark:text-green-400">{formatQuantity(quantity)}</td>
-                          <td className="text-right py-2">
-                            {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                          </td>
-                          <td className="text-right py-2 font-medium">
-                            {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                          </td>
-                          <td className="text-center py-2">
-                            <div className="flex items-center justify-center gap-1">
-                              {getStatusIcon(status)}
-                              {getStatusBadge(status)}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Attachments */}
         <Card>

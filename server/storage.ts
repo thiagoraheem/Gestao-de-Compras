@@ -22,6 +22,7 @@ import {
   approvalHistory,
   approvalConfigurations,
   configurationHistory,
+  auditLogs,
   quantityAdjustmentHistory,
   type User,
   type InsertUser,
@@ -61,9 +62,21 @@ import {
   type InsertApprovalConfiguration,
   type ConfigurationHistory,
   type InsertConfigurationHistory,
-} from "@shared/schema";
+  type Receipt,
+  type InsertReceipt,
+  type ReceiptItem,
+  type InsertReceiptItem,
+  receiptNfXmls,
+  receiptInstallments,
+  receiptAllocations,
+  approvedQuotationItems,
+  quotationVersionHistory,
+  type ApprovedQuotationItem,
+  type InsertApprovedQuotationItem,
+  type PurchaseRequestWithDetails,
+} from "../shared/schema";
 import { db, pool } from "./db";
-import { eq, and, desc, like, sql, gt, count, or, isNull } from "drizzle-orm";
+import { eq, and, desc, like, sql, gt, count, or, isNull, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import bcrypt from "bcryptjs";
 
@@ -169,7 +182,7 @@ export interface IStorage {
   deleteDeliveryLocation(id: number): Promise<void>;
 
   // Purchase Request operations
-  getAllPurchaseRequests(): Promise<PurchaseRequest[]>;
+  getAllPurchaseRequests(companyId?: number, user?: User): Promise<PurchaseRequest[]>;
   getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined>;
   getPurchaseRequestByNumber(requestNumber: string): Promise<PurchaseRequest | undefined>;
   createPurchaseRequest(
@@ -179,7 +192,7 @@ export interface IStorage {
     id: number,
     request: Partial<InsertPurchaseRequest>,
   ): Promise<PurchaseRequest>;
-  getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequest[]>;
+  getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequestWithDetails[]>;
   getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]>;
   getPurchaseRequestsForReport(filters: any): Promise<any[]>;
   deletePurchaseRequest(id: number): Promise<void>;
@@ -248,6 +261,11 @@ export interface IStorage {
     item: Partial<InsertSupplierQuotationItem>,
   ): Promise<SupplierQuotationItem>;
 
+  // Approved Quotation Items (Snapshot) operations
+  getApprovedQuotationItems(quotationId: number): Promise<ApprovedQuotationItem[]>;
+  createApprovedQuotationItem(item: InsertApprovedQuotationItem): Promise<ApprovedQuotationItem>;
+  clearApprovedQuotationItems(quotationId: number): Promise<void>;
+
   // Quantity Adjustment History operations
   createQuantityAdjustmentHistory(
     history: any,
@@ -269,6 +287,13 @@ export interface IStorage {
     id: number,
     item: Partial<InsertPurchaseOrderItem>,
   ): Promise<PurchaseOrderItem>;
+
+  // Receipts operations
+  createReceipt(receipt: InsertReceipt): Promise<Receipt>;
+  createReceiptItem(item: InsertReceiptItem): Promise<ReceiptItem>;
+  getReceiptsByPurchaseOrderId(purchaseOrderId: number): Promise<Receipt[]>;
+  getReceiptById(id: number): Promise<Receipt | undefined>;
+  returnToPhysicalReceipt(purchaseRequestId: number, userId: number): Promise<void>;
 
   // Approval History operations
   getApprovalHistory(purchaseRequestId: number): Promise<any[]>;
@@ -804,13 +829,44 @@ export class DatabaseStorage implements IStorage {
       .where(eq(deliveryLocations.id, id));
   }
 
-  async getAllPurchaseRequests(companyId?: number): Promise<PurchaseRequest[]> {
+  async getAllPurchaseRequests(companyId?: number, user?: User): Promise<PurchaseRequest[]> {
+    const conditions = [];
+
+    if (companyId) {
+      conditions.push(eq(purchaseRequests.companyId, companyId));
+    }
+
+    if (user) {
+      const hasFullAccess =
+        user.isAdmin ||
+        user.isBuyer ||
+        user.isReceiver ||
+        user.isApproverA1 ||
+        user.isApproverA2;
+
+      if (!hasFullAccess) {
+        // Restricted access: Creator OR Department
+        const userDeptIds = await this.getUserDepartments(user.id);
+        
+        const restrictions = [eq(purchaseRequests.requesterId, user.id)];
+        
+        if (userDeptIds.length > 0) {
+             restrictions.push(inArray(departments.id, userDeptIds));
+        }
+        
+        conditions.push(or(...restrictions));
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     const requests = await db
       .select({
         id: purchaseRequests.id,
         requestNumber: purchaseRequests.requestNumber,
         requesterId: purchaseRequests.requesterId,
         costCenterId: purchaseRequests.costCenterId,
+        companyId: purchaseRequests.companyId,
         category: purchaseRequests.category,
         urgency: purchaseRequests.urgency,
         justification: purchaseRequests.justification,
@@ -883,7 +939,10 @@ export class DatabaseStorage implements IStorage {
         purchaseOrder: {
           id: purchaseOrders.id,
           orderNumber: purchaseOrders.orderNumber,
+          fulfillmentStatus: purchaseOrders.fulfillmentStatus,
         },
+        // Check for pending fiscal receipts
+        hasPendingFiscal: sql<boolean>`EXISTS(SELECT 1 FROM ${receipts} WHERE ${receipts.purchaseOrderId} = ${purchaseOrders.id} AND ${receipts.status} = 'conf_fisica')`,
       })
       .from(purchaseRequests)
       .leftJoin(
@@ -904,7 +963,7 @@ export class DatabaseStorage implements IStorage {
         purchaseOrders,
         eq(purchaseOrders.purchaseRequestId, purchaseRequests.id),
       )
-      .where(companyId ? eq(purchaseRequests.companyId, companyId) : undefined)
+      .where(whereClause)
       .orderBy(desc(purchaseRequests.createdAt));
 
     return requests as any[];
@@ -1029,12 +1088,41 @@ export class DatabaseStorage implements IStorage {
     return updatedRequest;
   }
 
-  async getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequest[]> {
-    return await db
-      .select()
+  async getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequestWithDetails[]> {
+    const results = await db
+      .select({
+        request: purchaseRequests,
+        supplier: suppliers,
+        requester: users,
+      })
       .from(purchaseRequests)
+      .leftJoin(suppliers, eq(purchaseRequests.chosenSupplierId, suppliers.id))
+      .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
       .where(eq(purchaseRequests.currentPhase, phase))
       .orderBy(desc(purchaseRequests.createdAt));
+
+    const requestsWithItems = await Promise.all(
+      results.map(async ({ request, supplier, requester }) => {
+        const items = await this.getPurchaseRequestItems(request.id);
+        
+        // Buscar pedido de compra associado
+        const [purchaseOrder] = await db
+          .select()
+          .from(purchaseOrders)
+          .where(eq(purchaseOrders.purchaseRequestId, request.id))
+          .limit(1);
+
+        return {
+          ...request,
+          chosenSupplier: supplier,
+          requester,
+          items,
+          purchaseOrder,
+        };
+      })
+    );
+
+    return requestsWithItems as unknown as PurchaseRequestWithDetails[];
   }
 
   async getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]> {
@@ -1886,13 +1974,109 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
+  // Approved Quotation Items operations
+  async getApprovedQuotationItems(quotationId: number): Promise<ApprovedQuotationItem[]> {
+    return await db
+      .select()
+      .from(approvedQuotationItems)
+      .where(eq(approvedQuotationItems.quotationId, quotationId));
+  }
+
+  async createApprovedQuotationItem(item: InsertApprovedQuotationItem): Promise<ApprovedQuotationItem> {
+    const [created] = await db
+      .insert(approvedQuotationItems)
+      .values(item)
+      .returning();
+    return created;
+  }
+
+  async clearApprovedQuotationItems(quotationId: number): Promise<void> {
+    await db
+      .delete(approvedQuotationItems)
+      .where(eq(approvedQuotationItems.quotationId, quotationId));
+  }
+
   async deletePurchaseRequest(id: number): Promise<void> {
-    // Primeiro, deletar todos os itens associados
+    // 1. Get all quotations for this PR
+    const prQuotations = await db
+      .select()
+      .from(quotations)
+      .where(eq(quotations.purchaseRequestId, id));
+
+    for (const quotation of prQuotations) {
+      // 2. Get all supplier quotations for each quotation
+      const prSupplierQuotations = await db
+        .select()
+        .from(supplierQuotations)
+        .where(eq(supplierQuotations.quotationId, quotation.id));
+
+      for (const supplierQuotation of prSupplierQuotations) {
+        // 3. Get all supplier quotation items IDs
+        const sqItems = await db
+          .select({ id: supplierQuotationItems.id })
+          .from(supplierQuotationItems)
+          .where(eq(supplierQuotationItems.supplierQuotationId, supplierQuotation.id));
+        
+        const sqItemIds = sqItems.map(i => i.id);
+
+        if (sqItemIds.length > 0) {
+            // 4. Delete quantity adjustment history for these items
+            await db.delete(quantityAdjustmentHistory)
+                .where(inArray(quantityAdjustmentHistory.supplierQuotationItemId, sqItemIds));
+        }
+
+        // 5. Delete attachments linked to supplier quotation
+        await db.delete(attachments)
+            .where(eq(attachments.supplierQuotationId, supplierQuotation.id));
+
+        // 6. Delete supplier quotation items
+        await db.delete(supplierQuotationItems)
+            .where(eq(supplierQuotationItems.supplierQuotationId, supplierQuotation.id));
+      }
+
+      // 7. Delete supplier quotations
+      await db.delete(supplierQuotations)
+        .where(eq(supplierQuotations.quotationId, quotation.id));
+
+      // 8. Delete approved quotation items (snapshot)
+      await db.delete(approvedQuotationItems)
+        .where(eq(approvedQuotationItems.quotationId, quotation.id));
+
+      // 9. Delete quotation version history
+      await db.delete(quotationVersionHistory)
+        .where(eq(quotationVersionHistory.quotationId, quotation.id));
+
+      // 10. Delete quotation items
+      await db.delete(quotationItems)
+        .where(eq(quotationItems.quotationId, quotation.id));
+
+      // 11. Delete attachments linked to quotation
+      await db.delete(attachments)
+        .where(eq(attachments.quotationId, quotation.id));
+    }
+
+    // 12. Delete quotations
+    await db.delete(quotations)
+      .where(eq(quotations.purchaseRequestId, id));
+
+    // 13. Delete approval history
+    await db.delete(approvalHistory)
+      .where(eq(approvalHistory.purchaseRequestId, id));
+
+    // 14. Delete audit logs
+    await db.delete(auditLogs)
+      .where(eq(auditLogs.purchaseRequestId, id));
+
+    // 15. Delete attachments linked to PR
+    await db.delete(attachments)
+      .where(eq(attachments.purchaseRequestId, id));
+
+    // 16. Delete PR items
     await db
       .delete(purchaseRequestItems)
       .where(eq(purchaseRequestItems.purchaseRequestId, id));
 
-    // Depois, deletar a requisição
+    // 17. Delete PR
     await db.delete(purchaseRequests).where(eq(purchaseRequests.id, id));
   }
 
@@ -1968,6 +2152,147 @@ export class DatabaseStorage implements IStorage {
       .where(eq(purchaseOrderItems.id, id))
       .returning();
     return updated;
+  }
+
+  async createReceipt(receipt: InsertReceipt): Promise<Receipt> {
+    const now = new Date();
+    const gen = () => {
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+      return `REC-${y}${m}${d}-${rand}`;
+    };
+    const values = {
+      receiptNumber: gen(),
+      status: receipt.status,
+      purchaseOrderId: receipt.purchaseOrderId,
+      receivedBy: receipt.receivedBy,
+      receivedAt: receipt.receivedAt ?? now,
+      observations: receipt.observations ?? null,
+      approvedBy: receipt.approvedBy ?? null,
+      approvedAt: receipt.approvedAt ?? null,
+      qualityApproved: receipt.qualityApproved ?? null,
+      createdAt: now,
+    };
+    const [created] = await db
+      .insert(receipts)
+      .values(values as any)
+      .returning();
+    return created as Receipt;
+  }
+
+  async createReceiptItem(item: InsertReceiptItem): Promise<ReceiptItem> {
+    const values = {
+      ...item,
+      quantityReceived: item.quantityReceived ?? "0",
+      quantityApproved: item.quantityApproved ?? null,
+      condition: item.condition ?? null,
+      observations: item.observations ?? null,
+      createdAt: new Date(),
+    };
+    const [created] = await db
+      .insert(receiptItems)
+      .values(values as any)
+      .returning();
+    return created as ReceiptItem;
+  }
+
+  async getReceiptsByPurchaseOrderId(purchaseOrderId: number): Promise<Receipt[]> {
+    return await db
+      .select()
+      .from(receipts)
+      .where(eq(receipts.purchaseOrderId, purchaseOrderId))
+      .orderBy(desc(receipts.createdAt));
+  }
+
+  async getReceiptById(id: number): Promise<Receipt | undefined> {
+    const [receipt] = await db
+      .select()
+      .from(receipts)
+      .where(eq(receipts.id, id));
+    return receipt;
+  }
+
+  async returnToPhysicalReceipt(purchaseRequestId: number, userId: number): Promise<void> {
+    const purchaseOrder = await this.getPurchaseOrderByRequestId(purchaseRequestId);
+    if (!purchaseOrder) throw new Error("Pedido de compra não encontrado");
+
+    const allReceipts = await this.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+
+    const confirmedReceipts = allReceipts.filter(
+      (r) => r.status === "conferida" || r.status === "fiscal_conferida",
+    );
+
+    const isPartialReturn = confirmedReceipts.length > 0;
+
+    const receiptsToDelete = isPartialReturn
+      ? allReceipts.filter((r) => r.status !== "conferida" && r.status !== "fiscal_conferida")
+      : allReceipts;
+
+    for (const receipt of receiptsToDelete) {
+      await db.delete(receiptAllocations).where(eq(receiptAllocations.receiptId, receipt.id));
+      await db.delete(receiptInstallments).where(eq(receiptInstallments.receiptId, receipt.id));
+      await db.delete(receiptNfXmls).where(eq(receiptNfXmls.receiptId, receipt.id));
+      await db.delete(receiptItems).where(eq(receiptItems.receiptId, receipt.id));
+      await db.delete(receipts).where(eq(receipts.id, receipt.id));
+    }
+
+    if (!isPartialReturn) {
+      const poItems = await this.getPurchaseOrderItems(purchaseOrder.id);
+      for (const item of poItems) {
+        await db
+          .update(purchaseOrderItems)
+          .set({ quantityReceived: "0" })
+          .where(eq(purchaseOrderItems.id, item.id));
+      }
+    }
+
+    const updateData: Partial<PurchaseRequest> = {
+      currentPhase: "recebimento",
+      fiscalReceiptAt: null,
+      fiscalReceiptById: null,
+    };
+
+    if (!isPartialReturn) {
+      updateData.physicalReceiptAt = null;
+      updateData.physicalReceiptById = null;
+      updateData.receivedDate = null;
+      updateData.receivedById = null;
+    }
+
+    await db
+      .update(purchaseRequests)
+      .set(updateData)
+      .where(eq(purchaseRequests.id, purchaseRequestId));
+
+    await db
+      .update(purchaseOrders)
+      .set({
+        fulfillmentStatus: isPartialReturn ? "partial" : "pending",
+      })
+      .where(eq(purchaseOrders.id, purchaseOrder.id));
+
+    try {
+      await db.insert(auditLogs).values({
+        purchaseRequestId,
+        performedBy: userId,
+        actionType: "phase_rollback_receipt",
+        actionDescription: `Retorno da Conf. Fiscal para Recebimento Físico. Tipo: ${isPartialReturn ? "Parcial" : "Total"}. ${receiptsToDelete.length} recibos excluídos.`,
+        performedAt: new Date(),
+        beforeData: {
+          phase: "conf_fiscal",
+          isPartialReturn,
+        } as any,
+        afterData: {
+          phase: "recebimento",
+          receiptsDeleted: receiptsToDelete.map((r) => r.id),
+        } as any,
+        affectedTables: ["receipts", "purchase_requests", "purchase_orders", "purchase_order_items"],
+      });
+    } catch (error) {
+      console.error("Error logging phase rollback in audit_logs:", error);
+    }
   }
 
   // Approval History operations
@@ -2151,6 +2476,8 @@ export class DatabaseStorage implements IStorage {
 
     // 4. Purchase Order
     const po = await this.getPurchaseOrderByRequestId(purchaseRequestId);
+    let hasDetailedReceipts = false;
+
     if (po) {
       let poCreatorName = 'Sistema';
       if (po.createdBy) {
@@ -2173,9 +2500,66 @@ export class DatabaseStorage implements IStorage {
         icon: 'shopping-cart',
         description: po.observations || request.purchaseObservations || 'Pedido de compra oficial gerado'
       });
+
+      // 4.1 Detailed Receipts (Physical & Fiscal)
+      const linkedReceipts = await db.select().from(receipts).where(eq(receipts.purchaseOrderId, po.id));
+      if (linkedReceipts.length > 0) {
+        hasDetailedReceipts = true;
+        for (const receipt of linkedReceipts) {
+          // Physical Receipt Event
+          let receiverName = 'Sistema';
+          if (receipt.receivedBy) {
+            const receiver = await this.getUserById(receipt.receivedBy);
+            if (receiver) {
+              receiverName = receiver.firstName && receiver.lastName
+                ? `${receiver.firstName} ${receiver.lastName}`
+                : receiver.username || 'Sistema';
+            }
+          }
+
+          timeline.push({
+            id: `receipt_${receipt.id}_physical`,
+            type: 'receipt',
+            phase: 'recebimento',
+            action: `Recebimento Físico - NF ${receipt.documentNumber || 'S/N'}`,
+            userId: receipt.receivedBy,
+            userName: receiverName,
+            timestamp: receipt.receivedAt || receipt.createdAt,
+            status: 'completed',
+            icon: 'package',
+            description: `Recebimento da Nota Fiscal ${receipt.documentNumber || 'S/N'} (Série: ${receipt.documentSeries || '-'})`
+          });
+
+          // Fiscal Conference Event
+          if (receipt.approvedAt || ['conferida', 'nf_confirmada', 'fiscal_conferida'].includes(receipt.status || '')) {
+            let approverName = 'Sistema';
+            if (receipt.approvedBy) {
+              const approver = await this.getUserById(receipt.approvedBy);
+              if (approver) {
+                approverName = approver.firstName && approver.lastName
+                  ? `${approver.firstName} ${approver.lastName}`
+                  : approver.username || 'Sistema';
+              }
+            }
+
+            timeline.push({
+              id: `receipt_${receipt.id}_fiscal`,
+              type: 'fiscal_conference',
+              phase: 'conf_fiscal',
+              action: `Conferência Fiscal - NF ${receipt.documentNumber || 'S/N'}`,
+              userId: receipt.approvedBy,
+              userName: approverName,
+              timestamp: receipt.approvedAt || receipt.createdAt || new Date(),
+              status: 'completed',
+              icon: 'file-check',
+              description: `Conferência Fiscal realizada com sucesso.`
+            });
+          }
+        }
+      }
     }
 
-    if (request.receivedDate) {
+    if (request.receivedDate && !hasDetailedReceipts) {
       let receiverName = 'Sistema';
       if (request.receivedById) {
         const receiver = await this.getUserById(request.receivedById);

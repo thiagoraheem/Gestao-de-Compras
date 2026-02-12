@@ -26,19 +26,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateInput } from "@/components/ui/date-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { apiRequest } from "@/lib/queryClient";
-// supplier-creation-modal removido; cadastro será feito na página de fornecedores
 import { SupplierSelector } from "./supplier-selector";
 import { UnitSelect } from "./unit-select";
 import { useUnits } from "@/hooks/useUnits";
+import HybridProductInput from "./hybrid-product-input";
 import debug from "@/lib/debug";
 
 const quotationItemSchema = z.object({
@@ -240,7 +237,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
     const targetLen = purchaseRequestItems.length;
     if (targetLen > 0) {
       const mappedItems = purchaseRequestItems.map(item => ({
-        itemCode: "",
+        itemCode: item.productCode || "",
         description: item.description || "",
         quantity: item.requestedQuantity?.toString() || "1",
         unit: item.unit || "UN",
@@ -543,8 +540,6 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
     }
   };
 
-
-
   const onSubmitWithEmail = (data: RFQCreationData) => {
     createRFQWithEmailMutation.mutate(data);
   };
@@ -803,6 +798,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                             Original
                           </Badge>
                         )}
+                        <Badge variant="secondary" className="text-xs">
+                          {form.watch(`items.${index}.itemCode`) || purchaseRequestItems[index]?.productCode || ""}
+                        </Badge>
                       </h4>
                       {fields.length > 1 && (
                         <Button
@@ -817,7 +815,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                     </div>
                     
                     {/* Editable Item Fields */}
-                    <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                    <div className="bg-blue-50 dark:bg-slate-900/50 p-3 rounded-lg mb-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         
                         <FormField
@@ -825,7 +823,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                           name={`items.${index}.quantity`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-gray-700 font-medium">Quantidade</FormLabel>
+                              <FormLabel className="text-gray-700 dark:text-slate-300 font-medium">Quantidade</FormLabel>
                               <FormControl>
                             <Input 
                               type="number" 
@@ -845,7 +843,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                           name={`items.${index}.unit`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-gray-700 font-medium">Unidade</FormLabel>
+                              <FormLabel className="text-gray-700 dark:text-slate-300 font-medium">Unidade</FormLabel>
                               <FormControl>
                                 <UnitSelect
                                   value={field.value}
@@ -863,7 +861,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                           name={`items.${index}.deliveryDeadline`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-blue-600 font-medium">Prazo de Entrega *</FormLabel>
+                              <FormLabel className="text-blue-600 dark:text-blue-400 font-medium">Prazo de Entrega *</FormLabel>
                               <FormControl>
                                 <DateInput
                                   value={field.value}
@@ -889,10 +887,16 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                           <FormItem>
                             <FormLabel className="text-gray-700 dark:text-slate-300 font-medium">Descrição do Item</FormLabel>
                             <FormControl>
-                              <Textarea 
-                                placeholder="Descrição detalhada do item (carregada da solicitação original)"
-                                rows={2}
-                                {...field}
+                              <HybridProductInput 
+                                value={field.value}
+                                onChange={field.onChange}
+                                onProductSelect={(product) => {
+                                  const processedUnit = processERPUnit(product.unidade);
+                                  form.setValue(`items.${index}.description`, product.descricao);
+                                  form.setValue(`items.${index}.itemCode`, product.codigo);
+                                  form.setValue(`items.${index}.unit`, processedUnit);
+                                }}
+                                placeholder="Descrição detalhada do item ou busque no ERP..."
                                 className="text-sm"
                               />
                             </FormControl>

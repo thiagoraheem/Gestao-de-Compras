@@ -4,6 +4,14 @@ import { registerApprovalRulesRoutes } from "./approval-rules";
 import { registerApprovalsRoutes } from "./approvals";
 import { registerNotificationRoutes } from "./notifications";
 import integrityValidationRoutes from "./integrity-validation";
+import itemsAnalysisRoutes from "./items-analysis";
+import { registerReceiptsRoutes } from "./receipts";
+import { registerAuditRoutes } from "./audit";
+import { registerMasterDataRoutes } from "./master-data";
+import { registerMockLocadorRoutes } from "./mock-locador";
+import { registerOpenApiRoute } from "./openapi";
+import { registerConfigRoutes } from "./configRoutes";
+import { registerLocadorIntegrationRoutes } from "./locadorIntegrationRoutes";
 import { PDFService } from "../pdf-service";
 import { storage } from "../storage";
 // Import other route modules as they are created
@@ -197,9 +205,28 @@ function registerPublicRoutes(app: Express) {
       
       console.log(`[A2 PDF] PDF generated successfully for request ${requestId}`);
       
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="Aprovacao_A2_${purchaseRequest.requestNumber}.pdf"`);
-      res.send(pdfBuffer);
+      const bufferStart = pdfBuffer.toString(
+        'utf8',
+        0,
+        Math.min(1000, pdfBuffer.length),
+      );
+      const isHtmlContent =
+        bufferStart.includes('HTML_FALLBACK_MARKER') ||
+        bufferStart.includes('<!DOCTYPE html>') ||
+        bufferStart.includes('<html>') ||
+        bufferStart.includes('<HTML>') ||
+        bufferStart.trim().startsWith('<');
+
+      if (isHtmlContent) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="Aprovacao_A2_${purchaseRequest.requestNumber}.html"`);
+        res.send(pdfBuffer);
+      } else {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Aprovacao_A2_${purchaseRequest.requestNumber}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
+      }
     } catch (error) {
       console.error("[A2 PDF] Error generating approval A2 PDF:", error);
       res.status(500).json({ message: "Error generating approval A2 PDF" });
@@ -219,9 +246,17 @@ export function registerAllRoutes(app: Express) {
   
   registerApprovalsRoutes(app);
   registerNotificationRoutes(app);
+  registerReceiptsRoutes(app);
+  registerMasterDataRoutes(app);
+  registerLocadorIntegrationRoutes(app);
+  registerConfigRoutes(app);
+  registerAuditRoutes(app);
+  registerMockLocadorRoutes(app);
+  registerOpenApiRoute(app);
   
   // Register integrity validation routes
   app.use(integrityValidationRoutes);
+  app.use(itemsAnalysisRoutes);
   
   // Register other route modules
   // registerUserRoutes(app);

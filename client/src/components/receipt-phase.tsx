@@ -1,12 +1,18 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import PdfViewer from "./pdf-viewer";
 import { ErrorBoundary } from "./error-boundary";
 import {
@@ -17,16 +23,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { X, Check, Package, User, Building, Calendar, DollarSign, FileText, Download, Eye, Truck } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { X, Check, User, FileText, Download, Eye, Plus, ArrowLeft, History } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
+import { PHASE_LABELS } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
-// import AttachmentsViewer from "./attachments-viewer";
-// import ItemsViewer from "./items-viewer";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import PendencyModal from "./pendency-modal";
+import PurchaseRequestHeaderCard from "./purchase-request-header-card";
 
 interface ReceiptPhaseProps {
   request: any;
@@ -34,6 +39,9 @@ interface ReceiptPhaseProps {
   className?: string;
   onPreviewOpen?: () => void;
   onPreviewClose?: () => void;
+  mode?: 'view' | 'physical';
+  hideTabsByDefault?: boolean;
+  compactHeader?: boolean;
 }
 
 export interface ReceiptPhaseHandle {
@@ -41,13 +49,14 @@ export interface ReceiptPhaseHandle {
   downloadPDF: () => void;
 }
 
-import { forwardRef, useImperativeHandle } from "react";
-
-const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function ReceiptPhase({ request, onClose, className, onPreviewOpen, onPreviewClose }: ReceiptPhaseProps, ref) {
+const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<ReceiptPhaseHandle>) => {
+  const { request, onClose, className, onPreviewOpen, onPreviewClose, mode = 'view' } = props;
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isPendencyModalOpen, setIsPendencyModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'dashboard' | 'new_receipt'>('dashboard');
+
+  // --- PDF Logic ---
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -55,28 +64,32 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewLoaded, setPreviewLoaded] = useState(false);
 
-  // Check if user has permission to perform receipt actions
+  // --- Receipt Form State ---
+  const [receivedQuantities, setReceivedQuantities] = useState<Record<number, number>>({});
+  const [manualNFNumber, setManualNFNumber] = useState<string>("");
+  const [manualNFSeries, setManualNFSeries] = useState<string>("");
+  const [isPendencyModalOpen, setIsPendencyModalOpen] = useState(false);
+
+  // Check permissions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
 
-  // Buscar dados relacionados
-  // Primeiro buscar o pedido de compra relacionado à solicitação
+  // --- Data Fetching ---
   const { data: purchaseOrder } = useQuery<any>({
     queryKey: [`/api/purchase-orders/by-request/${request?.id}`],
     enabled: !!request?.id,
   });
 
-  // Buscar itens do pedido de compra (não da solicitação)
   const { data: items = [] } = useQuery<any[]>({
     queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/items`],
     enabled: !!purchaseOrder?.id,
   });
 
-  // Fetch approval history
-  const { data: approvalHistory = [] } = useQuery<any[]>({
-    queryKey: [`/api/purchase-requests/${request.id}/approval-history`],
+  // Fetch existing receipts
+  const { data: existingReceipts = [] } = useQuery<any[]>({
+    queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/receipts`],
+    enabled: !!purchaseOrder?.id,
   });
 
-  // Fetch supplier quotations to get selected supplier
   const { data: quotation } = useQuery<any>({
     queryKey: [`/api/quotations/purchase-request/${request.id}`],
   });
@@ -86,59 +99,54 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     enabled: !!quotation?.id,
   });
 
-  // Get selected supplier quotation (ensure we find the chosen one)
   const selectedSupplierQuotation: any = supplierQuotations.find((sq: any) => sq.isChosen === true) || supplierQuotations[0];
-
-  // Calculate freight value
-  const freightValue = selectedSupplierQuotation?.includesFreight && selectedSupplierQuotation?.freightValue
-    ? parseFloat(selectedSupplierQuotation.freightValue?.toString().replace(/[^\d.,]/g, '').replace(',', '.')) || 0
-    : 0;
-
-  // Fetch supplier quotation items with prices
-  const { data: supplierQuotationItems = [] } = useQuery<any[]>({
-    queryKey: [`/api/supplier-quotations/${selectedSupplierQuotation?.id}/items`],
-    enabled: !!selectedSupplierQuotation?.id,
+  const { data: selectedSupplier } = useQuery<any>({
+    queryKey: [`/api/suppliers/${selectedSupplierQuotation?.supplierId}`],
+    enabled: !!selectedSupplierQuotation?.supplierId,
   });
 
-
-
-  // Fetch quotation items to map descriptions
-  const { data: quotationItems = [] } = useQuery<any[]>({
-    queryKey: [`/api/quotations/${quotation?.id}/items`],
-    enabled: !!quotation?.id,
-  });
-
-  // Mutations for receipt actions
-  const confirmReceiptMutation = useMutation({
+  // --- Mutations ---
+  const confirmPhysicalMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest(`/api/purchase-requests/${request?.id}/confirm-receipt`, {
-        method: "POST",
-        body: { receivedById: user?.id },
-      });
+      const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
+      if (!hasAnyQty) throw new Error("Informe as quantidades recebidas");
+      if (!manualNFNumber) throw new Error("Informe o número da Nota Fiscal");
+
+      const response = await apiRequest(
+        `/api/purchase-requests/${request?.id}/confirm-physical`,
+        {
+          method: "POST",
+          body: {
+            receivedQuantities,
+            manualNFNumber,
+            manualNFSeries,
+            observations: "Confirmado via Recebimento Físico"
+          },
+        }
+      );
       return response;
     },
-    onSuccess: () => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
-      toast({
-        title: "Sucesso",
-        description: "Recebimento confirmado! Item movido para Conclusão.",
-      });
-      onClose();
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/receipts`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/items`] });
+      
+      toast({ title: "Sucesso", description: "Recebimento físico registrado!" });
+      setViewMode('dashboard');
+      setReceivedQuantities({});
+      setManualNFNumber("");
+      setManualNFSeries("");
     },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível confirmar o recebimento",
-        variant: "destructive",
-      });
-    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message || "Erro ao confirmar", variant: "destructive" });
+    }
   });
 
   const reportIssueMutation = useMutation({
     mutationFn: async (pendencyReason: string) => {
       const response = await apiRequest(`/api/purchase-requests/${request.id}/report-issue`, {
         method: "POST",
-        body: { reportedById: user?.id, pendencyReason },
+        body: { reportedById: user?.id, pendencyReason, receivedQuantities },
       });
       return response;
     },
@@ -153,15 +161,11 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       onClose();
     },
     onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível reportar a pendência",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Não foi possível reportar a pendência", variant: "destructive" });
     },
   });
 
-  // Função para gerar pré-visualização do PDF
+  // --- Helper Functions ---
   const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
     let binary = "";
     const bytes = new Uint8Array(buffer);
@@ -184,9 +188,7 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
         cache: 'no-store'
       });
 
-      if (!response.ok) {
-        throw new Error('Falha ao gerar PDF');
-      }
+      if (!response.ok) throw new Error('Falha ao gerar PDF');
 
       const contentType = response.headers.get('content-type') || '';
       const buffer = await response.arrayBuffer();
@@ -196,94 +198,36 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
       setPdfPreviewUrl(url);
       setPreviewLoaded(false);
       setShowPreviewModal(true);
-
-      if (contentType.includes('application/pdf')) {
-        toast({
-          title: "Sucesso",
-          description: "Pré-visualização do PDF carregada com sucesso!",
-        });
-      } else if (contentType.includes('text/html')) {
-        toast({
-          title: "Aviso",
-          description: "PDF não pôde ser gerado. Exibindo documento em HTML.",
-        });
-      } else {
-        toast({
-          title: "Aviso",
-          description: "Formato de arquivo inesperado na pré-visualização.",
-        });
-      }
     } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao carregar pré-visualização do PDF",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Falha ao carregar pré-visualização do PDF", variant: "destructive" });
     } finally {
       setIsLoadingPreview(false);
     }
   };
 
-
-
-  // Função para download do PDF
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
     try {
-      const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
-        method: 'GET'
-      });
-
-      if (!response.ok) {
-        throw new Error('Falha ao gerar PDF');
-      }
-
+      const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, { method: 'GET' });
+      if (!response.ok) throw new Error('Falha ao gerar PDF');
       const contentType = response.headers.get('Content-Type') || '';
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = `Pedido_Compra_${request.requestNumber}.${contentType.includes('application/pdf') ? 'pdf' : contentType.includes('text/html') ? 'html' : 'bin'}`;
+      a.download = `Pedido_Compra_${request.requestNumber}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-
-      toast({
-        title: "Sucesso",
-        description: contentType.includes('application/pdf') ? "PDF do pedido de compra baixado com sucesso!" : "Documento alternativo baixado com sucesso!",
-      });
     } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao baixar PDF do pedido de compra",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Falha ao baixar PDF", variant: "destructive" });
     } finally {
       setIsDownloading(false);
     }
   };
 
-  // Função para baixar PDF da pré-visualização
-  const handleDownloadFromPreview = () => {
-    if (pdfPreviewUrl) {
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = pdfPreviewUrl;
-      a.download = `Pedido_Compra_${request.requestNumber}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      toast({
-        title: "Sucesso",
-        description: "PDF do pedido de compra baixado com sucesso!",
-      });
-    }
-  };
-
-  // Limpar URL do blob quando o modal for fechado
   const handleClosePreview = () => {
     try { onPreviewClose && onPreviewClose(); } catch { }
     setShowPreviewModal(false);
@@ -293,13 +237,16 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     }
   };
 
-  // Controla abertura/fechamento do modal de pré-visualização sem interferir no diálogo pai
-  const handlePreviewOpenChange = (open: boolean) => {
-    if (open) {
-      setShowPreviewModal(true);
-      return;
+  const handleDownloadFromPreview = () => {
+    if (pdfPreviewUrl) {
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = pdfPreviewUrl;
+      a.download = `Pedido_Compra_${request.requestNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
-    handleClosePreview();
   };
 
   useImperativeHandle(ref, () => ({
@@ -307,497 +254,299 @@ const ReceiptPhase = forwardRef<ReceiptPhaseHandle, ReceiptPhaseProps>(function 
     downloadPDF: handleDownloadPDF,
   }));
 
-
-
   const formatDate = (date: any) => {
     if (!date) return "N/A";
-    return formatDistanceToNow(new Date(date), {
-      addSuffix: true,
-      locale: ptBR
-    });
+    return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ptBR });
   };
 
-  // Get selected supplier from quotations
-  const selectedSupplier = selectedSupplierQuotation;
+  // --- Calculations ---
+  const itemsWithPrices = useMemo(() => {
+    if (!Array.isArray(items)) return [];
+    return items.map(item => {
+      const unitPrice = Number(item.unitPrice) || 0;
+      const quantity = Number(item.quantity) || 0;
+      const totalPrice = Number(item.totalPrice) || 0;
+      return {
+        ...item,
+        unitPrice,
+        quantity,
+        totalPrice,
+      };
+    });
+  }, [items]);
 
-  // Para a fase de recebimento, usar diretamente os dados dos itens que já vêm com preços do pedido de compra
-  const itemsWithPrices = Array.isArray(items) ? items.map(item => {
-    // Os itens do pedido de compra já vêm com os preços corretos da API
-    const unitPrice = Number(item.unitPrice) || 0;
-    const quantity = Number(item.quantity) || 0;
-    const totalPrice = Number(item.totalPrice) || 0;
+  const canConfirm = useMemo(() => {
+    // Basic validation: must have some quantity and NF number
+    const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
+    return hasAnyQty && manualNFNumber.length > 0;
+  }, [receivedQuantities, manualNFNumber]);
 
-    return {
-      ...item,
-      unitPrice: unitPrice,
-      originalUnitPrice: unitPrice,
-      itemDiscount: 0, // Para pedidos de compra, não há desconto adicional
-      totalPrice: totalPrice,
-      originalTotalPrice: totalPrice,
-      brand: item.brand || '',
-      deliveryTime: item.deliveryTime || '',
-      isAvailable: true
-    };
-  }) : [];
-
+  // --- Render Preview Modal ---
   if (showPreviewModal) {
     return (
       <div className={cn("flex flex-col h-full", className)}>
         <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 pb-3 mb-4 rounded-t-lg">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold">Pré-visualização - Pedido de Compra {request.requestNumber}</h3>
-              <div className="flex gap-2">
-                <Button onClick={handleDownloadFromPreview} size="sm" className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
-                  <Download className="w-4 h-4 mr-2" />
-                  Baixar PDF
-                </Button>
-                <Button onClick={handleClosePreview} size="sm" variant="outline">
-                  <X className="w-4 h-4 mr-2" />
-                  Voltar
-                </Button>
-              </div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold">Pré-visualização - Pedido de Compra {request.requestNumber}</h3>
+            <div className="flex gap-2">
+              <Button onClick={handleDownloadFromPreview} size="sm" className="bg-green-600 hover:bg-green-700">
+                <Download className="w-4 h-4 mr-2" />
+                Baixar PDF
+              </Button>
+              <Button onClick={handleClosePreview} size="sm" variant="outline">
+                <X className="w-4 h-4 mr-2" />
+                Voltar
+              </Button>
             </div>
           </div>
-          
-          <div className="flex-1 overflow-hidden flex flex-col min-h-[60vh]">
-              {pdfBuffer ? (
-                <ErrorBoundary fallback={
-                  <div className="flex items-center justify-center h-full p-6 bg-red-50 text-red-600">
-                    <p>Erro ao exibir PDF. O arquivo pode estar corrompido ou ser incompatível.</p>
-                  </div>
-                }>
-                  <PdfViewer data={pdfBuffer} />
-                </ErrorBoundary>
-              ) : pdfPreviewUrl ? (
-                <object data={pdfPreviewUrl} type="application/pdf" className="w-full h-[70vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900">
-                  <iframe onLoad={() => setPreviewLoaded(true)}
-                    src={pdfPreviewUrl}
-                    className="w-full h-[70vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900"
-                    title="Pré-visualização do PDF"
-                  />
-                </object>
-              ) : (
-                <div className="flex items-center justify-center h-[70vh] bg-slate-100 dark:bg-slate-800 rounded-lg border border-border">
-                  <div className="text-center">
-                    <FileText className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
-                    <p className="text-slate-600 dark:text-slate-300">Carregando pré-visualização...</p>
-                  </div>
-                </div>
-              )}
-          </div>
+        </div>
+        <div className="flex-1 overflow-hidden flex flex-col min-h-[60vh]">
+          {pdfBuffer ? (
+            <ErrorBoundary fallback={<div className="p-6 text-red-600">Erro ao exibir PDF.</div>}>
+              <PdfViewer data={pdfBuffer} />
+            </ErrorBoundary>
+          ) : (
+             <div className="flex items-center justify-center h-[70vh] bg-slate-100 dark:bg-slate-800 rounded-lg border border-border">
+               <p>Carregando...</p>
+             </div>
+          )}
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className={cn("space-y-6", className)}>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Recebimento de Material</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">Confirme o recebimento ou reporte pendências</p>
+  // --- Render Dashboard ---
+  if (viewMode === 'dashboard') {
+    return (
+      <div className={cn("space-y-6", className)}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Gerenciamento de Recebimento</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Histórico de NFs e status do pedido</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>Fechar</Button>
+            {canPerformReceiptActions && (
+              <Button onClick={() => setViewMode('new_receipt')}>
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Recebimento
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Request Information */}
+        <PurchaseRequestHeaderCard
+          context="physical"
+          requestNumber={request?.requestNumber}
+          orderNumber={purchaseOrder?.orderNumber}
+          requesterName={request?.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "N/A"}
+          supplierName={selectedSupplier?.name || "Não definido"}
+          orderDate={formatDate(purchaseOrder?.createdAt || request?.createdAt || null)}
+          totalValue={formatCurrency(purchaseOrder?.totalValue ?? request?.totalValue ?? 0)}
+          //totalValue={typeof request?.totalValue === "number" ? formatCurrency(request.totalValue) : "R$ 0,00"}
+          status={(request?.phase && (PHASE_LABELS as any)[request.phase]) || "—"}
+        />
+
+        {/* Global Progress */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Informações da Solicitação
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Número</p>
-                <Badge variant="outline" className="mt-1">
-                  {request.requestNumber}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Categoria</p>
-                <p className="text-sm text-slate-700 dark:text-slate-300">{CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS]}</p>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Justificativa</p>
-              <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">{request.justification}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Urgência</p>
-                <Badge
-                  variant={request.urgency === "alto" ? "destructive" : "secondary"}
-                  className="mt-1"
-                >
-                  {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Valor Total</p>
-                <p className="text-sm font-medium mt-1 text-slate-700 dark:text-slate-300">{formatCurrency(request.totalValue)}</p>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Data de Criação</p>
-              <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">{formatDate(request.createdAt)}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* People Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Responsáveis
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Solicitante</p>
-              <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
-                {request.requester ?
-                  `${request.requester.firstName} ${request.requester.lastName}` :
-                  "N/A"
-                }
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{request.requester?.email}</p>
-            </div>
-
-            {request.approverA1 && (
-              <div>
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Aprovador A1</p>
-                <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
-                  {`${request.approverA1.firstName} ${request.approverA1.lastName}`}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{request.approverA1.email}</p>
-              </div>
-            )}
-
-            {request.approverA2 && (
-              <div>
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Aprovador A2</p>
-                <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
-                  {`${request.approverA2.firstName} ${request.approverA2.lastName}`}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{request.approverA2.email}</p>
-              </div>
-            )}
-
-            {request.costCenter && (
-              <div>
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Centro de Custo</p>
-                <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">{request.costCenter.name}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Código: {request.costCenter.code}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Selected Supplier Information */}
-      {selectedSupplierQuotation && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5 text-green-600" />
-              Fornecedor Selecionado
-            </CardTitle>
+            <CardTitle>Progresso do Pedido</CardTitle>
+            <CardDescription>Visão geral dos itens recebidos vs solicitados</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Nome do Fornecedor</p>
-                <p className="text-sm font-semibold mt-1">{selectedSupplierQuotation.supplier?.name || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">E-mail</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.email || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Contato</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.contact || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">CNPJ</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.cnpj || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Valor Total da Proposta</p>
-                <p className="text-lg font-bold text-green-600 mt-1">
-                  {formatCurrency(selectedSupplierQuotation.totalValue)}
-                </p>
-              </div>
-
-              {/* Freight Information - Highlighted */}
-              <div className="col-span-full">
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Truck className="h-5 w-5 text-blue-600 dark:text-blue-300" />
-                    <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Informações de Frete</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Frete Incluso</p>
-                      <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
-                        {selectedSupplierQuotation.includesFreight ? 'Sim' : 'Não'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Valor do Frete</p>
-                      <p className="text-lg font-bold text-blue-800 dark:text-blue-300 mt-1">
-                        {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Condições de Pagamento</p>
-                <p className="text-sm mt-1">{selectedSupplierQuotation.paymentTerms || 'N/A'}</p>
-              </div>
-
-              {/* Desconto da Proposta */}
-              {(selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Desconto da Proposta</p>
-                  <p className="text-lg font-bold text-green-600 mt-1">
-                    {selectedSupplierQuotation.discountType === 'percentage'
-                      ? `${selectedSupplierQuotation.discountValue}%`
-                      : formatCurrency(selectedSupplierQuotation.discountValue)
-                    }
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {selectedSupplierQuotation.choiceReason && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm font-medium text-green-800">Justificativa da Escolha:</p>
-                <p className="text-sm text-green-700 mt-1">{selectedSupplierQuotation.choiceReason}</p>
-              </div>
-            )}
+             <div className="space-y-4">
+               {itemsWithPrices.map((item: any) => {
+                 const percent = item.quantity > 0 ? Math.min(100, (item.quantityReceived / item.quantity) * 100) : 0;
+                 return (
+                   <div key={item.id} className="space-y-1">
+                     <div className="flex justify-between text-sm">
+                       <span>{item.description}</span>
+                       <span className="text-muted-foreground">{Number(item.quantityReceived).toLocaleString('pt-BR')} / {Number(item.quantity).toLocaleString('pt-BR')}</span>
+                     </div>
+                     <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                       <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+                     </div>
+                   </div>
+                 );
+               })}
+             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Purchase Order Observations */}
-      {(request.purchaseOrderObservations || request.purchaseObservations) && (
+        {/* Receipt History List */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-600" />
-              Observações do Pedido de Compra
-            </CardTitle>
+             <CardTitle>Histórico de Recebimentos (NFs)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <p className="text-sm text-blue-800 dark:text-blue-300 whitespace-pre-wrap">
-                {request.purchaseOrderObservations || request.purchaseObservations || 'Nenhuma observação encontrada'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-
-
-      {/* Items Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Itens da Compra</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {itemsWithPrices.length > 0 ? (
-            <div className="rounded-md border border-border">
+            {existingReceipts.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">Nenhum recebimento registrado.</div>
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead className="text-center">Qtd</TableHead>
-                    <TableHead className="text-center">Unidade</TableHead>
-                    <TableHead className="text-right">Valor Unit.</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead>Número NF</TableHead>
+                    <TableHead>Série</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Recebido Por</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {itemsWithPrices.map((item: any, index: number) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">
-                        {item.description}
+                  {existingReceipts.map((rec: any) => (
+                    <TableRow key={rec.id}>
+                      <TableCell>{rec.documentNumber || 'N/A'}</TableCell>
+                      <TableCell>{rec.documentSeries || '-'}</TableCell>
+                      <TableCell>{format(new Date(rec.createdAt), "dd/MM/yyyy HH:mm")}</TableCell>
+                      <TableCell>
+                        <Badge variant={rec.status === 'conf_fisica' ? 'secondary' : rec.status === 'conferida' ? 'default' : 'outline'}>
+                          {rec.status === 'conf_fisica' ? 'Aguardando Fiscal' : rec.status}
+                        </Badge>
                       </TableCell>
-                      <TableCell className="text-center">
-                        {Number(item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {item.unit}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.unitPrice)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(item.totalPrice)}
-                      </TableCell>
+                      <TableCell>User ID: {rec.receivedBy}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-
-              {/* Total Summary */}
-              <div className="border-t border-border bg-slate-50 dark:bg-slate-900 p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                    Subtotal ({itemsWithPrices.length} {itemsWithPrices.length === 1 ? 'item' : 'itens'})
-                  </span>
-                  <span className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                    {formatCurrency(
-                      itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0)
-                    )}
-                  </span>
-                </div>
-
-                {/* Freight Display */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-blue-600 dark:text-blue-300 flex items-center gap-1">
-                    <Truck className="h-4 w-4" />
-                    Frete
-                  </span>
-                  <span className="text-base font-semibold text-blue-600 dark:text-blue-300">
-                    {freightValue > 0 ? formatCurrency(freightValue) : 'Não incluso'}
-                  </span>
-                </div>
-
-                {/* Total with Freight */}
-                <div className="border-t pt-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-base font-bold text-slate-800 dark:text-slate-200">
-                      Total Geral
-                    </span>
-                    <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(
-                        (itemsWithPrices.reduce((total: number, item: any) => total + (item.totalPrice || 0), 0) || 0) + (freightValue || 0)
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-              <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Nenhum item encontrado</p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Os dados dos itens serão carregados automaticamente</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Approval History */}
-      {Array.isArray(approvalHistory) && approvalHistory.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Histórico de Aprovações</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {(approvalHistory as any[]).map((history: any, index: number) => (
-                <div key={index} className="flex items-start space-x-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-border">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">
-                        {history.approver?.firstName} {history.approver?.lastName}
-                      </p>
-                      <Badge variant={history.approved ? "default" : "destructive"}>
-                        {history.approved ? "Aprovado" : "Rejeitado"}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                      {formatDate(history.createdAt)}
-                    </p>
-                    {history.rejectionReason && (
-                      <p className="text-sm text-red-600 dark:text-red-400 mt-2">
-                        <strong>Motivo:</strong> {history.rejectionReason}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            )}
           </CardContent>
         </Card>
-      )}
+      </div>
+    );
+  }
 
-      <Separator />
-
-      {/* Action Buttons */}
-      <div className="sticky bottom-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-6">
-        <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="w-full sm:w-auto order-last sm:order-first"
-          >
-            Fechar
-          </Button>
-          <Button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handlePreviewPDF();
-            }}
-            disabled={isLoadingPreview}
-            variant="outline"
-            className="w-full sm:w-auto border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
-          </Button>
-          {canPerformReceiptActions ? (
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Button
-                variant="destructive"
-                onClick={() => setIsPendencyModalOpen(true)}
-                disabled={reportIssueMutation.isPending}
-                className="w-full sm:w-auto flex items-center justify-center"
-              >
-                <X className="mr-2 h-4 w-4 flex-shrink-0" />
-                <span className="truncate">Reportar Pendência</span>
-              </Button>
-              <Button
-                onClick={() => confirmReceiptMutation.mutate()}
-                disabled={confirmReceiptMutation.isPending}
-                className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 w-full sm:w-auto flex items-center justify-center"
-              >
-                <Check className="mr-2 h-4 w-4 flex-shrink-0" />
-                <span className="truncate">Confirmar Recebimento</span>
-              </Button>
-            </div>
-          ) : (
-            <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center justify-center sm:justify-start p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-border">
-              <User className="mr-2 h-4 w-4 flex-shrink-0" />
-              <span className="text-center sm:text-left">
-                Apenas usuários com perfil "Recebedor" podem confirmar recebimentos
-              </span>
-            </div>
-          )}
+  // --- Render New Receipt Form ---
+  return (
+    <div className={cn("space-y-6", className)}>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Novo Recebimento</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Informe os dados da Nota Fiscal e quantidades</p>
         </div>
+        <Button variant="ghost" onClick={() => setViewMode('dashboard')}>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
+        </Button>
       </div>
 
-      {/* Pendency Modal */}
+      <div className="space-y-6">
+          <Card>
+            <CardHeader><CardTitle>Dados da Nota Fiscal</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><Label>Número da Nota Fiscal</Label><Input value={manualNFNumber} onChange={(e) => setManualNFNumber(e.target.value)} placeholder="NF-00000000" /></div>
+              <div><Label>Série</Label><Input value={manualNFSeries} onChange={(e) => setManualNFSeries(e.target.value)} placeholder="S-000" /></div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Itens a Receber</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="text-center">Qtd Pedido</TableHead>
+                    <TableHead className="text-center">Recebido Anteriormente</TableHead>
+                    <TableHead className="text-center">Qtd Atual (NF)</TableHead>
+                    <TableHead className="text-center">Saldo Restante</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {itemsWithPrices.map((it: any) => {
+                    const max = Number(it.quantity || 0);
+                    const prev = Number(it.quantityReceived || 0);
+                    const current = Number(receivedQuantities[it.id] || 0);
+                    const remaining = Math.max(0, max - prev);
+                    
+                    const isOver = (prev + current) > max;
+                    const isFullyReceived = prev >= max;
+
+                    return (
+                      <TableRow key={it.id} className={cn(isOver ? "bg-red-50 dark:bg-red-900/10" : "", isFullyReceived && "bg-muted/50")}>
+                        <TableCell>{it.itemCode || ""} - {it.description}</TableCell>
+                        <TableCell className="text-center">{max}</TableCell>
+                        <TableCell className="text-center text-muted-foreground">{prev}</TableCell>
+                        <TableCell className="text-center">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div>
+                                  <Input 
+                                    type="number" 
+                                    min={0} 
+                                    step={1}
+                                    className={cn("w-24 mx-auto", isFullyReceived && "cursor-not-allowed opacity-50 bg-muted")}
+                                    value={isFullyReceived ? 0 : current}
+                                    disabled={isFullyReceived}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+
+                                      if (raw === "") {
+                                        setReceivedQuantities(p => ({ ...p, [it.id]: 0 }));
+                                        return;
+                                      }
+
+                                      if (!/^\d+$/.test(raw)) {
+                                        toast({
+                                          title: "Valor inválido",
+                                          description: "Informe apenas números inteiros (sem casas decimais).",
+                                          variant: "destructive",
+                                        });
+                                        return;
+                                      }
+
+                                      const v = Number(raw);
+                                      setReceivedQuantities(p => ({ ...p, [it.id]: v }));
+                                    }} 
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              {isFullyReceived && (
+                                <TooltipContent>
+                                  <p>Este item já foi recebido em sua totalidade.</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                        <TableCell className="text-center font-medium">
+                           {remaining - current}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+      </div>
+
+      <div className="sticky bottom-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-6 flex justify-between gap-3 flex-col sm:flex-row sm:items-center">
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => setViewMode('dashboard')}>Cancelar</Button>
+          <Button
+            variant="destructive"
+            onClick={() => setIsPendencyModalOpen(true)}
+          >
+            <X className="mr-2 h-4 w-4" />
+            Reportar Divergência
+          </Button>
+        </div>
+        <Button 
+          onClick={() => confirmPhysicalMutation.mutate()} 
+          disabled={!canConfirm || confirmPhysicalMutation.isPending}
+          className="bg-green-600 hover:bg-green-700"
+        >
+          <Check className="mr-2 h-4 w-4" />
+          Confirmar Recebimento
+        </Button>
+      </div>
+      
       <PendencyModal
         isOpen={isPendencyModalOpen}
         onClose={() => setIsPendencyModalOpen(false)}
         onConfirm={(reason) => reportIssueMutation.mutate(reason)}
         isLoading={reportIssueMutation.isPending}
       />
-
-      {/* Modal de Pré-visualização do PDF removido - substituído por renderização condicional */}
     </div>
   );
 });

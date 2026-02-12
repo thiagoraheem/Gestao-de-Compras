@@ -18,6 +18,8 @@ async function ensureVapidKey() {
 }
 
 async function ensurePushSubscription() {
+  const hasNotifications = typeof Notification !== 'undefined' && typeof Notification.requestPermission === 'function';
+  if (!hasNotifications) return null;
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
   const reg = await navigator.serviceWorker.ready;
   const sub = await reg.pushManager.getSubscription();
@@ -42,9 +44,10 @@ export function useApprovalsBadge() {
 
         if (total > 0) await setAppBadge(total); else await clearAppBadge();
 
+        const hasNotifications = typeof Notification !== 'undefined' && typeof Notification.requestPermission === 'function';
         if ('serviceWorker' in navigator) {
           const reg = await navigator.serviceWorker.ready;
-          if (Notification.permission === 'granted') {
+          if (hasNotifications && Notification.permission === 'granted') {
             if (total > 0) {
               await (reg as any).showNotification(`Você tem ${total} aprovações pendentes`, {
                 body: `Soma de A1 + A2: ${total}. Toque para revisar.`,
@@ -62,7 +65,7 @@ export function useApprovalsBadge() {
         }
 
         const prev = lastTotalRef.current;
-        if (Notification.permission === 'granted' && total > prev) {
+        if (hasNotifications && Notification.permission === 'granted' && total > prev && 'serviceWorker' in navigator) {
           const reg = await navigator.serviceWorker.ready;
           await (reg as any).showNotification(`Novas aprovações: ${total - prev}`, {
             body: `Total pendente agora: ${total}.`,

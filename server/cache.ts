@@ -1,4 +1,4 @@
-import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "@shared/realtime-events";
+import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../shared/realtime-events";
 import { realtime } from "./realtime";
 
 // Simple in-memory cache with TTL (Time To Live)
@@ -96,9 +96,11 @@ export const CACHE_CONFIG = {
     ttl: 20000, // 20 seconds for quotation data
     enabled: true
   },
+  // CRITICAL: NEVER CACHE AUTH ENDPOINTS GLOBALLY
+  // Caching /api/auth/check without session context causes session leakage between users
   '/api/auth/check': {
-    ttl: 60000, // 1 minute for auth check
-    enabled: true
+    ttl: 0,
+    enabled: false
   },
   '/api/suppliers': {
     ttl: 300000, // 5 minutes for suppliers (less frequent changes)
@@ -106,6 +108,20 @@ export const CACHE_CONFIG = {
   },
   '/api/companies': {
     ttl: 300000, // 5 minutes for companies
+    enabled: true
+  }
+  ,
+  '/api/centros-custo': {
+    ttl: 300000,
+    enabled: true
+  },
+  '/api/plano-contas': {
+    ttl: 300000,
+    enabled: true
+  }
+  ,
+  '/api/integracao-locador/centros-custo': {
+    ttl: 300000,
     enabled: true
   }
 };
@@ -130,7 +146,11 @@ export function createCacheMiddleware(defaultTtl = 30000) {
       return next();
     }
 
-    const cacheKey = `${req.method}:${req.path}:${JSON.stringify(req.query)}`;
+    // Include session ID in cache key to prevent cross-user leakage
+    // If no session exists, use 'anonymous'
+    const sessionId = req.session?.userId ? `user:${req.session.userId}` : 'anonymous';
+    const cacheKey = `${sessionId}:${req.method}:${req.path}:${JSON.stringify(req.query)}`;
+    
     const cachedData = apiCache.get(cacheKey);
 
     if (cachedData) {

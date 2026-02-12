@@ -2,13 +2,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { AlertCircle } from "lucide-react";
+import { useLocation } from "wouter";
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Senha atual é obrigatória"),
@@ -24,6 +27,8 @@ type PasswordFormData = z.infer<typeof passwordSchema>;
 export default function ChangePasswordPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const form = useForm<PasswordFormData>({
     resolver: zodResolver(passwordSchema),
@@ -44,12 +49,20 @@ export default function ChangePasswordPage() {
         },
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate auth query to refresh user data (specifically forceChangePassword flag)
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/check"] });
+      
       form.reset();
       toast({
         title: "Sucesso",
         description: "Senha alterada com sucesso!",
       });
+
+      // If it was a forced change, redirect to home/kanban
+      if (user?.forceChangePassword) {
+        setLocation("/");
+      }
     },
     onError: (error: any) => {
       toast({
@@ -67,6 +80,16 @@ export default function ChangePasswordPage() {
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <h1 className="text-3xl font-bold">Alterar Senha</h1>
+
+      {user?.forceChangePassword && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Alteração Obrigatória</AlertTitle>
+          <AlertDescription>
+            Sua senha foi redefinida por um administrador. Por segurança, você deve criar uma nova senha para continuar utilizando o sistema.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>

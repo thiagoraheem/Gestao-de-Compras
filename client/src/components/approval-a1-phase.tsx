@@ -388,6 +388,7 @@ export default function ApprovalA1Phase({
           items={transformedItems}
           requestId={request.id}
           requestNumber={request.requestNumber}
+          className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800"
         />
 
         {/* Approval History */}

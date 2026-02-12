@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { PHASE_COLORS, PurchasePhase, PURCHASE_PHASES } from "@/lib/types";
+import { PHASE_COLORS, PurchasePhase, PURCHASE_PHASES, type ReceiptMode } from "@/lib/types";
 import PurchaseCard from "./purchase-card";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -10,7 +10,7 @@ interface KanbanColumnProps {
   requests: any[];
   onCreateRFQ?: (request: any) => void;
   highlightedRequestIds?: Set<number>;
-  onOpenRequest?: (request: any, phase: PurchasePhase) => void;
+  onOpenRequest?: (request: any, phase: PurchasePhase, mode?: ReceiptMode) => void;
 }
 
 export default function KanbanColumn({

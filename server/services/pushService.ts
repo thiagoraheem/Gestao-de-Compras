@@ -1,6 +1,6 @@
 import webpush from "web-push";
 import { db } from "../db";
-import { pushSubscriptions } from "@shared/schema";
+import { pushSubscriptions } from "../../shared/schema";
 import { and, eq } from "drizzle-orm";
 
 type Subscription = {
