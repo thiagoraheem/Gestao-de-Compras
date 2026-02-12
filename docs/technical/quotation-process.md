@@ -67,14 +67,60 @@ Esta é a etapa mais complexa, onde ocorre o fechamento da cotação e tratament
 4.  **Recálculo**: Recalcula o valor total da cotação considerando *apenas* itens disponíveis. Aplica descontos globais e frete.
 
 #### Lógica de Split (Divisão de Solicitação) - REQ-002:
-Se houver itens marcados como indisponíveis (`isAvailable === false`), o sistema executa automaticamente:
-1.  **Criação de Nova PR**: Gera uma nova Solicitação de Compra (clone da original) com status `solicitacao`.
-    *   *Justificativa*: "[Item Indisponível] Derivado da solicitação X..."
+Se houver itens marcados como indisponíveis (`isAvailable === false`) ou não selecionados, o sistema executa automaticamente:
+
+1.  **Criação de Nova PR (Aprovada A1)**: Gera uma nova Solicitação de Compra (clone da original) com as seguintes características:
+    *   **Status**: `cotacao` (Avança automaticamente da fase de solicitação).
+    *   **Aprovação A1**: Herda a aprovação A1 da solicitação original (copia `approverA1Id`, define `approvedA1 = true` e data atual).
+    *   **Justificativa**: "[Item Indisponível] Derivado da solicitação X..."
+    *   **Objetivo**: Garantir que os itens pendentes continuem o fluxo sem necessidade de nova aprovação técnica (A1), já que a necessidade de compra já foi validada.
+
 2.  **Migração de Itens**:
     *   Cria os itens não atendidos na nova PR.
     *   Marca os itens na PR original como transferidos (`isTransferred = true`, `transferReason`).
-3.  **Auditoria**: Registra log de auditoria do tipo `SPLIT_UNAVAILABLE`.
-4.  **Validação de Bloqueio (REQ-001)**: Antes de finalizar, o backend verifica se *todos* os itens indisponíveis foram tratados (transferidos). Se sobrar algum item "pendente" sem destino, a operação é bloqueada com erro 400.
+
+3.  **Geração Automática de RFQ (REQ-002.1)**:
+    *   **Criação**: Uma nova Cotação (RFQ) é criada automaticamente para a nova PR.
+    *   **Fornecedores**: O sistema identifica os fornecedores participantes da cotação original.
+    *   **Filtragem**: Remove o fornecedor vencedor da cotação original (pois ele não tinha os itens).
+    *   **Associação**: Adiciona os demais fornecedores à nova RFQ com status `sent`.
+    *   **Itens**: Gera os itens da nova cotação baseados nos itens movidos para a nova PR.
+    *   **Resultado**: A nova cotação nasce pronta, enviada para os fornecedores concorrentes, aguardando apenas o preenchimento dos preços para os itens restantes.
+
+4.  **Auditoria**: Registra log de auditoria do tipo `SPLIT_UNAVAILABLE`.
+
+5.  **Validação de Bloqueio (REQ-001)**: Antes de finalizar, o backend verifica se *todos* os itens indisponíveis foram tratados (transferidos). Se sobrar algum item "pendente" sem destino, a operação é bloqueada com erro 400.
+
+#### Exemplo de Caso de Uso (Split Automático)
+
+**Cenário**: Solicitação de Compra #101 contendo 3 itens:
+1.  Notebook (Qtd: 5)
+2.  Mouse (Qtd: 5)
+3.  Teclado Mecânico (Qtd: 5)
+
+**Cotação**:
+*   **Fornecedor A (Vencedor)**: Cota Notebook (R$ 5.000) e Mouse (R$ 50). **Não tem Teclado**.
+*   **Fornecedor B**: Cota todos os itens.
+*   **Fornecedor C**: Cota todos os itens.
+
+**Ação**: Comprador seleciona o **Fornecedor A** como vencedor.
+
+**Resultado do Processo**:
+1.  **Solicitação Original (#101)**:
+    *   Avança para fase `aprovacao_a2`.
+    *   Contém apenas Notebook e Mouse.
+    *   Valor total atualizado para o total do Fornecedor A.
+
+2.  **Nova Solicitação (#102 - Automática)**:
+    *   Criada automaticamente para o item "Teclado Mecânico".
+    *   Status inicial: `cotacao` (já aprovada em A1).
+    *   Justificativa vinculada à #101.
+
+3.  **Nova Cotação (Automática)**:
+    *   Gerada para a Solicitação #102.
+    *   **Fornecedores Incluídos**: Fornecedor B e Fornecedor C (já recebem status `sent`).
+    *   **Fornecedor Excluído**: Fornecedor A (pois não tinha o item).
+    *   **Status**: `sent` (aguardando resposta dos fornecedores B e C apenas para o Teclado).
 
 #### Snapshot de Itens Aprovados (Integridade):
 *   Após a seleção, o sistema gera registros na tabela `approved_quotation_items`.

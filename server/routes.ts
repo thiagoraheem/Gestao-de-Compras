@@ -7068,10 +7068,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 category: originalPR.category,
                 urgency: originalPR.urgency,
                 justification: `[Item Indisponível] Derivado da solicitação ${originalPR.requestNumber}. ` + (originalPR.justification || ""),
-                currentPhase: "solicitacao", // Reinicia o processo
+                currentPhase: "cotacao", // FIX: Avançar automaticamente para fase de cotação
                 idealDeliveryDate: originalPR.idealDeliveryDate,
                 availableBudget: originalPR.availableBudget,
                 additionalInfo: originalPR.additionalInfo,
+                // Herdar aprovação A1 da solicitação original
+                approverA1Id: originalPR.approverA1Id,
+                approvedA1: true,
+                approvalDateA1: new Date(),
                 // parentRequestId: originalPR.id // TODO: Adicionar campo no schema se necessário para rastreabilidade
               };
 
@@ -7118,6 +7122,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     console.log(`Item movido: ${originalItem.description} -> Nova Solicitação ${newPR.requestNumber}`);
                   }
                 }
+              }
+
+              // 4. GERAÇÃO AUTOMÁTICA DE RFQ (REQ-002.1)
+              // Criar nova cotação e enviar para os fornecedores anteriores (exceto o vencedor atual)
+              try {
+                console.log(`Iniciando geração automática de RFQ para a nova solicitação ${newPR.id}...`);
+                
+                // Buscar cotação original para copiar dados
+                const originalQuotation = await storage.getQuotationById(quotationId);
+                
+                if (originalQuotation) {
+                  // Criar nova Cotação
+                  const newQuotationData = {
+                    purchaseRequestId: newPR.id,
+                    deliveryLocationId: originalQuotation.deliveryLocationId,
+                    quotationDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Prazo padrão de 7 dias
+                    termsAndConditions: originalQuotation.termsAndConditions,
+                    technicalSpecs: originalQuotation.technicalSpecs,
+                    createdBy: req.session.userId || 0, // Fallback safe, but usually userId is present
+                    status: 'sent', // Já nasce enviada
+                    isActive: true,
+                    rfqVersion: 1
+                  };
+                  
+                  const newQuotation = await storage.createQuotation(newQuotationData);
+                  console.log(`Nova RFQ criada automaticamente: ${newQuotation.id} (${newQuotation.quotationNumber})`);
+
+                  // Buscar fornecedores da cotação original (exceto o vencedor)
+                  const originalSupplierQuotations = await storage.getSupplierQuotations(quotationId);
+                  const suppliersToKeep = originalSupplierQuotations.filter(sq => sq.supplierId !== selectedSupplierId);
+
+                  if (suppliersToKeep.length > 0) {
+                    console.log(`Replicando ${suppliersToKeep.length} fornecedores para a nova RFQ...`);
+                    
+                    for (const sq of suppliersToKeep) {
+                      await storage.createSupplierQuotation({
+                        quotationId: newQuotation.id,
+                        supplierId: sq.supplierId,
+                        status: 'sent', // Já nasce enviada
+                        sentAt: new Date(),
+                        totalValue: null,
+                        receivedAt: null
+                      });
+                    }
+                    console.log(`Fornecedores replicados com sucesso.`);
+                  } else {
+                    console.warn(`Nenhum fornecedor anterior encontrado para replicar (exceto o vencedor). A nova RFQ ficará sem fornecedores inicialmente.`);
+                  }
+                  
+                  // Criar Itens da Cotação baseados nos itens movidos para a nova PR
+                  const newPRItems = await storage.getPurchaseRequestItems(newPR.id);
+                  console.log(`Criando ${newPRItems.length} itens para a nova RFQ...`);
+                  
+                  for (const prItem of newPRItems) {
+                     await storage.createQuotationItem({
+                        quotationId: newQuotation.id,
+                        purchaseRequestItemId: prItem.id,
+                        itemCode: prItem.productCode || `GEN-${Date.now()}`, // Fallback se não tiver código
+                        description: prItem.description,
+                        quantity: prItem.requestedQuantity,
+                        unit: prItem.unit,
+                        specifications: prItem.technicalSpecification,
+                        deliveryDeadline: null
+                     });
+                  }
+                  console.log(`Itens da nova RFQ criados com sucesso.`);
+                  
+                  // Notificar sucesso da automação
+                  // Opcional: Enviar email ou notificação no sistema
+                }
+              } catch (autoRfqError) {
+                console.error("Erro crítico na geração automática de RFQ para split:", autoRfqError);
+                // Não interromper o fluxo principal, mas logar o erro
               }
 
               // 3. Log de Auditoria
