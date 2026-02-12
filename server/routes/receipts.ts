@@ -5,6 +5,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { db } from "../db";
+import { configService } from "../services/configService";
 import {
   receipts,
   insertReceiptSchema,
@@ -538,6 +539,8 @@ export function registerReceiptsRoutes(app: Express) {
       return res.status(400).json({ message: "Recebimento precisa estar validado ou com erro de integração para ser enviado" });
     }
 
+    const cfg = await configService.getLocadorConfig();
+    
     try {
       const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
       const installments = await db.select().from(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
@@ -559,6 +562,25 @@ export function registerReceiptsRoutes(app: Express) {
         if (company && company.idCompanyERP != null) {
           companyErpId = Number(company.idCompanyERP);
         }
+      }
+
+      if (!cfg.sendEnabled) {
+        const message = "Envio desabilitado por configuração";
+        const [updated] = await db.update(receipts)
+          .set({ status: "erro_integracao", integrationMessage: message })
+          .where(eq(receipts.id, id))
+          .returning();
+
+        try {
+          await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+            VALUES (${purchaseRequest?.id || 0}, ${'recebimento_envio_bloqueado'}, ${'Envio ao ERP bloqueado por configuração'}, ${null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+        } catch {}
+
+        return res.json({ 
+          status_integracao: "bloqueado", 
+          id_recebimento_locador: null, 
+          mensagem: message 
+        });
       }
 
       let obsData: any = null;

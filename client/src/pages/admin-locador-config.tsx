@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const schema = z.object({
   enabled: z.boolean(),
+  sendEnabled: z.boolean().default(true),
   baseUrl: z.string().url(),
   endpoints: z.object({
     combo: z.object({
@@ -37,6 +38,7 @@ type FormData = z.infer<typeof schema>;
 
 type ApiConfig = {
   enabled: boolean;
+  sendEnabled: boolean;
   baseUrl: string;
   endpoints: FormData["endpoints"];
   credentials: {
@@ -58,6 +60,7 @@ export default function AdminLocadorConfigPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       enabled: true,
+      sendEnabled: true,
       baseUrl: "http://localhost:5225/api",
       endpoints: {
         combo: {
@@ -83,6 +86,7 @@ export default function AdminLocadorConfigPage() {
     if (!data) return;
     form.reset({
       enabled: data.enabled,
+      sendEnabled: data.sendEnabled,
       baseUrl: data.baseUrl,
       endpoints: data.endpoints,
       credentials: {
@@ -96,6 +100,7 @@ export default function AdminLocadorConfigPage() {
     mutationFn: async (values: FormData) => {
       const body: any = {
         enabled: values.enabled,
+        sendEnabled: values.sendEnabled,
         baseUrl: values.baseUrl,
         endpoints: values.endpoints,
         credentials: {
@@ -172,7 +177,21 @@ export default function AdminLocadorConfigPage() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="flex items-center justify-between border-t pt-4">
+              <div className="space-y-0.5">
+                <Label>Envio de Dados para ERP</Label>
+                <div className="text-sm text-muted-foreground">
+                  Controla apenas o envio de informações (POST). Não afeta a recepção de dados ou consultas.
+                </div>
+              </div>
+              <Switch
+                checked={values.sendEnabled}
+                onCheckedChange={(checked) => form.setValue("sendEnabled", checked)}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="space-y-2 border-t pt-4">
               <Label htmlFor="baseUrl">Base URL</Label>
               <Input id="baseUrl" {...form.register("baseUrl")} placeholder="http://localhost:5225/api" />
             </div>

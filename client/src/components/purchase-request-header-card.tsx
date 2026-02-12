@@ -74,8 +74,8 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
 }) => {
   const themeClasses =
     context === "fiscal"
-      ? "border-indigo-200 dark:border-indigo-800 bg-slate-900/40 dark:bg-slate-950/40"
-      : "border-slate-200 dark:border-slate-800 bg-slate-950/40 dark:bg-slate-900/60";
+      ? "border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-slate-950/40"
+      : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60";
 
   const fullRequestNumber =
     requestNumber !== undefined && requestNumber !== null
@@ -96,7 +96,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Solicitação / Pedido
           </p>
-          <p className="font-medium text-slate-100">
+          <p className="font-medium text-slate-900 dark:text-slate-100">
             {fullRequestNumber}
             {hasOrderNumber && <> / {fullOrderNumber}</>}
           </p>
@@ -106,7 +106,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Solicitante
           </p>
-          <p className="text-slate-100 truncate">
+          <p className="text-slate-900 dark:text-slate-100 truncate">
             {requesterName && requesterName.trim().length > 0
               ? requesterName
               : "N/A"}
@@ -117,7 +117,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Fornecedor
           </p>
-          <p className="text-slate-100 truncate">
+          <p className="text-slate-900 dark:text-slate-100 truncate">
             {supplierName && supplierName.trim().length > 0
               ? supplierName
               : "Não definido"}
@@ -128,7 +128,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Data do Pedido
           </p>
-          <p className="text-slate-100">
+          <p className="text-slate-900 dark:text-slate-100">
             {orderDate && orderDate.trim().length > 0 ? orderDate : "N/A"}
           </p>
         </div>
@@ -137,7 +137,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Valor Total
           </p>
-          <p className="font-medium text-slate-100">
+          <p className="font-medium text-slate-900 dark:text-slate-100">
             {totalValue && totalValue.trim().length > 0 ? totalValue : "R$ 0,00"}
           </p>
         </div>
@@ -146,7 +146,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Status Atual
           </p>
-          <p className="text-slate-100">
+          <p className="text-slate-900 dark:text-slate-100">
             {status && status.trim().length > 0 ? status : "—"}
           </p>
         </div>

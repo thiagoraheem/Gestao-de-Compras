@@ -15,7 +15,7 @@ O frontend React não chama o Locador diretamente. Todas as chamadas passam pelo
 
 ## Chaves no banco (app_settings)
 
-- `locador.config` (não secreto): `{ enabled, baseUrl, endpoints }`
+- `locador.config` (não secreto): `{ enabled, sendEnabled, baseUrl, endpoints }`
 - `locador.credentials` (secreto): `{ login, senha }` (armazenado criptografado)
 
 ## API interna de Config
@@ -32,6 +32,7 @@ O frontend React não chama o Locador diretamente. Todas as chamadas passam pelo
 ```json
 {
   "enabled": true,
+  "sendEnabled": true,
   "baseUrl": "http://localhost:5225/api",
   "endpoints": {
     "combo": {
@@ -83,3 +84,11 @@ O frontend inclui uma tela simples para editar a configuração e executar Reloa
 - Token do Locador nunca vai para o browser.
 - Segredos (`locador.credentials`) ficam no banco criptografados com `CONFIG_ENCRYPTION_KEY`.
 
+## Controle de Envio ao ERP
+
+Foi adicionada uma flag de configuração `sendEnabled` (UI: "Envio de Dados para ERP") que permite desativar *apenas* o envio de informações (POST) para o ERP, mantendo as consultas (GET) ativas.
+
+- **Ativo (true)**: Comportamento padrão. O sistema envia dados ao ERP (Solicitações, Recebimentos).
+- **Inativo (false)**: O sistema bloqueia o envio, registra um log de auditoria com status "ENVIO_DESABILITADO_POR_CONFIGURACAO" e define o status do recebimento como "erro_integracao" (com mensagem explicativa), permitindo que o processo continue sem travar, mas sinalizando que a integração de escrita foi pulada.
+
+Isso é útil para manutenção, testes ou quando o ERP está instável para gravações, mas disponível para leituras.

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { db } from "../db";
@@ -25,6 +25,7 @@ const LocadorEndpointsSchema = z.object({
 
 const LocadorConfigSchema = z.object({
   enabled: z.boolean().default(true),
+  sendEnabled: z.boolean().default(true),
   baseUrl: z.string().url(),
   endpoints: LocadorEndpointsSchema,
 });
@@ -50,6 +51,7 @@ export type LocadorIntegrationConfigPublic = LocadorConfig & {
 
 const DEFAULT_LOCADOR_CONFIG: LocadorConfig = {
   enabled: true,
+  sendEnabled: true,
   baseUrl: process.env.BASE_API_URL || "http://localhost:5001/api",
   endpoints: {
     combo: {
@@ -118,6 +120,7 @@ export class ConfigService {
     const cfg = await this.getLocadorConfig();
     return {
       enabled: cfg.enabled,
+      sendEnabled: cfg.sendEnabled,
       baseUrl: cfg.baseUrl,
       endpoints: cfg.endpoints,
       credentials: {
@@ -151,6 +154,7 @@ export class ConfigService {
 
     const UpdateSchema = z.object({
       enabled: z.boolean().optional(),
+      sendEnabled: z.boolean().optional(),
       baseUrl: z.string().url().optional(),
       endpoints: LocadorEndpointsPatchSchema.optional(),
       credentials: LocadorCredentialsSchema.partial().optional(),
@@ -161,6 +165,7 @@ export class ConfigService {
 
     const nextConfig: LocadorConfig = LocadorConfigSchema.parse({
       enabled: incoming.enabled ?? current.enabled,
+      sendEnabled: incoming.sendEnabled ?? current.sendEnabled,
       baseUrl: incoming.baseUrl ?? current.baseUrl,
       endpoints: deepMerge(current.endpoints, incoming.endpoints ?? {}),
     });
@@ -174,6 +179,23 @@ export class ConfigService {
       this.setSetting("locador.config", nextConfig, false, updatedBy),
       this.setSetting("locador.credentials", nextCreds, true, updatedBy),
     ]);
+
+    try {
+      await db.execute(sql`
+        INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+        VALUES (
+          0, 
+          'config_update', 
+          'Atualização de configuração do Locador', 
+          ${updatedBy}, 
+          ${JSON.stringify({ enabled: current.enabled, sendEnabled: current.sendEnabled })}::jsonb, 
+          ${JSON.stringify({ enabled: nextConfig.enabled, sendEnabled: nextConfig.sendEnabled })}::jsonb, 
+          ARRAY['app_settings']
+        )
+      `);
+    } catch (error) {
+      console.error("Failed to insert audit log for config update:", error);
+    }
 
     this.invalidateLocadorCache();
     return this.getLocadorConfigPublic();

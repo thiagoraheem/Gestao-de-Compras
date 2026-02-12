@@ -58,6 +58,10 @@ export function registerLocadorIntegrationRoutes(app: Express) {
 
   app.post("/api/integration/locador/solicitacoes", async (req, res) => {
     const cfg = await configService.getLocadorConfig();
+    if (!cfg.sendEnabled) {
+      console.log("[Integration] Envio de solicitação bloqueado por configuração (sendEnabled=false)");
+      return res.json({ message: "Envio desabilitado por configuração", skipped: true });
+    }
     const endpoint = cfg.endpoints.post.enviarSolicitacao;
     if (!endpoint) {
       return res.status(400).json({ message: "Endpoint locador.endpoints.post.enviarSolicitacao não configurado" });
@@ -70,6 +74,10 @@ export function registerLocadorIntegrationRoutes(app: Express) {
 
   app.post("/api/integration/locador/recebimentos", async (req, res) => {
     const cfg = await configService.getLocadorConfig();
+    if (!cfg.sendEnabled) {
+      console.log("[Integration] Envio de recebimento bloqueado por configuração (sendEnabled=false)");
+      return res.json({ message: "Envio desabilitado por configuração", skipped: true });
+    }
     const endpoint = cfg.endpoints.post.recebimento;
     if (!endpoint) {
       return res.status(400).json({ message: "Endpoint locador.endpoints.post.recebimento não configurado" });
