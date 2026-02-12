@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Calendar, Truck, Package, AlertTriangle, ArrowRight, FileText, DollarSign } from "lucide-react";
+import { Calendar, Truck, Package, AlertTriangle, ArrowRight, FileText, DollarSign, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS } from "@/lib/types";
@@ -89,6 +89,11 @@ export default function ConferenceOrderCard({ request, onSelect }: ConferenceOrd
           <div className="flex items-center gap-2 text-muted-foreground">
             <Package className="h-4 w-4" />
             <span>{request.items?.length || 0} itens para conferir</span>
+          </div>
+
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>Criado em: {request.createdAt ? format(new Date(request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}</span>
           </div>
 
           <div className="flex items-center gap-2 text-muted-foreground">

@@ -5,7 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- **Material Conference / Receipt**: Added "Data de Criação" field to the purchase request summary card in Receipt and Fiscal Conference phases.
+- **Material Conference**: Added "Data de Criação" field to the cards and table view.
+- **Receipt / Fiscal Conference**: Added "Data de Criação" field to the purchase request summary card.
 - **Request Details**: Added "Data de Criação" field to the detailed request view.
 - **Shared**: Updated `PurchaseRequestHeaderCard` to support `creationDate` prop and extended grid layout.
 

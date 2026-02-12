@@ -8,6 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { URGENCY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
 import { 
   Tooltip,
   TooltipContent,
@@ -64,6 +67,10 @@ export default function ConferenceOrderList({ requests, onSelect }: ConferenceOr
       case 'purchaseOrder.totalValue':
         aValue = Number(a.purchaseOrder?.totalValue || 0);
         bValue = Number(b.purchaseOrder?.totalValue || 0);
+        break;
+      case 'createdAt':
+        aValue = new Date(a.createdAt || 0).getTime();
+        bValue = new Date(b.createdAt || 0).getTime();
         break;
       default:
         return 0;
@@ -203,6 +210,15 @@ export default function ConferenceOrderList({ requests, onSelect }: ConferenceOr
                         <ArrowUpDown className="h-3 w-3" />
                       </div>
                     </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort('createdAt')}
+                    >
+                      <div className="flex items-center gap-2">
+                        Data Criação
+                        <ArrowUpDown className="h-3 w-3" />
+                      </div>
+                    </TableHead>
                     <TableHead>Fornecedor</TableHead>
                     <TableHead className="hidden md:table-cell">Descrição</TableHead>
                     <TableHead 
@@ -252,6 +268,9 @@ export default function ConferenceOrderList({ requests, onSelect }: ConferenceOr
                               </Tooltip>
                             </TooltipProvider>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {request.createdAt ? format(new Date(request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
                         </TableCell>
                         <TableCell>
                           <div className="max-w-[260px] truncate">
