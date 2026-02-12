@@ -4,88 +4,123 @@ import { locadorHttpClient } from "../services/locadorHttpClient";
 
 export function registerLocadorIntegrationRoutes(app: Express) {
   app.get("/api/integration/locador/combos/fornecedores", async (req, res) => {
-    const cfg = await configService.getLocadorConfig();
-    const search = typeof req.query.search === "string" ? req.query.search : undefined;
-    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+    try {
+      const cfg = await configService.getLocadorConfig();
+      const search = typeof req.query.search === "string" ? req.query.search : undefined;
+      const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
 
-    const path = cfg.endpoints.combo.fornecedor;
-    const query = new URLSearchParams();
-    if (search) query.set("search", search);
-    if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) query.set("limit", String(limit));
+      const path = cfg.endpoints.combo.fornecedor;
+      const query = new URLSearchParams();
+      if (search) query.set("search", search);
+      if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) query.set("limit", String(limit));
 
-    const started = Date.now();
-    const raw = await locadorHttpClient.get<any>(query.size ? `${path}?${query.toString()}` : path);
-    const items = extractArray(raw).map(mapSupplierSummary);
-    setUpstreamHeaders(res, items.length, started);
-    res.json(items);
+      const started = Date.now();
+      const raw = await locadorHttpClient.get<any>(query.size ? `${path}?${query.toString()}` : path);
+      const items = extractArray(raw).map(mapSupplierSummary);
+      setUpstreamHeaders(res, items.length, started);
+      res.json(items);
+    } catch (error: any) {
+      console.error("[Integration] Erro ao buscar fornecedores:", error.message);
+      res.status(502).json({ message: "Erro de comunicação com o ERP Locador" });
+    }
   });
 
   app.get("/api/integration/locador/combos/centros-custo", async (_req, res) => {
-    const cfg = await configService.getLocadorConfig();
-    const started = Date.now();
-    const raw = await locadorHttpClient.get<any>(cfg.endpoints.combo.centroCusto);
-    const items = extractArray(raw).map(mapCostCenter);
-    setUpstreamHeaders(res, items.length, started);
-    res.json(items);
+    try {
+      const cfg = await configService.getLocadorConfig();
+      const started = Date.now();
+      const raw = await locadorHttpClient.get<any>(cfg.endpoints.combo.centroCusto);
+      const items = extractArray(raw).map(mapCostCenter);
+      setUpstreamHeaders(res, items.length, started);
+      res.json(items);
+    } catch (error: any) {
+      console.error("[Integration] Erro ao buscar centros de custo:", error.message);
+      res.status(502).json({ message: "Erro de comunicação com o ERP Locador" });
+    }
   });
 
   app.get("/api/integration/locador/combos/planos-conta", async (_req, res) => {
-    const cfg = await configService.getLocadorConfig();
-    const started = Date.now();
-    const raw = await locadorHttpClient.get<any>(cfg.endpoints.combo.planoContas);
-    const items = extractArray(raw).map(mapChartOfAccounts);
-    setUpstreamHeaders(res, items.length, started);
-    res.json(items);
+    try {
+      const cfg = await configService.getLocadorConfig();
+      const started = Date.now();
+      const raw = await locadorHttpClient.get<any>(cfg.endpoints.combo.planoContas);
+      const items = extractArray(raw).map(mapChartOfAccounts);
+      setUpstreamHeaders(res, items.length, started);
+      res.json(items);
+    } catch (error: any) {
+      console.error("[Integration] Erro ao buscar planos de conta:", error.message);
+      res.status(502).json({ message: "Erro de comunicação com o ERP Locador" });
+    }
   });
 
   app.get("/api/integration/locador/combos/empresas", async (_req, res) => {
-    const cfg = await configService.getLocadorConfig();
-    const started = Date.now();
-    const raw = await locadorHttpClient.get<any>(cfg.endpoints.combo.empresa);
-    const items = extractArray(raw).map(mapEmpresa);
-    setUpstreamHeaders(res, items.length, started);
-    res.json(items);
+    try {
+      const cfg = await configService.getLocadorConfig();
+      const started = Date.now();
+      const raw = await locadorHttpClient.get<any>(cfg.endpoints.combo.empresa);
+      const items = extractArray(raw).map(mapEmpresa);
+      setUpstreamHeaders(res, items.length, started);
+      res.json(items);
+    } catch (error: any) {
+      console.error("[Integration] Erro ao buscar empresas:", error.message);
+      res.status(502).json({ message: "Erro de comunicação com o ERP Locador" });
+    }
   });
 
   app.get("/api/integration/locador/combos/formas-pagamento", async (_req, res) => {
-    const cfg = await configService.getLocadorConfig();
-    const started = Date.now();
-    const raw = await locadorHttpClient.get<any>(cfg.endpoints.combo.formaPagamento);
-    const items = extractArray(raw).map(mapPaymentMethod);
-    setUpstreamHeaders(res, items.length, started);
-    res.json(items);
+    try {
+      const cfg = await configService.getLocadorConfig();
+      const started = Date.now();
+      const raw = await locadorHttpClient.get<any>(cfg.endpoints.combo.formaPagamento);
+      const items = extractArray(raw).map(mapPaymentMethod);
+      setUpstreamHeaders(res, items.length, started);
+      res.json(items);
+    } catch (error: any) {
+      console.error("[Integration] Erro ao buscar formas de pagamento:", error.message);
+      res.status(502).json({ message: "Erro de comunicação com o ERP Locador" });
+    }
   });
 
   app.post("/api/integration/locador/solicitacoes", async (req, res) => {
-    const cfg = await configService.getLocadorConfig();
-    if (!cfg.sendEnabled) {
-      console.log("[Integration] Envio de solicitação bloqueado por configuração (sendEnabled=false)");
-      return res.json({ message: "Envio desabilitado por configuração", skipped: true });
+    try {
+      const cfg = await configService.getLocadorConfig();
+      if (!cfg.sendEnabled) {
+        console.log("[Integration] Envio de solicitação bloqueado por configuração (sendEnabled=false)");
+        return res.json({ message: "Envio desabilitado por configuração", skipped: true });
+      }
+      const endpoint = cfg.endpoints.post.enviarSolicitacao;
+      if (!endpoint) {
+        return res.status(400).json({ message: "Endpoint locador.endpoints.post.enviarSolicitacao não configurado" });
+      }
+      const started = Date.now();
+      const result = await locadorHttpClient.post<any>(endpoint, req.body);
+      setUpstreamHeaders(res, undefined, started);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[Integration] Erro ao enviar solicitação:", error.message);
+      res.status(502).json({ message: "Erro de comunicação com o ERP Locador" });
     }
-    const endpoint = cfg.endpoints.post.enviarSolicitacao;
-    if (!endpoint) {
-      return res.status(400).json({ message: "Endpoint locador.endpoints.post.enviarSolicitacao não configurado" });
-    }
-    const started = Date.now();
-    const result = await locadorHttpClient.post<any>(endpoint, req.body);
-    setUpstreamHeaders(res, undefined, started);
-    res.json(result);
   });
 
   app.post("/api/integration/locador/recebimentos", async (req, res) => {
-    const cfg = await configService.getLocadorConfig();
-    if (!cfg.sendEnabled) {
-      console.log("[Integration] Envio de recebimento bloqueado por configuração (sendEnabled=false)");
-      return res.json({ message: "Envio desabilitado por configuração", skipped: true });
+    try {
+      const cfg = await configService.getLocadorConfig();
+      if (!cfg.sendEnabled) {
+        console.log("[Integration] Envio de recebimento bloqueado por configuração (sendEnabled=false)");
+        return res.json({ message: "Envio desabilitado por configuração", skipped: true });
+      }
+      const endpoint = cfg.endpoints.post.recebimento;
+      if (!endpoint) {
+        return res.status(400).json({ message: "Endpoint locador.endpoints.post.recebimento não configurado" });
+      }
+      const started = Date.now();
+      const result = await locadorHttpClient.post<any>(endpoint, req.body);
+      setUpstreamHeaders(res, undefined, started);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[Integration] Erro ao enviar recebimento:", error.message);
+      res.status(502).json({ message: "Erro de comunicação com o ERP Locador" });
     }
-    const endpoint = cfg.endpoints.post.recebimento;
-    if (!endpoint) {
-      return res.status(400).json({ message: "Endpoint locador.endpoints.post.recebimento não configurado" });
-    }
-    const started = Date.now();
-    const result = await locadorHttpClient.post<any>(endpoint, req.body);
-    setUpstreamHeaders(res, undefined, started);
-    res.json(result);
   });
 
   app.get("/api/integration/locador/health", async (_req, res) => {

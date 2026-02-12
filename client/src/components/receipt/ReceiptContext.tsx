@@ -366,30 +366,36 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
       // Restore Financial & Rateio Data from DB (Persistence Recovery)
       if (specificReceipt.observations) {
         try {
-          const obs = typeof specificReceipt.observations === 'string' 
+          // Check if it looks like JSON before parsing to avoid syntax errors on plain text
+          const obsStr = typeof specificReceipt.observations === 'string' ? specificReceipt.observations.trim() : '';
+          const isJson = obsStr.startsWith('{') || obsStr.startsWith('[');
+          
+          const obs = isJson 
             ? JSON.parse(specificReceipt.observations) 
-            : specificReceipt.observations;
+            : (typeof specificReceipt.observations === 'object' ? specificReceipt.observations : null);
 
-          console.log("[ReceiptContext] Restoring persisted fiscal data:", obs);
+          if (obs && typeof obs === 'object') {
+            console.log("[ReceiptContext] Restoring persisted fiscal data:", obs);
 
-          if (obs.financial) {
-            if (obs.financial.paymentMethodCode) setPaymentMethodCode(obs.financial.paymentMethodCode);
-            if (obs.financial.invoiceDueDate) {
-               // Ensure correct date format if needed
-               const d = obs.financial.invoiceDueDate.split('T')[0];
-               setInvoiceDueDate(d);
+            if (obs.financial) {
+              if (obs.financial.paymentMethodCode) setPaymentMethodCode(obs.financial.paymentMethodCode);
+              if (obs.financial.invoiceDueDate) {
+                 // Ensure correct date format if needed
+                 const d = obs.financial.invoiceDueDate.split('T')[0];
+                 setInvoiceDueDate(d);
+              }
+              if (typeof obs.financial.hasInstallments !== 'undefined') setHasInstallments(obs.financial.hasInstallments);
+              if (obs.financial.installmentCount) setInstallmentCount(Number(obs.financial.installmentCount));
+              if (Array.isArray(obs.financial.installments)) setInstallments(obs.financial.installments);
             }
-            if (typeof obs.financial.hasInstallments !== 'undefined') setHasInstallments(obs.financial.hasInstallments);
-            if (obs.financial.installmentCount) setInstallmentCount(Number(obs.financial.installmentCount));
-            if (Array.isArray(obs.financial.installments)) setInstallments(obs.financial.installments);
-          }
 
-          if (obs.rateio) {
-            if (obs.rateio.mode) setAllocationMode(obs.rateio.mode);
-            if (Array.isArray(obs.rateio.allocations)) setAllocations(obs.rateio.allocations);
+            if (obs.rateio) {
+              if (obs.rateio.mode) setAllocationMode(obs.rateio.mode);
+              if (Array.isArray(obs.rateio.allocations)) setAllocations(obs.rateio.allocations);
+            }
           }
         } catch (e) {
-          console.error("[ReceiptContext] Error parsing receipt observations for restoration", e);
+          // Silent fail for non-JSON content to avoid console noise
         }
       }
     }
