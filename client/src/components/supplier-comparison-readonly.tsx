@@ -168,7 +168,22 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                             <span className="text-sm font-medium">Valor Total</span>
                           </div>
                           <span className="text-lg font-bold text-green-600 dark:text-green-300">
-                            R$ {supplierData.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                            {(() => {
+                              // Calcular valor total dinamicamente para garantir consistência com o desconto e frete
+                              const subtotal = supplierData.items.reduce((sum, item) => sum + (Number(item.discountedTotalPrice) || Number(item.totalPrice) || 0), 0);
+                              
+                              let discountAmount = 0;
+                              if (supplierData.discountType === 'percentage' && supplierData.discountValue) {
+                                discountAmount = (subtotal * Number(supplierData.discountValue)) / 100;
+                              } else if (supplierData.discountType === 'fixed' && supplierData.discountValue) {
+                                discountAmount = Number(supplierData.discountValue);
+                              }
+                              
+                              const freight = supplierData.includesFreight ? Number(supplierData.freightValue || 0) : 0;
+                              const finalValue = Math.max(0, subtotal - discountAmount) + freight;
+                              
+                              return `R$ ${finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+                            })()}
                           </span>
                         </div>
 

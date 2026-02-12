@@ -1342,13 +1342,13 @@ export class DatabaseStorage implements IStorage {
               let foundQuotationData = false;
               if (request.chosenSupplierId) {
                 const chosenSupplierQuotationResult = await pool.query(
-                  `SELECT sq.id, sq.subtotal_value, sq.final_value, sq.discount_type, sq.discount_value
+                  `SELECT sq.id, sq.subtotal_value, sq.final_value, sq.discount_type, sq.discount_value, sq.includes_freight, sq.freight_value
                    FROM supplier_quotations sq
-                 JOIN quotations q ON sq.quotation_id = q.id
-                 WHERE q.purchase_request_id = $1 
-                 AND sq.supplier_id = $2
-                 ORDER BY sq.created_at DESC
-                 LIMIT 1`,
+                   JOIN quotations q ON sq.quotation_id = q.id
+                   WHERE q.purchase_request_id = $1 
+                   AND sq.supplier_id = $2
+                   ORDER BY sq.created_at DESC
+                   LIMIT 1`,
                 [request.id, request.chosenSupplierId]
               );
               if (chosenSupplierQuotationResult.rows.length > 0) {
@@ -1413,21 +1413,48 @@ export class DatabaseStorage implements IStorage {
                 let originalCandidate = null as number | null;
                 let finalCandidate = null as number | null;
 
-                if (itemsOriginalSum > 0 || itemsDiscountedSum > 0) {
-                  originalCandidate = itemsOriginalSum > 0 ? itemsOriginalSum : (subtotalFromQuotation || null);
-                  finalCandidate = itemsDiscountedSum > 0 ? itemsDiscountedSum : (finalFromQuotation || subtotalFromQuotation || null);
-                } else {
-                  originalCandidate = subtotalFromQuotation || null;
-                  finalCandidate = finalFromQuotation || subtotalFromQuotation || null;
-                  
-                  // Sanity check for data consistency when items are missing
-                  if (originalCandidate != null && finalCandidate != null && finalCandidate > 0) {
-                    const ratio = originalCandidate / finalCandidate;
-                    // If subtotal is suspiciously high (>1.5x) without explicit discount flags, trust the final value
-                    if (ratio > 1.5 && !quotation.discount_value && !quotation.discount_type) {
-                      originalCandidate = finalCandidate;
-                    }
-                  }
+                let baseSubtotal = itemsDiscountedSum > 0 ? itemsDiscountedSum : (subtotalFromQuotation || 0);
+                let baseOriginal = itemsOriginalSum > 0 ? itemsOriginalSum : (subtotalFromQuotation || 0);
+
+                // If no base, try to use finalValue from quotation as fallback
+                if (baseSubtotal === 0 && finalFromQuotation > 0) {
+                   baseSubtotal = finalFromQuotation;
+                   // Assuming no discount if we have no info, unless final is much lower than subtotal (if subtotal existed)
+                   if (subtotalFromQuotation > finalFromQuotation) {
+                       baseOriginal = subtotalFromQuotation;
+                   } else {
+                       baseOriginal = finalFromQuotation;
+                   }
+                }
+
+                // Calculate final values with global discounts and freight
+                let calculatedFinal = baseSubtotal;
+                let calculatedOriginal = baseOriginal;
+
+                // Global Discount (applies only to final, original keeps full value)
+                if (quotation.discount_type === 'percentage' && quotation.discount_value) {
+                    const discountVal = (calculatedFinal * parseFloat(quotation.discount_value)) / 100;
+                    calculatedFinal -= discountVal;
+                } else if (quotation.discount_type === 'fixed' && quotation.discount_value) {
+                    calculatedFinal -= parseFloat(quotation.discount_value);
+                }
+
+                // Freight (adds to both)
+                if (quotation.includes_freight && quotation.freight_value) {
+                    const freight = parseFloat(quotation.freight_value);
+                    calculatedFinal += freight;
+                    calculatedOriginal += freight;
+                }
+
+                finalCandidate = Math.max(0, calculatedFinal);
+                originalCandidate = Math.max(0, calculatedOriginal);
+
+                // Sanity check if still 0
+                if (finalCandidate === 0 && finalFromQuotation > 0) {
+                    finalCandidate = finalFromQuotation;
+                }
+                if (originalCandidate === 0 && subtotalFromQuotation > 0) {
+                    originalCandidate = subtotalFromQuotation;
                 }
 
                 // Global Sanity Check against Request Total
@@ -1444,19 +1471,18 @@ export class DatabaseStorage implements IStorage {
                 const hasExplicitDiscount = hasExplicitItemDiscount || (quotation.discount_value && parseFloat(quotation.discount_value) > 0) || !!quotation.discount_type;
 
                 if (!hasExplicitDiscount && originalCandidate != null && finalCandidate != null) {
-                  // Sem desconto explícito nos itens: considere valores iguais
+                  // Sem desconto explícito: considere valores iguais, mas respeite o finalCandidate calculado (que pode ter frete)
                   originalValue = finalCandidate;
                   discount = 0;
-                  // Não sobrescrever totalValue se não houver soma de itens
-                  if (itemsOriginalSum > 0 || itemsDiscountedSum > 0) {
+                  if (finalCandidate > 0) {
                     request.totalValue = finalCandidate;
                   }
                 } else {
                   originalValue = originalCandidate;
                   const finalVal = finalCandidate ?? 0;
                   discount = originalCandidate != null ? Math.max(0, originalCandidate - finalVal) : null;
-                  if (itemsOriginalSum > 0 || itemsDiscountedSum > 0) {
-                    request.totalValue = finalCandidate ?? request.totalValue;
+                  if (finalCandidate != null && finalCandidate > 0) {
+                    request.totalValue = finalCandidate;
                   }
                 }
               }

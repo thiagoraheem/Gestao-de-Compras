@@ -1259,7 +1259,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                 </div>
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Data de Emissão</span>
-                  <p>{format(new Date(request.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
+                  <p>{format(new Date(request.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Status do Pedido</span>

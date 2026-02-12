@@ -56,6 +56,11 @@ export interface PurchaseRequestHeaderCardProps {
   status?: string;
 
   /**
+   * Data de criação da solicitação formatada.
+   */
+  creationDate?: string;
+
+  /**
    * Classes adicionais para estilização do container.
    */
   className?: string;
@@ -70,6 +75,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
   orderDate,
   totalValue,
   status,
+  creationDate,
   className,
 }) => {
   const themeClasses =
@@ -91,7 +97,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
 
   return (
     <Card className={cn("border", themeClasses, className)}>
-      <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 text-sm pt-4">
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 text-sm pt-4">
         <div className="space-y-1">
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Solicitação / Pedido
@@ -148,6 +154,15 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
           </p>
           <p className="text-slate-900 dark:text-slate-100">
             {status && status.trim().length > 0 ? status : "—"}
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            Data de Criação
+          </p>
+          <p className="text-slate-900 dark:text-slate-100">
+            {creationDate && creationDate.trim().length > 0 ? creationDate : "N/A"}
           </p>
         </div>
       </CardContent>

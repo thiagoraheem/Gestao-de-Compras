@@ -6572,7 +6572,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           processedUpdate: updateData
         });
 
-        await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
+        const updatedSupplierQuotation = await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
+
+        // If this is the chosen supplier quotation, update the purchase request total value
+        if (updatedSupplierQuotation.isChosen) {
+             // Calculate grand total (finalValue + freight if included)
+             const fVal = updateData.finalValue ? Number(updateData.finalValue) : 0;
+             const frVal = (updateData.includesFreight && updateData.freightValue) ? Number(updateData.freightValue) : 0;
+             const grandTotal = fVal + frVal;
+
+             await storage.updatePurchaseRequest(purchaseRequest.id, {
+                 totalValue: grandTotal.toFixed(2),
+             });
+             
+             console.log(`[Sync] Updated Purchase Request ${purchaseRequest.id} total value to ${grandTotal} based on chosen supplier quotation update`);
+        }
 
         // Atualizar ou criar itens da cotação
         if (items && items.length > 0) {
@@ -6993,7 +7007,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return total + itemValue;
           }, 0);
 
-          finalTotalValue = recalculatedTotal.toString();
+          let calculatedTotal = recalculatedTotal;
+
+          // Apply global discount
+          if (selectedSupplierQuotation.discountType === 'percentage' && selectedSupplierQuotation.discountValue) {
+            const discount = (calculatedTotal * parseFloat(selectedSupplierQuotation.discountValue)) / 100;
+            calculatedTotal -= discount;
+          } else if (selectedSupplierQuotation.discountType === 'fixed' && selectedSupplierQuotation.discountValue) {
+            calculatedTotal -= parseFloat(selectedSupplierQuotation.discountValue);
+          }
+
+          // Apply freight
+          if (selectedSupplierQuotation.includesFreight && selectedSupplierQuotation.freightValue) {
+            calculatedTotal += parseFloat(selectedSupplierQuotation.freightValue);
+          }
+
+          finalTotalValue = Math.max(0, calculatedTotal).toFixed(4);
 
           // Atualizar o valor total na cotação do fornecedor
           await storage.updateSupplierQuotation(selectedSupplierQuotation.id, {

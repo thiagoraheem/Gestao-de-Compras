@@ -1,4 +1,13 @@
+import React from "react";
 import PurchaseRequestHeaderCard from "../purchase-request-header-card";
+import { render, screen } from "@testing-library/react";
+
+// Mocking dependencies if necessary
+// Assuming we are using a setup where we can render components or at least inspect their output
+// The existing test file seems to use a custom or manual inspection approach: 
+// "const element: any = PurchaseRequestHeaderCard(...)"
+// This suggests it's testing the function directly, not using React Testing Library's render.
+// I will adapt to the existing style found in the file.
 
 declare const describe: any;
 declare const test: any;
@@ -26,26 +35,48 @@ describe("PurchaseRequestHeaderCard", () => {
       ? cardContent.props.children
       : [cardContent.props.children];
 
+    // Assuming sections order based on component definition:
+    // 0: Request/Order Number
+    // 1: Requester
+    // 2: Supplier
+    // 3: Order Date
+    // 4: Total Value
+    // 5: Status
+    // 6: Creation Date (New)
+
     const requesterSection = sections[1];
     const supplierSection = sections[2];
     const dateSection = sections[3];
     const totalSection = sections[4];
     const statusSection = sections[5];
+    const creationDateSection = sections[6];
 
-    const getText = (section: any) => {
-      const paragraphs = Array.isArray(section.props.children)
-        ? section.props.children
-        : [section.props.children];
-      const valueParagraph = paragraphs[1];
-      return Array.isArray(valueParagraph.props.children)
-        ? valueParagraph.props.children.join("")
-        : valueParagraph.props.children;
-    };
+    // Check defaults
+    expect(requesterSection.props.children[1].props.children).toBe("N/A");
+    expect(supplierSection.props.children[1].props.children).toBe("Não definido");
+    expect(dateSection.props.children[1].props.children).toBe("N/A");
+    expect(totalSection.props.children[1].props.children).toBe("R$ 0,00");
+    expect(statusSection.props.children[1].props.children).toBe("—");
+    
+    // Check new Creation Date field default
+    expect(creationDateSection.props.children[0].props.children).toBe("Data de Criação");
+    expect(creationDateSection.props.children[1].props.children).toBe("N/A");
+  });
 
-    expect(getText(requesterSection)).toBe("N/A");
-    expect(getText(supplierSection)).toBe("Não definido");
-    expect(getText(dateSection)).toBe("N/A");
-    expect(getText(totalSection)).toBe("R$ 0,00");
-    expect(getText(statusSection)).toBe("—");
+  test("renderiza data de criação corretamente quando fornecida", () => {
+    const creationDate = "12/02/2026 14:30";
+    const element: any = PurchaseRequestHeaderCard({
+      creationDate: creationDate,
+    } as any);
+
+    const cardContent = element.props.children;
+    const sections = Array.isArray(cardContent.props.children)
+      ? cardContent.props.children
+      : [cardContent.props.children];
+
+    const creationDateSection = sections[6];
+
+    expect(creationDateSection.props.children[0].props.children).toBe("Data de Criação");
+    expect(creationDateSection.props.children[1].props.children).toBe(creationDate);
   });
 });

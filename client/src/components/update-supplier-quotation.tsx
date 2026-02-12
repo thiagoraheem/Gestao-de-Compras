@@ -335,6 +335,10 @@ export default function UpdateSupplierQuotation({
       // Calculate final values
       const subtotalValue = calculateSubtotal();
       const finalValue = calculateFinalTotal();
+      
+      // Calculate total value including freight
+      const freightAmount = data.freightValue ? parseNumberFromCurrency(data.freightValue) : 0;
+      const totalValueWithFreight = data.includesFreight ? finalValue + freightAmount : finalValue;
 
       return apiRequest(
         `/api/quotations/${quotationId}/update-supplier-quotation`,
@@ -343,7 +347,7 @@ export default function UpdateSupplierQuotation({
           body: {
             supplierId,
             items: processedItems,
-            totalValue: finalValue,
+            totalValue: totalValueWithFreight,
             subtotalValue,
             finalValue,
             discountType: data.discountType,

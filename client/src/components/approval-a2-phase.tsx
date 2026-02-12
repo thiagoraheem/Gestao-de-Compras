@@ -47,7 +47,6 @@ import { useApprovalType } from "@/hooks/useApprovalType";
 import { apiRequest } from "@/lib/queryClient";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import ApprovalItemsViewer from "./approval-items-viewer";
 import AttachmentsViewer from "./attachments-viewer";
 import SupplierComparisonReadonly from "./supplier-comparison-readonly";
 import debug from "@/lib/debug";
@@ -178,7 +177,30 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
     };
   });
 
-  const totalValue = selectedSupplierQuotation?.totalValue ?? winningItems.reduce((sum, it) => sum + (it.totalPrice || 0), 0);
+  const { subtotalNet, proposalDiscount, freightValue, finalTotalValue } = (() => {
+    const subtotal = winningItems.reduce((sum, it) => sum + (it.totalPrice || 0), 0);
+    
+    if (!selectedSupplierQuotation) return { subtotalNet: subtotal, proposalDiscount: 0, freightValue: 0, finalTotalValue: subtotal };
+
+    const discountInput = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
+    let discount = 0;
+    
+    if (selectedSupplierQuotation.discountType === 'percentage') {
+      discount = (subtotal * discountInput) / 100;
+    } else if (selectedSupplierQuotation.discountType === 'fixed') {
+      discount = discountInput;
+    }
+
+    const freight = selectedSupplierQuotation.includesFreight 
+      ? Number(selectedSupplierQuotation.freightValue || 0) 
+      : 0;
+      
+    const total = Math.max(0, subtotal - discount) + freight;
+    
+    return { subtotalNet: subtotal, proposalDiscount: discount, freightValue: freight, finalTotalValue: total };
+  })();
+
+  const totalValue = finalTotalValue;
 
   // Usar hook para determinar tipo de aprovação
   const { data: approvalType, approvalInfo } = useApprovalType(totalValue, request.id);
@@ -450,7 +472,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                   </div>
                 )}
                 
-                {request.totalValue && (
+                {totalValue > 0 && (
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">Valor Total:</span>
@@ -458,7 +480,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                       {new Intl.NumberFormat('pt-BR', {
                         style: 'currency',
                         currency: 'BRL',
-                      }).format(Number(request.totalValue))}
+                      }).format(totalValue)}
                     </span>
                   </div>
                 )}
@@ -521,14 +543,35 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-600">Valor Total da Proposta</Label>
-                  <p className="text-lg font-bold text-green-600 mt-1">
-                    {new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                      minimumFractionDigits: 4,
-                      maximumFractionDigits: 4,
-                    }).format(Number(selectedSupplierQuotation.totalValue || 0))}
-                  </p>
+                  {proposalDiscount > 0 ? (
+                    <div className="flex flex-col mt-1">
+                      <span className="text-sm text-muted-foreground line-through">
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL',
+                          minimumFractionDigits: 4,
+                          maximumFractionDigits: 4,
+                        }).format(subtotalNet + freightValue)}
+                      </span>
+                      <span className="text-lg font-bold text-green-600">
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL',
+                          minimumFractionDigits: 4,
+                          maximumFractionDigits: 4,
+                        }).format(totalValue)}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-lg font-bold text-green-600 mt-1">
+                      {new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                        minimumFractionDigits: 4,
+                        maximumFractionDigits: 4,
+                      }).format(totalValue)}
+                    </p>
+                  )}
                   {selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue && (
                     <p className="text-sm text-orange-600 mt-1">
                       Desconto da proposta: {selectedSupplierQuotation.discountType === 'percentage' 
@@ -672,8 +715,24 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                     <div className="space-y-2">
                       {(() => {
                         const subtotal = winningItems.reduce((sum, item) => sum + (item.originalTotalPrice || 0), 0);
-                        const totalDiscount = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
-                        const finalValue = Number(selectedSupplierQuotation.totalValue || 0);
+                        const discountInput = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
+                        
+                        // Recalcular valor final dinamicamente
+                        const subtotalNet = winningItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+                        let proposalDiscount = 0;
+                        
+                        if (selectedSupplierQuotation.discountType === 'percentage') {
+                          proposalDiscount = (subtotalNet * discountInput) / 100;
+                        } else if (selectedSupplierQuotation.discountType === 'fixed') {
+                          proposalDiscount = discountInput;
+                        }
+
+                        const freightValue = selectedSupplierQuotation.includesFreight 
+                          ? Number(selectedSupplierQuotation.freightValue || 0) 
+                          : 0;
+                          
+                        const finalValue = Math.max(0, subtotalNet - proposalDiscount) + freightValue;
+
                         return (
                           <>
                             <div className="flex justify-between items-center">
@@ -682,13 +741,13 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                                 R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                               </span>
                             </div>
-                            {totalDiscount > 0 && (
+                            {discountInput > 0 && (
                               <div className="flex justify-between items-center">
                                 <span className="text-sm text-orange-600 dark:text-orange-300">Desconto da proposta:</span>
                                 <span className="font-medium text-orange-600 dark:text-orange-300">
                                   {selectedSupplierQuotation.discountType === 'percentage' 
-                                    ? `- ${totalDiscount}%`
-                                    : `- R$ ${totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`}
+                                    ? `- ${discountInput}%`
+                                    : `- R$ ${discountInput.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`}
                                 </span>
                               </div>
                             )}

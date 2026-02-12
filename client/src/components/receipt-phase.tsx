@@ -345,6 +345,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           totalValue={formatCurrency(purchaseOrder?.totalValue ?? request?.totalValue ?? 0)}
           //totalValue={typeof request?.totalValue === "number" ? formatCurrency(request.totalValue) : "R$ 0,00"}
           status={(request?.phase && (PHASE_LABELS as any)[request.phase]) || "—"}
+          creationDate={request?.createdAt ? format(new Date(request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
         />
 
         {/* Global Progress */}

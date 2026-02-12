@@ -483,6 +483,7 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
           orderDate={formatDate(purchaseOrder?.createdAt || request?.createdAt || null)}
           totalValue={formatCurrency(purchaseOrder?.totalValue ?? request?.totalValue ?? 0)}
           status={(request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
+          creationDate={request?.createdAt ? format(new Date(request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
         />
       </div>
 
