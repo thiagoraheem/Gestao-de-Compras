@@ -382,7 +382,12 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
         if (!data.erp.success) {
            toast({ title: "Aviso ERP", description: `Erro na integração: ${data.erp.message}`, variant: "destructive" });
         } else {
-           toast({ title: "Sucesso", description: "Conferência fiscal confirmada e enviada ao ERP!" });
+           const successTitle = data.erp.code === 'SKIPPED_BY_CONFIG' ? "Conferência Finalizada" : "Sucesso";
+           const successMsg = data.erp.code === 'SKIPPED_BY_CONFIG' 
+             ? data.erp.message 
+             : "Conferência fiscal confirmada e enviada ao ERP!";
+             
+           toast({ title: successTitle, description: successMsg });
            setTimeout(() => onBack(), 2000); // Give time to read logs
            return; 
         }
