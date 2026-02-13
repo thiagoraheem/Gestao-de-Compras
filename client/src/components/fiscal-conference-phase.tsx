@@ -1,11 +1,12 @@
-import React, { useState, forwardRef, useImperativeHandle, useEffect, useMemo } from "react";
+import React, { useState, forwardRef, useImperativeHandle, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PdfViewer from "./pdf-viewer";
-import { Eye, X, FileText, Check, Clock, ArrowLeft, RefreshCw, Edit, Undo2 } from "lucide-react";
+import { ErrorBoundary } from "./error-boundary";
+import { Eye, X, FileText, Check, Clock, ArrowLeft, RefreshCw, Edit, Undo2, Download } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import PurchaseRequestHeaderCard from "./purchase-request-header-card";
 import { PHASE_LABELS } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
@@ -42,6 +44,11 @@ export interface FiscalConferencePhaseProps {
   onPreviewClose?: () => void;
   className?: string;
   hideTabsByDefault?: boolean;
+  onPreviewPDF?: () => void;
+  onDownloadPDF?: () => void;
+  isLoadingPreview?: boolean;
+  isDownloading?: boolean;
+  canViewPDF?: boolean;
 }
 
 export interface FiscalConferencePhaseHandle {
@@ -50,7 +57,7 @@ export interface FiscalConferencePhaseHandle {
   downloadPDF: () => void;
 }
 
-const FiscalDashboard = ({ request, onClose, onSelectReceipt }: any) => {
+const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDownloadPDF, isLoadingPreview, isDownloading, canViewPDF }: any) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [undoReceiptId, setUndoReceiptId] = useState<number | null>(null);
@@ -94,7 +101,35 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt }: any) => {
           <h2 className="text-2xl font-bold tracking-tight">Conferência Fiscal</h2>
           <p className="text-muted-foreground">Selecione uma Nota Fiscal para conferência</p>
         </div>
-        <Button variant="outline" onClick={onClose}>Fechar</Button>
+        <div className="flex gap-2">
+            {canViewPDF && (
+            <>
+            <Button
+                type="button"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onPreviewPDF && onPreviewPDF();
+                }}
+                disabled={isLoadingPreview}
+                variant="outline"
+                className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
+            >
+                <Eye className="w-4 h-4 mr-2" />
+                {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
+            </Button>
+            <Button 
+                onClick={onDownloadPDF}
+                disabled={isDownloading}
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+            >
+                <Download className="w-4 h-4 mr-2" />
+                {isDownloading ? "Baixando..." : "Baixar PDF"}
+            </Button>
+            </>
+            )}
+            <Button variant="outline" onClick={onClose}>Fechar</Button>
+        </div>
       </div>
 
       <Card>
@@ -201,7 +236,7 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt }: any) => {
 };
 
 const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, FiscalConferencePhaseProps & { onBack: () => void }>((props, ref) => {
-  const { onPreviewOpen, onPreviewClose, className, onBack } = props;
+  const { onPreviewOpen, onPreviewClose, className, onBack, onPreviewPDF, onDownloadPDF, isLoadingPreview, isDownloading, canViewPDF } = props;
   const {
     activeTab, setActiveTab,
     request,
@@ -370,83 +405,10 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     }
   });
 
-  // Local state for PDF Preview
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [pdfBuffer, setPdfBuffer] = useState<ArrayBuffer | null>(null);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-
-  const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
-    let binary = "";
-    const bytes = new Uint8Array(buffer);
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.byteLength; i += chunkSize) {
-      const chunk = bytes.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    return window.btoa(binary);
-  };
-
-  const handlePreviewPDF = async () => {
-    try { onPreviewOpen && onPreviewOpen(); } catch { }
-    setIsLoadingPreview(true);
-    setShowPreviewModal(true);
-    try {
-      const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
-        method: 'GET',
-        credentials: 'include',
-        cache: 'no-store'
-      });
-
-      if (!response.ok) {
-        throw new Error('Falha ao gerar PDF');
-      }
-
-      const contentType = response.headers.get('content-type') || '';
-      const buffer = await response.arrayBuffer();
-      setPdfBuffer(buffer);
-      const base64 = arrayBufferToBase64(buffer);
-      const url = `data:application/pdf;base64,${base64}`;
-      setPdfPreviewUrl(url);
-      setShowPreviewModal(true);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao carregar pré-visualização do PDF",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingPreview(false);
-    }
-  };
-
-  const handleDownloadPDF = async () => {
-    try {
-      const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
-        method: 'GET',
-        credentials: 'include',
-        cache: 'no-store'
-      });
-      if (!response.ok) throw new Error('Falha ao baixar PDF');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `pedido-${request.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast({ title: "Sucesso", description: "Download iniciado" });
-    } catch (error) {
-      toast({ title: "Erro", description: "Falha ao baixar PDF", variant: "destructive" });
-    }
-  };
-
   useImperativeHandle(ref, () => ({
     reset: () => {},
-    previewPDF: handlePreviewPDF,
-    downloadPDF: handleDownloadPDF
+    previewPDF: () => onPreviewPDF && onPreviewPDF(),
+    downloadPDF: () => onDownloadPDF && onDownloadPDF(),
   }));
 
   const formatDate = (dateString?: string) => {
@@ -565,12 +527,14 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
           >
             Voltar
           </Button>
+          {canViewPDF && (
+          <>
           <Button
             type="button"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              handlePreviewPDF();
+              onPreviewPDF && onPreviewPDF();
             }}
             disabled={isLoadingPreview}
             variant="outline"
@@ -579,6 +543,17 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
             <Eye className="w-4 h-4 mr-2" />
             {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
           </Button>
+          
+          <Button 
+             onClick={onDownloadPDF}
+             disabled={isDownloading}
+             className="w-full sm:w-auto bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+          >
+             <Download className="w-4 h-4 mr-2" />
+             {isDownloading ? "Baixando..." : "Baixar PDF"}
+          </Button>
+          </>
+          )}
 
           {isConferred && (
              <Button
@@ -623,33 +598,225 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
         isLoading={reportIssueMutation.isPending}
       />
 
-      <Dialog open={showPreviewModal} onOpenChange={(v) => {
-        setShowPreviewModal(v);
-        if (!v && onPreviewClose) onPreviewClose();
-      }}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col" aria-describedby="pdf-preview-desc">
-          <DialogTitle>Visualizar PDF</DialogTitle>
-          <p id="pdf-preview-desc" className="sr-only">Pré-visualização do PDF do pedido selecionado</p>
-          <div className="flex-1 w-full bg-slate-100 rounded-md overflow-hidden">
-            {pdfBuffer && <PdfViewer data={pdfBuffer} className="w-full h-full" />}
-          </div>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 });
 
 const FiscalConferencePhase = forwardRef<FiscalConferencePhaseHandle, FiscalConferencePhaseProps>((props, ref) => {
   const [selectedReceiptId, setSelectedReceiptId] = useState<number | null>(null);
+  const { request, onPreviewOpen, onPreviewClose } = props;
+  const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Permission check: Admin, Manager, Receiver, Buyer can view PDF
+  const canViewPDF = true; // user?.isAdmin || user?.isManager || user?.isReceiver || user?.isBuyer;
 
-  if (!selectedReceiptId) {
-    return <FiscalDashboard request={props.request} onClose={props.onClose} onSelectReceipt={setSelectedReceiptId} />;
-  }
+  // Local state for PDF Preview
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfBuffer, setPdfBuffer] = useState<ArrayBuffer | null>(null);
+  const [previewMimeType, setPreviewMimeType] = useState<string | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  
+  const contentRef = useRef<any>(null);
+
+  const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    return window.btoa(binary);
+  };
+
+  const handlePreviewPDF = async () => {
+    try { onPreviewOpen && onPreviewOpen(); } catch { }
+    setIsLoadingPreview(true);
+    setShowPreviewModal(true);
+    try {
+      const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao gerar PDF');
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      const buffer = await response.arrayBuffer();
+      setPdfBuffer(buffer);
+      const base64 = arrayBufferToBase64(buffer);
+      const url = `data:application/pdf;base64,${base64}`;
+      setPdfPreviewUrl(url);
+      setPreviewMimeType(contentType);
+      
+      if (contentType.includes('application/pdf')) {
+        toast({
+          title: "Sucesso",
+          description: "Pré-visualização do PDF carregada com sucesso!",
+        });
+      } else if (contentType.includes('text/html')) {
+        toast({
+          title: "Aviso",
+          description: "PDF não pôde ser gerado. Exibindo documento em HTML.",
+        });
+      } else {
+        toast({
+          title: "Aviso",
+          description: "Formato de arquivo inesperado na pré-visualização.",
+        });
+      }
+      
+      setShowPreviewModal(true);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar pré-visualização do PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error('Falha ao baixar PDF');
+      
+      const contentType = response.headers.get('Content-Type') || '';
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Pedido_Compra_${request.requestNumber}.${contentType.includes('application/pdf') ? 'pdf' : contentType.includes('text/html') ? 'html' : 'bin'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+         title: "Sucesso",
+         description: contentType.includes('application/pdf') ? "PDF do pedido de compra baixado com sucesso!" : "Documento alternativo baixado com sucesso!",
+       });
+    } catch (error) {
+      toast({ title: "Erro", description: "Falha ao baixar PDF", variant: "destructive" });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+        if (contentRef.current && contentRef.current.reset) {
+            contentRef.current.reset();
+        }
+    },
+    previewPDF: handlePreviewPDF,
+    downloadPDF: handleDownloadPDF
+  }));
+
+  const commonProps = {
+    onPreviewPDF: handlePreviewPDF,
+    onDownloadPDF: handleDownloadPDF,
+    isLoadingPreview,
+    isDownloading,
+    canViewPDF
+  };
 
   return (
-    <ReceiptProvider request={props.request} onClose={props.onClose} mode="fiscal" receiptId={selectedReceiptId}>
-      <FiscalConferencePhaseContent {...props} ref={ref} onBack={() => setSelectedReceiptId(null)} />
-    </ReceiptProvider>
+    <>
+        {!selectedReceiptId ? (
+            <FiscalDashboard 
+                request={props.request} 
+                onClose={props.onClose} 
+                onSelectReceipt={setSelectedReceiptId} 
+                {...commonProps}
+            />
+        ) : (
+            <ReceiptProvider request={props.request} onClose={props.onClose} mode="fiscal" receiptId={selectedReceiptId}>
+            <FiscalConferencePhaseContent 
+                {...props} 
+                ref={contentRef} 
+                onBack={() => setSelectedReceiptId(null)} 
+                {...commonProps}
+            />
+            </ReceiptProvider>
+        )}
+
+        <Dialog open={showPreviewModal} onOpenChange={(v) => {
+            setShowPreviewModal(v);
+            if (!v && onPreviewClose) onPreviewClose();
+            if (!v) {
+                // cleanup
+                if (pdfPreviewUrl) {
+                   // no-op
+                }
+                setPreviewMimeType(null);
+            }
+        }}>
+            <DialogContent className="max-w-4xl h-[80vh] flex flex-col" aria-describedby="pdf-preview-desc">
+            <div className="flex items-center justify-between">
+                <DialogTitle>Visualizar PDF</DialogTitle>
+                <div className="flex gap-2 mr-6">
+                    <Button 
+                        onClick={() => {
+                        if (pdfPreviewUrl) {
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = pdfPreviewUrl;
+                            a.download = `Pedido_Compra_${request.requestNumber}.${previewMimeType && previewMimeType.includes('text/html') ? 'html' : 'pdf'}`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            
+                            toast({
+                            title: "Sucesso",
+                            description: previewMimeType && previewMimeType.includes('application/pdf') ? "PDF do pedido de compra baixado com sucesso!" : "Documento alternativo baixado com sucesso!",
+                            });
+                        }
+                        }} 
+                        size="sm" 
+                        className="bg-green-600 hover:bg-green-700"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        Baixar PDF
+                    </Button>
+                </div>
+            </div>
+            <p id="pdf-preview-desc" className="sr-only">Pré-visualização do PDF do pedido selecionado</p>
+            <div className="flex-1 w-full bg-slate-100 rounded-md overflow-hidden dark:bg-slate-800">
+                {pdfBuffer ? (
+                <ErrorBoundary fallback={
+                    <div className="flex items-center justify-center h-full p-6 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                    <p>Erro ao exibir PDF. O arquivo pode estar corrompido ou ser incompatível.</p>
+                    </div>
+                }>
+                    <PdfViewer data={pdfBuffer} className="w-full h-full" />
+                </ErrorBoundary>
+                ) : (
+                <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                        <FileText className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+                        <p className="text-slate-600 dark:text-slate-300">Carregando pré-visualização...</p>
+                    </div>
+                </div>
+                )}
+            </div>
+            </DialogContent>
+        </Dialog>
+    </>
   );
 });
 
