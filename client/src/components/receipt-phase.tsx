@@ -61,6 +61,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfBuffer, setPdfBuffer] = useState<ArrayBuffer | null>(null);
+  const [previewMimeType, setPreviewMimeType] = useState<string | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewLoaded, setPreviewLoaded] = useState(false);
 
@@ -196,8 +197,25 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       const base64 = arrayBufferToBase64(buffer);
       const url = `data:application/pdf;base64,${base64}`;
       setPdfPreviewUrl(url);
+      setPreviewMimeType(contentType);
       setPreviewLoaded(false);
-      setShowPreviewModal(true);
+      
+      if (contentType.includes('application/pdf')) {
+        toast({
+          title: "Sucesso",
+          description: "Pré-visualização do PDF carregada com sucesso!",
+        });
+      } else if (contentType.includes('text/html')) {
+        toast({
+          title: "Aviso",
+          description: "PDF não pôde ser gerado. Exibindo documento em HTML.",
+        });
+      } else {
+        toast({
+          title: "Aviso",
+          description: "Formato de arquivo inesperado na pré-visualização.",
+        });
+      }
     } catch (error) {
       toast({ title: "Erro", description: "Falha ao carregar pré-visualização do PDF", variant: "destructive" });
     } finally {
@@ -210,17 +228,23 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     try {
       const response = await fetch(`/api/purchase-requests/${request.id}/pdf`, { method: 'GET' });
       if (!response.ok) throw new Error('Falha ao gerar PDF');
+      
       const contentType = response.headers.get('Content-Type') || '';
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = `Pedido_Compra_${request.requestNumber}.pdf`;
+      a.download = `Pedido_Compra_${request.requestNumber}.${contentType.includes('application/pdf') ? 'pdf' : contentType.includes('text/html') ? 'html' : 'bin'}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+
+      toast({
+        title: "Sucesso",
+        description: contentType.includes('application/pdf') ? "PDF do pedido de compra baixado com sucesso!" : "Documento alternativo baixado com sucesso!",
+      });
     } catch (error) {
       toast({ title: "Erro", description: "Falha ao baixar PDF", variant: "destructive" });
     } finally {
@@ -235,6 +259,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       window.URL.revokeObjectURL(pdfPreviewUrl);
       setPdfPreviewUrl(null);
     }
+    setPreviewMimeType(null);
   };
 
   const handleDownloadFromPreview = () => {
@@ -242,10 +267,15 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = pdfPreviewUrl;
-      a.download = `Pedido_Compra_${request.requestNumber}.pdf`;
+      a.download = `Pedido_Compra_${request.requestNumber}.${previewMimeType && previewMimeType.includes('text/html') ? 'html' : 'pdf'}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      
+      toast({
+        title: "Sucesso",
+        description: previewMimeType && previewMimeType.includes('application/pdf') ? "PDF do pedido de compra baixado com sucesso!" : "Documento alternativo baixado com sucesso!",
+      });
     }
   };
 
@@ -302,12 +332,19 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
         </div>
         <div className="flex-1 overflow-hidden flex flex-col min-h-[60vh]">
           {pdfBuffer ? (
-            <ErrorBoundary fallback={<div className="p-6 text-red-600">Erro ao exibir PDF.</div>}>
+            <ErrorBoundary fallback={
+              <div className="flex items-center justify-center h-full p-6 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                <p>Erro ao exibir PDF. O arquivo pode estar corrompido ou ser incompatível.</p>
+              </div>
+            }>
               <PdfViewer data={pdfBuffer} />
             </ErrorBoundary>
           ) : (
              <div className="flex items-center justify-center h-[70vh] bg-slate-100 dark:bg-slate-800 rounded-lg border border-border">
-               <p>Carregando...</p>
+               <div className="text-center">
+                 <FileText className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+                 <p className="text-slate-600 dark:text-slate-300">Carregando pré-visualização...</p>
+               </div>
              </div>
           )}
         </div>
@@ -325,6 +362,25 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             <p className="text-sm text-slate-600 dark:text-slate-400">Histórico de NFs e status do pedido</p>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handlePreviewPDF}
+              disabled={isLoadingPreview}
+              className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
+            >
+               <Eye className="w-4 h-4 mr-2" />
+               {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
+            </Button>
+            
+            <Button 
+               onClick={handleDownloadPDF}
+               disabled={isDownloading}
+               className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+            >
+               <Download className="w-4 h-4 mr-2" />
+               {isDownloading ? "Baixando..." : "Baixar PDF"}
+            </Button>
+
             <Button variant="outline" onClick={onClose}>Fechar</Button>
             {canPerformReceiptActions && (
               <Button onClick={() => setViewMode('new_receipt')}>

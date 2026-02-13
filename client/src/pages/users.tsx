@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Shield, User, Building, Shield as ShieldIcon, Trash2, AlertTriangle, Crown, UserCheck, Key } from "lucide-react";
+import { Plus, Edit, Shield, User, Building, Shield as ShieldIcon, Trash2, AlertTriangle, Crown, UserCheck, Key, Lock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminRoute from "@/components/AdminRoute";
@@ -54,6 +54,21 @@ const userSchema = z.object({
   message: "Um usuário não pode ser CEO e Diretor ao mesmo tempo",
   path: ["isCEO"],
 });
+
+const setPasswordSchema = z.object({
+  password: z.string()
+    .min(8, "A senha deve ter no mínimo 8 caracteres")
+    .regex(/[A-Z]/, "A senha deve conter pelo menos uma letra maiúscula")
+    .regex(/[a-z]/, "A senha deve conter pelo menos uma letra minúscula")
+    .regex(/[0-9]/, "A senha deve conter pelo menos um número")
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, "A senha deve conter pelo menos um caractere especial"),
+  confirmPassword: z.string()
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As senhas não conferem",
+  path: ["confirmPassword"],
+});
+
+type SetPasswordFormData = z.infer<typeof setPasswordSchema>;
 
 type UserFormData = z.infer<typeof userSchema>;
 
@@ -282,10 +297,21 @@ export default function UsersPage() {
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [newTemporaryPassword, setNewTemporaryPassword] = useState<string | null>(null);
 
+  const [settingPasswordUser, setSettingPasswordUser] = useState<any>(null);
+  const [isSetPasswordModalOpen, setIsSetPasswordModalOpen] = useState(false);
+
+  const setPasswordForm = useForm<SetPasswordFormData>({
+    resolver: zodResolver(setPasswordSchema),
+    defaultValues: {
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
   const resetPasswordMutation = useMutation({
     mutationFn: async (userId: number) => {
       const response = await apiRequest(`/api/users/${userId}/reset-password`, { method: "POST" });
-      return response.json();
+      return response;
     },
     onSuccess: (data) => {
       setNewTemporaryPassword(data.tempPassword);
@@ -305,10 +331,62 @@ export default function UsersPage() {
     },
   });
 
+  const setPasswordMutation = useMutation({
+    mutationFn: async (data: { userId: number; password: string }) => {
+      const response = await apiRequest(`/api/users/${data.userId}/set-password`, {
+        method: "POST",
+        body: { password: data.password },
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Sucesso",
+        description: "Senha alterada com sucesso.",
+      });
+      handleCloseSetPasswordModal();
+    },
+    onError: (error: any) => {
+      let errorMessage = "Falha ao alterar senha";
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleResetPassword = (user: any) => {
     setResettingUser(user);
     setNewTemporaryPassword(null);
     setIsResetPasswordDialogOpen(true);
+  };
+
+  const handleSetPassword = (user: any) => {
+    setSettingPasswordUser(user);
+    setPasswordForm.reset();
+    setIsSetPasswordModalOpen(true);
+  };
+
+  const handleCloseSetPasswordModal = () => {
+    setIsSetPasswordModalOpen(false);
+    setSettingPasswordUser(null);
+    setPasswordForm.reset();
+  };
+
+  const onSetPasswordSubmit = (data: SetPasswordFormData) => {
+    if (settingPasswordUser) {
+      setPasswordMutation.mutate({
+        userId: settingPasswordUser.id,
+        password: data.password,
+      });
+    }
   };
 
   const confirmResetPassword = () => {
@@ -494,6 +572,14 @@ export default function UsersPage() {
                                   title="Redefinir Senha"
                                 >
                                   <Key className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleSetPassword(user)}
+                                  title="Definir Senha"
+                                >
+                                  <Lock className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -896,6 +982,66 @@ export default function UsersPage() {
                     ? "Salvando..." 
                     : editingUser ? "Atualizar Usuário" : "Criar Usuário"
                   }
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Password Dialog */}
+      <Dialog open={isSetPasswordModalOpen} onOpenChange={handleCloseSetPasswordModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Definir Senha</DialogTitle>
+            <DialogDescription>
+              Defina uma nova senha para o usuário <strong>{settingPasswordUser?.username}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...setPasswordForm}>
+            <form onSubmit={setPasswordForm.handleSubmit(onSetPasswordSubmit)} className="space-y-4">
+              <FormField
+                control={setPasswordForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nova Senha</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="password" placeholder="Digite a nova senha" />
+                    </FormControl>
+                    <FormMessage />
+                    <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1 mt-2">
+                      <li>Mínimo de 8 caracteres</li>
+                      <li>Pelo menos uma letra maiúscula</li>
+                      <li>Pelo menos uma letra minúscula</li>
+                      <li>Pelo menos um número</li>
+                      <li>Pelo menos um caractere especial</li>
+                    </ul>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={setPasswordForm.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirmar Senha</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="password" placeholder="Confirme a nova senha" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={handleCloseSetPasswordModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={setPasswordMutation.isPending}>
+                  {setPasswordMutation.isPending ? "Salvando..." : "Definir Senha"}
                 </Button>
               </div>
             </form>

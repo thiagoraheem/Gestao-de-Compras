@@ -12,6 +12,7 @@ import {
   notifyRejection,
   testEmailConfiguration,
   notifyPasswordReset,
+  notifyAdminSetPassword,
 } from "./email-service";
 import { isEmailEnabled } from "./config";
 import { invalidateCache } from "./cache";
@@ -44,6 +45,7 @@ import {
   purchaseOrders,
   suppliers,
   companies,
+  auditLogs,
 } from "../shared/schema";
 import { z } from "zod";
 import session from "express-session";
@@ -530,6 +532,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+
+  // Set password for user (Admin only)
+  app.post(
+    "/api/users/:id/set-password",
+    isAuthenticated,
+    isAdmin,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const { password } = req.body;
+
+        if (!password || password.length < 8) {
+          return res
+            .status(400)
+            .json({ message: "A senha deve ter no mínimo 8 caracteres." });
+        }
+
+        const hasUpperCase = /[A-Z]/.test(password);
+        const hasLowerCase = /[a-z]/.test(password);
+        const hasNumbers = /\d/.test(password);
+        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+        if (
+          !(hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar)
+        ) {
+          return res.status(400).json({
+            message:
+              "A senha deve conter letras maiúsculas, minúsculas, números e caracteres especiais.",
+          });
+        }
+
+        const user = await storage.getUser(id);
+        if (!user) {
+          return res.status(404).json({ message: "Usuário não encontrado" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Update user password and set forceChangePassword to true for security
+        const updatedUser = await storage.updateUser(id, {
+          password: hashedPassword,
+          forceChangePassword: true,
+        });
+
+        // Audit Log
+        try {
+          await db.insert(auditLogs).values({
+            purchaseRequestId: 0,
+            performedBy: req.session.userId,
+            actionType: "ADMIN_SET_PASSWORD",
+            actionDescription: `Senha alterada pelo administrador para o usuário ${user.username}`,
+            affectedTables: ["users"],
+            beforeData: { forceChangePassword: user.forceChangePassword },
+            afterData: { forceChangePassword: true },
+          });
+        } catch (logError) {
+          console.error("Failed to create audit log:", logError);
+        }
+
+        // Notify User
+        await notifyAdminSetPassword(updatedUser);
+
+        res.json({ message: "Senha alterada com sucesso" });
+      } catch (error) {
+        console.error("Error setting password:", error);
+        res.status(500).json({ message: "Erro ao alterar senha" });
+      }
+    },
+  );
 
   app.put("/api/users/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {

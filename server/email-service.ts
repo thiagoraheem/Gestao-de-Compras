@@ -790,4 +790,69 @@ export async function sendPasswordResetEmail(user: User, token: string): Promise
   }
 }
 
+export async function notifyAdminSetPassword(user: User): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de alteração de senha para ${user.email} não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
+  if (!user.email) {
+    console.log(`📧 Usuário ${user.username} não possui e-mail cadastrado para notificação de alteração de senha`);
+    return;
+  }
+
+  const transporter = createTransporter();
+  
+  const mailOptions = {
+    from: config.email.from,
+    to: user.email,
+    subject: "Senha Alterada pelo Administrador - Sistema Locador",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; }
+          .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
+          .warning { color: #d32f2f; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Senha Alterada</h1>
+        </div>
+        
+        <div class="content">
+          <p>Prezado(a) <strong>${user.firstName || user.username}</strong>,</p>
+          
+          <p>Sua senha de acesso ao Sistema de Gestão de Compras foi alterada manualmente por um administrador.</p>
+          
+          <p>Por favor, utilize a nova senha fornecida pelo administrador para acessar o sistema.</p>
+          
+          <p class="warning">Se você não solicitou esta alteração ou desconhece o motivo, entre em contato imediatamente com o suporte ou com o administrador do sistema.</p>
+          
+          <p>Atenciosamente,<br>
+          Equipe de TI</p>
+        </div>
+        
+        <div class="footer">
+          <p>Este é um e-mail automático. Não responda a este endereço.</p>
+        </div>
+      </body>
+      </html>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`📧 E-mail de notificação de alteração de senha enviado para ${user.email}`);
+  } catch (error) {
+    console.error(`Erro ao enviar e-mail de notificação de alteração de senha para ${user.email}:`, error);
+  }
+}
+
 export const testEmailConfiguration = verifyEmailConfig;
