@@ -13,6 +13,7 @@ import {
   testEmailConfiguration,
   notifyPasswordReset,
   notifyAdminSetPassword,
+  notifyRequestConclusion,
 } from "./email-service";
 import { isEmailEnabled } from "./config";
 import { invalidateCache } from "./cache";
@@ -2893,6 +2894,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                      currentPhase: "conclusao_compra"
                    })
                    .where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
+
+                 try {
+                   await notifyRequestConclusion(purchaseOrder.purchaseRequestId);
+                 } catch (emailError) {
+                   console.error("Erro ao enviar notificação de conclusão (confirmação fiscal via ERP):", emailError);
+                 }
              }
           }
       }
@@ -3339,6 +3346,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .where(eq(purchaseRequests.id, id));
 
+        try {
+          await notifyRequestConclusion(id);
+        } catch (emailError) {
+          console.error("Erro ao enviar notificação de conclusão (confirmação fiscal local):", emailError);
+        }
+
         res.json({
           success: true,
           fiscalDone: true,
@@ -3370,6 +3383,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           receivedDate: new Date(),
           receivedById: req.session.userId
         });
+
+        try {
+          await notifyRequestConclusion(id);
+        } catch (emailError) {
+          console.error("Erro ao enviar notificação de conclusão (finalizar recebimento):", emailError);
+        }
 
         res.json({ success: true });
       } catch (error) {
@@ -3612,6 +3631,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
                 VALUES (${id}, ${'recebimento_confirmado'}, ${'Confirmação de recebimento e avanço de fase'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id, newPhase: 'conclusao_compra' })}::jsonb, ${sql`ARRAY['receipts','purchase_requests']`} );`);
             } catch {}
+
+            try {
+              await notifyRequestConclusion(id);
+            } catch (emailError) {
+              console.error("Erro ao enviar notificação de conclusão (confirmação de recebimento físico/fiscal):", emailError);
+            }
+
             res.json({ request: updatedRequest, receipt });
         } else {
              // Partial receipt - stay in receiving phase
@@ -5034,6 +5060,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           notifyApprovalA2(updatedRequest).catch((error) => {
             console.error(
               "Erro ao enviar notificação para aprovadores A2:",
+              error,
+            );
+          });
+        } else if (newPhase === "conclusao_compra") {
+          notifyRequestConclusion(updatedRequest.id).catch((error) => {
+            console.error(
+              "Erro ao enviar notificação de conclusão ao mover fase manualmente:",
               error,
             );
           });

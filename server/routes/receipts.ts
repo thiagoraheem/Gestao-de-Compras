@@ -21,6 +21,7 @@ import {
   purchaseOrderItems,
   purchaseRequestItems,
 } from "../../shared/schema";
+import { notifyRequestConclusion } from "../email-service";
 import { purchaseReceiveService, PurchaseReceiveRequest } from "../integracao_locador/services/purchase-receive-service";
 import { parseNFeXml } from "../services/nfe-parser";
 import { parseNFSeXml } from "../services/nfse-parser";
@@ -648,12 +649,17 @@ export function registerReceiptsRoutes(app: Express) {
           ));
         
         if (pendingReceipts.length === 0) {
-            // All done, move Request to Conclusion
             const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
             if (order && order.purchaseRequestId) {
                 await db.update(purchaseRequests)
                     .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
                     .where(eq(purchaseRequests.id, order.purchaseRequestId));
+
+                try {
+                  await notifyRequestConclusion(order.purchaseRequestId);
+                } catch (emailError) {
+                  console.error("Erro ao enviar notificação de conclusão (conferência fiscal local sem ERP):", emailError);
+                }
             }
         }
       }
@@ -792,6 +798,12 @@ export function registerReceiptsRoutes(app: Express) {
                     await db.update(purchaseRequests)
                         .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
                         .where(eq(purchaseRequests.id, order.purchaseRequestId));
+
+                    try {
+                      await notifyRequestConclusion(order.purchaseRequestId);
+                    } catch (emailError) {
+                      console.error("Erro ao enviar notificação de conclusão (conferência fiscal integrada ao ERP):", emailError);
+                    }
                 }
             }
         }

@@ -41,6 +41,7 @@ jest.mock('../email-service', () => ({
   notifyApprovalA2: jest.fn(),
   notifyRejection: jest.fn(),
   testEmailConfiguration: jest.fn(),
+  notifyRequestConclusion: jest.fn(),
 }));
 jest.mock('../pdf-service', () => ({
   PDFService: {

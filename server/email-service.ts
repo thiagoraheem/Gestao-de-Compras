@@ -2,8 +2,8 @@ import nodemailer from "nodemailer";
 import type { Supplier, User, PurchaseRequest } from "../shared/schema";
 import { storage } from "./storage";
 import { config, buildRequestUrl, isEmailEnabled } from "./config";
+import { PDFService } from "./pdf-service";
 
-// Email configuration
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: config.email.host,
@@ -11,6 +11,59 @@ const createTransporter = () => {
     secure: config.email.secure,
     auth: config.email.auth,
   });
+};
+
+const getAppVersion = () => {
+  return process.env.APP_VERSION || "1.0.0";
+};
+
+const isProductionEnvironment = () => {
+  return process.env.NODE_ENV === "production";
+};
+
+export const decorateEmailHtmlWithEnvironmentBanner = (html: string, now: Date = new Date()): string => {
+  if (isProductionEnvironment()) {
+    return html;
+  }
+
+  const environmentName = process.env.APP_ENV || process.env.NODE_ENV || "development";
+  const timestamp = now.toLocaleString("pt-BR");
+  const version = getAppVersion();
+
+  const headerBanner = `
+    <div style="border: 2px solid #b91c1c; background-color: #fef3c7; color: #b91c1c; padding: 12px 16px; text-align: center; font-weight: 700; font-size: 13px; margin-bottom: 16px;">
+      ENVIADO A PARTIR DO AMBIENTE DE TESTES (${environmentName.toUpperCase()})
+    </div>
+  `;
+
+  const footerInfo = `
+    <div style="margin-top: 24px; font-size: 11px; color: #4b5563; border-top: 1px dashed #d1d5db; padding-top: 8px;">
+      Ambiente: <strong>${environmentName}</strong><br>
+      Data/Hora de envio: <strong>${timestamp}</strong><br>
+      Versão do sistema: <strong>${version}</strong>
+    </div>
+  `;
+
+  const bodyCloseIndex = html.lastIndexOf("</body>");
+  if (bodyCloseIndex === -1) {
+    return `${headerBanner}${html}${footerInfo}`;
+  }
+
+  const beforeBodyClose = html.slice(0, bodyCloseIndex);
+  const afterBodyClose = html.slice(bodyCloseIndex);
+
+  return beforeBodyClose.replace("<body>", `<body>${headerBanner}`) + footerInfo + afterBodyClose;
+};
+
+const sendMailWithEnvironmentBanner = async (mailOptions: any) => {
+  const transporter = createTransporter();
+  const html = typeof mailOptions.html === "string" ? mailOptions.html : "";
+  const decoratedHtml = decorateEmailHtmlWithEnvironmentBanner(html);
+  const finalOptions = {
+    ...mailOptions,
+    html: decoratedHtml,
+  };
+  await transporter.sendMail(finalOptions);
 };
 interface RFQEmailData {
   quotationNumber: string;
@@ -41,7 +94,6 @@ export async function sendRFQToSuppliers(
     };
   }
 
-  const transporter = createTransporter();
   const errors: string[] = [];
   let successCount = 0;
 
@@ -63,7 +115,7 @@ export async function sendRFQToSuppliers(
         attachments: [], // Could add PDF attachments here
       };
 
-      await transporter.sendMail(mailOptions);
+      await sendMailWithEnvironmentBanner(mailOptions);
       successCount++;
     } catch (error) {
       console.error(`Erro ao enviar RFQ para ${supplier.name}:`, error);
@@ -214,7 +266,6 @@ export async function notifyNewRequest(
         : "N/A";
     }
 
-    const transporter = createTransporter();
     const emailPromises = buyerUsers.map(async (buyer) => {
       if (!buyer.email) return;
 
@@ -231,7 +282,7 @@ export async function notifyNewRequest(
       };
 
       try {
-        await transporter.sendMail(mailOptions);
+        await sendMailWithEnvironmentBanner(mailOptions);
       } catch (error) {
         console.error(`Erro ao enviar notificação para ${buyer.email}:`, error);
       }
@@ -285,7 +336,6 @@ export async function notifyApprovalA1(
         : "N/A";
     }
 
-    const transporter = createTransporter();
     const emailPromises = approverA1Users.map(async (approver) => {
       if (!approver.email) return;
 
@@ -302,7 +352,7 @@ export async function notifyApprovalA1(
       };
 
       try {
-        await transporter.sendMail(mailOptions);
+        await sendMailWithEnvironmentBanner(mailOptions);
       } catch (error) {
         console.error(
           `Erro ao enviar notificação A1 para ${approver.email}:`,
@@ -356,7 +406,6 @@ export async function notifyApprovalA2(
         : "N/A";
     }
 
-    const transporter = createTransporter();
     const emailPromises = approverA2Users.map(async (approver) => {
       if (!approver.email) return;
 
@@ -374,7 +423,7 @@ export async function notifyApprovalA2(
       };
 
       try {
-        await transporter.sendMail(mailOptions);
+        await sendMailWithEnvironmentBanner(mailOptions);
       } catch (error) {
         console.error(
           `Erro ao enviar notificação A2 para ${approver.email}:`,
@@ -401,7 +450,6 @@ export async function notifyRejection(
   }
 
   try {
-    const transporter = createTransporter();
     const phaseText = phase ? ` na fase ${phase}` : "";
     const subject = `Solicitação Rejeitada${phaseText} - ${purchaseRequest.requestNumber}`;
 
@@ -422,7 +470,7 @@ export async function notifyRejection(
             false
           ),
         };
-        await transporter.sendMail(mailOptions);
+        await sendMailWithEnvironmentBanner(mailOptions);
       }
     }
 
@@ -432,7 +480,7 @@ export async function notifyRejection(
       const approverA1 = await storage.getUser(purchaseRequest.approverA1Id);
       // Evitar enviar duas vezes se o aprovador for o mesmo que o solicitante (improvável mas possível)
       if (approverA1 && approverA1.email && approverA1.id !== purchaseRequest.requesterId) {
-        const mailOptions = {
+      const mailOptions = {
           from: config.email.from,
           to: approverA1.email,
           replyTo: config.email.from,
@@ -445,7 +493,7 @@ export async function notifyRejection(
             true
           ),
         };
-        await transporter.sendMail(mailOptions);
+        await sendMailWithEnvironmentBanner(mailOptions);
       }
     }
 
@@ -633,6 +681,235 @@ function generateApprovalA2EmailHTML(
   `;
 }
 
+export async function notifyRequestConclusion(purchaseRequestId: number): Promise<void> {
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de conclusão para solicitação ${purchaseRequestId} não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
+  try {
+    const purchaseRequest = await storage.getPurchaseRequestById(purchaseRequestId);
+    if (!purchaseRequest) {
+      console.log(`📧 Solicitação ${purchaseRequestId} não encontrada para envio de conclusão`);
+      return;
+    }
+
+    if (!purchaseRequest.requesterId) {
+      console.log(`📧 Solicitação ${purchaseRequest.requestNumber} não possui solicitante associado para envio de conclusão`);
+      return;
+    }
+
+    const requester = await storage.getUser(purchaseRequest.requesterId);
+    if (!requester || !requester.email) {
+      console.log(`📧 Solicitante da solicitação ${purchaseRequest.requestNumber} não possui e-mail cadastrado para envio de conclusão`);
+      return;
+    }
+
+    const purchaseOrder = await storage.getPurchaseOrderByRequestId(purchaseRequestId);
+    if (!purchaseOrder) {
+      console.log(`📧 Pedido de compra não encontrado para solicitação ${purchaseRequest.requestNumber}; e-mail de conclusão não será enviado`);
+      return;
+    }
+
+    const items = await storage.getPurchaseOrderItems(purchaseOrder.id);
+
+    let supplierName = "Não informado";
+    if (purchaseOrder.supplierId) {
+      const supplier = await storage.getSupplierById(purchaseOrder.supplierId);
+      if (supplier) {
+        supplierName = supplier.name || supplierName;
+      }
+    }
+
+    let departmentName = "Não informado";
+    if (purchaseRequest.costCenterId) {
+      const allCostCenters = await storage.getAllCostCenters();
+      const costCenter = allCostCenters.find((cc) => cc.id === purchaseRequest.costCenterId);
+      if (costCenter && costCenter.departmentId) {
+        const department = await storage.getDepartmentById(costCenter.departmentId);
+        if (department) {
+          departmentName = department.name || departmentName;
+        }
+      }
+    }
+
+    const totalValue =
+      items.reduce((acc, item) => {
+        const value = Number((item as any).totalPrice ?? (item as any).total_value ?? 0);
+        return acc + (isNaN(value) ? 0 : value);
+      }, 0) || Number(purchaseOrder.totalValue || purchaseRequest.totalValue || 0);
+
+    const transporter = createTransporter();
+
+    const formattedTotal = new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(totalValue || 0);
+
+    const issueDate = purchaseOrder.createdAt || purchaseRequest.createdAt;
+    const formattedIssueDate = issueDate
+      ? new Date(issueDate as any).toLocaleString("pt-BR")
+      : "Não informado";
+
+    const itemRows = items
+      .map((item: any) => {
+        const quantity = Number(item.quantity || item.requestedQuantity || 0);
+        const unitPrice = Number(item.unitPrice || item.unit_price || 0);
+        const lineTotal = Number(item.totalPrice || item.total_price || quantity * unitPrice || 0);
+
+        const formattedQty = isNaN(quantity)
+          ? "-"
+          : quantity.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const formattedUnitPrice = new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }).format(isNaN(unitPrice) ? 0 : unitPrice);
+        const formattedLineTotal = new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }).format(isNaN(lineTotal) ? 0 : lineTotal);
+
+        return `
+          <tr>
+            <td>${item.description || item.itemDescription || "-"}</td>
+            <td>${item.unit || item.unitMeasure || "-"}</td>
+            <td style="text-align: right;">${formattedQty}</td>
+            <td style="text-align: right;">${formattedUnitPrice}</td>
+            <td style="text-align: right;">${formattedLineTotal}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #111827; background-color: #f9fafb; }
+          .container { max-width: 720px; margin: 0 auto; padding: 24px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; }
+          .header { border-bottom: 1px solid #e5e7eb; padding-bottom: 16px; margin-bottom: 20px; }
+          .title { font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 4px 0; }
+          .subtitle { font-size: 14px; color: #6b7280; margin: 0; }
+          .section-title { font-size: 16px; font-weight: 600; margin: 20px 0 8px 0; color: #111827; }
+          .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; font-size: 14px; }
+          .label { color: #6b7280; }
+          .value { color: #111827; font-weight: 500; }
+          .items-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+          .items-table th { text-align: left; padding: 8px; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb; }
+          .items-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+          .items-table th:nth-child(3),
+          .items-table th:nth-child(4),
+          .items-table th:nth-child(5),
+          .items-table td:nth-child(3),
+          .items-table td:nth-child(4),
+          .items-table td:nth-child(5) { text-align: right; }
+          .total { text-align: right; font-weight: 600; margin-top: 8px; font-size: 14px; }
+          .footer { margin-top: 24px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 12px; }
+          .button { display: inline-block; margin-top: 12px; padding: 8px 16px; background-color: #2563eb; color: #ffffff; border-radius: 9999px; font-size: 13px; text-decoration: none; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <p class="subtitle">Solicitação ${purchaseRequest.requestNumber}</p>
+            <h1 class="title">Pedido de compra concluído</h1>
+          </div>
+
+          <p>Olá ${requester.firstName || requester.username},</p>
+          <p>Informamos que o processo de compra da sua solicitação foi concluído com sucesso. Abaixo, um resumo dos principais dados do pedido de compra.</p>
+
+          <h2 class="section-title">Dados principais</h2>
+          <div class="info-grid">
+            <div>
+              <div class="label">Número da Solicitação</div>
+              <div class="value">${purchaseRequest.requestNumber}</div>
+            </div>
+            <div>
+              <div class="label">Número do Pedido de Compra</div>
+              <div class="value">${purchaseOrder.orderNumber || purchaseRequest.requestNumber}</div>
+            </div>
+            <div>
+              <div class="label">Data de Emissão</div>
+              <div class="value">${formattedIssueDate}</div>
+            </div>
+            <div>
+              <div class="label">Valor Total</div>
+              <div class="value">${formattedTotal}</div>
+            </div>
+            <div>
+              <div class="label">Fornecedor</div>
+              <div class="value">${supplierName}</div>
+            </div>
+            <div>
+              <div class="label">Departamento</div>
+              <div class="value">${departmentName}</div>
+            </div>
+          </div>
+
+          <h2 class="section-title">Itens do pedido</h2>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Descrição</th>
+                <th>Unidade</th>
+                <th>Quantidade</th>
+                <th>Valor Unitário</th>
+                <th>Valor Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemRows || `<tr><td colspan="5">Nenhum item encontrado.</td></tr>`}
+            </tbody>
+          </table>
+          <div class="total">Total do pedido: ${formattedTotal}</div>
+
+          <p>Em anexo, você encontrará o PDF completo do Pedido de Compra, com todos os detalhes do processo.</p>
+
+          <p>
+            <a href="${buildRequestUrl(purchaseRequest.id)}" class="button">Abrir solicitação no sistema</a>
+          </p>
+
+          <div class="footer">
+            <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    let pdfBuffer: Buffer | null = null;
+    try {
+      pdfBuffer = await PDFService.generatePurchaseOrderPDF(purchaseRequestId);
+    } catch (pdfError) {
+      console.error("Erro ao gerar PDF do pedido de compra para envio de conclusão:", pdfError);
+    }
+
+    const mailOptions: any = {
+      from: config.email.from,
+      to: requester.email,
+      replyTo: config.email.from,
+      subject: `Pedido de Compra Concluído - ${purchaseRequest.requestNumber}`,
+      html,
+    };
+
+    if (pdfBuffer) {
+      mailOptions.attachments = [
+        {
+          filename: `Pedido_de_Compra_${purchaseOrder.orderNumber || purchaseRequest.requestNumber}.pdf`,
+          content: pdfBuffer,
+        },
+      ];
+    }
+
+    await sendMailWithEnvironmentBanner(mailOptions);
+    console.log(`📧 Notificação de conclusão enviada para ${requester.email} (solicitação ${purchaseRequest.requestNumber})`);
+  } catch (error) {
+    console.error("Erro ao enviar notificação de conclusão de solicitação:", error);
+  }
+}
+
 export async function verifyEmailConfig(): Promise<boolean> {
   try {
     const transporter = createTransporter();
@@ -656,8 +933,6 @@ export async function notifyPasswordReset(user: User, newPassword: string): Prom
     return;
   }
 
-  const transporter = createTransporter();
-  
   const mailOptions = {
     from: config.email.from,
     to: user.email,
@@ -709,7 +984,7 @@ export async function notifyPasswordReset(user: User, newPassword: string): Prom
   };
   
   try {
-    await transporter.sendMail(mailOptions);
+    await sendMailWithEnvironmentBanner(mailOptions);
     console.log(`📧 Notificação de redefinição de senha enviada para ${user.email}`);
   } catch (error) {
     console.error("Erro ao enviar notificação de redefinição de senha:", error);
@@ -728,7 +1003,6 @@ export async function sendPasswordResetEmail(user: User, token: string): Promise
     return;
   }
 
-  const transporter = createTransporter();
   const resetLink = `${config.baseUrl}/reset-password?token=${token}`;
   
   const mailOptions = {
@@ -782,7 +1056,7 @@ export async function sendPasswordResetEmail(user: User, token: string): Promise
   };
   
   try {
-    await transporter.sendMail(mailOptions);
+    await sendMailWithEnvironmentBanner(mailOptions);
     console.log(`📧 Email de recuperação enviado para ${user.email}`);
   } catch (error) {
     console.error("Erro ao enviar email de recuperação:", error);
@@ -802,8 +1076,6 @@ export async function notifyAdminSetPassword(user: User): Promise<void> {
     return;
   }
 
-  const transporter = createTransporter();
-  
   const mailOptions = {
     from: config.email.from,
     to: user.email,
@@ -848,7 +1120,7 @@ export async function notifyAdminSetPassword(user: User): Promise<void> {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendMailWithEnvironmentBanner(mailOptions);
     console.log(`📧 E-mail de notificação de alteração de senha enviado para ${user.email}`);
   } catch (error) {
     console.error(`Erro ao enviar e-mail de notificação de alteração de senha para ${user.email}:`, error);
