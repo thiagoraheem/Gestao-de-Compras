@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { Label } from "@/components/ui/label";
 import {
   Tooltip,
@@ -523,37 +524,26 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                         <TableCell className="text-center">{max}</TableCell>
                         <TableCell className="text-center text-muted-foreground">{prev}</TableCell>
                         <TableCell className="text-center">
-                          <TooltipProvider>
+                        <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <div>
-                                  <Input 
-                                    type="number" 
-                                    min={0} 
-                                    step={1}
-                                    className={cn("w-24 mx-auto", isFullyReceived && "cursor-not-allowed opacity-50 bg-muted")}
+                                  <DecimalInput
                                     value={isFullyReceived ? 0 : current}
+                                    precision={4}
+                                    className={cn("w-24 mx-auto", isFullyReceived && "cursor-not-allowed opacity-50 bg-muted")}
                                     disabled={isFullyReceived}
-                                    onChange={(e) => {
-                                      const raw = e.target.value;
-
-                                      if (raw === "") {
+                                    onChange={(standardValue) => {
+                                      if (!standardValue) {
                                         setReceivedQuantities(p => ({ ...p, [it.id]: 0 }));
                                         return;
                                       }
-
-                                      if (!/^\d+$/.test(raw)) {
-                                        toast({
-                                          title: "Valor inválido",
-                                          description: "Informe apenas números inteiros (sem casas decimais).",
-                                          variant: "destructive",
-                                        });
+                                      const v = Number(standardValue);
+                                      if (!Number.isFinite(v) || v < 0) {
                                         return;
                                       }
-
-                                      const v = Number(raw);
                                       setReceivedQuantities(p => ({ ...p, [it.id]: v }));
-                                    }} 
+                                    }}
                                   />
                                 </div>
                               </TooltipTrigger>

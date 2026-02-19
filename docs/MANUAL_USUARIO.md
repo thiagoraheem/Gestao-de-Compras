@@ -237,6 +237,8 @@ Uma página dedicada para operadores de logística e almoxarifado, focada exclus
   - Busca rápida por número do pedido ou nota.
   - Visualização clara dos itens pendentes.
   - Registro de entrada física com validação de quantidade.
+    - Campos de quantidade aceitam valores decimais (ex.: 1,25), permitindo unidades fracionadas.
+    - O sistema bloqueia valores negativos e quantidades que excedam o saldo do pedido.
   - Upload de fotos/comprovantes (se configurado).
 
 ---

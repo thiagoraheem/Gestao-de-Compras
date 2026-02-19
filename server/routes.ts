@@ -3154,9 +3154,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (receivedQuantities && typeof receivedQuantities === "object") {
           for (const [key, value] of Object.entries(receivedQuantities)) {
             const qty = Number(value);
-            if (!Number.isFinite(qty) || qty < 0 || !Number.isInteger(qty)) {
+            if (!Number.isFinite(qty) || qty < 0) {
               return res.status(400).json({
-                message: `Quantidade inválida para o item ${key}. Utilize apenas números inteiros maiores ou iguais a zero.`,
+                message: `Quantidade inválida para o item ${key}. Utilize apenas números maiores ou iguais a zero.`,
               });
             }
           }
@@ -3676,9 +3676,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (receivedQuantities && typeof receivedQuantities === "object") {
           for (const [key, value] of Object.entries(receivedQuantities)) {
             const qty = Number(value);
-            if (!Number.isFinite(qty) || qty < 0 || !Number.isInteger(qty)) {
+            if (!Number.isFinite(qty) || qty < 0) {
               return res.status(400).json({
-                message: `Quantidade inválida para o item ${key}. Utilize apenas números inteiros maiores ou iguais a zero.`,
+                message: `Quantidade inválida para o item ${key}. Utilize apenas números maiores ou iguais a zero.`,
               });
             }
           }
