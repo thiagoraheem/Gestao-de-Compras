@@ -7153,6 +7153,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateSupplierQuotation(selectedSupplierQuotation.id, {
             totalValue: finalTotalValue,
           });
+
+          // Sincronizar o valor total também na solicitação de compra
+          if (finalTotalValue) {
+            await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
+              totalValue: finalTotalValue,
+            });
+          }
         }
 
         // Atualizar a cotação (status e observações)
