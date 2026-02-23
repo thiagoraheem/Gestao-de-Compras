@@ -69,6 +69,21 @@ export interface ConclusionPhaseHandle {
   openArchiveDialog: () => void;
 }
 
+function normalizeReceiptObservations(raw: any): any {
+  if (!raw) return {};
+  if (typeof raw === "object") return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") return parsed;
+      return { general: raw };
+    } catch {
+      return { general: raw };
+    }
+  }
+  return { general: String(raw) };
+}
+
 const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(function ConclusionPhase({ request, onClose, className }: ConclusionPhaseProps, ref) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -188,7 +203,12 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
        issues.push("Atenção: Existem registros de recebimento legados sem notas fiscais vinculadas. Os dados foram preservados e estão exibidos abaixo.");
     }
 
-    setDataIntegrityIssues(issues);
+    setDataIntegrityIssues(prev => {
+      const sameLength = prev.length === issues.length;
+      const sameContent = sameLength && prev.every((value, index) => value === issues[index]);
+      if (sameContent) return prev;
+      return issues;
+    });
   }, [itemsLoading, receiptsLoading, purchaseOrderItems, receipts]);
 
   // Derived state for backward compatibility and summary
@@ -214,9 +234,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
   // Parse receipt observations for ERP info
   const receiptObs = useMemo(() => {
     if (!receipt?.observations) return {};
-    try {
-      return typeof receipt.observations === 'string' ? JSON.parse(receipt.observations) : receipt.observations;
-    } catch { return {}; }
+    return normalizeReceiptObservations(receipt.observations);
   }, [receipt]);
 
   const lastErpAttempt = receiptObs.lastErpAttempt || receiptObs.erp;
@@ -1329,7 +1347,12 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                         <div className="space-y-4">
                         <div>
                             <span className="text-sm font-medium text-muted-foreground">Observações</span>
-                            <p>{(typeof currentReceipt.observations === 'string' ? JSON.parse(currentReceipt.observations) : currentReceipt.observations)?.physical || (typeof currentReceipt.observations === 'string' ? JSON.parse(currentReceipt.observations) : currentReceipt.observations)?.general || 'Sem observações'}</p>
+                            {(() => {
+                              const obs = normalizeReceiptObservations(currentReceipt.observations);
+                              return (
+                                <p>{obs.physical || obs.general || 'Sem observações'}</p>
+                              );
+                            })()}
                         </div>
                         </div>
                     </div>
@@ -1423,8 +1446,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
               {receipts
                 .filter((r: any) => ['conferida', 'nf_confirmada', 'fiscal_conferida'].includes(r.status))
                 .map((currentReceipt: any, index: number) => {
-                  const obs = typeof currentReceipt.observations === 'string' ? JSON.parse(currentReceipt.observations) : currentReceipt.observations;
-                  
+                  const obs = normalizeReceiptObservations(currentReceipt.observations);
                   return (
                   <div key={currentReceipt.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-4 bg-muted/30 p-2 rounded">

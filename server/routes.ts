@@ -5149,6 +5149,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // POST route for purchase request attachments removed
 
+  app.get(
+    "/api/purchase-requests/:id/attachments",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        if (Number.isNaN(id)) {
+          return res.status(400).json({ message: "Invalid purchase request ID" });
+        }
+
+        const attachments = await storage.getAttachmentsByPurchaseRequestId(id);
+        res.json(attachments);
+      } catch (error) {
+        console.error("Error fetching purchase request attachments:", error);
+        res
+          .status(500)
+          .json({ message: "Erro ao buscar anexos da solicitação" });
+      }
+    },
+  );
+
   // Download attachment route
   app.get(
     "/api/attachments/:id/download",
