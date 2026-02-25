@@ -822,9 +822,11 @@ export default function EnhancedNewRequestModal({
                           <SelectItem value="UN">UN - Unidade</SelectItem>
                           <SelectItem value="KG">KG - Quilograma</SelectItem>
                           <SelectItem value="M">M - Metro</SelectItem>
+                          <SelectItem value="CM">CM - Centímetro</SelectItem>
                           <SelectItem value="L">L - Litro</SelectItem>
                           <SelectItem value="Par">Par - Par</SelectItem>
                           <SelectItem value="PCT">PCT - Pacote</SelectItem>
+                          <SelectItem value="Kit">Kit</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
