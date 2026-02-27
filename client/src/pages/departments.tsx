@@ -391,8 +391,9 @@ export default function DepartmentsPage() {
 
   return (
     <AdminRoute>
-      <div className="max-w-7xl mx-auto p-6 space-y-6 bg-background">
-      {/* Departments */}
+      <div className="h-full overflow-y-auto">
+        <div className="max-w-7xl mx-auto p-6 space-y-6 bg-background">
+          {/* Departments */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -607,14 +608,12 @@ export default function DepartmentsPage() {
                   </FormItem>
                 )}
               />
-              <div className="flex justify-end space-x-3 pt-4 border-t">
+              <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="outline" onClick={handleCloseDeptModal}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={createDepartmentMutation.isPending}>
-                  {createDepartmentMutation.isPending 
-                    ? (editingDepartment ? "Salvando..." : "Criando...") 
-                    : (editingDepartment ? "Salvar" : "Criar")}
+                  {createDepartmentMutation.isPending ? "Salvando..." : "Salvar"}
                 </Button>
               </div>
             </form>
@@ -664,9 +663,9 @@ export default function DepartmentsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Departamento *</FormLabel>
-                    <Select
-                      onValueChange={(value) => field.onChange(parseInt(value))}
-                      value={field.value?.toString() || ""}
+                    <Select 
+                      onValueChange={(val) => field.onChange(parseInt(val))} 
+                      value={field.value ? field.value.toString() : ""}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -698,20 +697,19 @@ export default function DepartmentsPage() {
                   </FormItem>
                 )}
               />
-              <div className="flex justify-end space-x-3 pt-4 border-t">
+              <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="outline" onClick={handleCloseCostCenterModal}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={createCostCenterMutation.isPending}>
-                  {createCostCenterMutation.isPending 
-                    ? (editingCostCenter ? "Salvando..." : "Criando...") 
-                    : (editingCostCenter ? "Salvar" : "Criar")}
+                  {createCostCenterMutation.isPending ? "Salvando..." : "Salvar"}
                 </Button>
               </div>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
+      </div>
       </div>
     </AdminRoute>
   );

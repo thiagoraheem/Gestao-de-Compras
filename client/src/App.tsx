@@ -22,6 +22,7 @@ import DeliveryLocationsPage from "@/pages/delivery-locations";
 import ProfilePage from "@/pages/profile";
 import ChangePasswordPage from "@/pages/change-password";
 import RequestManagementPage from "@/pages/request-management";
+import QuotationManagementPage from "@/pages/quotation-management";
 import CompaniesPage from "@/pages/companies";
 import PipefyHeader from "@/components/pipefy-header";
 import FloatingNewRequestButton from "@/components/floating-new-request-button";
@@ -41,6 +42,7 @@ import MaterialConferencePage from "@/pages/MaterialConferencePage";
 import InvoicesReportPage from "@/pages/invoices-report";
 import ManagerRoute from "@/components/manager-route";
 import AdminRoute from "@/components/admin-route";
+import AdminOrBuyerRoute from "@/components/admin-or-buyer-route";
 import { RealtimeSyncProvider } from "@/components/realtime-sync";
 import { useApprovalsBadge } from "@/hooks/useApprovalsBadge";
 import NotificationsPermission from "@/components/NotificationsPermission";
@@ -123,6 +125,7 @@ function Router() {
           </ManagerRoute>
         </Route>
         <Route path="/request-management" component={RequestManagementPage} />
+        <Route path="/quotations" component={QuotationManagementPage} />
         <Route path="/companies">
           <AdminRoute>
             <CompaniesPage />

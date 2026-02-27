@@ -31,6 +31,7 @@ import {
   ClipboardList,
   Truck,
   PackageCheck,
+  DollarSign,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Filter } from "lucide-react";
@@ -98,6 +99,14 @@ export default function PipefyHeader() {
         name: "Conferência",
         href: "/conferencia-material",
         icon: PackageCheck,
+      });
+    }
+
+    if (user?.isBuyer || user?.isAdmin) {
+      baseNavigation.push({
+        name: "Cotações",
+        href: "/quotations",
+        icon: DollarSign,
       });
     }
 

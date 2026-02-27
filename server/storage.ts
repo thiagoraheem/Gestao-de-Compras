@@ -195,6 +195,7 @@ export interface IStorage {
   getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequestWithDetails[]>;
   getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]>;
   getPurchaseRequestsForReport(filters: any): Promise<any[]>;
+  getQuotationsDashboardData(): Promise<any>;
   deletePurchaseRequest(id: number): Promise<void>;
 
   // Purchase Request Items operations
@@ -1655,6 +1656,114 @@ export class DatabaseStorage implements IStorage {
       console.error('Error in getPurchaseRequestsForReport:', error);
       throw error;
     }
+  }
+
+  async getQuotationsDashboardData(): Promise<any> {
+    // 1. Fetch active quotations (Purchase Requests in 'cotacao')
+    const activeRequests = await this.getPurchaseRequestsByPhase('cotacao');
+
+    // Enhance with Quotation details (deadline, status, supplier count)
+    const enhancedRequests = await Promise.all(activeRequests.map(async (req) => {
+      // Find the active quotation for this request
+      const [quotation] = await db
+        .select()
+        .from(quotations)
+        .where(eq(quotations.purchaseRequestId, req.id))
+        .orderBy(desc(quotations.createdAt))
+        .limit(1);
+
+      let supplierCount = 0;
+      let responseCount = 0;
+      let quotationStatus = 'pending'; // default
+      let quotationDeadline = null;
+
+      if (quotation) {
+        quotationStatus = quotation.status;
+        quotationDeadline = quotation.quotationDeadline;
+        const supplierQuotes = await db
+          .select()
+          .from(supplierQuotations)
+          .where(eq(supplierQuotations.quotationId, quotation.id));
+        
+        supplierCount = supplierQuotes.length;
+        responseCount = supplierQuotes.filter(sq => sq.status === 'received').length;
+      }
+
+      // Fetch Department info
+      let departmentName = 'N/A';
+      if (req.costCenterId) {
+         const [cc] = await db.select().from(costCenters).where(eq(costCenters.id, req.costCenterId));
+         if (cc && cc.departmentId) {
+             const [dept] = await db.select().from(departments).where(eq(departments.id, cc.departmentId));
+             if (dept) departmentName = dept.name;
+         }
+      }
+
+      return {
+        ...req,
+        quotationId: quotation?.id,
+        quotationStatus,
+        quotationDeadline,
+        departmentName,
+        supplierCount,
+        responseCount
+      };
+    }));
+
+    // 2. Calculate KPIs (Global)
+    // Avg Response Time (only for received supplier quotations)
+    const resultResponseTime = await db.execute(sql`
+      SELECT AVG(EXTRACT(EPOCH FROM (sq.received_at - sq.sent_at))/3600) as avg_hours
+      FROM supplier_quotations sq
+      WHERE sq.status = 'received' AND sq.sent_at IS NOT NULL AND sq.received_at IS NOT NULL
+    `);
+    const avgResponseTime = Number(resultResponseTime.rows[0]?.avg_hours || 0);
+
+    // Response Rate
+    const resultResponseRate = await db.execute(sql`
+      SELECT 
+        COUNT(*) FILTER (WHERE status = 'received') as received_count,
+        COUNT(*) as total_count
+      FROM supplier_quotations
+    `);
+    const receivedCount = Number(resultResponseRate.rows[0]?.received_count || 0);
+    const totalSentCount = Number(resultResponseRate.rows[0]?.total_count || 0);
+    const responseRate = totalSentCount > 0 ? (receivedCount / totalSentCount) * 100 : 0;
+
+    // Conversion Rate (Quotations turned into POs)
+    const resultConversion = await db.execute(sql`
+      SELECT 
+        (SELECT COUNT(*) FROM purchase_orders) as po_count,
+        (SELECT COUNT(*) FROM quotations) as quote_count
+    `);
+    const poCount = Number(resultConversion.rows[0]?.po_count || 0);
+    const quoteCount = Number(resultConversion.rows[0]?.quote_count || 0);
+    const conversionRate = quoteCount > 0 ? (poCount / quoteCount) * 100 : 0;
+
+    // Total Value in Open Quotations (Estimated from PR total value)
+    const totalOpenValue = activeRequests.reduce((sum, req) => sum + Number(req.totalValue || 0), 0);
+
+    // Avg Suppliers per Quotation
+    const resultAvgSuppliers = await db.execute(sql`
+      SELECT AVG(supplier_count) as avg_suppliers
+      FROM (
+        SELECT quotation_id, COUNT(*) as supplier_count
+        FROM supplier_quotations
+        GROUP BY quotation_id
+      ) sub
+    `);
+    const avgSuppliers = Number(resultAvgSuppliers.rows[0]?.avg_suppliers || 0);
+
+    return {
+      requests: enhancedRequests,
+      kpis: {
+        avgResponseTime, // in hours
+        responseRate,
+        conversionRate,
+        totalOpenValue,
+        avgSuppliers
+      }
+    };
   }
 
   // Purchase Request Items operations
