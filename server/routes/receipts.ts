@@ -20,11 +20,13 @@ import {
   companies,
   purchaseOrderItems,
   purchaseRequestItems,
+  users,
 } from "../../shared/schema";
 import { notifyRequestConclusion } from "../email-service";
 import { purchaseReceiveService, PurchaseReceiveRequest } from "../integracao_locador/services/purchase-receive-service";
 import { parseNFeXml } from "../services/nfe-parser";
 import { parseNFSeXml } from "../services/nfse-parser";
+import { finishReceiptWithoutErp } from "../services/receipt-service";
 import { z } from "zod";
 import { eq, sql, and, like, or, desc, asc } from "drizzle-orm";
 // @ts-ignore
@@ -842,6 +844,27 @@ export function registerReceiptsRoutes(app: Express) {
                 code: "ERROR" 
             } 
         });
+    }
+  });
+
+  app.post("/api/receipts/:id/finish-without-erp", async (req: Request, res: Response) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Não autenticado" });
+
+    try {
+      const updated = await finishReceiptWithoutErp(req.session.userId, Number(req.params.id));
+      return res.json({ success: true, receipt: updated });
+    } catch (err: any) {
+      if (err.message === "Apenas compradores podem realizar esta ação.") {
+        return res.status(403).json({ message: err.message });
+      }
+      if (err.message === "Recebimento não encontrado") {
+        return res.status(404).json({ message: err.message });
+      }
+      if (err.message === "Recebimento já finalizado.") {
+        return res.status(400).json({ message: err.message });
+      }
+      console.error(err);
+      return res.status(500).json({ message: "Erro interno ao finalizar sem ERP" });
     }
   });
 

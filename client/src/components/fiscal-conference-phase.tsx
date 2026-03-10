@@ -271,6 +271,7 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
   const { reportIssueMutation } = useReceiptActions();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Fetch current receipt data for status updates
   const { data: currentReceipt } = useQuery<any>({
@@ -306,6 +307,7 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
 
   // ERP Logs State
   const [erpLogs, setErpLogs] = useState<{ time: Date; message: string; type: 'info' | 'success' | 'error' }[]>([]);
+  const [showFinishWithoutErpDialog, setShowFinishWithoutErpDialog] = useState(false);
 
   // Update local logs from persisted data if available
   useEffect(() => {
@@ -407,6 +409,26 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
       toast({ title: "Erro na Validação", description: err.message || "Erro ao confirmar fiscal", variant: "destructive" });
       // Refetch to show persistent status if updated in backend
       queryClient.invalidateQueries({ queryKey: [`/api/receipts/${nfReceiptId}`] });
+    }
+  });
+
+  const finishWithoutErpMutation = useMutation({
+    mutationFn: async () => {
+        const targetReceiptId = nfReceiptId; 
+        if (!targetReceiptId) throw new Error("Nenhuma nota fiscal selecionada");
+        
+        return apiRequest(`/api/receipts/${targetReceiptId}/finish-without-erp`, { method: "POST" });
+    },
+    onSuccess: () => {
+        toast({ title: "Sucesso", description: "Conferência finalizada manualmente sem envio ao ERP." });
+        queryClient.invalidateQueries({ queryKey: [`/api/receipts/${nfReceiptId}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+        setShowFinishWithoutErpDialog(false);
+        setTimeout(() => onBack(), 1000);
+    },
+    onError: (err: any) => {
+        toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
   });
 
@@ -585,6 +607,17 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
           )}
 
           {!isConferred && (
+            <>
+            {user?.isBuyer && (
+              <Button
+                  variant="outline"
+                  className="w-full sm:w-auto border-yellow-600 text-yellow-600 hover:bg-yellow-50"
+                  onClick={() => setShowFinishWithoutErpDialog(true)}
+                  disabled={finishWithoutErpMutation.isPending}
+              >
+                  {finishWithoutErpMutation.isPending ? "Finalizando..." : "Finalizar Sem Envio ERP"}
+              </Button>
+            )}
             <Button
                 className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600"
                 onClick={() => confirmFiscalMutation.mutate()}
@@ -592,6 +625,7 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
             >
                 {confirmFiscalMutation.isPending ? "Processando..." : "Concluir Conferência Fiscal"}
             </Button>
+            </>
           )}
         </div>
       </div>
@@ -602,6 +636,30 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
         onConfirm={(reason) => reportIssueMutation.mutate(reason)}
         isLoading={reportIssueMutation.isPending}
       />
+
+      <AlertDialog open={showFinishWithoutErpDialog} onOpenChange={setShowFinishWithoutErpDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finalizar Sem Envio ERP?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Atenção: Esta ação finalizará a conferência fiscal e mudará o status para "Conclusão" <strong>sem enviar os dados para o sistema ERP</strong>.
+              <br/><br/>
+              Esta funcionalidade é exclusiva para Compradores e deve ser usada apenas em casos excepcionais onde a integração não é necessária.
+              <br/><br/>
+              Uma justificativa automática será registrada no log de auditoria.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => finishWithoutErpMutation.mutate()}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white"
+            >
+              Confirmar Finalização Manual
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
 
     </div>
