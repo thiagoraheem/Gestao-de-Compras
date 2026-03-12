@@ -8571,6 +8571,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Get distinct item descriptions for autocomplete
+  app.get(
+    "/api/purchase-request-items/distinct-descriptions",
+    async (req: Request, res: Response) => {
+      try {
+        const { query } = req.query;
+        const descriptions = await storage.getDistinctItemDescriptions(query as string);
+        res.json(descriptions);
+      } catch (error) {
+        console.error("Error fetching distinct item descriptions:", error);
+        res.status(500).json({ message: "Failed to fetch item descriptions" });
+      }
+    }
+  );
+
   // Purchase requests report endpoint
   app.get(
     "/api/reports/purchase-requests",
@@ -8585,10 +8600,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phase,
           urgency,
           search,
+          itemDescription,
+          page,
+          limit,
         } = req.query;
 
         // Build filters object with validation
         const filters: any = {};
+
+        // Pagination
+        if (page && limit) {
+          const pageNum = parseInt(page as string);
+          const limitNum = parseInt(limit as string);
+          if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
+             filters.limit = limitNum;
+             filters.offset = (pageNum - 1) * limitNum;
+          }
+        }
 
         // Validate and set date range
         if (startDate && endDate) {
@@ -8636,11 +8664,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filters.search = search.trim();
         }
 
+        if (itemDescription && typeof itemDescription === "string" && itemDescription.trim() !== "") {
+          filters.itemDescription = itemDescription.trim();
+        }
+
         // Get purchase requests with related data
         const requests = await storage.getPurchaseRequestsForReport(filters);
 
         res.json(requests);
-      } catch (error) {
+      } catch (error: any) {
+        const pgCode = error?.code;
+        const msg = String(error?.message ?? "");
+
+        if (pgCode === "57014" || msg.toLowerCase().includes("statement timeout")) {
+          return res.status(408).json({
+            message:
+              "Consulta excedeu o tempo limite. Ajuste os filtros e tente novamente.",
+          });
+        }
+
         console.error("Error fetching purchase requests report:", error);
         res
           .status(500)
@@ -8820,6 +8862,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   const httpServer = createServer(app);
-  initRealtime(httpServer);
+  if (!process.env.JEST_WORKER_ID && process.env.NODE_ENV !== "test") {
+    initRealtime(httpServer);
+  }
   return httpServer;
 }

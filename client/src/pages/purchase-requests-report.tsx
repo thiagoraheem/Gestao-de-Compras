@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   Card,
   CardContent,
@@ -51,6 +52,16 @@ import { ptBR } from "date-fns/locale";
 import { DateInput } from "@/components/ui/date-input";
 import { formatCurrency } from "@/lib/currency";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ItemSearchInput } from "@/components/item-search-input";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface PurchaseRequest {
   id: number;
@@ -166,6 +177,7 @@ const urgencyLabels = {
 };
 
 export default function PurchaseRequestsReport() {
+  const { toast } = useToast();
   const [filters, setFilters] = useState({
     startDate: "",
     endDate: "",
@@ -174,32 +186,77 @@ export default function PurchaseRequestsReport() {
     supplierId: "all",
     phase: "all",
     urgency: "all",
+    itemDescription: "",
   });
+
+  const [activeFilters, setActiveFilters] = useState<typeof filters | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
 
   const [includeArchivedInSum, setIncludeArchivedInSum] = useState(false);
 
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Check if mandatory filters are filled (e.g. at least date range or search term or item description)
+  // Or just date range as per prompt "todos os filtros obrigatórios"
+  // Assuming Date Range is mandatory for performance, OR just require "Consultar" click.
+  // The prompt says "Estado habilitado apenas quando todos os filtros obrigatórios estiverem preenchidos".
+  // Let's assume Start Date and End Date are mandatory.
+  const isSearchEnabled = useMemo(() => {
+    return !!filters.startDate && !!filters.endDate;
+  }, [filters.startDate, filters.endDate]);
+
   // Fetch purchase requests with filters
   const {
-    data: requests = [],
+    data,
     isLoading,
+    isError,
+    error,
     refetch,
+    isRefetching,
   } = useQuery({
-    queryKey: ["purchase-requests-report", filters],
+    queryKey: ["purchase-requests-report", activeFilters, page, searchTerm],
     queryFn: async () => {
+      if (!activeFilters) return { data: [], total: 0 };
+      
       const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
+      Object.entries(activeFilters).forEach(([key, value]) => {
         if (value && value !== "all") params.append(key, value);
       });
       if (searchTerm) params.append("search", searchTerm);
+      
+      params.append("page", page.toString());
+      params.append("limit", pageSize.toString());
 
-      return apiRequest(`/api/reports/purchase-requests?${params}`);
+      return apiRequest(`/api/reports/purchase-requests?${params.toString()}`);
     },
-    staleTime: 30000, // Cache for 30 seconds
-    gcTime: 300000, // Keep in cache for 5 minutes
+    enabled: !!activeFilters, // Only run if activeFilters is set (via Consultar button)
+    staleTime: 30000, 
+    gcTime: 300000,
   });
+
+  useEffect(() => {
+    if (!isError) return;
+    const message =
+      (error as any)?.message ||
+      "Falha ao buscar o relatório. Tente novamente.";
+    toast({
+      title: "Erro",
+      description: message,
+      variant: "destructive",
+    });
+  }, [error, isError, toast]);
+
+  const requests = data?.data || [];
+  const totalItems = data?.total || 0;
+  const totalPages = Math.ceil(totalItems / pageSize);
+
+  const handleSearch = () => {
+    if (!isSearchEnabled) return;
+    setPage(1);
+    setActiveFilters(filters);
+  };
 
   // Fetch departments for filter
   const { data: departments = [] } = useQuery({
@@ -374,6 +431,7 @@ export default function PurchaseRequestsReport() {
       supplierId: "all",
       phase: "all",
       urgency: "all",
+      itemDescription: "",
     });
     setSearchTerm("");
   };
@@ -392,13 +450,20 @@ export default function PurchaseRequestsReport() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => refetch()} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar
+          <Button 
+            onClick={handleSearch} 
+            disabled={!isSearchEnabled || isLoading || isRefetching}
+          >
+            {(isLoading || isRefetching) ? (
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Search className="w-4 h-4 mr-2" />
+            )}
+            Consultar
           </Button>
-          <Button onClick={exportToCSV} variant="outline" size="sm">
+          <Button onClick={exportToCSV} variant="outline" size="sm" disabled={requests.length === 0}>
             <Download className="w-4 h-4 mr-2" />
-            Exportar CSV
+            Exportar CSV (Página Atual)
           </Button>
         </div>
       </div>
@@ -429,6 +494,17 @@ export default function PurchaseRequestsReport() {
                   className="pl-10"
                 />
               </div>
+            </div>
+
+            {/* Item Search */}
+            <div className="space-y-2">
+              <Label>Item</Label>
+              <ItemSearchInput
+                value={filters.itemDescription}
+                onChange={(value) =>
+                  setFilters((prev) => ({ ...prev, itemDescription: value }))
+                }
+              />
             </div>
 
             {/* Date Range */}
@@ -607,6 +683,29 @@ export default function PurchaseRequestsReport() {
                 Limpar Filtros
               </Button>
             </div>
+            
+            {/* Search Button (Mobile/Grid layout helper) */}
+            <div className="flex items-end md:col-span-2 lg:col-span-3 xl:col-span-4 justify-end mt-4">
+               <div className="flex gap-2 w-full md:w-auto">
+                 {!isSearchEnabled && (
+                    <p className="text-sm text-muted-foreground self-center mr-4 hidden md:block">
+                      Preencha as datas para consultar
+                    </p>
+                 )}
+                 <Button 
+                    onClick={handleSearch} 
+                    className="w-full md:w-auto min-w-[150px]"
+                    disabled={!isSearchEnabled || isLoading || isRefetching}
+                 >
+                    {(isLoading || isRefetching) ? (
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4 mr-2" />
+                    )}
+                    Consultar
+                 </Button>
+               </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -616,18 +715,27 @@ export default function PurchaseRequestsReport() {
         <CardHeader>
           <CardTitle>Resultados</CardTitle>
           <CardDescription>
-            {isLoading
+            {(isLoading || isRefetching)
               ? "Carregando..."
-              : `${requests.length} solicitação(ões) encontrada(s)`}
+              : activeFilters 
+                ? `${totalItems} solicitação(ões) encontrada(s)`
+                : "Utilize os filtros e clique em Consultar para ver os resultados"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="w-6 h-6 animate-spin" />
+          {(isLoading || isRefetching) ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <RefreshCw className="w-10 h-10 animate-spin text-primary" />
+              <p className="text-muted-foreground">Processando consulta...</p>
             </div>
+          ) : !activeFilters ? (
+             <div className="text-center py-12 text-muted-foreground">
+               <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground/40" />
+               <p className="text-lg font-medium">Aguardando consulta</p>
+               <p>Preencha os filtros obrigatórios (datas) e clique em Consultar.</p>
+             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto space-y-4">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1005,6 +1113,71 @@ export default function PurchaseRequestsReport() {
                   <p>
                     Nenhuma solicitação encontrada com os filtros aplicados.
                   </p>
+                </div>
+              )}
+              
+              {/* Pagination */}
+              {totalItems > 0 && (
+                <div className="flex items-center justify-end py-4">
+                   <div className="flex-1 text-sm text-muted-foreground">
+                     Página {page} de {totalPages} ({totalItems} registros)
+                   </div>
+                   <Pagination>
+                     <PaginationContent>
+                       <PaginationItem>
+                         <PaginationPrevious 
+                           onClick={() => setPage(p => Math.max(1, p - 1))}
+                           className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                         />
+                       </PaginationItem>
+                       
+                       {/* Simplified pagination logic: Show current, prev, next */}
+                       {page > 2 && (
+                          <PaginationItem>
+                            <PaginationLink onClick={() => setPage(1)} className="cursor-pointer">1</PaginationLink>
+                          </PaginationItem>
+                       )}
+                       {page > 3 && (
+                          <PaginationItem>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                       )}
+                       
+                       {page > 1 && (
+                          <PaginationItem>
+                            <PaginationLink onClick={() => setPage(page - 1)} className="cursor-pointer">{page - 1}</PaginationLink>
+                          </PaginationItem>
+                       )}
+                       
+                       <PaginationItem>
+                         <PaginationLink isActive>{page}</PaginationLink>
+                       </PaginationItem>
+                       
+                       {page < totalPages && (
+                          <PaginationItem>
+                            <PaginationLink onClick={() => setPage(page + 1)} className="cursor-pointer">{page + 1}</PaginationLink>
+                          </PaginationItem>
+                       )}
+                       
+                       {page < totalPages - 2 && (
+                          <PaginationItem>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                       )}
+                       {page < totalPages - 1 && (
+                          <PaginationItem>
+                            <PaginationLink onClick={() => setPage(totalPages)} className="cursor-pointer">{totalPages}</PaginationLink>
+                          </PaginationItem>
+                       )}
+
+                       <PaginationItem>
+                         <PaginationNext 
+                           onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                           className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                         />
+                       </PaginationItem>
+                     </PaginationContent>
+                   </Pagination>
                 </div>
               )}
             </div>

@@ -7,6 +7,7 @@ import request from 'supertest';
 const mockStorage = {
   getReceiptById: jest.fn(),
   getUserById: jest.fn().mockResolvedValue({ id: 1, name: 'Test User' }),
+  getUser: jest.fn().mockResolvedValue({ id: 1, isReceiver: true, isAdmin: true }),
   initializeDefaultData: jest.fn().mockResolvedValue(true),
   getReceiptsByPurchaseOrderId: jest.fn().mockResolvedValue([]),
   getPurchaseOrderById: jest.fn(),
@@ -16,14 +17,40 @@ const mockPurchaseReceiveService = {
   submit: jest.fn(),
 };
 
+const selectWhereQueue: any[] = [];
+const updateReturningQueue: any[] = [];
+
 const mockDb = {
-  select: jest.fn().mockReturnThis(),
-  from: jest.fn().mockReturnThis(),
-  where: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
-  set: jest.fn().mockReturnThis(),
+  select: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  insert: jest.fn(),
   execute: jest.fn().mockResolvedValue(true),
 };
+
+const selectBuilder = {
+  from: jest.fn().mockReturnThis(),
+  where: jest.fn(() => Promise.resolve(selectWhereQueue.shift() ?? [])),
+};
+
+const updateBuilder = {
+  set: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  returning: jest.fn(() => Promise.resolve(updateReturningQueue.shift() ?? [{ id: 1 }])),
+};
+
+const deleteBuilder = {
+  where: jest.fn().mockReturnThis(),
+};
+
+const insertBuilder = {
+  values: jest.fn().mockReturnThis(),
+};
+
+mockDb.select.mockImplementation(() => selectBuilder);
+mockDb.update.mockImplementation(() => updateBuilder);
+mockDb.delete.mockImplementation(() => deleteBuilder);
+mockDb.insert.mockImplementation(() => insertBuilder);
 
 // Apply mocks
 jest.mock('../storage', () => ({ storage: mockStorage }));
@@ -62,6 +89,11 @@ jest.mock('../services/supplier-integration', () => ({
     searchByCNPJ: jest.fn(),
   }
 }));
+jest.mock('../services/configService', () => ({
+  configService: {
+    getLocadorConfig: jest.fn().mockResolvedValue({ sendEnabled: true }),
+  },
+}));
 
 process.env.SESSION_SECRET = 'test-secret-must-be-at-least-32-chars-long';
 // Import routes after mocks
@@ -69,8 +101,9 @@ import { registerRoutes } from '../routes';
 
 describe('Fiscal Data Persistence & Recovery', () => {
   let app: any;
+  let server: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     app = express();
     app.use(express.json());
     // Mock auth middleware
@@ -79,13 +112,21 @@ describe('Fiscal Data Persistence & Recovery', () => {
       req.isAuthenticated = () => true;
       next();
     });
-    registerRoutes(app);
+    server = await registerRoutes(app);
     jest.clearAllMocks();
+    selectWhereQueue.length = 0;
+    updateReturningQueue.length = 0;
+  });
+
+  afterEach(async () => {
+    if (server?.listening) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 
   it('should persist financial data even if ERP integration fails', async () => {
     // Setup: Receipt exists, has items
-    mockStorage.getReceiptById.mockResolvedValue({ 
+    selectWhereQueue.push([{ 
       id: 200, 
       status: 'conf_fisica', 
       observations: '{}', 
@@ -93,22 +134,18 @@ describe('Fiscal Data Persistence & Recovery', () => {
       purchaseOrderId: 1,
       supplierId: 1,
       documentIssueDate: new Date('2023-01-01')
-    });
-    mockDb.where.mockResolvedValue([{ id: 1 }]); // Has items
+    }]);
+    selectWhereQueue.push([{ id: 1, locadorProductCode: 'ITEM-1', description: 'Item', unit: 'UN', quantity: 1, unitPrice: 1 }]); // Has items
 
     // Mock PO, PR, Supplier for ERP
-    mockStorage.getPurchaseOrderById.mockResolvedValue({ 
-        id: 1, 
-        purchaseRequestId: 1, 
-        orderNumber: 'PO-1',
-        createdAt: new Date('2023-01-01')
-    });
-    
-    // Mock successful fetch of PR and Supplier
-    mockDb.where.mockResolvedValue([{ id: 1, requestNumber: 'PR-1', cnpj: '123' }]);
+    selectWhereQueue.push([]); // installments
+    selectWhereQueue.push([]); // allocations
+    selectWhereQueue.push([{ id: 1, purchaseRequestId: 1, orderNumber: 'PO-1', createdAt: new Date('2023-01-01') }]); // purchaseOrder
+    selectWhereQueue.push([{ id: 1, requestNumber: 'PR-1', justification: 'J', companyId: null }]); // purchaseRequest
 
     // Mock ERP failure
     mockPurchaseReceiveService.submit.mockRejectedValue(new Error('Simulated ERP Error'));
+    updateReturningQueue.push([{ id: 200, status: 'erro_integracao' }]);
 
     const payload = { 
         paymentMethodCode: '001', 
@@ -123,18 +160,25 @@ describe('Fiscal Data Persistence & Recovery', () => {
       .post('/api/receipts/200/confirm-fiscal')
       .send(payload);
 
-    // Expect error response because ERP failed
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/Erro na integração ERP/);
+    // Expect success response for local persistence, with ERP flagged as failed
+    expect(res.status).toBe(200);
+    expect(res.body?.erp?.success).toBe(false);
 
     // Verify DB update was called to save observations
     expect(mockDb.update).toHaveBeenCalled();
-    expect(mockDb.set).toHaveBeenCalled();
+    expect(updateBuilder.set).toHaveBeenCalled();
 
     // Check content of the update
-    const setCalls = mockDb.set.mock.calls;
-    // Find the call that sets observations
-    const obsUpdate = setCalls.find(call => call[0].observations);
+    const setCalls = updateBuilder.set.mock.calls;
+    const obsUpdate = setCalls.find((call) => {
+      try {
+        if (!call?.[0]?.observations) return false;
+        const parsed = JSON.parse(call[0].observations);
+        return !!parsed?.lastErpAttempt;
+      } catch {
+        return false;
+      }
+    });
     expect(obsUpdate).toBeDefined();
     
     const savedObs = JSON.parse(obsUpdate[0].observations);
@@ -152,7 +196,7 @@ describe('Fiscal Data Persistence & Recovery', () => {
 
   it('should update receiptType to avulso and bypass item validation', async () => {
     // Setup: We simulate that the DB *will* return the updated type after our update call
-    mockStorage.getReceiptById.mockResolvedValue({ 
+    selectWhereQueue.push([{ 
       id: 300, 
       status: 'conf_fisica', 
       observations: '{}', 
@@ -160,10 +204,10 @@ describe('Fiscal Data Persistence & Recovery', () => {
       purchaseOrderId: null,
       supplierId: null,
       documentIssueDate: new Date('2023-01-01')
-    });
+    }]);
     
     // Mock NO items found
-    mockDb.where.mockResolvedValue([]); 
+    selectWhereQueue.push([]); 
 
     // Mock successful ERP
     mockPurchaseReceiveService.submit.mockResolvedValue({ success: true, message: 'Integrated' });
@@ -188,7 +232,7 @@ describe('Fiscal Data Persistence & Recovery', () => {
     expect(res.status).toBe(200);
 
     // Check if db.update was called to update receipt type
-    const setCalls = mockDb.set.mock.calls;
+    const setCalls = updateBuilder.set.mock.calls;
     // We expect one of the update calls to contain receiptType: 'avulso'
     const typeUpdate = setCalls.find(call => call[0].receiptType === 'avulso');
     expect(typeUpdate).toBeDefined();
@@ -200,7 +244,7 @@ describe('Fiscal Data Persistence & Recovery', () => {
 
   it('should persist financial data and update status on success', async () => {
     // Setup
-    mockStorage.getReceiptById.mockResolvedValue({ 
+    selectWhereQueue.push([{ 
       id: 201, 
       status: 'conf_fisica', 
       observations: '{}',
@@ -208,19 +252,17 @@ describe('Fiscal Data Persistence & Recovery', () => {
       purchaseOrderId: 1,
       supplierId: 1,
       documentIssueDate: new Date('2023-01-01')
-    });
-    mockDb.where.mockResolvedValue([{ id: 1 }]); // Has items
+    }]);
+    selectWhereQueue.push([{ id: 1, locadorProductCode: 'ITEM-1', description: 'Item', unit: 'UN', quantity: 1, unitPrice: 1 }]); // Has items
     
-    mockStorage.getPurchaseOrderById.mockResolvedValue({ 
-        id: 1, 
-        purchaseRequestId: 1, 
-        orderNumber: 'PO-1',
-        createdAt: new Date('2023-01-01')
-    });
-    mockDb.where.mockResolvedValue([{ id: 1, requestNumber: 'PR-1', cnpj: '123' }]);
+    selectWhereQueue.push([]); // installments
+    selectWhereQueue.push([]); // allocations
+    selectWhereQueue.push([{ id: 1, purchaseRequestId: 1, orderNumber: 'PO-1', createdAt: new Date('2023-01-01') }]); // purchaseOrder
+    selectWhereQueue.push([{ id: 1, requestNumber: 'PR-1', justification: 'J', companyId: null }]); // purchaseRequest
 
     // Mock ERP success
     mockPurchaseReceiveService.submit.mockResolvedValue({ success: true, message: 'OK' });
+    updateReturningQueue.push([{ id: 201, status: 'integrado_locador' }]);
 
     const payload = { 
         paymentMethodCode: '002', 
@@ -238,64 +280,51 @@ describe('Fiscal Data Persistence & Recovery', () => {
     expect(res.status).toBe(200);
     
     // Verify DB update
-    const setCalls = mockDb.set.mock.calls;
-    const updateCall = setCalls.find(call => call[0].status === 'conferida');
-    expect(updateCall).toBeDefined();
-    
-    const savedObs = JSON.parse(updateCall[0].observations);
+    const setCalls = updateBuilder.set.mock.calls;
+    const statusCall = setCalls.find(call => call[0].status === 'integrado_locador');
+    expect(statusCall).toBeDefined();
+
+    const obsCall = setCalls.find(call => !!call?.[0]?.observations);
+    expect(obsCall).toBeDefined();
+
+    const savedObs = JSON.parse(obsCall[0].observations);
     expect(savedObs.financial.paymentMethodCode).toBe('002');
-    expect(savedObs.erp.success).toBe(true);
   });
 
   it('should use linked receipt items for avulso receipt and not fallback', async () => {
-    // Reset mocks to avoid interference
-    mockDb.where.mockReset();
-    mockDb.where.mockReturnThis();
+    selectWhereQueue.push([
+      {
+        id: 400,
+        status: 'conf_fisica',
+        observations: '{}',
+        receiptType: 'avulso',
+        purchaseOrderId: 10,
+        supplierId: 10,
+        documentIssueDate: new Date('2023-01-01'),
+      },
+    ]);
 
-    // Setup: Receipt is Avulso, has PO
-    mockStorage.getReceiptById.mockResolvedValue({ 
-      id: 400, 
-      status: 'conf_fisica', 
-      observations: '{}',
-      receiptType: 'avulso', 
-      purchaseOrderId: 10,
-      supplierId: 10,
-      documentIssueDate: new Date('2023-01-01')
-    });
-    
-    // Mock items found in receipt_items (simulating correct Physical Receipt behavior)
-    mockDb.select.mockReturnThis();
-    mockDb.from.mockReturnThis();
-    
-    // Mock PO
-    mockStorage.getPurchaseOrderById.mockResolvedValue({ 
-        id: 10, 
-        purchaseRequestId: 10, 
-        orderNumber: 'PO-10',
-        createdAt: new Date('2023-01-01')
-    });
-    
-    // Mock DB response for PR and Supplier (ERP integration)
-    mockDb.where
-      .mockResolvedValueOnce([{ affectedRows: 1 }]) // 1. update call (receiptType update)
-      .mockResolvedValueOnce([ // 2. receiptItems (FOUND!)
-          { 
-              id: 500,
-              receiptId: 400,
-              purchaseOrderItemId: 99, 
-              locadorProductCode: 'ITEM-RECEIVED', 
-              description: 'Received Item',
-              quantity: 5,        // Correct quantity for this receipt
-              unitPrice: 100,
-              totalPrice: 500
-          }
-      ])
-      // Fallback query (purchaseOrderItems) should NOT happen now
-      .mockResolvedValueOnce([{ id: 10 }]) // 3. PR Existence Check (Audit Log)
-      .mockResolvedValueOnce([{ id: 10, requestNumber: 'PR-10', companyId: 1 }]) // 4. purchaseRequest (ERP)
-      .mockResolvedValueOnce([{ id: 10, name: 'Supplier', cnpj: '123' }]) // 5. supplier
-      .mockResolvedValueOnce([{ id: 1, idCompanyERP: 1 }]) // 6. company
-      .mockResolvedValueOnce([{ affectedRows: 1 }]); // 7. update receipt status/observations
+    // Receipt items MUST come from receipt_items (not fallback)
+    selectWhereQueue.push([
+      {
+        id: 500,
+        receiptId: 400,
+        purchaseOrderItemId: 99,
+        locadorProductCode: 'ITEM-RECEIVED',
+        description: 'Received Item',
+        quantity: 5,
+        unitPrice: 100,
+        totalPrice: 500,
+        unit: 'UN',
+      },
+    ]);
+
+    selectWhereQueue.push([]); // installments
+    selectWhereQueue.push([]); // allocations
+    selectWhereQueue.push([{ id: 10, purchaseRequestId: 10, orderNumber: 'PO-10', createdAt: new Date('2023-01-01') }]); // purchaseOrder
+    selectWhereQueue.push([{ id: 10, requestNumber: 'PR-10', justification: 'J', companyId: 1 }]); // purchaseRequest
+    selectWhereQueue.push([{ id: 1, idCompanyERP: 1 }]); // company
+    updateReturningQueue.push([{ id: 400, status: 'integrado_locador' }]);
 
     // Mock ERP success
     mockPurchaseReceiveService.submit.mockResolvedValue({ success: true, message: 'OK' });

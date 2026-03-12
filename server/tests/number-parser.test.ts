@@ -1,6 +1,5 @@
 
 import { NumberParser } from "../utils/number-parser";
-import { describe, it, expect } from "vitest";
 
 describe("NumberParser", () => {
   describe("parse", () => {

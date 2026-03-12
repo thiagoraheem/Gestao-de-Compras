@@ -6,6 +6,8 @@ const mockStorage = {
   getPurchaseRequestById: jest.fn(),
   getPurchaseOrderByRequestId: jest.fn(),
   getPurchaseOrderItems: jest.fn(),
+  getUser: jest.fn().mockResolvedValue({ id: 1, isReceiver: true, isAdmin: false }),
+  initializeDefaultData: jest.fn().mockResolvedValue(true),
 };
 
 const mockDb = {
@@ -13,6 +15,7 @@ const mockDb = {
   set: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
   insert: jest.fn().mockReturnThis(),
+  values: jest.fn().mockReturnThis(),
   returning: jest.fn().mockResolvedValue([{ id: 1 }]),
   execute: jest.fn().mockResolvedValue(true),
 };
@@ -20,6 +23,12 @@ const mockDb = {
 jest.mock("../storage", () => ({ storage: mockStorage }));
 jest.mock("../db", () => ({
   db: mockDb,
+  pool: {
+    query: jest.fn().mockResolvedValue({ rows: [] }),
+    connect: jest.fn(),
+    on: jest.fn(),
+    end: jest.fn().mockResolvedValue(true),
+  },
   purchaseOrders: { id: "id", fulfillmentStatus: "fulfillment_status" },
   purchaseOrderItems: { id: "id", quantityReceived: "quantity_received" },
   receipts: { id: "id" },
@@ -53,8 +62,9 @@ import { registerRoutes } from "../routes";
 
 describe("Physical Receipt with Decimal Quantities", () => {
   let app: any;
+  let server: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     app = express();
     app.use(express.json());
     app.use((req: any, _res, next) => {
@@ -62,8 +72,14 @@ describe("Physical Receipt with Decimal Quantities", () => {
       req.isAuthenticated = () => true;
       next();
     });
-    registerRoutes(app);
+    server = await registerRoutes(app);
     jest.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    if (server?.listening) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 
   it("accepts decimal quantities and updates fulfillment status", async () => {

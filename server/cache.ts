@@ -16,6 +16,7 @@ class SimpleCache {
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, cleanupIntervalMs);
+    this.cleanupInterval.unref?.();
   }
 
   set(key: string, data: any, ttlMs = 30000): void { // Default 30 seconds TTL

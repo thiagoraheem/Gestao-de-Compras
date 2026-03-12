@@ -194,7 +194,7 @@ export interface IStorage {
   ): Promise<PurchaseRequest>;
   getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequestWithDetails[]>;
   getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]>;
-  getPurchaseRequestsForReport(filters: any): Promise<any[]>;
+  getPurchaseRequestsForReport(filters: any): Promise<{ data: any[]; total: number }>;
   getQuotationsDashboardData(): Promise<any>;
   deletePurchaseRequest(id: number): Promise<void>;
 
@@ -330,6 +330,9 @@ export interface IStorage {
 
   // Method to cleanup Purchase Requests data
   cleanupPurchaseRequestsData(): Promise<void>;
+
+  // Item Search for Reports
+  getDistinctItemDescriptions(query?: string): Promise<string[]>;
 
   // Password reset methods
   generatePasswordResetToken(email: string): Promise<string | null>;
@@ -1134,10 +1137,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(purchaseRequests.createdAt));
   }
 
-  async getPurchaseRequestsForReport(filters: any): Promise<any[]> {
+  async getPurchaseRequestsForReport(filters: any): Promise<{ data: any[]; total: number }> {
     try {
-      // Use raw SQL to bypass Drizzle ORM issues
-      let sqlQuery = `
+      const timeoutMsRaw = Number(process.env.REPORT_QUERY_TIMEOUT_MS ?? "");
+      const timeoutMs =
+        Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : 20_000;
+
+      // Base SQL query parts
+      let selectClause = `
         SELECT 
           pr.id,
           pr.request_number as "requestNumber",
@@ -1154,8 +1161,9 @@ export class DatabaseStorage implements IStorage {
           pr.approver_a2_id as "approverA2Id",
           pr.total_value as "totalValue",
           pr.chosen_supplier_id as "chosenSupplierId"
-        FROM purchase_requests pr
       `;
+      
+      let fromClause = `FROM purchase_requests pr`;
       
       const whereConditions: string[] = [];
       const params: any[] = [];
@@ -1218,17 +1226,50 @@ export class DatabaseStorage implements IStorage {
         paramCounter += 3;
       }
       
-      // Add WHERE clause if we have conditions
-      if (whereConditions.length > 0) {
-        sqlQuery += ' WHERE ' + whereConditions.join(' AND ');
+      if (filters?.itemDescription && typeof filters.itemDescription === 'string' && filters.itemDescription.trim() !== '') {
+        const itemDesc = `%${filters.itemDescription.trim()}%`;
+        whereConditions.push(`pr.id IN (SELECT purchase_request_id FROM purchase_request_items WHERE description ILIKE $${paramCounter})`);
+        params.push(itemDesc);
+        paramCounter++;
       }
       
-      // Add ORDER BY
-      sqlQuery += ' ORDER BY pr.created_at DESC';
+      // Combine clauses
+      let whereClause = '';
+      if (whereConditions.length > 0) {
+        whereClause = ' WHERE ' + whereConditions.join(' AND ');
+      }
       
-      // Execute raw SQL query
-      const result = await pool.query(sqlQuery, params);
-      const requests = result.rows;
+      // 1. Get total count + data with timeout for the main report query
+      const client = await pool.connect();
+      let total = 0;
+      let requests: any[] = [];
+      try {
+        await client.query("BEGIN");
+        await client.query("SET LOCAL statement_timeout = $1", [`${timeoutMs}ms`]);
+
+        const countSql = `SELECT COUNT(*) as total ${fromClause} ${whereClause}`;
+        const countResult = await client.query(countSql, params);
+        total = parseInt(countResult.rows[0]?.total || "0");
+
+        let sqlQuery = `${selectClause} ${fromClause} ${whereClause} ORDER BY pr.created_at DESC`;
+
+        if (filters.limit !== undefined && filters.offset !== undefined) {
+          sqlQuery += ` LIMIT $${paramCounter} OFFSET $${paramCounter + 1}`;
+          params.push(filters.limit, filters.offset);
+          paramCounter += 2;
+        }
+
+        const result = await client.query(sqlQuery, params);
+        requests = result.rows;
+        await client.query("COMMIT");
+      } catch (error) {
+        try {
+          await client.query("ROLLBACK");
+        } catch {}
+        throw error;
+      } finally {
+        client.release();
+      }
       
       // Get requester and department names separately, plus related data
       const requestsWithNames = await Promise.all(
@@ -1651,7 +1692,8 @@ export class DatabaseStorage implements IStorage {
         })
       );
       
-      return requestsWithNames;
+      // Return with total count
+      return { data: requestsWithNames, total };
     } catch (error) {
       console.error('Error in getPurchaseRequestsForReport:', error);
       throw error;
@@ -3228,6 +3270,26 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error creating quantity adjustment history:", error);
       throw error;
+    }
+  }
+
+  async getDistinctItemDescriptions(query?: string): Promise<string[]> {
+    try {
+      let sql = `SELECT DISTINCT description FROM purchase_request_items`;
+      const params: any[] = [];
+      
+      if (query && query.trim()) {
+        sql += ` WHERE description ILIKE $1`;
+        params.push(`%${query.trim()}%`);
+      }
+      
+      sql += ` ORDER BY description ASC LIMIT 50`;
+      
+      const result = await pool.query(sql, params);
+      return result.rows.map((row: any) => row.description);
+    } catch (error) {
+      console.error("Error fetching item descriptions:", error);
+      return [];
     }
   }
 }

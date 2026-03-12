@@ -2,6 +2,7 @@
 // @ts-nocheck
 import express from 'express';
 import request from 'supertest';
+import { configService } from "../services/configService";
 
 // Mocks
 const mockStorage = {
@@ -15,12 +16,32 @@ const mockPurchaseReceiveService = {
   submit: jest.fn(),
 };
 
-const mockDb = {
-  select: jest.fn().mockReturnThis(),
-  from: jest.fn().mockReturnThis(),
-  where: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
+const selectQueue: any[] = [];
+const returningQueue: any[] = [];
+
+function createSelectChain() {
+  const chain: any = {
+    from: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    then: (resolve: any) => resolve(selectQueue.shift() ?? []),
+  };
+  return chain;
+}
+
+const actionChain: any = {
   set: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  values: jest.fn().mockReturnThis(),
+  returning: jest.fn().mockImplementation(() => Promise.resolve(returningQueue.shift() ?? [{ id: 1 }])) ,
+  then: (resolve: any) => resolve(undefined),
+};
+
+const mockDb: any = {
+  select: jest.fn(() => createSelectChain()),
+  update: jest.fn(() => actionChain),
+  delete: jest.fn(() => actionChain),
+  insert: jest.fn(() => actionChain),
+  execute: jest.fn().mockResolvedValue(true),
 };
 
 // Apply mocks
@@ -30,8 +51,19 @@ jest.mock('../integracao_locador/services/purchase-receive-service', () => ({
 }));
 jest.mock('../db', () => ({ 
   db: mockDb,
+  pool: {
+    query: jest.fn().mockResolvedValue({ rows: [] }),
+    connect: jest.fn(),
+    on: jest.fn(),
+    end: jest.fn().mockResolvedValue(true),
+  },
   receipts: { id: 'id', observations: 'observations', status: 'status' },
   receiptItems: { receiptId: 'receipt_id' },
+  receiptInstallments: { receiptId: 'receipt_id' },
+  receiptAllocations: { receiptId: 'receipt_id' },
+  purchaseOrders: { id: 'id' },
+  purchaseRequests: { id: 'id' },
+  companies: { id: 'id' },
   eq: jest.fn()
 }));
 jest.mock('../email-service', () => ({
@@ -53,6 +85,11 @@ jest.mock('../services/supplier-integration', () => ({
     searchByCNPJ: jest.fn(),
   }
 }));
+jest.mock("../services/configService", () => ({
+  configService: {
+    getLocadorConfig: jest.fn(),
+  },
+}));
 
 process.env.SESSION_SECRET = 'test-secret-must-be-at-least-32-chars-long';
 // Import routes after mocks
@@ -60,8 +97,9 @@ import { registerRoutes } from '../routes';
 
 describe('Fiscal Confirmation & Reopen Logic', () => {
   let app;
+  let server;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     app = express();
     app.use(express.json());
     // Mock auth middleware
@@ -70,14 +108,18 @@ describe('Fiscal Confirmation & Reopen Logic', () => {
       req.isAuthenticated = () => true;
       next();
     });
-    registerRoutes(app);
+    server = await registerRoutes(app);
     jest.clearAllMocks();
+    selectQueue.splice(0, selectQueue.length);
+    returningQueue.splice(0, returningQueue.length);
   });
 
   it('should prevent ERP submission if receipt has no items', async () => {
-    // Setup: Receipt exists, but no items
-    mockStorage.getReceiptById.mockResolvedValue({ id: 123, status: 'conf_fisica', observations: '{}', receiptType: 'produto' });
-    mockDb.where.mockResolvedValue([]); // No items returned
+    (configService.getLocadorConfig as jest.Mock).mockResolvedValue({ sendEnabled: true });
+    selectQueue.push(
+      [{ id: 123, status: 'conf_fisica', observations: '{}', receiptType: 'produto', purchaseOrderId: null }],
+      [],
+    );
 
     const res = await request(app)
       .post('/api/receipts/123/confirm-fiscal')
@@ -93,20 +135,12 @@ describe('Fiscal Confirmation & Reopen Logic', () => {
   });
 
   it('should bypass item validation if receipt type is Avulso', async () => {
-    // Setup: Receipt is Avulso, no items
-    mockStorage.getReceiptById.mockResolvedValue({ 
-      id: 124, 
-      status: 'conf_fisica', 
-      observations: '{}',
-      receiptType: 'avulso' 
-    });
-    mockDb.where.mockResolvedValue([]); // No items returned
-
-    // Mock ERP success
-    mockPurchaseReceiveService.submit.mockResolvedValue({ 
-      success: true, 
-      status: 'integrado' 
-    });
+    (configService.getLocadorConfig as jest.Mock).mockResolvedValue({ sendEnabled: false });
+    selectQueue.push(
+      [{ id: 124, status: 'conf_fisica', observations: '{}', receiptType: 'avulso', purchaseOrderId: null }],
+      [],
+    );
+    returningQueue.push([{ id: 124, status: "fiscal_conferida" }]);
 
     const res = await request(app)
       .post('/api/receipts/124/confirm-fiscal')
@@ -118,42 +152,19 @@ describe('Fiscal Confirmation & Reopen Logic', () => {
 
     // Verify success (200 OK)
     expect(res.status).toBe(200);
-    // ERP submit is skipped because no PO is linked in this mock, 
-    // but the fact it reached 200 means validation was bypassed.
+    // ERP submit is skipped because sendEnabled=false
     expect(mockPurchaseReceiveService.submit).not.toHaveBeenCalled();
   });
 
   it('should handle ERP error and preserve status', async () => {
-    // Setup: Receipt exists, has items
-    mockStorage.getReceiptById.mockResolvedValue({ 
-      id: 123, 
-      status: 'conf_fisica', 
-      observations: '{}', 
-      receiptType: 'produto',
-      purchaseOrderId: 1,
-      supplierId: 1,
-      documentIssueDate: new Date('2023-01-01')
-    });
-    mockDb.where.mockResolvedValue([{ id: 1 }]); // Has items
-
-    // Mock PO, PR, Supplier for ERP
-    mockStorage.getPurchaseOrderById = jest.fn().mockResolvedValue({ 
-        id: 1, 
-        purchaseRequestId: 1, 
-        orderNumber: 'PO-1',
-        createdAt: new Date('2023-01-01')
-    });
-    // For DB selects (PR, Supplier)
-    mockDb.select.mockReturnThis();
-    mockDb.from.mockReturnThis();
-    // We need different returns for different tables, but simplifying:
-    // If we assume the route does: await db.select()...
-    // We can't easily mock sequential calls with just mockReturnThis().
-    // However, if we make mockDb.where return valid arrays, it might pass.
-    // The route checks: purchaseRequest && supplier
-    
-    // Hack: mockDb.where returns array with one object that satisfies both PR and Supplier shape
-    mockDb.where.mockResolvedValue([{ id: 1, requestNumber: 'PR-1', cnpj: '123' }]);
+    (configService.getLocadorConfig as jest.Mock).mockResolvedValue({ sendEnabled: true });
+    selectQueue.push(
+      [{ id: 123, status: 'conf_fisica', observations: '{}', receiptType: 'produto', purchaseOrderId: null, documentIssueDate: new Date('2023-01-01') }],
+      [{ id: 1, description: "Item 1", unit: "UN", quantity: "1", unitPrice: "1", locadorProductCode: "P1" }],
+      [],
+      [],
+    );
+    returningQueue.push([{ id: 123, status: "erro_integracao" }]);
 
     // Mock ERP failure
     mockPurchaseReceiveService.submit.mockRejectedValue(new Error('ERP Connection Failed'));
@@ -166,38 +177,20 @@ describe('Fiscal Confirmation & Reopen Logic', () => {
           invoiceDueDate: '2023-01-01' 
       });
 
-    // Expect error response (400 because we catch the error and return formatted error)
-    if (res.status !== 400) {
-        console.log("Unexpected status:", res.status);
-        console.log("Response body:", JSON.stringify(res.body, null, 2));
-    }
-    expect(res.status).toBe(400);
-    
-    // Ensure status was NOT updated to 'conferida'
+    expect(res.status).toBe(200);
+    expect(res.body?.erp?.success).toBe(false);
     expect(mockPurchaseReceiveService.submit).toHaveBeenCalled();
   });
 
   it('should update status to conferida on ERP success', async () => {
-    // Setup
-    mockStorage.getReceiptById.mockResolvedValue({ 
-      id: 123, 
-      status: 'conf_fisica', 
-      observations: '{}',
-      receiptType: 'produto',
-      purchaseOrderId: 1,
-      supplierId: 1,
-      documentIssueDate: new Date('2023-01-01')
-    });
-    mockDb.where.mockResolvedValue([{ id: 1 }]); // Has items
-    
-    // Mock PO, PR, Supplier
-    mockStorage.getPurchaseOrderById = jest.fn().mockResolvedValue({ 
-        id: 1, 
-        purchaseRequestId: 1, 
-        orderNumber: 'PO-1',
-        createdAt: new Date('2023-01-01')
-    });
-    mockDb.where.mockResolvedValue([{ id: 1, requestNumber: 'PR-1', cnpj: '123' }]);
+    (configService.getLocadorConfig as jest.Mock).mockResolvedValue({ sendEnabled: true });
+    selectQueue.push(
+      [{ id: 123, status: 'conf_fisica', observations: '{}', receiptType: 'produto', purchaseOrderId: null, documentIssueDate: new Date('2023-01-01') }],
+      [{ id: 1, description: "Item 1", unit: "UN", quantity: "1", unitPrice: "1", locadorProductCode: "P1" }],
+      [],
+      [],
+    );
+    returningQueue.push([{ id: 123, status: "integrado_locador" }]);
 
     // Mock ERP success
     mockPurchaseReceiveService.submit.mockResolvedValue({ success: true });
@@ -212,10 +205,11 @@ describe('Fiscal Confirmation & Reopen Logic', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    expect(res.body?.erp?.success).toBe(true);
     
     // Verify status update
-    const setCalls = mockDb.set.mock.calls;
-    const statusUpdate = setCalls.find(call => call[0].status === 'conferida');
+    const setCalls = actionChain.set.mock.calls;
+    const statusUpdate = setCalls.find(call => call[0].status === 'integrado_locador');
     expect(statusUpdate).toBeTruthy();
   });
 
@@ -227,7 +221,7 @@ describe('Fiscal Confirmation & Reopen Logic', () => {
 
     expect(res.status).toBe(200);
     
-    const setCalls = mockDb.set.mock.calls;
+    const setCalls = actionChain.set.mock.calls;
     const statusUpdate = setCalls.find(call => call[0].status === 'conf_fisica');
     expect(statusUpdate).toBeTruthy();
   });
@@ -240,5 +234,11 @@ describe('Fiscal Confirmation & Reopen Logic', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/Apenas notas conferidas/);
+  });
+
+  afterEach(async () => {
+    if (server?.listening) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });

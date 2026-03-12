@@ -562,6 +562,14 @@ export function registerReceiptsRoutes(app: Express) {
     const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
     if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
 
+    const effectiveReceiptType = String(receiptType || rec.receiptType || "").trim().toLowerCase();
+    const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
+    if (effectiveReceiptType !== "avulso" && (!items || items.length === 0)) {
+      return res.status(400).json({
+        message: "Erro de validação: A nota fiscal não possui itens vinculados. Verifique a importação ou inclusão manual.",
+      });
+    }
+
     // 1. Update Receipt Basic Info & Observations
     const currentObs = typeof rec.observations === 'string' 
       ? JSON.parse(rec.observations) 
@@ -688,8 +696,6 @@ export function registerReceiptsRoutes(app: Express) {
     // Ideally, we should refactor 'enviar-locador' to be a function, but for safety/speed I will implement the call here using the updated data.
 
     try {
-        // Fetch fresh data (items, etc)
-        const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
         // Installments and Allocations are already in variables or DB, but let's use the ones we just saved/received for consistency
         // actually, let's fetch from DB to be safe they are saved
         const dbInstallments = await db.select().from(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
@@ -827,22 +833,32 @@ export function registerReceiptsRoutes(app: Express) {
 
     } catch (error: any) {
         console.error("Erro na integração com Locador (Confirm Fiscal):", error);
-        const integMessage = error.message || "Erro de integração";
+        const integMessage = error?.message || "Erro de integração";
         
-        // Even if ERP fails, we might want to mark as 'erro_integracao' but still save the data
         const [updated] = await db.update(receipts)
-            .set({ status: "erro_integracao", integrationMessage: integMessage })
-            .where(eq(receipts.id, id))
-            .returning();
+          .set({
+            status: "erro_integracao",
+            integrationMessage: integMessage,
+            observations: JSON.stringify({
+              ...newObs,
+              lastErpAttempt: {
+                success: false,
+                time: new Date().toISOString(),
+                message: integMessage,
+              },
+            }),
+          })
+          .where(eq(receipts.id, id))
+          .returning();
 
-        return res.json({ 
-            success: true, // We return success:true for the SAVE, but erp:false
-            receipt: updated,
-            erp: { 
-                success: false, 
-                message: integMessage, 
-                code: "ERROR" 
-            } 
+        return res.json({
+          success: true,
+          receipt: updated,
+          erp: {
+            success: false,
+            message: integMessage,
+            code: "ERROR",
+          },
         });
     }
   });
