@@ -204,8 +204,18 @@ export default function PurchaseRequestsReport() {
   // The prompt says "Estado habilitado apenas quando todos os filtros obrigatórios estiverem preenchidos".
   // Let's assume Start Date and End Date are mandatory.
   const isSearchEnabled = useMemo(() => {
-    return !!filters.startDate && !!filters.endDate;
-  }, [filters.startDate, filters.endDate]);
+    // Check if any filter is set
+    const hasDate = !!filters.startDate || !!filters.endDate;
+    const hasDepartment = filters.departmentId !== "all";
+    const hasRequester = filters.requesterId !== "all";
+    const hasSupplier = filters.supplierId !== "all";
+    const hasPhase = filters.phase !== "all";
+    const hasUrgency = filters.urgency !== "all";
+    const hasItem = !!filters.itemDescription;
+    const hasSearch = !!searchTerm;
+
+    return hasDate || hasDepartment || hasRequester || hasSupplier || hasPhase || hasUrgency || hasItem || hasSearch;
+  }, [filters, searchTerm]);
 
   // Fetch purchase requests with filters
   const {
@@ -689,7 +699,7 @@ export default function PurchaseRequestsReport() {
                <div className="flex gap-2 w-full md:w-auto">
                  {!isSearchEnabled && (
                     <p className="text-sm text-muted-foreground self-center mr-4 hidden md:block">
-                      Preencha as datas para consultar
+                      Selecione pelo menos um filtro
                     </p>
                  )}
                  <Button 
@@ -732,7 +742,7 @@ export default function PurchaseRequestsReport() {
              <div className="text-center py-12 text-muted-foreground">
                <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground/40" />
                <p className="text-lg font-medium">Aguardando consulta</p>
-               <p>Preencha os filtros obrigatórios (datas) e clique em Consultar.</p>
+               <p>Preencha os filtros e clique em Consultar.</p>
              </div>
           ) : (
             <div className="overflow-x-auto space-y-4">

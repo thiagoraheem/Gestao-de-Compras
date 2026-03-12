@@ -1170,22 +1170,16 @@ export class DatabaseStorage implements IStorage {
       let paramCounter = 1;
       
       // Build WHERE conditions
-      if (filters?.dateRange?.start && filters?.dateRange?.end) {
-        try {
-          const startDate = new Date(filters.dateRange.start);
-          const endDate = new Date(filters.dateRange.end);
-          
-          if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-            whereConditions.push(`pr.created_at >= $${paramCounter}`);
-            params.push(startDate);
-            paramCounter++;
-            whereConditions.push(`pr.created_at <= $${paramCounter}`);
-            params.push(endDate);
-            paramCounter++;
-          }
-        } catch (error) {
-          // Invalid date range in filters - skip
-        }
+      if (filters?.startDate) {
+        whereConditions.push(`pr.created_at >= $${paramCounter}`);
+        params.push(filters.startDate);
+        paramCounter++;
+      }
+
+      if (filters?.endDate) {
+        whereConditions.push(`pr.created_at <= $${paramCounter}`);
+        params.push(filters.endDate);
+        paramCounter++;
       }
       
       if (filters?.departmentId && !isNaN(parseInt(filters.departmentId))) {
@@ -1245,7 +1239,7 @@ export class DatabaseStorage implements IStorage {
       let requests: any[] = [];
       try {
         await client.query("BEGIN");
-        await client.query("SET LOCAL statement_timeout = $1", [`${timeoutMs}ms`]);
+        await client.query(`SET LOCAL statement_timeout = '${timeoutMs}ms'`);
 
         const countSql = `SELECT COUNT(*) as total ${fromClause} ${whereClause}`;
         const countResult = await client.query(countSql, params);

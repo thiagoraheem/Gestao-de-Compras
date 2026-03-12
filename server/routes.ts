@@ -8619,16 +8619,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Validate and set date range
-        if (startDate && endDate) {
+        if (startDate) {
           try {
             const start = new Date(startDate as string);
-            const end = new Date(endDate as string);
-
-            if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-              filters.dateRange = { start, end };
+            if (!isNaN(start.getTime())) {
+              filters.startDate = start;
             }
           } catch (error) {
-            // Invalid date range - silently ignore
+            // Invalid date - silently ignore
+          }
+        }
+
+        if (endDate) {
+          try {
+            const end = new Date(endDate as string);
+            if (!isNaN(end.getTime())) {
+              filters.endDate = end;
+            }
+          } catch (error) {
+            // Invalid date - silently ignore
           }
         }
 
