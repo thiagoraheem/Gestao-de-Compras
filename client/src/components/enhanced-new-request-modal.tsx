@@ -350,6 +350,15 @@ export default function EnhancedNewRequestModal({
       return;
     }
 
+    if (newItemForm.requestedQuantity <= 0) {
+      toast({
+        title: "Erro",
+        description: "A quantidade deve ser maior que zero.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newItem: Item = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       description: newItemForm.description,
@@ -835,10 +844,11 @@ export default function EnhancedNewRequestModal({
                         type="number"
                         placeholder="0"
                         className="h-9 text-sm"
-                        min="1"
+                        min="0.01"
+                        step="0.01"
                         autoComplete="off"
                         value={newItemForm.requestedQuantity}
-                        onChange={(e) => setNewItemForm(prev => ({ ...prev, requestedQuantity: parseInt(e.target.value) || 1 }))}
+                        onChange={(e) => setNewItemForm(prev => ({ ...prev, requestedQuantity: parseFloat(e.target.value) || 0 }))}
                       />
                     </div>
                   </div>
@@ -952,9 +962,10 @@ export default function EnhancedNewRequestModal({
                                 <Input
                                   type="number"
                                   value={item.requestedQuantity}
-                                  onChange={(e) => updateManualItem(item.id, 'requestedQuantity', parseInt(e.target.value) || 1)}
+                                  onChange={(e) => updateManualItem(item.id, 'requestedQuantity', parseFloat(e.target.value) || 0)}
                                   className="h-8"
-                                  min="1"
+                                  min="0.01"
+                                  step="0.01"
                                   autoComplete="off"
                                 />
                               ) : (
