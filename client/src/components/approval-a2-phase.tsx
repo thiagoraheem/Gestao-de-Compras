@@ -86,6 +86,62 @@ const getPhaseDescription = (approverType: string): string => {
   }
 };
 
+const brlCurrencyFormatter4 = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  minimumFractionDigits: 4,
+  maximumFractionDigits: 4,
+});
+
+const decimalFormatter4 = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 4,
+  maximumFractionDigits: 4,
+});
+
+const parseLooseNumber = (value: unknown): number => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+
+  const raw = String(value).trim();
+  if (!raw) return 0;
+
+  let cleaned = raw.replace(/[^\d,.\-]/g, "");
+  cleaned = cleaned.replace(/(?!^)-/g, "");
+  if (!cleaned) return 0;
+
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+
+  let normalized = cleaned;
+  if (hasComma && hasDot) {
+    const lastComma = normalized.lastIndexOf(",");
+    const lastDot = normalized.lastIndexOf(".");
+    if (lastComma > lastDot) {
+      normalized = normalized.replace(/\./g, "").replace(",", ".");
+    } else {
+      normalized = normalized.replace(/,/g, "");
+    }
+  } else if (hasComma && !hasDot) {
+    normalized = normalized.replace(",", ".");
+  } else if (!hasComma && hasDot) {
+    const dotCount = (normalized.match(/\./g) || []).length;
+    if (dotCount > 1) {
+      normalized = normalized.replace(/\./g, "");
+    }
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatBRLCurrency4 = (value: unknown): string => {
+  return brlCurrencyFormatter4.format(parseLooseNumber(value));
+};
+
+const formatDecimal4 = (value: unknown): string => {
+  return decimalFormatter4.format(parseLooseNumber(value));
+};
+
 export default function ApprovalA2Phase({ request, open, onOpenChange, initialAction = null }: ApprovalA2PhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -143,7 +199,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
     id: item.id,
     description: item.description,
     unit: item.unit,
-    requestedQuantity: Number(item.requestedQuantity || 0)
+    requestedQuantity: parseLooseNumber(item.requestedQuantity)
   }));
 
   const winningItems = supplierQuotationItems.map(si => {
@@ -151,18 +207,20 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
     const description = si.description || qi?.description || '';
     const unit = si.confirmedUnit || qi?.unit || '';
     const quantity = si.availableQuantity !== null && si.availableQuantity !== undefined 
-      ? Number(si.availableQuantity) 
-      : Number(qi?.quantity || 0);
-    const unitPrice = Number(si.unitPrice) || 0;
+      ? parseLooseNumber(si.availableQuantity) 
+      : parseLooseNumber(qi?.quantity);
+    const unitPrice = parseLooseNumber(si.unitPrice);
     const originalTotalPrice = unitPrice * quantity;
     let itemDiscount = 0;
     let totalPrice = originalTotalPrice;
-    if (si.discountPercentage && Number(si.discountPercentage) > 0) {
-      const d = Number(si.discountPercentage);
+    const discountPercentageNum = parseLooseNumber(si.discountPercentage);
+    const discountValueNum = parseLooseNumber(si.discountValue);
+    if (discountPercentageNum > 0) {
+      const d = discountPercentageNum;
       itemDiscount = (originalTotalPrice * d) / 100;
       totalPrice = originalTotalPrice - itemDiscount;
-    } else if (si.discountValue && Number(si.discountValue) > 0) {
-      itemDiscount = Number(si.discountValue);
+    } else if (discountValueNum > 0) {
+      itemDiscount = discountValueNum;
       totalPrice = Math.max(0, originalTotalPrice - itemDiscount);
     }
     return {
@@ -182,7 +240,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
     
     if (!selectedSupplierQuotation) return { subtotalNet: subtotal, proposalDiscount: 0, freightValue: 0, finalTotalValue: subtotal };
 
-    const discountInput = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
+    const discountInput = parseLooseNumber(selectedSupplierQuotation.discountValue);
     let discount = 0;
     
     if (selectedSupplierQuotation.discountType === 'percentage') {
@@ -192,7 +250,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
     }
 
     const freight = selectedSupplierQuotation.includesFreight 
-      ? Number(selectedSupplierQuotation.freightValue || 0) 
+      ? parseLooseNumber(selectedSupplierQuotation.freightValue) 
       : 0;
       
     const total = Math.max(0, subtotal - discount) + freight;
@@ -691,19 +749,19 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                     {winningItems.map((item: any, index: number) => (
                       <TableRow key={item.id || index}>
                         <TableCell className="font-medium">{item.description}</TableCell>
-                        <TableCell className="text-center">{item.quantity}</TableCell>
+                        <TableCell className="text-center">{formatDecimal4(item.quantity)}</TableCell>
                         <TableCell className="text-center">{item.unit}</TableCell>
                         <TableCell className="text-right">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(item.unitPrice)}
+                          {formatBRLCurrency4(item.unitPrice)}
                         </TableCell>
                         <TableCell className="text-right">
                           {item.itemDiscount > 0 
-                            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(item.itemDiscount)
+                            ? formatBRLCurrency4(item.itemDiscount)
                             : <span className="text-gray-400">-</span>
                           }
                         </TableCell>
                         <TableCell className="text-right">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(item.totalPrice)}
+                          {formatBRLCurrency4(item.totalPrice)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -715,7 +773,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                     <div className="space-y-2">
                       {(() => {
                         const subtotal = winningItems.reduce((sum, item) => sum + (item.originalTotalPrice || 0), 0);
-                        const discountInput = selectedSupplierQuotation.discountValue ? Number(selectedSupplierQuotation.discountValue) : 0;
+                        const discountInput = parseLooseNumber(selectedSupplierQuotation.discountValue);
                         
                         // Recalcular valor final dinamicamente
                         const subtotalNet = winningItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
@@ -728,7 +786,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                         }
 
                         const freightValue = selectedSupplierQuotation.includesFreight 
-                          ? Number(selectedSupplierQuotation.freightValue || 0) 
+                          ? parseLooseNumber(selectedSupplierQuotation.freightValue) 
                           : 0;
                           
                         const finalValue = Math.max(0, subtotalNet - proposalDiscount) + freightValue;
@@ -738,7 +796,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                             <div className="flex justify-between items-center">
                               <span className="text-sm text-gray-700 dark:text-gray-300">Subtotal (sem desconto):</span>
                               <span className="font-medium text-gray-900 dark:text-gray-100">
-                                R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                {formatBRLCurrency4(subtotal)}
                               </span>
                             </div>
                             {discountInput > 0 && (
@@ -747,7 +805,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                                 <span className="font-medium text-orange-600 dark:text-orange-300">
                                   {selectedSupplierQuotation.discountType === 'percentage' 
                                     ? `- ${discountInput}%`
-                                    : `- R$ ${discountInput.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`}
+                                    : `- ${formatBRLCurrency4(discountInput)}`}
                                 </span>
                               </div>
                             )}
@@ -759,7 +817,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                               <span className="font-medium">
                                 {selectedSupplierQuotation.includesFreight ? (
                                   <span className="text-blue-600 dark:text-blue-300">
-                                    R$ {Number(selectedSupplierQuotation.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                    {formatBRLCurrency4(selectedSupplierQuotation.freightValue)}
                                   </span>
                                 ) : (
                                   <span className="text-gray-500 dark:text-gray-400">Não incluso</span>
@@ -770,7 +828,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                               <div className="flex justify-between items-center">
                                 <span className="text-base font-semibold text-blue-800 dark:text-blue-200">Valor Final:</span>
                                 <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                                  R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                  {formatBRLCurrency4(finalValue)}
                                 </span>
                               </div>
                             </div>
