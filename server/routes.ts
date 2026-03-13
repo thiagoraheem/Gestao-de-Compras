@@ -6746,20 +6746,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const unitPriceNum = NumberParser.parse(item.unitPrice);
               const totalNum = unitPriceNum * quantity;
 
+              const discountPercentageNum =
+                item.discountPercentage !== null && item.discountPercentage !== undefined
+                  ? Number(item.discountPercentage) || 0
+                  : 0;
+              const discountValueNum =
+                item.discountValue !== null && item.discountValue !== undefined
+                  ? NumberParser.parse(item.discountValue) || 0
+                  : 0;
+              const hasItemDiscount = discountPercentageNum > 0 || discountValueNum > 0;
+
+              const normalizedDiscountPercentage =
+                discountPercentageNum > 0 ? discountPercentageNum.toString() : null;
+              const normalizedDiscountValue =
+                discountValueNum > 0 ? discountValueNum.toFixed(4) : null;
+
+              const originalTotalPrice = hasItemDiscount ? totalNum : null;
+              let discountedTotalPrice: number | null = null;
+              if (hasItemDiscount) {
+                let discounted = totalNum;
+                if (discountPercentageNum > 0) {
+                  discounted = discounted * (1 - discountPercentageNum / 100);
+                }
+                if (discountValueNum > 0) {
+                  discounted = discounted - discountValueNum;
+                }
+                discountedTotalPrice = Math.max(0, discounted);
+              }
+
               // Validar e transformar dados do item usando o schema
               const validatedItemData = insertSupplierQuotationItemSchema.partial().parse({
                 unitPrice: unitPriceNum.toFixed(4),
-                totalPrice: totalNum.toFixed(2),
-                originalTotalPrice: (item.originalTotalPrice ?? totalNum).toString(),
-                discountPercentage: item.discountPercentage !== null && item.discountPercentage !== undefined 
-                  ? String(item.discountPercentage) 
-                  : null,
-                discountValue: item.discountValue !== null && item.discountValue !== undefined 
-                  ? String(NumberParser.parse(item.discountValue)) 
-                  : null,
-                discountedTotalPrice: item.discountedTotalPrice !== null && item.discountedTotalPrice !== undefined 
-                  ? String(item.discountedTotalPrice) 
-                  : null,
+                totalPrice: totalNum.toFixed(4),
+                originalTotalPrice: originalTotalPrice !== null ? originalTotalPrice.toFixed(4) : null,
+                discountPercentage: normalizedDiscountPercentage,
+                discountValue: normalizedDiscountValue,
+                discountedTotalPrice: discountedTotalPrice !== null ? discountedTotalPrice.toFixed(4) : null,
                 deliveryDays: item.deliveryDays,
                 brand: item.brand,
                 model: item.model,
@@ -6784,22 +6806,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const unitPriceNum = NumberParser.parse(item.unitPrice);
               const totalNum = unitPriceNum * quantity;
 
+              const discountPercentageNum =
+                item.discountPercentage !== null && item.discountPercentage !== undefined
+                  ? Number(item.discountPercentage) || 0
+                  : 0;
+              const discountValueNum =
+                item.discountValue !== null && item.discountValue !== undefined
+                  ? NumberParser.parse(item.discountValue) || 0
+                  : 0;
+              const hasItemDiscount = discountPercentageNum > 0 || discountValueNum > 0;
+
+              const normalizedDiscountPercentage =
+                discountPercentageNum > 0 ? discountPercentageNum.toString() : null;
+              const normalizedDiscountValue =
+                discountValueNum > 0 ? discountValueNum.toFixed(4) : null;
+
+              const originalTotalPrice = hasItemDiscount ? totalNum : null;
+              let discountedTotalPrice: number | null = null;
+              if (hasItemDiscount) {
+                let discounted = totalNum;
+                if (discountPercentageNum > 0) {
+                  discounted = discounted * (1 - discountPercentageNum / 100);
+                }
+                if (discountValueNum > 0) {
+                  discounted = discounted - discountValueNum;
+                }
+                discountedTotalPrice = Math.max(0, discounted);
+              }
+
               // Validar e transformar dados do item usando o schema
               const validatedItemData = insertSupplierQuotationItemSchema.parse({
                 supplierQuotationId: supplierQuotation.id,
                 quotationItemId: item.quotationItemId,
                 unitPrice: unitPriceNum.toFixed(4),
-                totalPrice: totalNum.toFixed(2),
-                originalTotalPrice: (item.originalTotalPrice ?? totalNum).toString(),
-                discountPercentage: item.discountPercentage !== null && item.discountPercentage !== undefined 
-                  ? String(item.discountPercentage) 
-                  : null,
-                discountValue: item.discountValue !== null && item.discountValue !== undefined 
-                  ? String(NumberParser.parse(item.discountValue)) 
-                  : null,
-                discountedTotalPrice: item.discountedTotalPrice !== null && item.discountedTotalPrice !== undefined 
-                  ? String(item.discountedTotalPrice) 
-                  : null,
+                totalPrice: totalNum.toFixed(4),
+                originalTotalPrice: originalTotalPrice !== null ? originalTotalPrice.toFixed(4) : null,
+                discountPercentage: normalizedDiscountPercentage,
+                discountValue: normalizedDiscountValue,
+                discountedTotalPrice: discountedTotalPrice !== null ? discountedTotalPrice.toFixed(4) : null,
                 deliveryDays: item.deliveryDays,
                 brand: item.brand,
                 model: item.model,
@@ -7135,9 +7179,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const recalculatedTotal = updatedSupplierItems.reduce((total, item) => {
             if (item.isAvailable === false) return total;
             
-            const itemValue = item.discountedTotalPrice && parseFloat(item.discountedTotalPrice) > 0
+            const pct = parseFloat(item.discountPercentage || "0") || 0;
+            const fixed = parseFloat(item.discountValue || "0") || 0;
+            const hasItemDiscount = pct > 0 || fixed > 0;
+
+            const discountedCandidate = item.discountedTotalPrice
               ? parseFloat(item.discountedTotalPrice)
-              : parseFloat(item.totalPrice);
+              : NaN;
+            const baseTotal = parseFloat(item.totalPrice || "0") || 0;
+            const itemValue =
+              hasItemDiscount && Number.isFinite(discountedCandidate) && discountedCandidate > 0
+                ? discountedCandidate
+                : baseTotal;
               
             return total + itemValue;
           }, 0);
@@ -7452,13 +7505,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // Determinar quantidade: prioriza availableQuantity (fornecedor), depois quantity (solicitada)
                 const quantity = item.availableQuantity || qItem.quantity;
                 
-                await storage.createApprovedQuotationItem({
+              const pct = parseFloat(item.discountPercentage || "0") || 0;
+              const fixed = parseFloat(item.discountValue || "0") || 0;
+              const hasItemDiscount = pct > 0 || fixed > 0;
+              const discountedCandidate = item.discountedTotalPrice
+                ? parseFloat(item.discountedTotalPrice)
+                : NaN;
+              const baseTotal = parseFloat(item.totalPrice || "0") || 0;
+              const itemTotalPrice =
+                hasItemDiscount && Number.isFinite(discountedCandidate) && discountedCandidate > 0
+                  ? discountedCandidate.toFixed(4)
+                  : baseTotal.toFixed(4);
+
+              await storage.createApprovedQuotationItem({
                   quotationId: quotationId,
                   supplierQuotationItemId: item.id,
                   purchaseRequestItemId: qItem.purchaseRequestItemId,
                   approvedQuantity: quantity.toString(),
                   unitPrice: item.unitPrice,
-                  totalPrice: item.discountedTotalPrice || item.totalPrice,
+                  totalPrice: itemTotalPrice,
                 });
               }
             }
