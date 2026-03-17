@@ -69,8 +69,16 @@ export class HttpClient {
         });
         clearTimeout(timeout);
 
+        const text = await response.text();
+        
         if (!response.ok) {
-          const details = await safeJson(response);
+          let details: unknown;
+          try {
+            details = text ? JSON.parse(text) : undefined;
+          } catch {
+            details = text;
+          }
+
           const error: HttpError = {
             status: response.status,
             message: response.statusText || 'Request failed',
@@ -78,6 +86,9 @@ export class HttpClient {
             url,
             method,
           };
+          
+          console.error(`[locador] API Error Response from ${method} ${url}: status=${response.status} body=${text}`);
+
           if (process.env.LOG_VERBOSE === 'true' || process.env.NODE_ENV === 'development') {
             const dur = Date.now() - started;
             console.warn(`[locador] ${method} ${url} status=${response.status} duration=${dur}ms`);
@@ -85,12 +96,19 @@ export class HttpClient {
           throw error;
         }
 
-        const data = (await response.json()) as T;
+        let data: T;
+        try {
+          data = text ? JSON.parse(text) : ({} as T);
+        } catch {
+          data = text as unknown as T;
+        }
+
         if (process.env.LOG_VERBOSE === 'true' || process.env.NODE_ENV === 'development') {
           const dur = Date.now() - started;
           const ct = response.headers.get('content-type') || '';
           const size = typeof data === 'object' && data && 'length' in (data as any) ? (data as any).length : undefined;
           console.log(`[locador] ${method} ${url} status=${response.status} duration=${dur}ms contentType=${ct} items=${size ?? 'n/a'}`);
+          console.log(`[locador] API Success Response from ${method} ${url}: body=${text.substring(0, 500)}...`);
         }
         return data;
       } catch (err) {
@@ -107,14 +125,6 @@ export class HttpClient {
     }
 
     throw new Error('Unreachable');
-  }
-}
-
-async function safeJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return undefined;
   }
 }
 

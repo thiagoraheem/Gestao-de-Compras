@@ -559,6 +559,8 @@ export function registerReceiptsRoutes(app: Express) {
       emitterCnpj
     } = req.body;
 
+    console.log("Confirmando fiscalização do recebimento:", id);
+
     const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
     if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
 
@@ -569,12 +571,20 @@ export function registerReceiptsRoutes(app: Express) {
         message: "Erro de validação: A nota fiscal não possui itens vinculados. Verifique a importação ou inclusão manual.",
       });
     }
-
-    // 1. Update Receipt Basic Info & Observations
-    const currentObs = typeof rec.observations === 'string' 
-      ? JSON.parse(rec.observations) 
-      : (rec.observations || {});
     
+    // 1. Update Receipt Basic Info & Observations
+    let currentObs: any = {};
+    if (typeof rec.observations === 'string') {
+      try {
+        currentObs = JSON.parse(rec.observations);
+      } catch (e) {
+        // Fallback for legacy plain text observations
+        currentObs = { note: rec.observations };
+      }
+    } else {
+      currentObs = rec.observations || {};
+    }
+
     const newObs = {
       ...currentObs,
       financial: {
@@ -633,7 +643,7 @@ export function registerReceiptsRoutes(app: Express) {
 
     // 4. Check Flag and Process ERP Integration
     const cfg = await configService.getLocadorConfig();
-    
+
     if (!cfg.sendEnabled) {
       // Flag DISABLED: Skip ERP, mark as conferred locally
       const message = "Integração ERP desabilitada. Conferência finalizada localmente.";
@@ -694,7 +704,7 @@ export function registerReceiptsRoutes(app: Express) {
     // Reuse logic from 'enviar-locador' or call it internally?
     // For now, I'll replicate the core logic or call the service directly.
     // Ideally, we should refactor 'enviar-locador' to be a function, but for safety/speed I will implement the call here using the updated data.
-
+    
     try {
         // Installments and Allocations are already in variables or DB, but let's use the ones we just saved/received for consistency
         // actually, let's fetch from DB to be safe they are saved
@@ -833,7 +843,14 @@ export function registerReceiptsRoutes(app: Express) {
 
     } catch (error: any) {
         console.error("Erro na integração com Locador (Confirm Fiscal):", error);
-        const integMessage = error?.message || "Erro de integração";
+        let integMessage = error?.message || "Erro de integração";
+        
+        if (error?.details) {
+          const detailsStr = typeof error.details === 'string' 
+            ? error.details 
+            : JSON.stringify(error.details);
+          integMessage = `${integMessage} - Detalhes: ${detailsStr.substring(0, 500)}`;
+        }
         
         const [updated] = await db.update(receipts)
           .set({

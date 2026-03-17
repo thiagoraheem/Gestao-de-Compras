@@ -76,8 +76,16 @@ export class LocadorHttpClient {
         return this.requestWithAuth<T>(method, path, body, opts, true);
       }
 
+      const text = await response.text();
+      
       if (!response.ok) {
-        const details = await safeJson(response);
+        let details: unknown;
+        try {
+          details = text ? JSON.parse(text) : undefined;
+        } catch {
+          details = text;
+        }
+        
         const err: LocadorHttpError = {
           status: response.status,
           message: response.statusText || "Request failed",
@@ -85,10 +93,17 @@ export class LocadorHttpClient {
           method,
           details,
         };
+        console.error(`[locadorHttpClient] API Error Response from ${method} ${url}: status=${response.status} body=${text}`);
         throw err;
       }
 
-      return (await response.json()) as T;
+      let data: T;
+      try {
+        data = text ? JSON.parse(text) : ({} as T);
+      } catch {
+        data = text as unknown as T;
+      }
+      return data;
     } finally {
       clearTimeout(timeout);
     }
@@ -103,13 +118,5 @@ function joinUrl(baseUrl: string, path: string) {
   if (/^https?:\/\//i.test(path)) return path;
   const p = path.startsWith("/") ? path : `/${path}`;
   return `${b}${p}`;
-}
-
-async function safeJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return undefined;
-  }
 }
 
