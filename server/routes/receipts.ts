@@ -747,7 +747,11 @@ export function registerReceiptsRoutes(app: Express) {
                 serie: documentSeries || rec.documentSeries || "",
                 chave_nfe: rec.documentKey || "",
                 data_emissao: (issueDate || rec.documentIssueDate) ? new Date(issueDate || rec.documentIssueDate).toISOString() : undefined,
-                valor_total: Number(totalAmount || rec.totalAmount || 0),
+                valor_total: (totalAmount && !isNaN(Number(String(totalAmount).replace(',', '.'))))
+                  ? Number(String(totalAmount).replace(',', '.'))
+                  : (rec.totalAmount && !isNaN(Number(rec.totalAmount)))
+                    ? Number(rec.totalAmount)
+                    : 0,
             },
             condicoes_pagamento: {
                 empresa_id: companyErpId,
