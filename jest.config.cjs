@@ -18,5 +18,23 @@ module.exports = {
         "^@shared/(.*)$": "<rootDir>/shared/$1",
       },
     },
+    {
+      displayName: "client",
+      preset: "ts-jest",
+      testEnvironment: "node",
+      testMatch: ["<rootDir>/client/src/**/*.test.(ts|tsx|js|jsx)"],
+      moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
+      globals: {
+        "ts-jest": {
+          tsconfig: {
+            jsx: "react-jsx",
+          },
+        },
+      },
+      moduleNameMapper: {
+        "^@/(.*)$": "<rootDir>/client/src/$1",
+        "^@shared/(.*)$": "<rootDir>/shared/$1",
+      },
+    },
   ],
 };

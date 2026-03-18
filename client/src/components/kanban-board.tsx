@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { filterRequests } from "@/lib/kanban-filters";
 
 const RFQCreation = lazy(() => import("./rfq-creation"));
 const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
@@ -52,6 +53,7 @@ interface KanbanBoardProps {
   urgencyFilter?: string;
   requesterFilter?: string;
   supplierFilter?: string;
+  purchaseOrderFilter?: string;
   searchFilter?: string;
   dateFilter?: {
     startDate: string;
@@ -64,6 +66,7 @@ export default function KanbanBoard({
   urgencyFilter = "all",
   requesterFilter = "all",
   supplierFilter = "all",
+  purchaseOrderFilter = "",
   searchFilter = "",
   dateFilter,
 }: KanbanBoardProps) {
@@ -593,56 +596,24 @@ export default function KanbanBoard({
 
   // Filter requests based on department, urgency, requester, supplier, and date
   // NOTE: Search filter is NOT applied here - it's handled separately via highlighting
-  const filteredRequests = Array.isArray(purchaseRequests)
-    ? purchaseRequests.filter((request: any) => {
-      let passesFilters = true;
-
-      // Department filter - use nested department object
-      if (departmentFilter !== "all") {
-        passesFilters =
-          passesFilters &&
-          request.department?.id?.toString() === departmentFilter;
-      }
-
-      // Urgency filter - exact match
-      if (urgencyFilter !== "all") {
-        passesFilters = passesFilters && request.urgency === urgencyFilter;
-      }
-
-      // Requester filter - filter by requester user
-      if (requesterFilter !== "all") {
-        passesFilters =
-          passesFilters &&
-          request.requester?.id?.toString() === requesterFilter;
-      }
-
-      // Supplier filter - filter by chosen supplier
-      if (supplierFilter !== "all") {
-        passesFilters =
-          passesFilters &&
-          request.chosenSupplier?.id?.toString() === supplierFilter;
-      }
-
-      // Date filter - apply to conclusion and archived items
-      if (
-        dateFilter &&
-        (request.currentPhase === PURCHASE_PHASES.ARQUIVADO ||
-          request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA)
-      ) {
-        const requestDate = new Date(request.updatedAt || request.createdAt);
-        const startDate = new Date(dateFilter.startDate);
-        const endDate = new Date(dateFilter.endDate);
-        endDate.setHours(23, 59, 59, 999); // Include the full end date
-
-        passesFilters =
-          passesFilters && requestDate >= startDate && requestDate <= endDate;
-      }
-
-      // Search filter is handled separately via highlighting - don't filter out cards here
-
-      return passesFilters;
-    })
-    : [];
+  const filteredRequests = useMemo(() => {
+    return filterRequests(purchaseRequests, {
+      department: departmentFilter,
+      urgency: urgencyFilter,
+      requester: requesterFilter,
+      supplier: supplierFilter,
+      date: dateFilter,
+      purchaseOrder: purchaseOrderFilter,
+    });
+  }, [
+    purchaseRequests,
+    departmentFilter,
+    urgencyFilter,
+    requesterFilter,
+    supplierFilter,
+    dateFilter,
+    purchaseOrderFilter,
+  ]);
 
   // Sort function: First by urgency (Alto > Médio > Baixo), then by date
   const sortRequestsByPriority = (requests: any[]) => {

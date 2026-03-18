@@ -21,6 +21,7 @@ export default function KanbanPage() {
   const [selectedUrgency, setSelectedUrgency] = useState<string>("all");
   const [selectedRequester, setSelectedRequester] = useState<string>("all");
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
+  const [purchaseOrderFilter, setPurchaseOrderFilter] = useState<string>("");
   const [searchFilter, setSearchFilter] = useState<string>("");
   const [location, setLocation] = useLocation();
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -222,6 +223,23 @@ export default function KanbanPage() {
               </SelectContent>
             </Select>
 
+            {/* Purchase Order Number Filter */}
+            <div className="space-y-1">
+              <Label htmlFor="poFilter" className="text-xs text-muted-foreground">
+                Nº Pedido/Solicitação
+              </Label>
+              <Input
+                id="poFilter"
+                placeholder="Ex: SOL-2026-123"
+                value={purchaseOrderFilter}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^a-zA-Z0-9-]/g, "");
+                  setPurchaseOrderFilter(value);
+                }}
+                className="w-full h-8 text-sm"
+              />
+            </div>
+
             {/* Date Filter for Archived Items */}
             <div className="grid grid-cols-2 gap-1.5">
               <div>
@@ -365,6 +383,17 @@ export default function KanbanPage() {
                       ))}
                 </SelectContent>
               </Select>
+              
+              {/* Purchase Order Filter - Desktop */}
+              <Input
+                placeholder="Nº Pedido/Solicitação"
+                value={purchaseOrderFilter}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^a-zA-Z0-9-]/g, "");
+                  setPurchaseOrderFilter(value);
+                }}
+                className="w-44 h-8 text-sm"
+              />
             </div>
 
             {/* Date Filter for Archived Items */}
@@ -446,6 +475,7 @@ export default function KanbanPage() {
           urgencyFilter={selectedUrgency}
           requesterFilter={selectedRequester}
           supplierFilter={selectedSupplier}
+          purchaseOrderFilter={purchaseOrderFilter}
           searchFilter={searchFilter}
           dateFilter={dateFilter}
         />
