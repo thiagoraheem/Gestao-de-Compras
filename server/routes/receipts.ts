@@ -729,6 +729,20 @@ export function registerReceiptsRoutes(app: Express) {
         }
 
         const fornecedorId = rec.locadorSupplierId ? Number(rec.locadorSupplierId) : undefined;
+        let cnpjFornecedor: string | undefined = undefined;
+        let nomeFornecedor: string | undefined = undefined;
+
+        if (fornecedorId) {
+            const [supplier] = await db.select().from(suppliers).where(eq(suppliers.idSupplierERP, fornecedorId));
+            if (supplier) {
+                cnpjFornecedor = supplier.cnpj || undefined;
+                nomeFornecedor = supplier.name || undefined;
+            }
+        }
+
+        /*if (!fornecedorId) {
+            throw new Error("Erro de Validação: Fornecedor não encontrado ou não vinculado ao Locador. Não é possível integrar.");
+        }*/
 
         const payload: PurchaseReceiveRequest = {
             pedido_id: purchaseOrder?.id || 0,
@@ -738,9 +752,9 @@ export function registerReceiptsRoutes(app: Express) {
             data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : undefined,
             justificativa: purchaseRequest?.justification || "",
             fornecedor: {
-                fornecedor_id: Number.isFinite(fornecedorId as any) ? (fornecedorId as number) : undefined,
-                cnpj: undefined, // Could fetch from supplier if needed
-                nome: undefined,
+                fornecedor_id: fornecedorId,
+                cnpj: cnpjFornecedor,
+                nome: nomeFornecedor,
             },
             nota_fiscal: {
                 numero: documentNumber || rec.documentNumber || "",
@@ -903,6 +917,57 @@ export function registerReceiptsRoutes(app: Express) {
       console.error(err);
       return res.status(500).json({ message: "Erro interno ao finalizar sem ERP" });
     }
+  });
+
+  app.post("/api/receipts/:id/undo-fiscal-conference", isAuthenticated, async (req, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Não autenticado" });
+    
+    // Check if admin
+    const [user] = await db.select().from(users).where(eq(users.id, req.session.userId));
+    if (!user || !user.isAdmin) {
+      return res.status(403).json({ message: "Apenas administradores podem desfazer a conferência fiscal." });
+    }
+
+    const id = Number(req.params.id);
+    const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
+    
+    if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
+    
+    // Allow undoing error state as well
+    if (!['fiscal_conferida', 'integrado_locador', 'erro_integracao'].includes(rec.status)) {
+       return res.status(400).json({ message: "Recebimento não está em fase de conferência fiscal ou já concluída." });
+    }
+
+    // Revert status to 'conf_fisica' (Physical Conference Done, Fiscal Pending)
+    const [updated] = await db.update(receipts)
+      .set({ 
+        status: "conf_fisica",
+        approvedAt: null,
+        approvedBy: null,
+        integrationMessage: null
+      })
+      .where(eq(receipts.id, id))
+      .returning();
+
+    // Log audit
+    let purchaseRequestId = 0;
+    try {
+        if (rec.purchaseOrderId) {
+            const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
+            if (order && order.purchaseRequestId) {
+                purchaseRequestId = order.purchaseRequestId;
+                // Also revert request phase if it was completed
+                await db.update(purchaseRequests)
+                   .set({ currentPhase: "recebimento" }) // Back to receiving
+                   .where(eq(purchaseRequests.id, purchaseRequestId));
+            }
+        }
+
+        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+        VALUES (${purchaseRequestId}, ${'desfazer_conferencia_fiscal'}, ${'Conferência fiscal desfeita por Admin'}, ${req.session.userId}, ${JSON.stringify({ receiptId: rec.id, status: rec.status })}::jsonb, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts', 'purchase_requests']`} );`);
+    } catch {}
+
+    return res.json({ success: true, receipt: updated });
   });
 
   app.post("/api/recebimentos/:id/validar", async (req: Request, res: Response) => {

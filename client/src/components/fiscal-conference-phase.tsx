@@ -91,8 +91,25 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
   });
 
   // Filter receipts that need fiscal conference or are already done
-  const pendingReceipts = receipts.filter(r => r.status === 'conf_fisica');
-  const doneReceipts = receipts.filter(r => r.status === 'conferida' || r.status === 'fiscal_conferida');
+  const pendingReceipts = receipts.filter(r => r.status === 'conf_fisica' || r.status === 'erro_integracao');
+  const doneReceipts = receipts.filter(r => r.status === 'conferida' || r.status === 'fiscal_conferida' || r.status === 'integrado_locador');
+
+  const { user } = useAuth();
+
+  const undoFiscalConferenceMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest(`/api/receipts/${id}/undo-fiscal-conference`, { method: "POST" });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: "Sucesso", description: "Conferência fiscal desfeita com sucesso." });
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/receipts`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-orders/by-request/${request?.id}`] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message || "Erro ao desfazer conferência fiscal.", variant: "destructive" });
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -144,6 +161,7 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
                   <TableHead>Número NF</TableHead>
                   <TableHead>Série</TableHead>
                   <TableHead>Recebido Em</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Recebido Por</TableHead>
                   <TableHead>Ação</TableHead>
                 </TableRow>
@@ -154,11 +172,15 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
                     <TableCell>{r.documentNumber || 'N/A'}</TableCell>
                     <TableCell>{r.documentSeries || '-'}</TableCell>
                     <TableCell>{format(new Date(r.receivedAt), "dd/MM/yyyy HH:mm")}</TableCell>
+                    <TableCell>
+                      {r.status === 'conf_fisica' && <Badge variant="outline">Aguardando</Badge>}
+                      {r.status === 'erro_integracao' && <Badge variant="destructive">Erro Integração</Badge>}
+                    </TableCell>
                     <TableCell>{r.receivedByName || r.receivedBy || '-'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Button size="sm" onClick={() => onSelectReceipt(r.id)}>
-                          Conferir
+                        <Button size="sm" onClick={() => onSelectReceipt(r.id)} variant={r.status === 'erro_integracao' ? 'destructive' : 'default'}>
+                          {r.status === 'erro_integracao' ? 'Corrigir / Reenviar' : 'Conferir'}
                         </Button>
                         <Button 
                           size="sm" 
@@ -193,6 +215,7 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
                   <TableHead>Série</TableHead>
                   <TableHead>Conferido Em</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Ação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -201,7 +224,29 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
                     <TableCell>{r.documentNumber || 'N/A'}</TableCell>
                     <TableCell>{r.documentSeries || '-'}</TableCell>
                     <TableCell>{r.approvedAt ? format(new Date(r.approvedAt), "dd/MM/yyyy HH:mm") : '-'}</TableCell>
-                    <TableCell><Badge className="bg-green-600">Conferida</Badge></TableCell>
+                    <TableCell>
+                      {r.status === 'fiscal_conferida' && <Badge className="bg-green-600">Conferida (Local)</Badge>}
+                      {r.status === 'integrado_locador' && <Badge className="bg-blue-600">Integrado ERP</Badge>}
+                      {r.status === 'conferida' && <Badge className="bg-gray-600">Conferida</Badge>}
+                    </TableCell>
+                    <TableCell>
+                      {user?.isAdmin && (
+                         <Button 
+                           size="sm" 
+                           variant="outline" 
+                           className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/30 dark:text-red-400 dark:hover:bg-red-900/20"
+                           onClick={() => {
+                             if(confirm("Tem certeza que deseja desfazer a conferência fiscal? O status voltará para 'Conferência Física'.")){
+                               undoFiscalConferenceMutation.mutate(r.id);
+                             }
+                           }}
+                           title="Desfazer conferência fiscal (Admin)"
+                         >
+                           <Undo2 className="w-4 h-4 mr-2" />
+                           Desfazer
+                         </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
