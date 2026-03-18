@@ -54,6 +54,12 @@ export default function KanbanPage() {
     refetchOnWindowFocus: false,
   });
 
+  // Calculate target request ID from URL parameters
+  // This is used to pass to KanbanBoard to prevent auto-opening the wrong card
+  // when a specific request is targeted but the search term matches multiple items
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetRequestId = urlParams.get("request") ? parseInt(urlParams.get("request")!) : undefined;
+
   const isRestricted = user && !(
     user.isAdmin ||
     user.isBuyer ||
@@ -478,6 +484,7 @@ export default function KanbanPage() {
           purchaseOrderFilter={purchaseOrderFilter}
           searchFilter={searchFilter}
           dateFilter={dateFilter}
+          targetRequestId={targetRequestId}
         />
       </div>
     </div>

@@ -64,9 +64,9 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
       return results;
     }
 
-    // Pesquisa por número de solicitação (formato flexível: R000123, SOL-2025-045, etc.)
+    // Pesquisa por número de solicitação (formato flexível: R000123, SOL-2025-045, etc.) ou Pedido de Compra
     const isRequestNumberSearch =
-      query.match(/^(r|sol|req)?[-\s]?(\d+)/i) || query.match(/^\d+$/);
+      query.match(/^(r|sol|req|po|ped)?[-\s]?(\d+)/i) || query.match(/^\d+$/);
     if (isRequestNumberSearch) {
       // Extrair apenas os números da pesquisa para busca flexível
       const numbers = query.replace(/[^\d]/g, "");
@@ -74,15 +74,24 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
         (req) =>
           req.requestNumber?.toLowerCase().includes(query.toLowerCase()) ||
           req.requestNumber?.replace(/[^\d]/g, "").includes(numbers) ||
-          req.id?.toString() === numbers,
+          req.id?.toString() === numbers ||
+          req.purchaseOrder?.orderNumber?.toLowerCase().includes(query.toLowerCase()) ||
+          req.purchaseOrder?.orderNumber?.replace(/[^\d]/g, "").includes(numbers),
       );
 
       matchingRequests.forEach((req) => {
+        let subtitle = `${req.category} - ${req.urgency} - Fase: ${req.currentPhase}`;
+        
+        // Se tiver número de pedido, adicionar ao subtítulo
+        if (req.purchaseOrder?.orderNumber) {
+           subtitle = `Pedido: ${req.purchaseOrder.orderNumber} • ${subtitle}`;
+        }
+
         results.push({
           id: `request-${req.id}`,
           type: "request",
           title: `Solicitação ${req.requestNumber}`,
-          subtitle: `${req.category} - ${req.urgency} - Fase: ${req.currentPhase}`,
+          subtitle: subtitle,
           value: `request-${req.id}`,
           metadata: req,
         });
@@ -138,8 +147,8 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
   const getSearchTypeHint = (query: string) => {
     if (!query) return "Digite para pesquisar...";
 
-    if (query.match(/^r?\d+$/i)) {
-      return "Pesquisando por número de solicitação";
+    if (query.match(/^r?\d+$/i) || query.match(/^(po|ped)/i)) {
+      return "Pesquisando por número de solicitação ou pedido";
     }
 
     if (
@@ -377,7 +386,7 @@ export default function GlobalSearch({ className }: GlobalSearchProps) {
             <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/50 border-t">
               <div className="flex items-center gap-4">
                 <span>💡 Dicas:</span>
-                <span>R123 para solicitações</span>
+                <span>SOL-123 ou PO-123 para buscar</span>
                 <span>CNPJ para fornecedores</span>
                 <span>Ctrl+K para focar</span>
               </div>

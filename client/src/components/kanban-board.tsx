@@ -59,6 +59,7 @@ interface KanbanBoardProps {
     startDate: string;
     endDate: string;
   };
+  targetRequestId?: number;
 }
 
 export default function KanbanBoard({
@@ -69,6 +70,7 @@ export default function KanbanBoard({
   purchaseOrderFilter = "",
   searchFilter = "",
   dateFilter,
+  targetRequestId,
 }: KanbanBoardProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -280,6 +282,8 @@ export default function KanbanBoard({
           // Supplier search
           request.chosenSupplier?.name?.toLowerCase(),
           request.chosenSupplier?.cnpj?.toLowerCase(),
+          // Purchase Order search
+          request.purchaseOrder?.orderNumber?.toLowerCase(),
           // Items search
           ...(request.items || []).map((item: any) =>
             `${item.description} ${item.technicalSpecification} ${item.model} ${item.brand}`.toLowerCase()
@@ -294,8 +298,11 @@ export default function KanbanBoard({
         const numbers = query.replace(/[^\d]/g, "");
         const matchesRequestNumber = numbers &&
           request.requestNumber?.replace(/[^\d]/g, "").includes(numbers);
+        
+        const matchesOrderNumber = numbers &&
+          request.purchaseOrder?.orderNumber?.replace(/[^\d]/g, "").includes(numbers);
 
-        if (matchesSearch || matchesRequestNumber) {
+        if (matchesSearch || matchesRequestNumber || matchesOrderNumber) {
           ids.add(request.id);
         }
       });
@@ -304,8 +311,34 @@ export default function KanbanBoard({
     return ids;
   }, [searchFilter, purchaseRequests]);
 
+  // Auto-open target request
+  useEffect(() => {
+    if (targetRequestId && Array.isArray(purchaseRequests) && purchaseRequests.length > 0) {
+      // Check if this request is already open
+      if (isModalOpen && activeRequest?.id === targetRequestId) {
+        return;
+      }
+
+      const request = purchaseRequests.find((req: any) => req.id === targetRequestId);
+      
+      if (request) {
+        // Use a small timeout to ensure UI stability
+        const timer = setTimeout(() => {
+            handleOpenRequest(request, request.currentPhase);
+        }, 300);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [targetRequestId, purchaseRequests]);
+
   // Auto-open the first matching card when search is performed
   useEffect(() => {
+    // DO NOT auto-open if a specific target request ID is provided
+    // This prevents opening the wrong card when the search term matches multiple requests
+    if (targetRequestId) {
+      return;
+    }
+
     if (searchFilter && searchFilter.trim() && highlightedRequestIds.size > 0 && Array.isArray(purchaseRequests)) {
       // Get the first highlighted request ID
       const firstHighlightedId = Array.from(highlightedRequestIds)[0];
@@ -325,7 +358,7 @@ export default function KanbanBoard({
         }, 100); // Small delay to ensure the DOM is updated with highlights
       }
     }
-  }, [searchFilter, highlightedRequestIds, purchaseRequests]);
+  }, [searchFilter, highlightedRequestIds, purchaseRequests, targetRequestId]);
 
   // Permission check function
   const canUserDragCard = (phase: string, targetPhase?: string) => {
