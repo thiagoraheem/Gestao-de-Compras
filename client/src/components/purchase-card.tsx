@@ -896,6 +896,7 @@ export default function PurchaseCard({
               phase === PURCHASE_PHASES.APROVACAO_A2 ||
               phase === PURCHASE_PHASES.PEDIDO_COMPRA ||
               phase === PURCHASE_PHASES.RECEBIMENTO ||
+              phase === PURCHASE_PHASES.CONF_FISCAL ||
               phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) &&
               request.approverA1 && (
                 <p>
@@ -908,6 +909,7 @@ export default function PurchaseCard({
             {(phase === PURCHASE_PHASES.APROVACAO_A2 ||
               phase === PURCHASE_PHASES.PEDIDO_COMPRA ||
               phase === PURCHASE_PHASES.RECEBIMENTO ||
+              phase === PURCHASE_PHASES.CONF_FISCAL ||
               phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) &&
               request.chosenSupplier && (
                 <p className="text-xs md:text-xs lg:text-xs">
