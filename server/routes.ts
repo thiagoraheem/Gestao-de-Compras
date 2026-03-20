@@ -5194,10 +5194,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Anexo não encontrado" });
         }
 
-        const filePath = attachment[0].filePath;
+        let filePath = attachment[0].filePath;
+
+        // Se o caminho começar com /, ajustá-lo para ser relativo ao diretório atual do projeto
+        if (filePath.startsWith('/')) {
+          filePath = path.join(process.cwd(), filePath.substring(1));
+        } else if (!path.isAbsolute(filePath)) {
+          filePath = path.join(process.cwd(), filePath);
+        }
 
         // Check if file exists
         if (!fs.existsSync(filePath)) {
+          console.error(`Tentativa de Download de anexo: File not found: ${filePath}`);
           return res
             .status(404)
             .json({ message: "Arquivo não encontrado no servidor" });
@@ -5303,7 +5311,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Delete physical file if it exists
-        const filePath = attachment[0].filePath;
+        let filePath = attachment[0].filePath;
+
+        // Se o caminho começar com /, ajustá-lo para ser relativo ao diretório atual do projeto
+        if (filePath.startsWith('/')) {
+          filePath = path.join(process.cwd(), filePath.substring(1));
+        } else if (!path.isAbsolute(filePath)) {
+          filePath = path.join(process.cwd(), filePath);
+        }
+
         if (fs.existsSync(filePath)) {
           try {
             fs.unlinkSync(filePath);
