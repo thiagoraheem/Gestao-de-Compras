@@ -884,15 +884,13 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                         size="sm"
                         className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                         onClick={() => {
-                          // Extract filename from filePath
-                          const filename = attachment.filePath.split('/').pop();
-                          if (filename) {
-                            const fileUrl = `/api/files/supplier-quotations/${filename}`;
+                          if (attachment.id) {
+                            const fileUrl = `/api/attachments/${attachment.id}/download`;
                             window.open(fileUrl, '_blank');
                           } else {
                             toast({
                               title: "Erro",
-                              description: "Nome do arquivo não encontrado",
+                              description: "Identificador do anexo não encontrado",
                               variant: "destructive",
                             });
                           }
