@@ -2,8 +2,6 @@ import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "./middleware";
 import { storage } from "../storage";
 import multer from "multer";
-import fs from "fs";
-import path from "path";
 import { db } from "../db";
 import { configService } from "../services/configService";
 import {
@@ -31,6 +29,7 @@ import { z } from "zod";
 import { eq, sql, and, like, or, desc, asc } from "drizzle-orm";
 // @ts-ignore
 import fetch from "node-fetch";
+import { fileStorageService } from "../services/file-storage-service";
 
 function generateReceiptNumber() {
   const now = new Date();
@@ -42,17 +41,7 @@ function generateReceiptNumber() {
 }
 
 const xmlUpload = multer({
-  storage: multer.diskStorage({
-    destination: function (_req, _file, cb) {
-      const uploadDir = "./uploads/nfe_xml";
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    },
-    filename: function (_req, file, cb) {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
-    },
-  }),
+  storage: multer.memoryStorage(),
   fileFilter: function (_req, file, cb) {
     const allowed = ["application/xml", "text/xml"];
     cb(null, allowed.includes(file.mimetype));
@@ -265,7 +254,7 @@ export function registerReceiptsRoutes(app: Express) {
         if (!req.file) {
           return res.status(400).json({ message: "Arquivo XML é obrigatório" });
         }
-        const xmlContent = await fs.promises.readFile(req.file.path, "utf-8");
+        const xmlContent = req.file.buffer.toString("utf-8");
 
         try {
           parsed = isService ? parseNFSeXml(xmlContent) : parseNFeXml(xmlContent);
@@ -295,10 +284,18 @@ export function registerReceiptsRoutes(app: Express) {
       const purchaseRequestId = prIdRaw ? Number(prIdRaw) : undefined;
       let savedAttachmentId: number | undefined = undefined;
       try {
+        const storedFile = await fileStorageService.uploadFile({
+          category: "nfe-xml",
+          entityId: purchaseRequestId ?? req.file.originalname,
+          originalName: req.file.originalname,
+          contentType: req.file.mimetype,
+          buffer: req.file.buffer,
+          preferredLocalName: `${req.file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${(req.file.originalname.match(/\.[^.]+$/)?.[0]) || ".xml"}`,
+        });
         const [att] = await db.insert(attachments).values({
           purchaseRequestId: purchaseRequestId,
           fileName: req.file.originalname,
-          filePath: req.file.path,
+          filePath: storedFile.filePath,
           fileType: req.file.mimetype,
           fileSize: req.file.size,
           attachmentType: isService ? "recebimento_nfse_xml" : "recebimento_nf_xml",
@@ -425,7 +422,7 @@ export function registerReceiptsRoutes(app: Express) {
       const result: any[] = [];
       for (const row of rows) {
         try {
-          const content = await fs.promises.readFile(row.filePath, "utf-8");
+          const content = (await fileStorageService.readFileBuffer(row.filePath)).toString("utf-8");
           const parsed = parseNFeXml(content);
           const header = parsed?.header || {};
           const hay = `${row.fileName} ${header.documentNumber || ''} ${header.documentSeries || ''} ${header.supplier?.name || ''} ${header.supplier?.cnpjCpf || ''}`.toLowerCase();
@@ -455,7 +452,7 @@ export function registerReceiptsRoutes(app: Express) {
       if (!Number.isFinite(id)) return res.status(400).json({ message: "ID inválido" });
       const [att] = await db.select().from(attachments).where(sql`${attachments.id} = ${id} AND ${attachments.attachmentType} = 'recebimento_nf_xml'`).limit(1);
       if (!att) return res.status(404).json({ message: "Anexo não encontrado" });
-      const content = await fs.promises.readFile(att.filePath, "utf-8");
+      const content = (await fileStorageService.readFileBuffer(att.filePath)).toString("utf-8");
       const parsed = parseNFeXml(content);
       const preview = {
         header: parsed.header,

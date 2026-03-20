@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { storage } from "../storage";
 import { isEmailEnabled } from "../config";
+import { fileStorageService } from "../services/file-storage-service";
 
 // Authentication middleware
 export function isAuthenticated(req: Request, res: Response, next: Function) {
@@ -53,7 +54,9 @@ export function registerAuthRoutes(app: Express) {
           id: company.id,
           name: company.name,
           cnpj: company.cnpj,
-          logoUrl: company.logoBase64
+          logoUrl: company.logoUrl
+            ? fileStorageService.buildCompanyLogoProxyUrl(company.id)
+            : company.logoBase64,
         } : null
       });
     } catch (error) {
@@ -100,7 +103,9 @@ export function registerAuthRoutes(app: Express) {
           id: company.id,
           name: company.name,
           cnpj: company.cnpj,
-          logoUrl: company.logoBase64
+          logoUrl: company.logoUrl
+            ? fileStorageService.buildCompanyLogoProxyUrl(company.id)
+            : company.logoBase64,
         } : null
       });
     } catch (error) {

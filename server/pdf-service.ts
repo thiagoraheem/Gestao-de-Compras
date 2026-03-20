@@ -1,6 +1,7 @@
 import puppeteer from 'puppeteer';
 import htmlPdf from 'html-pdf-node';
 import { storage } from './storage';
+import { fileStorageService } from "./services/file-storage-service";
 import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
@@ -793,12 +794,7 @@ export class PDFService {
     }
 
     // Carregar logo da empresa como base64
-    let companyLogoBase64 = null;
-    if (company?.logoBase64) {
-      companyLogoBase64 = company.logoBase64.startsWith('data:') 
-        ? company.logoBase64 
-        : `data:image/png;base64,${company.logoBase64}`;
-    }
+    const companyLogoBase64 = await getCompanyLogoBase64(company);
     
     // Calcular totais
     const subtotal = items.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0);
@@ -1416,10 +1412,7 @@ export class PDFService {
     }
 
     // Carregar logo da empresa como base64
-    let companyLogoBase64 = null;
-    if (company?.logoBase64) {
-      companyLogoBase64 = company.logoBase64;
-    }
+    const companyLogoBase64 = await getCompanyLogoBase64(company);
     
     // Calcular totais usando preços originais para evitar desconto duplicado
     const subtotal = items.reduce((sum, item) => sum + (Number(item.originalTotalPrice) || Number(item.totalPrice) || 0), 0);
@@ -2476,4 +2469,28 @@ export class PDFService {
       </html>
     `;
   }
+}
+
+
+async function getCompanyLogoBase64(company: any): Promise<string | null> {
+  if (company?.logoBase64) {
+    return company.logoBase64.startsWith("data:")
+      ? company.logoBase64
+      : `data:image/png;base64,${company.logoBase64}`;
+  }
+
+  if (company?.logoUrl) {
+    try {
+      const buffer = await fileStorageService.readFileBuffer(company.logoUrl);
+      const mimeType = (company.logoUrl.split(".").pop() || "png").toLowerCase() === "jpg"
+        ? "image/jpeg"
+        : ((company.logoUrl.match(/\.(png|jpeg|jpg|gif|webp)(?:$|\?)/i)?.[1]) || "png");
+      const normalizedMime = mimeType.startsWith("image/") ? mimeType : `image/${mimeType}`;
+      return `data:${normalizedMime};base64,${buffer.toString("base64")}`;
+    } catch (error) {
+      console.error("Erro ao carregar logo da empresa para PDF:", error);
+    }
+  }
+
+  return null;
 }
