@@ -34,6 +34,10 @@ interface QuotationItem {
   quantity: string;
   unit: string;
   deliveryDeadline?: string;
+  purchaseRequestItem?: {
+    price?: string | null;
+    partNumber?: string | null;
+  };
 }
 
 interface SupplierQuotation {
@@ -320,9 +324,21 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                           <td className="p-3">
                             <div>
                               <p className="text-sm font-medium text-foreground">{item.description}</p>
-                              {item.itemCode && (
-                                <p className="text-xs text-muted-foreground mt-1">Código: {item.itemCode}</p>
-                              )}
+                              <div className="flex flex-wrap items-center gap-2 mt-1">
+                                {item.itemCode && (
+                                  <p className="text-xs text-muted-foreground">Código: {item.itemCode}</p>
+                                )}
+                                {item.purchaseRequestItem?.price != null && String(item.purchaseRequestItem.price).trim() !== "" && (
+                                  <Badge variant="secondary" className="text-xs font-normal">
+                                    Valor Custo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(item.purchaseRequestItem.price))}
+                                  </Badge>
+                                )}
+                                {item.purchaseRequestItem?.partNumber && String(item.purchaseRequestItem.partNumber).trim() !== "" && (
+                                  <Badge variant="secondary" className="text-xs font-normal">
+                                    Part Number: {item.purchaseRequestItem.partNumber}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="p-3 text-center">

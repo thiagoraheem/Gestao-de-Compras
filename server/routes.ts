@@ -5898,6 +5898,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const items = await storage.getQuotationItems(quotationId);
+        
+        // Enrich items with purchase request item data (price and partNumber)
+        const quotation = await storage.getQuotationById(quotationId);
+        if (quotation && quotation.purchaseRequestId) {
+          const prItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+          
+          const enrichedItems = items.map(item => {
+            // Try to find matching PR item by description or code
+            // The mapping logic might need adjustment based on how items are created
+            const prItem = prItems.find(pr => 
+              (pr.productCode && item.itemCode && pr.productCode === item.itemCode) || 
+              (pr.description && item.description && pr.description === item.description)
+            );
+            
+            return {
+              ...item,
+              purchaseRequestItem: prItem ? {
+                price: prItem.price ? prItem.price.toString() : null,
+                partNumber: prItem.partNumber
+              } : undefined
+            };
+          });
+          return res.json(enrichedItems);
+        }
+
         res.json(items);
       } catch (error) {
         console.error("Error fetching quotation items:", error);
