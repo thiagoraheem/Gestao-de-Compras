@@ -72,6 +72,7 @@ export const users = pgTable("users", {
   lastName: text("last_name"),
   companyId: integer("company_id").references(() => companies.id),
   departmentId: integer("department_id").references(() => departments.id),
+  isActive: boolean("is_active").default(true),
   isBuyer: boolean("is_buyer").default(false),
   isApproverA1: boolean("is_approver_a1").default(false),
   isApproverA2: boolean("is_approver_a2").default(false),
@@ -85,7 +86,9 @@ export const users = pgTable("users", {
   passwordResetExpires: timestamp("password_reset_expires"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_users_is_active").on(table.isActive)
+]);
 
 // Departments table
 export const departments = pgTable("departments", {

@@ -6745,11 +6745,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           receivedAt: new Date(),
         };
 
-        console.log(`[Audit] Supplier Quotation Update - ID: ${req.params.quotationId}`, {
-          rawBody: req.body,
-          processedUpdate: updateData
-        });
-
         const updatedSupplierQuotation = await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
 
         // If this is the chosen supplier quotation, update the purchase request total value

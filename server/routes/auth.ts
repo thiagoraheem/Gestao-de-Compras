@@ -25,6 +25,10 @@ export function registerAuthRoutes(app: Express) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
+      if (user.isActive === false) {
+        return res.status(403).json({ message: "Usuário inativo. Entre em contato com o administrador." });
+      }
+
       const isValidPassword = await bcrypt.compare(password, user.password);
 
       if (!isValidPassword) {
@@ -48,6 +52,7 @@ export function registerAuthRoutes(app: Express) {
         isApproverA2: user.isApproverA2,
         isReceiver: user.isReceiver,
         forceChangePassword: user.forceChangePassword,
+        isActive: user.isActive,
         departmentId: user.departmentId,
         companyId: user.companyId,
         company: company ? {
@@ -97,6 +102,7 @@ export function registerAuthRoutes(app: Express) {
         isApproverA2: user.isApproverA2,
         isReceiver: user.isReceiver,
         forceChangePassword: user.forceChangePassword,
+        isActive: user.isActive,
         departmentId: user.departmentId,
         companyId: user.companyId,
         company: company ? {
@@ -135,7 +141,8 @@ export function registerAuthRoutes(app: Express) {
           isApproverA2: user.isApproverA2,
           isAdmin: user.isAdmin,
           isManager: user.isManager,
-          isReceiver: user.isReceiver
+          isReceiver: user.isReceiver,
+          isActive: user.isActive
         });
       } else {
         res.status(401).json({ message: "Unauthorized" });
