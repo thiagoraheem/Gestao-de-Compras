@@ -4209,6 +4209,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 requestedQuantity: item.requestedQuantity?.toString() || '0',
                 approvedQuantity: item.approvedQuantity?.toString() ?? null,
                 technicalSpecification: String(item.technicalSpecification || ''),
+                price: item.price != null && String(item.price).trim() !== "" ? String(item.price) : null,
+                partNumber: item.partNumber != null && String(item.partNumber).trim() !== "" ? String(item.partNumber) : null,
               });
             }
           }
@@ -4506,7 +4508,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 averageMonthlyQuantity: '0',
                 requestedQuantity: item.quantity?.toString() || '0',
                 approvedQuantity: item.quantity?.toString() || null,
-                technicalSpecification: `Item adicionado durante RFQ - sincronizado automaticamente`
+                technicalSpecification: `Item adicionado durante RFQ - sincronizado automaticamente`,
+                price: null,
+                partNumber: null,
               });
 
               // Update quotation item to reference the new purchase request item
@@ -5487,6 +5491,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get quotation items (requested quantities)
       const quotationItems = await storage.getQuotationItems(quotationId);
       
+      // Get PR items to enrich with price and partNumber
+      const prItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+      
       // Get all supplier quotations for this quotation
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
       
@@ -5494,12 +5501,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const comparison: any[] = [];
       
       for (const quotationItem of quotationItems) {
+        // Try to find matching PR item to get original price and partNumber
+        const prItem = prItems.find(pr => 
+          (pr.productCode && quotationItem.itemCode && pr.productCode === quotationItem.itemCode) || 
+          (pr.description && quotationItem.description && pr.description === quotationItem.description)
+        );
+
         const itemComparison = {
           quotationItemId: quotationItem.id,
           itemCode: quotationItem.itemCode,
           description: quotationItem.description,
           requestedQuantity: quotationItem.quantity,
           requestedUnit: quotationItem.unit,
+          purchaseRequestItem: prItem ? {
+            price: prItem.price ? prItem.price.toString() : null,
+            partNumber: prItem.partNumber
+          } : undefined,
           suppliers: [] as any[]
         };
 
@@ -7378,7 +7395,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       unit: originalItem.unit,
                       stockQuantity: originalItem.stockQuantity || '0',
                       averageMonthlyQuantity: originalItem.averageMonthlyQuantity || '0',
-                      approvedQuantity: null // Resetar aprovação
+                      approvedQuantity: null, // Resetar aprovação
+                      price: originalItem.price ?? null,
+                      partNumber: originalItem.partNumber ?? null,
                     });
 
                     // Marcar item original como transferido
@@ -7510,6 +7529,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               unit: quotationItem.unit,
               stockQuantity: '0',
               averageMonthlyQuantity: '0',
+              price: null,
+              partNumber: null,
             });
             
             // Atualizar o quotation_item para referenciar o novo purchase_request_item

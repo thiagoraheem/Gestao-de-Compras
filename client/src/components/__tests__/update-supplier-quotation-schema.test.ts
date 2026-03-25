@@ -1,4 +1,8 @@
 
+declare const describe: any;
+declare const it: any;
+declare const expect: any;
+
 import { updateSupplierQuotationSchema } from '../update-supplier-quotation-schema';
 
 
