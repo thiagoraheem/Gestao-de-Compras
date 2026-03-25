@@ -788,19 +788,33 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                   </div>
                 )}
                 
-                {fields.map((field, index) => (
+                {fields.map((field, index) => {
+                  const prItem = purchaseRequestItems.find((p: any) => p.id === field.purchaseRequestItemId) || purchaseRequestItems[index];
+                  return (
                   <div key={field.id} className="border rounded-lg p-4 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium flex items-center gap-2">
+                      <h4 className="font-medium flex items-center gap-2 flex-wrap">
                         Item {index + 1}
                         {purchaseRequestItems[index] && (
                           <Badge variant="secondary" className="text-xs">
                             Original
                           </Badge>
                         )}
-                        <Badge variant="secondary" className="text-xs">
-                          {form.watch(`items.${index}.itemCode`) || purchaseRequestItems[index]?.productCode || ""}
-                        </Badge>
+                        {form.watch(`items.${index}.itemCode`) || purchaseRequestItems[index]?.productCode ? (
+                          <Badge variant="secondary" className="text-xs">
+                            {form.watch(`items.${index}.itemCode`) || purchaseRequestItems[index]?.productCode}
+                          </Badge>
+                        ) : null}
+                        {prItem?.price != null && String(prItem.price).trim() !== "" && (
+                          <Badge variant="secondary" className="text-xs">
+                            Valor Custo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(prItem.price))}
+                          </Badge>
+                        )}
+                        {prItem?.partNumber && String(prItem.partNumber).trim() !== "" && (
+                          <Badge variant="secondary" className="text-xs">
+                            Part Number: {prItem.partNumber}
+                          </Badge>
+                        )}
                       </h4>
                       {fields.length > 1 && (
                         <Button
@@ -927,7 +941,8 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                       />
                     </div>
                   </div>
-                ))}
+                );
+              })}
               </CardContent>
             </Card>
 
