@@ -71,6 +71,8 @@ interface Item {
   requestedQuantity: number;
   estimatedPrice?: number;
   technicalSpecification?: string;
+  price?: number;
+  partNumber?: string;
 }
 
 interface RequestPhaseProps {
@@ -153,6 +155,8 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
         requestedQuantity: item.requestedQuantity || 1,
         estimatedPrice: item.estimatedPrice || 0,
         technicalSpecification: item.technicalSpecification || "",
+        price: item.price,
+        partNumber: item.partNumber,
       }));
       setManualItems(convertedItems);
     }
@@ -378,6 +382,8 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
               productCode: product.codigo,
               description: product.descricao,
               unit: processedUnit || item.unit,
+              price: product.preco,
+              partNumber: product.partNumber,
             }
           : item,
       ),

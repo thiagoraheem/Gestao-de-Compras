@@ -79,6 +79,8 @@ interface Item {
   requestedQuantity: number;
   estimatedPrice?: number;
   technicalSpecification?: string;
+  price?: number;
+  partNumber?: string;
 }
 
 interface EnhancedNewRequestModalProps {
@@ -102,7 +104,9 @@ export default function EnhancedNewRequestModal({
     unit: "UN",
     requestedQuantity: 1,
     technicalSpecification: "",
-    productCode: ""
+    productCode: "",
+    price: 0,
+    partNumber: ""
   });
   const [resetTrigger, setResetTrigger] = useState(0);
   const [maintainSearchMode, setMaintainSearchMode] = useState(false);
@@ -367,6 +371,8 @@ export default function EnhancedNewRequestModal({
       technicalSpecification: newItemForm.technicalSpecification,
       productCode: newItemForm.productCode,
       estimatedPrice: 0,
+      price: newItemForm.price,
+      partNumber: newItemForm.partNumber,
     };
     setManualItems([...manualItems, newItem]);
     
@@ -376,7 +382,9 @@ export default function EnhancedNewRequestModal({
       unit: "UN",
       requestedQuantity: 1,
       technicalSpecification: "",
-      productCode: ""
+      productCode: "",
+      price: 0,
+      partNumber: ""
     });
     
     // Trigger reset do HybridProductInput
@@ -446,6 +454,8 @@ export default function EnhancedNewRequestModal({
             productCode: product.codigo,
             description: product.descricao,
             unit: processedUnit,
+            price: product.preco,
+            partNumber: product.partNumber,
           };
           return updatedItem;
         }
@@ -786,6 +796,8 @@ export default function EnhancedNewRequestModal({
                                 description: product.descricao,
                                 unit: processedUnit,
                                 productCode: product.codigo,
+                                price: product.preco,
+                                partNumber: product.partNumber,
                               }));
                               setMaintainSearchMode(true);
                             }}

@@ -1651,6 +1651,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             requestedQuantity: item.requestedQuantity || 0,
             technicalSpecification: item.technicalSpecification || null,
             approvedQuantity: undefined,
+            price: item.price || null,
+            partNumber: item.partNumber || null,
           });
           return processedItem;
         });
@@ -1952,6 +1954,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           transferReason: item.transferReason,
           transferredToRequestId: item.transferredToRequestId,
           productCode: item.productCode || "",
+          price: item.price ? parseFloat(item.price.toString()) : undefined,
+          partNumber: item.partNumber || "",
         }));
 
         res.json(mappedItems);
@@ -8600,6 +8604,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         codigo: product.codigo,
         descricao: product.descricao,
         unidade: product.unidade,
+        preco: product.preco,
+        partNumber: product.partNumber,
       }));
 
       res.json(formattedProducts);

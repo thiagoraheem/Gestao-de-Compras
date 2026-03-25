@@ -267,6 +267,8 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   requestedQuantity: decimal("requested_quantity", { precision: 10, scale: 2 }).notNull(),
   approvedQuantity: decimal("approved_quantity", { precision: 10, scale: 2 }),
   technicalSpecification: text("technical_specification"),
+  price: decimal("price", { precision: 15, scale: 4 }), // Preço unitário capturado do ERP
+  partNumber: text("part_number"), // Part number do produto
   // Campos para controle de transferência de itens
   isTransferred: boolean("is_transferred").default(false),
   transferredToRequestId: integer("transferred_to_request_id").references(() => purchaseRequests.id),
@@ -1079,6 +1081,8 @@ export const insertPurchaseRequestItemSchema = createInsertSchema(purchaseReques
   averageMonthlyQuantity: z.union([z.string(), z.number(), z.undefined()]).optional().transform((val) => val?.toString() || "0"),
   requestedQuantity: z.union([z.string(), z.number()]).transform((val) => val.toString()),
   approvedQuantity: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => val?.toString() || null),
+  price: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => val?.toString() || null),
+  partNumber: z.union([z.string(), z.undefined(), z.null()]).optional().nullable(),
 });
 
 export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({
