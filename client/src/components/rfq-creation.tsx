@@ -38,6 +38,8 @@ import { useUnits } from "@/hooks/useUnits";
 import HybridProductInput from "./hybrid-product-input";
 import debug from "@/lib/debug";
 
+import { getBadges } from "./rfq-badges-logic";
+
 const quotationItemSchema = z.object({
   itemCode: z.string().optional(),
   description: z.string().min(1, "Descrição é obrigatória"),
@@ -795,26 +797,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium flex items-center gap-2 flex-wrap">
                         Item {index + 1}
-                        {purchaseRequestItems[index] && (
-                          <Badge variant="secondary" className="text-xs">
-                            Original
-                          </Badge>
-                        )}
-                        {form.watch(`items.${index}.itemCode`) || purchaseRequestItems[index]?.productCode ? (
-                          <Badge variant="secondary" className="text-xs">
-                            {form.watch(`items.${index}.itemCode`) || purchaseRequestItems[index]?.productCode}
-                          </Badge>
-                        ) : null}
-                        {prItem?.price != null && String(prItem.price).trim() !== "" && (
-                          <Badge variant="secondary" className="text-xs">
-                            Valor Custo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(prItem.price))}
-                          </Badge>
-                        )}
-                        {prItem?.partNumber && String(prItem.partNumber).trim() !== "" && (
-                          <Badge variant="secondary" className="text-xs">
-                            Part Number: {prItem.partNumber}
-                          </Badge>
-                        )}
+                        {getBadges(prItem, form.watch(`items.${index}.itemCode`) || "", purchaseRequestItems[index]?.productCode || "")}
                       </h4>
                       {fields.length > 1 && (
                         <Button
