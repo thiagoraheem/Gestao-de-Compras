@@ -18,5 +18,20 @@ export function registerConfigRoutes(app: Express) {
     const cfg = await configService.reloadLocadorConfig();
     res.json(cfg);
   });
-}
 
+  app.get("/api/config/file-storage", isAuthenticated, isAdmin, async (_req, res) => {
+    const cfg = await configService.getFileStorageConfigPublic();
+    res.json(cfg);
+  });
+
+  app.put("/api/config/file-storage", isAuthenticated, isAdmin, async (req, res) => {
+    const updatedBy = req.session.userId ?? null;
+    const cfg = await configService.updateFileStorageConfig(req.body, updatedBy);
+    res.json(cfg);
+  });
+
+  app.post("/api/config/file-storage/reload", isAuthenticated, isAdmin, async (_req, res) => {
+    const cfg = await configService.reloadFileStorageConfig();
+    res.json(cfg);
+  });
+}

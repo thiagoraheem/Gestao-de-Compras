@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { storage } from "../storage";
 import { isEmailEnabled } from "../config";
+import { fileStorageService } from "../services/file-storage-service";
 
 // Authentication middleware
 export function isAuthenticated(req: Request, res: Response, next: Function) {
@@ -22,6 +23,10 @@ export function registerAuthRoutes(app: Express) {
 
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      if (user.isActive === false) {
+        return res.status(403).json({ message: "Usuário inativo. Entre em contato com o administrador." });
       }
 
       const isValidPassword = await bcrypt.compare(password, user.password);
@@ -47,13 +52,16 @@ export function registerAuthRoutes(app: Express) {
         isApproverA2: user.isApproverA2,
         isReceiver: user.isReceiver,
         forceChangePassword: user.forceChangePassword,
+        isActive: user.isActive,
         departmentId: user.departmentId,
         companyId: user.companyId,
         company: company ? {
           id: company.id,
           name: company.name,
           cnpj: company.cnpj,
-          logoUrl: company.logoBase64
+          logoUrl: company.logoUrl
+            ? fileStorageService.buildCompanyLogoProxyUrl(company.id)
+            : company.logoBase64,
         } : null
       });
     } catch (error) {
@@ -94,13 +102,16 @@ export function registerAuthRoutes(app: Express) {
         isApproverA2: user.isApproverA2,
         isReceiver: user.isReceiver,
         forceChangePassword: user.forceChangePassword,
+        isActive: user.isActive,
         departmentId: user.departmentId,
         companyId: user.companyId,
         company: company ? {
           id: company.id,
           name: company.name,
           cnpj: company.cnpj,
-          logoUrl: company.logoBase64
+          logoUrl: company.logoUrl
+            ? fileStorageService.buildCompanyLogoProxyUrl(company.id)
+            : company.logoBase64,
         } : null
       });
     } catch (error) {
@@ -130,7 +141,8 @@ export function registerAuthRoutes(app: Express) {
           isApproverA2: user.isApproverA2,
           isAdmin: user.isAdmin,
           isManager: user.isManager,
-          isReceiver: user.isReceiver
+          isReceiver: user.isReceiver,
+          isActive: user.isActive
         });
       } else {
         res.status(401).json({ message: "Unauthorized" });

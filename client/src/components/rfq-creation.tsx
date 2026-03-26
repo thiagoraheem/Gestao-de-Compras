@@ -38,6 +38,8 @@ import { useUnits } from "@/hooks/useUnits";
 import HybridProductInput from "./hybrid-product-input";
 import debug from "@/lib/debug";
 
+import { getBadges } from "./rfq-badges-logic";
+
 const quotationItemSchema = z.object({
   itemCode: z.string().optional(),
   description: z.string().min(1, "Descrição é obrigatória"),
@@ -788,19 +790,14 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                   </div>
                 )}
                 
-                {fields.map((field, index) => (
+                {fields.map((field, index) => {
+                  const prItem = purchaseRequestItems.find((p: any) => p.id === field.purchaseRequestItemId) || purchaseRequestItems[index];
+                  return (
                   <div key={field.id} className="border rounded-lg p-4 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium flex items-center gap-2">
+                      <h4 className="font-medium flex items-center gap-2 flex-wrap">
                         Item {index + 1}
-                        {purchaseRequestItems[index] && (
-                          <Badge variant="secondary" className="text-xs">
-                            Original
-                          </Badge>
-                        )}
-                        <Badge variant="secondary" className="text-xs">
-                          {form.watch(`items.${index}.itemCode`) || purchaseRequestItems[index]?.productCode || ""}
-                        </Badge>
+                        {getBadges(prItem, form.watch(`items.${index}.itemCode`) || "", purchaseRequestItems[index]?.productCode || "")}
                       </h4>
                       {fields.length > 1 && (
                         <Button
@@ -927,7 +924,8 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                       />
                     </div>
                   </div>
-                ))}
+                );
+              })}
               </CardContent>
             </Card>
 

@@ -89,8 +89,8 @@ export default function Companies() {
   });
 
   // Filter companies based on active status
-  const companies = showInactive 
-    ? allCompanies 
+  const companies = showInactive
+    ? allCompanies
     : allCompanies?.filter((company: Company) => company.active);
 
   const createMutation = useMutation({
@@ -177,7 +177,7 @@ export default function Companies() {
 
     // Check for overwrite
     const hasData = formData.name || formData.tradingName || formData.cnpj || formData.address;
-    
+
     if (hasData) {
       // Update the combobox selection immediately, but ask for confirmation before overwriting data
       setFormData(prev => ({ ...prev, idCompanyERP: company.idCompany }));
@@ -471,9 +471,9 @@ export default function Companies() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  {company.logoBase64 ? (
-                    <img 
-                      src={company.logoBase64} 
+                  {(company.logoUrl || company.logoBase64) ? (
+                    <img
+                      src={company.logoUrl || company.logoBase64 || undefined}
                       alt={`Logo ${company.name}`}
                       className="h-8 w-8 object-contain rounded"
                     />
@@ -569,8 +569,8 @@ export default function Companies() {
                 <div className="space-y-2">
                    <LogoUpload
                     companyId={editingCompany.id}
-                    currentLogoBase64={editingCompany.logoBase64 || undefined}
-                    onUploadSuccess={(logoBase64) => {
+                    currentLogoUrl={editingCompany.logoUrl || editingCompany.logoBase64 || undefined}
+                    onUploadSuccess={() => {
                       queryClient.invalidateQueries({ queryKey: ['/api/companies'] });
                       toast({
                         title: "Sucesso",

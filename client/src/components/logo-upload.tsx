@@ -9,19 +9,19 @@ import debug from '@/lib/debug';
 
 interface LogoUploadProps {
   companyId: number;
-  currentLogoBase64?: string;
-  onUploadSuccess: (logoBase64: string) => void;
+  currentLogoUrl?: string;
+  onUploadSuccess: (logoUrl: string | null) => void;
   disabled?: boolean;
 }
 
-export function LogoUpload({ 
-  companyId, 
-  currentLogoBase64, 
-  onUploadSuccess, 
-  disabled = false 
+export function LogoUpload({
+  companyId,
+  currentLogoUrl,
+  onUploadSuccess,
+  disabled = false
 }: LogoUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(currentLogoBase64 || null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(currentLogoUrl || null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
 
@@ -51,7 +51,7 @@ export function LogoUpload({
     }
 
     setSelectedFile(file);
-    
+
     // Criar preview
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -64,7 +64,7 @@ export function LogoUpload({
     if (!selectedFile) return;
 
     setIsUploading(true);
-    
+
     try {
       // Converter arquivo para base64
       const reader = new FileReader();
@@ -88,8 +88,8 @@ export function LogoUpload({
       }
 
       const data = await response.json();
-      onUploadSuccess(data.logoBase64);
-      
+      onUploadSuccess(data.logoUrl || data.logoBase64 || null);
+
       toast({
         title: "Sucesso",
         description: "Logo enviado com sucesso!",
@@ -108,21 +108,21 @@ export function LogoUpload({
 
   const handleRemovePreview = () => {
     setSelectedFile(null);
-    setPreviewUrl(currentLogoBase64 || null);
+    setPreviewUrl(currentLogoUrl || null);
   };
 
   return (
     <div className="space-y-4">
       <Label>Logo da Empresa</Label>
-      
+
       {/* Preview atual */}
       {previewUrl && (
         <Card className="w-fit">
           <CardContent className="p-4">
             <div className="relative">
-              <img 
-                src={previewUrl} 
-                alt="Logo da empresa" 
+              <img
+                src={previewUrl}
+                alt="Logo da empresa"
                 className="h-20 w-20 object-contain rounded border"
               />
               {selectedFile && (
@@ -172,7 +172,7 @@ export function LogoUpload({
             </Button>
           )}
         </div>
-        
+
         {!previewUrl && (
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
             <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />

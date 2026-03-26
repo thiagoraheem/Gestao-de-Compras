@@ -72,6 +72,7 @@ export const users = pgTable("users", {
   lastName: text("last_name"),
   companyId: integer("company_id").references(() => companies.id),
   departmentId: integer("department_id").references(() => departments.id),
+  isActive: boolean("is_active").default(true),
   isBuyer: boolean("is_buyer").default(false),
   isApproverA1: boolean("is_approver_a1").default(false),
   isApproverA2: boolean("is_approver_a2").default(false),
@@ -85,7 +86,9 @@ export const users = pgTable("users", {
   passwordResetExpires: timestamp("password_reset_expires"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_users_is_active").on(table.isActive)
+]);
 
 // Departments table
 export const departments = pgTable("departments", {
@@ -264,6 +267,8 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   requestedQuantity: decimal("requested_quantity", { precision: 10, scale: 2 }).notNull(),
   approvedQuantity: decimal("approved_quantity", { precision: 10, scale: 2 }),
   technicalSpecification: text("technical_specification"),
+  price: decimal("price", { precision: 15, scale: 4 }), // Preço unitário capturado do ERP
+  partNumber: text("part_number"), // Part number do produto
   // Campos para controle de transferência de itens
   isTransferred: boolean("is_transferred").default(false),
   transferredToRequestId: integer("transferred_to_request_id").references(() => purchaseRequests.id),
@@ -1076,6 +1081,8 @@ export const insertPurchaseRequestItemSchema = createInsertSchema(purchaseReques
   averageMonthlyQuantity: z.union([z.string(), z.number(), z.undefined()]).optional().transform((val) => val?.toString() || "0"),
   requestedQuantity: z.union([z.string(), z.number()]).transform((val) => val.toString()),
   approvedQuantity: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => val?.toString() || null),
+  price: z.union([z.string(), z.number(), z.undefined(), z.null()]).optional().nullable().transform((val) => val?.toString() || null),
+  partNumber: z.union([z.string(), z.undefined(), z.null()]).optional().nullable(),
 });
 
 export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({

@@ -75,6 +75,7 @@ import { initRealtime, realtime } from "./realtime";
 import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../shared/realtime-events";
 import { costCenterService } from "./integracao_locador/services/cost-center-service";
 import { chartOfAccountsService } from "./integracao_locador/services/chart-of-accounts-service";
+import { fileStorageService } from "./services/file-storage-service";
 
 function generateReceiptNumber() {
   const now = new Date();
@@ -387,7 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  // Upload logo for company (base64 version)
+  // Upload logo for company
   app.post(
     "/api/companies/:id/upload-logo",
     isAuthenticated,
@@ -403,40 +404,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ message: "Nenhum arquivo de logo foi enviado" });
         }
 
-        // Validar formato base64
-        const base64Regex = /^data:image\/(jpeg|jpg|png);base64,/;
-        if (!base64Regex.test(logoBase64)) {
-          return res
-            .status(400)
-            .json({
-              message:
-                "Formato de logo inválido. Apenas PNG, JPG, JPEG são aceitos.",
-            });
+        const base64Match = String(logoBase64).match(/^data:(image\/(?:jpeg|jpg|png));base64,(.+)$/);
+        if (!base64Match) {
+          return res.status(400).json({
+            message:
+              "Formato de logo inválido. Apenas PNG, JPG, JPEG são aceitos.",
+          });
         }
 
-        // Verificar tamanho (limite de 5MB)
-        const sizeInBytes = logoBase64.length * 0.75; // base64 é ~33% maior que arquivo original
-        if (sizeInBytes > 5 * 1024 * 1024) {
+        const [, mimeType, encodedContent] = base64Match;
+        const logoBuffer = Buffer.from(encodedContent, "base64");
+
+        if (logoBuffer.length > 5 * 1024 * 1024) {
           return res
             .status(400)
             .json({ message: "Logo muito grande. Tamanho máximo: 5MB" });
         }
 
-        // Verificar se a empresa existe
         const company = await storage.getCompanyById(companyId);
         if (!company) {
           return res.status(404).json({ message: "Empresa não encontrada" });
         }
 
-        // Atualizar a empresa com o logo base64
-        const updatedCompany = await storage.updateCompany(companyId, {
-          logoBase64,
-        });
+        let uploadedLogo;
+        try {
+          uploadedLogo = await fileStorageService.uploadFile({
+            category: "company-logos",
+            entityId: companyId,
+            originalName: `company-logo.${mime.extension(mimeType) || "png"}`,
+            contentType: mimeType,
+            buffer: logoBuffer,
+            preferredLocalName: `logo-${Date.now()}-${companyId}.${mime.extension(mimeType) || "png"}`,
+          });
+        } catch (storageError) {
+          console.error("Error uploading company logo to configured storage:", storageError);
+          uploadedLogo = null;
+        }
+
+        if (company.logoUrl && company.logoUrl !== fileStorageService.buildCompanyLogoProxyUrl(companyId)) {
+          await fileStorageService.deleteFile(company.logoUrl);
+        }
+
+        const updatedCompany = await storage.updateCompany(companyId, uploadedLogo
+          ? {
+              logoUrl: uploadedLogo.filePath,
+              logoBase64: null,
+            }
+          : {
+              logoBase64,
+            });
 
         res.json({
           message: "Logo enviado com sucesso",
-          logoBase64: logoBase64,
-          company: updatedCompany,
+          logoUrl: fileStorageService.buildCompanyLogoProxyUrl(companyId),
+          logoBase64: uploadedLogo ? null : logoBase64,
+          company: {
+            ...updatedCompany,
+            logoUrl: updatedCompany.logoUrl
+              ? fileStorageService.buildCompanyLogoProxyUrl(companyId)
+              : updatedCompany.logoBase64 || null,
+          },
         });
       } catch (error) {
         console.error("Error uploading company logo:", error);
@@ -445,7 +472,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  // Note: Logo serving route removed - logos now stored as base64 in database
+  app.get(
+    "/api/companies/:id/logo",
+    async (req: Request, res: Response) => {
+      try {
+        const companyId = parseInt(req.params.id);
+        const company = await storage.getCompanyById(companyId);
+
+        if (!company || (!company.logoUrl && !company.logoBase64)) {
+          return res.status(404).json({ message: "Logo não encontrado" });
+        }
+
+        if (company.logoUrl) {
+          const file = await fileStorageService.openFileStream(company.logoUrl);
+          res.setHeader("Content-Type", file.contentType);
+          if (file.contentLength) {
+            res.setHeader("Content-Length", file.contentLength);
+          }
+          file.stream.pipe(res);
+          return;
+        }
+
+        const base64Match = company.logoBase64?.match(/^data:(image\/(?:jpeg|jpg|png));base64,(.+)$/);
+        if (!base64Match) {
+          return res.status(404).json({ message: "Logo não encontrado" });
+        }
+
+        const [, mimeType, encodedContent] = base64Match;
+        const buffer = Buffer.from(encodedContent, "base64");
+        res.setHeader("Content-Type", mimeType);
+        res.setHeader("Content-Length", buffer.length);
+        res.send(buffer);
+      } catch (error) {
+        console.error("Error serving company logo:", error);
+        res.status(500).json({ message: "Erro ao servir logo da empresa" });
+      }
+    },
+  );
 
   // Users routes
   app.get("/api/users", isAuthenticated, async (req, res) => {
@@ -1588,6 +1651,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             requestedQuantity: item.requestedQuantity || 0,
             technicalSpecification: item.technicalSpecification || null,
             approvedQuantity: undefined,
+            price: item.price || null,
+            partNumber: item.partNumber || null,
           });
           return processedItem;
         });
@@ -1889,6 +1954,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           transferReason: item.transferReason,
           transferredToRequestId: item.transferredToRequestId,
           productCode: item.productCode || "",
+          price: item.price ? parseFloat(item.price.toString()) : undefined,
+          partNumber: item.partNumber || "",
         }));
 
         res.json(mappedItems);
@@ -4142,6 +4209,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 requestedQuantity: item.requestedQuantity?.toString() || '0',
                 approvedQuantity: item.approvedQuantity?.toString() ?? null,
                 technicalSpecification: String(item.technicalSpecification || ''),
+                price: item.price != null && String(item.price).trim() !== "" ? String(item.price) : null,
+                partNumber: item.partNumber != null && String(item.partNumber).trim() !== "" ? String(item.partNumber) : null,
               });
             }
           }
@@ -4439,7 +4508,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 averageMonthlyQuantity: '0',
                 requestedQuantity: item.quantity?.toString() || '0',
                 approvedQuantity: item.quantity?.toString() || null,
-                technicalSpecification: `Item adicionado durante RFQ - sincronizado automaticamente`
+                technicalSpecification: `Item adicionado durante RFQ - sincronizado automaticamente`,
+                price: null,
+                partNumber: null,
               });
 
               // Update quotation item to reference the new purchase request item
@@ -5178,12 +5249,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const id = parseInt(req.params.id);
 
-        // Import database and schema
         const { db } = await import("./db");
         const { attachments } = await import("../shared/schema");
         const { eq } = await import("drizzle-orm");
 
-        // Get attachment from database
         const attachment = await db
           .select()
           .from(attachments)
@@ -5194,34 +5263,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Anexo não encontrado" });
         }
 
-        let filePath = attachment[0].filePath;
-
-        // Se o caminho começar com /, ajustá-lo para ser relativo ao diretório atual do projeto
-        if (filePath.startsWith('/')) {
-          filePath = path.join(process.cwd(), filePath.substring(1));
-        } else if (!path.isAbsolute(filePath)) {
-          filePath = path.join(process.cwd(), filePath);
+        const file = await fileStorageService.openFileStream(attachment[0].filePath);
+        res.setHeader("Content-Type", file.contentType);
+        if (file.contentLength) {
+          res.setHeader("Content-Length", file.contentLength);
         }
-
-        // Check if file exists
-        if (!fs.existsSync(filePath)) {
-          console.error(`Tentativa de Download de anexo: File not found: ${filePath}`);
-          return res
-            .status(404)
-            .json({ message: "Arquivo não encontrado no servidor" });
-        }
-
-        // Set proper headers for file download
-        const mimeType = mime.lookup(filePath) || "application/octet-stream";
-        res.setHeader("Content-Type", mimeType);
         res.setHeader(
           "Content-Disposition",
           `attachment; filename="${attachment[0].fileName}"`,
         );
 
-        // Stream file to response
-        const fileStream = fs.createReadStream(filePath);
-        fileStream.pipe(res);
+        file.stream.pipe(res);
       } catch (error) {
         console.error("Error downloading attachment:", error);
         res.status(500).json({ message: "Erro ao baixar arquivo" });
@@ -5310,24 +5362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Sem permissão para excluir este anexo" });
         }
 
-        // Delete physical file if it exists
-        let filePath = attachment[0].filePath;
-
-        // Se o caminho começar com /, ajustá-lo para ser relativo ao diretório atual do projeto
-        if (filePath.startsWith('/')) {
-          filePath = path.join(process.cwd(), filePath.substring(1));
-        } else if (!path.isAbsolute(filePath)) {
-          filePath = path.join(process.cwd(), filePath);
-        }
-
-        if (fs.existsSync(filePath)) {
-          try {
-            fs.unlinkSync(filePath);
-          } catch (fileError) {
-            console.error("Error deleting physical file:", fileError);
-            // Continue with database deletion even if file deletion fails
-          }
-        }
+        await fileStorageService.deleteFile(attachment[0].filePath);
 
         // Delete attachment from database
         await db.delete(attachments).where(eq(attachments.id, id));
@@ -5456,6 +5491,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get quotation items (requested quantities)
       const quotationItems = await storage.getQuotationItems(quotationId);
       
+      // Get PR items to enrich with price and partNumber
+      const prItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+      
       // Get all supplier quotations for this quotation
       const supplierQuotations = await storage.getSupplierQuotations(quotationId);
       
@@ -5463,12 +5501,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const comparison: any[] = [];
       
       for (const quotationItem of quotationItems) {
+        // Try to find matching PR item to get original price and partNumber
+        const prItem = prItems.find(pr => 
+          (pr.productCode && quotationItem.itemCode && pr.productCode === quotationItem.itemCode) || 
+          (pr.description && quotationItem.description && pr.description === quotationItem.description)
+        );
+
         const itemComparison = {
           quotationItemId: quotationItem.id,
           itemCode: quotationItem.itemCode,
           description: quotationItem.description,
           requestedQuantity: quotationItem.quantity,
           requestedUnit: quotationItem.unit,
+          purchaseRequestItem: prItem ? {
+            price: prItem.price ? prItem.price.toString() : null,
+            partNumber: prItem.partNumber
+          } : undefined,
           suppliers: [] as any[]
         };
 
@@ -5867,6 +5915,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const items = await storage.getQuotationItems(quotationId);
+        
+        // Enrich items with purchase request item data (price and partNumber)
+        const quotation = await storage.getQuotationById(quotationId);
+        if (quotation && quotation.purchaseRequestId) {
+          const prItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+          
+          const enrichedItems = items.map(item => {
+            // Try to find matching PR item by description or code
+            // The mapping logic might need adjustment based on how items are created
+            const prItem = prItems.find(pr => 
+              (pr.productCode && item.itemCode && pr.productCode === item.itemCode) || 
+              (pr.description && item.description && pr.description === item.description)
+            );
+            
+            return {
+              ...item,
+              purchaseRequestItem: prItem ? {
+                price: prItem.price ? prItem.price.toString() : null,
+                partNumber: prItem.partNumber
+              } : undefined
+            };
+          });
+          return res.json(enrichedItems);
+        }
+
         res.json(items);
       } catch (error) {
         console.error("Error fetching quotation items:", error);
@@ -6718,11 +6791,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           receivedAt: new Date(),
         };
 
-        console.log(`[Audit] Supplier Quotation Update - ID: ${req.params.quotationId}`, {
-          rawBody: req.body,
-          processedUpdate: updateData
-        });
-
         const updatedSupplierQuotation = await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
 
         // If this is the chosen supplier quotation, update the purchase request total value
@@ -6911,7 +6979,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ message: "ID do fornecedor é obrigatório" });
         }
 
-        // Find supplier quotation
         const supplierQuotations =
           await storage.getSupplierQuotations(quotationId);
         const supplierQuotation = supplierQuotations.find(
@@ -6928,11 +6995,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ message: "Cotação do fornecedor não encontrada" });
         }
 
-        // Add attachment to database
+        const storedFile = await fileStorageService.uploadFile({
+          category: "supplier-quotations",
+          entityId: supplierQuotation.id,
+          originalName: req.file.originalname,
+          contentType: req.file.mimetype,
+          buffer: req.file.buffer,
+          preferredLocalName: `${req.file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(req.file.originalname)}`,
+        });
+
         const attachment = await storage.createAttachment({
           supplierQuotationId: supplierQuotation.id,
           fileName: req.file.originalname,
-          filePath: `/uploads/supplier_quotations/${req.file.filename}`,
+          filePath: storedFile.filePath,
           fileType: req.file.mimetype,
           fileSize: req.file.size,
           attachmentType: attachmentType || "supplier_proposal",
@@ -6942,6 +7017,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Arquivo enviado com sucesso",
           fileName: req.file.originalname,
           attachmentId: attachment.id,
+          storage: storedFile.storage,
         });
       } catch (error) {
         console.error("Error uploading supplier file:", error);
@@ -7319,7 +7395,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       unit: originalItem.unit,
                       stockQuantity: originalItem.stockQuantity || '0',
                       averageMonthlyQuantity: originalItem.averageMonthlyQuantity || '0',
-                      approvedQuantity: null // Resetar aprovação
+                      approvedQuantity: null, // Resetar aprovação
+                      price: originalItem.price ?? null,
+                      partNumber: originalItem.partNumber ?? null,
                     });
 
                     // Marcar item original como transferido
@@ -7451,6 +7529,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               unit: quotationItem.unit,
               stockQuantity: '0',
               averageMonthlyQuantity: '0',
+              price: null,
+              partNumber: null,
             });
             
             // Atualizar o quotation_item para referenciar o novo purchase_request_item
@@ -8308,38 +8388,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve uploaded supplier quotation files
+  // Serve uploaded supplier quotation files (compatibility route)
   app.get(
     "/api/files/supplier-quotations/:filename",
     isAuthenticated,
     async (req, res) => {
       try {
         const filename = req.params.filename;
-        const filePath = path.join(
-          process.cwd(),
-          "uploads",
-          "supplier_quotations",
-          filename,
-        );
+        const { attachments } = await import("../shared/schema");
 
-        // Check if file exists
-        if (!fs.existsSync(filePath)) {
+        const attachment = await db
+          .select()
+          .from(attachments)
+          .where(sql`${attachments.filePath} LIKE ${`%${filename}`}`)
+          .limit(1);
+
+        if (!attachment[0]) {
           return res.status(404).json({ message: "Arquivo não encontrado" });
         }
 
-        // Get file stats
-        const stats = fs.statSync(filePath);
-        const fileSize = stats.size;
-
-        // Set appropriate headers
-        const mimeType = mime.lookup(filePath) || "application/octet-stream";
-        res.setHeader("Content-Type", mimeType);
-        res.setHeader("Content-Length", fileSize);
+        const file = await fileStorageService.openFileStream(attachment[0].filePath);
+        res.setHeader("Content-Type", file.contentType);
+        if (file.contentLength) {
+          res.setHeader("Content-Length", file.contentLength);
+        }
         res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
-
-        // Stream the file
-        const fileStream = fs.createReadStream(filePath);
-        fileStream.pipe(res);
+        file.stream.pipe(res);
       } catch (error) {
         console.error("Error serving supplier quotation file:", error);
         res.status(500).json({ message: "Erro ao servir arquivo" });
@@ -8576,6 +8650,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         codigo: product.codigo,
         descricao: product.descricao,
         unidade: product.unidade,
+        preco: product.preco,
+        partNumber: product.partNumber,
       }));
 
       res.json(formattedProducts);

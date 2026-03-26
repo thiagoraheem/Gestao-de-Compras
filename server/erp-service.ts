@@ -8,6 +8,7 @@ interface ERPProduct {
   preco?: number;
   categoria?: string;
   ativo?: boolean;
+  partNumber?: string;
 }
 
 interface ProductSearchParams {
@@ -202,6 +203,7 @@ class ERPService {
       preco: item.preco || item.price || undefined,
       categoria: item.categoria || item.category || undefined,
       ativo: item.ativo !== undefined ? item.ativo : (item.active !== undefined ? item.active : true),
+      partNumber: item.partNumber || item.partNumber || undefined,
     })).filter((product: ERPProduct) => product.codigo && product.descricao);
   }
 

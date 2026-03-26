@@ -698,124 +698,136 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                               sq.items.map(item => item.quotationItemId)
                             )
                           )
-                        ).map((quotationItemId) => (
-                          <tr key={quotationItemId} className="border-b border-border hover:bg-muted/50">
-                            <td className="p-3 font-medium">
+                        ).map((quotationItemId) => {
+                          const quotationItem = quotationItems.find(qi => qi.id === quotationItemId);
+                          return (
+                            <tr key={quotationItemId} className="border-b border-border hover:bg-muted/50">
+                              <td className="p-3 font-medium">
+                                <div>
+                                  {quotationItem ? quotationItem.description : `Item #${quotationItemId}`}
+                                </div>
+                                {(quotationItem?.purchaseRequestItem?.price != null && String(quotationItem.purchaseRequestItem.price).trim() !== "") && (
+                                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    Custo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(quotationItem.purchaseRequestItem.price))}
+                                  </div>
+                                )}
+                                {(quotationItem?.purchaseRequestItem?.partNumber && String(quotationItem.purchaseRequestItem.partNumber).trim() !== "") && (
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    Part Number: {quotationItem.purchaseRequestItem.partNumber}
+                                  </div>
+                                )}
+                              </td>
                               {(() => {
-                                const quotationItem = quotationItems.find(qi => qi.id === quotationItemId);
-                                return quotationItem ? quotationItem.description : `Item #${quotationItemId}`;
-                              })()}
-                            </td>
-                            {(() => {
-                              const bestFinalPrice = (() => {
-                                const values = receivedQuotations.map((supplier) => {
-                                  const it = supplier.items.find(i => i.quotationItemId === quotationItemId);
-                                  if (!it || it.isAvailable === false) return Infinity;
-                                  return Number(it.discountedTotalPrice || it.totalPrice);
-                                });
-                                const min = Math.min(...values);
-                                return isFinite(min) ? min : null;
-                              })();
-                              return receivedQuotations.map((supplier) => {
-                                const item = supplier.items.find(
-                                  item => item.quotationItemId === quotationItemId
-                                );
-                                const finalValue = item ? Number(item.discountedTotalPrice || item.totalPrice) : null;
-                                const isBest = item && item.isAvailable !== false && bestFinalPrice !== null && finalValue === bestFinalPrice;
-                                return (
-                                  <td key={supplier.id} className={`p-3 border-l text-center ${item && item.isAvailable === false ? 'bg-red-50 dark:bg-red-900/20' : ''
-                                    } ${isBest ? 'bg-green-50 dark:bg-green-900/20 ring-2 ring-green-300 dark:ring-green-800' : ''}`}>
-                                    {item ? (
-                                      item.isAvailable === false ? (
-                                        <div className="space-y-1">
-                                          <div className="flex items-center justify-center gap-1 text-red-600 dark:text-red-400">
-                                            <XCircle className="h-4 w-4" />
-                                            <span className="font-bold">Indisponível</span>
+                                const bestFinalPrice = (() => {
+                                  const values = receivedQuotations.map((supplier) => {
+                                    const it = supplier.items.find(i => i.quotationItemId === quotationItemId);
+                                    if (!it || it.isAvailable === false) return Infinity;
+                                    return Number(it.discountedTotalPrice || it.totalPrice);
+                                  });
+                                  const min = Math.min(...values);
+                                  return isFinite(min) ? min : null;
+                                })();
+                                return receivedQuotations.map((supplier) => {
+                                  const item = supplier.items.find(
+                                    item => item.quotationItemId === quotationItemId
+                                  );
+                                  const finalValue = item ? Number(item.discountedTotalPrice || item.totalPrice) : null;
+                                  const isBest = item && item.isAvailable !== false && bestFinalPrice !== null && finalValue === bestFinalPrice;
+                                  return (
+                                    <td key={supplier.id} className={`p-3 border-l text-center ${item && item.isAvailable === false ? 'bg-red-50 dark:bg-red-900/20' : ''
+                                      } ${isBest ? 'bg-green-50 dark:bg-green-900/20 ring-2 ring-green-300 dark:ring-green-800' : ''}`}>
+                                      {item ? (
+                                        item.isAvailable === false ? (
+                                          <div className="space-y-1">
+                                            <div className="flex items-center justify-center gap-1 text-red-600 dark:text-red-400">
+                                              <XCircle className="h-4 w-4" />
+                                              <span className="font-bold">Indisponível</span>
+                                            </div>
+                                            {item.unavailabilityReason && (
+                                              <div className="text-xs text-red-600 dark:text-red-400 italic">
+                                                {item.unavailabilityReason}
+                                              </div>
+                                            )}
+                                            {item.brand && (
+                                              <div className="text-xs text-muted-foreground">
+                                                {item.brand} {item.model}
+                                              </div>
+                                            )}
+                                            {item.observations && (
+                                              <div className="text-xs text-muted-foreground italic">
+                                                {item.observations}
+                                              </div>
+                                            )}
                                           </div>
-                                          {item.unavailabilityReason && (
-                                            <div className="text-xs text-red-600 dark:text-red-400 italic">
-                                              {item.unavailabilityReason}
-                                            </div>
-                                          )}
-                                          {item.brand && (
-                                            <div className="text-xs text-muted-foreground">
-                                              {item.brand} {item.model}
-                                            </div>
-                                          )}
-                                          {item.observations && (
-                                            <div className="text-xs text-muted-foreground italic">
-                                              {item.observations}
-                                            </div>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <div className="space-y-1">
-                                          {isBest && (
-                                            <div className="flex justify-center">
-                                              <Badge variant="secondary" className="text-[10px] bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border-green-300 dark:border-green-800">Melhor valor</Badge>
-                                            </div>
-                                          )}
-                                          {(() => {
-                                            const qi = quotationItems.find(q => q.id === item.quotationItemId);
-                                            const requestedQty = qi?.quantity ? parseFloat(qi.quantity) : undefined;
-                                            const qty = item.availableQuantity ?? requestedQty ?? (item.unitPrice ? Math.round(Number(item.discountedTotalPrice || item.totalPrice) / Number(item.unitPrice)) : undefined);
-                                            const unit = item.confirmedUnit || qi?.unit;
-                                            if (qty && unit) {
-                                              return (
-                                                <div className="text-xs text-foreground">Quantidade: {qty.toLocaleString('pt-BR')} {unit}</div>
-                                              );
-                                            }
-                                            if (qty) {
-                                              return (
-                                                <div className="text-xs text-foreground">Quantidade: {qty.toLocaleString('pt-BR')}</div>
-                                              );
-                                            }
-                                            return null;
-                                          })()}
-                                          <div className="text-xs text-foreground">
-                                            Vlr. Unit.: R$ {Number(item.unitPrice).toLocaleString('pt-BR', {
-                                              minimumFractionDigits: 4,
-                                              maximumFractionDigits: 4
-                                            })}
-                                          </div>
-                                          {(item.discountPercentage || item.discountValue) && (
-                                            <div className="text-xs text-orange-600 dark:text-orange-400">
-                                              Vlr. Desconto: {item.discountPercentage
-                                                ? `${item.discountPercentage}%`
-                                                : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                                        ) : (
+                                          <div className="space-y-1">
+                                            {isBest && (
+                                              <div className="flex justify-center">
+                                                <Badge variant="secondary" className="text-[10px] bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border-green-300 dark:border-green-800">Melhor valor</Badge>
+                                              </div>
+                                            )}
+                                            {(() => {
+                                              const qi = quotationItems.find(q => q.id === item.quotationItemId);
+                                              const requestedQty = qi?.quantity ? parseFloat(qi.quantity) : undefined;
+                                              const qty = item.availableQuantity ?? requestedQty ?? (item.unitPrice ? Math.round(Number(item.discountedTotalPrice || item.totalPrice) / Number(item.unitPrice)) : undefined);
+                                              const unit = item.confirmedUnit || qi?.unit;
+                                              if (qty && unit) {
+                                                return (
+                                                  <div className="text-xs text-foreground">Quantidade: {qty.toLocaleString('pt-BR')} {unit}</div>
+                                                );
                                               }
+                                              if (qty) {
+                                                return (
+                                                  <div className="text-xs text-foreground">Quantidade: {qty.toLocaleString('pt-BR')}</div>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
+                                            <div className="text-xs text-foreground">
+                                              Vlr. Unit.: R$ {Number(item.unitPrice).toLocaleString('pt-BR', {
+                                                minimumFractionDigits: 4,
+                                                maximumFractionDigits: 4
+                                              })}
                                             </div>
-                                          )}
-                                          <div className="text-sm font-bold text-green-700 dark:text-green-400">
-                                            Vlr Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', {
-                                              minimumFractionDigits: 4,
-                                              maximumFractionDigits: 4
-                                            })}
+                                            {(item.discountPercentage || item.discountValue) && (
+                                              <div className="text-xs text-orange-600 dark:text-orange-400">
+                                                Vlr. Desconto: {item.discountPercentage
+                                                  ? `${item.discountPercentage}%`
+                                                  : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                                                }
+                                              </div>
+                                            )}
+                                            <div className="text-sm font-bold text-green-700 dark:text-green-400">
+                                              Vlr Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', {
+                                                minimumFractionDigits: 4,
+                                                maximumFractionDigits: 4
+                                              })}
+                                            </div>
+                                            {item.deliveryDays && (
+                                              <div className="text-xs text-blue-600 dark:text-blue-400">Prazo: {item.deliveryDays} dias</div>
+                                            )}
+                                            {item.brand && (
+                                              <div className="text-xs text-muted-foreground">
+                                                {item.brand} {item.model}
+                                              </div>
+                                            )}
+                                            {item.observations && (
+                                              <div className="text-xs text-muted-foreground italic">
+                                                {item.observations}
+                                              </div>
+                                            )}
                                           </div>
-                                          {item.deliveryDays && (
-                                            <div className="text-xs text-blue-600 dark:text-blue-400">Prazo: {item.deliveryDays} dias</div>
-                                          )}
-                                          {item.brand && (
-                                            <div className="text-xs text-muted-foreground">
-                                              {item.brand} {item.model}
-                                            </div>
-                                          )}
-                                          {item.observations && (
-                                            <div className="text-xs text-muted-foreground italic">
-                                              {item.observations}
-                                            </div>
-                                          )}
-                                        </div>
-                                      )
-                                    ) : (
-                                      <span className="text-muted-foreground text-sm">Não cotado</span>
-                                    )}
-                                  </td>
-                                );
-                              });
-                            })()}
-                          </tr>
-                        ))}
+                                        )
+                                      ) : (
+                                        <span className="text-muted-foreground text-sm">Não cotado</span>
+                                      )}
+                                    </td>
+                                  );
+                                });
+                              })()}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

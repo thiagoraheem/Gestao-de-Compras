@@ -99,7 +99,7 @@ export default function KanbanBoard({
     [PURCHASE_PHASES.ARQUIVADO]: Archive,
   };
 
-  const { data: purchaseRequests = [], isLoading } = useQuery({
+  const { data: purchaseRequests = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/purchase-requests"],
     refetchInterval: false, // Disable automatic refetching
     refetchOnWindowFocus: false, // Disable refetch on window focus

@@ -9,6 +9,8 @@ interface Product {
   codigo: string;
   descricao: string;
   unidade: string;
+  preco: number;
+  partNumber: string;
 }
 
 interface HybridProductInputProps {

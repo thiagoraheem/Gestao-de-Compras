@@ -190,6 +190,7 @@ Automatizar e controlar o processo de compras empresariais desde a solicitação
 - first_name, last_name (text)
 - company_id (FK companies)
 - department_id (FK departments)
+- is_active (boolean, default true)
 - is_buyer, is_approver_a1, is_approver_a2 (boolean)
 - is_admin, is_manager, is_receiver (boolean)
 - password_reset_token, password_reset_expires

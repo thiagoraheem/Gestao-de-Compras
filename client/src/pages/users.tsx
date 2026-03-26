@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Edit, Shield, User, Building, Shield as ShieldIcon, Trash2, AlertTriangle, Crown, UserCheck, Key, Lock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +36,7 @@ const userSchema = z.object({
   isReceiver: z.boolean().default(false),
   isCEO: z.boolean().default(false),
   isDirector: z.boolean().default(false),
+  isActive: z.boolean().default(true),
 }).refine((data) => {
   // Password is required only when creating a new user
   if (!data.password || data.password === "") {
@@ -428,6 +430,7 @@ export default function UsersPage() {
       isReceiver: user.isReceiver || false,
       isCEO: user.isCEO || false,
       isDirector: user.isDirector || false,
+      isActive: user.isActive ?? true,
     });
     setIsModalOpen(true);
   };
@@ -545,6 +548,11 @@ export default function UsersPage() {
                             <TableCell>{user.username}</TableCell>
                             <TableCell>{user.email}</TableCell>
                             <TableCell>
+                              <Badge variant={user.isActive !== false ? "default" : "destructive"} className={user.isActive !== false ? "bg-green-500 hover:bg-green-600" : ""}>
+                                {user.isActive !== false ? "Ativo" : "Inativo"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
                               <div className="flex flex-wrap gap-1">
                                 {getUserRoles(user).map((role) => (
                                   <Badge key={role} variant="secondary" className="text-xs">
@@ -622,6 +630,32 @@ export default function UsersPage() {
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex items-center justify-between mb-4 p-4 rounded-lg border bg-muted/20">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base font-semibold">Status do Usuário</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Define se o usuário pode acessar o sistema e ser atribuído a tarefas.
+                  </p>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center space-x-3">
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          className="data-[state=checked]:bg-green-500"
+                        />
+                      </FormControl>
+                      <span className={`font-medium ${field.value ? "text-green-600" : "text-gray-500"}`}>
+                        {field.value ? "Ativo" : "Inativo"}
+                      </span>
+                    </FormItem>
+                  )}
+                />
+              </div>
               <Tabs defaultValue="dados-pessoais" className="flex-1 flex flex-col overflow-hidden">
                 <TabsList className="grid w-full grid-cols-3 mb-6">
                   <TabsTrigger value="dados-pessoais" className="flex items-center gap-2">

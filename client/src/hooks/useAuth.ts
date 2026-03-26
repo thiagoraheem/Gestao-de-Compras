@@ -32,6 +32,7 @@ interface User {
   isReceiver: boolean;
   isDirector: boolean;
   isCEO: boolean;
+  isActive: boolean;
   forceChangePassword?: boolean;
 }
 
@@ -116,10 +117,10 @@ export function useAuth() {
         window.location.replace('/kanban');
       }
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Erro no login",
-        description: "Usuário ou senha inválidos",
+        description: error.message === "Login failed" ? "Usuário ou senha inválidos" : error.message,
         variant: "destructive",
       });
     },
