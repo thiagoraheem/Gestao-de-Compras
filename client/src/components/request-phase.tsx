@@ -146,21 +146,19 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
 
   // Carregar itens existentes quando disponíveis
   useEffect(() => {
-    if (existingItems.length > 0) {
-      const convertedItems: Item[] = existingItems.map((item) => ({
-        id: item.id?.toString() || Date.now().toString(),
-        productCode: item.productCode || "",
-        description: item.description || "",
-        unit: item.unit || "UN",
-        requestedQuantity: item.requestedQuantity || 1,
-        estimatedPrice: item.estimatedPrice || 0,
-        technicalSpecification: item.technicalSpecification || "",
-        price: item.price,
-        partNumber: item.partNumber,
-      }));
-      setManualItems(convertedItems);
-    }
-  }, [existingItems]);
+    const convertedItems: Item[] = existingItems.map((item) => ({
+      id: item.id?.toString() || Date.now().toString(),
+      productCode: item.productCode || "",
+      description: item.description || "",
+      unit: processERPUnit(item.unit),
+      requestedQuantity: Number(item.requestedQuantity ?? 1),
+      estimatedPrice: Number(item.estimatedPrice ?? 0),
+      technicalSpecification: item.technicalSpecification || "",
+      price: item.price,
+      partNumber: item.partNumber,
+    }));
+    setManualItems(convertedItems);
+  }, [existingItems, processERPUnit]);
 
 
 

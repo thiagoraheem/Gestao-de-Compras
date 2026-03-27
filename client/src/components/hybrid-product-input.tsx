@@ -35,7 +35,9 @@ export function HybridProductInput({
   mode = "hybrid",
 }: HybridProductInputProps) {
   const isErpOnly = mode === "erp-only";
-  const [isSearchMode, setIsSearchMode] = useState(isErpOnly);
+  const [isSearchMode, setIsSearchMode] = useState(
+    isErpOnly && !value?.trim(),
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -111,6 +113,18 @@ export function HybridProductInput({
       setSearchTerm("");
     }
   }, [resetTrigger, maintainSearchMode, isErpOnly]);
+
+  useEffect(() => {
+    if (
+      isErpOnly &&
+      isSearchMode &&
+      !selectedProduct &&
+      !searchTerm &&
+      value?.trim()
+    ) {
+      setIsSearchMode(false);
+    }
+  }, [isErpOnly, isSearchMode, searchTerm, selectedProduct, value]);
 
   const handleInputChange = (inputValue: string) => {
     if (isErpOnly && !isSearchMode) {
