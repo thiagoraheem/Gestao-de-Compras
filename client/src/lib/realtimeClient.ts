@@ -13,6 +13,40 @@ type EventListener = (event: RealtimeEventMessage) => void;
 type StatusListener = (status: RealtimeStatus) => void;
 
 const MAX_RECONNECT_DELAY = 10000;
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
+
+const isLocalHostname = (hostname: string) => LOCAL_HOSTNAMES.has((hostname || "").toLowerCase());
+
+const resolveConfiguredWebSocketUrl = (configuredUrl: string, location: Location): string | null => {
+  const trimmedUrl = configuredUrl.trim();
+  if (!trimmedUrl) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmedUrl, window.location.origin);
+    const currentHostIsLocal = isLocalHostname(location.hostname);
+    const configuredHostIsLocal = isLocalHostname(parsed.hostname);
+
+    if (!currentHostIsLocal && configuredHostIsLocal) {
+      return null;
+    }
+
+    if (parsed.protocol === "http:") {
+      parsed.protocol = "ws:";
+    } else if (parsed.protocol === "https:") {
+      parsed.protocol = "wss:";
+    }
+
+    if (location.protocol === "https:" && parsed.protocol === "ws:" && !configuredHostIsLocal) {
+      parsed.protocol = "wss:";
+    }
+
+    return parsed.toString();
+  } catch {
+    return trimmedUrl;
+  }
+};
 
 export class RealtimeClient {
   private socket: WebSocket | null = null;
@@ -68,7 +102,8 @@ export class RealtimeClient {
     const portPart = loc.port && loc.port !== "0" ? `:${loc.port}` : "";
     const host = `${hostname}${portPart}`;
     const defaultUrl = `${wsProtocol}://${host}/ws`;
-    const url = configuredUrl && configuredUrl.trim().length > 0 ? configuredUrl : defaultUrl;
+    const resolvedConfiguredUrl = configuredUrl ? resolveConfiguredWebSocketUrl(configuredUrl, loc) : null;
+    const url = resolvedConfiguredUrl ?? defaultUrl;
 
     // Debug logs to help diagnose connection target in production
     const logEnv = import.meta.env ?? {} as any;
