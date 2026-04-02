@@ -725,17 +725,27 @@ export function registerReceiptsRoutes(app: Express) {
             }
         }
 
-        const fornecedorId = rec.locadorSupplierId ? Number(rec.locadorSupplierId) : undefined;
-        let cnpjFornecedor: string | undefined = undefined;
-        let nomeFornecedor: string | undefined = undefined;
+        const fornecedorIdFromReceipt = rec.locadorSupplierId ? Number(rec.locadorSupplierId) : undefined;
+        const fornecedorLocalId = rec.supplierId ? Number(rec.supplierId) : purchaseOrder?.supplierId ? Number(purchaseOrder.supplierId) : undefined;
+        let supplierData: any = undefined;
 
-        if (fornecedorId) {
-            const [supplier] = await db.select().from(suppliers).where(eq(suppliers.idSupplierERP, fornecedorId));
-            if (supplier) {
-                cnpjFornecedor = supplier.cnpj || undefined;
-                nomeFornecedor = supplier.name || undefined;
-            }
+        if (fornecedorLocalId) {
+            [supplierData] = await db.select().from(suppliers).where(eq(suppliers.id, fornecedorLocalId));
         }
+
+        const fornecedorIdFromSupplier = supplierData?.idSupplierERP != null ? Number(supplierData.idSupplierERP) : undefined;
+        const fornecedorId = Number.isFinite(fornecedorIdFromReceipt as any)
+            ? (fornecedorIdFromReceipt as number)
+            : Number.isFinite(fornecedorIdFromSupplier as any)
+                ? (fornecedorIdFromSupplier as number)
+                : undefined;
+
+        if (!supplierData && fornecedorId) {
+            [supplierData] = await db.select().from(suppliers).where(eq(suppliers.idSupplierERP, fornecedorId));
+        }
+
+        const cnpjFornecedor: string | undefined = supplierData?.cnpj || undefined;
+        const nomeFornecedor: string | undefined = supplierData?.name || undefined;
 
         /*if (!fornecedorId) {
             throw new Error("Erro de Validação: Fornecedor não encontrado ou não vinculado ao Locador. Não é possível integrar.");
@@ -1048,7 +1058,24 @@ export function registerReceiptsRoutes(app: Express) {
       const paymentMethodCode = obsData?.financial?.paymentMethodCode;
       const invoiceDueDate = obsData?.financial?.invoiceDueDate;
 
-      const fornecedorId = rec.locadorSupplierId ? Number(rec.locadorSupplierId) : undefined;
+      const fornecedorIdFromReceipt = rec.locadorSupplierId ? Number(rec.locadorSupplierId) : undefined;
+      const fornecedorLocalId = rec.supplierId ? Number(rec.supplierId) : purchaseOrder?.supplierId ? Number(purchaseOrder.supplierId) : undefined;
+      let supplierData: any = undefined;
+
+      if (fornecedorLocalId) {
+        [supplierData] = await db.select().from(suppliers).where(eq(suppliers.id, fornecedorLocalId));
+      }
+
+      const fornecedorIdFromSupplier = supplierData?.idSupplierERP != null ? Number(supplierData.idSupplierERP) : undefined;
+      const fornecedorId = Number.isFinite(fornecedorIdFromReceipt as any)
+        ? (fornecedorIdFromReceipt as number)
+        : Number.isFinite(fornecedorIdFromSupplier as any)
+          ? (fornecedorIdFromSupplier as number)
+          : undefined;
+
+      if (!supplierData && fornecedorId) {
+        [supplierData] = await db.select().from(suppliers).where(eq(suppliers.idSupplierERP, fornecedorId));
+      }
 
       const payload: PurchaseReceiveRequest = {
         pedido_id: purchaseOrder?.id || 0,
@@ -1059,8 +1086,8 @@ export function registerReceiptsRoutes(app: Express) {
         justificativa: purchaseRequest?.justification || "",
         fornecedor: {
           fornecedor_id: Number.isFinite(fornecedorId as any) ? (fornecedorId as number) : undefined,
-          cnpj: undefined,
-          nome: undefined,
+          cnpj: supplierData?.cnpj || undefined,
+          nome: supplierData?.name || undefined,
         },
         nota_fiscal: {
           numero: rec.documentNumber || "",
