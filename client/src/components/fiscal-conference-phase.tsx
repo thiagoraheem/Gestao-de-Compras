@@ -35,6 +35,8 @@ import { PHASE_LABELS } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export interface FiscalConferencePhaseProps {
   request: any;
@@ -310,7 +312,9 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     manualNFSeries,
     manualNFIssueDate,
     manualTotal,
-    manualNFEmitterCNPJ
+    manualNFEmitterCNPJ,
+    processFiscal,
+    setProcessFiscal
   } = useReceipt();
 
   const { reportIssueMutation } = useReceiptActions();
@@ -407,7 +411,8 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
             documentSeries: manualNFSeries,
             issueDate: manualNFIssueDate,
             totalAmount: manualTotal,
-            emitterCnpj: manualNFEmitterCNPJ
+            emitterCnpj: manualNFEmitterCNPJ,
+            ...(processFiscal !== null ? { processFiscal } : {})
           }
         }
       );
@@ -591,6 +596,27 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
 
       {/* Action Buttons */}
       <div className="sticky bottom-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm pt-4 pb-2 border-t border-slate-200 dark:border-slate-800">
+        <div className="px-1 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <Label className="text-sm">Processar Fiscal no ERP</Label>
+            <Select
+              value={processFiscal === null ? "default" : processFiscal ? "true" : "false"}
+              onValueChange={(v) => setProcessFiscal(v === "default" ? null : v === "true")}
+            >
+              <SelectTrigger className="w-full sm:w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Padrão (Sim)</SelectItem>
+                <SelectItem value="true">Sim</SelectItem>
+                <SelectItem value="false">Não</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Controla a flag processFiscal no payload enviado ao ERP durante a conclusão da conferência.
+          </div>
+        </div>
         <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
           <Button
             variant="outline"

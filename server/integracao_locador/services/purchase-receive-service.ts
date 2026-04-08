@@ -64,6 +64,7 @@ export interface PurchaseReceiveRequest {
   solicitacao_id: number;
   data_pedido?: string;
   justificativa?: string;
+  processFiscal?: boolean;
   fornecedor: SupplierInfo;
   nota_fiscal: InvoiceInfo;
   condicoes_pagamento?: PaymentConditions;

@@ -40,6 +40,21 @@ function generateReceiptNumber() {
   return `REC-${y}${m}${d}-${rand}`;
 }
 
+function parseOptionalBoolean(value: any): boolean | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (v === "true" || v === "1" || v === "sim" || v === "yes") return true;
+    if (v === "false" || v === "0" || v === "nao" || v === "não" || v === "no") return false;
+  }
+  throw new Error("INVALID_BOOLEAN");
+}
+
 const xmlUpload = multer({
   storage: multer.memoryStorage(),
   fileFilter: function (_req, file, cb) {
@@ -553,7 +568,8 @@ export function registerReceiptsRoutes(app: Express) {
       documentSeries,
       issueDate,
       totalAmount,
-      emitterCnpj
+      emitterCnpj,
+      processFiscal
     } = req.body;
 
     console.log("Confirmando fiscalização do recebimento:", id);
@@ -582,6 +598,20 @@ export function registerReceiptsRoutes(app: Express) {
       currentObs = rec.observations || {};
     }
 
+    let parsedProcessFiscal: boolean | undefined = undefined;
+    try {
+      parsedProcessFiscal = parseOptionalBoolean(processFiscal);
+    } catch {
+      return res.status(400).json({
+        message: "Erro de validação: processFiscal deve ser booleano (true/false).",
+      });
+    }
+    const effectiveProcessFiscal = parsedProcessFiscal ?? true;
+    const currentErpOptions =
+      (currentObs?.erpOptions && typeof currentObs.erpOptions === "object" && !Array.isArray(currentObs.erpOptions))
+        ? currentObs.erpOptions
+        : {};
+
     const newObs = {
       ...currentObs,
       financial: {
@@ -594,6 +624,10 @@ export function registerReceiptsRoutes(app: Express) {
       rateio: {
         mode: allocationMode,
         allocations // Store raw allocations in obs for reference
+      },
+      erpOptions: {
+        ...currentErpOptions,
+        ...(typeof parsedProcessFiscal === "boolean" ? { processFiscal: parsedProcessFiscal } : {}),
       },
       emitterCnpj // Store manually entered CNPJ if any
     };
@@ -758,6 +792,7 @@ export function registerReceiptsRoutes(app: Express) {
             solicitacao_id: purchaseRequest?.id || 0,
             data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : undefined,
             justificativa: purchaseRequest?.justification || "",
+            processFiscal: effectiveProcessFiscal,
             fornecedor: {
                 fornecedor_id: fornecedorId,
                 cnpj: cnpjFornecedor,

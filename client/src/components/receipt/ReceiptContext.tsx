@@ -67,6 +67,9 @@ interface ReceiptContextType {
   setAllocationMode: (v: 'manual' | 'proporcional') => void;
   paymentMethods: Array<{ code: string; name: string }>;
   isLoadingPaymentMethods: boolean;
+
+  processFiscal: boolean | null;
+  setProcessFiscal: (v: boolean | null) => void;
   
   // XML/Fiscal State
   xmlPreview: any | null;
@@ -205,6 +208,7 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
   const [allocationMode, setAllocationMode] = useState<'manual' | 'proporcional'>('manual');
   const [paymentMethods, setPaymentMethods] = useState<Array<{ code: string; name: string }>>([]);
   const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
+  const [processFiscal, setProcessFiscal] = useState<boolean | null>(null);
 
   // XML/Fiscal State
   const [xmlPreview, setXmlPreview] = useState<any | null>(null);
@@ -343,6 +347,7 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
         try {
           const obs = typeof data.observations === 'string' ? JSON.parse(data.observations) : data.observations;
           if (obs.emitterCnpj) setManualNFEmitterCNPJ(obs.emitterCnpj);
+          if (obs.erpOptions && typeof obs.erpOptions.processFiscal === 'boolean') setProcessFiscal(obs.erpOptions.processFiscal);
           if (obs.manualProductsValue) setManualProductsValue(obs.manualProductsValue);
           if (obs.manualFreightValue) setManualFreightValue(obs.manualFreightValue);
           if (obs.manualDiscountValue) setManualDiscountValue(obs.manualDiscountValue);
@@ -392,6 +397,10 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
             if (obs.rateio) {
               if (obs.rateio.mode) setAllocationMode(obs.rateio.mode);
               if (Array.isArray(obs.rateio.allocations)) setAllocations(obs.rateio.allocations);
+            }
+
+            if (obs.erpOptions && typeof obs.erpOptions.processFiscal === 'boolean') {
+              setProcessFiscal(obs.erpOptions.processFiscal);
             }
           }
         } catch (e) {
@@ -819,6 +828,7 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
     allocationMode, setAllocationMode,
     paymentMethods,
     isLoadingPaymentMethods: isLoadingPaymentMethods,
+    processFiscal, setProcessFiscal,
     xmlPreview, setXmlPreview,
     xmlRaw, setXmlRaw,
     xmlAttachmentId, setXmlAttachmentId,

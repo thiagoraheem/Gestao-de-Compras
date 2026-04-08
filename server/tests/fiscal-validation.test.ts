@@ -213,6 +213,80 @@ describe('Fiscal Confirmation & Reopen Logic', () => {
     expect(statusUpdate).toBeTruthy();
   });
 
+  it('should include processFiscal=false in ERP payload when provided', async () => {
+    (configService.getLocadorConfig as jest.Mock).mockResolvedValue({ sendEnabled: true });
+    selectQueue.push(
+      [{ id: 125, status: 'conf_fisica', observations: '{}', receiptType: 'produto', purchaseOrderId: null, documentIssueDate: new Date('2023-01-01') }],
+      [{ id: 1, description: "Item 1", unit: "UN", quantity: "1", unitPrice: "1", locadorProductCode: "P1" }],
+      [],
+      [],
+    );
+    returningQueue.push([{ id: 125, status: "integrado_locador" }]);
+
+    mockPurchaseReceiveService.submit.mockResolvedValue({ success: true });
+
+    const res = await request(app)
+      .post('/api/receipts/125/confirm-fiscal')
+      .send({
+        paymentMethodCode: '001',
+        allocations: [{ costCenterId: 1, chartOfAccountsId: 1 }],
+        invoiceDueDate: '2023-01-01',
+        processFiscal: false,
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockPurchaseReceiveService.submit).toHaveBeenCalled();
+    const payload = mockPurchaseReceiveService.submit.mock.calls[0][0];
+    expect(payload).toEqual(expect.objectContaining({ processFiscal: false }));
+  });
+
+  it('should default processFiscal to true when not provided', async () => {
+    (configService.getLocadorConfig as jest.Mock).mockResolvedValue({ sendEnabled: true });
+    selectQueue.push(
+      [{ id: 126, status: 'conf_fisica', observations: '{}', receiptType: 'produto', purchaseOrderId: null, documentIssueDate: new Date('2023-01-01') }],
+      [{ id: 1, description: "Item 1", unit: "UN", quantity: "1", unitPrice: "1", locadorProductCode: "P1" }],
+      [],
+      [],
+    );
+    returningQueue.push([{ id: 126, status: "integrado_locador" }]);
+
+    mockPurchaseReceiveService.submit.mockResolvedValue({ success: true });
+
+    const res = await request(app)
+      .post('/api/receipts/126/confirm-fiscal')
+      .send({
+        paymentMethodCode: '001',
+        allocations: [{ costCenterId: 1, chartOfAccountsId: 1 }],
+        invoiceDueDate: '2023-01-01',
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockPurchaseReceiveService.submit).toHaveBeenCalled();
+    const payload = mockPurchaseReceiveService.submit.mock.calls[0][0];
+    expect(payload).toEqual(expect.objectContaining({ processFiscal: true }));
+  });
+
+  it('should reject invalid processFiscal values', async () => {
+    (configService.getLocadorConfig as jest.Mock).mockResolvedValue({ sendEnabled: true });
+    selectQueue.push(
+      [{ id: 127, status: 'conf_fisica', observations: '{}', receiptType: 'produto', purchaseOrderId: null }],
+      [{ id: 1, description: "Item 1", unit: "UN", quantity: "1", unitPrice: "1", locadorProductCode: "P1" }],
+    );
+
+    const res = await request(app)
+      .post('/api/receipts/127/confirm-fiscal')
+      .send({
+        paymentMethodCode: '001',
+        allocations: [{ costCenterId: 1, chartOfAccountsId: 1 }],
+        invoiceDueDate: '2023-01-01',
+        processFiscal: "invalid",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/processFiscal/);
+    expect(mockPurchaseReceiveService.submit).not.toHaveBeenCalled();
+  });
+
   it('should reopen fiscal conference successfully', async () => {
     mockStorage.getReceiptById.mockResolvedValue({ id: 123, status: 'conferida', observations: '{}' });
     
