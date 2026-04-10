@@ -3,6 +3,7 @@ import { db } from "../db";
 import { receipts, users, purchaseOrders, purchaseRequests, auditLogs } from "../../shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { notifyRequestConclusion } from "../email-service";
+import { isDecoupledReceiptsLifecycleEnabled } from "../utils/feature-flags";
 
 export async function finishReceiptWithoutErp(userId: number, receiptId: number) {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
@@ -24,6 +25,7 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
   const [updated] = await db.update(receipts)
     .set({ 
       status: "fiscal_conferida", 
+      receiptPhase: "concluido",
       integrationMessage: justification,
       approvedAt: new Date(),
       approvedBy: user.id
@@ -46,7 +48,7 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
       if (order && order.purchaseRequestId) {
           purchaseRequestId = order.purchaseRequestId;
           
-          if (pendingReceipts.length === 0) {
+          if (!isDecoupledReceiptsLifecycleEnabled() && pendingReceipts.length === 0) {
               await db.update(purchaseRequests)
                   .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
                   .where(eq(purchaseRequests.id, purchaseRequestId));
@@ -62,8 +64,8 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
 
   // Audit Log
   try {
-      await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-        VALUES (${purchaseRequestId}, ${'conferencia_fiscal_sem_erp'}, ${justification}, ${user.id}, ${JSON.stringify({ status: rec.status })}::jsonb, ${JSON.stringify({ status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+      await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+        VALUES (${purchaseRequestId}, ${receiptId}, ${'RECEIPT'}, ${'conferencia_fiscal_sem_erp'}, ${justification}, ${user.id}, ${JSON.stringify({ status: rec.status })}::jsonb, ${JSON.stringify({ status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
   } catch {}
 
   return updated;

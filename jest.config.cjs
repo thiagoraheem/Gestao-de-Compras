@@ -21,9 +21,10 @@ module.exports = {
     {
       displayName: "client",
       preset: "ts-jest",
-      testEnvironment: "node",
+      testEnvironment: "<rootDir>/client/src/test/happy-dom-environment.ts",
       testMatch: ["<rootDir>/client/src/**/*.test.(ts|tsx|js|jsx)"],
       moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
+      setupFilesAfterEnv: ["<rootDir>/client/src/test/setup-tests.ts"],
       globals: {
         "ts-jest": {
           tsconfig: {
@@ -34,6 +35,7 @@ module.exports = {
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/client/src/$1",
         "^@shared/(.*)$": "<rootDir>/shared/$1",
+        "^canvas$": "<rootDir>/client/src/test/mocks/canvas.ts",
       },
     },
   ],

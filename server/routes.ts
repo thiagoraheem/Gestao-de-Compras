@@ -52,7 +52,7 @@ import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool, db } from "./db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, desc } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import mime from "mime-types";
@@ -106,8 +106,15 @@ declare module "express-session" {
 // This includes: isAuthenticated, canApproveRequest, isAdmin, isAdminOrBuyer
 
 import { NumberParser } from "./utils/number-parser";
+import { isDecoupledReceiptsLifecycleEnabled } from "./utils/feature-flags";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const isTestEnv = process.env.NODE_ENV === "test";
+
+  if (isTestEnv && !process.env.SESSION_SECRET) {
+    process.env.SESSION_SECRET = "test-session-secret-000000000000000000000000";
+  }
+
   // Validate required environment variables
   if (!process.env.SESSION_SECRET) {
     throw new Error(
@@ -115,41 +122,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
   }
 
-  if (process.env.SESSION_SECRET.length < 32) {
+  if (!isTestEnv && process.env.SESSION_SECRET.length < 32) {
     throw new Error(
       "SESSION_SECRET must be at least 32 characters long for security.",
     );
   }
 
-  // Configure PostgreSQL session store
-  const PgSession = connectPgSimple(session);
-
-  // Configure session with PostgreSQL store
-  app.use(
-    session({
-      store: new PgSession({
-        pool: pool,
-        tableName: "sessions",
-        createTableIfMissing: false,
+  if (!isTestEnv) {
+    const PgSession = connectPgSimple(session);
+    app.use(
+      session({
+        store: new PgSession({
+          pool: pool,
+          tableName: "sessions",
+          createTableIfMissing: false,
+        }),
+        secret: process.env.SESSION_SECRET,
+        resave: false,
+        saveUninitialized: false,
+        name: process.env.NODE_ENV === 'production' ? "sessionId" : "sessionIdDev",
+        cookie: {
+          secure: (() => {
+            const env = (process.env.COOKIE_SECURE || "").toLowerCase();
+            if (env === "true") return true;
+            if (env === "false") return false;
+            return appConfig.baseUrl.startsWith("https://");
+          })(),
+          httpOnly: true,
+          maxAge: 8 * 60 * 60 * 1000,
+          sameSite: ((process.env.COOKIE_SAMESITE || "lax") as "lax" | "strict" | "none"),
+        },
+        rolling: true,
       }),
-      secret: process.env.SESSION_SECRET,
-      resave: false,
-      saveUninitialized: false,
-      name: process.env.NODE_ENV === 'production' ? "sessionId" : "sessionIdDev", // Distinct session names
-      cookie: {
-        secure: (() => {
-          const env = (process.env.COOKIE_SECURE || "").toLowerCase();
-          if (env === "true") return true;
-          if (env === "false") return false;
-          return appConfig.baseUrl.startsWith("https://");
-        })(),
-        httpOnly: true,
-        maxAge: 8 * 60 * 60 * 1000, // 8 hours
-        sameSite: ((process.env.COOKIE_SAMESITE || "lax") as "lax" | "strict" | "none"),
-      },
-      rolling: true, // Reset expiration on activity
-    }),
-  );
+    );
+  } else {
+    app.use(
+      session({
+        secret: process.env.SESSION_SECRET,
+        resave: false,
+        saveUninitialized: false,
+        cookie: { secure: false, httpOnly: true, sameSite: "lax" },
+        rolling: true,
+      }),
+    );
+  }
 
   // Apply cache middleware AFTER session is configured so we can use session ID in cache keys
   app.use('/api', createCacheMiddleware());
@@ -157,11 +173,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multer configuration removed - was specific to purchase request attachments
   // Supplier uploads now use a different approach
 
-  // Initialize default data
-  await storage.initializeDefaultData();
+  if (!isTestEnv) {
+    await storage.initializeDefaultData();
+  }
 
   try {
-    await pool.query(`
+    if (!isTestEnv) await pool.query(`
       CREATE EXTENSION IF NOT EXISTS pgcrypto;
       CREATE OR REPLACE FUNCTION audit_trigger_function()
       RETURNS TRIGGER AS $$
@@ -2954,18 +2971,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (allConferred && isFulfilled) {
              // Find Request
              if (purchaseOrder.purchaseRequestId) {
-                 await db.update(purchaseRequests)
-                   .set({
-                     fiscalReceiptAt: new Date(),
-                     fiscalReceiptById: userId,
-                     currentPhase: "conclusao_compra"
-                   })
-                   .where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
+                 if (!isDecoupledReceiptsLifecycleEnabled()) {
+                   await db.update(purchaseRequests)
+                     .set({
+                       fiscalReceiptAt: new Date(),
+                       fiscalReceiptById: userId,
+                       currentPhase: "conclusao_compra"
+                     })
+                     .where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
 
-                 try {
-                   await notifyRequestConclusion(purchaseOrder.purchaseRequestId);
-                 } catch (emailError) {
-                   console.error("Erro ao enviar notificação de conclusão (confirmação fiscal via ERP):", emailError);
+                   try {
+                     await notifyRequestConclusion(purchaseOrder.purchaseRequestId);
+                   } catch (emailError) {
+                     console.error("Erro ao enviar notificação de conclusão (confirmação fiscal via ERP):", emailError);
+                   }
                  }
              }
           }
@@ -3146,7 +3165,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .values({
               receiptNumber: generateReceiptNumber(),
               purchaseOrderId: purchaseOrder.id,
+              purchaseRequestId: id,
               status: "nf_confirmada",
+              receiptPhase: "conf_fiscal",
               receiptType: receiptType || "produto",
               documentNumber: nfNumber || null,
               documentSeries: nfSeries || null,
@@ -3300,7 +3321,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
              const [createdReceipt] = await db.insert(receipts).values({
                receiptNumber: receiptNum,
                purchaseOrderId: purchaseOrder.id,
+               purchaseRequestId: id,
                status: "conf_fisica", // Ready for Fiscal Conference
+               receiptPhase: "conf_fiscal",
                receiptType: "produto", // Default to produto, changed to avulso later if needed? Or should we allow passing it? 
                                        // Frontend seems to treat this as Avulso or just Manual NF.
                documentNumber: manualNFNumber,
@@ -3359,6 +3382,277 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ message: "Erro ao confirmar recebimento físico" });
       }
     }
+  );
+
+  app.get(
+    "/api/receipts/board",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const phase = typeof req.query.phase === "string" ? req.query.phase : undefined;
+        const purchaseRequestId = typeof req.query.purchaseRequestId === "string" ? Number(req.query.purchaseRequestId) : undefined;
+        const purchaseOrderId = typeof req.query.purchaseOrderId === "string" ? Number(req.query.purchaseOrderId) : undefined;
+
+        const whereParts: any[] = [];
+        if (phase) whereParts.push(eq(receipts.receiptPhase as any, phase as any));
+        if (Number.isFinite(purchaseRequestId as any)) whereParts.push(eq(receipts.purchaseRequestId, purchaseRequestId as number));
+        if (Number.isFinite(purchaseOrderId as any)) whereParts.push(eq(receipts.purchaseOrderId, purchaseOrderId as number));
+
+        const baseQuery = db
+          .select({
+            id: receipts.id,
+            receiptNumber: receipts.receiptNumber,
+            status: receipts.status,
+            receiptPhase: receipts.receiptPhase as any,
+            receiptType: receipts.receiptType,
+            documentNumber: receipts.documentNumber,
+            documentSeries: receipts.documentSeries,
+            totalAmount: receipts.totalAmount,
+            createdAt: receipts.createdAt,
+            purchaseOrderId: receipts.purchaseOrderId,
+            purchaseRequestId: receipts.purchaseRequestId,
+            supplier: {
+              id: suppliers.id,
+              name: suppliers.name,
+              cnpj: suppliers.cnpj,
+            },
+            request: {
+              id: purchaseRequests.id,
+              requestNumber: purchaseRequests.requestNumber,
+              currentPhase: purchaseRequests.currentPhase,
+              procurementStatus: purchaseRequests.procurementStatus as any,
+            },
+          })
+          .from(receipts)
+          .leftJoin(purchaseOrders, eq(receipts.purchaseOrderId, purchaseOrders.id))
+          .leftJoin(purchaseRequests, eq(purchaseOrders.purchaseRequestId, purchaseRequests.id))
+          .leftJoin(suppliers, eq(receipts.supplierId, suppliers.id));
+
+        const rows = whereParts.length
+          ? await baseQuery.where(and(...whereParts)).orderBy(desc(receipts.createdAt))
+          : await baseQuery.orderBy(desc(receipts.createdAt));
+
+        res.json(rows);
+      } catch (error: any) {
+        console.error("Error fetching receipts board:", error);
+        res.status(500).json({ message: "Erro ao buscar board de recebimentos" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/purchase-requests/:id/receipts",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        if (!isDecoupledReceiptsLifecycleEnabled()) {
+          return res.status(400).json({ message: "Funcionalidade indisponível (feature flag desabilitada)" });
+        }
+
+        const id = Number(req.params.id);
+        const userId = req.session.userId!;
+        const request = await storage.getPurchaseRequestById(id);
+        if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
+
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (!purchaseOrder) return res.status(400).json({ message: "Pedido de compra não encontrado para a solicitação" });
+
+        const category = String((request as any).category || "").toLowerCase();
+        const receiptType = category.includes("serv") ? "servico" : "produto";
+
+        const now = new Date();
+        const [created] = await db
+          .insert(receipts)
+          .values({
+            receiptNumber: generateReceiptNumber(),
+            purchaseOrderId: purchaseOrder.id,
+            purchaseRequestId: id,
+            status: "rascunho",
+            receiptPhase: "recebimento_fisico" as any,
+            receiptType: receiptType as any,
+            supplierId: purchaseOrder.supplierId,
+            createdAt: now,
+            receivedBy: userId,
+            receivedAt: now,
+            observations: req.body?.observations ? String(req.body.observations) : null,
+          } as any)
+          .returning();
+
+        try {
+          const { sql } = await import("drizzle-orm");
+          await db.execute(
+            sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+              VALUES (${id}, ${created.id}, ${"RECEIPT"}, ${"receipt_created"}, ${"Receipt criado a partir da solicitação"}, ${userId}, ${null}, ${JSON.stringify({ receiptId: created.id })}::jsonb, ${sql`ARRAY['receipts']`} );`,
+          );
+        } catch {}
+
+        res.json(created);
+      } catch (error: any) {
+        console.error("Error creating receipt card:", error);
+        res.status(500).json({ message: "Erro ao criar recebimento" });
+      }
+    },
+  );
+
+  app.patch(
+    "/api/receipts/:id/update-phase",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        if (!isDecoupledReceiptsLifecycleEnabled()) {
+          return res.status(400).json({ message: "Funcionalidade indisponível (feature flag desabilitada)" });
+        }
+
+        const id = Number(req.params.id);
+        const userId = req.session.userId!;
+        const newPhase = String(req.body?.newPhase || "");
+        const validPhases = ["recebimento_fisico", "conf_fiscal", "concluido", "cancelado"];
+        if (!validPhases.includes(newPhase)) {
+          return res.status(400).json({ message: "Fase inválida" });
+        }
+
+        const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
+        if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
+
+        const statusUpdate: any = {};
+        if (newPhase === "conf_fiscal" && rec.status !== "conf_fisica") statusUpdate.status = "conf_fisica";
+
+        const [updated] = await db
+          .update(receipts)
+          .set({ receiptPhase: newPhase as any, ...statusUpdate })
+          .where(eq(receipts.id, id))
+          .returning();
+
+        const prId = (updated.purchaseRequestId as any) || 0;
+        try {
+          const { sql } = await import("drizzle-orm");
+          await db.execute(
+            sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+              VALUES (${prId}, ${id}, ${"RECEIPT"}, ${"receipt_phase_changed"}, ${"Fase do recebimento alterada"}, ${userId}, ${JSON.stringify({ receiptPhase: rec.receiptPhase, status: rec.status })}::jsonb, ${JSON.stringify({ receiptPhase: updated.receiptPhase, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`,
+          );
+        } catch {}
+
+        res.json(updated);
+      } catch (error: any) {
+        console.error("Error updating receipt phase:", error);
+        res.status(500).json({ message: "Erro ao atualizar fase do recebimento" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/receipts/:id/confirm-physical",
+    isAuthenticated,
+    isReceiver,
+    async (req, res) => {
+      try {
+        if (!isDecoupledReceiptsLifecycleEnabled()) {
+          return res.status(400).json({ message: "Funcionalidade indisponível (feature flag desabilitada)" });
+        }
+
+        const receiptId = Number(req.params.id);
+        const userId = req.session.userId!;
+        const { receivedQuantities, observations } = req.body || {};
+
+        if (!receivedQuantities || typeof receivedQuantities !== "object") {
+          return res.status(400).json({ message: "receivedQuantities é obrigatório" });
+        }
+
+        for (const [key, value] of Object.entries(receivedQuantities)) {
+          const qty = Number(value);
+          if (!Number.isFinite(qty) || qty < 0) {
+            return res.status(400).json({ message: `Quantidade inválida para o item ${key}` });
+          }
+        }
+
+        const [rec] = await db.select().from(receipts).where(eq(receipts.id, receiptId));
+        if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
+        if (!rec.purchaseOrderId) return res.status(400).json({ message: "Recebimento não vinculado a pedido" });
+
+        const poItems = await storage.getPurchaseOrderItems(rec.purchaseOrderId);
+        let allFulfilled = true;
+        let anyReceived = false;
+        const itemsToInsert: any[] = [];
+
+        for (const it of poItems) {
+          const qtyReceivedNow = Number((receivedQuantities as any)[it.id] || 0);
+          const currentQty = Number(it.quantityReceived || 0);
+          const orderedQty = Number(it.quantity || 0);
+
+          if (qtyReceivedNow > 0) {
+            if (currentQty >= orderedQty) {
+              return res.status(400).json({ message: `O item "${it.description}" já foi totalmente recebido.` });
+            }
+            if (currentQty + qtyReceivedNow > orderedQty) {
+              return res.status(400).json({ message: `A quantidade informada para o item "${it.description}" excede o saldo restante.` });
+            }
+
+            await db.update(purchaseOrderItems)
+              .set({ quantityReceived: String(currentQty + qtyReceivedNow) })
+              .where(eq(purchaseOrderItems.id, it.id));
+
+            itemsToInsert.push({
+              receiptId: rec.id,
+              purchaseOrderItemId: it.id,
+              lineNumber: null,
+              description: it.description,
+              unit: it.unit,
+              quantity: String(qtyReceivedNow),
+              unitPrice: String(it.unitPrice),
+              totalPrice: String(qtyReceivedNow * Number(it.unitPrice)),
+              locadorProductCode: it.itemCode,
+              quantityReceived: String(qtyReceivedNow),
+              condition: "conf_fisica",
+              createdAt: new Date(),
+            });
+          }
+
+          const totalReceived = currentQty + qtyReceivedNow;
+          if (orderedQty - totalReceived > 0.001) allFulfilled = false;
+          if (totalReceived > 0) anyReceived = true;
+        }
+
+        const fulfillmentStatus = allFulfilled ? "fulfilled" : (anyReceived ? "partial" : "pending");
+        await db.update(purchaseOrders)
+          .set({ fulfillmentStatus })
+          .where(eq(purchaseOrders.id, rec.purchaseOrderId));
+
+        if (itemsToInsert.length > 0) {
+          for (const item of itemsToInsert) {
+            await db.insert(receiptItems).values(item as any);
+          }
+        }
+
+        const [updatedReceipt] = await db.update(receipts)
+          .set({
+            status: "conf_fisica",
+            receiptPhase: "conf_fiscal" as any,
+            receivedBy: userId,
+            receivedAt: new Date(),
+            observations: observations ? String(observations) : rec.observations,
+          } as any)
+          .where(eq(receipts.id, rec.id))
+          .returning();
+
+        const prId = (updatedReceipt.purchaseRequestId as any) || 0;
+        try {
+          const { sql } = await import("drizzle-orm");
+          await db.execute(
+            sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+              VALUES (${prId}, ${rec.id}, ${"RECEIPT"}, ${"receipt_physical_confirmed"}, ${"Recebimento físico realizado"}, ${userId}, ${null}, ${JSON.stringify({ fulfillmentStatus })}::jsonb, ${sql`ARRAY['purchase_orders','purchase_order_items','receipts','receipt_items']`} );`,
+          );
+        } catch {}
+
+        res.json({
+          success: true,
+          receipt: updatedReceipt,
+          fulfillmentStatus,
+        });
+      } catch (error: any) {
+        console.error("Error confirming physical receipt (by receipt):", error);
+        res.status(500).json({ message: "Erro ao confirmar recebimento físico" });
+      }
+    },
   );
 
   // New Endpoint: Confirm Fiscal Receipt
@@ -5042,6 +5336,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentPhase: newPhase,
         };
 
+        if (isDecoupledReceiptsLifecycleEnabled() && currentPhase === "pedido_compra" && newPhase === "recebimento") {
+          updates.procurementStatus = "concluida";
+          updates.procurementConcludedAt = new Date();
+          updates.procurementConcludedById = userId;
+
+          const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+          if (purchaseOrder) {
+            const existing = await db.select({ id: receipts.id }).from(receipts).where(and(
+              eq(receipts.purchaseOrderId, purchaseOrder.id),
+              eq(receipts.purchaseRequestId, id),
+            )).limit(1);
+
+            if (existing.length === 0) {
+              const category = String((request as any).category || "").toLowerCase();
+              const receiptType = category.includes("serv") ? "servico" : "produto";
+              const now = new Date();
+              await db.insert(receipts).values({
+                receiptNumber: generateReceiptNumber(),
+                purchaseOrderId: purchaseOrder.id,
+                purchaseRequestId: id,
+                status: "rascunho",
+                receiptPhase: "recebimento_fisico",
+                receiptType,
+                supplierId: purchaseOrder.supplierId,
+                createdAt: now,
+                receivedBy: userId,
+                receivedAt: now,
+              } as any);
+            }
+          }
+        }
+
         // Automatic A1 approval when moving from "aprovacao_a1" to "cotacao"
         if (
           currentPhase === "aprovacao_a1" &&
@@ -5189,10 +5515,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
         }
 
-        // Update phase to "recebimento"
-        const updatedRequest = await storage.updatePurchaseRequest(id, {
-          currentPhase: "recebimento",
-        });
+        const requestUpdates: any = { currentPhase: "recebimento" };
+        if (isDecoupledReceiptsLifecycleEnabled()) {
+          requestUpdates.procurementStatus = "concluida";
+          requestUpdates.procurementConcludedAt = new Date();
+          requestUpdates.procurementConcludedById = userId;
+        }
+
+        const updatedRequest = await storage.updatePurchaseRequest(id, requestUpdates);
+
+        if (isDecoupledReceiptsLifecycleEnabled()) {
+          const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+          if (purchaseOrder) {
+            const existing = await db.select({ id: receipts.id }).from(receipts).where(and(
+              eq(receipts.purchaseOrderId, purchaseOrder.id),
+              eq(receipts.purchaseRequestId, id),
+            )).limit(1);
+
+            if (existing.length === 0) {
+              const category = String((request as any).category || "").toLowerCase();
+              const receiptType = category.includes("serv") ? "servico" : "produto";
+              const now = new Date();
+              await db.insert(receipts).values({
+                receiptNumber: generateReceiptNumber(),
+                purchaseOrderId: purchaseOrder.id,
+                purchaseRequestId: id,
+                status: "rascunho",
+                receiptPhase: "recebimento_fisico",
+                receiptType,
+                supplierId: purchaseOrder.supplierId,
+                createdAt: now,
+                receivedBy: Number(userId),
+                receivedAt: now,
+              } as any);
+            }
+          }
+        }
 
         // Create movement history entry
         await storage.createApprovalHistory({

@@ -203,6 +203,9 @@ export const purchaseRequests = pgTable("purchase_requests", {
 
   // Phase-specific fields
   currentPhase: text("current_phase").notNull().default("solicitacao"),
+  procurementStatus: text("procurement_status").notNull().default("aberta"),
+  procurementConcludedAt: timestamp("procurement_concluded_at"),
+  procurementConcludedById: integer("procurement_concluded_by_id").references(() => users.id),
 
   // Aprovação A1
   approverA1Id: integer("approver_a1_id").references(() => users.id),
@@ -524,13 +527,21 @@ export const receiptStatusEnum = pgEnum("receipt_status", [
   "complete",
   "pending_approval",
 ]);
+export const receiptPhaseEnum = pgEnum("receipt_phase", [
+  "recebimento_fisico",
+  "conf_fiscal",
+  "concluido",
+  "cancelado",
+]);
 
 // Receipt/Delivery tables
 export const receipts = pgTable("receipts", {
   id: serial("id").primaryKey(),
   receiptNumber: text("receipt_number").notNull().unique(),
   purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id),
+  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
   status: text("status").notNull(),
+  receiptPhase: receiptPhaseEnum("receipt_phase").notNull().default("recebimento_fisico"),
   receiptType: receiptTypeEnum("receipt_type").notNull().default("produto"),
   supplierId: integer("supplier_id").references(() => suppliers.id),
   locadorSupplierId: varchar("locador_supplier_id", { length: 50 }),
@@ -558,6 +569,8 @@ export const receipts = pgTable("receipts", {
   index("idx_receipts_document_key").on(table.documentKey),
   index("idx_receipts_document_series").on(table.documentSeries),
   index("idx_receipts_supplier_id").on(table.supplierId),
+  index("idx_receipts_purchase_request_id").on(table.purchaseRequestId),
+  index("idx_receipts_receipt_phase").on(table.receiptPhase),
 ]);
 
 export const receiptItems = pgTable("receipt_items", {
@@ -630,6 +643,8 @@ export const chartOfAccounts = pgTable("chart_of_accounts", {
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id).notNull(),
+  receiptId: integer("receipt_id").references(() => receipts.id),
+  actionScope: varchar("action_scope", { length: 20 }).notNull().default("REQUEST"),
   performedBy: integer("performed_by").references(() => users.id),
   actionType: varchar("action_type", { length: 100 }).notNull(),
   actionDescription: text("action_description"),
@@ -640,6 +655,8 @@ export const auditLogs = pgTable("audit_logs", {
   metadata: jsonb("metadata"),
 }, (table) => [
   index("idx_audit_logs_purchase_request_id").on(table.purchaseRequestId),
+  index("idx_audit_logs_receipt_id").on(table.receiptId),
+  index("idx_audit_logs_action_scope").on(table.actionScope),
   index("idx_audit_logs_action_type").on(table.actionType),
   index("idx_audit_logs_performed_at").on(table.performedAt),
 ]);

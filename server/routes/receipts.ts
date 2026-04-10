@@ -30,6 +30,7 @@ import { eq, sql, and, like, or, desc, asc } from "drizzle-orm";
 // @ts-ignore
 import fetch from "node-fetch";
 import { fileStorageService } from "../services/file-storage-service";
+import { isDecoupledReceiptsLifecycleEnabled } from "../utils/feature-flags";
 
 function generateReceiptNumber() {
   const now = new Date();
@@ -682,6 +683,7 @@ export function registerReceiptsRoutes(app: Express) {
       const [updated] = await db.update(receipts)
         .set({ 
           status: "fiscal_conferida", 
+          receiptPhase: "concluido",
           integrationMessage: message,
           approvedAt: new Date(),
           approvedBy: req.session?.userId || null
@@ -702,22 +704,25 @@ export function registerReceiptsRoutes(app: Express) {
         if (pendingReceipts.length === 0) {
             const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
             if (order && order.purchaseRequestId) {
-                await db.update(purchaseRequests)
-                    .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
-                    .where(eq(purchaseRequests.id, order.purchaseRequestId));
+                if (!isDecoupledReceiptsLifecycleEnabled()) {
+                  await db.update(purchaseRequests)
+                      .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
+                      .where(eq(purchaseRequests.id, order.purchaseRequestId));
 
-                try {
-                  await notifyRequestConclusion(order.purchaseRequestId);
-                } catch (emailError) {
-                  console.error("Erro ao enviar notificação de conclusão (conferência fiscal local sem ERP):", emailError);
+                  try {
+                    await notifyRequestConclusion(order.purchaseRequestId);
+                  } catch (emailError) {
+                    console.error("Erro ao enviar notificação de conclusão (conferência fiscal local sem ERP):", emailError);
+                  }
                 }
             }
         }
       }
 
       try {
-        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-          VALUES (${0}, ${'conferencia_fiscal_local'}, ${'Conferência fiscal finalizada (ERP desabilitado)'}, ${req.session?.userId || null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+        const prId = (rec.purchaseRequestId as any) || 0;
+        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+          VALUES (${prId}, ${updated.id}, ${'RECEIPT'}, ${'conferencia_fiscal_local'}, ${'Conferência fiscal finalizada (ERP desabilitado)'}, ${req.session?.userId || null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
       } catch {}
 
       return res.json({ 
@@ -853,6 +858,7 @@ export function registerReceiptsRoutes(app: Express) {
         const [updated] = await db.update(receipts)
             .set({ 
                 status: "integrado_locador", // or fiscal_conferida + integrated?
+                receiptPhase: "concluido",
                 integrationMessage: "Integrado com sucesso",
                 approvedAt: new Date(),
                 approvedBy: req.session?.userId || null
@@ -873,22 +879,25 @@ export function registerReceiptsRoutes(app: Express) {
             if (pendingReceipts.length === 0) {
                 const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
                 if (order && order.purchaseRequestId) {
-                    await db.update(purchaseRequests)
-                        .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
-                        .where(eq(purchaseRequests.id, order.purchaseRequestId));
+                    if (!isDecoupledReceiptsLifecycleEnabled()) {
+                      await db.update(purchaseRequests)
+                          .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
+                          .where(eq(purchaseRequests.id, order.purchaseRequestId));
 
-                    try {
-                      await notifyRequestConclusion(order.purchaseRequestId);
-                    } catch (emailError) {
-                      console.error("Erro ao enviar notificação de conclusão (conferência fiscal integrada ao ERP):", emailError);
+                      try {
+                        await notifyRequestConclusion(order.purchaseRequestId);
+                      } catch (emailError) {
+                        console.error("Erro ao enviar notificação de conclusão (conferência fiscal integrada ao ERP):", emailError);
+                      }
                     }
                 }
             }
         }
 
         try {
-            await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-            VALUES (${purchaseRequest?.id || 0}, ${'conferencia_fiscal_erp'}, ${'Conferência fiscal finalizada (Integrado)'}, ${req.session?.userId || null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+            const prId = (purchaseRequest?.id as any) || (rec.purchaseRequestId as any) || 0;
+            await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+            VALUES (${prId}, ${updated.id}, ${'RECEIPT'}, ${'conferencia_fiscal_erp'}, ${'Conferência fiscal finalizada (Integrado)'}, ${req.session?.userId || null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
         } catch {}
 
         return res.json({ 
@@ -984,6 +993,7 @@ export function registerReceiptsRoutes(app: Express) {
     const [updated] = await db.update(receipts)
       .set({ 
         status: "conf_fisica",
+        receiptPhase: "conf_fiscal",
         approvedAt: null,
         approvedBy: null,
         integrationMessage: null
@@ -998,15 +1008,17 @@ export function registerReceiptsRoutes(app: Express) {
             const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
             if (order && order.purchaseRequestId) {
                 purchaseRequestId = order.purchaseRequestId;
-                // Also revert request phase if it was completed
-                await db.update(purchaseRequests)
-                   .set({ currentPhase: "recebimento" }) // Back to receiving
-                   .where(eq(purchaseRequests.id, purchaseRequestId));
+                if (!isDecoupledReceiptsLifecycleEnabled()) {
+                  await db.update(purchaseRequests)
+                     .set({ currentPhase: "recebimento" })
+                     .where(eq(purchaseRequests.id, purchaseRequestId));
+                }
             }
         }
 
-        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-        VALUES (${purchaseRequestId}, ${'desfazer_conferencia_fiscal'}, ${'Conferência fiscal desfeita por Admin'}, ${req.session.userId}, ${JSON.stringify({ receiptId: rec.id, status: rec.status })}::jsonb, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts', 'purchase_requests']`} );`);
+        const tables = isDecoupledReceiptsLifecycleEnabled() ? sql`ARRAY['receipts']` : sql`ARRAY['receipts', 'purchase_requests']`;
+        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+        VALUES (${purchaseRequestId}, ${rec.id}, ${'RECEIPT'}, ${'desfazer_conferencia_fiscal'}, ${'Conferência fiscal desfeita por Admin'}, ${req.session.userId}, ${JSON.stringify({ receiptId: rec.id, status: rec.status })}::jsonb, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${tables} );`);
     } catch {}
 
     return res.json({ success: true, receipt: updated });
