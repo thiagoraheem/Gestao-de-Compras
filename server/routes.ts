@@ -5214,7 +5214,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "cotacao",
           "aprovacao_a2",
           "pedido_compra",
+          "pedido_concluido",
           "recebimento",
+          "conf_fiscal",
           "conclusao_compra",
           "arquivado",
         ] as const;
@@ -5275,7 +5277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (currentPhase === "recebimento") {
            if (newPhase === "conf_fiscal") {
               // Admin, Manager, Buyer or Receiver can move to Fiscal Conference
-              const canMove = user.isAdmin || user.isManager || user.isBuyer || user.isReceiver;
+              const canMove = user.isAdmin || user.isManager || user.isReceiver;
               if (!canMove) {
                  return res.status(403).json({ message: "Sem permissão para mover para Conferência Fiscal" });
               }
@@ -5289,6 +5291,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 message: "Você não possui permissão para mover cards da fase Recebimento",
               });
            }
+        }
+
+        if (currentPhase === "pedido_compra" && newPhase === "pedido_concluido") {
+          if (!user.isBuyer && !user.isAdmin && !user.isManager) {
+            return res.status(403).json({
+              message: "Apenas Administradores, Gerentes e Compradores podem mover para 'Pedido concluído'",
+            });
+          }
+
+          const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+          if (!purchaseOrder) {
+            return res.status(400).json({ message: "Pedido de compra não encontrado para a solicitação" });
+          }
+        }
+
+        if (newPhase === "pedido_concluido" && currentPhase !== "pedido_compra") {
+          return res.status(400).json({
+            message: "A fase 'Pedido concluído' só pode ser alcançada a partir de 'Pedido de Compra'",
+          });
+        }
+
+        if (currentPhase === "pedido_concluido" && newPhase === "recebimento") {
+          if (!user.isReceiver && !user.isAdmin && !user.isManager) {
+            return res.status(403).json({
+              message: "Apenas usuários autorizados podem iniciar o recebimento físico",
+            });
+          }
+
+          if (request.procurementStatus !== "concluida" || request.sentToPhysicalReceipt !== true) {
+            return res.status(400).json({
+              message: "Solicitação deve estar concluída e enviada para recebimento físico para iniciar o recebimento",
+            });
+          }
+        }
+
+        if (newPhase === "conclusao_compra") {
+          if (currentPhase !== "conf_fiscal" && !user.isAdmin) {
+            return res.status(400).json({
+              message: "A fase 'Conclusão' só pode ser alcançada após finalização da Conferência Fiscal",
+            });
+          }
+
+          const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+          if (purchaseOrder) {
+            const receiptsList = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+            const hasPending = receiptsList.some((r: any) => ["conf_fisica", "erro_integracao"].includes(r.status));
+            if (hasPending) {
+              return res.status(400).json({
+                message: "Existem recebimentos pendentes de conferência fiscal para este pedido",
+              });
+            }
+          }
         }
 
         // Validate progression from "Cotação" to "Aprovação A2"
@@ -5336,10 +5390,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentPhase: newPhase,
         };
 
-        if (isDecoupledReceiptsLifecycleEnabled() && currentPhase === "pedido_compra" && newPhase === "recebimento") {
+        if (currentPhase === "pedido_compra" && newPhase === "pedido_concluido") {
           updates.procurementStatus = "concluida";
           updates.procurementConcludedAt = new Date();
           updates.procurementConcludedById = userId;
+          updates.sentToPhysicalReceipt = true;
+        }
+
+        if (currentPhase === "pedido_concluido" && newPhase === "recebimento") {
+          updates.receivedDate = new Date();
+          updates.receivedById = userId;
 
           const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
           if (purchaseOrder) {
@@ -5482,7 +5542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  // New route for advancing from "Pedido de Compra" to "Recebimento"
+  // New route for advancing from "Pedido de Compra" to "Pedido concluído"
   app.post(
     "/api/purchase-requests/:id/advance-to-receipt",
     isAuthenticated,
@@ -5495,6 +5555,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const user = await storage.getUser(userId!);
         if (!user) {
           return res.status(401).json({ message: "User not found" });
+        }
+
+        if (!user.isBuyer && !user.isAdmin && !user.isManager) {
+          return res.status(403).json({ message: "Sem permissão para concluir o pedido" });
         }
 
         // Get current request data
@@ -5511,46 +5575,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .status(400)
             .json({
               message:
-                "Solicitação deve estar na fase 'Pedido de Compra' para avançar para recebimento",
+                "Solicitação deve estar na fase 'Pedido de Compra' para avançar para 'Pedido concluído'",
             });
         }
 
-        const requestUpdates: any = { currentPhase: "recebimento" };
-        if (isDecoupledReceiptsLifecycleEnabled()) {
-          requestUpdates.procurementStatus = "concluida";
-          requestUpdates.procurementConcludedAt = new Date();
-          requestUpdates.procurementConcludedById = userId;
-        }
+        const requestUpdates: any = {
+          currentPhase: "pedido_concluido",
+          procurementStatus: "concluida",
+          procurementConcludedAt: new Date(),
+          procurementConcludedById: userId,
+          sentToPhysicalReceipt: true,
+        };
 
         const updatedRequest = await storage.updatePurchaseRequest(id, requestUpdates);
 
-        if (isDecoupledReceiptsLifecycleEnabled()) {
-          const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
-          if (purchaseOrder) {
-            const existing = await db.select({ id: receipts.id }).from(receipts).where(and(
-              eq(receipts.purchaseOrderId, purchaseOrder.id),
-              eq(receipts.purchaseRequestId, id),
-            )).limit(1);
-
-            if (existing.length === 0) {
-              const category = String((request as any).category || "").toLowerCase();
-              const receiptType = category.includes("serv") ? "servico" : "produto";
-              const now = new Date();
-              await db.insert(receipts).values({
-                receiptNumber: generateReceiptNumber(),
-                purchaseOrderId: purchaseOrder.id,
-                purchaseRequestId: id,
-                status: "rascunho",
-                receiptPhase: "recebimento_fisico",
-                receiptType,
-                supplierId: purchaseOrder.supplierId,
-                createdAt: now,
-                receivedBy: Number(userId),
-                receivedAt: now,
-              } as any);
-            }
-          }
-        }
+        // receipt inicial será criado ao iniciar o recebimento físico (fase "recebimento")
 
         // Create movement history entry
         await storage.createApprovalHistory({
@@ -5563,7 +5602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
           event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
-          payload: { id, currentPhase: "recebimento", updatedAt: updatedRequest.updatedAt },
+          payload: { id, currentPhase: "pedido_concluido", updatedAt: updatedRequest.updatedAt },
         });
 
         res.json(updatedRequest);

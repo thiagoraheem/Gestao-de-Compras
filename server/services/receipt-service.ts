@@ -3,7 +3,6 @@ import { db } from "../db";
 import { receipts, users, purchaseOrders, purchaseRequests, auditLogs } from "../../shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { notifyRequestConclusion } from "../email-service";
-import { isDecoupledReceiptsLifecycleEnabled } from "../utils/feature-flags";
 
 export async function finishReceiptWithoutErp(userId: number, receiptId: number) {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
@@ -48,9 +47,11 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
       if (order && order.purchaseRequestId) {
           purchaseRequestId = order.purchaseRequestId;
           
-          if (!isDecoupledReceiptsLifecycleEnabled() && pendingReceipts.length === 0) {
+          if (pendingReceipts.length === 0) {
+            const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseRequestId));
+            if (pr?.sentToPhysicalReceipt) {
               await db.update(purchaseRequests)
-                  .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
+                  .set({ currentPhase: "conclusao_compra", fiscalReceiptAt: new Date(), fiscalReceiptById: user.id, updatedAt: new Date() })
                   .where(eq(purchaseRequests.id, purchaseRequestId));
 
               try {
@@ -58,7 +59,8 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
               } catch (emailError) {
                 console.error("Erro ao enviar notificação de conclusão (manual sem ERP):", emailError);
               }
-          }
+            }
+          }          
       }
   }
 

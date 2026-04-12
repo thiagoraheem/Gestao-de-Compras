@@ -704,9 +704,10 @@ export function registerReceiptsRoutes(app: Express) {
         if (pendingReceipts.length === 0) {
             const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
             if (order && order.purchaseRequestId) {
-                if (!isDecoupledReceiptsLifecycleEnabled()) {
+                const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, order.purchaseRequestId));
+                if (pr?.sentToPhysicalReceipt) {
                   await db.update(purchaseRequests)
-                      .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
+                      .set({ currentPhase: "conclusao_compra", fiscalReceiptAt: new Date(), fiscalReceiptById: req.session?.userId || null, updatedAt: new Date() })
                       .where(eq(purchaseRequests.id, order.purchaseRequestId));
 
                   try {
@@ -879,9 +880,10 @@ export function registerReceiptsRoutes(app: Express) {
             if (pendingReceipts.length === 0) {
                 const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
                 if (order && order.purchaseRequestId) {
-                    if (!isDecoupledReceiptsLifecycleEnabled()) {
+                    const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, order.purchaseRequestId));
+                    if (pr?.sentToPhysicalReceipt) {
                       await db.update(purchaseRequests)
-                          .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
+                          .set({ currentPhase: "conclusao_compra", fiscalReceiptAt: new Date(), fiscalReceiptById: req.session?.userId || null, updatedAt: new Date() })
                           .where(eq(purchaseRequests.id, order.purchaseRequestId));
 
                       try {

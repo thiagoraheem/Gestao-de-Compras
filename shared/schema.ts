@@ -206,6 +206,7 @@ export const purchaseRequests = pgTable("purchase_requests", {
   procurementStatus: text("procurement_status").notNull().default("aberta"),
   procurementConcludedAt: timestamp("procurement_concluded_at"),
   procurementConcludedById: integer("procurement_concluded_by_id").references(() => users.id),
+  sentToPhysicalReceipt: boolean("sent_to_physical_receipt").notNull().default(false),
 
   // Aprovação A1
   approverA1Id: integer("approver_a1_id").references(() => users.id),
@@ -1082,6 +1083,7 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
     'cotacao',
     'aprovacao_a2',
     'pedido_compra',
+    'pedido_concluido',
     'recebimento',
     'conf_fiscal',
     'conclusao_compra',

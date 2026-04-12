@@ -146,7 +146,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
     },
   });
 
-  // Mutation para avançar para recebimento
+  // Mutation para avançar para "Pedido concluído"
   const advanceToReceiptMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest(`/api/purchase-requests/${request.id}/advance-to-receipt`, {
@@ -158,21 +158,21 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       toast({
         title: "Sucesso",
-        description: "Solicitação movida para recebimento com sucesso!",
+        description: "Solicitação movida para 'Pedido concluído' com sucesso!",
       });
       onClose(); // Close the modal after successful advance
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error?.message || "Falha ao avançar para recebimento",
+        description: error?.message || "Falha ao mover para 'Pedido concluído'",
         variant: "destructive",
       });
     },
   });
 
   const handleAdvanceToReceipt = () => {
-    if (window.confirm("Confirma o avanço desta solicitação para a fase de Recebimento?")) {
+    if (window.confirm("Confirma a movimentação desta solicitação para a fase 'Pedido concluído'?")) {
       advanceToReceiptMutation.mutate();
     }
   };
@@ -838,7 +838,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
             className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
           >
             <Truck className="w-4 h-4 mr-2" />
-            {advanceToReceiptMutation.isPending ? "Avançando..." : "Avançar para Recebimento"}
+            {advanceToReceiptMutation.isPending ? "Movendo..." : "Mover para Pedido concluído"}
           </Button>
           <Button
             type="button"

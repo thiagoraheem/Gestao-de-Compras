@@ -36,10 +36,17 @@ jest.mock("@/components/ui/dialog", () => {
   };
 });
 
-const queryClient = new QueryClient({
+let queryClient: QueryClient;
+
+queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
+      queryFn: async ({ queryKey }: any): Promise<any> => {
+        const cached = queryClient.getQueryData(queryKey);
+        if (cached !== undefined) return cached;
+        return null;
+      },
     },
   },
 });

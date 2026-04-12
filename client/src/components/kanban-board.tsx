@@ -93,6 +93,7 @@ export default function KanbanBoard({
     [PURCHASE_PHASES.COTACAO]: FileText,
     [PURCHASE_PHASES.APROVACAO_A2]: CheckCircle2,
     [PURCHASE_PHASES.PEDIDO_COMPRA]: ShoppingCart,
+    [PURCHASE_PHASES.PEDIDO_CONCLUIDO]: CheckCircle,
     [PURCHASE_PHASES.RECEBIMENTO]: Truck,
     [PURCHASE_PHASES.CONF_FISCAL]: ClipboardCheck,
     [PURCHASE_PHASES.CONCLUSAO_COMPRA]: Package,
@@ -425,6 +426,14 @@ export default function KanbanBoard({
       return user?.isBuyer || user?.isAdmin;
     }
 
+    if (phase === "pedido_compra" && targetPhase === "pedido_concluido") {
+      return user?.isBuyer || user?.isAdmin || user?.isManager;
+    }
+
+    if (phase === "pedido_concluido" && targetPhase === "recebimento") {
+      return user?.isReceiver || user?.isAdmin || user?.isManager;
+    }
+
     // Permission check for moving OUT of Recebimento phase
     if (
       phase === "recebimento" &&
@@ -432,7 +441,7 @@ export default function KanbanBoard({
     ) {
        // Target Conf. Fiscal: Allow Admin, Manager, Buyer or Receiver
        if (targetPhase === "conf_fiscal") {
-          return user?.isAdmin || user?.isManager || user?.isBuyer || user?.isReceiver;
+          return user?.isAdmin || user?.isManager || user?.isReceiver;
        }
        // Other targets: existing logic (Receiver only?)
        return user?.isReceiver;
@@ -545,6 +554,17 @@ export default function KanbanBoard({
         toast({
           title: "Acesso Negado",
           description: `Você não possui permissão para mover cards da fase ${PHASE_LABELS[request.currentPhase as keyof typeof PHASE_LABELS]} para ${PHASE_LABELS[newPhase as keyof typeof PHASE_LABELS]}`,
+          variant: "destructive",
+        });
+        setActiveId(null);
+        setActiveRequest(null);
+        return;
+      }
+
+      if (request.currentPhase === PURCHASE_PHASES.PEDIDO_COMPRA && newPhase === PURCHASE_PHASES.RECEBIMENTO) {
+        toast({
+          title: "Movimentação inválida",
+          description: "Mova primeiro para 'Pedido concluído' antes de iniciar o Recebimento Físico.",
           variant: "destructive",
         });
         setActiveId(null);
@@ -903,6 +923,7 @@ export default function KanbanBoard({
         <Dialog 
           open={isModalOpen && (
             modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA || 
+            modalPhase === PURCHASE_PHASES.PEDIDO_CONCLUIDO ||
             modalPhase === PURCHASE_PHASES.RECEBIMENTO ||
             modalPhase === PURCHASE_PHASES.CONF_FISCAL ||
             modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA ||
@@ -922,6 +943,7 @@ export default function KanbanBoard({
               <div className="flex justify-between items-center">
                 <DialogTitle className="text-base font-semibold">
                   {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && `Pedido de Compra - Solicitação #${activeRequest?.requestNumber}`}
+                  {modalPhase === PURCHASE_PHASES.PEDIDO_CONCLUIDO && `Pedido concluído - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.RECEBIMENTO && `Recebimento Físico - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.CONF_FISCAL && `Conferência Fiscal - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && `Conclusão da Compra - Solicitação #${activeRequest?.requestNumber}`}
@@ -931,6 +953,7 @@ export default function KanbanBoard({
             </div>
             <p id="kanban-phase-desc" className="sr-only">
               {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && "Tela de Pedido de Compra da solicitação selecionada"}
+              {modalPhase === PURCHASE_PHASES.PEDIDO_CONCLUIDO && "Tela de Pedido concluído aguardando início do recebimento físico"}
               {modalPhase === PURCHASE_PHASES.RECEBIMENTO && "Tela de Recebimento Físico para conferência de itens"}
               {modalPhase === PURCHASE_PHASES.CONF_FISCAL && "Tela de Conferência Fiscal para validação de notas"}
               {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && "Tela de Conclusão da Compra com resumo final"}
@@ -939,6 +962,9 @@ export default function KanbanBoard({
             <div className="px-6 pt-0 pb-2">
               <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
                 {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && activeRequest && (
+                  <PurchaseOrderPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
+                )}
+                {modalPhase === PURCHASE_PHASES.PEDIDO_CONCLUIDO && activeRequest && (
                   <PurchaseOrderPhase request={activeRequest} onClose={() => setIsModalOpen(false)} onPreviewOpen={() => setLockDialogClose(true)} onPreviewClose={() => setLockDialogClose(false)} />
                 )}
                 {modalPhase === PURCHASE_PHASES.RECEBIMENTO && activeRequest && (

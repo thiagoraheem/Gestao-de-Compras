@@ -30,7 +30,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -569,6 +569,24 @@ export default function PurchaseCard({
     });
   };
 
+  const formatDateOnly = (date: any) => {
+    if (!date) return null;
+    try {
+      return format(new Date(date), "dd/MM/yyyy", { locale: ptBR });
+    } catch {
+      return null;
+    }
+  };
+
+  const formatDateTime = (date: any) => {
+    if (!date) return null;
+    try {
+      return format(new Date(date), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    } catch {
+      return null;
+    }
+  };
+
   const isArchived = phase === PURCHASE_PHASES.ARQUIVADO;
   const isFinalPhase =
     phase === PURCHASE_PHASES.ARQUIVADO ||
@@ -908,6 +926,7 @@ export default function PurchaseCard({
             {/* Show chosen supplier for specific phases */}
             {(phase === PURCHASE_PHASES.APROVACAO_A2 ||
               phase === PURCHASE_PHASES.PEDIDO_COMPRA ||
+              phase === PURCHASE_PHASES.PEDIDO_CONCLUIDO ||
               phase === PURCHASE_PHASES.RECEBIMENTO ||
               phase === PURCHASE_PHASES.CONF_FISCAL ||
               phase === PURCHASE_PHASES.CONCLUSAO_COMPRA) &&
@@ -916,6 +935,35 @@ export default function PurchaseCard({
                   <span className="font-medium text-slate-700 dark:text-slate-300">Fornecedor:</span> {request.chosenSupplier.name}
                 </p>
               )}
+
+            {phase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
+              <>
+                {!!formatDateOnly(request.purchaseDate) && (
+                  <p className="text-xs md:text-xs lg:text-xs">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">Emissão:</span> {formatDateOnly(request.purchaseDate)}
+                  </p>
+                )}
+                {(request.lastFiscalReceipt?.documentNumber || request.lastFiscalReceipt?.receiptNumber) && (
+                  <p className="text-xs md:text-xs lg:text-xs">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">NF/Recibo:</span>{" "}
+                    {request.lastFiscalReceipt?.documentNumber || request.lastFiscalReceipt?.receiptNumber}
+                    {request.lastFiscalReceipt?.documentSeries ? ` / ${request.lastFiscalReceipt.documentSeries}` : ""}
+                  </p>
+                )}
+                {!!formatDateTime(request.lastFiscalReceipt?.approvedAt) && (
+                  <p className="text-xs md:text-xs lg:text-xs">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">Fiscal finalizada:</span>{" "}
+                    {formatDateTime(request.lastFiscalReceipt?.approvedAt)}
+                  </p>
+                )}
+                {!!request.lastFiscalReceipt?.approvedByName && (
+                  <p className="text-xs md:text-xs lg:text-xs">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">Responsável:</span>{" "}
+                    {request.lastFiscalReceipt.approvedByName}
+                  </p>
+                )}
+              </>
+            )}
 
             {phase === PURCHASE_PHASES.APROVACAO_A1 && (
               <p className="text-xs md:text-xs lg:text-xs">

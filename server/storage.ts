@@ -878,6 +878,8 @@ export class DatabaseStorage implements IStorage {
         availableBudget: purchaseRequests.availableBudget,
         additionalInfo: purchaseRequests.additionalInfo,
         currentPhase: purchaseRequests.currentPhase,
+        procurementStatus: purchaseRequests.procurementStatus,
+        sentToPhysicalReceipt: purchaseRequests.sentToPhysicalReceipt,
         approverA1Id: purchaseRequests.approverA1Id,
         approvedA1: purchaseRequests.approvedA1,
         rejectionReasonA1: purchaseRequests.rejectionReasonA1,
@@ -945,6 +947,23 @@ export class DatabaseStorage implements IStorage {
           orderNumber: purchaseOrders.orderNumber,
           fulfillmentStatus: purchaseOrders.fulfillmentStatus,
         },
+        lastFiscalReceipt: sql<any>`(
+          SELECT json_build_object(
+            'id', r.id,
+            'receiptNumber', r.receipt_number,
+            'documentNumber', r.document_number,
+            'documentSeries', r.document_series,
+            'approvedAt', r.approved_at,
+            'approvedById', r.approved_by,
+            'approvedByName', COALESCE(u.first_name || ' ' || u.last_name, u.username)
+          )
+          FROM receipts r
+          LEFT JOIN users u ON u.id = r.approved_by
+          WHERE r.purchase_order_id = ${purchaseOrders.id}
+            AND r.status IN ('fiscal_conferida','integrado_locador','conferida')
+          ORDER BY r.approved_at DESC NULLS LAST, r.created_at DESC NULLS LAST, r.id DESC
+          LIMIT 1
+        )`,
         // Check for pending fiscal receipts
         hasPendingFiscal: sql<boolean>`EXISTS(SELECT 1 FROM ${receipts} WHERE ${receipts.purchaseOrderId} = ${purchaseOrders.id} AND ${receipts.status} = 'conf_fisica')`,
       })

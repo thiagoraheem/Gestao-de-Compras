@@ -81,7 +81,9 @@ describe("Receipt Service: finishReceiptWithoutErp", () => {
       .mockImplementationOnce((cb) => Promise.resolve([]).then(cb))
     // 5. Get Purchase Order
       .mockImplementationOnce((cb) => Promise.resolve([{ id: 50, purchaseRequestId: 10 }]).then(cb))
-    // 6. Update Purchase Request
+    // 6. Get Purchase Request (must be sent to physical receipt)
+      .mockImplementationOnce((cb) => Promise.resolve([{ id: 10, sentToPhysicalReceipt: true }]).then(cb))
+    // 7. Update Purchase Request
       .mockImplementationOnce((cb) => Promise.resolve([]).then(cb));
 
     const result = await finishReceiptWithoutErp(1, 100);
