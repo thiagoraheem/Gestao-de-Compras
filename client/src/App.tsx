@@ -38,6 +38,7 @@ import ItemsAnalysisReportPage from "@/pages/items-analysis-report";
 import SuppliersReportPage from "@/pages/suppliers-report";
 import RFQAnalysisPage from "@/pages/rfq-analysis";
 import ReceiptFormPage from "@/pages/receipt-form";
+import ReceiptsBoardPage from "@/pages/receipts-board";
 import MaterialConferencePage from "@/pages/MaterialConferencePage";
 import InvoicesReportPage from "@/pages/invoices-report";
 import ManagerRoute from "@/components/manager-route";
@@ -155,6 +156,7 @@ function Router() {
         <Route path="/change-password" component={ChangePasswordPage} />
         <Route path="/manual" component={UserManualPage} />
         <Route path="/recebimentos/novo" component={ReceiptFormPage} />
+        <Route path="/recebimentos" component={ReceiptsBoardPage} />
         <Route path="/conferencia-material" component={MaterialConferencePage} />
         <Route path="/reports/invoices" component={InvoicesReportPage} />
         <Route path="/reports/purchase-requests" component={PurchaseRequestsReportPage} />

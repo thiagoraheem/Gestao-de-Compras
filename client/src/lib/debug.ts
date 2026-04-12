@@ -2,8 +2,13 @@
  * Debug utility for conditional logging based on development mode and admin privileges
  */
 
-// Check if we're in development mode
-const isDevelopment = import.meta.env.MODE === 'development';
+const isDevelopment = (() => {
+  try {
+    return typeof process !== 'undefined' && !!process.env && process.env.NODE_ENV === 'development';
+  } catch {
+    return false;
+  }
+})();
 
 // Global state for admin status
 let isCurrentUserAdmin = false;

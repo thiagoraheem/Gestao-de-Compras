@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 export function useReceiptActions() {
   const {
     request,
+    receiptId,
     receiptType,
     purchaseOrder,
     manualNFNumber,
@@ -37,32 +38,23 @@ export function useReceiptActions() {
       const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
       if (!hasAnyQty) throw new Error("Informe as quantidades recebidas");
 
-      const response = await apiRequest(
-        `/api/purchase-requests/${request.id}/confirm-physical`,
-        {
-          method: "POST",
-          body: {
-            receivedQuantities,
-            manualNFNumber,
-            manualNFSeries,
-            observations: "Confirmado via Recebimento Físico"
-          },
-        }
-      );
+      const url = receiptId
+        ? `/api/receipts/${receiptId}/confirm-physical`
+        : `/api/purchase-requests/${request.id}/confirm-physical`;
+
+      const body = receiptId
+        ? { receivedQuantities, observations: "Confirmado via Recebimento Físico" }
+        : { receivedQuantities, manualNFNumber, manualNFSeries, observations: "Confirmado via Recebimento Físico" };
+
+      const response = await apiRequest(url, { method: "POST", body });
       return response;
     },
     onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["receipts-board"] });
+      if (receiptId) queryClient.invalidateQueries({ queryKey: [`/api/receipts/${receiptId}`] });
       toast({ title: "Sucesso", description: "Recebimento físico confirmado!" });
       
-      if (data.isFullyComplete) {
-         try {
-           await apiRequest(`/api/purchase-requests/${request.id}/finalize-receipt`, { method: "POST" });
-           toast({ title: "Processo Concluído", description: "Recebimento finalizado e integrado!" });
-         } catch (e) {
-           console.error("Error finalizing", e);
-         }
-      }
       onClose();
     },
     onError: (err: any) => {
@@ -72,6 +64,9 @@ export function useReceiptActions() {
 
   const reportIssueMutation = useMutation({
     mutationFn: async (pendencyReason: string) => {
+      if (receiptId) {
+        throw new Error("Ação indisponível no ciclo desacoplado. Use reabertura/cancelamento do recebimento.");
+      }
       const response = await apiRequest(`/api/purchase-requests/${request.id}/report-issue`, {
         method: "POST",
         body: { reportedById: user?.id, pendencyReason, receivedQuantities },

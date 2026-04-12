@@ -16,6 +16,11 @@ export default class HappyDomEnvironment extends NodeEnvironment {
     g.getComputedStyle = this.window.getComputedStyle.bind(this.window);
     g.requestAnimationFrame = (cb: any) => setTimeout(cb, 0);
     g.cancelAnimationFrame = (id: any) => clearTimeout(id);
+    g.MutationObserver = (this.window as any).MutationObserver || class {
+      observe() {}
+      disconnect() {}
+      takeRecords() { return []; }
+    };
   }
 
   async teardown() {

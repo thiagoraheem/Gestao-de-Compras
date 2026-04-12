@@ -11,6 +11,7 @@ module.exports = {
         "ts-jest": {
           tsconfig: {
             jsx: "react-jsx",
+            module: "es2020",
           },
         },
       },

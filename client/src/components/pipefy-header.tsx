@@ -96,6 +96,14 @@ export default function PipefyHeader() {
 
     if (user?.isReceiver || user?.isBuyer || user?.isAdmin) {
       baseNavigation.push({
+        name: "Recebimentos",
+        href: "/recebimentos",
+        icon: PackageCheck,
+      });
+    }
+
+    if (user?.isReceiver || user?.isBuyer || user?.isAdmin) {
+      baseNavigation.push({
         name: "Conferência",
         href: "/conferencia-material",
         icon: PackageCheck,

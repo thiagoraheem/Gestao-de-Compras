@@ -1,4 +1,3 @@
-/** @jest-environment jsdom */
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import QuotationPhase from "../quotation-phase";
@@ -22,6 +21,21 @@ jest.mock("wouter", () => ({
   useLocation: () => ["/", jest.fn()],
 }));
 
+jest.mock("@/components/ui/dialog", () => {
+  const React = require("react");
+  const Wrap = ({ children }: any) => React.createElement("div", null, children);
+  return {
+    Dialog: Wrap,
+    DialogContent: Wrap,
+    DialogHeader: Wrap,
+    DialogTitle: Wrap,
+    DialogDescription: Wrap,
+    DialogTrigger: Wrap,
+    DialogFooter: Wrap,
+    DialogClose: Wrap,
+  };
+});
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -44,7 +58,7 @@ describe("QuotationPhase - Badges de Item", () => {
   });
 
   test("deve exibir os badges de Valor Custo e Part Number quando os dados estiverem presentes", async () => {
-    const mockQuotation = { id: 1, quotationNumber: "COT-123", status: "sent" };
+    const mockQuotation = { id: 1, quotationNumber: "COT-123", status: "sent", quotationDeadline: "2026-02-01T00:00:00.000Z" };
     const mockItems = [
       {
         id: 1,
@@ -64,7 +78,7 @@ describe("QuotationPhase - Badges de Item", () => {
     queryClient.setQueryData(["/api/quotations/1/supplier-quotations"], []);
 
     renderComponent({
-      request: { id: 1, requestNumber: "REQ-001" },
+      request: { id: 1, requestNumber: "REQ-001", createdAt: "2026-01-01T00:00:00.000Z" },
       open: true,
       onOpenChange: jest.fn(),
     });
@@ -77,7 +91,7 @@ describe("QuotationPhase - Badges de Item", () => {
   });
 
   test("não deve exibir os badges quando os dados estiverem ausentes", async () => {
-    const mockQuotation = { id: 1, quotationNumber: "COT-123", status: "sent" };
+    const mockQuotation = { id: 1, quotationNumber: "COT-123", status: "sent", quotationDeadline: "2026-02-01T00:00:00.000Z" };
     const mockItems = [
       {
         id: 1,
@@ -97,7 +111,7 @@ describe("QuotationPhase - Badges de Item", () => {
     queryClient.setQueryData(["/api/quotations/1/supplier-quotations"], []);
 
     renderComponent({
-      request: { id: 1, requestNumber: "REQ-001" },
+      request: { id: 1, requestNumber: "REQ-001", createdAt: "2026-01-01T00:00:00.000Z" },
       open: true,
       onOpenChange: jest.fn(),
     });

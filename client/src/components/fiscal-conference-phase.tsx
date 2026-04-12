@@ -42,6 +42,7 @@ export interface FiscalConferencePhaseProps {
   request: any;
   onClose: () => void;
   mode?: 'view' | 'physical' | 'fiscal';
+  initialReceiptId?: number;
   onPreviewOpen?: () => void;
   onPreviewClose?: () => void;
   className?: string;
@@ -738,10 +739,14 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
 });
 
 const FiscalConferencePhase = forwardRef<FiscalConferencePhaseHandle, FiscalConferencePhaseProps>((props, ref) => {
-  const [selectedReceiptId, setSelectedReceiptId] = useState<number | null>(null);
+  const [selectedReceiptId, setSelectedReceiptId] = useState<number | null>(props.initialReceiptId ?? null);
   const { request, onPreviewOpen, onPreviewClose } = props;
   const { toast } = useToast();
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (props.initialReceiptId) setSelectedReceiptId(props.initialReceiptId);
+  }, [props.initialReceiptId]);
   
   // Permission check: Admin, Manager, Receiver, Buyer can view PDF
   const canViewPDF = true; // user?.isAdmin || user?.isManager || user?.isReceiver || user?.isBuyer;
@@ -879,7 +884,7 @@ const FiscalConferencePhase = forwardRef<FiscalConferencePhaseHandle, FiscalConf
                 {...commonProps}
             />
         ) : (
-            <ReceiptProvider request={props.request} onClose={props.onClose} mode="fiscal" receiptId={selectedReceiptId}>
+            <ReceiptProvider request={props.request} onClose={props.onClose} mode={props.mode || "fiscal"} receiptId={selectedReceiptId}>
             <FiscalConferencePhaseContent 
                 {...props} 
                 ref={contentRef} 

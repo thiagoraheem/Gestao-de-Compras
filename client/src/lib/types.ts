@@ -14,6 +14,22 @@ export type PurchasePhase = typeof PURCHASE_PHASES[keyof typeof PURCHASE_PHASES]
 
 export type ReceiptMode = 'view' | 'physical' | 'fiscal';
 
+export const RECEIPT_PHASES = {
+  RECEBIMENTO_FISICO: 'recebimento_fisico',
+  CONF_FISCAL: 'conf_fiscal',
+  CONCLUIDO: 'concluido',
+  CANCELADO: 'cancelado',
+} as const;
+
+export type ReceiptPhase = typeof RECEIPT_PHASES[keyof typeof RECEIPT_PHASES];
+
+export const RECEIPT_PHASE_LABELS = {
+  [RECEIPT_PHASES.RECEBIMENTO_FISICO]: 'Recebimento Físico',
+  [RECEIPT_PHASES.CONF_FISCAL]: 'Conf. Fiscal',
+  [RECEIPT_PHASES.CONCLUIDO]: 'Concluído',
+  [RECEIPT_PHASES.CANCELADO]: 'Cancelado',
+} as const;
+
 export const PHASE_LABELS = {
   [PURCHASE_PHASES.SOLICITACAO]: 'Solicitação',
   [PURCHASE_PHASES.APROVACAO_A1]: 'Aprovação A1',

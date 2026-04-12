@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import { screen, fireEvent } from '@testing-library/react';
 import PipefyHeader from './pipefy-header';
+import { renderWithProviders } from "@/test/test-utils";
 
 // Mocks
 jest.mock('wouter', () => ({
@@ -37,7 +37,7 @@ jest.mock('./approvals-inline-badge', () => ({
 
 describe('PipefyHeader', () => {
   it('renders fixed header with correct structure', () => {
-    render(<PipefyHeader />);
+    renderWithProviders(<PipefyHeader />);
     
     // Check if header exists and has fixed class
     const header = screen.getByRole('banner');
@@ -48,7 +48,7 @@ describe('PipefyHeader', () => {
   });
 
   it('renders navigation items', () => {
-    render(<PipefyHeader />);
+    renderWithProviders(<PipefyHeader />);
     
     expect(screen.getByText('Compras')).toBeInTheDocument();
     expect(screen.getByText('Kanban')).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe('PipefyHeader', () => {
   });
 
   it('changes style on scroll', () => {
-    render(<PipefyHeader />);
+    renderWithProviders(<PipefyHeader />);
     
     const header = screen.getByRole('banner');
     
@@ -65,8 +65,8 @@ describe('PipefyHeader', () => {
     // We check for default classes (py-3)
     expect(header).toHaveClass('py-3');
     
-    // Simulate scroll
-    fireEvent.scroll(window, { target: { scrollY: 100 } });
+    Object.defineProperty(window, 'scrollY', { value: 100, configurable: true });
+    fireEvent.scroll(window);
     
     // Since we can't easily change window.scrollY in JSDOM directly without some setup,
     // we might need to manually trigger the event handler logic if the event listener works.
