@@ -30,7 +30,6 @@ import { eq, sql, and, like, or, desc, asc } from "drizzle-orm";
 // @ts-ignore
 import fetch from "node-fetch";
 import { fileStorageService } from "../services/file-storage-service";
-import { isDecoupledReceiptsLifecycleEnabled } from "../utils/feature-flags";
 
 function generateReceiptNumber() {
   const now = new Date();
@@ -528,7 +527,7 @@ export function registerReceiptsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/receipts/:id", async (req: Request, res: Response) => {
+  app.get("/api/receipts/:id(\\d+)", async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
@@ -883,7 +882,7 @@ export function registerReceiptsRoutes(app: Express) {
                     const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, order.purchaseRequestId));
                     if (pr?.sentToPhysicalReceipt) {
                       await db.update(purchaseRequests)
-                          .set({ currentPhase: "conclusao_compra", fiscalReceiptAt: new Date(), fiscalReceiptById: req.session?.userId || null, updatedAt: new Date() })
+                          .set({ fiscalReceiptAt: new Date(), fiscalReceiptById: req.session?.userId || null, updatedAt: new Date() })
                           .where(eq(purchaseRequests.id, order.purchaseRequestId));
 
                       try {
@@ -1010,15 +1009,10 @@ export function registerReceiptsRoutes(app: Express) {
             const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
             if (order && order.purchaseRequestId) {
                 purchaseRequestId = order.purchaseRequestId;
-                if (!isDecoupledReceiptsLifecycleEnabled()) {
-                  await db.update(purchaseRequests)
-                     .set({ currentPhase: "recebimento" })
-                     .where(eq(purchaseRequests.id, purchaseRequestId));
-                }
             }
         }
 
-        const tables = isDecoupledReceiptsLifecycleEnabled() ? sql`ARRAY['receipts']` : sql`ARRAY['receipts', 'purchase_requests']`;
+        const tables = sql`ARRAY['receipts']`;
         await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
         VALUES (${purchaseRequestId}, ${rec.id}, ${'RECEIPT'}, ${'desfazer_conferencia_fiscal'}, ${'Conferência fiscal desfeita por Admin'}, ${req.session.userId}, ${JSON.stringify({ receiptId: rec.id, status: rec.status })}::jsonb, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${tables} );`);
     } catch {}

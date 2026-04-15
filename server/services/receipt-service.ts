@@ -51,7 +51,7 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
             const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseRequestId));
             if (pr?.sentToPhysicalReceipt) {
               await db.update(purchaseRequests)
-                  .set({ currentPhase: "conclusao_compra", fiscalReceiptAt: new Date(), fiscalReceiptById: user.id, updatedAt: new Date() })
+                  .set({ fiscalReceiptAt: new Date(), fiscalReceiptById: user.id, updatedAt: new Date() })
                   .where(eq(purchaseRequests.id, purchaseRequestId));
 
               try {

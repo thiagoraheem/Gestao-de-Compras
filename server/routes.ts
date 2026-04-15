@@ -46,6 +46,7 @@ import {
   purchaseOrders,
   suppliers,
   companies,
+  users,
   auditLogs,
 } from "../shared/schema";
 import { z } from "zod";
@@ -106,7 +107,6 @@ declare module "express-session" {
 // This includes: isAuthenticated, canApproveRequest, isAdmin, isAdminOrBuyer
 
 import { NumberParser } from "./utils/number-parser";
-import { isDecoupledReceiptsLifecycleEnabled } from "./utils/feature-flags";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const isTestEnv = process.env.NODE_ENV === "test";
@@ -2619,7 +2619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/receipts/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/receipts/:id(\\d+)", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const receipt = await storage.getReceiptById(id);
@@ -2971,12 +2971,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (allConferred && isFulfilled) {
              // Find Request
              if (purchaseOrder.purchaseRequestId) {
-                 if (!isDecoupledReceiptsLifecycleEnabled()) {
+                 const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
+                 if (pr?.sentToPhysicalReceipt) {
                    await db.update(purchaseRequests)
                      .set({
                        fiscalReceiptAt: new Date(),
                        fiscalReceiptById: userId,
-                       currentPhase: "conclusao_compra"
                      })
                      .where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
 
@@ -3352,7 +3352,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (allFulfilled) {
             updateData.physicalReceiptAt = new Date();
             updateData.physicalReceiptById = userId;
-            updateData.currentPhase = "conf_fiscal"; 
         }
 
         if (Object.keys(updateData).length > 0) {
@@ -3407,6 +3406,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             receiptType: receipts.receiptType,
             documentNumber: receipts.documentNumber,
             documentSeries: receipts.documentSeries,
+            approvedAt: receipts.approvedAt,
+            approvedByName: sql<string>`COALESCE(${users.firstName} || ' ' || ${users.lastName}, ${users.username})`,
             totalAmount: receipts.totalAmount,
             createdAt: receipts.createdAt,
             purchaseOrderId: receipts.purchaseOrderId,
@@ -3425,7 +3426,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .from(receipts)
           .leftJoin(purchaseOrders, eq(receipts.purchaseOrderId, purchaseOrders.id))
-          .leftJoin(purchaseRequests, eq(purchaseOrders.purchaseRequestId, purchaseRequests.id))
+          .leftJoin(purchaseRequests, sql`${purchaseRequests.id} = COALESCE(${receipts.purchaseRequestId}, ${purchaseOrders.purchaseRequestId})`)
+          .leftJoin(users, eq(receipts.approvedBy, users.id))
           .leftJoin(suppliers, eq(receipts.supplierId, suppliers.id));
 
         const rows = whereParts.length
@@ -3445,10 +3447,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     async (req, res) => {
       try {
-        if (!isDecoupledReceiptsLifecycleEnabled()) {
-          return res.status(400).json({ message: "Funcionalidade indisponível (feature flag desabilitada)" });
-        }
-
         const id = Number(req.params.id);
         const userId = req.session.userId!;
         const request = await storage.getPurchaseRequestById(id);
@@ -3499,12 +3497,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     async (req, res) => {
       try {
-        if (!isDecoupledReceiptsLifecycleEnabled()) {
-          return res.status(400).json({ message: "Funcionalidade indisponível (feature flag desabilitada)" });
-        }
-
         const id = Number(req.params.id);
         const userId = req.session.userId!;
+        const user = await storage.getUser(userId);
+        if (!user) return res.status(401).json({ message: "Usuário não encontrado" });
         const newPhase = String(req.body?.newPhase || "");
         const validPhases = ["recebimento_fisico", "conf_fiscal", "concluido", "cancelado"];
         if (!validPhases.includes(newPhase)) {
@@ -3513,6 +3509,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
         if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
+
+        if (newPhase === "conf_fiscal") {
+          if (!(user.isReceiver || user.isAdmin || user.isManager)) {
+            return res.status(403).json({ message: "Sem permissão para mover para Conf. Fiscal" });
+          }
+          if (String((rec as any).receiptPhase) !== "recebimento_fisico") {
+            return res.status(400).json({ message: "Somente receipts em 'Recebimento Físico' podem avançar para Conf. Fiscal" });
+          }
+        }
+
+        if (newPhase === "concluido") {
+          return res.status(400).json({ message: "A fase 'Conclusão' é automática após finalizar a conferência fiscal" });
+        }
+
+        if (newPhase === "cancelado" && !user.isAdmin) {
+          return res.status(403).json({ message: "Apenas administradores podem cancelar um receipt" });
+        }
 
         const statusUpdate: any = {};
         if (newPhase === "conf_fiscal" && rec.status !== "conf_fisica") statusUpdate.status = "conf_fisica";
@@ -3546,10 +3559,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isReceiver,
     async (req, res) => {
       try {
-        if (!isDecoupledReceiptsLifecycleEnabled()) {
-          return res.status(400).json({ message: "Funcionalidade indisponível (feature flag desabilitada)" });
-        }
-
         const receiptId = Number(req.params.id);
         const userId = req.session.userId!;
         const { receivedQuantities, observations } = req.body || {};
@@ -3701,7 +3710,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .set({
             fiscalReceiptAt: new Date(),
             fiscalReceiptById: userId,
-            currentPhase: "conclusao_compra",
             receivedDate: new Date(),
             receivedById: userId,
           })
@@ -3716,7 +3724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({
           success: true,
           fiscalDone: true,
-          nextPhase: "conclusao_compra",
+          nextPhase: "pedido_concluido",
           integration: integrationResult,
         });
       } catch (error) {
@@ -3732,26 +3740,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     async (req, res) => {
       try {
-        const id = parseInt(req.params.id);
-        const request = await storage.getPurchaseRequestById(id);
-        
-        if (!request?.physicalReceiptAt || !request?.fiscalReceiptAt) {
-           return res.status(400).json({ message: "É necessário concluir as etapas Física e Fiscal antes de finalizar." });
-        }
-
-        await storage.updatePurchaseRequest(id, {
-          currentPhase: "conclusao_compra",
-          receivedDate: new Date(),
-          receivedById: req.session.userId
+        return res.status(400).json({
+          message: "Fluxo de Recebimento é independente. Finalize o recebimento via card de recebimento (receipt) na conferência fiscal.",
         });
-
-        try {
-          await notifyRequestConclusion(id);
-        } catch (emailError) {
-          console.error("Erro ao enviar notificação de conclusão (finalizar recebimento):", emailError);
-        }
-
-        res.json({ success: true });
       } catch (error) {
         console.error("Error finalizing receipt:", error);
         res.status(500).json({ message: "Erro ao finalizar recebimento" });
@@ -3984,13 +3975,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const updatedRequest = await storage.updatePurchaseRequest(id, {
               receivedById: receivedById,
               receivedDate: new Date(),
-              currentPhase: "conclusao_compra" as any,
             });
             try {
               const { db } = await import("./db");
               const { sql } = await import("drizzle-orm");
               await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-                VALUES (${id}, ${'recebimento_confirmado'}, ${'Confirmação de recebimento e avanço de fase'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id, newPhase: 'conclusao_compra' })}::jsonb, ${sql`ARRAY['receipts','purchase_requests']`} );`);
+                VALUES (${id}, ${'recebimento_confirmado'}, ${'Confirmação de recebimento registrada'}, ${receivedById}, ${null}, ${JSON.stringify({ receiptId: receipt.id })}::jsonb, ${sql`ARRAY['receipts','purchase_requests']`} );`);
             } catch {}
 
             try {
@@ -5215,11 +5205,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "aprovacao_a2",
           "pedido_compra",
           "pedido_concluido",
-          "recebimento",
-          "conf_fiscal",
-          "conclusao_compra",
           "arquivado",
         ] as const;
+        if (["recebimento", "conf_fiscal", "conclusao_compra"].includes(newPhase as any)) {
+          return res.status(400).json({
+            message: "Fluxo de Recebimento é independente. Use o Kanban de Recebimentos (cards de receipt) para estas fases.",
+          });
+        }
+
         if (!validPhases.includes(newPhase)) {
           return res.status(400).json({ message: "Invalid phase" });
         }
@@ -5313,17 +5306,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (currentPhase === "pedido_concluido" && newPhase === "recebimento") {
-          if (!user.isReceiver && !user.isAdmin && !user.isManager) {
-            return res.status(403).json({
-              message: "Apenas usuários autorizados podem iniciar o recebimento físico",
-            });
-          }
-
-          if (request.procurementStatus !== "concluida" || request.sentToPhysicalReceipt !== true) {
-            return res.status(400).json({
-              message: "Solicitação deve estar concluída e enviada para recebimento físico para iniciar o recebimento",
-            });
-          }
+          return res.status(400).json({
+            message: "Fluxo de Recebimento é independente. O recebimento físico deve ser gerenciado via cards de recebimento (receipts).",
+          });
         }
 
         if (newPhase === "conclusao_compra") {
@@ -5395,11 +5380,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updates.procurementConcludedAt = new Date();
           updates.procurementConcludedById = userId;
           updates.sentToPhysicalReceipt = true;
-        }
-
-        if (currentPhase === "pedido_concluido" && newPhase === "recebimento") {
-          updates.receivedDate = new Date();
-          updates.receivedById = userId;
 
           const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
           if (purchaseOrder) {
@@ -5412,7 +5392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const category = String((request as any).category || "").toLowerCase();
               const receiptType = category.includes("serv") ? "servico" : "produto";
               const now = new Date();
-              await db.insert(receipts).values({
+              const [createdReceipt] = await db.insert(receipts).values({
                 receiptNumber: generateReceiptNumber(),
                 purchaseOrderId: purchaseOrder.id,
                 purchaseRequestId: id,
@@ -5421,9 +5401,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 receiptType,
                 supplierId: purchaseOrder.supplierId,
                 createdAt: now,
-                receivedBy: userId,
-                receivedAt: now,
-              } as any);
+              } as any).returning();
+
+              try {
+                await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+                  VALUES (${id}, ${createdReceipt?.id || null}, ${'FLOW'}, ${'flow2_started'}, ${'Início do Fluxo 2 (Recebimento) após conclusão do Fluxo 1'}, ${userId || null}, ${null}, ${JSON.stringify({ receiptId: createdReceipt?.id })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+              } catch {}
             }
           }
         }
@@ -5589,7 +5572,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const updatedRequest = await storage.updatePurchaseRequest(id, requestUpdates);
 
-        // receipt inicial será criado ao iniciar o recebimento físico (fase "recebimento")
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (purchaseOrder) {
+          const existing = await db.select({ id: receipts.id }).from(receipts).where(and(
+            eq(receipts.purchaseOrderId, purchaseOrder.id),
+            eq(receipts.purchaseRequestId, id),
+          )).limit(1);
+
+          if (existing.length === 0) {
+            const category = String((request as any).category || "").toLowerCase();
+            const receiptType = category.includes("serv") ? "servico" : "produto";
+            const now = new Date();
+            const [createdReceipt] = await db.insert(receipts).values({
+              receiptNumber: generateReceiptNumber(),
+              purchaseOrderId: purchaseOrder.id,
+              purchaseRequestId: id,
+              status: "rascunho",
+              receiptPhase: "recebimento_fisico",
+              receiptType,
+              supplierId: purchaseOrder.supplierId,
+              createdAt: now,
+            } as any).returning();
+
+            try {
+              await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+                VALUES (${id}, ${createdReceipt?.id || null}, ${'FLOW'}, ${'flow2_started'}, ${'Início do Fluxo 2 (Recebimento) após conclusão do Fluxo 1'}, ${userId || null}, ${null}, ${JSON.stringify({ receiptId: createdReceipt?.id })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+            } catch {}
+          }
+        }
 
         // Create movement history entry
         await storage.createApprovalHistory({
@@ -5609,6 +5619,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error advancing to receipt:", error);
         res.status(400).json({ message: "Failed to advance to receipt" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/purchase-requests/:id/start-receiving",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const id = Number(req.params.id);
+        const userId = req.session.userId!;
+        const user = await storage.getUser(userId);
+        if (!user) return res.status(401).json({ message: "Usuário não encontrado" });
+
+        if (!(user.isReceiver || user.isAdmin || user.isManager)) {
+          return res.status(403).json({ message: "Sem permissão para iniciar recebimento" });
+        }
+
+        const request = await storage.getPurchaseRequestById(id);
+        if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
+
+        if (request.currentPhase !== "pedido_concluido" || request.procurementStatus !== "concluida" || request.sentToPhysicalReceipt !== true) {
+          return res.status(400).json({ message: "Fluxo 2 só pode iniciar após 'Pedido concluído' no Fluxo 1" });
+        }
+
+        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (!purchaseOrder) return res.status(400).json({ message: "Pedido de compra não encontrado para a solicitação" });
+
+        const existing = await db.select().from(receipts).where(and(
+          eq(receipts.purchaseOrderId, purchaseOrder.id),
+          eq(receipts.purchaseRequestId, id),
+        )).limit(1);
+
+        if (existing.length > 0) return res.json(existing[0]);
+
+        const category = String((request as any).category || "").toLowerCase();
+        const receiptType = category.includes("serv") ? "servico" : "produto";
+        const now = new Date();
+        const [createdReceipt] = await db.insert(receipts).values({
+          receiptNumber: generateReceiptNumber(),
+          purchaseOrderId: purchaseOrder.id,
+          purchaseRequestId: id,
+          status: "rascunho",
+          receiptPhase: "recebimento_fisico",
+          receiptType,
+          supplierId: purchaseOrder.supplierId,
+          createdAt: now,
+        } as any).returning();
+
+        try {
+          await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+            VALUES (${id}, ${createdReceipt?.id || null}, ${'FLOW'}, ${'flow2_started'}, ${'Início do Fluxo 2 (Recebimento) via ação manual (repair/garantia)'}, ${userId || null}, ${null}, ${JSON.stringify({ receiptId: createdReceipt?.id })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+        } catch {}
+
+        res.json(createdReceipt);
+      } catch (error: any) {
+        console.error("Error starting receiving flow:", error);
+        res.status(500).json({ message: "Erro ao iniciar recebimento" });
       }
     },
   );

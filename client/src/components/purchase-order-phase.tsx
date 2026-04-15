@@ -177,6 +177,32 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
     }
   };
 
+  const startReceivingMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/purchase-requests/${request.id}/start-receiving`, { method: "POST" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["receipts-board-kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["receipts-board"] });
+      toast({
+        title: "Recebimento iniciado",
+        description: "Card de recebimento criado em 'Recebimento Físico'.",
+      });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error?.message || "Falha ao iniciar recebimento",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleStartReceiving = () => {
+    startReceivingMutation.mutate();
+  };
+
 
 
   // Função para gerar pré-visualização do PDF
@@ -832,14 +858,27 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
       {/* Rodapé fixo com ações */}
       <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
         <div className="flex justify-end gap-3">
-          <Button
-            onClick={handleAdvanceToReceipt}
-            disabled={advanceToReceiptMutation.isPending}
-            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-          >
-            <Truck className="w-4 h-4 mr-2" />
-            {advanceToReceiptMutation.isPending ? "Movendo..." : "Mover para Pedido concluído"}
-          </Button>
+          {request.currentPhase === "pedido_compra" && (
+            <Button
+              onClick={handleAdvanceToReceipt}
+              disabled={advanceToReceiptMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            >
+              <Truck className="w-4 h-4 mr-2" />
+              {advanceToReceiptMutation.isPending ? "Movendo..." : "Mover para Pedido concluído"}
+            </Button>
+          )}
+
+          {request.currentPhase === "pedido_concluido" && (
+            <Button
+              onClick={handleStartReceiving}
+              disabled={startReceivingMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            >
+              <Truck className="w-4 h-4 mr-2" />
+              {startReceivingMutation.isPending ? "Iniciando..." : "Iniciar Recebimento Físico"}
+            </Button>
+          )}
           <Button
             type="button"
             onClick={(e) => {
