@@ -39,6 +39,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { isFinalRequestPhase } from "./kanban-final-state";
 
 const RequestPhase = lazy(() => import("./request-phase"));
 const ApprovalA1Phase = lazy(() => import("./approval-a1-phase"));
@@ -129,6 +130,9 @@ export default function PurchaseCard({
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
   const conclusionRef = useRef<ConclusionPhaseHandle | null>(null);
 
+  const isArchived = phase === PURCHASE_PHASES.ARQUIVADO;
+  const isFinalPhase = isFinalRequestPhase(phase);
+
 
 
   const handleCardClick = () => {
@@ -156,7 +160,7 @@ export default function PurchaseCard({
     isDragging: sortableIsDragging,
   } = useSortable({
     id: `request-${request.id}`,
-    disabled: !canDrag,
+    disabled: isFinalPhase,
   });
 
   const approveA1Mutation = useMutation({
@@ -587,10 +591,6 @@ export default function PurchaseCard({
     }
   };
 
-  const isArchived = phase === PURCHASE_PHASES.ARQUIVADO;
-  const isFinalPhase =
-    phase === PURCHASE_PHASES.ARQUIVADO ||
-    phase === PURCHASE_PHASES.CONCLUSAO_COMPRA;
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -652,14 +652,13 @@ export default function PurchaseCard({
 
   // Check if user can drag this card
   const canDragCard = useMemo(() => {
-    return (canDrag && phase === PURCHASE_PHASES.SOLICITACAO) || // Always allow dragging from request phase
-      phase === PURCHASE_PHASES.COTACAO || // Always allow dragging from quotation phase
-      phase === PURCHASE_PHASES.APROVACAO_A1 || // Allow dragging from A1 (permission check happens in kanban-board)
-      phase === PURCHASE_PHASES.APROVACAO_A2 || // Allow dragging from A2 (permission check happens in kanban-board)
-      phase === PURCHASE_PHASES.PEDIDO_COMPRA || // Allow dragging from purchase order phase
-      phase === PURCHASE_PHASES.RECEBIMENTO || // Allow dragging from receipt phase
-      phase === PURCHASE_PHASES.CONF_FISCAL; // Allow dragging from fiscal confirmation phase
-  }, [canDrag, phase]);
+    if (isFinalPhase) return false;
+    return (canDrag && phase === PURCHASE_PHASES.SOLICITACAO) ||
+      phase === PURCHASE_PHASES.COTACAO ||
+      phase === PURCHASE_PHASES.APROVACAO_A1 ||
+      phase === PURCHASE_PHASES.APROVACAO_A2 ||
+      phase === PURCHASE_PHASES.PEDIDO_COMPRA;
+  }, [canDrag, phase, isFinalPhase]);
 
   const canEditInApprovalPhase =
     phase === PURCHASE_PHASES.ARQUIVADO || // Always allow viewing history in archived phase
@@ -729,7 +728,7 @@ export default function PurchaseCard({
           "mb-2 cursor-pointer select-none rounded-lg shadow-sm border-border",
           isDragging && "opacity-50",
           sortableIsDragging && "opacity-50",
-          isFinalPhase && "bg-muted text-muted-foreground",
+          isFinalPhase && "card-final-state card-disabled",
           !canDragCard && "cursor-not-allowed",
           isSearchHighlighted && "ring-2 ring-blue-500 ring-offset-2 bg-blue-500/10 border-blue-500/30 shadow-lg",
         )

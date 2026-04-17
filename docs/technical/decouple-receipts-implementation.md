@@ -97,5 +97,12 @@ Critérios de aceitação:
   - um receipt pode existir sem vínculo com solicitação (sem `purchase_request_id` e sem PO válido), tipicamente por legado/importação.
   - o Kanban exibe estes cards com alerta visual e permite exclusão apenas para Admin/Gerente, com confirmação.
   - a exclusão remove dados dependentes (`receipt_items`, `receipt_allocations`, `receipt_installments`, `receipt_nf_xmls`) e registra auditoria (`ghost_receipt_deleted`).
+- Estados finais (tratamento visual + regras de movimentação):
+  - Fluxo 1 (Aquisição): `pedido_concluido` e `arquivado` são estados finais no Kanban.
+  - Fluxo 2 (Recebimento): `concluido` é estado final no Kanban.
+  - Cards em estado final:
+    - recebem estilo visual acinzentado (classes `card-final-state`/`card-disabled`);
+    - exibem cursor `not-allowed`;
+    - não podem ser arrastados entre colunas (bloqueio no `onDragStart` e validações de permissão).
 - Backlog fiscal é visível e mensurável por receipt (não por solicitação).
 - PDFs públicos e relatórios usam regras baseadas em dados (PO/aprovação/procurement_status), não apenas fase.

@@ -25,5 +25,24 @@ describe("ReceiptKanbanCard", () => {
     fireEvent.click(el);
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
-});
 
+  test("applies final-state styles when receiptPhase is concluido", () => {
+    const { container } = render(
+      <ReceiptKanbanCard
+        receipt={{
+          id: 1,
+          receiptNumber: "REC-1",
+          status: "fiscal_conferida",
+          receiptPhase: "concluido",
+          receiptType: "produto",
+          supplier: { id: 1, name: "Fornecedor" },
+          request: { id: 10, requestNumber: "SOL-1", currentPhase: "pedido_concluido" },
+          requestFound: true,
+        }}
+      />,
+    );
+
+    const el = container.querySelector('[data-receipt-id="1"]') as HTMLElement;
+    expect(el.className).toContain("card-final-state");
+  });
+});

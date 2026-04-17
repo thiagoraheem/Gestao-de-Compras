@@ -31,6 +31,7 @@ import { filterRequests } from "@/lib/kanban-filters";
 import { ReceiptProvider } from "@/components/receipt/ReceiptContext";
 import ReceiptPhysicalPanel from "@/components/receipt/ReceiptPhysicalPanel";
 import { shouldOpenRequestDetailsForReceipt } from "./receipt-navigation";
+import { isFinalReceiptPhase, isFinalRequestPhase } from "./kanban-final-state";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -501,6 +502,8 @@ export default function KanbanBoard({
       return true;
     }
 
+    if (isFinalRequestPhase(phase as any)) return false;
+
     // Special permission: Admin/Manager can move from "arquivado" to "aprovacao_a1"
     if (phase === "arquivado" && targetPhase === "aprovacao_a1") {
       return user?.isAdmin || user?.isManager;
@@ -566,6 +569,7 @@ export default function KanbanBoard({
   };
 
   const canUserDragReceipt = (phase: string, targetPhase: string) => {
+    if (isFinalReceiptPhase(phase)) return false;
     if (phase === RECEIPT_PHASES.RECEBIMENTO_FISICO && targetPhase === RECEIPT_PHASES.CONF_FISCAL) {
       return user?.isReceiver || user?.isAdmin || user?.isManager;
     }
@@ -616,12 +620,22 @@ export default function KanbanBoard({
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    setActiveId(active.id as string);
-
     const id = String(active.id);
     if (id.startsWith("receipt-")) {
       const receiptId = Number(id.split("-")[1]);
       const receipt = Array.isArray(receiptsBoard) ? receiptsBoard.find((r: any) => r.id === receiptId) : undefined;
+      if (receipt && isFinalReceiptPhase(String((receipt as any).receiptPhase))) {
+        toast({
+          title: "Movimentação indisponível",
+          description: "Cards em estado final não podem ser movidos.",
+          variant: "destructive",
+        });
+        setActiveId(null);
+        setActiveReceipt(null);
+        setActiveRequest(null);
+        return;
+      }
+      setActiveId(active.id as string);
       setActiveReceipt(receipt || null);
       setActiveRequest(null);
       return;
@@ -631,6 +645,19 @@ export default function KanbanBoard({
       ? purchaseRequests.find((req: any) => `request-${req.id}` === active.id)
       : undefined;
 
+    if (request && isFinalRequestPhase(String(request.currentPhase) as any)) {
+      toast({
+        title: "Movimentação indisponível",
+        description: "Cards em estado final não podem ser movidos.",
+        variant: "destructive",
+      });
+      setActiveId(null);
+      setActiveRequest(null);
+      setActiveReceipt(null);
+      return;
+    }
+
+    setActiveId(active.id as string);
     setActiveRequest(request);
     setActiveReceipt(null);
   };
@@ -660,6 +687,13 @@ export default function KanbanBoard({
       const receipt = Array.isArray(receiptsBoard) ? receiptsBoard.find((r: any) => r.id === receiptId) : undefined;
       if (!receipt) {
         toast({ title: "Erro", description: "Recebimento não encontrado", variant: "destructive" });
+        setActiveId(null);
+        setActiveReceipt(null);
+        return;
+      }
+
+      if (isFinalReceiptPhase(String((receipt as any).receiptPhase))) {
+        toast({ title: "Movimentação indisponível", description: "Cards em estado final não podem ser movidos.", variant: "destructive" });
         setActiveId(null);
         setActiveReceipt(null);
         return;
@@ -705,6 +739,13 @@ export default function KanbanBoard({
     const request = Array.isArray(purchaseRequests) ? purchaseRequests.find((req: any) => req.id === requestId) : undefined;
     if (!request) {
       toast({ title: "Erro", description: "Solicitação não encontrada", variant: "destructive" });
+      setActiveId(null);
+      setActiveRequest(null);
+      return;
+    }
+
+    if (isFinalRequestPhase(String(request.currentPhase) as any)) {
+      toast({ title: "Movimentação indisponível", description: "Cards em estado final não podem ser movidos.", variant: "destructive" });
       setActiveId(null);
       setActiveRequest(null);
       return;

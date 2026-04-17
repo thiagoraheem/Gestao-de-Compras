@@ -214,6 +214,21 @@
   .phase-arquivado {
     border-color: var(--kanban-arquivado);
   }
+
+  .card-final-state,
+  .card-disabled {
+    opacity: 0.9 !important;
+    background-color: hsl(var(--muted)) !important;
+    border-color: hsl(var(--border)) !important;
+    filter: saturate(0.35) grayscale(30%) !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+  }
+
+  .card-final-state:hover,
+  .card-disabled:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
 }
 
 .line-clamp-2 {

@@ -12,6 +12,7 @@ import { AlertCircle, Clock, GripVertical, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
+import { isFinalReceiptPhase } from "./kanban-final-state";
 
 export type ReceiptKanbanRow = {
   id: number;
@@ -82,7 +83,8 @@ export default function ReceiptKanbanCard({
   onDeleteGhost?: (receipt: ReceiptKanbanRow) => void;
 }) {
   const sortableId = `receipt-${receipt.id}`;
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortableId });
+  const isFinal = isFinalReceiptPhase(String((receipt as any).receiptPhase));
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortableId, disabled: isFinal });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -110,14 +112,18 @@ export default function ReceiptKanbanCard({
       className={cn(
         "mb-2 cursor-pointer select-none rounded-lg shadow-sm border-border",
         isDragging && "opacity-50",
+        isFinal && "card-final-state card-disabled",
       )}
     >
       <CardContent className="p-3 space-y-3">
         <div className="flex items-center justify-between mb-2 md:mb-2 lg:mb-1">
           <div className="flex items-center gap-1 md:gap-1 lg:gap-1">
             <div
-              {...listeners}
-              className={cn("p-0.5 rounded cursor-grab active:cursor-grabbing hover:bg-muted")}
+              {...(isFinal ? {} : listeners)}
+              className={cn(
+                "p-0.5 rounded",
+                isFinal ? "cursor-not-allowed opacity-50" : "cursor-grab active:cursor-grabbing hover:bg-muted",
+              )}
               title="Arrastar para mover"
               onClick={(e) => e.stopPropagation()}
             >
