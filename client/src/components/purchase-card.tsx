@@ -730,7 +730,7 @@ export default function PurchaseCard({
           sortableIsDragging && "opacity-50",
           isFinalPhase && "card-final-state card-disabled",
           !canDragCard && "cursor-not-allowed",
-          isSearchHighlighted && "ring-2 ring-blue-500 ring-offset-2 bg-blue-500/10 border-blue-500/30 shadow-lg",
+          isSearchHighlighted && "ring-2 ring-orange-500 ring-offset-2 bg-orange-500/10 border-orange-500/30 shadow-lg",
         )
         }
       >

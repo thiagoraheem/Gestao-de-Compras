@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import { filterRequests, KanbanFilters } from "../kanban-filters";
+import { filterRequests, filterReceipts, KanbanFilters } from "../kanban-filters";
 import { PURCHASE_PHASES } from "../types";
 
 // Mock data
@@ -36,6 +36,30 @@ const mockRequests = [
     currentPhase: PURCHASE_PHASES.COTACAO,
     purchaseOrder: null,
     createdAt: "2026-03-03T10:00:00Z",
+  },
+];
+
+const mockReceipts = [
+  {
+    id: 10,
+    receiptNumber: "REC-20260413-9483",
+    purchaseOrderNumber: "PO-2026-999",
+    supplier: { id: 50, name: "TechCorp" },
+    request: { id: 1, requestNumber: "SOL-2026-001", urgency: "alto" },
+  },
+  {
+    id: 11,
+    receiptNumber: "REC-20260422-1111",
+    purchaseOrderNumber: "PO-2026-123",
+    supplier: { id: 51, name: "OfficeSupply" },
+    request: { id: 2, requestNumber: "SOL-2026-002", urgency: "baixo" },
+  },
+  {
+    id: 12,
+    receiptNumber: "REC-20260430-9999",
+    purchaseOrderNumber: null,
+    supplier: { id: 50, name: "TechCorp" },
+    request: null,
   },
 ];
 
@@ -124,5 +148,49 @@ describe("filterRequests", () => {
     };
     const result = filterRequests(mockRequests, filters);
     expect(result).toHaveLength(2); // ID 1 and 3 are TI and have SOL in requestNumber
+  });
+});
+
+describe("filterReceipts", () => {
+  const defaultFilters: KanbanFilters = {
+    department: "all",
+    urgency: "all",
+    requester: "all",
+    supplier: "all",
+  };
+
+  test("should return all receipts when no filters are applied", () => {
+    const result = filterReceipts(mockReceipts, defaultFilters);
+    expect(result).toHaveLength(3);
+  });
+
+  test("should filter by supplier", () => {
+    const result = filterReceipts(mockReceipts, { ...defaultFilters, supplier: "51" });
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(11);
+  });
+
+  test("should filter by request number (using PO filter)", () => {
+    const result = filterReceipts(mockReceipts, { ...defaultFilters, purchaseOrder: "SOL-2026-002" });
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(11);
+  });
+
+  test("should filter by purchase order number (using PO filter)", () => {
+    const result = filterReceipts(mockReceipts, { ...defaultFilters, purchaseOrder: "PO-2026-999" });
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(10);
+  });
+
+  test("should filter by receipt number (using PO filter)", () => {
+    const result = filterReceipts(mockReceipts, { ...defaultFilters, purchaseOrder: "REC-20260413" });
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(10);
+  });
+
+  test("should filter by urgency via linked request", () => {
+    const result = filterReceipts(mockReceipts, { ...defaultFilters, urgency: "alto" });
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(10);
   });
 });

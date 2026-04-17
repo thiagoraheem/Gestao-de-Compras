@@ -102,4 +102,29 @@ describe("PurchaseCard final-state styling", () => {
     const el = container.querySelector('[data-request-id="1"]') as HTMLElement;
     expect(el.className).toContain("card-final-state");
   });
+
+  test("applies orange highlight when isSearchHighlighted is true", () => {
+    const qc = createQueryClient();
+
+    const { container } = render(
+      <QueryClientProvider client={qc}>
+        <PurchaseCard
+          request={{
+            id: 1,
+            requestNumber: "SOL-1",
+            totalValue: "100.00",
+            justification: "Teste",
+            urgency: "alto",
+            category: "produto",
+            requester: { firstName: "A", lastName: "B" },
+          }}
+          phase={PURCHASE_PHASES.SOLICITACAO}
+          isSearchHighlighted={true}
+        />
+      </QueryClientProvider>,
+    );
+
+    const el = container.querySelector('[data-request-id="1"]') as HTMLElement;
+    expect(el.className).toContain("ring-orange-500");
+  });
 });

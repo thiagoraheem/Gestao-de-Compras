@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { filterRequests } from "@/lib/kanban-filters";
+import { filterReceipts, filterRequests } from "@/lib/kanban-filters";
 import { ReceiptProvider } from "@/components/receipt/ReceiptContext";
 import ReceiptPhysicalPanel from "@/components/receipt/ReceiptPhysicalPanel";
 import { shouldOpenRequestDetailsForReceipt } from "./receipt-navigation";
@@ -442,8 +442,29 @@ export default function KanbanBoard({
       });
     }
 
+    if (purchaseOrderFilter && purchaseOrderFilter.trim()) {
+      const all = filterRequests(purchaseRequests, {
+        department: departmentFilter,
+        urgency: urgencyFilter,
+        requester: requesterFilter,
+        supplier: supplierFilter,
+        date: dateFilter,
+        purchaseOrder: purchaseOrderFilter,
+      });
+      all.forEach((r: any) => ids.add(r.id));
+    }
+
     return ids;
-  }, [searchFilter, purchaseRequests]);
+  }, [
+    searchFilter,
+    purchaseRequests,
+    purchaseOrderFilter,
+    departmentFilter,
+    urgencyFilter,
+    requesterFilter,
+    supplierFilter,
+    dateFilter,
+  ]);
 
   // Auto-open target request
   useEffect(() => {
@@ -881,16 +902,40 @@ export default function KanbanBoard({
     requestsByPhase[phase] = sortRequestsByPriority(requestsByPhase[phase]);
   });
 
+  const filteredReceiptsBoard = useMemo(() => {
+    return filterReceipts(receiptsBoard, {
+      department: departmentFilter,
+      urgency: urgencyFilter,
+      requester: requesterFilter,
+      supplier: supplierFilter,
+      date: dateFilter,
+      purchaseOrder: purchaseOrderFilter,
+    });
+  }, [
+    receiptsBoard,
+    departmentFilter,
+    urgencyFilter,
+    requesterFilter,
+    supplierFilter,
+    dateFilter,
+    purchaseOrderFilter,
+  ]);
+
+  const highlightedReceiptIds = useMemo(() => {
+    if (!purchaseOrderFilter || !purchaseOrderFilter.trim()) return new Set<number>();
+    return new Set<number>((filteredReceiptsBoard || []).map((r: any) => r.id));
+  }, [purchaseOrderFilter, filteredReceiptsBoard]);
+
   const receiptsByPhase = useMemo(() => {
     const acc: Record<string, ReceiptKanbanRow[]> = {};
-    for (const r of Array.isArray(receiptsBoard) ? receiptsBoard : []) {
+    for (const r of Array.isArray(filteredReceiptsBoard) ? filteredReceiptsBoard : []) {
       const phase = (r as any).receiptPhase || RECEIPT_PHASES.RECEBIMENTO_FISICO;
       if (!receiptPhases.includes(phase as any)) continue;
       if (!acc[phase]) acc[phase] = [];
       acc[phase].push(r);
     }
     return acc;
-  }, [receiptsBoard]);
+  }, [filteredReceiptsBoard]);
 
   const handleCreateRFQ = (request: any) => {
     setSelectedRequestForRFQ(request);
@@ -1017,6 +1062,7 @@ export default function KanbanBoard({
                     title={col.title}
                     receipts={receiptsByPhase[col.id] || []}
                     onOpenReceipt={handleOpenReceipt}
+                    highlightedReceiptIds={highlightedReceiptIds}
                     canDeleteGhost={canDeleteGhostReceipts}
                     onDeleteGhost={(r) => {
                       setGhostReceiptToDelete(r);
@@ -1086,6 +1132,7 @@ export default function KanbanBoard({
                   title={col.title}
                   receipts={receiptsByPhase[col.id] || []}
                   onOpenReceipt={handleOpenReceipt}
+                  highlightedReceiptIds={highlightedReceiptIds}
                   canDeleteGhost={canDeleteGhostReceipts}
                   onDeleteGhost={(r) => {
                     setGhostReceiptToDelete(r);

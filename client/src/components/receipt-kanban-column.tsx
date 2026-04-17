@@ -8,6 +8,7 @@ export default function ReceiptKanbanColumn({
   title,
   receipts,
   onOpenReceipt,
+  highlightedReceiptIds,
   canDeleteGhost,
   onDeleteGhost,
 }: {
@@ -15,6 +16,7 @@ export default function ReceiptKanbanColumn({
   title: string;
   receipts: ReceiptKanbanRow[];
   onOpenReceipt?: (r: ReceiptKanbanRow) => void;
+  highlightedReceiptIds?: Set<number>;
   canDeleteGhost?: boolean;
   onDeleteGhost?: (r: ReceiptKanbanRow) => void;
 }) {
@@ -45,6 +47,7 @@ export default function ReceiptKanbanColumn({
                 key={`receipt-${r.id}`}
                 receipt={r}
                 onOpen={onOpenReceipt}
+                isSearchHighlighted={Boolean(highlightedReceiptIds?.has(r.id))}
                 canDeleteGhost={canDeleteGhost}
                 onDeleteGhost={onDeleteGhost}
               />

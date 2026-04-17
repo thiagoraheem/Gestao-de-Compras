@@ -45,4 +45,25 @@ describe("ReceiptKanbanCard", () => {
     const el = container.querySelector('[data-receipt-id="1"]') as HTMLElement;
     expect(el.className).toContain("card-final-state");
   });
+
+  test("applies orange highlight when isSearchHighlighted is true", () => {
+    const { container } = render(
+      <ReceiptKanbanCard
+        receipt={{
+          id: 1,
+          receiptNumber: "REC-1",
+          status: "rascunho",
+          receiptPhase: "recebimento_fisico",
+          receiptType: "produto",
+          supplier: { id: 1, name: "Fornecedor" },
+          request: { id: 10, requestNumber: "SOL-1", currentPhase: "pedido_concluido" },
+          requestFound: true,
+        }}
+        isSearchHighlighted={true}
+      />,
+    );
+
+    const el = container.querySelector('[data-receipt-id="1"]') as HTMLElement;
+    expect(el.className).toContain("ring-orange-500");
+  });
 });

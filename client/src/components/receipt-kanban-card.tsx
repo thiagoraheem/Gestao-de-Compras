@@ -74,11 +74,13 @@ function formatDateOnly(date: any) {
 export default function ReceiptKanbanCard({
   receipt,
   onOpen,
+  isSearchHighlighted,
   canDeleteGhost,
   onDeleteGhost,
 }: {
   receipt: ReceiptKanbanRow;
   onOpen?: (receipt: ReceiptKanbanRow) => void;
+  isSearchHighlighted?: boolean;
   canDeleteGhost?: boolean;
   onDeleteGhost?: (receipt: ReceiptKanbanRow) => void;
 }) {
@@ -113,6 +115,7 @@ export default function ReceiptKanbanCard({
         "mb-2 cursor-pointer select-none rounded-lg shadow-sm border-border",
         isDragging && "opacity-50",
         isFinal && "card-final-state card-disabled",
+        isSearchHighlighted && "ring-2 ring-orange-500 ring-offset-2 bg-orange-500/10 border-orange-500/30 shadow-lg",
       )}
     >
       <CardContent className="p-3 space-y-3">

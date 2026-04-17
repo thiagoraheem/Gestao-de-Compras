@@ -12,6 +12,37 @@ export interface KanbanFilters {
   purchaseOrder?: string;
 }
 
+function matchesPurchaseOrderFilter(input: {
+  requestNumber?: string | null;
+  purchaseOrderNumber?: string | null;
+  receiptNumber?: string | null;
+}, rawFilter: string) {
+  const filter = rawFilter.toLowerCase().trim();
+  if (!filter) return true;
+
+  const requestNumber = input.requestNumber?.toLowerCase() || "";
+  const purchaseOrderNumber = input.purchaseOrderNumber?.toLowerCase() || "";
+  const receiptNumber = input.receiptNumber?.toLowerCase() || "";
+
+  const hasTextMatch =
+    requestNumber.includes(filter) ||
+    purchaseOrderNumber.includes(filter) ||
+    receiptNumber.includes(filter);
+
+  const numbers = filter.replace(/[^\d]/g, "");
+  const hasLetters = /[a-z]/i.test(filter);
+  const hasNumberMatch =
+    Boolean(numbers) &&
+    !hasLetters &&
+    (
+      requestNumber.replace(/[^\d]/g, "").includes(numbers) ||
+      purchaseOrderNumber.replace(/[^\d]/g, "").includes(numbers) ||
+      receiptNumber.replace(/[^\d]/g, "").includes(numbers)
+    );
+
+  return hasTextMatch || hasNumberMatch;
+}
+
 export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
   if (!Array.isArray(requests)) return [];
 
@@ -61,12 +92,46 @@ export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
 
     // Purchase Order Number filter
     if (filters.purchaseOrder && filters.purchaseOrder.trim()) {
-      const filter = filters.purchaseOrder.toLowerCase().trim();
-      
-      const hasPurchaseOrderMatch = request.purchaseOrder?.orderNumber?.toLowerCase().includes(filter);
-      const hasRequestNumberMatch = request.requestNumber?.toLowerCase().includes(filter);
+      passesFilters =
+        passesFilters &&
+        matchesPurchaseOrderFilter(
+          {
+            requestNumber: request.requestNumber,
+            purchaseOrderNumber: request.purchaseOrder?.orderNumber,
+          },
+          filters.purchaseOrder,
+        );
+    }
 
-      passesFilters = passesFilters && (hasPurchaseOrderMatch || hasRequestNumberMatch);
+    return passesFilters;
+  });
+}
+
+export function filterReceipts(receipts: any[], filters: KanbanFilters): any[] {
+  if (!Array.isArray(receipts)) return [];
+
+  return receipts.filter((receipt: any) => {
+    let passesFilters = true;
+
+    if (filters.supplier !== "all") {
+      passesFilters = passesFilters && receipt.supplier?.id?.toString() === filters.supplier;
+    }
+
+    if (filters.urgency !== "all") {
+      passesFilters = passesFilters && receipt.request?.urgency === filters.urgency;
+    }
+
+    if (filters.purchaseOrder && filters.purchaseOrder.trim()) {
+      passesFilters =
+        passesFilters &&
+        matchesPurchaseOrderFilter(
+          {
+            requestNumber: receipt.request?.requestNumber,
+            purchaseOrderNumber: receipt.purchaseOrderNumber,
+            receiptNumber: receipt.receiptNumber,
+          },
+          filters.purchaseOrder,
+        );
     }
 
     return passesFilters;
