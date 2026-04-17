@@ -11,7 +11,7 @@ import {
   DragOverlay,
   closestCorners,
 } from "@dnd-kit/core";
-import { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense, startTransition } from "react";
 import PurchaseCard from "./purchase-card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,17 @@ import { Badge } from "@/components/ui/badge";
 import { filterRequests } from "@/lib/kanban-filters";
 import { ReceiptProvider } from "@/components/receipt/ReceiptContext";
 import ReceiptPhysicalPanel from "@/components/receipt/ReceiptPhysicalPanel";
+import { shouldOpenRequestDetailsForReceipt } from "./receipt-navigation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const RFQCreation = lazy(() => import("./rfq-creation"));
 const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
@@ -67,6 +78,7 @@ export default function KanbanBoard({
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canDeleteGhostReceipts = Boolean(user?.isAdmin || user?.isManager);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeRequest, setActiveRequest] = useState<any>(null);
@@ -79,6 +91,8 @@ export default function KanbanBoard({
   const [lockDialogClose, setLockDialogClose] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptKanbanRow | null>(null);
+  const [ghostDeleteDialogOpen, setGhostDeleteDialogOpen] = useState(false);
+  const [ghostReceiptToDelete, setGhostReceiptToDelete] = useState<ReceiptKanbanRow | null>(null);
 
   const phaseIcons: Record<PurchasePhase, any> = {
     [PURCHASE_PHASES.SOLICITACAO]: FileText,
@@ -103,12 +117,14 @@ export default function KanbanBoard({
   });
 
   const { data: receiptsBoard = [] } = useQuery<ReceiptKanbanRow[]>({
-    queryKey: ["receipts-board-kanban"],
+    queryKey: ["receipts-board"],
     queryFn: async () => {
       return apiRequest("/api/receipts/board");
     },
     enabled: !!user,
     staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
   const receiptRequestId = (selectedReceipt as any)?.request?.id || (selectedReceipt as any)?.purchaseRequestId || null;
@@ -124,9 +140,82 @@ export default function KanbanBoard({
   };
 
   const handleOpenReceipt = (receipt: ReceiptKanbanRow) => {
-    setSelectedReceipt(receipt);
-    setIsReceiptModalOpen(true);
+    if (shouldOpenRequestDetailsForReceipt(String((receipt as any).receiptPhase))) {
+      const requestId = (receipt as any)?.request?.id || (receipt as any)?.purchaseRequestId || null;
+      const fullRequest = Number.isFinite(requestId as any) && Array.isArray(purchaseRequests)
+        ? purchaseRequests.find((r: any) => r.id === requestId)
+        : null;
+
+      if (fullRequest) {
+        startTransition(() => {
+          setActiveRequest(fullRequest);
+          setModalPhase(PURCHASE_PHASES.PEDIDO_CONCLUIDO);
+          setIsModalOpen(true);
+        });
+        return;
+      }
+
+      if (Number.isFinite(requestId as any)) {
+        apiRequest(`/api/purchase-requests/${requestId}`)
+          .then((req: any) => {
+            if (!req) throw new Error("Solicitação não encontrada");
+            queryClient.setQueryData([`/api/purchase-requests/${requestId}`], req);
+            startTransition(() => {
+              setActiveRequest(req);
+              setModalPhase(PURCHASE_PHASES.PEDIDO_CONCLUIDO);
+              setIsModalOpen(true);
+            });
+          })
+          .catch((error: any) => {
+            toast({
+              title: "Solicitação não encontrada",
+              description: error?.message || "Não foi possível localizar a solicitação vinculada a este recebimento concluído.",
+              variant: "destructive",
+            });
+          });
+        return;
+      }
+
+      toast({
+        title: "Solicitação não encontrada",
+        description: "Não foi possível localizar a solicitação vinculada a este recebimento concluído.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    startTransition(() => {
+      setSelectedReceipt(receipt);
+      setIsReceiptModalOpen(true);
+    });
   };
+
+  const deleteGhostReceiptMutation = useMutation({
+    mutationFn: async (receiptId: number) => {
+      return apiRequest(`/api/receipts/${receiptId}`, { method: "DELETE" });
+    },
+    onMutate: async (receiptId) => {
+      await queryClient.cancelQueries({ queryKey: ["receipts-board"] });
+      const previous = queryClient.getQueryData(["receipts-board"]);
+      queryClient.setQueryData(["receipts-board"], (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.filter((r: any) => r.id !== receiptId);
+      });
+      return { previous };
+    },
+    onError: (error: any, _vars, context: any) => {
+      if (context?.previous) queryClient.setQueryData(["receipts-board"], context.previous);
+      toast({
+        title: "Erro",
+        description: error?.message || "Falha ao excluir recebimento",
+        variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["receipts-board"] });
+      toast({ title: "Excluído", description: "Recebimento fantasma excluído." });
+    },
+  });
 
   // Listen for URL-based request opening
   useEffect(() => {
@@ -254,7 +343,6 @@ export default function KanbanBoard({
       // Comprehensive cache invalidation for all related queries
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-      queryClient.invalidateQueries({ queryKey: ["receipts-board-kanban"] });
       queryClient.invalidateQueries({ queryKey: ["receipts-board"] });
       // Invalidate all quotation status and related queries
       queryClient.invalidateQueries({
@@ -281,16 +369,16 @@ export default function KanbanBoard({
       });
     },
     onMutate: async ({ id, newPhase }) => {
-      await queryClient.cancelQueries({ queryKey: ["receipts-board-kanban"] });
-      const previous = queryClient.getQueryData(["receipts-board-kanban"]);
-      queryClient.setQueryData(["receipts-board-kanban"], (old: any) => {
+      await queryClient.cancelQueries({ queryKey: ["receipts-board"] });
+      const previous = queryClient.getQueryData(["receipts-board"]);
+      queryClient.setQueryData(["receipts-board"], (old: any) => {
         if (!Array.isArray(old)) return old;
         return old.map((r: any) => (r.id === id ? { ...r, receiptPhase: newPhase } : r));
       });
       return { previous };
     },
     onError: (error, _vars, context: any) => {
-      if (context?.previous) queryClient.setQueryData(["receipts-board-kanban"], context.previous);
+      if (context?.previous) queryClient.setQueryData(["receipts-board"], context.previous);
       toast({
         title: "Movimento Bloqueado",
         description: (error as any)?.message || "Falha ao mover recebimento",
@@ -298,7 +386,6 @@ export default function KanbanBoard({
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["receipts-board-kanban"] });
       queryClient.invalidateQueries({ queryKey: ["receipts-board"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
     },
@@ -826,6 +913,34 @@ export default function KanbanBoard({
 
   return (
     <>
+      <AlertDialog
+        open={ghostDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setGhostDeleteDialogOpen(open);
+          if (!open) setGhostReceiptToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir recebimento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este recebimento não possui solicitação vinculada. A exclusão remove permanentemente o registro e seus dados associados. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (ghostReceiptToDelete) {
+                  deleteGhostReceiptMutation.mutate(ghostReceiptToDelete.id);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <DndContext
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
@@ -861,6 +976,11 @@ export default function KanbanBoard({
                     title={col.title}
                     receipts={receiptsByPhase[col.id] || []}
                     onOpenReceipt={handleOpenReceipt}
+                    canDeleteGhost={canDeleteGhostReceipts}
+                    onDeleteGhost={(r) => {
+                      setGhostReceiptToDelete(r);
+                      setGhostDeleteDialogOpen(true);
+                    }}
                   />
                 )}
               </div>
@@ -925,6 +1045,11 @@ export default function KanbanBoard({
                   title={col.title}
                   receipts={receiptsByPhase[col.id] || []}
                   onOpenReceipt={handleOpenReceipt}
+                  canDeleteGhost={canDeleteGhostReceipts}
+                  onDeleteGhost={(r) => {
+                    setGhostReceiptToDelete(r);
+                    setGhostDeleteDialogOpen(true);
+                  }}
                 />
               ),
             )}
@@ -943,7 +1068,7 @@ export default function KanbanBoard({
           )}
           {activeReceipt && (
             <div className="rotate-3 transform">
-              <ReceiptKanbanCard receipt={activeReceipt} />
+              <ReceiptKanbanCard receipt={activeReceipt} canDeleteGhost={false} />
             </div>
           )}
         </DragOverlay>
@@ -1033,15 +1158,17 @@ export default function KanbanBoard({
               </div>
             </div>
             <div className="px-6 pt-3 pb-4">
-              {!selectedReceipt || !receiptRequest ? (
-                <div className="p-4 text-center">Carregando...</div>
-              ) : String((selectedReceipt as any).receiptPhase) === RECEIPT_PHASES.RECEBIMENTO_FISICO ? (
-                <ReceiptProvider request={receiptRequest} onClose={() => setIsReceiptModalOpen(false)} mode="physical" receiptId={selectedReceipt.id}>
-                  <ReceiptPhysicalPanel />
-                </ReceiptProvider>
-              ) : (
-                <FiscalConferencePhase request={receiptRequest} onClose={() => setIsReceiptModalOpen(false)} mode="fiscal" initialReceiptId={selectedReceipt.id} />
-              )}
+              <Suspense fallback={<div className="p-4 text-center">Carregando...</div>}>
+                {!selectedReceipt || !receiptRequest ? (
+                  <div className="p-4 text-center">Carregando...</div>
+                ) : String((selectedReceipt as any).receiptPhase) === RECEIPT_PHASES.RECEBIMENTO_FISICO ? (
+                  <ReceiptProvider request={receiptRequest} onClose={() => setIsReceiptModalOpen(false)} mode="physical" receiptId={selectedReceipt.id}>
+                    <ReceiptPhysicalPanel />
+                  </ReceiptProvider>
+                ) : (
+                  <FiscalConferencePhase request={receiptRequest} onClose={() => setIsReceiptModalOpen(false)} mode="fiscal" initialReceiptId={selectedReceipt.id} />
+                )}
+              </Suspense>
             </div>
           </DialogContent>
         </Dialog>

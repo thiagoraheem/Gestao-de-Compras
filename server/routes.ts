@@ -41,6 +41,8 @@ import {
   receiptAllocations,
   receipts,
   receiptItems,
+  receiptInstallments,
+  receiptNfXmls,
   purchaseRequests,
   purchaseOrderItems,
   purchaseOrders,
@@ -3406,12 +3408,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
             receiptType: receipts.receiptType,
             documentNumber: receipts.documentNumber,
             documentSeries: receipts.documentSeries,
+            documentIssueDate: receipts.documentIssueDate,
+            documentEntryDate: receipts.documentEntryDate,
             approvedAt: receipts.approvedAt,
             approvedByName: sql<string>`COALESCE(${users.firstName} || ' ' || ${users.lastName}, ${users.username})`,
             totalAmount: receipts.totalAmount,
             createdAt: receipts.createdAt,
+            receivedAt: receipts.receivedAt,
             purchaseOrderId: receipts.purchaseOrderId,
             purchaseRequestId: receipts.purchaseRequestId,
+            purchaseOrderNumber: purchaseOrders.orderNumber,
+            requestFound: sql<boolean>`${purchaseRequests.id} IS NOT NULL`,
+            receivingPercent: sql<number>`(
+              CASE
+                WHEN (SELECT COALESCE(SUM(poi.quantity), 0) FROM purchase_order_items poi WHERE poi.purchase_order_id = ${purchaseOrders.id}) = 0
+                  THEN 0
+                ELSE ROUND(
+                  (
+                    (SELECT COALESCE(SUM(poi.quantity_received), 0) FROM purchase_order_items poi WHERE poi.purchase_order_id = ${purchaseOrders.id})
+                    /
+                    (SELECT COALESCE(SUM(poi.quantity), 0) FROM purchase_order_items poi WHERE poi.purchase_order_id = ${purchaseOrders.id})
+                  ) * 100
+                , 1)
+              END
+            )`,
             supplier: {
               id: suppliers.id,
               name: suppliers.name,
@@ -3422,6 +3442,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               requestNumber: purchaseRequests.requestNumber,
               currentPhase: purchaseRequests.currentPhase,
               procurementStatus: purchaseRequests.procurementStatus as any,
+              justification: purchaseRequests.justification,
+              urgency: purchaseRequests.urgency,
+              category: purchaseRequests.category,
+              totalValue: purchaseRequests.totalValue,
+              createdAt: purchaseRequests.createdAt,
+              requesterName: sql<string>`(
+                SELECT COALESCE(u.first_name || ' ' || u.last_name, u.username)
+                FROM users u
+                WHERE u.id = ${purchaseRequests.requesterId}
+                LIMIT 1
+              )`,
             },
           })
           .from(receipts)
@@ -3438,6 +3469,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) {
         console.error("Error fetching receipts board:", error);
         res.status(500).json({ message: "Erro ao buscar board de recebimentos" });
+      }
+    },
+  );
+
+  app.delete(
+    "/api/receipts/:id(\\d+)",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const id = Number(req.params.id);
+        const userId = req.session.userId!;
+        const user = await storage.getUser(userId);
+        if (!user) return res.status(401).json({ message: "Usuário não encontrado" });
+        if (!(user.isAdmin || user.isManager)) return res.status(403).json({ message: "Sem permissão para excluir recebimentos" });
+
+        const [row] = await db
+          .select({
+            receipt: receipts,
+            requestId: purchaseRequests.id,
+          })
+          .from(receipts)
+          .leftJoin(purchaseOrders, eq(receipts.purchaseOrderId, purchaseOrders.id))
+          .leftJoin(purchaseRequests, sql`${purchaseRequests.id} = COALESCE(${receipts.purchaseRequestId}, ${purchaseOrders.purchaseRequestId})`)
+          .where(eq(receipts.id, id))
+          .limit(1);
+
+        if (!row?.receipt) return res.status(404).json({ message: "Recebimento não encontrado" });
+
+        const isGhost = !row.requestId;
+        if (!isGhost) {
+          return res.status(400).json({ message: "Apenas recebimentos sem solicitação vinculada podem ser excluídos por esta ação" });
+        }
+
+        await db.delete(receiptItems).where(eq(receiptItems.receiptId, id));
+        await db.delete(receiptAllocations).where(eq(receiptAllocations.receiptId, id));
+        await db.delete(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
+        await db.delete(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
+        await db.delete(receipts).where(eq(receipts.id, id));
+
+        try {
+          await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, receipt_id, action_scope, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+            VALUES (${0}, ${id}, ${'RECEIPT'}, ${'ghost_receipt_deleted'}, ${'Recebimento sem solicitação vinculada excluído'}, ${userId}, ${JSON.stringify({ receiptId: id, receiptNumber: row.receipt.receiptNumber, purchaseOrderId: row.receipt.purchaseOrderId, purchaseRequestId: row.receipt.purchaseRequestId, status: row.receipt.status, receiptPhase: row.receipt.receiptPhase })}::jsonb, ${null}, ${sql`ARRAY['receipt_items','receipt_allocations','receipt_installments','receipt_nf_xmls','receipts']`} );`);
+        } catch {}
+
+        res.json({ success: true });
+      } catch (error: any) {
+        console.error("Error deleting ghost receipt:", error);
+        res.status(500).json({ message: "Erro ao excluir recebimento" });
       }
     },
   );

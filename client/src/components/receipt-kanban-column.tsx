@@ -8,11 +8,15 @@ export default function ReceiptKanbanColumn({
   title,
   receipts,
   onOpenReceipt,
+  canDeleteGhost,
+  onDeleteGhost,
 }: {
   phaseId: string;
   title: string;
   receipts: ReceiptKanbanRow[];
   onOpenReceipt?: (r: ReceiptKanbanRow) => void;
+  canDeleteGhost?: boolean;
+  onDeleteGhost?: (r: ReceiptKanbanRow) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: phaseId });
   const itemIds = receipts.map((r) => `receipt-${r.id}`);
@@ -37,7 +41,13 @@ export default function ReceiptKanbanColumn({
         >
           <SortableContext id={phaseId} items={itemIds} strategy={verticalListSortingStrategy}>
             {receipts.map((r) => (
-              <ReceiptKanbanCard key={`receipt-${r.id}`} receipt={r} onOpen={onOpenReceipt} />
+              <ReceiptKanbanCard
+                key={`receipt-${r.id}`}
+                receipt={r}
+                onOpen={onOpenReceipt}
+                canDeleteGhost={canDeleteGhost}
+                onDeleteGhost={onDeleteGhost}
+              />
             ))}
           </SortableContext>
           {receipts.length === 0 && (
@@ -50,4 +60,3 @@ export default function ReceiptKanbanColumn({
     </div>
   );
 }
-

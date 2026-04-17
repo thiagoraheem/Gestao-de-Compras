@@ -24,13 +24,13 @@ Documento técnico completo: [decouple-request-receipts-lifecycle.md](file:///c:
 - Aplicar schema no banco (Drizzle Kit):
   - `npm run db:push`
 
-### Feature flag
+### Feature flag (legado)
 
-- `FEATURE_DECOUPLE_RECEIPTS_LIFECYCLE=true`
-  - Habilita o novo comportamento:
-    - solicitação marcada como concluída no handoff;
-    - eventos de receipt não alteram `purchase_requests.currentPhase`;
-    - endpoints novos de receipts-board e ciclo de vida do receipt.
+- O rollout via `FEATURE_DECOUPLE_RECEIPTS_LIFECYCLE` foi utilizado durante a fase de transição.
+- O comportamento atual do fluxo desacoplado (Fluxo 1: Aquisição, Fluxo 2: Recebimento) não depende mais desta flag para:
+  - criação/atualização de receipts;
+  - carregamento do board de receipts;
+  - exibição do Fluxo 2 no Kanban principal.
 
 ---
 
@@ -78,6 +78,24 @@ Entregas:
 - Ajustes de relatórios e PDFs que dependem de `currentPhase`.
 
 Critérios de aceitação:
+
+---
+
+## Kanban principal (Fluxo 2 no Kanban)
+
+- O Kanban principal exibe duas faixas de colunas:
+  - Fluxo 1 (Aquisição): colunas baseadas em `purchase_requests.current_phase` até `pedido_concluido`.
+  - Fluxo 2 (Recebimento): colunas baseadas em `receipts.receipt_phase` (`recebimento_fisico`, `conf_fiscal`, `concluido`).
+- Fonte de dados do Fluxo 2:
+  - endpoint único: `GET /api/receipts/board`
+  - utilizado tanto na tela dedicada de Recebimentos quanto no Kanban principal para evitar divergência de dados.
+- Cache do frontend:
+  - a query usa uma chave compartilhada (`["receipts-board"]`) para que alterações feitas em uma tela reflitam na outra sem depender de refetch manual.
+- Rotas:
+  - endpoints de detalhes de receipt usam parâmetro numérico (`/api/receipts/:id(\\d+)`) para não conflitar com rotas estáticas como `/api/receipts/board`.
+- Recebimentos fantasma:
+  - um receipt pode existir sem vínculo com solicitação (sem `purchase_request_id` e sem PO válido), tipicamente por legado/importação.
+  - o Kanban exibe estes cards com alerta visual e permite exclusão apenas para Admin/Gerente, com confirmação.
+  - a exclusão remove dados dependentes (`receipt_items`, `receipt_allocations`, `receipt_installments`, `receipt_nf_xmls`) e registra auditoria (`ghost_receipt_deleted`).
 - Backlog fiscal é visível e mensurável por receipt (não por solicitação).
 - PDFs públicos e relatórios usam regras baseadas em dados (PO/aprovação/procurement_status), não apenas fase.
-

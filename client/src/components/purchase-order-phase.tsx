@@ -182,7 +182,6 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
       return apiRequest(`/api/purchase-requests/${request.id}/start-receiving`, { method: "POST" });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["receipts-board-kanban"] });
       queryClient.invalidateQueries({ queryKey: ["receipts-board"] });
       toast({
         title: "Recebimento iniciado",
