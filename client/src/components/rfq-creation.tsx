@@ -20,16 +20,16 @@ import {
   UserPlus
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DateInput } from "@/components/ui/date-input";
+import { Button } from "@/shared/ui/button";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/shared/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Textarea } from "@/shared/ui/textarea";
+import { Badge } from "@/shared/ui/badge";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { DateInput } from "@/shared/ui/date-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { SupplierSelector } from "./supplier-selector";

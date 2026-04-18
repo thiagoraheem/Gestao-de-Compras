@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from "react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/shared/ui/input";
 import { formatBrazilianNumber, parseBrazilianNumber } from "@/lib/number-parser";
 import { cn } from "@/lib/utils";
 

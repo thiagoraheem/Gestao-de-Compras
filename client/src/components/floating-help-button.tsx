@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/shared/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/shared/ui/dropdown-menu";
 import {
   HelpCircle,
   BookOpen,

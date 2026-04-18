@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Package, AlertTriangle, Clock, Activity } from "lucide-react";
 import { PURCHASE_PHASES } from "@/lib/types";
 

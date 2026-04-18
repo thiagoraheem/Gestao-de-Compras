@@ -9,8 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
 import {
   Form,
   FormControl,
@@ -18,26 +18,26 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from "@/shared/ui/form";
+import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DateInput } from "@/components/ui/date-input";
-import { Badge } from "@/components/ui/badge";
+} from "@/shared/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
+import { DateInput } from "@/shared/ui/date-input";
+import { Badge } from "@/shared/ui/badge";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/shared/ui/card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,7 +50,7 @@ import {
 import { Plus, X, Edit3, Edit2, Copy, Trash2, Check } from "lucide-react";
 import HybridProductInput from "./hybrid-product-input";
 import { useUnits } from "@/hooks/useUnits";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 
 const MAX_TITLE_LENGTH = 150;
 const MIN_ITEM_DESCRIPTION_LENGTH = 10;

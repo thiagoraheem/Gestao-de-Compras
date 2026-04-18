@@ -1,8 +1,8 @@
 import { Download, FileSpreadsheet } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/shared/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table';
+import { Alert, AlertDescription } from '@/shared/ui/alert';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 

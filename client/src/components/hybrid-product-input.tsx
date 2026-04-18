@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Button } from "@/shared/ui/button";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import debug from "@/lib/debug";

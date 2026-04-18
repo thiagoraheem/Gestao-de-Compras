@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bell, X, Clock, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { Card, CardContent } from "@/shared/ui/card";
 import { PHASE_LABELS, URGENCY_LABELS, URGENCY_LEVELS } from "@/lib/types";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";

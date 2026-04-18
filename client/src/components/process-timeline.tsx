@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { 
   FileText, 
   CheckCircle, 

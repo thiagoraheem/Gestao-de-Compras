@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/shared/ui/badge';
 import { CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

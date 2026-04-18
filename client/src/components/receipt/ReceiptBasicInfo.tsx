@@ -1,8 +1,8 @@
 
 import React, { useContext } from "react";
 import { ReceiptContext } from "./ReceiptContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
 import { Package, User } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";

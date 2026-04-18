@@ -1,12 +1,12 @@
 
 import { useState, useMemo } from "react";
 import { Search, Check, Users, ChevronDown, ChevronUp, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Badge } from "@/shared/ui/badge";
+import { Card } from "@/shared/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/ui/collapsible";
 
 interface Supplier {
   id: number;

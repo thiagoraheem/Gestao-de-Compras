@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { Button } from "@/shared/ui/button";
 import {
   Command,
   CommandEmpty,
@@ -9,8 +9,8 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command";
-import { Badge } from "@/components/ui/badge";
+} from "@/shared/ui/command";
+import { Badge } from "@/shared/ui/badge";
 import {
   ChevronsUpDown,
   Check,

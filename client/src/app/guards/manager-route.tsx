@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Shield } from 'lucide-react';
 
 interface ManagerRouteProps {

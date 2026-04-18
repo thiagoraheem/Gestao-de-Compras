@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
+import { Separator } from "@/shared/ui/separator";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { ScrollArea } from "@/shared/ui/scroll-area";
 import { 
   Search, 
   AlertTriangle, 

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { Card, CardContent } from '@/shared/ui/card';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import debug from '@/lib/debug';

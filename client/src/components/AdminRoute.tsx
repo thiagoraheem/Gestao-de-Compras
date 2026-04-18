@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { AlertCircle } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
 interface AdminRouteProps {
   children: React.ReactNode;

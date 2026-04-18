@@ -6,8 +6,8 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+} from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
 import {
   Table,
   TableBody,
@@ -15,31 +15,31 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
+} from "@/shared/ui/table";
+import { Input } from "@/shared/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
+} from "@/shared/ui/select";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Badge } from "@/shared/ui/badge";
 import {
   Pagination,
   PaginationContent,
   PaginationItem,
   PaginationNext,
   PaginationPrevious,
-} from "@/components/ui/pagination";
+} from "@/shared/ui/pagination";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/shared/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,8 +50,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@/shared/ui/alert-dialog";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {

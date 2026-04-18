@@ -1,14 +1,14 @@
 import KanbanBoard from "@/components/kanban-board";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/shared/ui/select";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";

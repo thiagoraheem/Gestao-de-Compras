@@ -1,8 +1,8 @@
 import { useMemo, useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import { PHASE_LABELS, PURCHASE_PHASES, URGENCY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/currency";
@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Eye } from "lucide-react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/shared/ui/accordion";
 import { ApprovalTypeBadge, ApprovalProgressBadge } from "@/components/ApprovalTypeBadge";
 
 const RequestPhase = lazy(() => import("./request-phase"));

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Plus, Trash2, Edit2, Save, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
+import { Alert, AlertDescription } from '@/shared/ui/alert';
 
 export interface EditableItem {
   id?: number | string;

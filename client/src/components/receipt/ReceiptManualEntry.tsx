@@ -1,10 +1,10 @@
 
 import React from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Trash, AlertCircle, Plus } from "lucide-react";
 import { useReceipt } from "./ReceiptContext";

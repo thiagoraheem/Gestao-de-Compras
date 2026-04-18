@@ -1,6 +1,6 @@
 import React from "react";
 import { useReceipt } from "./ReceiptContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Building, Truck, AlertCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 

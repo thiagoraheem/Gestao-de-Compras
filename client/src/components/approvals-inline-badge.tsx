@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/shared/ui/badge';
 
 export default function ApprovalsInlineBadge() {
   const [total, setTotal] = useState<number>(Number(localStorage.getItem('lastApprovalsTotal') || 0));

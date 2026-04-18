@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/shared/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/shared/ui/dialog";
+import { Textarea } from "@/shared/ui/textarea";
+import { Label } from "@/shared/ui/label";
 import { AlertTriangle } from "lucide-react";
 
 interface PendencyModalProps {

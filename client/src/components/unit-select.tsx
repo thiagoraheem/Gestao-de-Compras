@@ -5,7 +5,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/shared/ui/select";
 import { useUnits } from '@/hooks/useUnits';
 
 interface UnitSelectProps {

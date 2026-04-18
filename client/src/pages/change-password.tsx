@@ -1,8 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
+import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useForm } from "react-hook-form";

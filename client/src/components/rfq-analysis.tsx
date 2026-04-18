@@ -22,13 +22,13 @@ import {
   CheckCircle
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
+import { Progress } from "@/shared/ui/progress";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/shared/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 
 

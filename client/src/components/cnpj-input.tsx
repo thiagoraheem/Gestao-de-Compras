@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
 import { validateCNPJ, applyCNPJMask } from '@/lib/cnpj-validator';
 
 interface CNPJInputProps {

@@ -1,6 +1,6 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import {
   URGENCY_LABELS,
   CATEGORY_LABELS,
@@ -62,19 +62,19 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@/shared/ui/alert-dialog";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/shared/ui/tooltip";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+} from "@/shared/ui/context-menu";
 import { useApprovalType } from "@/hooks/useApprovalType";
 
 interface ApprovalRules {
@@ -89,7 +89,7 @@ interface ApprovalRules {
 }
 import { ApprovalTypeBadge, ApprovalProgressBadge } from "@/components/ApprovalTypeBadge";
 import { ApprovalTimeline } from "@/components/ApprovalTimeline";
-import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/shared/ui/dialog";
 
 interface PurchaseCardProps {
   request: any;

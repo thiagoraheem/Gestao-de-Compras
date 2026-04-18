@@ -1,7 +1,7 @@
 import { SectionCard } from './SectionCard';
 import type { NFEData } from '@/types/nfe';
 import { FieldDisplay } from './FieldDisplay';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/shared/ui/badge';
 
 interface Props {
   data: NFEData;

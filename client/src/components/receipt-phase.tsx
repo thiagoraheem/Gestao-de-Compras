@@ -2,18 +2,18 @@ import React, { useState, useMemo, useEffect, forwardRef, useImperativeHandle } 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { DecimalInput } from "@/components/ui/decimal-input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Input } from "@/shared/ui/input";
+import { DecimalInput } from "@/shared/ui/decimal-input";
+import { Label } from "@/shared/ui/label";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/shared/ui/tooltip";
 import PdfViewer from "./pdf-viewer";
 import { ErrorBoundary } from "./error-boundary";
 import {
@@ -23,7 +23,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/shared/ui/table";
 import { X, Check, User, FileText, Download, Eye, Plus, ArrowLeft, History } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";

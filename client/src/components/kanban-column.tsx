@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/shared/ui/badge";
 import { PHASE_COLORS, PurchasePhase, PURCHASE_PHASES, type ReceiptMode } from "@/lib/types";
 import PurchaseCard from "./purchase-card";
 import { useDroppable } from "@dnd-kit/core";

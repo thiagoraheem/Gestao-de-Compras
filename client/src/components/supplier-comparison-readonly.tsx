@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { DollarSign, Clock, Building2, Package, X, AlertCircle, CheckCircle, Truck } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/shared/ui/dialog";
 
 interface SupplierComparisonReadonlyProps {
   quotationId: number;

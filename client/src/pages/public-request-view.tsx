@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import { Calendar, MapPin, User, FileText, Download, Building2, Phone, Mail } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";

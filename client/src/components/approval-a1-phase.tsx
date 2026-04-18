@@ -3,9 +3,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
 import {
   Form,
   FormControl,
@@ -13,12 +13,12 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ScrollArea } from "@/components/ui/scroll-area";
+} from "@/shared/ui/form";
+import { Textarea } from "@/shared/ui/textarea";
+import { Badge } from "@/shared/ui/badge";
+import { Separator } from "@/shared/ui/separator";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
+import { ScrollArea } from "@/shared/ui/scroll-area";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";

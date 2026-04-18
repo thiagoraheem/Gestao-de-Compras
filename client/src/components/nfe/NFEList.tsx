@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/shared/ui/input';
+import { Button } from '@/shared/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/shared/ui/dialog';
 import { NFEViewer } from './NFEViewer';
 
 interface NFEAttachmentRow {

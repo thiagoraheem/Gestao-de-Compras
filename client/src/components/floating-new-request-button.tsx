@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import { Plus, X, Eye } from "lucide-react";
 import EnhancedNewRequestModal from "./enhanced-new-request-modal";
 import {
@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/shared/ui/tooltip";
 
 export default function FloatingNewRequestButton() {
   const [isModalOpen, setIsModalOpen] = useState(false);

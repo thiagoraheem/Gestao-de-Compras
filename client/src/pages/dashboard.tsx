@@ -5,17 +5,17 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+} from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@/shared/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import {
   BarChart,
   Bar,
@@ -29,7 +29,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/shared/ui/chart";
 import {
   TrendingUp,
   DollarSign,
@@ -49,8 +49,8 @@ import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";
 import debug from "@/lib/debug";
-import { DateInput } from "@/components/ui/date-input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { DateInput } from "@/shared/ui/date-input";
+import { ScrollArea } from "@/shared/ui/scroll-area";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 

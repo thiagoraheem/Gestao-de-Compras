@@ -6,16 +6,16 @@ import {
   CardHeader, 
   CardTitle, 
   CardDescription 
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+} from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
 import { 
   Select, 
   SelectContent, 
   SelectItem, 
   SelectTrigger, 
   SelectValue 
-} from "@/components/ui/select";
+} from "@/shared/ui/select";
 import { 
   LayoutGrid, 
   Rows3, 
@@ -40,8 +40,8 @@ import {
   TableHead, 
   TableHeader, 
   TableRow 
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+} from "@/shared/ui/table";
+import { Badge } from "@/shared/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS } from "@/lib/types";

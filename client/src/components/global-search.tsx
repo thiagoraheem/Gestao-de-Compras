@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/shared/ui/input";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 import { Search, FileText, Building, Clock, Tag, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PURCHASE_PHASES, PHASE_LABELS, type PurchasePhase, type ReceiptMode } from "@/lib/types";
 import KanbanColumn from "./kanban-column";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/shared/ui/skeleton";
 import {
   DndContext,
   DragEndEvent,
@@ -15,14 +15,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import debug from "@/lib/debug";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import { Plus, FileText, CheckCircle, CheckCircle2, ShoppingCart, Package, Truck, Archive, ClipboardCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/shared/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,9 +32,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+} from "@/shared/ui/alert-dialog";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
 import { filterRequests } from "@/lib/kanban-filters";
 
 const RFQCreation = lazy(() => import("./rfq-creation"));

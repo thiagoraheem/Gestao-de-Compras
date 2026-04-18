@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Trash2, AlertTriangle, CheckCircle, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 

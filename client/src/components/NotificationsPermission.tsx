@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/shared/ui/button';
 
 export default function NotificationsPermission() {
   const [supported, setSupported] = useState(false);

@@ -28,7 +28,7 @@ jest.mock('lucide-react', () => ({
 }));
 
 // Mock UI components that might be complex
-jest.mock('@/components/ui/select', () => ({
+jest.mock('@/shared/ui/select', () => ({
   Select: ({ children, value, onValueChange }: any) => (
     <div data-testid="select-root">
       <select 

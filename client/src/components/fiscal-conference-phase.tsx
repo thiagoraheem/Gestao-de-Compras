@@ -1,9 +1,9 @@
 import React, { useState, forwardRef, useImperativeHandle, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { Separator } from "@/shared/ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/shared/ui/tabs";
 import PdfViewer from "./pdf-viewer";
 import { ErrorBoundary } from "./error-boundary";
 import { Eye, X, FileText, Check, Clock, ArrowLeft, RefreshCw, Edit, Undo2, Download } from "lucide-react";
@@ -16,7 +16,7 @@ import { ReceiptManualEntry } from "./receipt/ReceiptManualEntry";
 import { ReceiptXmlImport } from "./receipt/ReceiptXmlImport";
 import { ReceiptFinancial } from "./receipt/ReceiptFinancial";
 import { useReceiptActions } from "./receipt/useReceiptActions";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/shared/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,17 +26,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@/shared/ui/alert-dialog";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import PurchaseRequestHeaderCard from "./purchase-request-header-card";
 import { PHASE_LABELS } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import { Label } from "@/shared/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
 export interface FiscalConferencePhaseProps {
   request: any;

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
 import {
   Card,
   CardContent,
@@ -10,10 +10,10 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/shared/ui/card";
 import { Loader2, Eye, EyeOff, Wrench, Construction, Building2, Car } from "lucide-react";
 import { Link } from "wouter";
-import { ModeToggle } from "@/components/mode-toggle";
+import { ModeToggle } from "@/shared/ui/mode-toggle";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");

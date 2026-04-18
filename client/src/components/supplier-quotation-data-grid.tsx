@@ -16,30 +16,30 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { DecimalInput } from "@/components/ui/decimal-input";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
+} from "@/shared/ui/table";
+import { Input } from "@/shared/ui/input";
+import { DecimalInput } from "@/shared/ui/decimal-input";
+import { Badge } from "@/shared/ui/badge";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Button } from "@/shared/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/shared/ui/dropdown-menu";
 import {
   FormControl,
   FormField,
   FormItem,
   FormMessage,
-} from "@/components/ui/form";
+} from "@/shared/ui/form";
 import { UseFormReturn, useFieldArray } from "react-hook-form";
 import { UpdateSupplierQuotationData } from "./update-supplier-quotation-schema";
 import { ArrowUpDown, ChevronDown, Download, SlidersHorizontal, AlertCircle } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { parseBrazilianNumber, formatBrazilianNumber } from "@/lib/number-parser";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
 
 interface QuotationItem {
   id: number;

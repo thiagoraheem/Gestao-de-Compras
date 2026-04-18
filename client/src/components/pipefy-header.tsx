@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/shared/ui/button";
+import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import GlobalSearch from "@/components/global-search";
 import {
   DropdownMenu,
@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/shared/ui/dropdown-menu";
 import { DropdownMenu as CustomDropdownMenu } from "@/components/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -38,7 +38,7 @@ import { Filter } from "lucide-react";
 import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 import type { RealtimeStatus } from "@/lib/realtimeClient";
 import ApprovalsInlineBadge from "./approvals-inline-badge";
-import { ModeToggle } from "./mode-toggle";
+import { ModeToggle } from "@/shared/ui/mode-toggle";
 
 const REALTIME_STATUS_STYLES: Record<RealtimeStatus, {
   label: string;

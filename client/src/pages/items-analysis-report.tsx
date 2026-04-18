@@ -7,17 +7,17 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+} from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+} from "@/shared/ui/select";
+import { Badge } from "@/shared/ui/badge";
 import {
   Table,
   TableBody,
@@ -25,12 +25,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/shared/ui/table";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/shared/ui/popover";
 import {
   Download,
   Filter,
@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { DateInput } from "@/components/ui/date-input";
+import { DateInput } from "@/shared/ui/date-input";
 import { formatCurrency } from "@/lib/currency";
 
 interface ItemReportData {

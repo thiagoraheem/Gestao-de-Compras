@@ -1,5 +1,5 @@
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { Label } from '@/shared/ui/label';
+import { Input } from '@/shared/ui/input';
 
 interface EditableFieldProps {
   label: string;

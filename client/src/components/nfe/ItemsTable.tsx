@@ -1,5 +1,5 @@
 import type { ItemNFE } from '@/types/nfe';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table';
 import { formatCurrency } from '@/lib/currency';
 
 interface ItemsTableProps {

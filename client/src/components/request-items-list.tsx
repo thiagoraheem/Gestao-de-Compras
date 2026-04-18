@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Package, Clock } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
 
 interface RequestItem {
   id: number;

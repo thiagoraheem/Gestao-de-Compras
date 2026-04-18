@@ -8,23 +8,23 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+} from "@/shared/ui/select";
+import { Badge } from "@/shared/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/shared/ui/collapsible";
 import {
   Table,
   TableBody,
@@ -32,7 +32,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/shared/ui/table";
 import {
   ChevronDown,
   ChevronRight,
@@ -49,9 +49,9 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { DateInput } from "@/components/ui/date-input";
+import { DateInput } from "@/shared/ui/date-input";
 import { formatCurrency } from "@/lib/currency";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@/shared/ui/checkbox";
 import { ItemSearchInput } from "@/components/item-search-input";
 import {
   Pagination,
@@ -61,7 +61,7 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "@/components/ui/pagination";
+} from "@/shared/ui/pagination";
 
 interface PurchaseRequest {
   id: number;

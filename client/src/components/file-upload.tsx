@@ -1,9 +1,9 @@
 import { useState, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Badge } from "@/shared/ui/badge";
+import { Progress } from "@/shared/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Upload, 

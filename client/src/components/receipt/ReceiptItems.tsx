@@ -1,10 +1,10 @@
 import React from "react";
 import { useReceipt } from "./ReceiptContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
+import { Button } from "@/shared/ui/button";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/shared/ui/table";
+import { Badge } from "@/shared/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";

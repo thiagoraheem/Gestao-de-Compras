@@ -23,16 +23,16 @@ import {
   Printer
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/shared/ui/dialog";
+import { Badge } from "@/shared/ui/badge";
+import { Textarea } from "@/shared/ui/textarea";
+import { ScrollArea } from "@/shared/ui/scroll-area";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group";
+import { Label } from "@/shared/ui/label";
 import {
   Table,
   TableBody,
@@ -40,7 +40,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/shared/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useApprovalType } from "@/hooks/useApprovalType";

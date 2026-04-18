@@ -5,14 +5,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/shared/ui/select";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import { PackageCheck } from "lucide-react";
 import { PURCHASE_PHASES } from "@/lib/types";
 

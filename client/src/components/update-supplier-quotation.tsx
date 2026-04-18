@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { DecimalInput } from "@/components/ui/decimal-input";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { DecimalInput } from "@/shared/ui/decimal-input";
+import { Textarea } from "@/shared/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogClose,
-} from "@/components/ui/dialog";
+} from "@/shared/ui/dialog";
 import {
   Form,
   FormControl,
@@ -18,18 +18,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
+} from "@/shared/ui/form";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Separator } from "@/shared/ui/separator";
+import { Checkbox } from "@/shared/ui/checkbox";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/shared/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updateSupplierQuotationSchema, type UpdateSupplierQuotationData } from "./update-supplier-quotation-schema";

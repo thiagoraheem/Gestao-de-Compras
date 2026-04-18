@@ -4,12 +4,12 @@ import { FileText, Building2, Package, Calendar, Eye, Plus, Clock, CheckCircle, 
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Separator } from "@/shared/ui/separator";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogClose } from "@/shared/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
