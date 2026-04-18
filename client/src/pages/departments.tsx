@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDepartments } from "@/features/departments/hooks/useDepartments";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -43,15 +43,19 @@ export default function DepartmentsPage() {
   const [editingDepartment, setEditingDepartment] = useState<any>(null);
   const [editingCostCenter, setEditingCostCenter] = useState<any>(null);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const { data: departments = [], isLoading: isDeptLoading } = useQuery<any[]>({
-    queryKey: ["/api/departments"],
-  });
-
-  const { data: costCenters = [], isLoading: isCostCenterLoading } = useQuery<any[]>({
-    queryKey: ["/api/cost-centers"],
-  });
+  const {
+    departments,
+    isDeptLoading,
+    costCenters,
+    isCostCenterLoading,
+    createDepartmentMutation,
+    updateDepartmentMutation,
+    createCostCenterMutation,
+    deleteDepartmentMutation,
+    deleteCostCenterMutation,
+    checkDepartmentCanBeDeleted,
+    checkCostCenterCanBeDeleted
+  } = useDepartments();
 
   const deptForm = useForm<DepartmentFormData>({
     resolver: zodResolver(departmentSchema),
@@ -71,236 +75,15 @@ export default function DepartmentsPage() {
     },
   });
 
-  const createDepartmentMutation = useMutation({
-    mutationFn: async (data: DepartmentFormData) => {
-      const endpoint = editingDepartment 
-        ? `/api/departments/${editingDepartment.id}`
-        : "/api/departments";
-      const method = editingDepartment ? "PUT" : "POST";
-      const response = await apiRequest(endpoint, { method, body: data });
-      return response;
-    },
-    onMutate: async (data) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/departments"] });
-      
-      // Snapshot the previous value
-      const previousDepartments = queryClient.getQueryData(["/api/departments"]);
-      
-      // Optimistically add new department
-      queryClient.setQueryData(["/api/departments"], (old: any[]) => {
-        if (!Array.isArray(old)) return old;
-        const optimisticDept = {
-          id: Date.now(), // Temporary ID
-          ...data,
-          createdAt: new Date().toISOString()
-        };
-        return [...old, optimisticDept];
-      });
-      
-      return { previousDepartments };
-    },
-    onError: (err, variables, context) => {
-      // Roll back on error
-      if (context?.previousDepartments) {
-        queryClient.setQueryData(["/api/departments"], context.previousDepartments);
-      }
-      
-      toast({
-        title: "Erro",
-        description: "Falha ao criar departamento",
-        variant: "destructive",
-      });
-    },
-    onSuccess: () => {
-      // Comprehensive cache invalidation for department-related data
-      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
-      
-      // Force immediate refetch for real data
-      queryClient.refetchQueries({ queryKey: ["/api/departments"] });
-      queryClient.refetchQueries({ queryKey: ["/api/users"] });
-      
-      setIsDeptModalOpen(false);
-      setEditingDepartment(null);
-      deptForm.reset();
-      toast({
-        title: "Sucesso",
-        description: editingDepartment 
-          ? "Departamento atualizado com sucesso"
-          : "Departamento criado com sucesso",
-      });
-    },
-  });
 
-  const createCostCenterMutation = useMutation({
-    mutationFn: async (data: CostCenterFormData) => {
-      const endpoint = editingCostCenter 
-        ? `/api/cost-centers/${editingCostCenter.id}`
-        : "/api/cost-centers";
-      const method = editingCostCenter ? "PUT" : "POST";
-      const response = await apiRequest(endpoint, { method, body: data });
-      return response;
-    },
-    onMutate: async (data) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/cost-centers"] });
-      
-      // Snapshot the previous value
-      const previousCostCenters = queryClient.getQueryData(["/api/cost-centers"]);
-      
-      // Optimistically add new cost center
-      queryClient.setQueryData(["/api/cost-centers"], (old: any[]) => {
-        if (!Array.isArray(old)) return old;
-        const optimisticCC = {
-          id: Date.now(), // Temporary ID
-          ...data,
-          department: departments.find(d => d.id === data.departmentId),
-          createdAt: new Date().toISOString()
-        };
-        return [...old, optimisticCC];
-      });
-      
-      return { previousCostCenters };
-    },
-    onError: (err, variables, context) => {
-      // Roll back on error
-      if (context?.previousCostCenters) {
-        queryClient.setQueryData(["/api/cost-centers"], context.previousCostCenters);
-      }
-      
-      debug.error("Cost center creation error:", err);
-      debug.error("Error details:", {
-        message: err instanceof Error ? err.message : 'Unknown error',
-        variables,
-        errorType: typeof err,
-        errorKeys: err && typeof err === 'object' ? Object.keys(err) : []
-      });
-      
-      let errorMessage = "Falha ao criar centro de custo";
-      
-      // Handle fetch errors (non-JSON responses)
-      if (err instanceof Error) {
-        if (err.message.includes('Unexpected token') && err.message.includes('DOCTYPE')) {
-          errorMessage = "Erro de servidor. Tente novamente em alguns instantes.";
-        } else if (err.message.includes('unique constraint') || err.message.includes('duplicate')) {
-          errorMessage = "Código do centro de custo já existe";
-        } else if (err.message.includes('validation')) {
-          errorMessage = "Dados inválidos. Verifique os campos obrigatórios";
-        } else if (err.message.includes('Failed to fetch')) {
-          errorMessage = "Erro de conexão. Verifique sua internet.";
-        } else {
-          errorMessage = err.message;
-        }
-      }
-      
-      toast({
-        title: "Erro",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    },
-    onSuccess: () => {
-      // Comprehensive cache invalidation for cost center-related data
-      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
-      
-      // Invalidate user-specific cost center queries
-      queryClient.invalidateQueries({ 
-        predicate: (query) => 
-          !!(query.queryKey[0]?.toString().includes(`/api/users/`) &&
-          query.queryKey[0]?.toString().includes(`/cost-centers`))
-      });
-      
-      // Force immediate refetch for real data
-      queryClient.refetchQueries({ queryKey: ["/api/cost-centers"] });
-      queryClient.refetchQueries({ queryKey: ["/api/users"] });
-      
-      setIsCostCenterModalOpen(false);
-      setEditingCostCenter(null);
-      costCenterForm.reset();
-      toast({
-        title: "Sucesso",
-        description: editingCostCenter 
-          ? "Centro de custo atualizado com sucesso"
-          : "Centro de custo criado com sucesso",
-      });
-    },
-  });
 
-  const deleteDepartmentMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiRequest(`/api/departments/${id}`, { method: "DELETE" });
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      toast({
-        title: "Sucesso",
-        description: "Departamento excluído com sucesso",
-      });
-    },
-    onError: (error: any) => {
-      debug.error("Error deleting department:", error);
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao excluir departamento",
-        variant: "destructive",
-      });
-    },
-  });
 
-  const deleteCostCenterMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiRequest(`/api/cost-centers/${id}`, { method: "DELETE" });
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ 
-        predicate: (query) => 
-          !!(query.queryKey[0]?.toString().includes(`/api/users/`) &&
-          query.queryKey[0]?.toString().includes(`/cost-centers`))
-      });
-      toast({
-        title: "Sucesso",
-        description: "Centro de custo excluído com sucesso",
-      });
-    },
-    onError: (error: any) => {
-      debug.error("Error deleting cost center:", error);
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao excluir centro de custo",
-        variant: "destructive",
-      });
-    },
-  });
 
-  const checkDepartmentCanBeDeleted = async (id: number) => {
-    try {
-      const response = await apiRequest(`/api/departments/${id}/can-delete`, { method: "GET" });
-      return response;
-    } catch (error) {
-      debug.error("Error checking department can be deleted:", error);
-      return { canDelete: false, reason: "Erro ao verificar se departamento pode ser excluído" };
-    }
-  };
 
-  const checkCostCenterCanBeDeleted = async (id: number) => {
-    try {
-      const response = await apiRequest(`/api/cost-centers/${id}/can-delete`, { method: "GET" });
-      return response;
-    } catch (error) {
-      debug.error("Error checking cost center can be deleted:", error);
-      return { canDelete: false, reason: "Erro ao verificar se centro de custo pode ser excluído" };
-    }
-  };
+
+
+
+
 
   const handleDeleteDepartment = async (department: any) => {
     const result = await checkDepartmentCanBeDeleted(department.id);
@@ -312,7 +95,10 @@ export default function DepartmentsPage() {
       });
       return;
     }
-    deleteDepartmentMutation.mutate(department.id);
+    deleteDepartmentMutation.mutate(department.id, {
+      onSuccess: () => toast({ title: "Sucesso", description: "Departamento excluído com sucesso" }),
+      onError: (err: any) => toast({ title: "Erro", description: err.message || "Erro ao excluir departamento", variant: "destructive" })
+    });
   };
 
   const handleDeleteCostCenter = async (costCenter: any) => {
@@ -325,15 +111,43 @@ export default function DepartmentsPage() {
       });
       return;
     }
-    deleteCostCenterMutation.mutate(costCenter.id);
+    deleteCostCenterMutation.mutate(costCenter.id, {
+      onSuccess: () => toast({ title: "Sucesso", description: "Centro de custo excluído com sucesso" }),
+      onError: (err: any) => toast({ title: "Erro", description: err.message || "Erro ao excluir centro de custo", variant: "destructive" })
+    });
   };
 
   const onSubmitDepartment = (data: DepartmentFormData) => {
-    createDepartmentMutation.mutate(data);
+    if (editingDepartment) {
+      updateDepartmentMutation.mutate({ id: editingDepartment.id, data }, {
+        onSuccess: () => {
+          setIsDeptModalOpen(false);
+          setEditingDepartment(null);
+          deptForm.reset();
+          toast({
+            title: "Sucesso",
+            description: "Departamento atualizado com sucesso",
+          });
+        },
+        onError: () => toast({ title: "Erro", description: "Falha ao salvar departamento", variant: "destructive" })
+      });
+    } else {
+      createDepartmentMutation.mutate(data, {
+        onSuccess: () => {
+          setIsDeptModalOpen(false);
+          setEditingDepartment(null);
+          deptForm.reset();
+          toast({
+            title: "Sucesso",
+            description: "Departamento criado com sucesso",
+          });
+        },
+        onError: () => toast({ title: "Erro", description: "Falha ao salvar departamento", variant: "destructive" })
+      });
+    }
   };
 
   const onSubmitCostCenter = (data: CostCenterFormData) => {
-    // Ensure departmentId is a valid number
     if (!data.departmentId || data.departmentId <= 0) {
       toast({
         title: "Erro",
@@ -343,7 +157,18 @@ export default function DepartmentsPage() {
       return;
     }
     
-    createCostCenterMutation.mutate(data);
+    createCostCenterMutation.mutate({ data, editingCostCenter }, {
+      onSuccess: () => {
+        setIsCostCenterModalOpen(false);
+        setEditingCostCenter(null);
+        costCenterForm.reset();
+        toast({
+          title: "Sucesso",
+          description: editingCostCenter ? "Centro de custo atualizado com sucesso" : "Centro de custo criado com sucesso",
+        });
+      },
+      onError: (err: any) => toast({ title: "Erro", description: err.message || "Falha ao salvar centro de custo", variant: "destructive" })
+    });
   };
 
   const getDepartmentName = (departmentId: number) => {
@@ -612,8 +437,8 @@ export default function DepartmentsPage() {
                 <Button type="button" variant="outline" onClick={handleCloseDeptModal}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={createDepartmentMutation.isPending}>
-                  {createDepartmentMutation.isPending ? "Salvando..." : "Salvar"}
+                <Button type="submit" disabled={editingDepartment ? updateDepartmentMutation.isPending : createDepartmentMutation.isPending}>
+                  {(editingDepartment ? updateDepartmentMutation.isPending : createDepartmentMutation.isPending) ? "Salvando..." : "Salvar"}
                 </Button>
               </div>
             </form>

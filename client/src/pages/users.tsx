@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useUsers } from "@/features/users/hooks/useUsers";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -83,19 +83,17 @@ export default function UsersPage() {
   const [deleteCheckResult, setDeleteCheckResult] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const { data: users = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/users"],
-  });
-
-  const { data: departments = [] } = useQuery<any[]>({
-    queryKey: ["/api/departments"],
-  });
-
-  const { data: costCenters = [] } = useQuery<any[]>({
-    queryKey: ["/api/cost-centers"],
-  });
+  const {
+    users,
+    departments,
+    costCenters,
+    isLoading,
+    createUserMutation,
+    checkDeleteUserMutation,
+    deleteUserMutation,
+    resetPasswordMutation,
+    setPasswordMutation
+  } = useUsers();
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
@@ -117,184 +115,6 @@ export default function UsersPage() {
     },
   });
 
-  const createUserMutation = useMutation({
-    mutationFn: async (data: UserFormData) => {
-      const endpoint = editingUser 
-        ? `/api/users/${editingUser.id}`
-        : "/api/users";
-      const method = editingUser ? "PUT" : "POST";
-      const response = await apiRequest(endpoint, {
-        method,
-        body: {
-          ...data,
-          costCenterIds: selectedCostCenters
-        }
-      });
-      return response;
-    },
-    onMutate: async (data) => {
-      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-      await queryClient.cancelQueries({ queryKey: ["/api/users"] });
-      
-      // Snapshot the previous value
-      const previousUsers = queryClient.getQueryData(["/api/users"]);
-      
-      if (!editingUser) {
-        // For new users, add optimistic entry
-        queryClient.setQueryData(["/api/users"], (old: any[]) => {
-          if (!Array.isArray(old)) return old;
-          const optimisticUser = {
-            id: Date.now(), // Temporary ID
-            ...data,
-            department: data.departmentId ? departments.find(d => d.id === data.departmentId) : null,
-            costCenters: selectedCostCenters.map(id => costCenters.find(cc => cc.id === id)).filter(Boolean)
-          };
-          return [...old, optimisticUser];
-        });
-      } else {
-        // For editing, update existing user
-        queryClient.setQueryData(["/api/users"], (old: any[]) => {
-          if (!Array.isArray(old)) return old;
-          return old.map(user => 
-            user.id === editingUser.id 
-              ? { 
-                  ...user, 
-                  ...data,
-                  department: data.departmentId ? departments.find(d => d.id === data.departmentId) : null,
-                  costCenters: selectedCostCenters.map(id => costCenters.find(cc => cc.id === id)).filter(Boolean)
-                }
-              : user
-          );
-        });
-      }
-      
-      // Return a context object with the snapshotted value
-      return { previousUsers };
-    },
-    onError: (err: any, variables, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
-      if (context?.previousUsers) {
-        queryClient.setQueryData(["/api/users"], context.previousUsers);
-      }
-      
-      let errorMessage = "Falha ao salvar usuário";
-      if (err?.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err?.message) {
-        errorMessage = err.message;
-      }
-
-      toast({
-        title: "Erro",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    },
-    onSuccess: () => {
-      // Comprehensive cache invalidation for user-related data
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
-      
-      // Invalidate user-specific cost center queries
-      queryClient.invalidateQueries({ 
-        predicate: (query) => 
-          !!(query.queryKey[0]?.toString().includes(`/api/users/`) &&
-          query.queryKey[0]?.toString().includes(`/cost-centers`))
-      });
-      
-      // Force immediate refetch for real data
-      queryClient.refetchQueries({ queryKey: ["/api/users"] });
-      queryClient.refetchQueries({ queryKey: ["/api/cost-centers"] });
-      queryClient.refetchQueries({ queryKey: ["/api/departments"] });
-      
-      toast({
-        title: "Sucesso",
-        description: editingUser 
-          ? "Usuário atualizado com sucesso!"
-          : "Usuário criado com sucesso!",
-      });
-      handleCloseModal();
-    },
-  });
-
-  const checkDeleteUserMutation = useMutation({
-    mutationFn: async (userId: number) => {
-      const response = await apiRequest(`/api/users/${userId}/can-delete`, { method: "GET" });
-      return response;
-    },
-    onSuccess: (data, userId) => {
-      setDeleteCheckResult(data);
-      if (data.canDelete) {
-        setIsDeleteDialogOpen(true);
-      } else {
-        toast({
-          title: "Não é possível excluir",
-          description: `${data.reason}. ${data.associatedRequests ? `Registros associados: ${data.associatedRequests}` : ""}`,
-          variant: "destructive",
-        });
-      }
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Falha ao verificar se o usuário pode ser excluído",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteUserMutation = useMutation({
-    mutationFn: async (userId: number) => {
-      const response = await apiRequest(`/api/users/${userId}`, { method: "DELETE" });
-      return response;
-    },
-    onMutate: async (userId) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/users"] });
-      
-      // Snapshot the previous value
-      const previousUsers = queryClient.getQueryData(["/api/users"]);
-      
-      // Optimistically remove user
-      queryClient.setQueryData(["/api/users"], (old: any[]) => {
-        if (!Array.isArray(old)) return old;
-        return old.filter(user => user.id !== userId);
-      });
-      
-      return { previousUsers };
-    },
-    onError: (err, variables, context) => {
-      // Roll back on error
-      if (context?.previousUsers) {
-        queryClient.setQueryData(["/api/users"], context.previousUsers);
-      }
-      
-      toast({
-        title: "Erro",
-        description: "Falha ao excluir usuário",
-        variant: "destructive",
-      });
-    },
-    onSuccess: () => {
-      // Comprehensive cache invalidation for user-related data
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
-      
-      // Force immediate refetch for real data
-      queryClient.refetchQueries({ queryKey: ["/api/users"] });
-      
-      toast({
-        title: "Sucesso",
-        description: "Usuário excluído com sucesso",
-      });
-      setIsDeleteDialogOpen(false);
-      setDeletingUser(null);
-      setDeleteCheckResult(null);
-    },
-  });
-
   const [resettingUser, setResettingUser] = useState<any>(null);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [newTemporaryPassword, setNewTemporaryPassword] = useState<string | null>(null);
@@ -310,59 +130,7 @@ export default function UsersPage() {
     },
   });
 
-  const resetPasswordMutation = useMutation({
-    mutationFn: async (userId: number) => {
-      const response = await apiRequest(`/api/users/${userId}/reset-password`, { method: "POST" });
-      return response;
-    },
-    onSuccess: (data) => {
-      setNewTemporaryPassword(data.tempPassword);
-      toast({
-        title: "Sucesso",
-        description: "Senha redefinida com sucesso.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro",
-        description: "Falha ao redefinir senha: " + (error as Error).message,
-        variant: "destructive",
-      });
-      setIsResetPasswordDialogOpen(false);
-      setResettingUser(null);
-    },
-  });
 
-  const setPasswordMutation = useMutation({
-    mutationFn: async (data: { userId: number; password: string }) => {
-      const response = await apiRequest(`/api/users/${data.userId}/set-password`, {
-        method: "POST",
-        body: { password: data.password },
-      });
-      return response;
-    },
-    onSuccess: () => {
-      toast({
-        title: "Sucesso",
-        description: "Senha alterada com sucesso.",
-      });
-      handleCloseSetPasswordModal();
-    },
-    onError: (error: any) => {
-      let errorMessage = "Falha ao alterar senha";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-
-      toast({
-        title: "Erro",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleResetPassword = (user: any) => {
     setResettingUser(user);
@@ -387,13 +155,45 @@ export default function UsersPage() {
       setPasswordMutation.mutate({
         userId: settingPasswordUser.id,
         password: data.password,
+      }, {
+        onSuccess: () => {
+          toast({
+            title: "Sucesso",
+            description: "Senha alterada com sucesso.",
+          });
+          handleCloseSetPasswordModal();
+        },
+        onError: (error: any) => {
+          toast({
+            title: "Erro",
+            description: error?.response?.data?.message || error.message || "Falha ao alterar senha",
+            variant: "destructive",
+          });
+        }
       });
     }
   };
 
   const confirmResetPassword = () => {
     if (resettingUser) {
-      resetPasswordMutation.mutate(resettingUser.id);
+      resetPasswordMutation.mutate(resettingUser.id, {
+        onSuccess: (data: any) => {
+          setNewTemporaryPassword(data.tempPassword);
+          toast({
+            title: "Sucesso",
+            description: "Senha redefinida com sucesso.",
+          });
+        },
+        onError: (error: any) => {
+          toast({
+            title: "Erro",
+            description: "Falha ao redefinir senha: " + error.message,
+            variant: "destructive",
+          });
+          setIsResetPasswordDialogOpen(false);
+          setResettingUser(null);
+        }
+      });
     }
   };
 
@@ -439,10 +239,48 @@ export default function UsersPage() {
     // For editing users, don't send password if it's empty
     if (editingUser && !data.password) {
       const { password, ...dataWithoutPassword } = data;
-      createUserMutation.mutate(dataWithoutPassword as UserFormData);
+      createUserMutation.mutate({ data: dataWithoutPassword as UserFormData, editingUser, selectedCostCenters }, {
+        onSuccess: () => {
+          toast({
+            title: "Sucesso",
+            description: "Usuário atualizado com sucesso!"
+          });
+          handleCloseModal();
+        },
+        onError: (err: any) => {
+          toast({
+            title: "Erro",
+            description: err?.response?.data?.message || err?.message || "Falha ao salvar usuário",
+            variant: "destructive",
+          });
+        }
+      });
     } else {
-      createUserMutation.mutate(data);
+      createUserMutation.mutate({ data, editingUser, selectedCostCenters }, {
+        onSuccess: () => {
+          toast({
+            title: "Sucesso",
+            description: "Usuário criado com sucesso!",
+          });
+          handleCloseModal();
+        },
+        onError: (err: any) => {
+          toast({
+            title: "Erro",
+            description: err?.response?.data?.message || err?.message || "Falha ao salvar usuário",
+            variant: "destructive",
+          });
+        }
+      });
     }
+  };
+
+  const onFormError = (errors: any) => {
+    toast({
+      title: "Erro no preenchimento",
+      description: "Por favor, preencha todos os campos obrigatórios corretamente.",
+      variant: "destructive"
+    });
   };
 
   const getUserRoles = (user: any) => {
@@ -460,12 +298,49 @@ export default function UsersPage() {
 
   const handleDeleteUser = (user: any) => {
     setDeletingUser(user);
-    checkDeleteUserMutation.mutate(user.id);
+    checkDeleteUserMutation.mutate(user.id, {
+      onSuccess: (data) => {
+        setDeleteCheckResult(data);
+        if (data.canDelete) {
+          setIsDeleteDialogOpen(true);
+        } else {
+          toast({
+            title: "Não é possível excluir",
+            description: `${data.reason}. ${data.associatedRequests ? `Registros associados: ${data.associatedRequests}` : ""}`,
+            variant: "destructive",
+          });
+        }
+      },
+      onError: () => {
+        toast({
+          title: "Erro",
+          description: "Falha ao verificar se o usuário pode ser excluído",
+          variant: "destructive",
+        });
+      }
+    });
   };
 
   const confirmDeleteUser = () => {
     if (deletingUser) {
-      deleteUserMutation.mutate(deletingUser.id);
+      deleteUserMutation.mutate(deletingUser.id, {
+        onSuccess: () => {
+          toast({
+            title: "Sucesso",
+            description: "Usuário excluído com sucesso",
+          });
+          setIsDeleteDialogOpen(false);
+          setDeletingUser(null);
+          setDeleteCheckResult(null);
+        },
+        onError: () => {
+          toast({
+            title: "Erro",
+            description: "Falha ao excluir usuário",
+            variant: "destructive",
+          });
+        }
+      });
     }
   };
 
@@ -629,7 +504,7 @@ export default function UsersPage() {
           </DialogHeader>
           
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+            <form onSubmit={form.handleSubmit(onSubmit, onFormError)} className="flex flex-col flex-1 overflow-hidden">
               <div className="flex items-center justify-between mb-4 p-4 rounded-lg border bg-muted/20">
                 <div className="space-y-0.5">
                   <FormLabel className="text-base font-semibold">Status do Usuário</FormLabel>

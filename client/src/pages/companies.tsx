@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCompanies, EmpresaERP } from "@/features/companies/hooks/useCompanies";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Building, CheckCircle, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -38,15 +39,7 @@ import { CNPJInput } from "@/components/cnpj-input";
 import { LogoUpload } from "@/components/logo-upload";
 import { cn } from "@/lib/utils";
 
-interface EmpresaERP {
-  idCompany: number;
-  companyName: string | null;
-  companyTrading: string | null;
-  cnpj: string | null;
-  address: string | null;
-  phone: string | null;
-  email: string | null;
-}
+
 
 export default function Companies() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -71,87 +64,23 @@ export default function Companies() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const { data: erpCompanies, isLoading: isLoadingERP } = useQuery({
-    queryKey: ["/api/integration/locador/combos/empresas"],
-    queryFn: async () => {
-      return await apiRequest("/api/integration/locador/combos/empresas") as EmpresaERP[];
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
-  });
-
-  const { data: allCompanies, isLoading, error } = useQuery({
-    queryKey: ["/api/companies"],
-    queryFn: async () => {
-      const response = await apiRequest("/api/companies");
-      return response;
-    },
-  });
+  const {
+    erpCompanies,
+    isLoadingERP,
+    allCompanies,
+    isLoading,
+    error,
+    createMutation,
+    updateMutation,
+    deleteMutation
+  } = useCompanies();
 
   // Filter companies based on active status
   const companies = showInactive
     ? allCompanies
     : allCompanies?.filter((company: Company) => company.active);
 
-  const createMutation = useMutation({
-    mutationFn: (data: InsertCompany) => apiRequest("/api/companies", { method: "POST", body: data }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
-      setIsCreateModalOpen(false);
-      resetForm();
-      toast({
-        title: "Sucesso",
-        description: "Empresa criada com sucesso!",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao criar empresa",
-        variant: "destructive",
-      });
-    },
-  });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<InsertCompany> }) =>
-      apiRequest(`/api/companies/${id}`, { method: "PUT", body: data }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
-      setIsEditModalOpen(false);
-      setEditingCompany(null);
-      resetForm();
-      toast({
-        title: "Sucesso",
-        description: "Empresa atualizada com sucesso!",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao atualizar empresa",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/companies/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
-      toast({
-        title: "Sucesso",
-        description: "Empresa desativada com sucesso!",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao desativar empresa",
-        variant: "destructive",
-      });
-    },
-  });
 
   const resetForm = () => {
     setFormData({
@@ -212,7 +141,14 @@ export default function Companies() {
       });
       return;
     }
-    createMutation.mutate(formData);
+    createMutation.mutate(formData, {
+      onSuccess: () => {
+        setIsCreateModalOpen(false);
+        resetForm();
+        toast({ title: "Sucesso", description: "Empresa criada com sucesso!" });
+      },
+      onError: (error: any) => toast({ title: "Erro", description: error.message || "Erro ao criar empresa", variant: "destructive" })
+    });
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
@@ -226,7 +162,15 @@ export default function Companies() {
         });
         return;
       }
-      updateMutation.mutate({ id: editingCompany.id, data: formData });
+      updateMutation.mutate({ id: editingCompany.id, data: formData }, {
+        onSuccess: () => {
+          setIsEditModalOpen(false);
+          setEditingCompany(null);
+          resetForm();
+          toast({ title: "Sucesso", description: "Empresa atualizada com sucesso!" });
+        },
+        onError: (error: any) => toast({ title: "Erro", description: error.message || "Erro ao atualizar empresa", variant: "destructive" })
+      });
     }
   };
 
@@ -247,17 +191,23 @@ export default function Companies() {
 
   const handleDelete = (id: number) => {
     if (confirm("Tem certeza de que deseja desativar esta empresa?")) {
-      deleteMutation.mutate(id);
+      deleteMutation.mutate(id, {
+        onSuccess: () => toast({ title: "Sucesso", description: "Empresa desativada com sucesso!" }),
+        onError: (error: any) => toast({ title: "Erro", description: error.message || "Erro ao desativar empresa", variant: "destructive" })
+      });
     }
   };
 
   const handleActivate = (id: number) => {
     if (confirm("Tem certeza de que deseja ativar esta empresa?")) {
-      updateMutation.mutate({ id, data: { active: true } });
+      updateMutation.mutate({ id, data: { active: true } }, {
+        onSuccess: () => toast({ title: "Sucesso", description: "Empresa ativada com sucesso!" }),
+        onError: (error: any) => toast({ title: "Erro", description: error.message || "Erro ao ativar empresa", variant: "destructive" })
+      });
     }
   };
 
-  const CompanyForm = ({ onSubmit, submitLabel, isPending, children }: { onSubmit: (e: React.FormEvent) => void, submitLabel: string, isPending: boolean, children?: React.ReactNode }) => (
+  const renderCompanyForm = ({ onSubmit, submitLabel, isPending, children }: { onSubmit: (e: React.FormEvent) => void, submitLabel: string, isPending: boolean, children?: React.ReactNode }) => (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
         <Label htmlFor="name">Razão Social</Label>
@@ -449,11 +399,11 @@ export default function Companies() {
                 Nova Empresa
               </DialogTitle>
             </DialogHeader>
-            <CompanyForm
-              onSubmit={handleCreateSubmit}
-              submitLabel="Criar"
-              isPending={createMutation.isPending}
-            />
+            {renderCompanyForm({
+              onSubmit: handleCreateSubmit,
+              submitLabel: "Criar",
+              isPending: createMutation.isPending
+            })}
           </DialogContent>
         </Dialog>
         </div>
@@ -559,12 +509,11 @@ export default function Companies() {
               Editar Empresa
             </DialogTitle>
           </DialogHeader>
-          <CompanyForm
-            onSubmit={handleEditSubmit}
-            submitLabel="Atualizar"
-            isPending={updateMutation.isPending}
-          >
-            {editingCompany && (
+          {renderCompanyForm({
+            onSubmit: handleEditSubmit,
+            submitLabel: "Atualizar",
+            isPending: updateMutation.isPending,
+            children: editingCompany && (
               <div className="space-y-4">
                 <div className="space-y-2">
                    <LogoUpload
@@ -592,8 +541,8 @@ export default function Companies() {
                   </Label>
                 </div>
               </div>
-            )}
-          </CompanyForm>
+            )
+          })}
         </DialogContent>
       </Dialog>
 
