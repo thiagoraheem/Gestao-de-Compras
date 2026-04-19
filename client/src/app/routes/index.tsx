@@ -11,14 +11,14 @@ import KanbanIOSPage from "@/pages/kanban-ios";
 import { isIPhone } from "@/lib/device";
 import ListPage from "@/pages/list";
 import SuppliersPage from "@/pages/suppliers";
-import UsersPage from "@/pages/users";
-import DepartmentsPage from "@/pages/departments";
+import UsersManagement from "@/features/users";
+import DepartmentsManagement from "@/features/departments";
 import DeliveryLocationsPage from "@/pages/delivery-locations";
 import ProfilePage from "@/pages/profile";
 import ChangePasswordPage from "@/pages/change-password";
 import RequestManagementPage from "@/pages/request-management";
 import QuotationManagementPage from "@/pages/quotation-management";
-import CompaniesPage from "@/pages/companies";
+import CompaniesManagement from "@/features/companies";
 import PipefyHeader from "@/components/pipefy-header";
 import FloatingNewRequestButton from "@/components/floating-new-request-button";
 import FloatingHelpButton from "@/components/floating-help-button";
@@ -123,12 +123,12 @@ export function AppRoutes() {
         <Route path="/quotations" component={QuotationManagementPage} />
         <Route path="/companies">
           <AdminRoute>
-            <CompaniesPage />
+            <CompaniesManagement />
           </AdminRoute>
         </Route>
         <Route path="/suppliers" component={SuppliersPage} />
-        <Route path="/users" component={UsersPage} />
-        <Route path="/departments" component={DepartmentsPage} />
+        <Route path="/users" component={UsersManagement} />
+        <Route path="/departments" component={DepartmentsManagement} />
         <Route path="/delivery-locations" component={DeliveryLocationsPage} />
         <Route path="/admin/cleanup" component={AdminCleanupPage} />
         <Route path="/admin/super-user">
