@@ -1,3 +1,4 @@
+import { CalculadoraValoresSolicitacao, ItemCalculo } from "../shared/utils/CalculadoraValoresSolicitacao";
 import {
   users,
   companies,
@@ -194,7 +195,7 @@ export interface IStorage {
   ): Promise<PurchaseRequest>;
   getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequestWithDetails[]>;
   getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]>;
-  getPurchaseRequestsForReport(filters: any): Promise<{ data: any[]; total: number }>;
+  getPurchaseRequestsForReport(filters: any): Promise<{ data: any[]; total: number; summary?: any }>;
   getQuotationsDashboardData(): Promise<any>;
   deletePurchaseRequest(id: number): Promise<void>;
 
@@ -1137,7 +1138,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(purchaseRequests.createdAt));
   }
 
-  async getPurchaseRequestsForReport(filters: any): Promise<{ data: any[]; total: number }> {
+  async getPurchaseRequestsForReport(filters: any): Promise<{ data: any[]; total: number; summary?: any }> {
     try {
       const timeoutMsRaw = Number(process.env.REPORT_QUERY_TIMEOUT_MS ?? "");
       const timeoutMs =
@@ -1247,7 +1248,7 @@ export class DatabaseStorage implements IStorage {
 
         let sqlQuery = `${selectClause} ${fromClause} ${whereClause} ORDER BY pr.created_at DESC`;
 
-        if (filters.limit !== undefined && filters.offset !== undefined) {
+        if (filters.limit !== undefined && filters.offset !== undefined && !filters.resumo && !filters.export) {
           sqlQuery += ` LIMIT $${paramCounter} OFFSET $${paramCounter + 1}`;
           params.push(filters.limit, filters.offset);
           paramCounter += 2;
@@ -1358,189 +1359,75 @@ export class DatabaseStorage implements IStorage {
             }
           }
           
-          let originalValue = null;
-          let discount = null;
-            // Prefer purchase order items to determine final value if available
-            let poItemsSum = 0;
-            try {
-              const poItemsResult = await pool.query(
-                `SELECT poi.total_price
-                 FROM purchase_order_items poi 
-                 JOIN purchase_orders po ON poi.purchase_order_id = po.id 
-                 WHERE po.purchase_request_id = $1`,
-                [request.id]
-              );
-              poItemsSum = poItemsResult.rows.reduce((sum: number, row: any) => sum + (parseFloat(row.total_price) || 0), 0);
-            } catch {}
+          let itemsParaCalculo: ItemCalculo[] = [];
+          let globalDiscount = { tipo: "none" as any, valor: 0 };
+          
+          let poItemsSum = 0;
+          let purchaseOrderOriginalDescFound = false;
 
-            // Calculate quotation values first, then override with PO if exists
-            {
-              let foundQuotationData = false;
-              if (request.chosenSupplierId) {
-                const chosenSupplierQuotationResult = await pool.query(
-                  `SELECT sq.id, sq.subtotal_value, sq.final_value, sq.discount_type, sq.discount_value, sq.includes_freight, sq.freight_value
-                   FROM supplier_quotations sq
-                   JOIN quotations q ON sq.quotation_id = q.id
-                   WHERE q.purchase_request_id = $1 
-                   AND sq.supplier_id = $2
-                   ORDER BY sq.created_at DESC
-                   LIMIT 1`,
-                [request.id, request.chosenSupplierId]
-              );
-              if (chosenSupplierQuotationResult.rows.length > 0) {
-                const quotation = chosenSupplierQuotationResult.rows[0];
-                foundQuotationData = true;
-                let itemsOriginalSum = 0;
-                let itemsDiscountedSum = 0;
-                let hasExplicitItemDiscount = false;
-                try {
-                  const itemsRes = await pool.query(
-                    `SELECT original_total_price, discounted_total_price, total_price, discount_percentage, discount_value
-                     FROM supplier_quotation_items
-                     WHERE supplier_quotation_id = $1`,
-                    [quotation.id]
-                  );
-                  itemsRes.rows.forEach((row: any) => {
-                    const baseTotal = parseFloat(row.total_price || '0') || 0;
-                    let orig = parseFloat(row.original_total_price || '0') || 0;
-                    let discTotalCandidate = parseFloat(row.discounted_total_price || '0') || 0;
-                    
-                    // Sanity check: if original or discounted price is absurdly high compared to base total, ignore it
-                    // This fixes SOL-2025-359 where original_total_price is 100x the total_price
-                    if (baseTotal > 0) {
-                      if (orig > baseTotal * 2) orig = baseTotal;
-                      if (orig === 0) orig = baseTotal;
-                      
-                      if (discTotalCandidate > baseTotal * 2) discTotalCandidate = 0;
-                    } else {
-                       // If no base total, fallback to original logic but be careful
-                       if (orig === 0) orig = baseTotal;
-                       if (discTotalCandidate === 0) discTotalCandidate = baseTotal;
-                    }
-
-                    const pct = parseFloat(row.discount_percentage || '0') || 0;
-                    const fixed = parseFloat(row.discount_value || '0') || 0;
-                    let discTotal = discTotalCandidate > 0 ? discTotalCandidate : orig;
-                    
-                    const hasDiscountValue = (pct > 0 || fixed > 0);
-                    // Check price drop only if we trust the values
-                    const hasPriceDrop = discTotalCandidate > 0 && discTotalCandidate < orig - 0.01; 
-                    
-                    if (hasDiscountValue || hasPriceDrop) {
-                      hasExplicitItemDiscount = true;
-                    }
-
-                    // Apply explicit discount calculation if available
-                    if (hasDiscountValue) {
-                      const pctValue = pct > 0 ? (orig * pct) / 100 : 0;
-                      const totalDisc = Math.max(0, pctValue + fixed);
-                      discTotal = Math.max(0, orig - totalDisc);
-                    }
-                    
-                    itemsOriginalSum += orig;
-                    itemsDiscountedSum += Math.min(orig, Math.max(0, discTotal));
-                  });
-                } catch (err) {
-                  console.error('Error fetching quotation items:', err);
-                }
-                const subtotalFromQuotation = quotation.subtotal_value ? parseFloat(quotation.subtotal_value) : 0;
-                const finalFromQuotation = quotation.final_value ? parseFloat(quotation.final_value) : 0;
-
-                let originalCandidate = null as number | null;
-                let finalCandidate = null as number | null;
-
-                let baseSubtotal = itemsDiscountedSum > 0 ? itemsDiscountedSum : (subtotalFromQuotation || 0);
-                let baseOriginal = itemsOriginalSum > 0 ? itemsOriginalSum : (subtotalFromQuotation || 0);
-
-                // If no base, try to use finalValue from quotation as fallback
-                if (baseSubtotal === 0 && finalFromQuotation > 0) {
-                   baseSubtotal = finalFromQuotation;
-                   // Assuming no discount if we have no info, unless final is much lower than subtotal (if subtotal existed)
-                   if (subtotalFromQuotation > finalFromQuotation) {
-                       baseOriginal = subtotalFromQuotation;
-                   } else {
-                       baseOriginal = finalFromQuotation;
-                   }
-                }
-
-                // Calculate final values with global discounts and freight
-                let calculatedFinal = baseSubtotal;
-                let calculatedOriginal = baseOriginal;
-
-                // Global Discount (applies only to final, original keeps full value)
-                if (quotation.discount_type === 'percentage' && quotation.discount_value) {
-                    const discountVal = (calculatedFinal * parseFloat(quotation.discount_value)) / 100;
-                    calculatedFinal -= discountVal;
-                } else if (quotation.discount_type === 'fixed' && quotation.discount_value) {
-                    calculatedFinal -= parseFloat(quotation.discount_value);
-                }
-
-                // Freight (adds to both)
-                if (quotation.includes_freight && quotation.freight_value) {
-                    const freight = parseFloat(quotation.freight_value);
-                    calculatedFinal += freight;
-                    calculatedOriginal += freight;
-                }
-
-                finalCandidate = Math.max(0, calculatedFinal);
-                originalCandidate = Math.max(0, calculatedOriginal);
-
-                // Sanity check if still 0
-                if (finalCandidate === 0 && finalFromQuotation > 0) {
-                    finalCandidate = finalFromQuotation;
-                }
-                if (originalCandidate === 0 && subtotalFromQuotation > 0) {
-                    originalCandidate = subtotalFromQuotation;
-                }
-
-                // Global Sanity Check against Request Total
-                if (request.totalValue && originalCandidate != null && finalCandidate != null) {
-                  const reqTotal = parseFloat(request.totalValue);
-                  // If final value matches request total, but original is huge without item evidence
-                  if (reqTotal > 0 && Math.abs(finalCandidate - reqTotal) < 1.0) {
-                     if (originalCandidate > reqTotal * 1.5 && !hasExplicitItemDiscount && !quotation.discount_value && !quotation.discount_type) {
-                        originalCandidate = finalCandidate;
-                     }
-                  }
-                }
-
-                const hasExplicitDiscount = hasExplicitItemDiscount || (quotation.discount_value && parseFloat(quotation.discount_value) > 0) || !!quotation.discount_type;
-
-                if (!hasExplicitDiscount && originalCandidate != null && finalCandidate != null) {
-                  // Sem desconto explícito: considere valores iguais, mas respeite o finalCandidate calculado (que pode ter frete)
-                  originalValue = finalCandidate;
-                  discount = 0;
-                  if (finalCandidate > 0) {
-                    request.totalValue = finalCandidate;
-                  }
-                } else {
-                  originalValue = originalCandidate;
-                  const finalVal = finalCandidate ?? 0;
-                  discount = originalCandidate != null ? Math.max(0, originalCandidate - finalVal) : null;
-                  if (finalCandidate != null && finalCandidate > 0) {
-                    request.totalValue = finalCandidate;
-                  }
-                }
-              }
+          try {
+            const poItemsResult = await pool.query(
+              `SELECT poi.unit_price, poi.quantity, poi.total_price
+               FROM purchase_order_items poi 
+               JOIN purchase_orders po ON poi.purchase_order_id = po.id 
+               WHERE po.purchase_request_id = $1`,
+              [request.id]
+            );
+            if (poItemsResult.rows.length > 0) {
+              purchaseOrderOriginalDescFound = true;
+              itemsParaCalculo = poItemsResult.rows.map((row: any) => ({
+                valorOriginal: (parseFloat(row.unit_price) || 0) * (parseFloat(row.quantity) || 0),
+                descontoItem: ((parseFloat(row.unit_price) || 0) * (parseFloat(row.quantity) || 0)) - (parseFloat(row.total_price) || 0)
+              }));
+              poItemsSum = itemsParaCalculo.reduce((acc, curr) => acc + (curr.valorOriginal - curr.descontoItem), 0);
             }
-            if (!foundQuotationData && request.totalValue) {
-              const v = parseFloat(request.totalValue);
-              if (v > 0) {
-                originalValue = v;
-                discount = 0;
-              }
+          } catch {}
+
+          if (!purchaseOrderOriginalDescFound && request.chosenSupplierId) {
+            const chosenSupplierQuotationResult = await pool.query(
+              `SELECT sq.id, sq.discount_type, sq.discount_value
+               FROM supplier_quotations sq
+               JOIN quotations q ON sq.quotation_id = q.id
+               WHERE q.purchase_request_id = $1 AND sq.supplier_id = $2
+               ORDER BY sq.created_at DESC LIMIT 1`,
+              [request.id, request.chosenSupplierId]
+            );
+            if (chosenSupplierQuotationResult.rows.length > 0) {
+              const quotation = chosenSupplierQuotationResult.rows[0];
+              globalDiscount = {
+                tipo: quotation.discount_type,
+                valor: parseFloat(quotation.discount_value) || 0
+              };
+              
+              try {
+                const itemsRes = await pool.query(
+                  `SELECT original_total_price, discounted_total_price, total_price, discount_percentage, discount_value
+                   FROM supplier_quotation_items
+                   WHERE supplier_quotation_id = $1`,
+                  [quotation.id]
+                );
+                
+                itemsParaCalculo = itemsRes.rows.map((row: any) => {
+                  let orig = parseFloat(row.original_total_price || '0') || 0;
+                  const final = parseFloat(row.total_price || '0') || 0;
+                  if (orig === 0 || orig < final) orig = final; // safeguard
+
+                  // We trust the explicit discount if mapped
+                  let descItem = orig - final;
+                  return { valorOriginal: orig, descontoItem: Math.max(0, descItem) };
+                });
+              } catch (err) {}
             }
           }
 
-          if (poItemsSum > 0) {
-            request.totalValue = poItemsSum;
-            if (originalValue != null) {
-              discount = Math.max(0, originalValue - poItemsSum);
-            } else {
-              originalValue = poItemsSum;
-              discount = 0;
-            }
+          if (itemsParaCalculo.length === 0 && request.totalValue) {
+             const v = parseFloat(request.totalValue);
+             if (v > 0) {
+               itemsParaCalculo.push({ valorOriginal: v, descontoItem: 0 });
+             }
           }
+
+          const resultadoCalculo = CalculadoraValoresSolicitacao.calcularTotais(itemsParaCalculo, globalDiscount);
 
           // Fetch related items with prices from purchase orders if available
           let items: any[] = [];
@@ -1676,18 +1563,42 @@ export class DatabaseStorage implements IStorage {
             supplierName,
             approverA1Name,
             approverA2Name,
-            originalValue,
-            discount,
+            valorItens: resultadoCalculo.valorItens,
+            desconto: resultadoCalculo.desconto,
+            subTotal: resultadoCalculo.subTotal,
+            descontoProposta: resultadoCalculo.descontoProposta,
+            valorFinal: resultadoCalculo.valorFinal,
             items,
-            approvals: [], // TODO: Implement if needed
-            quotations: [], // TODO: Implement if needed
-            purchaseOrders: [] // TODO: Implement if needed
+            approvals: [],
+            quotations: [],
+            purchaseOrders: []
           };
         })
       );
       
-      // Return with total count
-      return { data: requestsWithNames, total };
+      let summaryData = undefined;
+      if (filters.resumo || filters.export) {
+        summaryData = requestsWithNames.reduce((acc, curr) => ({
+          totalValorItens: acc.totalValorItens + curr.valorItens,
+          totalDesconto: acc.totalDesconto + curr.desconto,
+          totalSubTotal: acc.totalSubTotal + curr.subTotal,
+          totalDescontoProposta: acc.totalDescontoProposta + curr.descontoProposta,
+          totalValorFinal: acc.totalValorFinal + curr.valorFinal,
+        }), {
+          totalValorItens: 0,
+          totalDesconto: 0,
+          totalSubTotal: 0,
+          totalDescontoProposta: 0,
+          totalValorFinal: 0
+        });
+      }
+
+      if (filters.resumo && !filters.export) {
+        return { data: [], total, summary: summaryData };
+      }
+
+      // Return with total count and summary (if exported/resumo limits removed everything from memory)
+      return { data: requestsWithNames, total, summary: summaryData };
     } catch (error) {
       console.error('Error in getPurchaseRequestsForReport:', error);
       throw error;

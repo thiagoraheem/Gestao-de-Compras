@@ -8743,6 +8743,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Export purchase requests report as CSV
+  app.get(
+    "/api/reports/purchase-requests/export",
+    async (req: Request, res: Response) => {
+      try {
+        const {
+          startDate,
+          endDate,
+          departmentId,
+          requesterId,
+          supplierId,
+          phase,
+          urgency,
+          search,
+          itemDescription,
+        } = req.query;
+
+        const filters: any = { export: true };
+
+        // Validate and set date range
+        if (startDate) {
+          try {
+            const start = new Date(startDate as string);
+            if (!isNaN(start.getTime())) filters.startDate = start;
+          } catch (e) {}
+        }
+        if (endDate) {
+          try {
+            const end = new Date(endDate as string);
+            end.setHours(23, 59, 59, 999);
+            if (!isNaN(end.getTime())) filters.endDate = end;
+          } catch (e) {}
+        }
+
+        if (departmentId) {
+          const deptId = parseInt(departmentId as string);
+          if (!isNaN(deptId)) filters.departmentId = deptId;
+        }
+
+        if (requesterId) {
+          const reqId = parseInt(requesterId as string);
+          if (!isNaN(reqId)) filters.requesterId = reqId;
+        }
+
+        if (phase && typeof phase === "string" && phase.trim() !== "") filters.phase = phase.trim();
+        if (urgency && typeof urgency === "string" && urgency.trim() !== "") filters.urgency = urgency.trim();
+        if (supplierId && typeof supplierId === "string" && supplierId.trim() !== "") filters.supplierId = supplierId.trim();
+        if (search && typeof search === "string" && search.trim() !== "") filters.search = search.trim();
+        if (itemDescription && typeof itemDescription === "string" && itemDescription.trim() !== "") filters.itemDescription = itemDescription.trim();
+
+        const { data, summary } = await storage.getPurchaseRequestsForReport(filters);
+
+        // Gera CSV
+        const escapeCsvField = (field: string | number | null): string => {
+          if (field === null || field === undefined) return "N/A";
+          let stringField = String(field);
+          stringField = stringField.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+          if (stringField.includes(';') || stringField.includes('"') || String(field).includes('\n')) {
+            stringField = stringField.replace(/"/g, '""');
+            return `"${stringField}"`;
+          }
+          return stringField;
+        };
+
+        const formatCurrencyForCSV = (value: number | null): string => {
+          if (!value || value === 0) return "R$ 0,00";
+          return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
+        const urgencyMap: Record<string, string> = { baixa: "Baixa", medio: "Média", alto: "Alta", alta_urgencia: "Crítica" };
+        const phaseMap: Record<string, string> = { 
+           solicitacao: "Em Solicitação", 
+           aprovacao_a1: "Aprovação A1", 
+           cotacao: "Em Cotação",
+           aprovacao_a2: "Aprovação A2",
+           conclusao_compra: "Conclusão de Compra",
+           recebimento: "Recebimento"
+        };
+
+        const csvRows = [
+          ["Número", "Descrição", "Data", "Solicitante", "Departamento", "Fornecedor", "Fase", "Urgência", "Valor Itens", "Desconto", "Subtotal", "Desconto Proposta", "Valor Final"].join(";")
+        ];
+
+        data.forEach(req => {
+           let dateStr = "N/A";
+           if (req.createdAt) {
+               const d = new Date(req.createdAt);
+               dateStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
+           }
+
+           csvRows.push([
+              escapeCsvField(req.requestNumber),
+              escapeCsvField(req.justification || ""),
+              escapeCsvField(dateStr),
+              escapeCsvField(req.requesterName),
+              escapeCsvField(req.departmentName),
+              escapeCsvField(req.supplierName === "N/A" ? "" : req.supplierName),
+              escapeCsvField(phaseMap[req.phase] || req.phase),
+              escapeCsvField(urgencyMap[req.urgency] || req.urgency),
+              escapeCsvField(formatCurrencyForCSV(req.valorItens)),
+              escapeCsvField(formatCurrencyForCSV(req.desconto)),
+              escapeCsvField(formatCurrencyForCSV(req.subTotal)),
+              escapeCsvField(formatCurrencyForCSV(req.descontoProposta)),
+              escapeCsvField(formatCurrencyForCSV(req.valorFinal)),
+           ].join(";"));
+        });
+
+        if (summary) {
+           csvRows.push([
+              "TOTAL GERAL", "", "", "", "", "", "", "",
+              escapeCsvField(formatCurrencyForCSV(summary.totalValorItens)),
+              escapeCsvField(formatCurrencyForCSV(summary.totalDesconto)),
+              escapeCsvField(formatCurrencyForCSV(summary.totalSubTotal)),
+              escapeCsvField(formatCurrencyForCSV(summary.totalDescontoProposta)),
+              escapeCsvField(formatCurrencyForCSV(summary.totalValorFinal)),
+           ].join(";"));
+        }
+
+        const csvContent = csvRows.join("\r\n");
+        const BOM = "\uFEFF";
+        
+        const timestamp = new Date().getTime();
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="relatorio_solicitacoes_${timestamp}.csv"`);
+        res.send(BOM + csvContent);
+        
+      } catch (error: any) {
+        console.error("Export Error: ", error);
+        res.status(500).json({ message: "Failed to export CSV" });
+      }
+    }
+  );
+
   // Purchase requests report endpoint
   app.get(
     "/api/reports/purchase-requests",
@@ -8760,10 +8893,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           itemDescription,
           page,
           limit,
+          resumo,
         } = req.query;
 
         // Build filters object with validation
         const filters: any = {};
+
+        if (resumo === "true") {
+           filters.resumo = true;
+        }
 
         // Pagination
         if (page && limit) {
