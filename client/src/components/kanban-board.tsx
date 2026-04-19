@@ -45,7 +45,7 @@ const RequestPhase = lazy(() => import("./request-phase"));
 const ApprovalA1Phase = lazy(() => import("./approval-a1-phase"));
 const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
 const QuotationPhase = lazy(() => import("./quotation-phase"));
-const ConclusionPhase = lazy(() => import("./conclusion-phase"));
+const ConclusionPhase = lazy(() => import("@/features/requests/components/ConclusionPhase"));
 const RequestView = lazy(() => import("./request-view"));
 
 interface KanbanBoardProps {

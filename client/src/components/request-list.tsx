@@ -19,7 +19,7 @@ const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
 const QuotationPhase = lazy(() => import("./quotation-phase"));
 const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
 const ReceiptPhase = lazy(() => import("./receipt-phase"));
-const ConclusionPhase = lazy(() => import("./conclusion-phase"));
+const ConclusionPhase = lazy(() => import("@/features/requests/components/ConclusionPhase"));
 const RequestView = lazy(() => import("./request-view"));
 
 interface RequestListProps {

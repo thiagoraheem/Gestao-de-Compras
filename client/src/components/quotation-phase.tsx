@@ -16,7 +16,7 @@ import { apiRequest } from "@/lib/queryClient";
 import RFQCreation from "./rfq-creation";
 import RFQAnalysis from "./rfq-analysis";
 import { useLocation } from "wouter";
-import SupplierComparison from "./supplier-comparison";
+import SupplierComparison from "@/features/quotations/components/SupplierComparison";
 import UpdateSupplierQuotation from "./update-supplier-quotation";
 import RequestItemsList from "./request-items-list";
 

@@ -18,7 +18,7 @@ const QuotationPhase = lazy(() => import("@/components/quotation-phase"));
 const PurchaseOrderPhase = lazy(() => import("@/components/purchase-order-phase"));
 const ReceiptPhase = lazy(() => import("@/components/receipt-phase"));
 const FiscalConferencePhase = lazy(() => import("@/components/fiscal-conference-phase"));
-const ConclusionPhase = lazy(() => import("@/components/conclusion-phase"));
+const ConclusionPhase = lazy(() => import("@/features/requests/components/ConclusionPhase"));
 import { 
   FileText, 
   CheckCircle, 

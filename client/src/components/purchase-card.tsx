@@ -46,11 +46,11 @@ const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
 const QuotationPhase = lazy(() => import("./quotation-phase"));
 const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
 const ReceiptPhase = lazy(() => import("./receipt-phase"));
-const ConclusionPhase = lazy(() => import("./conclusion-phase"));
+const ConclusionPhase = lazy(() => import("@/features/requests/components/ConclusionPhase"));
 const RequestView = lazy(() => import("./request-view"));
 
 import type { ReceiptPhaseHandle } from "./receipt-phase";
-import type { ConclusionPhaseHandle } from "./conclusion-phase";
+import type { ConclusionPhaseHandle } from "@/features/requests/components/ConclusionPhase";
 
 import { useQuery } from "@tanstack/react-query";
 import {
