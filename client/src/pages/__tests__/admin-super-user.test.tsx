@@ -3,7 +3,7 @@ declare const describe: any;
 declare const test: any;
 declare const expect: any;
 
-import { PHASE_OPTIONS } from "../admin-super-user-constants";
+import { PHASE_OPTIONS } from "../../features/admin/super-user/constants";
 
 describe("AdminSuperUser Page", () => {
   describe("Combobox Configuration", () => {

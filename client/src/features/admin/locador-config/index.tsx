@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -10,44 +9,9 @@ import { Label } from "@/shared/ui/label";
 import { Switch } from "@/shared/ui/switch";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { locadorConfigSchema, LocadorConfigFormData, ApiConfig } from "./schemas/locador-config.schema";
 
-const schema = z.object({
-  enabled: z.boolean(),
-  sendEnabled: z.boolean().default(true),
-  baseUrl: z.string().url(),
-  endpoints: z.object({
-    combo: z.object({
-      fornecedor: z.string().min(1),
-      centroCusto: z.string().min(1),
-      planoContas: z.string().min(1),
-      empresa: z.string().min(1),
-      formaPagamento: z.string().min(1),
-    }),
-    post: z.object({
-      enviarSolicitacao: z.string().optional(),
-      recebimento: z.string().optional(),
-    }),
-  }),
-  credentials: z.object({
-    login: z.string().min(1),
-    senha: z.string().optional(),
-  }),
-});
-
-type FormData = z.infer<typeof schema>;
-
-type ApiConfig = {
-  enabled: boolean;
-  sendEnabled: boolean;
-  baseUrl: string;
-  endpoints: FormData["endpoints"];
-  credentials: {
-    login: string;
-    senha: string;
-  };
-};
-
-export default function AdminLocadorConfigPage() {
+export function AdminLocadorConfig() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -56,8 +20,8 @@ export default function AdminLocadorConfigPage() {
     queryFn: () => apiRequest("/api/config/locador"),
   });
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(schema),
+  const form = useForm<LocadorConfigFormData>({
+    resolver: zodResolver(locadorConfigSchema),
     defaultValues: {
       enabled: true,
       sendEnabled: true,
@@ -75,10 +39,7 @@ export default function AdminLocadorConfigPage() {
           recebimento: "/Purchase/PurchaseReceive",
         },
       },
-      credentials: {
-        login: "",
-        senha: "",
-      },
+      credentials: { login: "", senha: "" },
     },
   });
 
@@ -89,25 +50,20 @@ export default function AdminLocadorConfigPage() {
       sendEnabled: data.sendEnabled,
       baseUrl: data.baseUrl,
       endpoints: data.endpoints,
-      credentials: {
-        login: data.credentials.login,
-        senha: "",
-      },
+      credentials: { login: data.credentials.login, senha: "" },
     });
   }, [data, form]);
 
   const saveMutation = useMutation({
-    mutationFn: async (values: FormData) => {
+    mutationFn: async (values: LocadorConfigFormData) => {
       const body: any = {
         enabled: values.enabled,
         sendEnabled: values.sendEnabled,
         baseUrl: values.baseUrl,
         endpoints: values.endpoints,
-        credentials: {
-          login: values.credentials.login,
-        },
+        credentials: { login: values.credentials.login },
       };
-      if (values.credentials.senha && values.credentials.senha.trim()) {
+      if (values.credentials.senha?.trim()) {
         body.credentials.senha = values.credentials.senha;
       }
       return apiRequest("/api/config/locador", { method: "PUT", body });
@@ -118,11 +74,7 @@ export default function AdminLocadorConfigPage() {
       form.setValue("credentials.senha", "");
     },
     onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Falha ao atualizar configuração.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: error.message || "Falha ao atualizar configuração.", variant: "destructive" });
     },
   });
 
@@ -133,11 +85,7 @@ export default function AdminLocadorConfigPage() {
       toast({ title: "Recarregado", description: "Cache de configuração invalidado." });
     },
     onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Falha ao recarregar.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: error.message || "Falha ao recarregar.", variant: "destructive" });
     },
   });
 
@@ -150,26 +98,17 @@ export default function AdminLocadorConfigPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Config Integração Locador</CardTitle>
             <div className="flex items-center gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => reloadMutation.mutate()}
-                disabled={reloadMutation.isPending}
-              >
+              <Button variant="secondary" onClick={() => reloadMutation.mutate()} disabled={reloadMutation.isPending}>
                 Reload
               </Button>
-              <Button
-                onClick={form.handleSubmit((v) => saveMutation.mutate(v))}
-                disabled={saveMutation.isPending}
-              >
+              <Button onClick={form.handleSubmit((v) => saveMutation.mutate(v))} disabled={saveMutation.isPending}>
                 Salvar
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
-              <div>
-                <Label>Integração habilitada</Label>
-              </div>
+              <div><Label>Integração habilitada</Label></div>
               <Switch
                 checked={values.enabled}
                 onCheckedChange={(checked) => form.setValue("enabled", checked)}
@@ -208,9 +147,7 @@ export default function AdminLocadorConfigPage() {
             </div>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Endpoints (paths)</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Endpoints (paths)</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Combo Fornecedor</Label>
@@ -249,3 +186,4 @@ export default function AdminLocadorConfigPage() {
   );
 }
 
+export default AdminLocadorConfig;

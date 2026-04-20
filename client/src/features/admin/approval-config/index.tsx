@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
@@ -13,78 +12,42 @@ import { Textarea } from "@/shared/ui/textarea";
 import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
-import { Settings, Plus, Edit, History, AlertCircle, CheckCircle, DollarSign } from "lucide-react";
+import { Settings, Plus, History, AlertCircle, CheckCircle, DollarSign } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  approvalConfigSchema,
+  ApprovalConfigFormData,
+  ApprovalConfiguration,
+  ConfigurationHistory
+} from "./schemas/approval-config.schema";
 
-const configSchema = z.object({
-  valueThreshold: z.string().min(1, "Valor limite é obrigatório"),
-  reason: z.string().min(10, "Justificativa deve ter pelo menos 10 caracteres"),
-});
-
-type ConfigFormData = z.infer<typeof configSchema>;
-
-interface ApprovalConfiguration {
-  id: number;
-  valueThreshold: string;
-  isActive: boolean;
-  effectiveDate: string;
-  createdBy: number;
-  reason: string;
-  createdAt: string;
-  updatedAt: string;
-  creator?: {
-    firstName: string;
-    lastName: string;
-  };
-}
-
-interface ConfigurationHistory {
-  id: number;
-  configurationId: number;
-  oldValueThreshold: string;
-  newValueThreshold: string;
-  reason: string;
-  changedBy: number;
-  changedAt: string;
-  changer?: {
-    firstName: string;
-    lastName: string;
-  };
-}
-
-export default function ApprovalConfigPage() {
+export function AdminApprovalConfig() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const form = useForm<ConfigFormData>({
-    resolver: zodResolver(configSchema),
-    defaultValues: {
-      valueThreshold: "",
-      reason: "",
-    },
+  const form = useForm<ApprovalConfigFormData>({
+    resolver: zodResolver(approvalConfigSchema),
+    defaultValues: { valueThreshold: "", reason: "" },
   });
 
-  // Fetch current configuration
   const { data: currentConfig, isLoading: configLoading } = useQuery<ApprovalConfiguration>({
     queryKey: ["/api/approval-rules/config"],
     queryFn: () => apiRequest("/api/approval-rules/config"),
   });
 
-  // Fetch configuration history
   const { data: configHistory = [], isLoading: historyLoading } = useQuery<ConfigurationHistory[]>({
     queryKey: ["/api/approval-rules/config/history"],
     queryFn: () => apiRequest("/api/approval-rules/config/history"),
   });
 
-  // Create new configuration mutation
   const createConfigMutation = useMutation({
-    mutationFn: async (data: ConfigFormData) => {
+    mutationFn: async (data: ApprovalConfigFormData) => {
       return apiRequest("/api/approval-rules/config", {
         method: "POST",
         body: {
@@ -96,31 +59,17 @@ export default function ApprovalConfigPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/approval-rules/config"] });
       queryClient.invalidateQueries({ queryKey: ["/api/approval-rules/config/history"] });
-      toast({
-        title: "Sucesso",
-        description: "Configuração de aprovação atualizada com sucesso!",
-      });
+      toast({ title: "Sucesso", description: "Configuração de aprovação atualizada com sucesso!" });
       setIsCreateDialogOpen(false);
       form.reset();
     },
     onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao atualizar configuração",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: error.message || "Erro ao atualizar configuração", variant: "destructive" });
     },
   });
 
-  const onSubmit = (data: ConfigFormData) => {
+  const onSubmit = (data: ApprovalConfigFormData) => {
     createConfigMutation.mutate(data);
-  };
-
-  const formatThresholdValue = (value: string) => {
-    // Remove non-numeric characters except comma and dot
-    const numericValue = value.replace(/[^\d,]/g, '').replace(',', '.');
-    const parsed = parseFloat(numericValue);
-    return isNaN(parsed) ? 0 : parsed;
   };
 
   return (
@@ -134,20 +83,11 @@ export default function ApprovalConfigPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setIsHistoryDialogOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <History className="h-4 w-4" />
-            Histórico
+          <Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)} className="flex items-center gap-2">
+            <History className="h-4 w-4" /> Histórico
           </Button>
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Nova Configuração
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Nova Configuração
           </Button>
         </div>
       </div>
@@ -156,8 +96,7 @@ export default function ApprovalConfigPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
-            Configuração Atual
+            <DollarSign className="h-5 w-5" /> Configuração Atual
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -182,9 +121,7 @@ export default function ApprovalConfigPage() {
                     <Badge variant={currentConfig.isActive ? "default" : "secondary"}>
                       {currentConfig.isActive ? "Ativa" : "Inativa"}
                     </Badge>
-                    {currentConfig.isActive && (
-                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                    )}
+                    {currentConfig.isActive && <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />}
                   </div>
                 </div>
               </div>
@@ -197,17 +134,13 @@ export default function ApprovalConfigPage() {
               <div className="grid md:grid-cols-2 gap-4 text-sm text-muted-foreground">
                 <div>
                   <span className="font-medium">Criado por:</span>{" "}
-                  {currentConfig.creator 
+                  {currentConfig.creator
                     ? `${currentConfig.creator.firstName} ${currentConfig.creator.lastName}`
-                    : "Sistema"
-                  }
+                    : "Sistema"}
                 </div>
                 <div>
                   <span className="font-medium">Data efetiva:</span>{" "}
-                  {formatDistanceToNow(new Date(currentConfig.effectiveDate), {
-                    addSuffix: true,
-                    locale: ptBR,
-                  })}
+                  {formatDistanceToNow(new Date(currentConfig.effectiveDate), { addSuffix: true, locale: ptBR })}
                 </div>
               </div>
 
@@ -236,67 +169,35 @@ export default function ApprovalConfigPage() {
       {/* Create Configuration Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nova Configuração de Aprovação</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Nova Configuração de Aprovação</DialogTitle></DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="valueThreshold"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor Limite (R$)</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Ex: 2500,00"
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Format as currency while typing
-                          const formatted = value.replace(/\D/g, '').replace(/(\d)(\d{2})$/, '$1,$2');
-                          field.onChange(formatted);
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                    <p className="text-xs text-muted-foreground">
-                      Solicitações acima deste valor requerão dupla aprovação
-                    </p>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="reason"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Justificativa</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Descreva o motivo para esta alteração..."
-                        rows={3}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+              <FormField control={form.control} name="valueThreshold" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Valor Limite (R$)</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Ex: 2500,00"
+                      onChange={(e) => {
+                        const formatted = e.target.value.replace(/\D/g, '').replace(/(\d)(\d{2})$/, '$1,$2');
+                        field.onChange(formatted);
+                      }} />
+                  </FormControl>
+                  <FormMessage />
+                  <p className="text-xs text-muted-foreground">Solicitações acima deste valor requerão dupla aprovação</p>
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="reason" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Justificativa</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Descreva o motivo para esta alteração..." rows={3} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsCreateDialogOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createConfigMutation.isPending}
-                >
+                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancelar</Button>
+                <Button type="submit" disabled={createConfigMutation.isPending}>
                   {createConfigMutation.isPending ? "Salvando..." : "Salvar"}
                 </Button>
               </div>
@@ -308,15 +209,11 @@ export default function ApprovalConfigPage() {
       {/* History Dialog */}
       <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
         <DialogContent className="sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Histórico de Configurações</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Histórico de Configurações</DialogTitle></DialogHeader>
           <div className="max-h-96 overflow-y-auto">
             {historyLoading ? (
               <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
+                {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
               </div>
             ) : configHistory.length > 0 ? (
               <Table>
@@ -333,30 +230,14 @@ export default function ApprovalConfigPage() {
                   {configHistory.map((history) => (
                     <TableRow key={history.id}>
                       <TableCell className="text-sm">
-                        {formatDistanceToNow(new Date(history.changedAt), {
-                          addSuffix: true,
-                          locale: ptBR,
-                        })}
+                        {formatDistanceToNow(new Date(history.changedAt), { addSuffix: true, locale: ptBR })}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {formatCurrency(parseFloat(history.oldValueThreshold))}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="default">
-                          {formatCurrency(parseFloat(history.newValueThreshold))}
-                        </Badge>
-                      </TableCell>
+                      <TableCell><Badge variant="outline">{formatCurrency(parseFloat(history.oldValueThreshold))}</Badge></TableCell>
+                      <TableCell><Badge variant="default">{formatCurrency(parseFloat(history.newValueThreshold))}</Badge></TableCell>
                       <TableCell className="text-sm">
-                        {history.changer
-                          ? `${history.changer.firstName} ${history.changer.lastName}`
-                          : "Sistema"
-                        }
+                        {history.changer ? `${history.changer.firstName} ${history.changer.lastName}` : "Sistema"}
                       </TableCell>
-                      <TableCell className="text-sm max-w-xs truncate">
-                        {history.reason}
-                      </TableCell>
+                      <TableCell className="text-sm max-w-xs truncate">{history.reason}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -364,9 +245,7 @@ export default function ApprovalConfigPage() {
             ) : (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Nenhum histórico de alterações encontrado.
-                </AlertDescription>
+                <AlertDescription>Nenhum histórico de alterações encontrado.</AlertDescription>
               </Alert>
             )}
           </div>
@@ -375,3 +254,5 @@ export default function ApprovalConfigPage() {
     </div>
   );
 }
+
+export default AdminApprovalConfig;

@@ -23,9 +23,9 @@ import PipefyHeader from "@/components/pipefy-header";
 import FloatingNewRequestButton from "@/components/floating-new-request-button";
 import FloatingHelpButton from "@/components/floating-help-button";
 import AdminCleanupPage from "@/pages/admin-cleanup";
-import AdminSuperUserPage from "@/pages/admin-super-user";
-import ApprovalConfigPage from "@/pages/approval-config";
-import AdminLocadorConfigPage from "@/pages/admin-locador-config";
+import AdminSuperUser from "@/features/admin/super-user";
+import AdminApprovalConfig from "@/features/admin/approval-config";
+import AdminLocadorConfig from "@/features/admin/locador-config";
 import DashboardPage from "@/pages/dashboard";
 import UserManualPage from "@/pages/user-manual";
 import PurchaseRequestsReportPage from "@/pages/purchase-requests-report";
@@ -133,17 +133,17 @@ export function AppRoutes() {
         <Route path="/admin/cleanup" component={AdminCleanupPage} />
         <Route path="/admin/super-user">
           <AdminRoute>
-            <AdminSuperUserPage />
+            <AdminSuperUser />
           </AdminRoute>
         </Route>
         <Route path="/admin/approval-config">
           <AdminRoute>
-            <ApprovalConfigPage />
+            <AdminApprovalConfig />
           </AdminRoute>
         </Route>
         <Route path="/admin/locador-config">
           <AdminRoute>
-            <AdminLocadorConfigPage />
+            <AdminLocadorConfig />
           </AdminRoute>
         </Route>
         <Route path="/profile" component={ProfilePage} />
