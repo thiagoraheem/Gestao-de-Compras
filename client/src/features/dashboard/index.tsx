@@ -107,7 +107,7 @@ interface DashboardData {
   };
 }
 
-export default function Dashboard() {
+export function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("30");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -954,3 +954,5 @@ export default function Dashboard() {
     </ScrollArea>
   );
 }
+
+export default DashboardPage;
