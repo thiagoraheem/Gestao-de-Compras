@@ -10,10 +10,10 @@ import KanbanPage from "@/pages/kanban";
 import KanbanIOSPage from "@/pages/kanban-ios";
 import { isIPhone } from "@/lib/device";
 import ListPage from "@/pages/list";
-import SuppliersPage from "@/pages/suppliers";
+import SuppliersManagement from "@/features/suppliers";
 import UsersManagement from "@/features/users";
 import DepartmentsManagement from "@/features/departments";
-import DeliveryLocationsPage from "@/pages/delivery-locations";
+import DeliveryLocationsManagement from "@/features/delivery-locations";
 import ProfilePage from "@/pages/profile";
 import ChangePasswordPage from "@/pages/change-password";
 import RequestManagementPage from "@/pages/request-management";
@@ -126,10 +126,10 @@ export function AppRoutes() {
             <CompaniesManagement />
           </AdminRoute>
         </Route>
-        <Route path="/suppliers" component={SuppliersPage} />
+        <Route path="/suppliers" component={SuppliersManagement} />
         <Route path="/users" component={UsersManagement} />
         <Route path="/departments" component={DepartmentsManagement} />
-        <Route path="/delivery-locations" component={DeliveryLocationsPage} />
+        <Route path="/delivery-locations" component={DeliveryLocationsManagement} />
         <Route path="/admin/cleanup" component={AdminCleanupPage} />
         <Route path="/admin/super-user">
           <AdminRoute>
