@@ -1,4 +1,4 @@
-import { getBadges } from "../rfq-badges-logic";
+import { getBadges } from "@/features/quotations/components/rfq-badges-logic";
 
 declare const describe: any;
 declare const test: any;

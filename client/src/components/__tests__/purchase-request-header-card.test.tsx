@@ -1,5 +1,5 @@
 import React from "react";
-import PurchaseRequestHeaderCard from "../purchase-request-header-card";
+import PurchaseRequestHeaderCard from "@/features/requests/components/purchase-request-header-card";
 import { render, screen } from "@testing-library/react";
 
 // Mocking dependencies if necessary

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup } from "@/shared/ui/select";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 interface Props {

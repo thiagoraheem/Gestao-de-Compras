@@ -2248,6 +2248,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rejectionReasonA2: approved ? null : rejectionReason,
           rejectionActionA2: approved ? null : rejectionAction,
           currentPhase: newPhase as any,
+          // Salva a fase anterior ao arquivamento para permitir desarquivamento
+          lastPhase: newPhase === "arquivado" ? request.currentPhase : undefined,
           updatedAt: new Date(),
         } as const;
 
@@ -4931,8 +4933,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Permission checks based on current phase and user permissions
         const currentPhase = request.currentPhase;
 
-        // Special permission for Admin/Manager to move from "arquivado" to "aprovacao_a1"
-        if (currentPhase === "arquivado" && newPhase === "aprovacao_a1") {
+        // Define phase order for backward movement validation
+        const phaseOrder = [
+          "solicitacao",
+          "aprovacao_a1",
+          "cotacao",
+          "aprovacao_a2",
+          "pedido_compra",
+          "recebimento",
+          "conf_fiscal",
+          "conclusao_compra",
+        ];
+        const currentPhaseIdx = phaseOrder.indexOf(currentPhase);
+        const newPhaseIdx = phaseOrder.indexOf(newPhase);
+        const isBackwardMove = currentPhaseIdx > newPhaseIdx && newPhaseIdx >= 0;
+
+        // Compradores podem mover cards para fases anteriores (exceto para frente)
+        if (isBackwardMove && (user.isBuyer || user.isAdmin || user.isManager)) {
+          // Backward move allowed for Buyer/Admin/Manager — skip other permission checks
+        } else if (currentPhase === "arquivado" && newPhase === "aprovacao_a1") {
+          // Special permission for Admin/Manager to move from "arquivado" to "aprovacao_a1"
           if (!user.isAdmin && !user.isManager) {
             return res.status(403).json({
               message:
@@ -5038,8 +5058,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Automatic approval logic when moving from approval phases
+        // Salva lastPhase se estiver movendo para arquivado
         let updates: any = {
           currentPhase: newPhase,
+          ...(newPhase === "arquivado" ? { lastPhase: currentPhase } : {}),
         };
 
         // Automatic A1 approval when moving from "aprovacao_a1" to "cotacao"
@@ -6681,8 +6703,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Requisição não encontrada" });
         }
 
+        // Salva a fase atual antes de arquivar para permitir desarquivamento
         await storage.updatePurchaseRequest(requestId, {
           currentPhase: "arquivado",
+          lastPhase: request.currentPhase,
         });
 
         const updatedRequest = await storage.getPurchaseRequestById(requestId);
@@ -8502,8 +8526,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const id = parseInt(req.params.id);
         const { conclusionObservations } = req.body;
 
+        // Get current phase to save as lastPhase
+        const currentRequest = await storage.getPurchaseRequestById(id);
+
         const updates = {
           currentPhase: "arquivado" as const,
+          lastPhase: currentRequest?.currentPhase ?? null,
           conclusionObservations,
           archivedDate: new Date(),
         };
@@ -8513,6 +8541,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error archiving request:", error);
         res.status(400).json({ message: "Failed to archive request" });
+      }
+    },
+  );
+
+  // Rota para desarquivar uma solicitação (somente Comprador ou Admin)
+  app.post(
+    "/api/purchase-requests/:id/unarchive",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const request = await storage.getPurchaseRequestById(id);
+
+        if (!request) {
+          return res.status(404).json({ message: "Solicitação não encontrada" });
+        }
+
+        if (request.currentPhase !== "arquivado") {
+          return res.status(400).json({ message: "Solicitação não está arquivada" });
+        }
+
+        // Restaura para a fase anterior ou para 'cotacao' como fallback
+        const targetPhase = request.lastPhase || "cotacao";
+
+        const updated = await storage.updatePurchaseRequest(id, {
+          currentPhase: targetPhase as any,
+          lastPhase: null,
+        });
+
+        // Registrar no log de auditoria
+        await pool.query(
+          `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [
+            id,
+            req.session.userId,
+            'unarchive',
+            `Solicitação desarquivada e retornada para a fase: ${targetPhase}`
+          ]
+        );
+
+        realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+          event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+          payload: { id, currentPhase: targetPhase, updatedAt: updated.updatedAt },
+        });
+
+        res.json(updated);
+      } catch (error) {
+        console.error("Error unarchiving request:", error);
+        res.status(500).json({ message: "Falha ao desarquivar solicitação" });
       }
     },
   );
@@ -8743,6 +8822,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Export purchase requests report as CSV
+  app.get(
+    "/api/reports/purchase-requests/export",
+    async (req: Request, res: Response) => {
+      try {
+        const {
+          startDate,
+          endDate,
+          departmentId,
+          requesterId,
+          supplierId,
+          phase,
+          urgency,
+          search,
+          itemDescription,
+        } = req.query;
+
+        const filters: any = { export: true };
+
+        // Validate and set date range
+        if (startDate) {
+          try {
+            const start = new Date(startDate as string);
+            if (!isNaN(start.getTime())) filters.startDate = start;
+          } catch (e) {}
+        }
+        if (endDate) {
+          try {
+            const end = new Date(endDate as string);
+            end.setHours(23, 59, 59, 999);
+            if (!isNaN(end.getTime())) filters.endDate = end;
+          } catch (e) {}
+        }
+
+        if (departmentId) {
+          const deptId = parseInt(departmentId as string);
+          if (!isNaN(deptId)) filters.departmentId = deptId;
+        }
+
+        if (requesterId) {
+          const reqId = parseInt(requesterId as string);
+          if (!isNaN(reqId)) filters.requesterId = reqId;
+        }
+
+        if (phase && typeof phase === "string" && phase.trim() !== "") filters.phase = phase.trim();
+        if (urgency && typeof urgency === "string" && urgency.trim() !== "") filters.urgency = urgency.trim();
+        if (supplierId && typeof supplierId === "string" && supplierId.trim() !== "") filters.supplierId = supplierId.trim();
+        if (search && typeof search === "string" && search.trim() !== "") filters.search = search.trim();
+        if (itemDescription && typeof itemDescription === "string" && itemDescription.trim() !== "") filters.itemDescription = itemDescription.trim();
+
+        const { data, summary } = await storage.getPurchaseRequestsForReport(filters);
+
+        // Gera CSV
+        const escapeCsvField = (field: string | number | null): string => {
+          if (field === null || field === undefined) return "N/A";
+          let stringField = String(field);
+          stringField = stringField.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+          if (stringField.includes(';') || stringField.includes('"') || String(field).includes('\n')) {
+            stringField = stringField.replace(/"/g, '""');
+            return `"${stringField}"`;
+          }
+          return stringField;
+        };
+
+        const formatCurrencyForCSV = (value: number | null): string => {
+          if (!value || value === 0) return "R$ 0,00";
+          return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
+        const urgencyMap: Record<string, string> = { baixa: "Baixa", medio: "Média", alto: "Alta", alta_urgencia: "Crítica" };
+        const phaseMap: Record<string, string> = { 
+           solicitacao: "Em Solicitação", 
+           aprovacao_a1: "Aprovação A1", 
+           cotacao: "Em Cotação",
+           aprovacao_a2: "Aprovação A2",
+           conclusao_compra: "Conclusão de Compra",
+           recebimento: "Recebimento"
+        };
+
+        const csvRows = [
+          ["Número", "Descrição", "Data", "Solicitante", "Departamento", "Fornecedor", "Fase", "Urgência", "Valor Itens", "Desconto", "Subtotal", "Desconto Proposta", "Valor Final"].join(";")
+        ];
+
+        data.forEach(req => {
+           let dateStr = "N/A";
+           if (req.createdAt) {
+               const d = new Date(req.createdAt);
+               dateStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
+           }
+
+           csvRows.push([
+              escapeCsvField(req.requestNumber),
+              escapeCsvField(req.justification || ""),
+              escapeCsvField(dateStr),
+              escapeCsvField(req.requesterName),
+              escapeCsvField(req.departmentName),
+              escapeCsvField(req.supplierName === "N/A" ? "" : req.supplierName),
+              escapeCsvField(phaseMap[req.phase] || req.phase),
+              escapeCsvField(urgencyMap[req.urgency] || req.urgency),
+              escapeCsvField(formatCurrencyForCSV(req.valorItens)),
+              escapeCsvField(formatCurrencyForCSV(req.desconto)),
+              escapeCsvField(formatCurrencyForCSV(req.subTotal)),
+              escapeCsvField(formatCurrencyForCSV(req.descontoProposta)),
+              escapeCsvField(formatCurrencyForCSV(req.valorFinal)),
+           ].join(";"));
+        });
+
+        if (summary) {
+           csvRows.push([
+              "TOTAL GERAL", "", "", "", "", "", "", "",
+              escapeCsvField(formatCurrencyForCSV(summary.totalValorItens)),
+              escapeCsvField(formatCurrencyForCSV(summary.totalDesconto)),
+              escapeCsvField(formatCurrencyForCSV(summary.totalSubTotal)),
+              escapeCsvField(formatCurrencyForCSV(summary.totalDescontoProposta)),
+              escapeCsvField(formatCurrencyForCSV(summary.totalValorFinal)),
+           ].join(";"));
+        }
+
+        const csvContent = csvRows.join("\r\n");
+        const BOM = "\uFEFF";
+        
+        const timestamp = new Date().getTime();
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="relatorio_solicitacoes_${timestamp}.csv"`);
+        res.send(BOM + csvContent);
+        
+      } catch (error: any) {
+        console.error("Export Error: ", error);
+        res.status(500).json({ message: "Failed to export CSV" });
+      }
+    }
+  );
+
   // Purchase requests report endpoint
   app.get(
     "/api/reports/purchase-requests",
@@ -8760,10 +8972,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           itemDescription,
           page,
           limit,
+          resumo,
         } = req.query;
 
         // Build filters object with validation
         const filters: any = {};
+
+        if (resumo === "true") {
+           filters.resumo = true;
+        }
 
         // Pagination
         if (page && limit) {

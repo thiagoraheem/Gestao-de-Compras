@@ -203,6 +203,7 @@ export const purchaseRequests = pgTable("purchase_requests", {
 
   // Phase-specific fields
   currentPhase: text("current_phase").notNull().default("solicitacao"),
+  lastPhase: text("last_phase"), // Phase before archiving, used for unarchive
 
   // Aprovação A1
   approverA1Id: integer("approver_a1_id").references(() => users.id),
@@ -609,8 +610,8 @@ export const receiptInstallments = pgTable("receipt_installments", {
 export const receiptAllocations = pgTable("receipt_allocations", {
   id: serial("id").primaryKey(),
   receiptId: integer("receipt_id").references(() => receipts.id).notNull(),
-  costCenterId: integer("cost_center_id").references(() => costCenters.id).notNull(),
-  chartOfAccountsId: integer("chart_of_accounts_id").references(() => chartOfAccounts.id).notNull(),
+  costCenterId: integer("cost_center_id").notNull(),
+  chartOfAccountsId: integer("chart_of_accounts_id").notNull(),
   amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
   percentage: decimal("percentage", { precision: 7, scale: 4 }),
   mode: text("mode").notNull().default("manual"),
