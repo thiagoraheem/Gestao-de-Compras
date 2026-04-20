@@ -879,6 +879,7 @@ export class DatabaseStorage implements IStorage {
         availableBudget: purchaseRequests.availableBudget,
         additionalInfo: purchaseRequests.additionalInfo,
         currentPhase: purchaseRequests.currentPhase,
+        lastPhase: purchaseRequests.lastPhase,
         approverA1Id: purchaseRequests.approverA1Id,
         approvedA1: purchaseRequests.approvedA1,
         rejectionReasonA1: purchaseRequests.rejectionReasonA1,

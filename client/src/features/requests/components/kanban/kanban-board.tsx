@@ -364,7 +364,26 @@ export default function KanbanBoard({
   const canUserDragCard = (phase: string, targetPhase?: string) => {
     // If targetPhase is not provided, we're checking if the card can be dragged at all
     if (!targetPhase) {
-      // Allow dragging from any phase - the target validation will happen in handleDragEnd
+      return true;
+    }
+
+    // Define phase order — arquivado is NOT in this list (it's terminal via button only)
+    const phaseOrder = [
+      "solicitacao",
+      "aprovacao_a1",
+      "cotacao",
+      "aprovacao_a2",
+      "pedido_compra",
+      "recebimento",
+      "conf_fiscal",
+      "conclusao_compra",
+    ];
+    const currentIdx = phaseOrder.indexOf(phase);
+    const targetIdx = phaseOrder.indexOf(targetPhase);
+    const isBackwardMove = currentIdx > targetIdx && targetIdx >= 0;
+
+    // Compradores, Admins e Gerentes podem retornar cards para fases anteriores
+    if (isBackwardMove && (user?.isBuyer || user?.isAdmin || user?.isManager)) {
       return true;
     }
 

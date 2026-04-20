@@ -2248,6 +2248,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rejectionReasonA2: approved ? null : rejectionReason,
           rejectionActionA2: approved ? null : rejectionAction,
           currentPhase: newPhase as any,
+          // Salva a fase anterior ao arquivamento para permitir desarquivamento
+          lastPhase: newPhase === "arquivado" ? request.currentPhase : undefined,
           updatedAt: new Date(),
         } as const;
 
@@ -4931,8 +4933,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Permission checks based on current phase and user permissions
         const currentPhase = request.currentPhase;
 
-        // Special permission for Admin/Manager to move from "arquivado" to "aprovacao_a1"
-        if (currentPhase === "arquivado" && newPhase === "aprovacao_a1") {
+        // Define phase order for backward movement validation
+        const phaseOrder = [
+          "solicitacao",
+          "aprovacao_a1",
+          "cotacao",
+          "aprovacao_a2",
+          "pedido_compra",
+          "recebimento",
+          "conf_fiscal",
+          "conclusao_compra",
+        ];
+        const currentPhaseIdx = phaseOrder.indexOf(currentPhase);
+        const newPhaseIdx = phaseOrder.indexOf(newPhase);
+        const isBackwardMove = currentPhaseIdx > newPhaseIdx && newPhaseIdx >= 0;
+
+        // Compradores podem mover cards para fases anteriores (exceto para frente)
+        if (isBackwardMove && (user.isBuyer || user.isAdmin || user.isManager)) {
+          // Backward move allowed for Buyer/Admin/Manager — skip other permission checks
+        } else if (currentPhase === "arquivado" && newPhase === "aprovacao_a1") {
+          // Special permission for Admin/Manager to move from "arquivado" to "aprovacao_a1"
           if (!user.isAdmin && !user.isManager) {
             return res.status(403).json({
               message:
@@ -5038,8 +5058,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Automatic approval logic when moving from approval phases
+        // Salva lastPhase se estiver movendo para arquivado
         let updates: any = {
           currentPhase: newPhase,
+          ...(newPhase === "arquivado" ? { lastPhase: currentPhase } : {}),
         };
 
         // Automatic A1 approval when moving from "aprovacao_a1" to "cotacao"
@@ -6681,8 +6703,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Requisição não encontrada" });
         }
 
+        // Salva a fase atual antes de arquivar para permitir desarquivamento
         await storage.updatePurchaseRequest(requestId, {
           currentPhase: "arquivado",
+          lastPhase: request.currentPhase,
         });
 
         const updatedRequest = await storage.getPurchaseRequestById(requestId);
@@ -8502,8 +8526,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const id = parseInt(req.params.id);
         const { conclusionObservations } = req.body;
 
+        // Get current phase to save as lastPhase
+        const currentRequest = await storage.getPurchaseRequestById(id);
+
         const updates = {
           currentPhase: "arquivado" as const,
+          lastPhase: currentRequest?.currentPhase ?? null,
           conclusionObservations,
           archivedDate: new Date(),
         };
@@ -8513,6 +8541,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error archiving request:", error);
         res.status(400).json({ message: "Failed to archive request" });
+      }
+    },
+  );
+
+  // Rota para desarquivar uma solicitação (somente Comprador ou Admin)
+  app.post(
+    "/api/purchase-requests/:id/unarchive",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const request = await storage.getPurchaseRequestById(id);
+
+        if (!request) {
+          return res.status(404).json({ message: "Solicitação não encontrada" });
+        }
+
+        if (request.currentPhase !== "arquivado") {
+          return res.status(400).json({ message: "Solicitação não está arquivada" });
+        }
+
+        // Restaura para a fase anterior ou para 'cotacao' como fallback
+        const targetPhase = request.lastPhase || "cotacao";
+
+        const updated = await storage.updatePurchaseRequest(id, {
+          currentPhase: targetPhase as any,
+          lastPhase: null,
+        });
+
+        // Registrar no log de auditoria
+        await pool.query(
+          `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [
+            id,
+            req.session.userId,
+            'unarchive',
+            `Solicitação desarquivada e retornada para a fase: ${targetPhase}`
+          ]
+        );
+
+        realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+          event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+          payload: { id, currentPhase: targetPhase, updatedAt: updated.updatedAt },
+        });
+
+        res.json(updated);
+      } catch (error) {
+        console.error("Error unarchiving request:", error);
+        res.status(500).json({ message: "Falha ao desarquivar solicitação" });
       }
     },
   );

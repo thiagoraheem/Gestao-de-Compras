@@ -17,6 +17,7 @@ import {
   Check,
   X,
   Archive,
+  ArchiveRestore,
   Edit,
   GripVertical,
   Trash2,
@@ -114,6 +115,7 @@ export default function PurchaseCard({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showUnarchiveDialog, setShowUnarchiveDialog] = useState(false);
   const [initialA2Action, setInitialA2Action] = useState<'approve' | 'reject' | null>(null);
   const receiptRef = useRef<ReceiptPhaseHandle | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -332,6 +334,30 @@ export default function PurchaseCard({
       toast({
         title: "Erro",
         description: "Não foi possível arquivar a requisição",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(
+        `/api/purchase-requests/${request.id}/unarchive`,
+        { method: "POST" },
+      );
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Desarquivado",
+        description: "Requisição retornada para a fase anterior com sucesso",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível desarquivar a requisição",
         variant: "destructive",
       });
     },
@@ -771,6 +797,21 @@ export default function PurchaseCard({
                   }}
                 >
                   <Archive className="h-3 w-3" />
+                </Button>
+              )}
+              {/* Botão Desarquivar — somente para Compradors/Admin em cards arquivados */}
+              {isArchived && (user?.isAdmin || user?.isBuyer) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Desarquivar — retornar para fase anterior"
+                  className="h-6 w-6 md:h-6 md:w-6 lg:h-5 lg:w-5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowUnarchiveDialog(true);
+                  }}
+                >
+                  <ArchiveRestore className="h-3 w-3" />
                 </Button>
               )}
               {canEditInApprovalPhase && (
@@ -1424,6 +1465,42 @@ export default function PurchaseCard({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => archiveDirectMutation.mutate()}>
               Arquivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Diálogo de confirmação para desarquivar */}
+      <AlertDialog open={showUnarchiveDialog} onOpenChange={setShowUnarchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ArchiveRestore className="h-5 w-5 text-emerald-600" />
+              Desarquivar Requisição
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {request.lastPhase
+                ? `Esta requisição será retornada para a fase "${(({
+                    solicitacao: "Solicitação",
+                    aprovacao_a1: "Aprovação A1",
+                    cotacao: "Cotação (RFQ)",
+                    aprovacao_a2: "Aprovação A2",
+                    pedido_compra: "Pedido de Compra",
+                    recebimento: "Recebimento Físico",
+                    conf_fiscal: "Conf. Fiscal",
+                    conclusao_compra: "Conclusão",
+                  }) as Record<string, string>)[request.lastPhase] ?? request.lastPhase}".`
+                : 'Esta requisição será retornada para a fase "Cotação".'}
+              {" "}Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => unarchiveMutation.mutate()}
+            >
+              <ArchiveRestore className="h-4 w-4 mr-1" />
+              Confirmar Desarquivamento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

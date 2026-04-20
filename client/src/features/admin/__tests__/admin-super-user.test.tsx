@@ -3,12 +3,12 @@ declare const describe: any;
 declare const test: any;
 declare const expect: any;
 
-import { PHASE_OPTIONS } from "../../features/admin/super-user/constants";
+import { PHASE_OPTIONS } from "@/features/admin/super-user/constants";
 
 describe("AdminSuperUser Page", () => {
   describe("Combobox Configuration", () => {
     test("should include 'conf_fiscal' option", () => {
-      const fiscalPhase = PHASE_OPTIONS.find(p => p.value === "conf_fiscal");
+      const fiscalPhase = PHASE_OPTIONS.find((p: { value: string; label: string }) => p.value === "conf_fiscal");
       expect(fiscalPhase).toBeDefined();
       expect(fiscalPhase?.label).toBe("Conf. Fiscal");
     });
@@ -30,7 +30,7 @@ describe("AdminSuperUser Page", () => {
     });
 
     test("should have valid structure for all options", () => {
-      PHASE_OPTIONS.forEach(option => {
+      PHASE_OPTIONS.forEach((option: { value: string; label: string }) => {
         expect(option).toHaveProperty("value");
         expect(option).toHaveProperty("label");
         expect(typeof option.value).toBe("string");
