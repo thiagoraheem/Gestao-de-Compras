@@ -18,7 +18,7 @@ import RFQAnalysis from "./rfq-analysis";
 import { useLocation } from "wouter";
 import SupplierComparison from "@/features/quotations/components/SupplierComparison";
 import UpdateSupplierQuotation from "./update-supplier-quotation";
-import RequestItemsList from "./request-items-list";
+import RequestItemsList from "@/features/requests/components/request-items-list";
 
 interface Quotation {
   id: number;

@@ -41,7 +41,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import ApprovalItemsViewer from "./approval-items-viewer";
-import AttachmentsViewer from "./attachments-viewer";
+import AttachmentsViewer from "@/features/requests/components/attachments-viewer";
 
 const approvalSchema = z
   .object({

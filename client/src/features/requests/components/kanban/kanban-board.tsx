@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PURCHASE_PHASES, PHASE_LABELS, type PurchasePhase, type ReceiptMode } from "@/lib/types";
-import KanbanColumn from "./kanban-column";
+import KanbanColumn from "@/features/requests/components/kanban/kanban-column";
 import { Skeleton } from "@/shared/ui/skeleton";
 import {
   DndContext,
@@ -10,7 +10,7 @@ import {
   closestCorners,
 } from "@dnd-kit/core";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
-import PurchaseCard from "./purchase-card";
+import PurchaseCard from "@/features/requests/components/kanban/purchase-card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,16 +37,16 @@ import { Card, CardContent } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { filterRequests } from "@/lib/kanban-filters";
 
-const RFQCreation = lazy(() => import("./rfq-creation"));
-const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
-const ReceiptPhase = lazy(() => import("./receipt-phase"));
-const FiscalConferencePhase = lazy(() => import("./fiscal-conference-phase"));
-const RequestPhase = lazy(() => import("./request-phase"));
-const ApprovalA1Phase = lazy(() => import("./approval-a1-phase"));
-const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
-const QuotationPhase = lazy(() => import("./quotation-phase"));
+const RFQCreation = lazy(() => import("@/features/quotations/components/rfq-creation"));
+const PurchaseOrderPhase = lazy(() => import("@/features/requests/components/purchase-order-phase"));
+const ReceiptPhase = lazy(() => import("@/features/receipts/components/receipt-phase"));
+const FiscalConferencePhase = lazy(() => import("@/features/receipts/components/fiscal-conference-phase"));
+const RequestPhase = lazy(() => import("@/features/requests/components/request-phase"));
+const ApprovalA1Phase = lazy(() => import("@/features/approvals/components/approval-a1-phase"));
+const ApprovalA2Phase = lazy(() => import("@/features/approvals/components/approval-a2-phase"));
+const QuotationPhase = lazy(() => import("@/features/quotations/components/quotation-phase"));
 const ConclusionPhase = lazy(() => import("@/features/requests/components/ConclusionPhase"));
-const RequestView = lazy(() => import("./request-view"));
+const RequestView = lazy(() => import("@/features/requests/components/request-view"));
 
 interface KanbanBoardProps {
   departmentFilter?: string;

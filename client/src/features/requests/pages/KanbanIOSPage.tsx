@@ -1,4 +1,4 @@
-import KanbanBoard from "@/components/kanban-board";
+import KanbanBoard from "@/features/requests/components/kanban/kanban-board";
 import { Button } from "@/shared/ui/button";
 import {
   Select,

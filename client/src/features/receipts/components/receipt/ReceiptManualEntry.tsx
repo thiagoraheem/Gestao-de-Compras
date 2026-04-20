@@ -10,8 +10,8 @@ import { Search, Trash, AlertCircle, Plus } from "lucide-react";
 import { useReceipt } from "./ReceiptContext";
 import { cn } from "@/lib/utils";
 import { ReceiptSearchDialog } from "../receipt-search-dialog";
-import { validateManualHeader, validateManualItems, validateTotalConsistency } from "../../utils/manual-nf-validation";
-import { findBestPurchaseOrderMatch, MANUAL_ITEM_MATCH_THRESHOLD } from "../../utils/item-matching-helper";
+import { validateManualHeader, validateManualItems, validateTotalConsistency } from "@/utils/manual-nf-validation";
+import { findBestPurchaseOrderMatch, MANUAL_ITEM_MATCH_THRESHOLD } from "@/utils/item-matching-helper";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 

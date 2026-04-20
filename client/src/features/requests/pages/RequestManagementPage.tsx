@@ -10,14 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useAuth } from "@/hooks/useAuth";
 import { PURCHASE_PHASES, PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 
-const RequestPhase = lazy(() => import("@/components/request-phase"));
-const RequestView = lazy(() => import("@/components/request-view"));
-const ApprovalA1Phase = lazy(() => import("@/components/approval-a1-phase"));
-const ApprovalA2Phase = lazy(() => import("@/components/approval-a2-phase"));
-const QuotationPhase = lazy(() => import("@/components/quotation-phase"));
-const PurchaseOrderPhase = lazy(() => import("@/components/purchase-order-phase"));
-const ReceiptPhase = lazy(() => import("@/components/receipt-phase"));
-const FiscalConferencePhase = lazy(() => import("@/components/fiscal-conference-phase"));
+const RequestPhase = lazy(() => import("@/features/requests/components/request-phase"));
+const RequestView = lazy(() => import("@/features/requests/components/request-view"));
+const ApprovalA1Phase = lazy(() => import("@/features/approvals/components/approval-a1-phase"));
+const ApprovalA2Phase = lazy(() => import("@/features/approvals/components/approval-a2-phase"));
+const QuotationPhase = lazy(() => import("@/features/quotations/components/quotation-phase"));
+const PurchaseOrderPhase = lazy(() => import("@/features/requests/components/purchase-order-phase"));
+const ReceiptPhase = lazy(() => import("@/features/receipts/components/receipt-phase"));
+const FiscalConferencePhase = lazy(() => import("@/features/receipts/components/fiscal-conference-phase"));
 const ConclusionPhase = lazy(() => import("@/features/requests/components/ConclusionPhase"));
 import { 
   FileText, 

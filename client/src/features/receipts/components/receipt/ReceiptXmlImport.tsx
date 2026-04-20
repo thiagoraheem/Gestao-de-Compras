@@ -9,13 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
-import { ErrorBoundary } from "../error-boundary";
-import { NFEViewer } from "@/components/nfe/NFEViewer";
-import { NFEList } from "@/components/nfe/NFEList";
+import { ErrorBoundary } from "@/shared/components/error-boundary";
+import { NFEViewer } from "@/features/receipts/components/nfe/NFEViewer";
+import { NFEList } from "@/features/receipts/components/nfe/NFEList";
 import { ReceiptManualEntry } from "./ReceiptManualEntry";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { validateManualHeader } from "../../utils/manual-nf-validation";
+import { validateManualHeader } from "@/utils/manual-nf-validation";
 
 export function ReceiptXmlImport() {
   const {

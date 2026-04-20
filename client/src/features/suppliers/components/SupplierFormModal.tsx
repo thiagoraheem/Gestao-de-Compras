@@ -4,8 +4,8 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Button } from "@/shared/ui/button";
-import { CPFInput } from "@/components/cpf-input";
-import { CNPJInput } from "@/components/cnpj-input";
+import { CPFInput } from "@/shared/components/cpf-input";
+import { CNPJInput } from "@/shared/components/cnpj-input";
 import { UseFormReturn } from "react-hook-form";
 import { SupplierFormData } from "../schemas/supplier.schema";
 

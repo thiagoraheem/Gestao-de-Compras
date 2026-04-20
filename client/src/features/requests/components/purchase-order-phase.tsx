@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/shared/ui/button";
-import PdfViewer from "./pdf-viewer";
-import { ErrorBoundary } from "./error-boundary";
+import PDFViewer from "@/shared/components/pdf-viewer";
+import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Separator } from "@/shared/ui/separator";
@@ -414,7 +414,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
                     <p>Erro ao exibir PDF. O arquivo pode estar corrompido ou ser incompatível.</p>
                   </div>
                 }>
-                  <PdfViewer data={pdfBuffer} />
+                  <PDFViewer data={pdfBuffer} />
                 </ErrorBoundary>
               ) : pdfPreviewUrl ? (
                 <object data={pdfPreviewUrl} type="application/pdf" className="w-full h-[70vh] border border-border rounded-lg bg-slate-50 dark:bg-slate-900">

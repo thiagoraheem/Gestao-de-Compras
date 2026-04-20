@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
-import Timeline from "./timeline";
+import Timeline from "@/shared/components/timeline";
 import RequestDetailsSection from "./request-details-section";
 
 interface RequestViewProps {

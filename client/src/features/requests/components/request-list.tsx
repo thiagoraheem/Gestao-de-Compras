@@ -11,16 +11,16 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Eye } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/shared/ui/accordion";
-import { ApprovalTypeBadge, ApprovalProgressBadge } from "@/components/ApprovalTypeBadge";
+import { ApprovalTypeBadge, ApprovalProgressBadge } from "@/features/approvals/components/ApprovalTypeBadge";
 
-const RequestPhase = lazy(() => import("./request-phase"));
-const ApprovalA1Phase = lazy(() => import("./approval-a1-phase"));
-const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
-const QuotationPhase = lazy(() => import("./quotation-phase"));
-const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
-const ReceiptPhase = lazy(() => import("./receipt-phase"));
+const RequestPhase = lazy(() => import("@/features/requests/components/request-phase"));
+const ApprovalA1Phase = lazy(() => import("@/features/approvals/components/approval-a1-phase"));
+const ApprovalA2Phase = lazy(() => import("@/features/approvals/components/approval-a2-phase"));
+const QuotationPhase = lazy(() => import("@/features/quotations/components/quotation-phase"));
+const PurchaseOrderPhase = lazy(() => import("@/features/requests/components/purchase-order-phase"));
+const ReceiptPhase = lazy(() => import("@/features/receipts/components/receipt-phase"));
 const ConclusionPhase = lazy(() => import("@/features/requests/components/ConclusionPhase"));
-const RequestView = lazy(() => import("./request-view"));
+const RequestView = lazy(() => import("@/features/requests/components/request-view"));
 
 interface RequestListProps {
   departmentFilter?: string;

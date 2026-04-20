@@ -15,7 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import DataAudit from "@/components/data-audit";
+import DataAudit from "@/shared/components/data-audit";
 import { PHASE_OPTIONS, CATEGORY_OPTIONS, URGENCY_OPTIONS } from "./constants";
 
 export function AdminSuperUser() {

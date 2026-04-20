@@ -48,7 +48,7 @@ import {
   CATEGORY_LABELS,
 } from "@/lib/types";
 import { Plus, X, Edit3, Edit2, Copy, Trash2, Check } from "lucide-react";
-import HybridProductInput from "./hybrid-product-input";
+import HybridProductInput from "@/shared/components/hybrid-product-input";
 import { useUnits } from "@/hooks/useUnits";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 

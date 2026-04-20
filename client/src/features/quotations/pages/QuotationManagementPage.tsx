@@ -48,7 +48,7 @@ import { URGENCY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 // Lazy load the Quotation Phase component
-const QuotationPhase = lazy(() => import("@/components/quotation-phase"));
+const QuotationPhase = lazy(() => import("@/features/quotations/components/quotation-phase"));
 
 export default function QuotationManagementPage() {
   // State

@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
-import GlobalSearch from "@/components/global-search";
+import GlobalSearch from "@/shared/components/global-search";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
-import { DropdownMenu as CustomDropdownMenu } from "@/components/dropdown-menu";
+import { DropdownMenu as CustomDropdownMenu } from "@/shared/components/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import {
   ShoppingCart,
@@ -37,7 +37,7 @@ import { useEffect, useState } from "react";
 import { Filter } from "lucide-react";
 import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 import type { RealtimeStatus } from "@/lib/realtimeClient";
-import ApprovalsInlineBadge from "./approvals-inline-badge";
+import ApprovalsInlineBadge from "@/features/approvals/components/approvals-inline-badge";
 import { ModeToggle } from "@/shared/ui/mode-toggle";
 
 const REALTIME_STATUS_STYLES: Record<RealtimeStatus, {

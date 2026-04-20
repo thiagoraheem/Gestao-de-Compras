@@ -7,7 +7,7 @@ import { Input } from "@/shared/ui/input";
 import { Plus } from "lucide-react";
 import { useUsers } from "@/features/users/hooks/useUsers";
 import { useToast } from "@/hooks/use-toast";
-import AdminRoute from "@/components/AdminRoute";
+import AdminRoute from "@/shared/components/AdminRoute";
 
 // Modular Components
 import { UserList } from "./components/UserList";

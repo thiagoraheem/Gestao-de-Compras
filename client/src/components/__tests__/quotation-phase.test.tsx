@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import QuotationPhase from "../quotation-phase";
+import QuotationPhase from "@/features/quotations/components/quotation-phase";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 declare const jest: any;

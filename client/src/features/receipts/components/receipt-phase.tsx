@@ -14,8 +14,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/shared/ui/tooltip";
-import PdfViewer from "./pdf-viewer";
-import { ErrorBoundary } from "./error-boundary";
+import PdfViewer from "@/shared/components/pdf-viewer";
+import { ErrorBoundary } from "@/shared/components/error-boundary";
 import {
   Table,
   TableBody,
@@ -31,8 +31,8 @@ import { PHASE_LABELS } from "@/lib/types";
 import { formatCurrency } from "@/lib/currency";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import PendencyModal from "./pendency-modal";
-import PurchaseRequestHeaderCard from "./purchase-request-header-card";
+import PendencyModal from "@/features/requests/components/pendency-modal";
+import PurchaseRequestHeaderCard from "@/features/requests/components/purchase-request-header-card";
 
 interface ReceiptPhaseProps {
   request: any;

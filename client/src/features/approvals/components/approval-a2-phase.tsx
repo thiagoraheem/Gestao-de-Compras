@@ -47,8 +47,8 @@ import { useApprovalType } from "@/hooks/useApprovalType";
 import { apiRequest } from "@/lib/queryClient";
 import { URGENCY_LABELS, CATEGORY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import AttachmentsViewer from "./attachments-viewer";
-import SupplierComparisonReadonly from "./supplier-comparison-readonly";
+import AttachmentsViewer from "@/features/requests/components/attachments-viewer";
+import SupplierComparisonReadonly from "@/features/quotations/components/supplier-comparison-readonly";
 import debug from "@/lib/debug";
 
 const approvalSchema = z.object({

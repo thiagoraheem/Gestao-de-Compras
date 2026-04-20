@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { findBestPurchaseOrderMatch, MANUAL_ITEM_MATCH_THRESHOLD } from "../../utils/item-matching-helper";
+import { findBestPurchaseOrderMatch, MANUAL_ITEM_MATCH_THRESHOLD } from "@/utils/item-matching-helper";
 
 interface ReceiptContextType {
   // Props

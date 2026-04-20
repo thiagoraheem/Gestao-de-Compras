@@ -33,9 +33,9 @@ import { DateInput } from "@/shared/ui/date-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { SupplierSelector } from "./supplier-selector";
-import { UnitSelect } from "./unit-select";
+import { UnitSelect } from "@/shared/components/unit-select";
 import { useUnits } from "@/hooks/useUnits";
-import HybridProductInput from "./hybrid-product-input";
+import HybridProductInput from "@/shared/components/hybrid-product-input";
 import debug from "@/lib/debug";
 
 import { getBadges } from "./rfq-badges-logic";

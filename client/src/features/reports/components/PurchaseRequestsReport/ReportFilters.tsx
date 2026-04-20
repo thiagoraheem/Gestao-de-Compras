@@ -17,7 +17,7 @@ import {
 } from "@/shared/ui/select";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { DateInput } from "@/shared/ui/date-input";
-import { ItemSearchInput } from "@/components/item-search-input";
+import { ItemSearchInput } from "@/shared/components/item-search-input";
 import { Filter, Search, Building2, User, Truck, FileText, RefreshCw } from "lucide-react";
 import type { Department, User as UserType } from "./types";
 import type { ReportFilters as FiltersType } from "./usePurchaseRequestsReport";

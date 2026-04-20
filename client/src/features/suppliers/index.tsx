@@ -9,7 +9,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { Input } from "@/shared/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/ui/collapsible";
 import { Plus, Search, X } from "lucide-react";
-import { SupplierIntegrationPanel } from "@/components/supplier-integration-panel";
+import { SupplierIntegrationPanel } from "@/features/quotations/components/supplier-integration-panel";
 import { useSuppliers } from "./hooks/useSuppliers";
 import { supplierSchema, SupplierFormData } from "./schemas/supplier.schema";
 import { SupplierList } from "./components/SupplierList";

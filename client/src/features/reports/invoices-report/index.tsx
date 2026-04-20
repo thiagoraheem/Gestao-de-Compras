@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { ChevronDown, ChevronRight, Eye, FileText, Search, Filter as FilterIcon, Download, Loader2 } from "lucide-react";
-import { NFEViewer } from "@/components/nfe/NFEViewer";
+import { NFEViewer } from "@/features/receipts/components/nfe/NFEViewer";
 import { Badge } from "@/shared/ui/badge";
 import { cn } from "@/lib/utils";
 

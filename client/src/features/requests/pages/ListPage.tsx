@@ -1,4 +1,4 @@
-import RequestList from "@/components/request-list";
+import RequestList from "@/features/requests/components/request-list";
 import {
   Select,
   SelectContent,

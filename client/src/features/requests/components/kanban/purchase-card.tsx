@@ -40,16 +40,16 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
-const RequestPhase = lazy(() => import("./request-phase"));
-const ApprovalA1Phase = lazy(() => import("./approval-a1-phase"));
-const ApprovalA2Phase = lazy(() => import("./approval-a2-phase"));
-const QuotationPhase = lazy(() => import("./quotation-phase"));
-const PurchaseOrderPhase = lazy(() => import("./purchase-order-phase"));
-const ReceiptPhase = lazy(() => import("./receipt-phase"));
+const RequestPhase = lazy(() => import("@/features/requests/components/request-phase"));
+const ApprovalA1Phase = lazy(() => import("@/features/approvals/components/approval-a1-phase"));
+const ApprovalA2Phase = lazy(() => import("@/features/approvals/components/approval-a2-phase"));
+const QuotationPhase = lazy(() => import("@/features/quotations/components/quotation-phase"));
+const PurchaseOrderPhase = lazy(() => import("@/features/requests/components/purchase-order-phase"));
+const ReceiptPhase = lazy(() => import("@/features/receipts/components/receipt-phase"));
 const ConclusionPhase = lazy(() => import("@/features/requests/components/ConclusionPhase"));
-const RequestView = lazy(() => import("./request-view"));
+const RequestView = lazy(() => import("@/features/requests/components/request-view"));
 
-import type { ReceiptPhaseHandle } from "./receipt-phase";
+import type { ReceiptPhaseHandle } from "@/features/receipts/components/receipt-phase";
 import type { ConclusionPhaseHandle } from "@/features/requests/components/ConclusionPhase";
 
 import { useQuery } from "@tanstack/react-query";
@@ -87,8 +87,8 @@ interface ApprovalRules {
     lastName: string;
   } | null;
 }
-import { ApprovalTypeBadge, ApprovalProgressBadge } from "@/components/ApprovalTypeBadge";
-import { ApprovalTimeline } from "@/components/ApprovalTimeline";
+import { ApprovalTypeBadge, ApprovalProgressBadge } from "@/features/approvals/components/ApprovalTypeBadge";
+import { ApprovalTimeline } from "@/features/approvals/components/ApprovalTimeline";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/shared/ui/dialog";
 
 interface PurchaseCardProps {

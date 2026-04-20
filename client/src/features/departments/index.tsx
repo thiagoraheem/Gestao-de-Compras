@@ -6,7 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Plus, Building } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import AdminRoute from "@/components/AdminRoute";
+import AdminRoute from "@/shared/components/AdminRoute";
 
 import { departmentSchema, costCenterSchema, DepartmentFormData, CostCenterFormData } from "./schemas/department.schema";
 import { DepartmentList, CostCenterList } from "./components/DepartmentLists";

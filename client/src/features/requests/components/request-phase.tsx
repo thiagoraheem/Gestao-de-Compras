@@ -42,8 +42,8 @@ import {
 } from "@/lib/types";
 import { Plus, X, Edit3, FileText, Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import HybridProductInput from "./hybrid-product-input";
-import { UnitSelect } from "./unit-select";
+import HybridProductInput from "@/shared/components/hybrid-product-input";
+import { UnitSelect } from "@/shared/components/unit-select";
 import { useUnits } from "@/hooks/useUnits";
 
 const MAX_TITLE_LENGTH = 150;

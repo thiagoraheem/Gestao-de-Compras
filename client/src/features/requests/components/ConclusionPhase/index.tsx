@@ -15,7 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useConclusionData } from "./useConclusionData";
 import { generatePrintableHTML } from "./ConclusionPrintTemplate";
 import { PHASE_LABELS, URGENCY_LABELS, CATEGORY_LABELS, PURCHASE_PHASES } from "@/lib/types";
-import ProcessTimeline from "@/components/process-timeline";
+import ProcessTimeline from "@/features/requests/components/process-timeline";
 import {
   Download,
   FileText,

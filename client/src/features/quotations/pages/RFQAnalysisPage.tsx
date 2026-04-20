@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import RFQAnalysis from "@/components/rfq-analysis"
+import RFQAnalysis from "@/features/quotations/components/rfq-analysis"
 import { useLocation } from "wouter"
 
 export default function RFQAnalysisPage({ params }: { params: { id: string } }) {

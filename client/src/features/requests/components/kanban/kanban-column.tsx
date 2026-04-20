@@ -1,6 +1,6 @@
 import { Badge } from "@/shared/ui/badge";
 import { PHASE_COLORS, PurchasePhase, PURCHASE_PHASES, type ReceiptMode } from "@/lib/types";
-import PurchaseCard from "./purchase-card";
+import PurchaseCard from "@/features/requests/components/kanban/purchase-card";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 

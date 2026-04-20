@@ -1,9 +1,9 @@
 import { useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import ConferenceDashboard from "@/components/conference/ConferenceDashboard";
-import ConferenceOrderList from "@/components/conference/ConferenceOrderList";
-const ReceiptPhase = lazy(() => import("@/components/receipt-phase"));
+import ConferenceDashboard from "@/features/receipts/components/conference/ConferenceDashboard";
+import ConferenceOrderList from "@/features/receipts/components/conference/ConferenceOrderList";
+const ReceiptPhase = lazy(() => import("@/features/receipts/components/receipt-phase"));
 import { PackageCheck } from "lucide-react";
 
 export default function MaterialConferencePage() {

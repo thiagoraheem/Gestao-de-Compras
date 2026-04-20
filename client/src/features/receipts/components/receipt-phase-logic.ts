@@ -1,4 +1,4 @@
-import { validateManualHeader, validateManualItems } from "../utils/manual-nf-validation";
+import { validateManualHeader, validateManualItems } from "@/utils/manual-nf-validation";
 
 export type ReceiptType = "produto" | "servico" | "avulso";
 
