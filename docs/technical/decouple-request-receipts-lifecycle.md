@@ -1,12 +1,14 @@
-# Arquitetura Atual e Proposta — Desacoplamento do Ciclo de Vida da Solicitação e dos Recebimentos (Kanban)
+# Arquitetura e Implementação (As Built) — Desacoplamento do Ciclo de Vida da Solicitação (Fluxo 1) e dos Recebimentos (Fluxo 2)
 
 ## 1. Objetivo e Escopo
 
 Este documento descreve:
 
-- A arquitetura atual do sistema de gestão de solicitações e do fluxo Kanban, com foco nos módulos/colunas **Pedido de Compra**, **Recebimento Físico** e **Conf. Fiscal**.
-- O impacto técnico e de negócio da implementação de uma estrutura de controle que **desacople** o ciclo de vida da **solicitação (Purchase Request)** do ciclo de vida dos **recebimentos (Receipts)**.
-- A especificação do modelo alvo, endpoints, rastreabilidade, migração e testes, de forma a permitir implementação pela equipe com clareza.
+- O desenho do desacoplamento e o racional técnico/de negócio.
+- O estado final entregue (as built): modelo de dados, endpoints, regras de UI e comportamento do Kanban.
+- Referências diretas para o código, para permitir manutenção e reimplementação.
+
+Documento de implementação (passo a passo e troubleshooting): [decouple-receipts-implementation.md](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/docs/technical/decouple-receipts-implementation.md)
 
 Requisitos-alvo (resumo):
 
@@ -18,17 +20,185 @@ Requisitos-alvo (resumo):
 
 ---
 
-## 2. Arquitetura Atual (Visão Geral)
+## 2. Estado atual (Implementado)
 
-### 2.1. Entidades principais e acoplamento vigente
+### 2.1. Princípios entregues
 
-O Kanban atual é **centrado na entidade `purchase_requests`**. As colunas do Kanban são renderizadas a partir de `purchase_requests.currentPhase` no frontend.
+1) **Dois ciclos de vida explícitos**
+
+- Fluxo 1 (Aquisição): o card é a solicitação (`purchase_requests`) e termina em **Pedido Concluído** / **Arquivado**.
+- Fluxo 2 (Recebimento): o card é o receipt (`receipts`) e percorre **Recebimento Físico → Conf. Fiscal → Conclusão**.
+- Kanban principal exibe os dois fluxos no mesmo board: [kanban-board.tsx](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L626-L972)
+
+2) **Handoff que encerra compras e inicia recebimento**
+
+- Ao mover a solicitação para `pedido_concluido` (via Kanban do Fluxo 1), o backend:
+  - marca `procurement_status='concluida'`;
+  - marca `sent_to_physical_receipt=true`;
+  - cria um receipt inicial em `receipt_phase='recebimento_fisico'` se ainda não existir.
+- Implementação: [routes.ts:L5457-L5491](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L5457-L5491)
+
+3) **Receipts em “Conf. Fiscal” e “Conclusão” aparecem no Kanban principal**
+
+- A fonte do Fluxo 2 é única (`GET /api/receipts/board`) e alimenta:
+  - Kanban principal
+  - Tela dedicada de recebimentos
+- Backend: [routes.ts:L3388-L3474](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L3388-L3474)
+- Frontend: query `["receipts-board"]` no Kanban: [kanban-board.tsx:L120-L129](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L120-L129)
+
+4) **Estado final e imutabilidade visual/operacional**
+
+- Request final: `pedido_concluido`, `arquivado`
+- Receipt final: `concluido`
+- Bloqueio de DnD no drag-start e drag-end: [kanban-board.tsx:L642-L841](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L642-L841)
+- Estilo final: [index.css](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/index.css)
+
+5) **Filtro por número aplicado também aos receipts**
+
+- Implementação do filtro unificado request/PO/receipt: [kanban-filters.ts](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/lib/kanban-filters.ts#L15-L139)
+- Aplicação no Kanban: receipts filtrados e destacados: [kanban-board.tsx:L905-L938](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L905-L938)
+
+### 2.2. Modelo de dados (as built)
+
+#### 2.2.1. `purchase_requests` (campos de procurement)
+
+- `procurement_status` (`aberta|concluida|...`)
+- `procurement_concluded_at`
+- `procurement_concluded_by_id`
+- `sent_to_physical_receipt` (flag de handoff/garantia)
+
+Schema: [schema.ts:L190-L259](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/shared/schema.ts#L190-L259)  
+Migração do flag: [0020_add_sent_to_physical_receipt_flag.sql](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/migrations/0020_add_sent_to_physical_receipt_flag.sql)
+
+#### 2.2.2. `receipts` (campos para “card do Fluxo 2”)
+
+- `purchase_request_id` (FK direta)
+- `receipt_phase` (enum `receipt_phase`): `recebimento_fisico|conf_fiscal|concluido|cancelado`
+
+Schema: [schema.ts:L516-L575](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/shared/schema.ts#L516-L575)
+
+#### 2.2.3. `audit_logs` (escopo por receipt)
+
+- `receipt_id` + `action_scope` para permitir timeline/auditoria por receipt.
+
+Schema: [schema.ts:L644-L663](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/shared/schema.ts#L644-L663)
+
+### 2.3. Backend (endpoints e invariantes)
+
+#### 2.3.1. Board de receipts (fonte única)
+
+- `GET /api/receipts/board`
+  - inclui `requestFound` (ghost), `purchaseOrderNumber`, `receivingPercent` e `request` enriquecida.
+  - join do request usa `COALESCE(receipts.purchase_request_id, purchase_orders.purchase_request_id)` para tolerar legado.
+  - Implementação: [routes.ts:L3388-L3469](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L3388-L3469)
+
+#### 2.3.2. Handoff no Kanban de requests (fluxo principal)
+
+- `PATCH /api/purchase-requests/:id/update-phase`
+  - bloqueia fases do legado de recebimento (`recebimento`, `conf_fiscal`, `conclusao_compra`) para manter separação: [routes.ts:L5280-L5293](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L5280-L5293)
+  - ao mover para `pedido_concluido`: encerra procurement e cria receipt inicial: [routes.ts:L5457-L5491](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L5457-L5491)
+
+#### 2.3.3. Ciclo do receipt (movimentação no Kanban do Fluxo 2)
+
+- `PATCH /api/receipts/:id/update-phase`
+  - valida fases permitidas e permissões (Receiver/Admin/Manager para fiscal, Admin para cancelamento)
+  - bloqueia `concluido` manual (conclusão é consequência da conferência fiscal)
+  - Implementação: [routes.ts:L3574-L3633](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L3574-L3633)
+
+#### 2.3.4. Recebimentos fantasma (exclusão controlada)
+
+- `DELETE /api/receipts/:id(\d+)` (somente ghost + Admin/Manager)
+- Implementação: [routes.ts:L3476-L3522](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L3476-L3522)
+
+#### 2.3.5. Conflito de rotas (`/api/receipts/board` vs `/api/receipts/:id`)
+
+- `GET /api/receipts/:id` deve ser numérica (`:id(\d+)`) para não capturar `/board`.
+- Implementação:
+  - [routes.ts:L3476-L3478](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L3476-L3478)
+  - [receipts.ts:L530](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes/receipts.ts#L530)
+
+### 2.4. Frontend (Kanban, UI, navegação e filtros)
+
+#### 2.4.1. Board principal com duas trilhas
+
+- Requests (Fluxo 1) e receipts (Fluxo 2) são renderizados em colunas distintas e com DnD separado: [kanban-board.tsx:L626-L972](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L626-L972)
+
+#### 2.4.2. Regra de navegação em receipt concluído
+
+- Ao clicar num receipt em `concluido`, abre o modal de detalhes do pedido (`Pedido Concluído`) e não a conferência fiscal.
+- Implementação: [kanban-board.tsx:L143-L192](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L143-L192)
+
+#### 2.4.3. UI de receipt card (layout e dados)
+
+- Implementação: [receipt-kanban-card.tsx](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/receipt-kanban-card.tsx#L74-L242)
+
+#### 2.4.4. Filtro unificado e prevenção de falso-positivo
+
+- O filtro aplica match por texto e match numérico apenas quando não há letras (evita `po-2026` virar match amplo por “2026”): [kanban-filters.ts:L32-L41](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/lib/kanban-filters.ts#L32-L41)
+
+#### 2.4.5. Cache e consistência entre telas (React Query)
+
+- Query única do board de receipts: `["receipts-board"]`
+  - Kanban principal: [kanban-board.tsx:L120-L129](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L120-L129)
+  - Tela de recebimentos: [receipts-board.tsx](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/receipts-board.tsx)
+- Mutations relevantes invalidam `["receipts-board"]` e, quando necessário, `["/api/purchase-requests"]`:
+  - mudança de fase do receipt (optimistic update): [kanban-board.tsx:L365-L393](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L365-L393)
+  - exclusão de ghost (optimistic update): [kanban-board.tsx:L194-L219](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L194-L219)
+
+#### 2.4.6. DnD (separação por prefixo e validações)
+
+- IDs:
+  - requests: `request-<id>`
+  - receipts: `receipt-<id>`
+- Regras no drop:
+  - receipt só pode cair em fases de receipt (Fluxo 2)
+  - request não pode cair em fases de receipt (mensagem de “Fluxo independente”)
+- Implementação do commit: [kanban-board.tsx:L686-L841](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L686-L841)
+
+#### 2.4.7. Modal e Suspense ao abrir receipts
+
+- Ao abrir receipt, a navegação é “fase-dependente”:
+  - `concluido`: abre detalhes de pedido (Pedido Concluído)
+  - demais fases: abre modal do receipt
+- Para evitar erro de Suspense em input síncrono, a abertura é envolvida em `startTransition`: [kanban-board.tsx:L143-L192](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L143-L192)
+
+#### 2.4.8. Recebimentos fantasma (UX + governança)
+
+- Detecção no board via `requestFound` (e/ou ausência de `request.requestNumber`).
+- Card exibe:
+  - badge “Solicitação não encontrada”
+  - badge de status “atenção”
+  - botão de exclusão (se Admin/Gerente)
+- UI: [receipt-kanban-card.tsx](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/receipt-kanban-card.tsx#L95-L163)
+- Backend valida “ghost-only” e remove dependências com auditoria: [routes.ts:L3476-L3522](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L3476-L3522)
+
+### 2.5. Limitações e pontos de atenção (as built)
+
+1) Alguns endpoints legados do módulo de receipts ainda atualizam campos na solicitação (ex.: `current_phase`/datas fiscais) em cenários específicos de conferência fiscal local sem ERP e rotinas de desfazer.
+
+- Exemplo (ERP desabilitado): [receipts.ts:L675-L720](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes/receipts.ts#L675-L720)
+
+2) O Kanban principal trata fases legadas de recebimento em requests como “Pedido Concluído” para manter consistência visual e evitar “reentrada” do Fluxo 2 no Fluxo 1:
+
+- Implementação: [kanban-board.tsx:L887-L898](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L887-L898)
+
+---
+
+## 3. Histórico (antes do desacoplamento) — Arquitetura anterior e proposta original
+
+Esta seção mantém o material de contexto e especificação que orientou a implementação. Ela descreve o acoplamento original, riscos, e o desenho-alvo que foi aplicado incrementalmente.
+
+## 3.1. Arquitetura anterior (Visão Geral)
+
+### 3.1.1. Entidades principais e acoplamento vigente
+
+Antes do desacoplamento, o Kanban era **centrado na entidade `purchase_requests`**. As colunas do Kanban eram renderizadas a partir de `purchase_requests.currentPhase` no frontend.
 
 Os recebimentos existem como entidades (`receipts`, `receipt_items`, etc.), mas são tratados como parte “interna” do fluxo da solicitação: em múltiplos pontos o backend altera `purchase_requests.currentPhase` com base em `receipts.status` e/ou ações de conferência.
 
 Consequência: o “card” de solicitação fica acoplado ao avanço/rollback e conclusão fiscal (o que conflita com o objetivo de permitir recebimentos independentes).
 
-### 2.2. Frontend: Kanban e fases
+### 3.1.2. Frontend: Kanban e fases
 
 - Página: [kanban.tsx](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/pages/kanban.tsx)
 - Board: [kanban-board.tsx](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx)
@@ -49,14 +219,14 @@ Detalhe relevante: o Kanban usa um “atalho” de exibição paralela em Conf. 
 - `hasPendingFiscal` pode fazer um card aparecer em “Conf. Fiscal” mesmo que a fase principal não seja essa ([kanban-board.tsx](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/components/kanban-board.tsx#L674-L701)).
 - Esse campo é derivado pelo backend via `EXISTS` em `receipts.status='conf_fisica'` ([storage.ts](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/storage.ts#L934-L950)).
 
-### 2.3. Backend: rotas críticas do fluxo (acopladas a `purchase_requests.currentPhase`)
+### 3.1.3. Backend: rotas críticas do fluxo (acopladas a `purchase_requests.currentPhase`)
 
-#### 2.3.1. Pedido de Compra → Recebimento
+#### 3.1.3.1. Pedido de Compra → Recebimento
 
 - `POST /api/purchase-requests/:id/receive-material` move `purchase_requests.currentPhase = 'recebimento'` ([routes.ts](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L4005-L4022)).
 - `POST /api/purchase-requests/:id/advance-to-receipt` também move para `recebimento` e registra `approval_history` de tipo MOVEMENT ([routes.ts](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L5160-L5217)).
 
-#### 2.3.2. Recebimento Físico (confirmação) → Conf. Fiscal
+#### 3.1.3.2. Recebimento Físico (confirmação) → Conf. Fiscal
 
 - `POST /api/purchase-requests/:id/confirm-physical`:
   - Atualiza quantidades em `purchase_order_items.quantityReceived`.
@@ -64,19 +234,19 @@ Detalhe relevante: o Kanban usa um “atalho” de exibição paralela em Conf. 
   - Cria `receipts` (somente em cenário de NF manual: `manualNFNumber`).
   - Se **tudo recebido**, atualiza a solicitação para `currentPhase='conf_fiscal'` e grava `physicalReceiptAt/ById` ([routes.ts](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L3210-L3356)).
 
-#### 2.3.3. Conf. Fiscal → Conclusão (acoplamento por request)
+#### 3.1.3.3. Conf. Fiscal → Conclusão (acoplamento por request)
 
 - `POST /api/purchase-requests/:id/confirm-fiscal`:
   - Opcionalmente tenta enviar recebimento ao Locador.
   - Força `purchase_requests.currentPhase='conclusao_compra'` e grava `fiscalReceiptAt/ById` ([routes.ts](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes.ts#L3364-L3432)).
 
-#### 2.3.4. Conf. Fiscal (por receipt) → Conclusão (acoplamento por receipts)
+#### 3.1.3.4. Conf. Fiscal (por receipt) → Conclusão (acoplamento por receipts)
 
 No fluxo fiscal que opera por `receipt` (módulo de recebimentos):
 - Quando a integração ERP está desabilitada, `POST ...` (finalização local) muda `receipts.status='fiscal_conferida'` e, se não houver mais receipts pendentes para o PO, atualiza a solicitação para `currentPhase='conclusao_compra'` ([receipts.ts](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes/receipts.ts#L690-L716)).
 - O mesmo padrão ocorre quando integra com sucesso e marca `receipts.status='integrado_locador'`, também concluindo a solicitação se não houver pendentes ([receipts.ts](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes/receipts.ts#L863-L887)).
 
-#### 2.3.5. Rollback Conf. Fiscal → Recebimento (apaga receipts e altera fase da solicitação)
+#### 3.1.3.5. Rollback Conf. Fiscal → Recebimento (apaga receipts e altera fase da solicitação)
 
 - `POST /api/requests/:id/return-to-receipt` chama `storage.returnToPhysicalReceipt(...)` ([receipts.ts](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/server/routes/receipts.ts#L1199-L1227)).
 - `storage.returnToPhysicalReceipt`:
