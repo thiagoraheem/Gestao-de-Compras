@@ -2313,12 +2313,15 @@ export class DatabaseStorage implements IStorage {
       ? allReceipts.filter((r) => r.status !== "conferida" && r.status !== "fiscal_conferida")
       : allReceipts;
 
+    // Requirement T05: No physical deletion - mark as cancelled
     for (const receipt of receiptsToDelete) {
-      await db.delete(receiptAllocations).where(eq(receiptAllocations.receiptId, receipt.id));
-      await db.delete(receiptInstallments).where(eq(receiptInstallments.receiptId, receipt.id));
-      await db.delete(receiptNfXmls).where(eq(receiptNfXmls.receiptId, receipt.id));
-      await db.delete(receiptItems).where(eq(receiptItems.receiptId, receipt.id));
-      await db.delete(receipts).where(eq(receipts.id, receipt.id));
+      await db.update(receipts)
+        .set({ 
+          status: "cancelado", 
+          receiptPhase: "cancelado",
+          updatedAt: new Date() 
+        } as any)
+        .where(eq(receipts.id, receipt.id));
     }
 
     if (!isPartialReturn) {
@@ -2332,9 +2335,11 @@ export class DatabaseStorage implements IStorage {
     }
 
     const updateData: Partial<PurchaseRequest> = {
-      currentPhase: "recebimento",
+      // NOTE: We no longer revert currentPhase to 'recebimento'.
+      // Procurement remains finished (Flow 1). Flow 2 (Receipts) will handle its own states.
       fiscalReceiptAt: null,
       fiscalReceiptById: null,
+      updatedAt: new Date(),
     };
 
     if (!isPartialReturn) {
@@ -2348,6 +2353,19 @@ export class DatabaseStorage implements IStorage {
       .update(purchaseRequests)
       .set(updateData)
       .where(eq(purchaseRequests.id, purchaseRequestId));
+    
+    // Ensure we have at least one draft receipt in Flow 2 if everything was cancelled
+    if (!isPartialReturn) {
+        // Create a new draft receipt for Flow 2
+        await db.insert(receipts).values({
+            purchaseRequestId,
+            purchaseOrderId: purchaseOrder.id,
+            receiptNumber: `REC-RESTART-${purchaseRequestId}`,
+            status: "nf_pendente",
+            receiptPhase: "recebimento_fisico",
+            supplierId: purchaseOrder.supplierId
+        } as any);
+    }
 
     await db
       .update(purchaseOrders)

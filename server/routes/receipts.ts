@@ -1134,10 +1134,7 @@ export function registerReceiptsRoutes(app: Express) {
             const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
             if (order && order.purchaseRequestId) {
                 purchaseRequestId = order.purchaseRequestId;
-                // Also revert request phase if it was completed
-                await db.update(purchaseRequests)
-                   .set({ currentPhase: "recebimento" }) // Back to receiving
-                   .where(eq(purchaseRequests.id, purchaseRequestId));
+                // We no longer revert request phase. PR stays in pedido_concluido.
             }
         }
 
@@ -1401,18 +1398,14 @@ export function registerReceiptsRoutes(app: Express) {
         }
       }
 
-      // 2. Delete related records
-      // Receipt items
-      await db.delete(receiptItems).where(eq(receiptItems.receiptId, id));
-      // Allocations
-      await db.delete(receiptAllocations).where(eq(receiptAllocations.receiptId, id));
-      // XMLs
-      await db.delete(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
-      // Installments
-      await db.delete(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
-      
-      // 3. Delete the receipt itself
-      await db.delete(receipts).where(eq(receipts.id, id));
+      // 2. Mark as cancelled instead of deleting (Requirement T05: No physical deletion)
+      await db.update(receipts)
+        .set({ 
+          receiptPhase: "cancelado", 
+          status: "cancelado",
+          updatedAt: new Date()
+        } as any)
+        .where(eq(receipts.id, id));
 
       // 4. No longer reverting Request Phase.
       // Flow 1 remains in 'pedido_concluido'.
@@ -1434,7 +1427,7 @@ export function registerReceiptsRoutes(app: Express) {
           VALUES (${requestId}, ${'desfazer_conferencia_fisica'}, ${`Desfazer conferência física e exclusão - NF ${receipt.documentNumber || receipt.receiptNumber}`}, ${userId}, ${JSON.stringify({ receiptId: id, status: receipt.status })}::jsonb, ${JSON.stringify({ deleted: true, requestPhaseReverted: requestUpdated })}::jsonb, ${sql`ARRAY['receipts', 'purchase_order_items', 'purchase_requests']`} );`);
       } catch {}
 
-      res.json({ success: true, message: "Conferência física desfeita e registro removido com sucesso" });
+      res.json({ success: true, message: "Conferência física desfeita e registro cancelado com sucesso" });
 
     } catch (error) {
       console.error("Error undoing physical conference:", error);

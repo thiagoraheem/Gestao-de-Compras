@@ -47,9 +47,11 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
           purchaseRequestId = order.purchaseRequestId;
           
           if (pendingReceipts.length === 0) {
-              await db.update(purchaseRequests)
-                  .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
-                  .where(eq(purchaseRequests.id, purchaseRequestId));
+              // Now we decouple: PR stays in its terminal PROCUREMENT state (pedido_concluido)
+              // We only update the receipt's own phase to 'concluido'
+              await db.update(receipts)
+                  .set({ receiptPhase: "concluido", updatedAt: new Date() } as any)
+                  .where(eq(receipts.id, receiptId));
 
               try {
                 await notifyRequestConclusion(purchaseRequestId);
