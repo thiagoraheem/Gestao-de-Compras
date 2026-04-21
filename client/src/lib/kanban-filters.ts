@@ -10,6 +10,7 @@ export interface KanbanFilters {
     endDate: string;
   };
   purchaseOrder?: string;
+  search?: string;
 }
 
 export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
@@ -67,6 +68,43 @@ export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
       const hasRequestNumberMatch = request.requestNumber?.toLowerCase().includes(filter);
 
       passesFilters = passesFilters && (hasPurchaseOrderMatch || hasRequestNumberMatch);
+    }
+
+    return passesFilters;
+  });
+}
+
+export function filterReceipts(receipts: any[], filters: KanbanFilters): any[] {
+  if (!Array.isArray(receipts)) return [];
+
+  return receipts.filter((receipt: any) => {
+    let passesFilters = true;
+
+    // Search filter (textual)
+    if (filters.search && filters.search.trim()) {
+      const q = filters.search.toLowerCase().trim();
+      const matches = 
+        receipt.receiptNumber?.toLowerCase().includes(q) ||
+        receipt.purchaseOrderNumber?.toLowerCase().includes(q) ||
+        receipt.requestNumber?.toLowerCase().includes(q) ||
+        receipt.supplierName?.toLowerCase().includes(q) ||
+        receipt.documentNumber?.toLowerCase().includes(q);
+      passesFilters = passesFilters && matches;
+    }
+
+    // Department filter
+    if (filters.department !== "all") {
+        // Assume receipt has departmentId or similar if provided by backend
+        if (receipt.departmentId) {
+            passesFilters = passesFilters && receipt.departmentId.toString() === filters.department;
+        }
+    }
+
+    // Supplier filter
+    if (filters.supplier !== "all") {
+        if (receipt.supplierId) {
+            passesFilters = passesFilters && receipt.supplierId.toString() === filters.supplier;
+        }
     }
 
     return passesFilters;

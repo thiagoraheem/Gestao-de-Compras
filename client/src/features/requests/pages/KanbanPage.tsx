@@ -283,6 +283,19 @@ export default function KanbanPage() {
                 />
               </div>
             </div>
+            {/* Unified Search Filter */}
+            <div className="space-y-1">
+              <Label htmlFor="searchFilterMobile" className="text-xs text-muted-foreground">
+                Pesquisa Geral (Solicitação, Pedido, Fornecedor)
+              </Label>
+              <Input
+                id="searchFilterMobile"
+                placeholder="Pesquisar..."
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="w-full h-8 text-sm"
+              />
+            </div>
             </div>
           </div>
         </div>
@@ -389,7 +402,6 @@ export default function KanbanPage() {
                       ))}
                 </SelectContent>
               </Select>
-              
               {/* Purchase Order Filter - Desktop */}
               <Input
                 placeholder="Nº Pedido/Solicitação"
@@ -400,6 +412,19 @@ export default function KanbanPage() {
                 }}
                 className="w-44 h-8 text-sm"
               />
+
+              {/* General Search - Desktop */}
+              <div className="relative">
+                <Input
+                  placeholder="Pesquisar..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="w-56 h-8 text-sm pl-8"
+                />
+                <span className="absolute left-2.5 top-1.5 text-muted-foreground">
+                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </span>
+              </div>
             </div>
 
             {/* Date Filter for Archived Items */}

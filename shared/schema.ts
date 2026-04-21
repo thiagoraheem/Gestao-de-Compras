@@ -252,6 +252,12 @@ export const purchaseRequests = pgTable("purchase_requests", {
   fiscalReceiptAt: timestamp("fiscal_receipt_at"),
   fiscalReceiptById: integer("fiscal_receipt_by_id").references(() => users.id),
 
+  // Procurement lifecycle (Flow 1 conclusion)
+  procurementStatus: text("procurement_status").default("aberta"), // aberta | concluida | cancelada
+  procurementConcludedAt: timestamp("procurement_concluded_at"),
+  procurementConcludedById: integer("procurement_concluded_by_id").references(() => users.id),
+  sentToPhysicalReceipt: boolean("sent_to_physical_receipt").default(false),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -526,6 +532,13 @@ export const receiptStatusEnum = pgEnum("receipt_status", [
   "pending_approval",
 ]);
 
+export const receiptPhaseEnum = pgEnum("receipt_phase", [
+  "recebimento_fisico",
+  "conf_fiscal",
+  "concluido",
+  "cancelado",
+]);
+
 // Receipt/Delivery tables
 export const receipts = pgTable("receipts", {
   id: serial("id").primaryKey(),
@@ -553,6 +566,11 @@ export const receipts = pgTable("receipts", {
   qualityApproved: boolean("quality_approved"),
   approvedBy: integer("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
+
+  // Decoupled flow fields
+  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
+  receiptPhase: receiptPhaseEnum("receipt_phase").default("recebimento_fisico"),
+
   createdAt: timestamp("created_at").notNull(),
 }, (table) => [
   index("idx_receipts_document_number").on(table.documentNumber),
@@ -639,6 +657,10 @@ export const auditLogs = pgTable("audit_logs", {
   afterData: jsonb("after_data"),
   affectedTables: text("affected_tables").array(),
   metadata: jsonb("metadata"),
+  
+  // Decoupled flow support
+  receiptId: integer("receipt_id").references(() => receipts.id),
+  actionScope: text("action_scope"), // REQUEST | RECEIPT | FLOW
 }, (table) => [
   index("idx_audit_logs_purchase_request_id").on(table.purchaseRequestId),
   index("idx_audit_logs_action_type").on(table.actionType),

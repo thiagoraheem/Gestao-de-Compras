@@ -38,8 +38,12 @@
   --kanban-aprovacao-a2: #2563EB;
   --kanban-pedido: #2F3A3A;
   --kanban-conclusao: #22C55E;
+  --kanban-pedido-concluido: #0EA5E9;
   --kanban-recebimento: #10B981;
+  --kanban-conf-fiscal: #8B5CF6;
+  --kanban-concluido: #16A34A;
   --kanban-arquivado: #6B7280;
+  --kanban-cancelado: #EF4444;
 }
 
 .dark {
@@ -207,8 +211,24 @@
     border-color: var(--kanban-conclusao);
   }
 
-  .phase-recebimento {
+  .phase-pedido-concluido {
+    border-color: var(--kanban-pedido-concluido);
+  }
+
+  .phase-recebimento-fisico {
     border-color: var(--kanban-recebimento);
+  }
+
+  .phase-conf-fiscal {
+    border-color: var(--kanban-conf-fiscal);
+  }
+
+  .phase-concluido {
+    border-color: var(--kanban-concluido);
+  }
+
+  .phase-cancelado {
+    border-color: var(--kanban-cancelado);
   }
 
   .phase-arquivado {

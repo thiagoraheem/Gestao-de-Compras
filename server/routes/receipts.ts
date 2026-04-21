@@ -65,6 +65,146 @@ const xmlUpload = multer({
 });
 
 export function registerReceiptsRoutes(app: Express) {
+  app.get("/api/receipts/board", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const results = await db.execute(sql`
+        SELECT 
+          r.id,
+          r.receipt_number as "receiptNumber",
+          r.receipt_phase as "receiptPhase",
+          r.status,
+          r.document_number as "documentNumber",
+          r.document_series as "documentSeries",
+          r.document_key as "documentKey",
+          r.document_issue_date as "documentIssueDate",
+          r.document_entry_date as "documentEntryDate",
+          r.total_amount as "totalAmount",
+          r.observations,
+          r.created_at as "createdAt",
+          r.received_at as "receivedAt",
+          r.locador_receipt_id as "locadorReceiptId",
+          r.cost_center_id as "costCenterId",
+          r.chart_of_accounts_id as "chartOfAccountsId",
+          COALESCE(r.purchase_request_id, po.purchase_request_id) as "purchaseRequestId",
+          pr.request_number as "requestNumber",
+          pr.justification,
+          pr.urgency,
+          pr.category,
+          po.order_number as "purchaseOrderNumber",
+          s.name as "supplierName",
+          u.first_name as "requesterFirstName",
+          u.last_name as "requesterLastName",
+          (
+            SELECT COALESCE(SUM(ri.quantity_received), 0) / NULLIF(SUM(poi_inner.quantity), 0) * 100
+            FROM receipt_items ri
+            JOIN purchase_order_items poi_inner ON ri.purchase_order_item_id = poi_inner.id
+            WHERE ri.receipt_id = r.id
+          ) as "receivingPercent"
+        FROM receipts r
+        LEFT JOIN purchase_orders po ON r.purchase_order_id = po.id
+        LEFT JOIN purchase_requests pr ON COALESCE(r.purchase_request_id, po.purchase_request_id) = pr.id
+        LEFT JOIN suppliers s ON r.supplier_id = s.id
+        LEFT JOIN users u ON pr.requester_id = u.id
+        WHERE r.receipt_phase != 'cancelado'
+        ORDER BY r.created_at DESC
+      `);
+      
+      res.json(results.rows);
+    } catch (error) {
+      console.error("Error fetching receipts board:", error);
+      res.status(500).json({ message: "Erro ao buscar board de recebimentos" });
+    }
+  });
+
+  app.patch("/api/receipts/:id(\\d+)/update-phase", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const { newPhase } = req.body;
+      const userId = req.session.userId!;
+
+      if (!["recebimento_fisico", "conf_fiscal", "cancelado"].includes(newPhase)) {
+        return res.status(400).json({ message: "Fase inválida para atualização manual" });
+      }
+
+      const [receipt] = await db.select().from(receipts).where(eq(receipts.id, id));
+      if (!receipt) return res.status(404).json({ message: "Recebimento não encontrado" });
+
+      const [updated] = await db.update(receipts)
+        .set({ receiptPhase: newPhase, updatedAt: new Date() } as any)
+        .where(eq(receipts.id, id))
+        .returning();
+
+      // Audit
+      try {
+        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, receipt_id, action_scope)
+          VALUES (${receipt.purchaseRequestId || 0}, 'receipt_phase_changed', ${`Fase do recebimento alterada para ${newPhase}`}, ${userId}, ${id}, 'RECEIPT')`);
+      } catch {}
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar fase do recebimento" });
+    }
+  });
+
+  app.delete("/api/receipts/:id(\\d+)", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
+
+      if (!user?.isAdmin && !user?.isManager) {
+        return res.status(403).json({ message: "Sem permissão para excluir recebimento" });
+      }
+
+      // Check if it's a ghost or if user really wants to delete
+      const [receipt] = await db.select().from(receipts).where(eq(receipts.id, id));
+      if (!receipt) return res.status(404).json({ message: "Recebimento não encontrado" });
+
+      await db.transaction(async (tx) => {
+        await tx.delete(receiptItems).where(eq(receiptItems.receiptId, id));
+        await tx.delete(receiptAllocations).where(eq(receiptAllocations.receiptId, id));
+        await tx.delete(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
+        await tx.delete(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
+        await tx.delete(receipts).where(eq(receipts.id, id));
+      });
+
+      try {
+        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, receipt_id, action_scope)
+          VALUES (${receipt.purchaseRequestId || 0}, 'receipt_deleted', 'Recebimento excluído permanentemente', ${userId}, ${id}, 'RECEIPT')`);
+      } catch {}
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir recebimento" });
+    }
+  });
+
+  app.post("/api/purchase-requests/:id(\\d+)/receipts", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const purchaseRequestId = Number(req.params.id);
+      const userId = req.session.userId!;
+
+      const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseRequestId));
+      if (!pr) return res.status(404).json({ message: "Solicitação não encontrada" });
+
+      const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.purchaseRequestId, purchaseRequestId)).limit(1);
+
+      const [newReceipt] = await db.insert(receipts).values({
+        receiptNumber: generateReceiptNumber(),
+        purchaseOrderId: order?.id || null,
+        purchaseRequestId: purchaseRequestId,
+        status: "rascunho",
+        receiptPhase: "recebimento_fisico",
+        receiptType: (pr.category === "servico" ? "servico" : "produto") as any,
+        supplierId: pr.chosenSupplierId,
+        createdAt: new Date()
+      } as any).returning();
+
+      res.status(201).json(newReceipt);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao criar novo card de recebimento" });
+    }
+  });
   app.get("/api/receipts/search", async (req: Request, res: Response) => {
     try {
       const { 
@@ -158,7 +298,7 @@ export function registerReceiptsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/recebimentos/:id/items", async (req: Request, res: Response) => {
+  app.get("/api/recebimentos/:id(\\d+)/items", async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
@@ -222,7 +362,7 @@ export function registerReceiptsRoutes(app: Express) {
     }
   });
 
-  app.post("/api/recebimentos/parse-existing/:id", async (req: Request, res: Response) => {
+  app.post("/api/recebimentos/parse-existing/:id(\\d+)", async (req: Request, res: Response) => {
       try {
         const id = Number(req.params.id);
         const [xmlRow] = await db.select().from(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
@@ -508,14 +648,14 @@ export function registerReceiptsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/recebimentos/:id", async (req: Request, res: Response) => {
+  app.get("/api/recebimentos/:id(\\d+)", async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
     if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
     res.json({ receipt: rec });
   });
 
-  app.put("/api/recebimentos/:id", async (req: Request, res: Response) => {
+  app.put("/api/recebimentos/:id(\\d+)", async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       const updates = req.body;
@@ -527,7 +667,7 @@ export function registerReceiptsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/receipts/:id", async (req: Request, res: Response) => {
+  app.get("/api/receipts/:id(\\d+)", async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
@@ -553,7 +693,7 @@ export function registerReceiptsRoutes(app: Express) {
     }
   });
 
-  app.post("/api/receipts/:id/confirm-fiscal", async (req: Request, res: Response) => {
+  app.post("/api/receipts/:id(\\d+)/confirm-fiscal", async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const {
       paymentMethodCode,
@@ -701,17 +841,13 @@ export function registerReceiptsRoutes(app: Express) {
         
         if (pendingReceipts.length === 0) {
             const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
-            if (order && order.purchaseRequestId) {
-                await db.update(purchaseRequests)
-                    .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
-                    .where(eq(purchaseRequests.id, order.purchaseRequestId));
-
-                try {
-                  await notifyRequestConclusion(order.purchaseRequestId);
-                } catch (emailError) {
-                  console.error("Erro ao enviar notificação de conclusão (conferência fiscal local sem ERP):", emailError);
-                }
-            }
+            // No longer advancing request phase automatically.
+            // Requirement: Request stays in 'pedido_concluido' (Flow 1) and Receipts finish in Flow 2.
+            
+            // Mark the current receipt as concluded in Flow 2
+            await db.update(receipts)
+                .set({ receiptPhase: "concluido" } as any)
+                .where(eq(receipts.id, id));
         }
       }
 
@@ -1171,7 +1307,11 @@ export function registerReceiptsRoutes(app: Express) {
       await purchaseReceiveService.submit(payload);
 
       const [updated] = await db.update(receipts)
-        .set({ status: "integrado_locador", integrationMessage: "Integrado com sucesso" })
+        .set({ 
+          status: "integrado_locador", 
+          integrationMessage: "Integrado com sucesso",
+          receiptPhase: "concluido" // Conclude in Flow 2
+        } as any)
         .where(eq(receipts.id, id))
         .returning();
 
@@ -1204,7 +1344,7 @@ export function registerReceiptsRoutes(app: Express) {
   });
 
   // Endpoint to return purchase request from fiscal conference to physical receipt
-  app.post("/api/requests/:id/return-to-receipt", isAuthenticated, async (req, res) => {
+  app.post("/api/requests/:id(\\d+)/return-to-receipt", isAuthenticated, async (req, res) => {
     try {
       const requestId = parseInt(req.params.id);
       const userId = req.session.userId!;
@@ -1224,7 +1364,7 @@ export function registerReceiptsRoutes(app: Express) {
   });
 
   // New Endpoint: Undo Physical Conference
-  app.post("/api/receipts/:id/undo-physical-conference", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/receipts/:id(\\d+)/undo-physical-conference", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       const userId = req.session.userId!;
@@ -1274,33 +1414,19 @@ export function registerReceiptsRoutes(app: Express) {
       // 3. Delete the receipt itself
       await db.delete(receipts).where(eq(receipts.id, id));
 
-      // 4. Check if any receipts remain for the PO
+      // 4. No longer reverting Request Phase.
+      // Flow 1 remains in 'pedido_concluido'.
       let requestUpdated = false;
       let requestId = 0;
       if (receipt.purchaseOrderId) {
-        const remainingReceipts = await db.select().from(receipts).where(eq(receipts.purchaseOrderId, receipt.purchaseOrderId));
-        
         // Find Request ID from Order
         const order = await db.query.purchaseOrders.findFirst({
             where: eq(purchaseOrders.id, receipt.purchaseOrderId),
             columns: { purchaseRequestId: true }
         });
         requestId = order?.purchaseRequestId || 0;
-
-        if (remainingReceipts.length === 0 && order) {
-             // Revert Request Phase to 'recebimento' (Waiting for Receipt)
-             // And clear physicalReceiptAt
-             await db.update(purchaseRequests)
-               .set({ 
-                   currentPhase: "recebimento", 
-                   physicalReceiptAt: null,
-                   physicalReceiptById: null,
-                   updatedAt: new Date()
-               })
-               .where(eq(purchaseRequests.id, order.purchaseRequestId));
-            requestUpdated = true;
-        }
       }
+
 
       // 5. Audit Log
       try {

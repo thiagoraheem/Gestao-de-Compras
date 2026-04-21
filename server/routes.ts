@@ -4922,8 +4922,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "cotacao",
           "aprovacao_a2",
           "pedido_compra",
-          "recebimento",
-          "conclusao_compra",
+          "pedido_concluido", // Novo estado final da aquisição
+          "recebimento",      // Legado
+          "conclusao_compra", // Legado
           "arquivado",
         ] as const;
         if (!validPhases.includes(newPhase)) {
@@ -4940,6 +4941,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "cotacao",
           "aprovacao_a2",
           "pedido_compra",
+          "pedido_concluido",
           "recebimento",
           "conf_fiscal",
           "conclusao_compra",
@@ -4998,23 +5000,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        if (currentPhase === "recebimento") {
-           if (newPhase === "conf_fiscal") {
-              // Admin, Manager, Buyer or Receiver can move to Fiscal Conference
-              const canMove = user.isAdmin || user.isManager || user.isBuyer || user.isReceiver;
-              if (!canMove) {
-                 return res.status(403).json({ message: "Sem permissão para mover para Conferência Fiscal" });
-              }
-              // Pre-condition: Physical Receipt must be done
-              if (!request.physicalReceiptAt) {
-                 return res.status(400).json({ message: "Recebimento Físico deve ser concluído antes da Conferência Fiscal" });
-              }
-           } else if (!user.isReceiver && !user.isAdmin) {
-              // Default check for other transitions from Recebimento
-              return res.status(403).json({
-                message: "Você não possui permissão para mover cards da fase Recebimento",
-              });
-           }
+        if (currentPhase === "recebimento" || currentPhase === "conf_fiscal" || currentPhase === "conclusao_compra") {
+            // Se já está em fase de recebimento legada, permite movimentação restrita ou bloqueia
+            if (newPhase !== "arquivado" && !user.isAdmin && !user.isManager) {
+               return res.status(403).json({ message: "Esta solicitação está em fluxo legado e não pode ser movida via Kanban." });
+            }
+        }
+        
+        // Bloqueia avanço de novas solicitações para as fases de recebimento legadas
+        if (["recebimento", "conclusao_compra"].includes(newPhase) && currentPhase !== newPhase) {
+            return res.status(400).json({ message: "As fases de recebimento agora são independentes. Mova para 'Pedido Concluído' para iniciar o fluxo de recebimento." });
         }
 
         // Validate progression from "Cotação" to "Aprovação A2"
@@ -5084,7 +5079,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // Automatic A2 approval when moving from "aprovacao_a2" to "pedido_compra"
+        // Handoff logic (Flow 1 to Flow 2)
+        if (newPhase === "pedido_concluido") {
+           updates.procurementStatus = "concluida";
+           updates.procurementConcludedAt = new Date();
+           updates.procurementConcludedById = userId;
+           updates.sentToPhysicalReceipt = true;
+           
+           // Ensure at least one receipt exists
+           const existingReceipts = await db.select().from(receipts).where(eq(receipts.purchaseRequestId, id));
+           if (existingReceipts.length === 0) {
+              const order = await db.query.purchaseOrders.findFirst({
+                 where: eq(purchaseOrders.purchaseRequestId, id)
+              });
+              
+              await db.insert(receipts).values({
+                receiptNumber: generateReceiptNumber(),
+                purchaseOrderId: order?.id || null,
+                purchaseRequestId: id,
+                status: "rascunho",
+                receiptPhase: "recebimento_fisico",
+                receiptType: (request.category === "servico" ? "servico" : "produto") as any,
+                supplierId: request.chosenSupplierId,
+                createdAt: new Date()
+              } as any);
+           }
+           
+           try {
+             await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, action_scope)
+               VALUES (${id}, 'flow2_started', 'Fluxo de aquisição concluído e iniciado fluxo de recebimento independente', ${userId}, 'FLOW')`);
+           } catch {}
+        }
+
+        // Automatic A2 approval when moving from "aprovacao_a2" to "pedido_compra" (rest of chunk shifted)
         if (
           currentPhase === "aprovacao_a2" &&
           newPhase === "pedido_compra" &&
