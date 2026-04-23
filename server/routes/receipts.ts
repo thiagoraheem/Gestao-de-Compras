@@ -152,7 +152,7 @@ export function registerReceiptsRoutes(app: Express) {
       const userId = req.session.userId!;
       const user = await storage.getUser(userId);
 
-      if (!user?.isAdmin && !user?.isManager) {
+      if (!user?.isAdmin && !user?.isManager && !user?.isBuyer) {
         return res.status(403).json({ message: "Sem permissão para excluir recebimento" });
       }
 

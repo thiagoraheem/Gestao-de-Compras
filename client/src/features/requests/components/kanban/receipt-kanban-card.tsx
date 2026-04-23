@@ -1,10 +1,21 @@
 import { Card, CardContent } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
-import { Receipt, Package, Truck, Calendar, DollarSign, FileText } from "lucide-react";
+import { Package, Calendar, DollarSign, FileText, Trash2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { RECEIPT_PHASE_LABELS, RECEIPT_PHASE_COLORS } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/shared/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/shared/ui/tooltip";
 
 interface ReceiptKanbanCardProps {
   receipt: any;
@@ -12,22 +23,90 @@ interface ReceiptKanbanCardProps {
 }
 
 export function ReceiptKanbanCard({ receipt, onClick }: ReceiptKanbanCardProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const phaseColor = RECEIPT_PHASE_COLORS[receipt.receiptPhase as keyof typeof RECEIPT_PHASE_COLORS] || 'gray';
+  
+  const isOrphan = !receipt.purchaseRequestId && !receipt.purchaseOrderNumber;
+  const canDelete = user?.isAdmin || user?.isBuyer;
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest(`/api/receipts/${receipt.id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/receipts/board"] });
+      toast({
+        title: "Sucesso",
+        description: "Recebimento excluído com sucesso",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao excluir recebimento",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm("Tem certeza que deseja excluir permanentemente este recebimento órfão?")) {
+      deleteMutation.mutate();
+    }
+  };
   
   return (
     <Card 
-      className="cursor-pointer hover:shadow-md transition-shadow border-l-4" 
-      style={{ borderLeftColor: phaseColor }}
+      className={cn(
+        "cursor-pointer hover:shadow-md transition-shadow border-l-4",
+        isOrphan && "ring-1 ring-destructive/30 bg-destructive/5"
+      )}
+      style={{ borderLeftColor: isOrphan ? 'var(--destructive)' : phaseColor }}
       onClick={onClick}
     >
       <CardContent className="p-3 space-y-2">
         <div className="flex justify-between items-start gap-2">
-          <Badge variant="outline" className="text-[10px] font-mono">
-            {receipt.receiptNumber}
-          </Badge>
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase font-bold">
-            <FileText className="w-3 h-3" />
-            {receipt.requestNumber || 'S/ SOL'}
+          <div className="flex flex-col gap-1">
+            <Badge variant={isOrphan ? "destructive" : "outline"} className="text-[10px] font-mono">
+              {receipt.receiptNumber}
+            </Badge>
+            {isOrphan && (
+              <Badge variant="destructive" className="text-[8px] h-3 px-1 animate-pulse">
+                ÓRFÃO
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase font-bold">
+              <FileText className="w-3 h-3" />
+              {receipt.requestNumber || 'S/ SOL'}
+            </div>
+            
+            {isOrphan && canDelete && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={handleDelete}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Excluir recebimento órfão</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         </div>
 
