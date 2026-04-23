@@ -273,6 +273,8 @@ export interface IStorage {
     history: any,
   ): Promise<any>;
 
+  getPendingMaterialsForConference(): Promise<PurchaseRequestWithDetails[]>;
+
   // Purchase Order operations
   getPurchaseOrderById(id: number): Promise<PurchaseOrder | undefined>;
   getPurchaseOrderByRequestId(purchaseRequestId: number): Promise<PurchaseOrder | undefined>;
@@ -1112,6 +1114,53 @@ export class DatabaseStorage implements IStorage {
         const items = await this.getPurchaseRequestItems(request.id);
         
         // Buscar pedido de compra associado
+        const [purchaseOrder] = await db
+          .select()
+          .from(purchaseOrders)
+          .where(eq(purchaseOrders.purchaseRequestId, request.id))
+          .limit(1);
+
+        return {
+          ...request,
+          chosenSupplier: supplier,
+          requester,
+          items,
+          purchaseOrder,
+        };
+      })
+    );
+
+    return requestsWithItems as unknown as PurchaseRequestWithDetails[];
+  }
+
+  async getPendingMaterialsForConference(): Promise<PurchaseRequestWithDetails[]> {
+    // New flow: requests in 'pedido_concluido' with pending receipts in 'recebimento_fisico'
+    // Legacy flow: requests still in 'recebimento' phase
+    const results = await db
+      .selectDistinct({
+        request: purchaseRequests,
+        supplier: suppliers,
+        requester: users,
+      })
+      .from(purchaseRequests)
+      .leftJoin(suppliers, eq(purchaseRequests.chosenSupplierId, suppliers.id))
+      .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
+      .leftJoin(receipts, eq(purchaseRequests.id, receipts.purchaseRequestId))
+      .where(
+        or(
+          eq(purchaseRequests.currentPhase, 'recebimento'),
+          and(
+            eq(purchaseRequests.currentPhase, 'pedido_concluido'),
+            eq(receipts.receiptPhase, 'recebimento_fisico')
+          )
+        )
+      )
+      .orderBy(desc(purchaseRequests.createdAt));
+
+    const requestsWithItems = await Promise.all(
+      results.map(async ({ request, supplier, requester }) => {
+        const items = await this.getPurchaseRequestItems(request.id);
+        
         const [purchaseOrder] = await db
           .select()
           .from(purchaseOrders)

@@ -1615,6 +1615,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  app.get(
+    "/api/receipts/pending-conference",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const requests = await storage.getPendingMaterialsForConference();
+        res.json(requests);
+      } catch (error) {
+        console.error("Error fetching pending materials:", error);
+        res.status(500).json({ message: "Failed to fetch pending materials" });
+      }
+    },
+  );
+
   app.get("/api/purchase-requests/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
