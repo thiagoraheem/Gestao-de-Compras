@@ -604,7 +604,13 @@ export default function KanbanBoard({
 
   // Group filtered requests by phase
   const requestsByPhase = filteredRequests.reduce((acc: any, request: any) => {
-    const phase = request.currentPhase || PURCHASE_PHASES.SOLICITACAO;
+    let phase = request.currentPhase || PURCHASE_PHASES.SOLICITACAO;
+    
+    // Map legacy receiving phases to the Handoff column for Flow 1 visibility
+    if (['recebimento', 'conf_fiscal', 'conclusao_compra'].includes(phase)) {
+      phase = PURCHASE_PHASES.PEDIDO_CONCLUIDO;
+    }
+    
     if (!acc[phase]) acc[phase] = [];
     acc[phase].push(request);
     return acc;

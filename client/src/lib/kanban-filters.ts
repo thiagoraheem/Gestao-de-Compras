@@ -49,6 +49,7 @@ export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
     if (
       filters.date &&
       (request.currentPhase === PURCHASE_PHASES.ARQUIVADO ||
+        request.currentPhase === PURCHASE_PHASES.PEDIDO_CONCLUIDO ||
         request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA)
     ) {
       const requestDate = new Date(request.updatedAt || request.createdAt);

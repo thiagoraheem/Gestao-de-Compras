@@ -4012,7 +4012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = {
         receivedById,
         receivedDate: new Date(),
-        currentPhase: "recebimento" as const,
+        currentPhase: "pedido_concluido" as const,
       };
 
       const request = await storage.updatePurchaseRequest(id, updates);
@@ -5238,10 +5238,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
         }
 
-        // Update phase to "recebimento"
+        // Find the purchase order for this request
+        const [purchaseOrder] = await db
+          .select()
+          .from(purchaseOrders)
+          .where(eq(purchaseOrders.purchaseRequestId, id))
+          .limit(1);
+
+        // Update phase to "pedido_concluido" (Handoff column in Flow 1)
         const updatedRequest = await storage.updatePurchaseRequest(id, {
-          currentPhase: "recebimento",
+          currentPhase: "pedido_concluido",
         });
+
+        // Requirement T01: Create the receipt record for Flow 2
+        // This ensures the card appears in the "Recebimento Físico" column
+        await db.insert(receipts).values({
+          receiptNumber: generateReceiptNumber(),
+          purchaseOrderId: purchaseOrder?.id || null,
+          purchaseRequestId: id,
+          status: "rascunho",
+          receiptPhase: "recebimento_fisico",
+          receiptType: (request.category === "servico" ? "servico" : "produto") as any,
+          supplierId: request.chosenSupplierId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any);
 
         // Create movement history entry
         await storage.createApprovalHistory({
@@ -5252,9 +5273,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rejectionReason: null,
         });
 
+        // Notify phase change for Flow 1
         realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
           event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
-          payload: { id, currentPhase: "recebimento", updatedAt: updatedRequest.updatedAt },
+          payload: { id, currentPhase: "pedido_concluido", updatedAt: updatedRequest.updatedAt },
+        });
+
+        // Notify that a new receipt is available for Flow 2
+        realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+            event: 'receipt_created',
+            payload: { purchaseRequestId: id }
         });
 
         res.json(updatedRequest);
