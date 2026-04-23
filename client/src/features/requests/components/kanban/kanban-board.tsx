@@ -36,7 +36,7 @@ import {
 } from "@/shared/ui/alert-dialog";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
-import { filterRequests } from "@/lib/kanban-filters";
+import { filterRequests, filterReceipts } from "@/lib/kanban-filters";
 
 const RFQCreation = lazy(() => import("@/features/quotations/components/rfq-creation"));
 const PurchaseOrderPhase = lazy(() => import("@/features/requests/components/purchase-order-phase"));
@@ -616,8 +616,30 @@ export default function KanbanBoard({
     return acc;
   }, {});
 
+  // Filter receipts
+  const filteredReceipts = useMemo(() => {
+    return filterReceipts(receiptsBoard || [], {
+      department: departmentFilter || 'all',
+      urgency: urgencyFilter || 'all',
+      requester: requesterFilter || 'all',
+      supplier: supplierFilter || 'all',
+      date: dateFilter,
+      purchaseOrder: purchaseOrderFilter,
+      search: searchFilter
+    });
+  }, [
+    receiptsBoard,
+    departmentFilter,
+    urgencyFilter,
+    requesterFilter,
+    supplierFilter,
+    dateFilter,
+    purchaseOrderFilter,
+    searchFilter
+  ]);
+
   // Group receipts by phase
-  const receiptsByPhase = receiptsBoard.reduce((acc: any, receipt: any) => {
+  const receiptsByPhase = filteredReceipts.reduce((acc: any, receipt: any) => {
     const phase = receipt.receiptPhase;
     if (!acc[phase]) acc[phase] = [];
     acc[phase].push(receipt);

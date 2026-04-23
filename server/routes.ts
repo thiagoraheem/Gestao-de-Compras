@@ -3305,14 +3305,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
                status: "conf_fisica", // Ready for Fiscal Conference
                receiptType: "produto", // Default to produto, changed to avulso later if needed? Or should we allow passing it? 
                                        // Frontend seems to treat this as Avulso or just Manual NF.
+               receiptPhase: "conf_fiscal", // Requirement: Move card to Fiscal Conference column immediately
                documentNumber: manualNFNumber,
                documentSeries: manualNFSeries,
                supplierId: purchaseOrder.supplierId,
                receivedBy: userId,
                receivedAt: new Date(),
                createdAt: new Date(),
-               observations: observations
+               observations: observations,
+               purchaseRequestId: id, // Link to request for easier filtering
              } as any).returning();
+
+             // Notify Flow 2 about the new card
+             realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+               event: 'receipt_created',
+               payload: { id: createdReceipt.id, purchaseRequestId: id }
+             });
 
              // Insert Receipt Items
              if (itemsToInsert.length > 0) {
@@ -3331,7 +3339,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (allFulfilled) {
             updateData.physicalReceiptAt = new Date();
             updateData.physicalReceiptById = userId;
-            updateData.currentPhase = "conf_fiscal"; 
+            // Requirement: Stay in Handoff phase for Flow 1
+            updateData.currentPhase = "pedido_concluido"; 
         }
 
         if (Object.keys(updateData).length > 0) {

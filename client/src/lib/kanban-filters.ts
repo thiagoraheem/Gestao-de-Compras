@@ -45,7 +45,7 @@ export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
         request.chosenSupplier?.id?.toString() === filters.supplier;
     }
 
-    // Date filter - apply to conclusion and archived items
+    // Date filter - apply to conclusion, handoff and archived items
     if (
       filters.date &&
       (request.currentPhase === PURCHASE_PHASES.ARQUIVADO ||
@@ -95,7 +95,6 @@ export function filterReceipts(receipts: any[], filters: KanbanFilters): any[] {
 
     // Department filter
     if (filters.department !== "all") {
-        // Assume receipt has departmentId or similar if provided by backend
         if (receipt.departmentId) {
             passesFilters = passesFilters && receipt.departmentId.toString() === filters.department;
         }
@@ -106,6 +105,16 @@ export function filterReceipts(receipts: any[], filters: KanbanFilters): any[] {
         if (receipt.supplierId) {
             passesFilters = passesFilters && receipt.supplierId.toString() === filters.supplier;
         }
+    }
+
+    // Date filter - apply to completed receipts
+    if (filters.date && receipt.receiptPhase === 'concluido') {
+      const receiptDate = new Date(receipt.createdAt); // Receipts use createdAt for timing
+      const startDate = new Date(filters.date.startDate);
+      const endDate = new Date(filters.date.endDate);
+      endDate.setHours(23, 59, 59, 999);
+
+      passesFilters = passesFilters && receiptDate >= startDate && receiptDate <= endDate;
     }
 
     return passesFilters;
