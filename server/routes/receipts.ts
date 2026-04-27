@@ -84,13 +84,16 @@ export function registerReceiptsRoutes(app: Express) {
           r.received_at as "receivedAt",
           r.locador_receipt_id as "locadorReceiptId",
           r.cost_center_id as "costCenterId",
+          cc.department_id as "departmentId",
           r.chart_of_accounts_id as "chartOfAccountsId",
           COALESCE(r.purchase_request_id, po.purchase_request_id) as "purchaseRequestId",
           pr.request_number as "requestNumber",
+          pr.requester_id as "requesterId",
           pr.justification,
           pr.urgency,
           pr.category,
           po.order_number as "purchaseOrderNumber",
+          r.supplier_id as "supplierId",
           s.name as "supplierName",
           u.first_name as "requesterFirstName",
           u.last_name as "requesterLastName",
@@ -105,6 +108,7 @@ export function registerReceiptsRoutes(app: Express) {
         LEFT JOIN purchase_requests pr ON COALESCE(r.purchase_request_id, po.purchase_request_id) = pr.id
         LEFT JOIN suppliers s ON r.supplier_id = s.id
         LEFT JOIN users u ON pr.requester_id = u.id
+        LEFT JOIN cost_centers cc ON r.cost_center_id = cc.id
         WHERE r.receipt_phase != 'cancelado'
         ORDER BY r.created_at DESC
       `);
