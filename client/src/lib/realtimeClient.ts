@@ -1,4 +1,4 @@
-import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "@shared/realtime-events";
+import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS, RECEIPT_EVENTS } from "@shared/realtime-events";
 
 export type RealtimeStatus = "offline" | "connecting" | "connected" | "reconnecting";
 
@@ -282,5 +282,8 @@ export const realtimeClient = new RealtimeClient();
 
 export const REALTIME_CONSTANTS = {
   CHANNELS: REALTIME_CHANNELS,
-  EVENTS: PURCHASE_REQUEST_EVENTS,
+  EVENTS: {
+    ...PURCHASE_REQUEST_EVENTS,
+    ...RECEIPT_EVENTS,
+  },
 };

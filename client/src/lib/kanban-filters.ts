@@ -1,4 +1,4 @@
-import { PURCHASE_PHASES } from "./types";
+import { PURCHASE_PHASES, RECEIPT_PHASES } from "./types";
 
 export interface KanbanFilters {
   department: string;
@@ -50,9 +50,12 @@ export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
       filters.date &&
       (request.currentPhase === PURCHASE_PHASES.ARQUIVADO ||
         request.currentPhase === PURCHASE_PHASES.PEDIDO_CONCLUIDO ||
-        request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA)
+        request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA ||
+        request.currentPhase === PURCHASE_PHASES.RECEBIMENTO ||
+        request.currentPhase === PURCHASE_PHASES.CONF_FISCAL)
     ) {
-      const requestDate = new Date(request.updatedAt || request.createdAt);
+      // Use createdAt for filtering to avoid issues with updatedAt being bumped by migrations
+      const requestDate = new Date(request.createdAt);
       const startDate = new Date(filters.date.startDate);
       const endDate = new Date(filters.date.endDate);
       endDate.setHours(23, 59, 59, 999); // Include the full end date
@@ -119,12 +122,13 @@ export function filterReceipts(receipts: any[], filters: KanbanFilters): any[] {
         receipt.supplierId?.toString() === filters.supplier;
     }
 
-    // Date filter - apply to completed receipts to prevent overload
-    if (filters.date && receipt.receiptPhase === 'concluido') {
+    // Date filter - apply to completed items
+    if (filters.date && receipt.receiptPhase === RECEIPT_PHASES.CONCLUIDO) {
+      // Use createdAt for filtering to avoid issues with updatedAt being bumped by migrations
       const receiptDate = new Date(receipt.createdAt);
       const startDate = new Date(filters.date.startDate);
       const endDate = new Date(filters.date.endDate);
-      endDate.setHours(23, 59, 59, 999);
+      endDate.setHours(23, 59, 59, 999); // Include the full end date
 
       passesFilters =
         passesFilters && receiptDate >= startDate && receiptDate <= endDate;

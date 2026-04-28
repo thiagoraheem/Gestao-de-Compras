@@ -837,11 +837,20 @@ export default function KanbanBoard({
                    title={RECEIPT_PHASE_LABELS[phase as keyof typeof RECEIPT_PHASE_LABELS]}
                    receipts={receiptsByPhase[phase] || []}
                    onOpenReceipt={(receipt) => {
-                      // Adapt activeRequest to look like a PR enough for current modals or create specific receipt modal
-                      // For now, let's open the existing ReceiptPhase modal
-                      setActiveRequest({ id: receipt.purchaseRequestId, requestNumber: receipt.requestNumber });
-                      setModalPhase(phase === 'recebimento_fisico' ? 'recebimento' : 'conf_fiscal' as any);
-                      setModalMode(phase === 'recebimento_fisico' ? 'physical' : 'fiscal');
+                      // Adapt activeRequest to look like a PR enough for current modals
+                      setActiveRequest({ 
+                        id: receipt.purchaseRequestId, 
+                        requestNumber: receipt.requestNumber,
+                        currentPhase: phase === RECEIPT_PHASES.CONCLUIDO ? PURCHASE_PHASES.CONCLUSAO_COMPRA : PURCHASE_PHASES.RECEBIMENTO 
+                      });
+                      
+                      if (phase === RECEIPT_PHASES.CONCLUIDO) {
+                        setModalPhase(PURCHASE_PHASES.CONCLUSAO_COMPRA);
+                        setModalMode(undefined);
+                      } else {
+                        setModalPhase(phase === RECEIPT_PHASES.RECEBIMENTO_FISICO ? 'recebimento' : 'conf_fiscal' as any);
+                        setModalMode(phase === RECEIPT_PHASES.RECEBIMENTO_FISICO ? 'physical' : 'fiscal');
+                      }
                       setIsModalOpen(true);
                    }}
                  />
@@ -891,6 +900,7 @@ export default function KanbanBoard({
             modalPhase === PURCHASE_PHASES.RECEBIMENTO ||
             modalPhase === PURCHASE_PHASES.CONF_FISCAL ||
             modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA ||
+            modalPhase === PURCHASE_PHASES.PEDIDO_CONCLUIDO ||
             modalPhase === PURCHASE_PHASES.ARQUIVADO
           )} 
           onOpenChange={(open) => { if (!open && lockDialogClose) return; setIsModalOpen(open);} }
@@ -909,7 +919,7 @@ export default function KanbanBoard({
                   {modalPhase === PURCHASE_PHASES.PEDIDO_COMPRA && `Pedido de Compra - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.RECEBIMENTO && `Recebimento Físico - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.CONF_FISCAL && `Conferência Fiscal - Solicitação #${activeRequest?.requestNumber}`}
-                  {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && `Conclusão da Compra - Solicitação #${activeRequest?.requestNumber}`}
+                  {(modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA || modalPhase === PURCHASE_PHASES.PEDIDO_CONCLUIDO) && `Conclusão da Compra - Solicitação #${activeRequest?.requestNumber}`}
                   {modalPhase === PURCHASE_PHASES.ARQUIVADO && `Detalhes da Solicitação - #${activeRequest?.requestNumber}`}
                 </DialogTitle>
               </div>
@@ -946,7 +956,7 @@ export default function KanbanBoard({
                     mode={modalMode}
                   />
                 )}
-                {modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && activeRequest && (
+                {(modalPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA || modalPhase === PURCHASE_PHASES.PEDIDO_CONCLUIDO) && activeRequest && (
                   <ConclusionPhase request={activeRequest} onClose={() => setIsModalOpen(false)} />
                 )}
                 {modalPhase === PURCHASE_PHASES.ARQUIVADO && activeRequest && (

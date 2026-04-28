@@ -1091,6 +1091,7 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
     'recebimento',
     'conf_fiscal',
     'conclusao_compra',
+    'pedido_concluido',
     'arquivado'
   ]).optional(),
 });
