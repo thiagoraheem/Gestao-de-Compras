@@ -13,3 +13,28 @@ SET purchase_request_id = po.purchase_request_id
 FROM purchase_orders po
 WHERE r.purchase_order_id = po.id
   AND r.purchase_request_id IS NULL;
+
+-- 3. Limpeza de recebimentos órfãos
+delete from receipt_installments
+where receipt_id in (
+select id
+from receipts
+where purchase_order_id is null and purchase_request_id is null
+);
+
+delete from receipt_items
+where receipt_id in (
+select id
+from receipts
+where purchase_order_id is null and purchase_request_id is null
+);
+
+delete from receipt_nf_xmls
+where receipt_id in (
+select id
+from receipts
+where purchase_order_id is null and purchase_request_id is null
+);
+
+delete from receipts
+where purchase_order_id is null and purchase_request_id is null;
