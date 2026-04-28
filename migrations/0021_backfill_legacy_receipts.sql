@@ -34,7 +34,8 @@ INSERT INTO receipts (
   received_at,
   approved_by,
   approved_at,
-  created_at
+  created_at,
+  supplier_id
 )
 SELECT 
   'REC-MIG-' || pr.id || '-' || COALESCE(po.id, 0),
@@ -54,9 +55,10 @@ SELECT
   END as receipt_phase,
   pr.received_by_id,
   COALESCE(pr.physical_receipt_at, pr.received_date, pr.updated_at),
-  pr.fiscal_receipt_by_id,
+  COALESCE(pr.fiscal_receipt_by_id, pr.physical_receipt_by_id),
   COALESCE(pr.fiscal_receipt_at, pr.updated_at),
-  COALESCE(pr.physical_receipt_at, pr.received_date, pr.updated_at)
+  COALESCE(pr.physical_receipt_at, pr.received_date, pr.updated_at),
+  po.supplier_id
 FROM purchase_requests pr
 LEFT JOIN purchase_orders po ON pr.id = po.purchase_request_id
 WHERE pr.current_phase IN ('recebimento', 'conf_fiscal', 'conclusao_compra')
