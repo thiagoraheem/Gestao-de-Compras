@@ -15,8 +15,8 @@ SET receipt_phase =
   status = 
   CASE 
     WHEN pr.current_phase = 'recebimento' THEN 'nf_pendente'
-    WHEN pr.current_phase = 'conf_fiscal' THEN 'nf_confirmada'
-    WHEN pr.current_phase = 'conclusao_compra' THEN 'recebimento_confirmado'
+    WHEN pr.current_phase = 'conf_fiscal' THEN 'conf_fisica'
+    WHEN pr.current_phase = 'conclusao_compra' THEN 'conferida'
     ELSE r.status
   END
 FROM purchase_requests pr
@@ -42,8 +42,8 @@ SELECT
   pr.id,
   CASE 
     WHEN pr.current_phase = 'recebimento' THEN 'nf_pendente'
-    WHEN pr.current_phase = 'conf_fiscal' THEN 'nf_confirmada'
-    WHEN pr.current_phase = 'conclusao_compra' THEN 'recebimento_confirmado'
+    WHEN pr.current_phase = 'conf_fiscal' THEN 'conf_fisica'
+    WHEN pr.current_phase = 'conclusao_compra' THEN 'conferida'
     ELSE 'rascunho'
   END as status,
   CASE 
