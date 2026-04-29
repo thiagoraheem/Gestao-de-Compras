@@ -57,6 +57,17 @@ const archiveSchema = z.object({
 
 type ArchiveFormData = z.infer<typeof archiveSchema>;
 
+const formatDate = (date: any, formatStr: string = "dd/MM/yyyy HH:mm") => {
+  if (!date) return "N/A";
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "N/A";
+    return format(d, formatStr, { locale: ptBR });
+  } catch {
+    return "N/A";
+  }
+};
+
 interface ConclusionPhaseProps {
   request: any;
   onClose: () => void;
@@ -161,7 +172,9 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
 
   // Calculate metrics
   const selectedSupplier = selectedSupplierQuotation;
-  const totalProcessTime = request.createdAt ? differenceInDays(new Date(), new Date(request.createdAt)) : 0;
+  const totalProcessTime = (request.createdAt && !isNaN(new Date(request.createdAt).getTime())) 
+    ? differenceInDays(new Date(), new Date(request.createdAt)) 
+    : 0;
 
   // Calculate total items value - prioritize request.totalValue for consistency
   const totalItemsValue = useMemo(() => {
@@ -457,7 +470,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                 </div>
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Data de Criação</span>
-                  <p>{format(new Date(request.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                  <p>{formatDate(request.createdAt)}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Status Final</span>
@@ -606,7 +619,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                 </div>
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Data de Emissão</span>
-                  <p>{format(new Date(request.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                  <p>{formatDate(request.createdAt)}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Status do Pedido</span>
@@ -666,7 +679,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                         <div className="space-y-4">
                         <div>
                             <span className="text-sm font-medium text-muted-foreground">Data do Recebimento</span>
-                            <p>{currentReceipt.received_at ? format(new Date(currentReceipt.received_at), "dd/MM/yyyy HH:mm", { locale: ptBR }) : (currentReceipt.created_at ? format(new Date(currentReceipt.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Pendente')}</p>
+                            <p>{formatDate(currentReceipt.received_at || currentReceipt.created_at)}</p>
                         </div>
                         <div>
                             <span className="text-sm font-medium text-muted-foreground">Responsável pelo Recebimento</span>
@@ -743,7 +756,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                             <p className="text-muted-foreground text-xs">{log.first_name} {log.last_name}</p>
                         </div>
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {format(new Date(log.performed_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                            {formatDate(log.performed_at)}
                         </span>
                         </div>
                     ))}
@@ -798,7 +811,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                         <div className="space-y-4">
                         <div>
                             <span className="text-sm font-medium text-muted-foreground">Data da Conferência</span>
-                            <p>{currentReceipt.approval_date ? format(new Date(currentReceipt.approval_date), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Data não registrada'}</p>
+                            <p>{formatDate(currentReceipt.approval_date)}</p>
                         </div>
                         <div>
                             <span className="text-sm font-medium text-muted-foreground">Fiscal Responsável</span>
@@ -832,7 +845,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                           </div>
                           <div>
                             <span className="text-muted-foreground">Data:</span>
-                            <span className="ml-2">{obs.erp.time ? format(new Date(obs.erp.time), "dd/MM/yyyy HH:mm", { locale: ptBR }) : '-'}</span>
+                            <span className="ml-2">{formatDate(obs.erp.time, "dd/MM/yyyy HH:mm")}</span>
                           </div>
                         </div>
                       </div>
@@ -867,7 +880,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div>
                                 <span className="text-muted-foreground">Vencimento:</span>
-                                <span className="ml-2">{obs.financial.invoiceDueDate ? format(new Date(obs.financial.invoiceDueDate), "dd/MM/yyyy", { locale: ptBR }) : '-'}</span>
+                                <span className="ml-2">{formatDate(obs.financial.invoiceDueDate, "dd/MM/yyyy")}</span>
                             </div>
                             {obs.financial.paymentMethodCode && (
                                 <div>
@@ -910,7 +923,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                   </div>
                   <div>
                     <span className="text-sm font-medium text-muted-foreground">Data de Criação</span>
-                    <p>{format(new Date(request.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                    <p>{formatDate(request.createdAt)}</p>
                   </div>
                   <div>
                     <span className="text-sm font-medium text-muted-foreground">Solicitante</span>
@@ -942,7 +955,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                     </div>
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Data de Criação</span>
-                      <p>{format(new Date(quotation.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                      <p>{formatDate(quotation.createdAt)}</p>
                     </div>
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Status</span>
@@ -975,7 +988,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                     </div>
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Data de Submissão</span>
-                      <p>{selectedSupplierQuotation.submissionDate ? format(new Date(selectedSupplierQuotation.submissionDate), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Não informado'}</p>
+                      <p>{formatDate(selectedSupplierQuotation.submissionDate)}</p>
                     </div>
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Itens Cotados</span>
@@ -998,7 +1011,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                     </div>
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Data de Criação</span>
-                      <p>{format(new Date(purchaseOrder.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                      <p>{formatDate(purchaseOrder.createdAt)}</p>
                     </div>
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Valor Total</span>
