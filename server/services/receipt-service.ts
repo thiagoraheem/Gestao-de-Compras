@@ -25,9 +25,10 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
     .set({ 
       status: "fiscal_conferida", 
       integrationMessage: justification,
+      receiptPhase: "concluido", // Move to Conclusion in Flow 2
       approvedAt: new Date(),
       approvedBy: user.id
-    })
+    } as any)
     .where(eq(receipts.id, receiptId))
     .returning();
 
@@ -47,11 +48,10 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
           purchaseRequestId = order.purchaseRequestId;
           
           if (pendingReceipts.length === 0) {
-              // Now we decouple: PR stays in its terminal PROCUREMENT state (pedido_concluido)
-              // We only update the receipt's own phase to 'concluido'
-              await db.update(receipts)
-                  .set({ receiptPhase: "concluido", updatedAt: new Date() } as any)
-                  .where(eq(receipts.id, receiptId));
+              // If all receipts are finished, move PR to conclusion
+              await db.update(purchaseRequests)
+                  .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
+                  .where(eq(purchaseRequests.id, purchaseRequestId));
 
               try {
                 await notifyRequestConclusion(purchaseRequestId);

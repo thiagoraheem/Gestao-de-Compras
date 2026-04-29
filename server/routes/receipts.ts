@@ -30,6 +30,8 @@ import { eq, sql, and, like, or, desc, asc } from "drizzle-orm";
 // @ts-ignore
 import fetch from "node-fetch";
 import { fileStorageService } from "../services/file-storage-service";
+import { realtime } from "../realtime";
+import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS, RECEIPT_EVENTS } from "../../shared/realtime-events";
 
 function generateReceiptNumber() {
   const now = new Date();
@@ -836,11 +838,18 @@ export function registerReceiptsRoutes(app: Express) {
         .set({ 
           status: "fiscal_conferida", 
           integrationMessage: message,
+          receiptPhase: "concluido", // Move to Conclusion in Flow 2
           approvedAt: new Date(),
           approvedBy: req.session?.userId || null
-        })
+        } as any)
         .where(eq(receipts.id, id))
         .returning();
+
+      // Notify Flow 2 about the phase change
+      realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+          event: RECEIPT_EVENTS.PHASE_CHANGED,
+          payload: { id, receiptPhase: "concluido", status: "fiscal_conferida" }
+      });
 
       // Check if all receipts for this PO are done
       if (rec.purchaseOrderId) {
@@ -854,13 +863,18 @@ export function registerReceiptsRoutes(app: Express) {
         
         if (pendingReceipts.length === 0) {
             const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
-            // No longer advancing request phase automatically.
-            // Requirement: Request stays in 'pedido_concluido' (Flow 1) and Receipts finish in Flow 2.
-            
-            // Mark the current receipt as concluded in Flow 2
-            await db.update(receipts)
-                .set({ receiptPhase: "concluido" } as any)
-                .where(eq(receipts.id, id));
+            if (order && order.purchaseRequestId) {
+                // If all receipts are finished, move PR to conclusion
+                await db.update(purchaseRequests)
+                    .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
+                    .where(eq(purchaseRequests.id, order.purchaseRequestId));
+                
+                // Notify Flow 1
+                realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+                    event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+                    payload: { id: order.purchaseRequestId, currentPhase: "conclusao_compra" }
+                });
+            }
         }
       }
 
@@ -996,18 +1010,54 @@ export function registerReceiptsRoutes(app: Express) {
         };
 
         // Call ERP
-        await purchaseReceiveService.submit(payload);
+        const erpResponse = await purchaseReceiveService.submit(payload);
+
+        if (erpResponse?.status === "erro") {
+            const errorMsg = erpResponse.mensagem || "Erro retornado pelo ERP";
+            const [updated] = await db.update(receipts)
+                .set({ 
+                    status: "erro_integracao", 
+                    integrationMessage: errorMsg,
+                    observations: JSON.stringify({
+                        ...newObs,
+                        lastErpAttempt: {
+                            success: false,
+                            time: new Date().toISOString(),
+                            message: errorMsg,
+                        },
+                    }),
+                })
+                .where(eq(receipts.id, id))
+                .returning();
+
+            return res.json({ 
+                success: true, 
+                receipt: updated,
+                erp: { 
+                    success: false, 
+                    message: errorMsg, 
+                    code: "ERP_ERROR" 
+                } 
+            });
+        }
 
         // Success
         const [updated] = await db.update(receipts)
             .set({ 
                 status: "integrado_locador", // or fiscal_conferida + integrated?
                 integrationMessage: "Integrado com sucesso",
+                receiptPhase: "concluido", // Move to Conclusion in Flow 2
                 approvedAt: new Date(),
                 approvedBy: req.session?.userId || null
-            })
+            } as any)
             .where(eq(receipts.id, id))
             .returning();
+
+        // Notify Flow 2 about the phase change
+        realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+            event: RECEIPT_EVENTS.PHASE_CHANGED,
+            payload: { id, receiptPhase: "concluido", status: "integrado_locador" }
+        });
             
         // Check if all receipts for this PO are done (same logic as above)
         if (rec.purchaseOrderId) {
@@ -1025,6 +1075,12 @@ export function registerReceiptsRoutes(app: Express) {
                     await db.update(purchaseRequests)
                         .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
                         .where(eq(purchaseRequests.id, order.purchaseRequestId));
+
+                    // Notify Flow 1 about the phase change
+                    realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+                        event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+                        payload: { id: order.purchaseRequestId, currentPhase: "conclusao_compra" }
+                    });
 
                     try {
                       await notifyRequestConclusion(order.purchaseRequestId);
@@ -1094,6 +1150,27 @@ export function registerReceiptsRoutes(app: Express) {
 
     try {
       const updated = await finishReceiptWithoutErp(req.session.userId, Number(req.params.id));
+      
+      // Notify Flow 2
+      realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+          event: RECEIPT_EVENTS.PHASE_CHANGED,
+          payload: { id: updated.id, receiptPhase: "concluido", status: updated.status }
+      });
+
+      // If PR was also updated, notify Flow 1
+      if (updated.purchaseOrderId) {
+          const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, updated.purchaseOrderId));
+          if (order && order.purchaseRequestId) {
+              const [reqPR] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, order.purchaseRequestId));
+              if (reqPR.currentPhase === "conclusao_compra") {
+                  realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+                      event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+                      payload: { id: reqPR.id, currentPhase: "conclusao_compra" }
+                  });
+              }
+          }
+      }
+
       return res.json({ success: true, receipt: updated });
     } catch (err: any) {
       if (err.message === "Apenas compradores podem realizar esta ação.") {
@@ -1314,7 +1391,22 @@ export function registerReceiptsRoutes(app: Express) {
         })),
       };
 
-      await purchaseReceiveService.submit(payload);
+      // Call ERP
+      const erpResponse = await purchaseReceiveService.submit(payload);
+
+      if (erpResponse?.status === "erro") {
+          const errorMsg = erpResponse.mensagem || "Erro retornado pelo ERP";
+          const [updated] = await db.update(receipts)
+              .set({ status: "erro_integracao", integrationMessage: errorMsg })
+              .where(eq(receipts.id, id))
+              .returning();
+
+          return res.json({ 
+              status_integracao: "erro", 
+              id_recebimento_locador: null, 
+              mensagem: errorMsg 
+          });
+      }
 
       const [updated] = await db.update(receipts)
         .set({ 
@@ -1324,6 +1416,39 @@ export function registerReceiptsRoutes(app: Express) {
         } as any)
         .where(eq(receipts.id, id))
         .returning();
+
+      // Notify Flow 2 about the phase change
+      realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+          event: RECEIPT_EVENTS.PHASE_CHANGED,
+          payload: { id, receiptPhase: "concluido", status: "integrado_locador" }
+      });
+
+      // Check if all receipts for this PO are done
+      if (rec.purchaseOrderId) {
+        const pendingReceipts = await db.select()
+          .from(receipts)
+          .where(and(
+            eq(receipts.purchaseOrderId, rec.purchaseOrderId),
+            sql`status NOT IN ('fiscal_conferida', 'conferida', 'integrado_locador')`,
+            sql`id != ${id}`
+          ));
+        
+        if (pendingReceipts.length === 0) {
+            const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, rec.purchaseOrderId));
+            if (order && order.purchaseRequestId) {
+                // If all receipts are finished, move PR to conclusion
+                await db.update(purchaseRequests)
+                    .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
+                    .where(eq(purchaseRequests.id, order.purchaseRequestId));
+                
+                // Notify Flow 1
+                realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+                    event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+                    payload: { id: order.purchaseRequestId, currentPhase: "conclusao_compra" }
+                });
+            }
+        }
+      }
 
       try {
         await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
