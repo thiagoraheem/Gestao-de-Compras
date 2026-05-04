@@ -113,42 +113,65 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
     }
   });
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: ptBR });
+    } catch {
+      return dateString;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Conferência Fiscal</h2>
-          <p className="text-muted-foreground">Selecione uma Nota Fiscal para conferência</p>
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Conferência Fiscal</h2>
+            <p className="text-muted-foreground">Selecione uma Nota Fiscal para conferência</p>
+          </div>
+          <div className="flex gap-2">
+              {canViewPDF && (
+              <>
+              <Button
+                  type="button"
+                  onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onPreviewPDF && onPreviewPDF();
+                  }}
+                  disabled={isLoadingPreview}
+                  variant="outline"
+                  className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
+              >
+                  <Eye className="w-4 h-4 mr-2" />
+                  {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
+              </Button>
+              <Button 
+                  onClick={onDownloadPDF}
+                  disabled={isDownloading}
+                  className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+              >
+                  <Download className="w-4 h-4 mr-2" />
+                  {isDownloading ? "Baixando..." : "Baixar PDF"}
+              </Button>
+              </>
+              )}
+              <Button variant="outline" onClick={onClose}>Fechar</Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-            {canViewPDF && (
-            <>
-            <Button
-                type="button"
-                onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onPreviewPDF && onPreviewPDF();
-                }}
-                disabled={isLoadingPreview}
-                variant="outline"
-                className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
-            >
-                <Eye className="w-4 h-4 mr-2" />
-                {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
-            </Button>
-            <Button 
-                onClick={onDownloadPDF}
-                disabled={isDownloading}
-                className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-            >
-                <Download className="w-4 h-4 mr-2" />
-                {isDownloading ? "Baixando..." : "Baixar PDF"}
-            </Button>
-            </>
-            )}
-            <Button variant="outline" onClick={onClose}>Fechar</Button>
-        </div>
+
+        <PurchaseRequestHeaderCard
+          context="fiscal"
+          requestNumber={request?.requestNumber}
+          orderNumber={purchaseOrder?.orderNumber}
+          requesterName={request?.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "N/A"}
+          supplierName={purchaseOrder?.supplier?.name || request?.chosenSupplier?.name || "Não definido"}
+          orderDate={formatDate(purchaseOrder?.createdAt || request?.createdAt || null)}
+          totalValue={formatCurrency(purchaseOrder?.totalValue ?? request?.totalValue ?? 0)}
+          status={(request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
+          creationDate={request?.createdAt ? format(new Date(request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
+        />
       </div>
 
       <Card>
@@ -165,39 +188,66 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
                   <TableHead>Recebido Em</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Recebido Por</TableHead>
+                  <TableHead>Valor Total Itens</TableHead>
                   <TableHead>Ação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingReceipts.map(r => (
-                  <TableRow key={r.id}>
-                    <TableCell>{r.documentNumber || 'N/A'}</TableCell>
-                    <TableCell>{r.documentSeries || '-'}</TableCell>
-                    <TableCell>{format(new Date(r.receivedAt), "dd/MM/yyyy HH:mm")}</TableCell>
-                    <TableCell>
-                      {r.status === 'conf_fisica' && <Badge variant="outline">Aguardando</Badge>}
-                      {r.status === 'erro_integracao' && <Badge variant="destructive">Erro Integração</Badge>}
-                    </TableCell>
-                    <TableCell>{r.receivedByName || r.receivedBy || '-'}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" onClick={() => onSelectReceipt(r.id)} variant={r.status === 'erro_integracao' ? 'destructive' : 'default'}>
-                          {r.status === 'erro_integracao' ? 'Corrigir / Reenviar' : 'Conferir'}
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/20"
-                          onClick={() => setUndoReceiptId(r.id)}
-                          title="Desfazer conferência física"
-                        >
-                          <Undo2 className="w-4 h-4 mr-2" />
-                          Desfazer
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {pendingReceipts.map(r => {
+                  const receiptItems = r.items || [];
+                  const totalItemsValue = receiptItems.reduce((acc: number, item: any) => acc + (Number(item.totalPrice) || 0), 0);
+                  
+                  return (
+                  <React.Fragment key={r.id}>
+                    <TableRow>
+                      <TableCell>{r.documentNumber || 'N/A'}</TableCell>
+                      <TableCell>{r.documentSeries || '-'}</TableCell>
+                      <TableCell>{format(new Date(r.receivedAt), "dd/MM/yyyy HH:mm")}</TableCell>
+                      <TableCell>
+                        {r.status === 'conf_fisica' && <Badge variant="outline">Aguardando</Badge>}
+                        {r.status === 'erro_integracao' && <Badge variant="destructive">Erro Integração</Badge>}
+                      </TableCell>
+                      <TableCell>{r.receivedByName || r.receivedBy || '-'}</TableCell>
+                      <TableCell className="font-medium text-slate-700 dark:text-slate-300">{formatCurrency(totalItemsValue)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" onClick={() => onSelectReceipt(r.id)} variant={r.status === 'erro_integracao' ? 'destructive' : 'default'}>
+                            {r.status === 'erro_integracao' ? 'Corrigir / Reenviar' : 'Conferir'}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/20"
+                            onClick={() => setUndoReceiptId(r.id)}
+                            title="Desfazer conferência física"
+                          >
+                            <Undo2 className="w-4 h-4 mr-2" />
+                            Desfazer
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {receiptItems.length > 0 && (
+                      <TableRow className="bg-slate-50/50 dark:bg-slate-900/20 border-b-2 hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
+                        <TableCell colSpan={7} className="p-0">
+                          <div className="px-4 py-3">
+                            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Itens Recebidos na Nota</h4>
+                            <div className="space-y-2">
+                              {receiptItems.map((item: any, idx: number) => (
+                                <div key={idx} className="flex justify-between items-center text-sm border-b border-slate-100 dark:border-slate-800 last:border-0 pb-1 last:pb-0">
+                                  <span className="truncate max-w-[400px] text-slate-600 dark:text-slate-400">
+                                    <span className="font-medium text-slate-800 dark:text-slate-200">{item.quantityReceived}</span> {item.unit || 'un'} x {item.description}
+                                  </span>
+                                  <span className="font-medium">{formatCurrency(Number(item.totalPrice) || 0)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                )})}
               </TableBody>
             </Table>
           )}
