@@ -1146,12 +1146,15 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(suppliers, eq(purchaseRequests.chosenSupplierId, suppliers.id))
       .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
       .leftJoin(receipts, eq(purchaseRequests.id, receipts.purchaseRequestId))
+      .leftJoin(purchaseOrders, eq(purchaseRequests.id, purchaseOrders.purchaseRequestId))
       .where(
         or(
           eq(purchaseRequests.currentPhase, 'recebimento'),
           and(
             eq(purchaseRequests.currentPhase, 'pedido_concluido'),
-            eq(receipts.receiptPhase, 'recebimento_fisico')
+            eq(receipts.receiptPhase, 'recebimento_fisico'),
+            // Filter out orphans: if PO is fully received, the receipt must NOT be nf_pendente/rascunho
+            sql`NOT (${purchaseOrders.fulfillmentStatus} = 'fulfilled' AND (${receipts.status} = 'nf_pendente' OR ${receipts.status} = 'rascunho'))`
           )
         )
       )
