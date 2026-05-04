@@ -82,9 +82,16 @@ export function filterReceipts(receipts: any[], filters: KanbanFilters): any[] {
   if (!Array.isArray(receipts)) return [];
 
   return receipts.filter((receipt: any) => {
-    let passesFilters = true;
+    // Hide orphan placeholder receipts if the PO is fully received
+    if (
+      Number(receipt.receivingPercent) >= 100 && 
+      receipt.receiptPhase === 'recebimento_fisico' && 
+      (receipt.status === 'nf_pendente' || receipt.status === 'rascunho')
+    ) {
+      return false;
+    }
 
-    // Search filter (textual) - applied globally to all cards
+    let passesFilters = true;
     if (filters.search && filters.search.trim()) {
       const q = filters.search.toLowerCase().trim();
       const matches = 
