@@ -52,7 +52,7 @@ import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool, db } from "./db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, or, asc } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import mime from "mime-types";
@@ -3306,42 +3306,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Create Receipt Record
         if (manualNFNumber) {
-             const now = new Date();
-             const y = now.getFullYear();
-             const m = String(now.getMonth() + 1).padStart(2, "0");
-             const d = String(now.getDate()).padStart(2, "0");
-             const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
-             const receiptNum = `REC-${y}${m}${d}-${rand}`;
+             let targetReceiptId: number | null = null;
+             
+             if (allFulfilled) {
+                 // Try to find the original empty receipt to update
+                 const [originalReceipt] = await db.select()
+                     .from(receipts)
+                     .where(and(
+                         eq(receipts.purchaseOrderId, purchaseOrder.id),
+                         or(eq(receipts.status, 'nf_pendente'), eq(receipts.status, 'rascunho')),
+                         eq(receipts.receiptPhase, 'recebimento_fisico')
+                     ))
+                     .orderBy(asc(receipts.id))
+                     .limit(1);
+                 
+                 if (originalReceipt) {
+                     // Update the original receipt
+                     await db.update(receipts).set({
+                         status: "conf_fisica",
+                         receiptPhase: "conf_fiscal",
+                         documentNumber: manualNFNumber,
+                         documentSeries: manualNFSeries,
+                         receivedBy: userId,
+                         receivedAt: new Date(),
+                         observations: observations
+                     }).where(eq(receipts.id, originalReceipt.id));
+                     
+                     targetReceiptId = originalReceipt.id;
+                     
+                     // Notify Flow 2 about the updated card
+                     realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+                       event: 'receipt_updated',
+                       payload: { id: targetReceiptId, purchaseRequestId: id }
+                     });
+                 }
+             }
 
-             const [createdReceipt] = await db.insert(receipts).values({
-               receiptNumber: receiptNum,
-               purchaseOrderId: purchaseOrder.id,
-               status: "conf_fisica", // Ready for Fiscal Conference
-               receiptType: "produto", // Default to produto, changed to avulso later if needed? Or should we allow passing it? 
-                                       // Frontend seems to treat this as Avulso or just Manual NF.
-               receiptPhase: "conf_fiscal", // Requirement: Move card to Fiscal Conference column immediately
-               documentNumber: manualNFNumber,
-               documentSeries: manualNFSeries,
-               supplierId: purchaseOrder.supplierId,
-               receivedBy: userId,
-               receivedAt: new Date(),
-               createdAt: new Date(),
-               observations: observations,
-               purchaseRequestId: id, // Link to request for easier filtering
-             } as any).returning();
+             if (!targetReceiptId) {
+                 const now = new Date();
+                 const y = now.getFullYear();
+                 const m = String(now.getMonth() + 1).padStart(2, "0");
+                 const d = String(now.getDate()).padStart(2, "0");
+                 const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+                 const receiptNum = `REC-${y}${m}${d}-${rand}`;
 
-             // Notify Flow 2 about the new card
-             realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
-               event: 'receipt_created',
-               payload: { id: createdReceipt.id, purchaseRequestId: id }
-             });
+                 const [createdReceipt] = await db.insert(receipts).values({
+                   receiptNumber: receiptNum,
+                   purchaseOrderId: purchaseOrder.id,
+                   status: "conf_fisica", // Ready for Fiscal Conference
+                   receiptType: "produto", 
+                   receiptPhase: "conf_fiscal", // Requirement: Move card to Fiscal Conference column immediately
+                   documentNumber: manualNFNumber,
+                   documentSeries: manualNFSeries,
+                   supplierId: purchaseOrder.supplierId,
+                   receivedBy: userId,
+                   receivedAt: new Date(),
+                   createdAt: new Date(),
+                   observations: observations,
+                   purchaseRequestId: id, // Link to request for easier filtering
+                 } as any).returning();
+                 
+                 targetReceiptId = createdReceipt.id;
+
+                 // Notify Flow 2 about the new card
+                 realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+                   event: 'receipt_created',
+                   payload: { id: targetReceiptId, purchaseRequestId: id }
+                 });
+             }
 
              // Insert Receipt Items
-             if (itemsToInsert.length > 0) {
+             if (itemsToInsert.length > 0 && targetReceiptId) {
                 for (const item of itemsToInsert) {
                    await db.insert(receiptItems).values({
                       ...item,
-                      receiptId: createdReceipt.id,
+                      receiptId: targetReceiptId,
                       createdAt: new Date()
                    });
                 }
