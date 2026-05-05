@@ -887,7 +887,11 @@ export class DatabaseStorage implements IStorage {
         rejectionReasonA1: purchaseRequests.rejectionReasonA1,
         approvalDateA1: purchaseRequests.approvalDateA1,
         buyerId: purchaseRequests.buyerId,
-        totalValue: purchaseRequests.totalValue,
+        totalValue: sql<string>`COALESCE(
+          NULLIF(${purchaseRequests.totalValue}, 0),
+          (SELECT SUM(total_price) FROM purchase_order_items WHERE purchase_order_id = ${purchaseOrders.id}),
+          0
+        )::text`,
         paymentMethodId: purchaseRequests.paymentMethodId,
         approverA2Id: purchaseRequests.approverA2Id,
         approvedA2: purchaseRequests.approvedA2,

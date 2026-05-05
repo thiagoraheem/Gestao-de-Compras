@@ -80,7 +80,13 @@ export function registerReceiptsRoutes(app: Express) {
           r.document_key as "documentKey",
           r.document_issue_date as "documentIssueDate",
           r.document_entry_date as "documentEntryDate",
-          r.total_amount as "totalAmount",
+          COALESCE(
+            NULLIF(r.total_amount, 0),
+            (SELECT SUM(total_price) FROM receipt_items WHERE receipt_id = r.id),
+            (SELECT SUM(total_price) FROM purchase_order_items WHERE purchase_order_id = r.purchase_order_id),
+            pr.total_value,
+            0
+          ) as "totalAmount",
           r.observations,
           r.created_at as "createdAt",
           r.received_at as "receivedAt",
