@@ -1,4 +1,4 @@
-import { PURCHASE_PHASES } from "./types";
+import { PURCHASE_PHASES, RECEIPT_PHASES } from "./types";
 
 export interface KanbanFilters {
   department: string;
@@ -10,6 +10,7 @@ export interface KanbanFilters {
     endDate: string;
   };
   purchaseOrder?: string;
+  search?: string;
 }
 
 export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
@@ -44,13 +45,17 @@ export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
         request.chosenSupplier?.id?.toString() === filters.supplier;
     }
 
-    // Date filter - apply to conclusion and archived items
+    // Date filter - apply to conclusion, handoff and archived items
     if (
       filters.date &&
       (request.currentPhase === PURCHASE_PHASES.ARQUIVADO ||
-        request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA)
+        request.currentPhase === PURCHASE_PHASES.PEDIDO_CONCLUIDO ||
+        request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA ||
+        request.currentPhase === PURCHASE_PHASES.RECEBIMENTO ||
+        request.currentPhase === PURCHASE_PHASES.CONF_FISCAL)
     ) {
-      const requestDate = new Date(request.updatedAt || request.createdAt);
+      // Use createdAt for filtering to avoid issues with updatedAt being bumped by migrations
+      const requestDate = new Date(request.createdAt);
       const startDate = new Date(filters.date.startDate);
       const endDate = new Date(filters.date.endDate);
       endDate.setHours(23, 59, 59, 999); // Include the full end date
@@ -67,6 +72,84 @@ export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
       const hasRequestNumberMatch = request.requestNumber?.toLowerCase().includes(filter);
 
       passesFilters = passesFilters && (hasPurchaseOrderMatch || hasRequestNumberMatch);
+    }
+
+    return passesFilters;
+  });
+}
+
+export function filterReceipts(receipts: any[], filters: KanbanFilters): any[] {
+  if (!Array.isArray(receipts)) return [];
+
+  return receipts.filter((receipt: any) => {
+    // Hide orphan placeholder receipts if the PO is fully received
+    if (
+      Number(receipt.receivingPercent) >= 100 && 
+      receipt.receiptPhase === 'recebimento_fisico' && 
+      (receipt.status === 'nf_pendente' || receipt.status === 'rascunho')
+    ) {
+      return false;
+    }
+
+    let passesFilters = true;
+    if (filters.search && filters.search.trim()) {
+      const q = filters.search.toLowerCase().trim();
+      const matches = 
+        receipt.receiptNumber?.toLowerCase().includes(q) ||
+        receipt.purchaseOrderNumber?.toLowerCase().includes(q) ||
+        receipt.requestNumber?.toLowerCase().includes(q) ||
+        receipt.supplierName?.toLowerCase().includes(q) ||
+        receipt.documentNumber?.toLowerCase().includes(q);
+      passesFilters = passesFilters && matches;
+    }
+
+    // Department filter
+    if (filters.department !== "all") {
+      passesFilters =
+        passesFilters &&
+        receipt.departmentId?.toString() === filters.department;
+    }
+
+    // Urgency filter
+    if (filters.urgency !== "all") {
+      passesFilters = passesFilters && receipt.urgency === filters.urgency;
+    }
+
+    // Requester filter
+    if (filters.requester !== "all") {
+      passesFilters =
+        passesFilters &&
+        receipt.requesterId?.toString() === filters.requester;
+    }
+
+    // Supplier filter
+    if (filters.supplier !== "all") {
+      passesFilters =
+        passesFilters &&
+        receipt.supplierId?.toString() === filters.supplier;
+    }
+
+    // Date filter - apply to completed items
+    if (filters.date && receipt.receiptPhase === RECEIPT_PHASES.CONCLUIDO) {
+      // Use createdAt for filtering to avoid issues with updatedAt being bumped by migrations
+      const receiptDate = new Date(receipt.createdAt);
+      const startDate = new Date(filters.date.startDate);
+      const endDate = new Date(filters.date.endDate);
+      endDate.setHours(23, 59, 59, 999); // Include the full end date
+
+      passesFilters =
+        passesFilters && receiptDate >= startDate && receiptDate <= endDate;
+    }
+
+    // Purchase Order Number filter
+    if (filters.purchaseOrder && filters.purchaseOrder.trim()) {
+      const filter = filters.purchaseOrder.toLowerCase().trim();
+      
+      const hasPurchaseOrderMatch = receipt.purchaseOrderNumber?.toLowerCase().includes(filter);
+      const hasRequestNumberMatch = receipt.requestNumber?.toLowerCase().includes(filter);
+      const hasReceiptNumberMatch = receipt.receiptNumber?.toLowerCase().includes(filter);
+
+      passesFilters = passesFilters && (hasPurchaseOrderMatch || hasRequestNumberMatch || hasReceiptNumberMatch);
     }
 
     return passesFilters;

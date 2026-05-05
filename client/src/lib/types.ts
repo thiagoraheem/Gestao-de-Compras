@@ -7,6 +7,7 @@ export const PURCHASE_PHASES = {
   RECEBIMENTO: 'recebimento',
   CONF_FISCAL: 'conf_fiscal',
   CONCLUSAO_COMPRA: 'conclusao_compra',
+  PEDIDO_CONCLUIDO: 'pedido_concluido',
   ARQUIVADO: 'arquivado',
 } as const;
 
@@ -23,8 +24,26 @@ export const PHASE_LABELS = {
   [PURCHASE_PHASES.RECEBIMENTO]: 'Recebimento Físico',
   [PURCHASE_PHASES.CONF_FISCAL]: 'Conf. Fiscal',
   [PURCHASE_PHASES.CONCLUSAO_COMPRA]: 'Conclusão',
+  [PURCHASE_PHASES.PEDIDO_CONCLUIDO]: 'Pedido Concluído (Handoff)',
   [PURCHASE_PHASES.ARQUIVADO]: 'Arquivado',
 } as const;
+
+export const RECEIPT_PHASES = {
+  RECEBIMENTO_FISICO: 'recebimento_fisico',
+  CONF_FISCAL: 'conf_fiscal',
+  CONCLUIDO: 'concluido',
+  CANCELADO: 'cancelado',
+} as const;
+
+export type ReceiptPhase = typeof RECEIPT_PHASES[keyof typeof RECEIPT_PHASES];
+
+export const RECEIPT_PHASE_LABELS = {
+  [RECEIPT_PHASES.RECEBIMENTO_FISICO]: 'Recebimento Físico',
+  [RECEIPT_PHASES.CONF_FISCAL]: 'Conferência Fiscal',
+  [RECEIPT_PHASES.CONCLUIDO]: 'Concluído',
+  [RECEIPT_PHASES.CANCELADO]: 'Cancelado',
+} as const;
+
 
 export const PHASE_COLORS = {
   [PURCHASE_PHASES.SOLICITACAO]: 'hsl(207, 90%, 54%)',
@@ -35,8 +54,17 @@ export const PHASE_COLORS = {
   [PURCHASE_PHASES.RECEBIMENTO]: 'hsl(152, 81%, 43%)',
   [PURCHASE_PHASES.CONF_FISCAL]: 'hsl(25, 95%, 53%)',
   [PURCHASE_PHASES.CONCLUSAO_COMPRA]: 'hsl(142, 71%, 45%)',
+  [PURCHASE_PHASES.PEDIDO_CONCLUIDO]: 'hsl(215, 25%, 27%)',
   [PURCHASE_PHASES.ARQUIVADO]: 'hsl(210, 12%, 47%)',
 } as const;
+
+export const RECEIPT_PHASE_COLORS = {
+  [RECEIPT_PHASES.RECEBIMENTO_FISICO]: 'hsl(152, 81%, 43%)',
+  [RECEIPT_PHASES.CONF_FISCAL]: 'hsl(25, 95%, 53%)',
+  [RECEIPT_PHASES.CONCLUIDO]: 'hsl(142, 71%, 45%)',
+  [RECEIPT_PHASES.CANCELADO]: 'hsl(0, 84%, 60%)',
+} as const;
+
 
 export const URGENCY_LEVELS = {
   BAIXO: 'baixo',

@@ -12,9 +12,9 @@ export default function MaterialConferencePage() {
 
   // Poll every 30 seconds as requested
   const { data: requests = [], isLoading } = useQuery({
-    queryKey: ["/api/purchase-requests/phase/recebimento"],
+    queryKey: ["/api/receipts/pending-conference"],
     queryFn: async () => {
-      const res = await fetch("/api/purchase-requests/phase/recebimento");
+      const res = await fetch("/api/receipts/pending-conference");
       if (!res.ok) throw new Error("Failed to fetch requests");
       return res.json();
     },

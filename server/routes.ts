@@ -52,7 +52,7 @@ import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool, db } from "./db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, or, asc } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import mime from "mime-types";
@@ -1611,6 +1611,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error fetching purchase requests by phase:", error);
         res.status(500).json({ message: "Failed to fetch purchase requests" });
+      }
+    },
+  );
+
+  app.get(
+    "/api/receipts/pending-conference",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const requests = await storage.getPendingMaterialsForConference();
+        res.json(requests);
+      } catch (error) {
+        console.error("Error fetching pending materials:", error);
+        res.status(500).json({ message: "Failed to fetch pending materials" });
       }
     },
   );
@@ -3292,34 +3306,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Create Receipt Record
         if (manualNFNumber) {
-             const now = new Date();
-             const y = now.getFullYear();
-             const m = String(now.getMonth() + 1).padStart(2, "0");
-             const d = String(now.getDate()).padStart(2, "0");
-             const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
-             const receiptNum = `REC-${y}${m}${d}-${rand}`;
+             let targetReceiptId: number | null = null;
+             
+             if (allFulfilled) {
+                 // Try to find the original empty receipt to update
+                 const [originalReceipt] = await db.select()
+                     .from(receipts)
+                     .where(and(
+                         eq(receipts.purchaseOrderId, purchaseOrder.id),
+                         or(eq(receipts.status, 'nf_pendente'), eq(receipts.status, 'rascunho')),
+                         eq(receipts.receiptPhase, 'recebimento_fisico')
+                     ))
+                     .orderBy(asc(receipts.id))
+                     .limit(1);
+                 
+                 if (originalReceipt) {
+                     // Update the original receipt
+                     await db.update(receipts).set({
+                         status: "conf_fisica",
+                         receiptPhase: "conf_fiscal",
+                         documentNumber: manualNFNumber,
+                         documentSeries: manualNFSeries,
+                         receivedBy: userId,
+                         receivedAt: new Date(),
+                         observations: observations
+                     }).where(eq(receipts.id, originalReceipt.id));
+                     
+                     targetReceiptId = originalReceipt.id;
+                     
+                     // Notify Flow 2 about the updated card
+                     realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+                       event: 'receipt_updated',
+                       payload: { id: targetReceiptId, purchaseRequestId: id }
+                     });
+                 }
+             }
 
-             const [createdReceipt] = await db.insert(receipts).values({
-               receiptNumber: receiptNum,
-               purchaseOrderId: purchaseOrder.id,
-               status: "conf_fisica", // Ready for Fiscal Conference
-               receiptType: "produto", // Default to produto, changed to avulso later if needed? Or should we allow passing it? 
-                                       // Frontend seems to treat this as Avulso or just Manual NF.
-               documentNumber: manualNFNumber,
-               documentSeries: manualNFSeries,
-               supplierId: purchaseOrder.supplierId,
-               receivedBy: userId,
-               receivedAt: new Date(),
-               createdAt: new Date(),
-               observations: observations
-             } as any).returning();
+             if (!targetReceiptId) {
+                 const now = new Date();
+                 const y = now.getFullYear();
+                 const m = String(now.getMonth() + 1).padStart(2, "0");
+                 const d = String(now.getDate()).padStart(2, "0");
+                 const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+                 const receiptNum = `REC-${y}${m}${d}-${rand}`;
+
+                 const [createdReceipt] = await db.insert(receipts).values({
+                   receiptNumber: receiptNum,
+                   purchaseOrderId: purchaseOrder.id,
+                   status: "conf_fisica", // Ready for Fiscal Conference
+                   receiptType: "produto", 
+                   receiptPhase: "conf_fiscal", // Requirement: Move card to Fiscal Conference column immediately
+                   documentNumber: manualNFNumber,
+                   documentSeries: manualNFSeries,
+                   supplierId: purchaseOrder.supplierId,
+                   receivedBy: userId,
+                   receivedAt: new Date(),
+                   createdAt: new Date(),
+                   observations: observations,
+                   purchaseRequestId: id, // Link to request for easier filtering
+                 } as any).returning();
+                 
+                 targetReceiptId = createdReceipt.id;
+
+                 // Notify Flow 2 about the new card
+                 realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+                   event: 'receipt_created',
+                   payload: { id: targetReceiptId, purchaseRequestId: id }
+                 });
+             }
 
              // Insert Receipt Items
-             if (itemsToInsert.length > 0) {
+             if (itemsToInsert.length > 0 && targetReceiptId) {
                 for (const item of itemsToInsert) {
                    await db.insert(receiptItems).values({
                       ...item,
-                      receiptId: createdReceipt.id,
+                      receiptId: targetReceiptId,
                       createdAt: new Date()
                    });
                 }
@@ -3331,7 +3392,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (allFulfilled) {
             updateData.physicalReceiptAt = new Date();
             updateData.physicalReceiptById = userId;
-            updateData.currentPhase = "conf_fiscal"; 
+            // Requirement: Stay in Handoff phase for Flow 1
+            updateData.currentPhase = "pedido_concluido"; 
         }
 
         if (Object.keys(updateData).length > 0) {
@@ -4012,7 +4074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = {
         receivedById,
         receivedDate: new Date(),
-        currentPhase: "recebimento" as const,
+        currentPhase: "pedido_concluido" as const,
       };
 
       const request = await storage.updatePurchaseRequest(id, updates);
@@ -4922,8 +4984,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "cotacao",
           "aprovacao_a2",
           "pedido_compra",
-          "recebimento",
-          "conclusao_compra",
+          "pedido_concluido", // Novo estado final da aquisição
+          "recebimento",      // Legado
+          "conclusao_compra", // Legado
           "arquivado",
         ] as const;
         if (!validPhases.includes(newPhase)) {
@@ -4940,6 +5003,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "cotacao",
           "aprovacao_a2",
           "pedido_compra",
+          "pedido_concluido",
           "recebimento",
           "conf_fiscal",
           "conclusao_compra",
@@ -4998,23 +5062,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        if (currentPhase === "recebimento") {
-           if (newPhase === "conf_fiscal") {
-              // Admin, Manager, Buyer or Receiver can move to Fiscal Conference
-              const canMove = user.isAdmin || user.isManager || user.isBuyer || user.isReceiver;
-              if (!canMove) {
-                 return res.status(403).json({ message: "Sem permissão para mover para Conferência Fiscal" });
-              }
-              // Pre-condition: Physical Receipt must be done
-              if (!request.physicalReceiptAt) {
-                 return res.status(400).json({ message: "Recebimento Físico deve ser concluído antes da Conferência Fiscal" });
-              }
-           } else if (!user.isReceiver && !user.isAdmin) {
-              // Default check for other transitions from Recebimento
-              return res.status(403).json({
-                message: "Você não possui permissão para mover cards da fase Recebimento",
-              });
-           }
+        if (currentPhase === "recebimento" || currentPhase === "conf_fiscal" || currentPhase === "conclusao_compra") {
+            // Se já está em fase de recebimento legada, permite movimentação restrita ou bloqueia
+            if (newPhase !== "arquivado" && !user.isAdmin && !user.isManager) {
+               return res.status(403).json({ message: "Esta solicitação está em fluxo legado e não pode ser movida via Kanban." });
+            }
+        }
+        
+        // Bloqueia avanço de novas solicitações para as fases de recebimento legadas
+        if (["recebimento", "conclusao_compra"].includes(newPhase) && currentPhase !== newPhase) {
+            return res.status(400).json({ message: "As fases de recebimento agora são independentes. Mova para 'Pedido Concluído' para iniciar o fluxo de recebimento." });
         }
 
         // Validate progression from "Cotação" to "Aprovação A2"
@@ -5084,7 +5141,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // Automatic A2 approval when moving from "aprovacao_a2" to "pedido_compra"
+        // Handoff logic (Flow 1 to Flow 2)
+        if (newPhase === "pedido_concluido") {
+           updates.procurementStatus = "concluida";
+           updates.procurementConcludedAt = new Date();
+           updates.procurementConcludedById = userId;
+           updates.sentToPhysicalReceipt = true;
+           
+           // Ensure at least one receipt exists
+           const existingReceipts = await db.select().from(receipts).where(eq(receipts.purchaseRequestId, id));
+           if (existingReceipts.length === 0) {
+              const order = await db.query.purchaseOrders.findFirst({
+                 where: eq(purchaseOrders.purchaseRequestId, id)
+              });
+              
+              await db.insert(receipts).values({
+                receiptNumber: generateReceiptNumber(),
+                purchaseOrderId: order?.id || null,
+                purchaseRequestId: id,
+                status: "rascunho",
+                receiptPhase: "recebimento_fisico",
+                receiptType: (request.category === "servico" ? "servico" : "produto") as any,
+                supplierId: request.chosenSupplierId,
+                createdAt: new Date()
+              } as any);
+           }
+           
+           try {
+             await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, action_scope)
+               VALUES (${id}, 'flow2_started', 'Fluxo de aquisição concluído e iniciado fluxo de recebimento independente', ${userId}, 'FLOW')`);
+           } catch {}
+        }
+
+        // Automatic A2 approval when moving from "aprovacao_a2" to "pedido_compra" (rest of chunk shifted)
         if (
           currentPhase === "aprovacao_a2" &&
           newPhase === "pedido_compra" &&
@@ -5211,10 +5300,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
         }
 
-        // Update phase to "recebimento"
+        // Find the purchase order for this request
+        const [purchaseOrder] = await db
+          .select()
+          .from(purchaseOrders)
+          .where(eq(purchaseOrders.purchaseRequestId, id))
+          .limit(1);
+
+        // Update phase to "pedido_concluido" (Handoff column in Flow 1)
         const updatedRequest = await storage.updatePurchaseRequest(id, {
-          currentPhase: "recebimento",
+          currentPhase: "pedido_concluido",
         });
+
+        // Requirement T01: Create the receipt record for Flow 2
+        // This ensures the card appears in the "Recebimento Físico" column
+        await db.insert(receipts).values({
+          receiptNumber: generateReceiptNumber(),
+          purchaseOrderId: purchaseOrder?.id || null,
+          purchaseRequestId: id,
+          status: "rascunho",
+          receiptPhase: "recebimento_fisico",
+          receiptType: (request.category === "servico" ? "servico" : "produto") as any,
+          supplierId: request.chosenSupplierId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any);
 
         // Create movement history entry
         await storage.createApprovalHistory({
@@ -5225,9 +5335,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rejectionReason: null,
         });
 
+        // Notify phase change for Flow 1
         realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
           event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
-          payload: { id, currentPhase: "recebimento", updatedAt: updatedRequest.updatedAt },
+          payload: { id, currentPhase: "pedido_concluido", updatedAt: updatedRequest.updatedAt },
+        });
+
+        // Notify that a new receipt is available for Flow 2
+        realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+            event: 'receipt_created',
+            payload: { purchaseRequestId: id }
         });
 
         res.json(updatedRequest);

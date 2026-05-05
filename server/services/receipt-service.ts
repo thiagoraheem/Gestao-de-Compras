@@ -25,9 +25,10 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
     .set({ 
       status: "fiscal_conferida", 
       integrationMessage: justification,
+      receiptPhase: "concluido", // Move to Conclusion in Flow 2
       approvedAt: new Date(),
       approvedBy: user.id
-    })
+    } as any)
     .where(eq(receipts.id, receiptId))
     .returning();
 
@@ -47,6 +48,7 @@ export async function finishReceiptWithoutErp(userId: number, receiptId: number)
           purchaseRequestId = order.purchaseRequestId;
           
           if (pendingReceipts.length === 0) {
+              // If all receipts are finished, move PR to conclusion
               await db.update(purchaseRequests)
                   .set({ currentPhase: "conclusao_compra", updatedAt: new Date() })
                   .where(eq(purchaseRequests.id, purchaseRequestId));

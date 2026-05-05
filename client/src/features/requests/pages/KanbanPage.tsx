@@ -389,7 +389,6 @@ export default function KanbanPage() {
                       ))}
                 </SelectContent>
               </Select>
-              
               {/* Purchase Order Filter - Desktop */}
               <Input
                 placeholder="Nº Pedido/Solicitação"
@@ -400,6 +399,7 @@ export default function KanbanPage() {
                 }}
                 className="w-44 h-8 text-sm"
               />
+
             </div>
 
             {/* Date Filter for Archived Items */}

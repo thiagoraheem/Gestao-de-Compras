@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle, DollarSign, Clock, Building2, AlertCircle, Truck, ChevronDown, X, Package } from "lucide-react";
+import { CheckCircle, DollarSign, Clock, Building2, AlertCircle, Truck, ChevronDown, X, Package, Download } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -62,6 +62,64 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
     : [];
 
   const hasUnavailableItems = unavailableItems.length > 0 && selectedSupplierId !== null;
+
+  const handleExportExcel = async () => {
+    try {
+      const XLSX = await import("xlsx");
+
+      const rows = quotationItems.map((item: any) => {
+        const rowData: any = {
+          'Item': item.description,
+          'Quantidade': item.quantity,
+          'Unidade': item.unit || 'UN'
+        };
+
+        receivedQuotations.forEach(q => {
+          const supplierItem = q.items.find((i: any) => i.quotationItemId === item.id);
+          if (supplierItem && supplierItem.isAvailable !== false) {
+             rowData[`${q.supplier.name} - Vlr. Unit. (R$)`] = Number(supplierItem.unitPrice);
+             rowData[`${q.supplier.name} - Total (R$)`] = Number(supplierItem.totalPrice);
+          } else {
+             rowData[`${q.supplier.name} - Vlr. Unit. (R$)`] = 'Indisponível';
+             rowData[`${q.supplier.name} - Total (R$)`] = '-';
+          }
+        });
+        return rowData;
+      });
+
+      const totalsRow: any = {
+        'Item': 'TOTAL GERAL',
+        'Quantidade': '',
+        'Unidade': ''
+      };
+
+      receivedQuotations.forEach(q => {
+        totalsRow[`${q.supplier.name} - Vlr. Unit. (R$)`] = '';
+        totalsRow[`${q.supplier.name} - Total (R$)`] = q.totalValue ? Number(q.totalValue) : '-';
+      });
+
+      rows.push(totalsRow);
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Comparação");
+
+      const wscols = [
+        {wch: 50}, // Item
+        {wch: 15}, // Qtd
+        {wch: 15}, // Unid
+      ];
+      receivedQuotations.forEach(() => {
+        wscols.push({wch: 25});
+        wscols.push({wch: 25});
+      });
+      worksheet['!cols'] = wscols;
+
+      XLSX.writeFile(workbook, `Comparacao_Fornecedores_${quotationId}.xlsx`);
+    } catch (error) {
+      console.error("Erro ao exportar para Excel:", error);
+    }
+  };
 
   const handleSelectSupplier = () => {
     if (!selectedSupplierId || !selectedSupplierData) return;
@@ -135,11 +193,17 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
         <div className="flex-shrink-0 bg-background border-b border-border sticky top-0 z-30 px-6 py-3 rounded-t-lg">
           <div className="flex justify-between items-center">
             <DialogTitle className="text-base font-semibold">Comparação de Fornecedores</DialogTitle>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon" onClick={onClose} className="p-2" aria-label="Fechar">
-                <X className="h-4 w-4" />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={isLoading || receivedQuotations.length === 0}>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Excel
               </Button>
-            </DialogClose>
+              <DialogClose asChild>
+                <Button variant="ghost" size="icon" onClick={onClose} className="p-2" aria-label="Fechar">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
           </div>
           <p id="supplier-comparison-desc" className="sr-only">Comparativo de cotações por fornecedor com seleção e confirmação</p>
         </div>
