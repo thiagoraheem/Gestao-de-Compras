@@ -447,6 +447,36 @@ export function registerQuotationRoutes(app: Express) {
   );
 
   app.get(
+    "/api/quotations/:id/supplier-quotations/:supplierId",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const quotationId = parseInt(req.params.id);
+        const supplierId = parseInt(req.params.supplierId);
+
+        const supplierQuotations = await storage.getSupplierQuotations(quotationId);
+        const supplierQuotation = supplierQuotations.find(
+          (sq) => sq.supplierId === supplierId,
+        );
+
+        if (!supplierQuotation) {
+          return res.json(null);
+        }
+
+        const items = await storage.getSupplierQuotationItems(supplierQuotation.id);
+
+        res.json({
+          ...supplierQuotation,
+          items,
+        });
+      } catch (error) {
+        console.error("Error fetching specific supplier quotation:", error);
+        res.status(500).json({ message: "Failed to fetch supplier quotation details" });
+      }
+    },
+  );
+
+  app.get(
     "/api/quotations/:id/supplier-comparison",
     isAuthenticated,
     async (req, res) => {
