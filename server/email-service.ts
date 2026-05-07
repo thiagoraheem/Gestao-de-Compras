@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import type { Supplier, User, PurchaseRequest } from "../shared/schema";
+import type { Supplier, User, PurchaseRequest, Quotation } from "../shared/schema";
 import { storage } from "./storage";
 import { config, buildRequestUrl, isEmailEnabled } from "./config";
 import { PDFService } from "./pdf-service";
@@ -129,6 +129,52 @@ export async function sendRFQToSuppliers(
     success: successCount > 0,
     errors,
   };
+}
+
+export async function notifyNewRFQ(
+  supplier: Supplier,
+  quotation: Quotation,
+  token?: string,
+): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de nova RFQ para ${supplier.name} (Cotação: ${quotation.quotationNumber}) não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
+  try {
+    const purchaseRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+    if (!purchaseRequest) {
+      console.error(`Purchase request ${quotation.purchaseRequestId} not found for quotation ${quotation.id}`);
+      return;
+    }
+
+    const items = await storage.getQuotationItems(quotation.id);
+    
+    const rfqData: RFQEmailData = {
+      quotationNumber: quotation.quotationNumber,
+      requestNumber: purchaseRequest.requestNumber,
+      quotationDeadline: quotation.quotationDeadline instanceof Date 
+        ? quotation.quotationDeadline.toISOString() 
+        : String(quotation.quotationDeadline),
+      items: items.map(item => ({
+        itemCode: item.itemCode,
+        description: item.description,
+        quantity: String(item.quantity),
+        unit: item.unit,
+        specifications: item.specifications || undefined
+      })),
+      termsAndConditions: quotation.termsAndConditions || undefined,
+      technicalSpecs: quotation.technicalSpecs || undefined
+    };
+
+    const result = await sendRFQToSuppliers([supplier], rfqData);
+    if (!result.success) {
+      console.error(`Failed to send RFQ email to ${supplier.name}:`, result.errors);
+    }
+  } catch (error) {
+    console.error(`Error in notifyNewRFQ for ${supplier.name}:`, error);
+  }
 }
 
 function generateRFQEmailHTML(

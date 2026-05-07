@@ -1,4 +1,5 @@
 import { CalculadoraValoresSolicitacao, ItemCalculo } from "../shared/utils/CalculadoraValoresSolicitacao";
+import crypto from "crypto";
 import {
   users,
   companies,
@@ -230,10 +231,12 @@ export interface IStorage {
     id: number,
     quotation: Partial<InsertQuotation>,
   ): Promise<Quotation>;
+  deleteQuotation(id: number): Promise<void>;
 
   // Quotation Items operations
   getQuotationItems(quotationId: number): Promise<QuotationItem[]>;
   createQuotationItem(item: InsertQuotationItem): Promise<QuotationItem>;
+  createQuotationItems(items: InsertQuotationItem[]): Promise<QuotationItem[]>;
   updateQuotationItem(
     id: number,
     item: Partial<InsertQuotationItem>,
@@ -258,6 +261,9 @@ export interface IStorage {
   createSupplierQuotationItem(
     item: InsertSupplierQuotationItem,
   ): Promise<SupplierQuotationItem>;
+  createSupplierQuotationItems(
+    items: InsertSupplierQuotationItem[],
+  ): Promise<SupplierQuotationItem[]>;
   updateSupplierQuotationItem(
     id: number,
     item: Partial<InsertSupplierQuotationItem>,
@@ -1945,6 +1951,70 @@ export class DatabaseStorage implements IStorage {
     return quotation;
   }
 
+  async deleteQuotation(id: number): Promise<void> {
+    // 0. Update any quotation that has this one as parent to point to its parent (grandparent)
+    // This avoids breaking the version chain and foreign key violations
+    const targetQuotation = await this.getQuotationById(id);
+    if (targetQuotation) {
+      await db.update(quotations)
+        .set({ parentQuotationId: targetQuotation.parentQuotationId || null })
+        .where(eq(quotations.parentQuotationId, id));
+    }
+
+    // 1. Get all supplier quotations for this quotation
+    const qSupplierQuotations = await db
+      .select()
+      .from(supplierQuotations)
+      .where(eq(supplierQuotations.quotationId, id));
+
+    for (const supplierQuotation of qSupplierQuotations) {
+      // 2. Get all supplier quotation items IDs
+      const sqItems = await db
+        .select({ id: supplierQuotationItems.id })
+        .from(supplierQuotationItems)
+        .where(eq(supplierQuotationItems.supplierQuotationId, supplierQuotation.id));
+      
+      const sqItemIds = sqItems.map(i => i.id);
+
+      if (sqItemIds.length > 0) {
+          // 3. Delete quantity adjustment history for these items
+          await db.delete(quantityAdjustmentHistory)
+              .where(inArray(quantityAdjustmentHistory.supplierQuotationItemId, sqItemIds));
+      }
+
+      // 4. Delete attachments linked to supplier quotation
+      await db.delete(attachments)
+          .where(eq(attachments.supplierQuotationId, supplierQuotation.id));
+
+      // 5. Delete supplier quotation items
+      await db.delete(supplierQuotationItems)
+          .where(eq(supplierQuotationItems.supplierQuotationId, supplierQuotation.id));
+    }
+
+    // 6. Delete supplier quotations
+    await db.delete(supplierQuotations)
+      .where(eq(supplierQuotations.quotationId, id));
+
+    // 7. Delete approved quotation items (snapshot)
+    await db.delete(approvedQuotationItems)
+      .where(eq(approvedQuotationItems.quotationId, id));
+
+    // 8. Delete quotation version history
+    await db.delete(quotationVersionHistory)
+      .where(eq(quotationVersionHistory.quotationId, id));
+
+    // 9. Delete quotation items
+    await db.delete(quotationItems)
+      .where(eq(quotationItems.quotationId, id));
+
+    // 10. Delete attachments linked to quotation
+    await db.delete(attachments)
+      .where(eq(attachments.quotationId, id));
+
+    // 11. Delete the quotation itself
+    await db.delete(quotations).where(eq(quotations.id, id));
+  }
+
   // Quotation Items operations
   async getQuotationItems(quotationId: number): Promise<QuotationItem[]> {
     return await db
@@ -1958,6 +2028,13 @@ export class DatabaseStorage implements IStorage {
   ): Promise<QuotationItem> {
     const [item] = await db.insert(quotationItems).values(itemData).returning();
     return item;
+  }
+
+  async createQuotationItems(
+    itemsData: InsertQuotationItem[],
+  ): Promise<QuotationItem[]> {
+    if (itemsData.length === 0) return [];
+    return await db.insert(quotationItems).values(itemsData).returning();
   }
 
   async updateQuotationItem(
@@ -2099,6 +2176,16 @@ export class DatabaseStorage implements IStorage {
       .values(itemData)
       .returning();
     return item;
+  }
+
+  async createSupplierQuotationItems(
+    itemsData: InsertSupplierQuotationItem[],
+  ): Promise<SupplierQuotationItem[]> {
+    if (itemsData.length === 0) return [];
+    return await db
+      .insert(supplierQuotationItems)
+      .values(itemsData)
+      .returning();
   }
 
   async updateSupplierQuotationItem(
@@ -2871,10 +2958,8 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
-      // Generate a secure random token
-      const token =
-        Math.random().toString(36).substr(2, 15) +
-        Math.random().toString(36).substr(2, 15);
+      // Generate a cryptographically secure random token
+      const token = crypto.randomBytes(32).toString("hex");
 
       // Set expiration to 1 hour from now
       const expiresAt = new Date();

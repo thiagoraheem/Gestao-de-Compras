@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 export interface ApprovalConfiguration {
   id: number;
@@ -34,122 +34,51 @@ export interface UseApprovalTypeReturn {
   configuration: ApprovalConfiguration | null;
   loading: boolean;
   error: string | null;
-  refetch: () => Promise<void>;
+  refetch: () => void;
 }
 
 export function useApprovalType(totalValue?: number, requestId?: number): UseApprovalTypeReturn {
-  const [data, setData] = useState<'single' | 'dual' | null>(null);
-  const [approvalInfo, setApprovalInfo] = useState<ApprovalTypeInfo | null>(null);
-  const [configuration, setConfiguration] = useState<ApprovalConfiguration | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Use React Query for configuration - shared across all components
+  const { 
+    data: configuration, 
+    isLoading: configLoading, 
+    error: configError,
+    refetch: refetchConfig
+  } = useQuery<ApprovalConfiguration>({
+    queryKey: ['/api/approval-rules/config'],
+    queryFn: () => apiRequest('/api/approval-rules/config'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-  const fetchApprovalConfiguration = async () => {
-    try {
-      const response = await fetch('/api/approval-rules/config', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+  // Use React Query for approval info if requestId is provided
+  const { 
+    data: approvalInfo, 
+    isLoading: infoLoading, 
+    error: infoError,
+    refetch: refetchInfo
+  } = useQuery<ApprovalTypeInfo>({
+    queryKey: [`/api/approval-rules/${requestId}`],
+    queryFn: () => apiRequest(`/api/approval-rules/${requestId}`),
+    enabled: !!requestId,
+    staleTime: 30 * 1000, // 30 seconds
+  });
 
-      if (!response.ok) {
-        // Se não há autenticação ou outro erro, não tenta fazer parse do JSON
-        if (response.status === 401) {
-          console.warn('Authentication required for approval configuration');
-          return null;
-        }
-        throw new Error(`Failed to fetch approval configuration: ${response.status}`);
-      }
+  // Determine approval type based on value and threshold
+  const data = (totalValue !== undefined && configuration)
+    ? determineApprovalType(totalValue, parseFloat(configuration.valueThreshold) || 2500)
+    : null;
 
-      // Verifica se a resposta tem conteúdo antes de tentar fazer parse
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        console.warn('Response is not JSON format');
-        return null;
-      }
-
-      const text = await response.text();
-      if (!text || text.trim() === '') {
-        console.warn('Empty response from approval configuration API');
-        return null;
-      }
-
-      let config;
-      try {
-        config = JSON.parse(text);
-      } catch (parseError) {
-        console.error('Failed to parse JSON response:', parseError);
-        return null;
-      }
-
-      setConfiguration(config);
-      
-      // Determine approval type based on value and threshold
-      if (totalValue !== undefined && config) {
-        const threshold = parseFloat(config.valueThreshold) || 2500;
-        const approvalType = determineApprovalType(totalValue, threshold);
-        setData(approvalType);
-      }
-      
-      return config;
-    } catch (err) {
-      console.error('Error fetching approval configuration:', err);
-      // Não propaga o erro para evitar quebrar a aplicação
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    }
+  const refetch = () => {
+    refetchConfig();
+    if (requestId) refetchInfo();
   };
-
-  const fetchApprovalInfo = async (requestId: number) => {
-    try {
-      const response = await fetch(`/api/approval-rules/${requestId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch approval info');
-      }
-
-      const info = await response.json();
-      setApprovalInfo(info);
-      return info;
-    } catch (err) {
-      console.error('Error fetching approval info:', err);
-      throw err;
-    }
-  };
-
-  const refetch = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const promises = [fetchApprovalConfiguration()];
-      if (requestId) {
-        promises.push(fetchApprovalInfo(requestId));
-      }
-      await Promise.all(promises);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(errorMessage);
-      toast.error(`Erro ao carregar informações de aprovação: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    refetch();
-  }, [totalValue, requestId]);
 
   return {
     data,
-    approvalInfo,
-    configuration,
-    loading,
-    error,
+    approvalInfo: approvalInfo || null,
+    configuration: configuration || null,
+    loading: configLoading || infoLoading,
+    error: (configError || infoError) ? 'Failed to fetch approval information' : null,
     refetch,
   };
 }
