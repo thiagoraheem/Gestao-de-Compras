@@ -76,7 +76,7 @@ export class ReceiptService {
       FROM receipts r
       LEFT JOIN purchase_orders po ON r.purchase_order_id = po.id
       LEFT JOIN purchase_requests pr ON COALESCE(r.purchase_request_id, po.purchase_request_id) = pr.id
-      LEFT JOIN suppliers s ON r.supplier_id = s.id
+      LEFT JOIN suppliers s ON s.id = COALESCE(r.supplier_id, po.supplier_id, pr.chosen_supplier_id)
       LEFT JOIN users u ON pr.requester_id = u.id
       LEFT JOIN cost_centers cc ON r.cost_center_id = cc.id
       WHERE r.receipt_phase != 'cancelado'
@@ -123,7 +123,7 @@ export class ReceiptService {
         FROM receipts r
         LEFT JOIN purchase_orders po ON r.purchase_order_id = po.id
         LEFT JOIN purchase_requests pr ON COALESCE(r.purchase_request_id, po.purchase_request_id) = pr.id
-        LEFT JOIN suppliers s ON r.supplier_id = s.id
+        LEFT JOIN suppliers s ON s.id = COALESCE(r.supplier_id, po.supplier_id, pr.chosen_supplier_id)
         WHERE r.receipt_phase = 'recebimento_fisico'
       )
       SELECT * FROM CalculatedReceipts

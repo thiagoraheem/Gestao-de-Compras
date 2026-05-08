@@ -226,6 +226,18 @@ export class PurchaseRequestRepository {
       }
     }
 
+    // Get chosen supplier if exists
+    let chosenSupplierData = null;
+    if (request.chosenSupplierId) {
+      const [supplier] = await db
+        .select()
+        .from(suppliers)
+        .where(eq(suppliers.id, request.chosenSupplierId));
+      if (supplier) {
+        chosenSupplierData = supplier;
+      }
+    }
+
     // Return the complete object with all necessary fields
     const result = {
       ...request,
@@ -233,6 +245,7 @@ export class PurchaseRequestRepository {
       requesterName,
       requesterUsername,
       requesterEmail,
+      chosenSupplier: chosenSupplierData,
     };
 
     return result as any;

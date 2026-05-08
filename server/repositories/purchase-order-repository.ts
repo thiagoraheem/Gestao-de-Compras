@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { purchaseOrders, purchaseOrderItems } from "../../shared/schema";
+import { purchaseOrders, purchaseOrderItems, suppliers } from "../../shared/schema";
 import { eq } from "drizzle-orm";
 import type { 
   PurchaseOrder, 
@@ -9,20 +9,40 @@ import type {
 } from "../../shared/schema";
 
 export class PurchaseOrderRepository {
-  async getPurchaseOrderById(id: number): Promise<PurchaseOrder | undefined> {
-    const [purchaseOrder] = await db
-      .select()
+  async getPurchaseOrderById(id: number): Promise<any | undefined> {
+    const [result] = await db
+      .select({
+        purchaseOrder: purchaseOrders,
+        supplier: {
+          id: suppliers.id,
+          name: suppliers.name,
+          cnpj: suppliers.cnpj,
+        },
+      })
       .from(purchaseOrders)
+      .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
       .where(eq(purchaseOrders.id, id));
-    return purchaseOrder || undefined;
+
+    if (!result) return undefined;
+    return { ...result.purchaseOrder, supplier: result.supplier };
   }
 
-  async getPurchaseOrderByRequestId(purchaseRequestId: number): Promise<PurchaseOrder | undefined> {
-    const [purchaseOrder] = await db
-      .select()
+  async getPurchaseOrderByRequestId(purchaseRequestId: number): Promise<any | undefined> {
+    const [result] = await db
+      .select({
+        purchaseOrder: purchaseOrders,
+        supplier: {
+          id: suppliers.id,
+          name: suppliers.name,
+          cnpj: suppliers.cnpj,
+        },
+      })
       .from(purchaseOrders)
+      .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
       .where(eq(purchaseOrders.purchaseRequestId, purchaseRequestId));
-    return purchaseOrder || undefined;
+
+    if (!result) return undefined;
+    return { ...result.purchaseOrder, supplier: result.supplier };
   }
 
   async createPurchaseOrder(purchaseOrder: InsertPurchaseOrder): Promise<PurchaseOrder> {
