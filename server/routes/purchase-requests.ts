@@ -40,6 +40,8 @@ import { chartOfAccountsService } from "../integracao_locador/services/chart-of-
 import { fileStorageService } from "../services/file-storage-service";
 import { isEmailEnabled } from "../config";
 import { PDFService } from "../pdf-service";
+import { workflowService } from "../services/workflow-service";
+import { purchaseRequestService } from "../services/purchase-request-service";
 
 export function registerPurchaseRequestRoutes(app: Express) {
   // Purchase Requests routes
@@ -91,110 +93,11 @@ export function registerPurchaseRequestRoutes(app: Express) {
 
   app.post("/api/purchase-requests", isAuthenticated, async (req, res) => {
     try {
-      const { items, ...requestData } = req.body;
-
-      // Validate request data
-      const validatedRequestData =
-        insertPurchaseRequestSchema.parse(requestData);
-
-      // Validate items if provided
-      let validatedItems: (typeof insertPurchaseRequestItemSchema._type)[] = [];
-      if (items && Array.isArray(items)) {
-        validatedItems = items.map((item: any) => {
-          const processedItem = insertPurchaseRequestItemSchema.parse({
-            ...item,
-            purchaseRequestId: 0,
-            productCode: item.productCode || null, // Explicitly include productCode
-            description: item.description || "",
-            unit: item.unit || "",
-            requestedQuantity: item.requestedQuantity || 0,
-            technicalSpecification: item.technicalSpecification || null,
-            approvedQuantity: undefined,
-            price: item.price || null,
-            partNumber: item.partNumber || null,
-          });
-          return processedItem;
-        });
-      }
-
-      if (!validatedItems.length) {
-        return res.status(400).json({
-          message: "Adicione pelo menos um item à solicitação",
-        });
-      }
-
-      if (validatedRequestData.category === "produto") {
-        const missingErpProduct = validatedItems.some(
-          (item) => !item.productCode || String(item.productCode).trim() === "",
-        );
-        if (missingErpProduct) {
-          return res.status(400).json({
-            message:
-              "Para a categoria Produto, todos os itens devem ser selecionados a partir da busca no ERP.",
-          });
-        }
-      } else if (
-        validatedRequestData.category === "servico" ||
-        validatedRequestData.category === "material" ||
-        validatedRequestData.category === "outros"
-      ) {
-        const invalidItem = validatedItems.some((item) =>
-          isInvalidDescription(item.description as string),
-        );
-        if (invalidItem) {
-          const catLabel =
-            validatedRequestData.category === "servico"
-              ? "Serviço"
-              : validatedRequestData.category === "material"
-              ? "Material"
-              : "Outros";
-          return res.status(400).json({
-            message: `Para ${catLabel}, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.`,
-          });
-        }
-      }
-
-      // Create the request
-      const request = await storage.createPurchaseRequest(validatedRequestData);
-
-      // Create items if any
-      if (validatedItems.length > 0) {
-        const itemsWithRequestId = validatedItems.map((item) => ({
-          ...item,
-          purchaseRequestId: request.id,
-        }));
-
-        // Criar itens individualmente para evitar problemas de validação
-        for (const item of itemsWithRequestId) {
-          await storage.createPurchaseRequestItem(item);
-        }
-      }
-
-      // Send notification to buyers about the new request
-      notifyNewRequest(request).catch((error) => {
-        console.error("Erro ao enviar notificação de nova solicitação:", error);
-      });
-
-      // Invalidate cache for purchase requests
-      invalidateCache(["/api/purchase-requests"]);
-
-      realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
-        event: PURCHASE_REQUEST_EVENTS.CREATED,
-        payload: {
-          request: {
-            id: request.id,
-            requestNumber: request.requestNumber,
-            currentPhase: request.currentPhase,
-            totalValue: request.totalValue,
-            updatedAt: request.updatedAt,
-          },
-        },
-      });
-
+      const request = await purchaseRequestService.createRequest(req.body);
       res.status(201).json(request);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating purchase request:", error);
-      res.status(400).json({ message: "Invalid purchase request data" });
+      res.status(400).json({ message: error.message || "Invalid purchase request data" });
     }
   });
 
@@ -204,112 +107,21 @@ export function registerPurchaseRequestRoutes(app: Express) {
 
       // Handle temporary IDs
       if (idParam.startsWith("temp_")) {
-        return res
-          .status(400)
-          .json({
-            message: "Solicitação precisa ser salva antes de ser atualizada",
-          });
+        return res.status(400).json({
+          message: "Solicitação precisa ser salva antes de ser atualizada",
+        });
       }
 
       const id = parseInt(idParam);
       if (isNaN(id)) {
         return res.status(400).json({ message: "ID inválido" });
       }
-      const { items, ...requestData } = req.body;
 
-      const existingRequest = await storage.getPurchaseRequestById(id);
-      if (!existingRequest) {
-        return res.status(404).json({ message: "Solicitação não encontrada" });
-      }
-
-      const validatedRequestData = insertPurchaseRequestSchema
-        .partial()
-        .parse(requestData);
-
-      const category =
-        validatedRequestData.category || existingRequest.category;
-
-      let validatedItems: (typeof insertPurchaseRequestItemSchema._type)[] = [];
-
-      if (items && Array.isArray(items)) {
-        validatedItems = items.map((item) =>
-          insertPurchaseRequestItemSchema.parse({
-            ...item,
-            purchaseRequestId: id,
-          }),
-        );
-
-        if (!validatedItems.length) {
-          return res.status(400).json({
-            message: "Adicione pelo menos um item à solicitação",
-          });
-        }
-
-        if (category === "produto") {
-          const missingErpProduct = validatedItems.some(
-            (item) =>
-              !item.productCode || String(item.productCode).trim() === "",
-          );
-          if (missingErpProduct) {
-            return res.status(400).json({
-              message:
-                "Para a categoria Produto, todos os itens devem ser selecionados a partir da busca no ERP.",
-            });
-          }
-        } else if (
-          category === "servico" ||
-          category === "material" ||
-          category === "outros"
-        ) {
-          const invalidItem = validatedItems.some((item) =>
-            isInvalidDescription(item.description as string),
-          );
-          if (invalidItem) {
-            const catLabel =
-              category === "servico"
-                ? "Serviço"
-                : category === "material"
-                ? "Material"
-                : "Outros";
-            return res.status(400).json({
-              message: `Para ${catLabel}, a descrição dos itens deve ter pelo menos 10 caracteres e não pode conter caracteres inválidos.`,
-            });
-          }
-        }
-      }
-
-      const request = await storage.updatePurchaseRequest(
-        id,
-        validatedRequestData,
-      );
-
-      if (items && Array.isArray(items)) {
-        const existingItems = await storage.getPurchaseRequestItems(id);
-        for (const item of existingItems) {
-          await storage.deletePurchaseRequestItem(item.id);
-        }
-
-        if (validatedItems.length > 0) {
-          await storage.createPurchaseRequestItems(validatedItems);
-        }
-      }
-
-      // Invalidate cache for purchase requests
-      invalidateCache(["/api/purchase-requests"]);
-
-      realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
-        event: PURCHASE_REQUEST_EVENTS.UPDATED,
-        payload: {
-          id,
-          updatedAt: request.updatedAt,
-          changes: validatedRequestData,
-        },
-      });
-
+      const request = await purchaseRequestService.updateRequest(id, req.body);
       res.json(request);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating purchase request:", error);
-      res.status(400).json({ message: "Invalid purchase request data" });
+      res.status(400).json({ message: error.message || "Invalid purchase request data" });
     }
   });
 
@@ -479,7 +291,7 @@ export function registerPurchaseRequestRoutes(app: Express) {
         const updatedRequest = await storage.updatePurchaseRequest(id, {
           currentPhase: newPhase as any,
           updatedAt: new Date(),
-        });
+        } as any);
 
         // Publish event for real-time updates
         realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
@@ -505,12 +317,9 @@ export function registerPurchaseRequestRoutes(app: Express) {
 
         // Handle temporary IDs
         if (idParam.startsWith("temp_")) {
-          return res
-            .status(400)
-            .json({
-              message:
-                "Solicitação precisa ser salva antes de ser enviada para aprovação",
-            });
+          return res.status(400).json({
+            message: "Solicitação precisa ser salva antes de ser enviada para aprovação",
+          });
         }
 
         const id = parseInt(idParam);
@@ -518,40 +327,11 @@ export function registerPurchaseRequestRoutes(app: Express) {
           return res.status(400).json({ message: "ID inválido" });
         }
 
-        const request = await storage.getPurchaseRequestById(id);
-        if (!request || request.currentPhase !== "solicitacao") {
-          return res
-            .status(400)
-            .json({ message: "Request must be in the request phase" });
-        }
-
-        const updateData = {
-          currentPhase: "aprovacao_a1" as any,
-          updatedAt: new Date(),
-        };
-
-        const updatedRequest = await storage.updatePurchaseRequest(
-          id,
-          updateData,
-        );
-
-        // Send notification to approvers A1
-        try {
-          await notifyApprovalA1(updatedRequest);
-        } catch (emailError) {
-          console.error("Error sending approval notification:", emailError);
-          // Continue with the update even if email fails
-        }
-
-        realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
-          event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
-          payload: { id, currentPhase: updateData.currentPhase, updatedAt: updatedRequest.updatedAt },
-        });
-
+        const updatedRequest = await workflowService.sendToApproval(id);
         res.json(updatedRequest);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error sending to approval:", error);
-        res.status(400).json({ message: "Failed to send to approval" });
+        res.status(400).json({ message: error.message || "Failed to send to approval" });
       }
     },
   );
@@ -611,60 +391,13 @@ export function registerPurchaseRequestRoutes(app: Express) {
         const id = parseInt(req.params.id);
         const { approved, rejectionReason, approverId } = req.body;
 
-        const request = await storage.getPurchaseRequestById(id);
-
-        if (!request || request.currentPhase !== "aprovacao_a1") {
-          return res
-            .status(400)
-            .json({ message: "Request must be in the A1 approval phase" });
-        }
-
-        const updateData = {
-          approverA1Id: approverId,
-          approvedA1: approved,
-          approvalDateA1: new Date(),
-          currentPhase: approved ? "cotacao" : "arquivado",
-          rejectionReasonA1: approved
-            ? null
-            : rejectionReason || "Solicitação reprovada",
-          updatedAt: new Date(),
-        } as const;
-
-        // Create approval history entry
-        await storage.createApprovalHistory({
-          purchaseRequestId: id,
-          approverType: "A1",
-          approverId: approverId,
-          approved: approved,
-          rejectionReason: approved
-            ? null
-            : rejectionReason || "Solicitação reprovada",
-        });
-
-        const updatedRequest = await storage.updatePurchaseRequest(
-          id,
-          updateData,
-        );
-
-        // Send rejection notification email if request was rejected
-        if (!approved && rejectionReason) {
-          await notifyRejection(updatedRequest, rejectionReason, "A1");
-        }
-
+        const updatedRequest = await workflowService.approveA1(id, approved, rejectionReason, approverId);
         res.json(updatedRequest);
-      } catch (error) {
-        if (error instanceof Error) {
-          console.error("Error approving A1:", error);
-          console.error("Stack trace:", error.stack);
-          res
-            .status(400)
-            .json({
-              message: "Failed to process approval",
-              error: error.message,
-            });
-        } else {
-          res.status(400).json({ message: "Failed to process approval" });
-        }
+      } catch (error: any) {
+        console.error("Error approving A1:", error);
+        res.status(400).json({
+          message: error.message || "Failed to process approval",
+        });
       }
     },
   );
@@ -699,172 +432,13 @@ export function registerPurchaseRequestRoutes(app: Express) {
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
-        const { approved, rejectionReason, rejectionAction, approverId } =
-          req.body;
+        const { approved, rejectionReason, rejectionAction, approverId } = req.body;
 
-        const request = await storage.getPurchaseRequestById(id);
-        if (!request || request.currentPhase !== "aprovacao_a2") {
-          return res
-            .status(400)
-            .json({ message: "Request must be in the A2 approval phase" });
-        }
-
-        let newPhase = "pedido_compra";
-        if (!approved) {
-          if (rejectionAction === "recotacao") {
-            newPhase = "cotacao"; // Return to quotation phase
-          } else {
-            newPhase = "arquivado"; // Archive
-          }
-        }
-
-        const updateData = {
-          approverA2Id: approverId,
-          approvalDateA2: new Date(),
-          approvedA2: approved,
-          rejectionReasonA2: approved ? null : rejectionReason,
-          rejectionActionA2: approved ? null : rejectionAction,
-          currentPhase: newPhase as any,
-          // Salva a fase anterior ao arquivamento para permitir desarquivamento
-          lastPhase: newPhase === "arquivado" ? request.currentPhase : undefined,
-          updatedAt: new Date(),
-        } as const;
-
-        // Create approval history entry
-        await storage.createApprovalHistory({
-          purchaseRequestId: id,
-          approverType: "A2",
-          approverId: approverId,
-          approved: approved,
-          rejectionReason: approved
-            ? null
-            : rejectionReason || "Solicitação reprovada",
-        });
-
-        const updatedRequest = await storage.updatePurchaseRequest(
-          id,
-          updateData,
-        );
-
-        // Se aprovado, criar automaticamente o purchase order
-        if (approved) {
-          try {
-            // Buscar cotação
-            const quotation = await storage.getQuotationByPurchaseRequestId(id);
-            if (quotation) {
-              const supplierQuotations = await storage.getSupplierQuotations(
-                quotation.id,
-              );
-              const chosenSupplierQuotation = supplierQuotations.find(
-                (sq) => sq.isChosen,
-              );
-
-              if (chosenSupplierQuotation) {
-                // Verificar se já existe um purchase order
-                const existingPurchaseOrder =
-                  await storage.getPurchaseOrderByRequestId(id);
-                // Check existing purchase order
-                if (!existingPurchaseOrder) {
-                  // Buscar itens da cotação do fornecedor vencedor
-                  const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
-                  if (supplierQuotationItems.length > 0) {
-                    // Gerar número do pedido
-                    const orderNumber = `PO-${new Date().getFullYear()}-${String(id).padStart(3, "0")}`;
-
-                    // Criar o purchase order
-                    const purchaseOrderData = {
-                      orderNumber,
-                      purchaseRequestId: id,
-                      supplierId: chosenSupplierQuotation.supplierId,
-                      quotationId: quotation.id,
-                      status: "draft" as const,
-                      totalValue: chosenSupplierQuotation.totalValue || "0",
-                      paymentTerms: chosenSupplierQuotation.paymentTerms || null,
-                      deliveryTerms: null,
-                      deliveryAddress: null,
-                      contactPerson: null,
-                      contactPhone: null,
-                      observations: null,
-                      approvedBy: null,
-                      approvedAt: null,
-                      createdBy: approverId,
-                    };
-
-                    // Creating purchase order
-                    const purchaseOrder =
-                      await storage.createPurchaseOrder(purchaseOrderData);
-                    const quotationItems = await storage.getQuotationItems(quotation.id);
-                    let itemsTotal = 0;
-                    for (const si of supplierQuotationItems) {
-                      if (si.isAvailable === false) continue;
-                      const qi = quotationItems.find(q => q.id === si.quotationItemId);
-                      const description = qi?.description || "";
-                      const unit = si.confirmedUnit || qi?.unit || "UN";
-                      const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
-                      const unitPrice = si.unitPrice || "0";
-                      const baseTotal = (parseFloat(unitPrice) || 0) * (parseFloat(quantity as any) || 0);
-                      let itemDiscount = 0;
-                      let totalPrice = baseTotal;
-                      if (si.discountPercentage && parseFloat(si.discountPercentage as any) > 0) {
-                        itemDiscount = (baseTotal * parseFloat(si.discountPercentage as any)) / 100;
-                      } else if (si.discountValue && parseFloat(si.discountValue as any) > 0) {
-                        itemDiscount = parseFloat(si.discountValue as any);
-                      }
-                      totalPrice = Math.max(0, baseTotal - itemDiscount);
-                      itemsTotal += totalPrice;
-                      const purchaseOrderItemData = {
-                        purchaseOrderId: purchaseOrder.id,
-                        itemCode: qi?.itemCode || `ITEM-${si.id}`,
-                        description,
-                        quantity,
-                        unit,
-                        unitPrice,
-                        totalPrice: totalPrice.toFixed(4),
-                        deliveryDeadline: null,
-                        costCenterId: request.costCenterId,
-                        accountCode: null,
-                      };
-                      await storage.createPurchaseOrderItem(purchaseOrderItemData);
-                    }
-                    // Log validação de valores
-                    try {
-                      const supplierTotal = parseFloat(chosenSupplierQuotation.totalValue || "0");
-                      const discrepancy = Math.abs(supplierTotal - itemsTotal);
-                      await pool.query(
-                        `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at, before_data, after_data)
-                         VALUES ($1, $2, $3, $4, NOW(), $5, $6)`,
-                        [
-                          id,
-                          approverId,
-                          'po_created_a2',
-                          `PO criado na A2 a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(4)} | Total cotação: R$ ${supplierTotal.toFixed(4)} | Diferença: R$ ${discrepancy.toFixed(4)}`,
-                          JSON.stringify({ supplierTotal }),
-                          JSON.stringify({ itemsTotal })
-                        ]
-                      );
-                    } catch {}
-                  }
-                }
-              }
-            }
-          } catch (purchaseOrderError) {
-            console.error(
-              "Erro ao criar purchase order automaticamente:",
-              purchaseOrderError,
-            );
-            // Não falhar a aprovação se houver erro na criação do purchase order
-          }
-        }
-
-        // Send rejection notification email if request was rejected
-        if (!approved && rejectionReason) {
-          await notifyRejection(updatedRequest, rejectionReason, "A2");
-        }
-
+        const updatedRequest = await workflowService.approveA2(id, approved, rejectionReason, rejectionAction, approverId);
         res.json(updatedRequest);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error approving A2:", error);
-        res.status(400).json({ message: "Failed to process A2 approval" });
+        res.status(400).json({ message: error.message || "Failed to process A2 approval" });
       }
     },
   );
@@ -1212,22 +786,11 @@ export function registerPurchaseRequestRoutes(app: Express) {
       try {
         const id = parseInt(req.params.id);
         const { conclusionObservations } = req.body;
-
-        // Get current phase to save as lastPhase
-        const currentRequest = await storage.getPurchaseRequestById(id);
-
-        const updates = {
-          currentPhase: "arquivado" as const,
-          lastPhase: currentRequest?.currentPhase ?? null,
-          conclusionObservations,
-          archivedDate: new Date(),
-        };
-
-        const request = await storage.updatePurchaseRequest(id, updates);
+        const request = await workflowService.archiveRequest(id, conclusionObservations);
         res.json(request);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error archiving request:", error);
-        res.status(400).json({ message: "Failed to archive request" });
+        res.status(400).json({ message: error.message || "Failed to archive request" });
       }
     },
   );
@@ -1240,23 +803,8 @@ export function registerPurchaseRequestRoutes(app: Express) {
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
-        const request = await storage.getPurchaseRequestById(id);
-
-        if (!request) {
-          return res.status(404).json({ message: "Solicitação não encontrada" });
-        }
-
-        if (request.currentPhase !== "arquivado") {
-          return res.status(400).json({ message: "Solicitação não está arquivada" });
-        }
-
-        // Restaura para a fase anterior ou para 'cotacao' como fallback
-        const targetPhase = request.lastPhase || "cotacao";
-
-        const updated = await storage.updatePurchaseRequest(id, {
-          currentPhase: targetPhase as any,
-          lastPhase: null,
-        });
+        const userId = req.session.userId!;
+        const updated = await workflowService.unarchiveRequest(id, userId);
 
         // Registrar no log de auditoria
         await pool.query(
@@ -1264,21 +812,16 @@ export function registerPurchaseRequestRoutes(app: Express) {
            VALUES ($1, $2, $3, $4, NOW())`,
           [
             id,
-            req.session.userId,
+            userId,
             'unarchive',
-            `Solicitação desarquivada e retornada para a fase: ${targetPhase}`
+            `Solicitação desarquivada e retornada para a fase: ${updated.currentPhase}`
           ]
         );
 
-        realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
-          event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
-          payload: { id, currentPhase: targetPhase, updatedAt: updated.updatedAt },
-        });
-
         res.json(updated);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error unarchiving request:", error);
-        res.status(500).json({ message: "Falha ao desarquivar solicitação" });
+        res.status(500).json({ message: error.message || "Falha ao desarquivar solicitação" });
       }
     },
   );

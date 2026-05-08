@@ -16,6 +16,7 @@ import {
   isAuthenticated,
   isAdmin,
 } from "./middleware";
+import { purchaseOrderService } from "../services/purchase-order-service";
 
 export function registerPurchaseOrderRoutes(app: Express) {
   // Purchase Orders endpoints
@@ -102,6 +103,7 @@ export function registerPurchaseOrderRoutes(app: Express) {
 
   app.post(
     "/api/purchase-requests/:id/create-purchase-order",
+    isAuthenticated,
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
@@ -112,155 +114,33 @@ export function registerPurchaseOrderRoutes(app: Express) {
           return res.status(401).json({ message: "User not authenticated" });
         }
 
-        // Buscar o purchase request e dados relacionados
-        const purchaseRequest = await storage.getPurchaseRequestById(id);
-        if (!purchaseRequest) {
-          return res
-            .status(404)
-            .json({ message: "Purchase request not found" });
+        const result = await purchaseOrderService.createPurchaseOrderFromQuotation(id, userId, {
+          purchaseObservations,
+          auditActionType: 'po_created_manual'
+        });
+
+        if (!result) {
+          return res.status(400).json({ message: "Não foi possível criar o pedido. Verifique se a cotação foi aprovada e se o pedido já não existe." });
         }
 
-        // Buscar cotação e fornecedor escolhido
-        const quotation = await storage.getQuotationByPurchaseRequestId(id);
-        if (!quotation) {
-          return res
-            .status(400)
-            .json({ message: "No quotation found for this purchase request" });
-        }
-
-        const supplierQuotations = await storage.getSupplierQuotations(
-          quotation.id,
-        );
-        const chosenSupplierQuotation = supplierQuotations.find(
-          (sq) => sq.isChosen,
-        );
-        if (!chosenSupplierQuotation) {
-          return res
-            .status(400)
-            .json({ message: "No supplier chosen for this quotation" });
-        }
-
-        // Buscar itens do purchase request
-        const purchaseRequestItems = await storage.getPurchaseRequestItems(id);
-        if (purchaseRequestItems.length === 0) {
-          return res
-            .status(400)
-            .json({ message: "No items found for this purchase request" });
-        }
-
-        // Buscar itens da cotação do fornecedor para obter preços
-        const supplierQuotationItems = await storage.getSupplierQuotationItems(
-          chosenSupplierQuotation.id,
-        );
-
-        // Verificar se já existe um purchase order para este request
-        const existingPurchaseOrder =
-          await storage.getPurchaseOrderByRequestId(id);
-        if (existingPurchaseOrder) {
-          return res
-            .status(400)
-            .json({
-              message: "Purchase order already exists for this request",
-            });
-        }
-
-        // Gerar número do pedido
-        const orderNumber = `PO-${new Date().getFullYear()}-${String(id).padStart(3, "0")}`;
-
-        // Criar o purchase order
-        const purchaseOrderData = {
-          orderNumber,
-          purchaseRequestId: id,
-          supplierId: chosenSupplierQuotation.supplierId,
-          quotationId: quotation.id,
-          status: "draft" as const,
-          totalValue: chosenSupplierQuotation.totalValue || "0",
-          paymentTerms: null,
-          deliveryTerms: null,
-          deliveryAddress: null,
-          contactPerson: null,
-          contactPhone: null,
-          observations: purchaseObservations || null,
-          approvedBy: null,
-          approvedAt: null,
-          createdBy: userId,
-        };
-
-        const purchaseOrder =
-          await storage.createPurchaseOrder(purchaseOrderData);
-
-        const quotationItems = await storage.getQuotationItems(quotation.id);
-        let itemsTotal = 0;
-        for (const si of supplierQuotationItems) {
-          if (si.isAvailable === false) continue;
-          const qi = quotationItems.find(q => q.id === si.quotationItemId);
-          const description = qi?.description || "";
-          const unit = si.confirmedUnit || qi?.unit || "UN";
-          const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
-          const unitPrice = si.unitPrice || "0";
-          const baseTotal = (parseFloat(unitPrice) || 0) * (parseFloat(quantity as any) || 0);
-          let itemDiscount = 0;
-          let totalPrice = baseTotal;
-          if (si.discountPercentage && parseFloat(si.discountPercentage as any) > 0) {
-            itemDiscount = (baseTotal * parseFloat(si.discountPercentage as any)) / 100;
-          } else if (si.discountValue && parseFloat(si.discountValue as any) > 0) {
-            itemDiscount = parseFloat(si.discountValue as any);
-          }
-          totalPrice = Math.max(0, baseTotal - itemDiscount);
-          itemsTotal += totalPrice;
-          const purchaseOrderItemData = {
-            purchaseOrderId: purchaseOrder.id,
-            itemCode: qi?.itemCode || `ITEM-${si.id}`,
-            description,
-            quantity,
-            unit,
-            unitPrice,
-            totalPrice: totalPrice.toFixed(4),
-            deliveryDeadline: null,
-            costCenterId: purchaseRequest.costCenterId,
-            accountCode: null,
-          };
-          await storage.createPurchaseOrderItem(purchaseOrderItemData);
-        }
-        try {
-          const supplierTotal = parseFloat(chosenSupplierQuotation.totalValue || "0");
-          const discrepancy = Math.abs(supplierTotal - itemsTotal);
-          await pool.query(
-            `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at, before_data, after_data)
-             VALUES ($1, $2, $3, $4, NOW(), $5, $6)`,
-            [
-              id,
-              userId,
-              'po_created_manual',
-              `PO criado manualmente a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(4)} | Total cotação: R$ ${supplierTotal.toFixed(4)} | Diferença: R$ ${discrepancy.toFixed(4)}`,
-              JSON.stringify({ supplierTotal }),
-              JSON.stringify({ itemsTotal })
-            ]
-          );
-        } catch {}
-
-        // Atualizar o purchase request
-        const updates = {
+        // Atualizar o purchase request para refletir a nova fase se necessário
+        const updatedRequest = await storage.updatePurchaseRequest(id, {
           purchaseDate: new Date(),
           purchaseObservations,
           currentPhase: "pedido_compra" as const,
-        };
-
-        const updatedRequest = await storage.updatePurchaseRequest(id, updates);
+        });
 
         res.json({
           purchaseRequest: updatedRequest,
-          purchaseOrder: purchaseOrder,
+          purchaseOrder: result.purchaseOrder,
           message: "Purchase order created successfully",
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error creating purchase order:", error);
-        res
-          .status(500)
-          .json({
-            message: "Failed to create purchase order",
-            error: String(error),
-          });
+        res.status(500).json({
+          message: "Failed to create purchase order",
+          error: error.message || String(error),
+        });
       }
     },
   );
