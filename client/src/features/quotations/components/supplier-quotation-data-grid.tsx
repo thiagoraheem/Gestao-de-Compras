@@ -70,16 +70,18 @@ export function SupplierQuotationDataGrid({
     name: "items",
     keyName: "key", // use 'key' to avoid conflict with 'id' if present in data
   });
+  const watchedItems = form.watch("items") || [];
 
   // Calculate totals helper
-  const calculateItemTotal = (item: any) => {
+  const calculateItemTotal = (item: any, qItem: QuotationItem | undefined) => {
     if (!item || !item.unitPrice) return 0;
     
     // Find corresponding quotation item to get requested quantity if availableQuantity is not set
-    const correspondingQuotationItem = quotationItems.find(qi => qi.id === item.quotationItemId);
-    let quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+    let quantity = parseFloat(qItem?.quantity || "0");
     
-    if (item.availableQuantity && !isNaN(parseFloat(item.availableQuantity))) {
+    // If availableQuantity is not informed (null, undefined or empty string), use requested quantity
+    const hasAvailableQuantity = item.availableQuantity !== null && item.availableQuantity !== undefined && item.availableQuantity !== "";
+    if (hasAvailableQuantity && !isNaN(parseFloat(item.availableQuantity))) {
         quantity = parseFloat(item.availableQuantity);
     }
 
@@ -181,8 +183,16 @@ export function SupplierQuotationDataGrid({
               />
               <div className="text-[10px] text-muted-foreground text-right">
                 Total Orig.: R$ {(() => {
-                   const unitPrice = parseBrazilianNumber(form.watch(`items.${index}.unitPrice`));
-                   const quantity = parseFloat(qItem?.quantity || "0");
+                   const itemValue = watchedItems[index];
+                   const unitPrice = parseFloat(itemValue?.unitPrice || "0");
+                   
+                   // Use available quantity if specified, otherwise requested quantity
+                   let quantity = parseFloat(qItem?.quantity || "0");
+                   const hasAvailableQuantity = itemValue?.availableQuantity !== null && itemValue?.availableQuantity !== undefined && itemValue?.availableQuantity !== "";
+                   if (hasAvailableQuantity && !isNaN(parseFloat(itemValue?.availableQuantity || ""))) {
+                       quantity = parseFloat(itemValue.availableQuantity || "0");
+                   }
+
                    const total = isNaN(unitPrice) ? 0 : unitPrice * quantity;
                    return formatBrazilianNumber(total, 2, 2);
                 })()}
@@ -318,12 +328,15 @@ export function SupplierQuotationDataGrid({
         id: "total",
         header: "Total Final",
         accessorFn: (row, index) => {
-             const item = form.watch(`items.${index}`);
-             return calculateItemTotal(item);
+             const item = watchedItems[index];
+             const qItem = quotationItems.find(qi => qi.id === item?.quotationItemId);
+             return calculateItemTotal(item, qItem);
         },
         cell: ({ row }) => {
              const index = row.index;
-             const total = calculateItemTotal(form.watch(`items.${index}`));
+             const item = watchedItems[index];
+             const qItem = quotationItems.find(qi => qi.id === item?.quotationItemId);
+             const total = calculateItemTotal(item, qItem);
              
              return (
                  <div className="font-bold text-green-600 text-right min-w-[100px]">
@@ -463,7 +476,7 @@ export function SupplierQuotationDataGrid({
   );
 
   const table = useReactTable({
-    data: fields,
+    data: watchedItems,
     columns,
     getCoreRowModel: getCoreRowModel(),
     onSortingChange: setSorting,
@@ -482,7 +495,7 @@ export function SupplierQuotationDataGrid({
     const data = fields.map((field, index) => {
         const item = form.getValues(`items.${index}`);
         const qItem = quotationItems.find(qi => qi.id === item.quotationItemId);
-        const total = calculateItemTotal(item);
+        const total = calculateItemTotal(item, qItem);
 
         return {
             "Código": qItem?.itemCode,

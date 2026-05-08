@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { auditService } from "../services/audit-service";
 import { isAuthenticated, isReceiver } from "./middleware";
 import { storage } from "../storage";
 import multer from "multer";
@@ -34,6 +35,7 @@ import { realtime } from "../realtime";
 import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS, RECEIPT_EVENTS } from "../../shared/realtime-events";
 
 import { generateReceiptNumber } from "../utils/generate-receipt-number";
+import { NotFoundError, ValidationError, UnauthorizedError } from "../utils/errors";
 
 function parseOptionalBoolean(value: any): boolean | undefined {
   if (value === undefined || value === null || value === "") return undefined;
@@ -61,234 +63,192 @@ const xmlUpload = multer({
 
 export function registerReceiptsRoutes(app: Express) {
   app.get("/api/receipts/board", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const results = await receiptService.getReceiptsBoard();
-      res.json(results);
-    } catch (error) {
-      console.error("Error fetching receipts board:", error);
-      res.status(500).json({ message: "Erro ao buscar board de recebimentos" });
-    }
+    const results = await receiptService.getReceiptsBoard();
+    res.json(results);
   });
 
   app.get("/api/receipts/pending-conference", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const results = await receiptService.getPendingConference();
-      res.json(results);
-    } catch (error) {
-      console.error("Error fetching pending conference requests:", error);
-      res.status(500).json({ message: "Erro ao buscar solicitações pendentes de conferência" });
-    }
+    const results = await receiptService.getPendingConference();
+    res.json(results);
   });
 
   app.patch("/api/receipts/:id(\\d+)/update-phase", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const id = Number(req.params.id);
-      const { newPhase } = req.body;
-      const userId = req.session.userId!;
+    const id = Number(req.params.id);
+    const { newPhase } = req.body;
+    const userId = req.session.userId!;
 
-      if (!["recebimento_fisico", "conf_fiscal", "cancelado"].includes(newPhase)) {
-        return res.status(400).json({ message: "Fase inválida para atualização manual" });
-      }
-
-      const [receipt] = await db.select().from(receipts).where(eq(receipts.id, id));
-      if (!receipt) return res.status(404).json({ message: "Recebimento não encontrado" });
-
-      const [updated] = await db.update(receipts)
-        .set({ receiptPhase: newPhase, updatedAt: new Date() } as any)
-        .where(eq(receipts.id, id))
-        .returning();
-
-      // Audit
-      try {
-        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, receipt_id, action_scope)
-          VALUES (${receipt.purchaseRequestId || 0}, 'receipt_phase_changed', ${`Fase do recebimento alterada para ${newPhase}`}, ${userId}, ${id}, 'RECEIPT')`);
-      } catch { }
-
-      res.json(updated);
-    } catch (error) {
-      res.status(500).json({ message: "Erro ao atualizar fase do recebimento" });
+    if (!["recebimento_fisico", "conf_fiscal", "cancelado"].includes(newPhase)) {
+      throw new ValidationError("Fase inválida para atualização manual");
     }
+
+    const [receipt] = await db.select().from(receipts).where(eq(receipts.id, id));
+    if (!receipt) throw new NotFoundError("Recebimento não encontrado");
+
+    const [updated] = await db.update(receipts)
+      .set({ receiptPhase: newPhase, updatedAt: new Date() } as any)
+      .where(eq(receipts.id, id))
+      .returning();
+
+    await auditService.log({
+      purchaseRequestId: receipt.purchaseRequestId || 0,
+      actionType: 'receipt_phase_changed',
+      actionDescription: `Fase do recebimento alterada para ${newPhase}`,
+      performedBy: userId,
+      afterData: { receiptId: id, phase: newPhase },
+      affectedTables: ['receipts']
+    });
+
+    res.json(updated);
   });
 
   app.delete("/api/receipts/:id(\\d+)", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const id = Number(req.params.id);
-      const userId = req.session.userId!;
-      const result = await receiptService.deleteReceipt(id, userId);
-      res.json(result);
-    } catch (error: any) {
-      res.status(error.message.includes("permissão") ? 403 : (error.message.includes("encontrado") ? 404 : 500)).json({ message: error.message || "Erro ao excluir recebimento" });
-    }
+    const id = Number(req.params.id);
+    const userId = req.session.userId!;
+    const result = await receiptService.deleteReceipt(id, userId);
+    res.json(result);
   });
 
   app.post("/api/purchase-requests/:id(\\d+)/receipts", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const purchaseRequestId = Number(req.params.id);
-      const userId = req.session.userId!;
-      const newReceipt = await receiptService.createReceiptForRequest(purchaseRequestId, userId);
-      res.status(201).json(newReceipt);
-    } catch (error: any) {
-      res.status(error.message.includes("encontrada") ? 404 : 500).json({ message: error.message || "Erro ao criar novo card de recebimento" });
-    }
+    const purchaseRequestId = Number(req.params.id);
+    const userId = req.session.userId!;
+    const newReceipt = await receiptService.createReceiptForRequest(purchaseRequestId, userId);
+    res.status(201).json(newReceipt);
   });
-  app.get("/api/receipts/search", async (req: Request, res: Response) => {
-    try {
-      const {
-        number,
-        series,
-        cnpj,
-        accessKey,
-        supplierName,
-        startDate,
-        endDate,
-        page = "1",
-        limit = "20"
-      } = req.query;
+  app.get("/api/receipts/search", isAuthenticated, async (req: Request, res: Response) => {
+    const {
+      number,
+      series,
+      cnpj,
+      accessKey,
+      supplierName,
+      startDate,
+      endDate,
+      page = "1",
+      limit = "20"
+    } = req.query;
 
-      const pageNum = Number(page);
-      const limitNum = Number(limit);
-      const offset = (pageNum - 1) * limitNum;
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const offset = (pageNum - 1) * limitNum;
 
-      const conditions = [];
+    const conditions = [];
 
-      if (number) conditions.push(like(receipts.documentNumber, `%${String(number)}%`));
-      if (series) conditions.push(eq(receipts.documentSeries, String(series)));
-      if (accessKey) conditions.push(like(receipts.documentKey, `%${String(accessKey)}%`));
+    if (number) conditions.push(like(receipts.documentNumber, `%${String(number)}%`));
+    if (series) conditions.push(eq(receipts.documentSeries, String(series)));
+    if (accessKey) conditions.push(like(receipts.documentKey, `%${String(accessKey)}%`));
 
-      if (startDate) {
-        conditions.push(sql`${receipts.documentIssueDate} >= ${new Date(String(startDate)).toISOString()}`);
-      }
-      if (endDate) {
-        // Adjust end date to include the full day
-        const end = new Date(String(endDate));
-        end.setHours(23, 59, 59, 999);
-        conditions.push(sql`${receipts.documentIssueDate} <= ${end.toISOString()}`);
-      }
-
-      let baseQuery = db.select({
-        id: receipts.id,
-        receiptNumber: receipts.receiptNumber,
-        documentNumber: receipts.documentNumber,
-        documentSeries: receipts.documentSeries,
-        documentKey: receipts.documentKey,
-        documentIssueDate: receipts.documentIssueDate,
-        documentEntryDate: receipts.documentEntryDate,
-        totalAmount: receipts.totalAmount,
-        status: receipts.status,
-        receiptType: receipts.receiptType,
-        createdAt: receipts.createdAt,
-        supplierName: suppliers.name,
-        supplierCnpj: suppliers.cnpj,
-      })
-        .from(receipts)
-        .leftJoin(suppliers, eq(receipts.supplierId, suppliers.id));
-
-      if (cnpj) {
-        conditions.push(like(suppliers.cnpj, `%${String(cnpj).replace(/\D/g, '')}%`));
-      }
-
-      if (supplierName) {
-        conditions.push(like(suppliers.name, `%${String(supplierName)}%`));
-      }
-
-      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-      // Get total count for pagination
-      const [countResult] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(receipts)
-        .leftJoin(suppliers, eq(receipts.supplierId, suppliers.id))
-        .where(whereClause);
-
-      const total = Number(countResult.count);
-
-      // Get paginated results
-      const results = await baseQuery
-        .where(whereClause)
-        .orderBy(desc(receipts.createdAt))
-        .limit(limitNum)
-        .offset(offset);
-
-      res.json({
-        data: results,
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          totalPages: Math.ceil(total / limitNum)
-        }
-      });
-    } catch (error) {
-      console.error("Error searching receipts:", error);
-      res.status(500).json({ message: "Erro ao buscar notas fiscais" });
+    if (startDate) {
+      conditions.push(sql`${receipts.documentIssueDate} >= ${new Date(String(startDate)).toISOString()}`);
     }
+    if (endDate) {
+      const end = new Date(String(endDate));
+      end.setHours(23, 59, 59, 999);
+      conditions.push(sql`${receipts.documentIssueDate} <= ${end.toISOString()}`);
+    }
+
+    let baseQuery = db.select({
+      id: receipts.id,
+      receiptNumber: receipts.receiptNumber,
+      documentNumber: receipts.documentNumber,
+      documentSeries: receipts.documentSeries,
+      documentKey: receipts.documentKey,
+      documentIssueDate: receipts.documentIssueDate,
+      documentEntryDate: receipts.documentEntryDate,
+      totalAmount: receipts.totalAmount,
+      status: receipts.status,
+      receiptType: receipts.receiptType,
+      createdAt: receipts.createdAt,
+      supplierName: suppliers.name,
+      supplierCnpj: suppliers.cnpj,
+    })
+      .from(receipts)
+      .leftJoin(suppliers, eq(receipts.supplierId, suppliers.id));
+
+    if (cnpj) {
+      conditions.push(like(suppliers.cnpj, `%${String(cnpj).replace(/\D/g, '')}%`));
+    }
+
+    if (supplierName) {
+      conditions.push(like(suppliers.name, `%${String(supplierName)}%`));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(receipts)
+      .leftJoin(suppliers, eq(receipts.supplierId, suppliers.id))
+      .where(whereClause);
+
+    const total = Number(countResult.count);
+
+    const results = await baseQuery
+      .where(whereClause)
+      .orderBy(desc(receipts.createdAt))
+      .limit(limitNum)
+      .offset(offset);
+
+    res.json({
+      data: results,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
   });
 
-  app.get("/api/recebimentos/:id(\\d+)/items", async (req: Request, res: Response) => {
-    try {
-      const id = Number(req.params.id);
-      const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
-      res.json(items);
-    } catch (error) {
-      res.status(500).json({ message: "Erro ao buscar itens da nota fiscal" });
-    }
+  app.get("/api/recebimentos/:id(\\d+)/items", isAuthenticated, async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
+    res.json(items);
   });
 
   app.get("/api/receipts/request/:requestId", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const requestId = Number(req.params.requestId);
+    const requestId = Number(req.params.requestId);
 
-      // 1. Find Purchase Order
-      const [purchaseOrder] = await db
-        .select()
-        .from(purchaseOrders)
-        .where(eq(purchaseOrders.purchaseRequestId, requestId))
-        .limit(1);
+    const [purchaseOrder] = await db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.purchaseRequestId, requestId))
+      .limit(1);
 
-      if (!purchaseOrder) {
-        return res.status(404).json({ message: "Pedido de compra não encontrado" });
+    if (!purchaseOrder) {
+      throw new NotFoundError("Pedido de compra não encontrado");
+    }
+
+    const receiptsList = await db.execute(sql`
+      SELECT DISTINCT r.*, 
+             r.approved_at as approval_date,
+             u_rec.first_name as receiver_first_name, u_rec.last_name as receiver_last_name,
+             u_app.first_name as approver_first_name, u_app.last_name as approver_last_name
+      FROM receipts r
+      JOIN receipt_items ri ON r.id = ri.receipt_id
+      JOIN purchase_order_items poi ON ri.purchase_order_item_id = poi.id
+      LEFT JOIN users u_rec ON r.received_by = u_rec.id
+      LEFT JOIN users u_app ON r.approved_by = u_app.id
+      WHERE poi.purchase_order_id = ${purchaseOrder.id}
+      ORDER BY r.created_at DESC
+    `);
+
+    const receiptsWithItems = await Promise.all(receiptsList.rows.map(async (receipt) => {
+      const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, Number(receipt.id)));
+
+      if (typeof receipt.observations === 'string') {
+        try {
+          receipt.observations = JSON.parse(receipt.observations);
+        } catch (e) {
+        }
       }
 
-      // 2. Find Receipts linked to this Purchase Order
-      const receiptsList = await db.execute(sql`
-        SELECT DISTINCT r.*, 
-               r.approved_at as approval_date,
-               u_rec.first_name as receiver_first_name, u_rec.last_name as receiver_last_name,
-               u_app.first_name as approver_first_name, u_app.last_name as approver_last_name
-        FROM receipts r
-        JOIN receipt_items ri ON r.id = ri.receipt_id
-        JOIN purchase_order_items poi ON ri.purchase_order_item_id = poi.id
-        LEFT JOIN users u_rec ON r.received_by = u_rec.id
-        LEFT JOIN users u_app ON r.approved_by = u_app.id
-        WHERE poi.purchase_order_id = ${purchaseOrder.id}
-        ORDER BY r.created_at DESC
-      `);
+      return { ...receipt, items };
+    }));
 
-      // Always return an array, even if empty
-      const receiptsWithItems = await Promise.all(receiptsList.rows.map(async (receipt) => {
-        // Fetch items for each receipt
-        const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, Number(receipt.id)));
-
-        // Parse observations if string
-        if (typeof receipt.observations === 'string') {
-          try {
-            receipt.observations = JSON.parse(receipt.observations);
-          } catch (e) {
-            // keep as string
-          }
-        }
-
-        return { ...receipt, items };
-      }));
-
-      res.json(receiptsWithItems);
-    } catch (error) {
-      console.error("Error fetching receipt by request ID:", error);
-      res.status(500).json({ message: "Erro ao buscar nota fiscal" });
-    }
+    res.json(receiptsWithItems);
   });
 
-  app.post("/api/recebimentos/parse-existing/:id(\\d+)", async (req: Request, res: Response) => {
+  app.post("/api/recebimentos/parse-existing/:id(\\d+)", isAuthenticated, isReceiver, async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       const [xmlRow] = await db.select().from(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
@@ -327,76 +287,80 @@ export function registerReceiptsRoutes(app: Express) {
     }
   });
 
-  app.post("/api/recebimentos/import-xml", xmlUpload.single("file"), async (req: Request, res: Response) => {
+  app.post("/api/recebimentos/import-xml", isAuthenticated, isReceiver, xmlUpload.single("file"), async (req: Request, res: Response) => {
     const reqTypeRaw = String((req.body?.receiptType ?? req.query?.receiptType ?? "produto")).toLowerCase();
     const isService = reqTypeRaw === "servico";
     let parsed: ReturnType<typeof parseNFeXml> | ReturnType<typeof parseNFSeXml> | undefined;
+
+    if (!req.file) {
+      throw new ValidationError("Arquivo XML é obrigatório");
+    }
+    const xmlContent = req.file.buffer.toString("utf-8");
+
     try {
-      if (!req.file) {
-        return res.status(400).json({ message: "Arquivo XML é obrigatório" });
-      }
-      const xmlContent = req.file.buffer.toString("utf-8");
-
-      try {
-        parsed = isService ? parseNFSeXml(xmlContent) : parseNFeXml(xmlContent);
-      } catch (err) {
-        if (isService) {
-          try {
-            parseNFeXml(xmlContent);
-            return res.status(400).json({ message: "XML é de NF-e; selecione o tipo Produto" });
-          } catch {
-            return res.status(400).json({ message: "XML inválido ou não reconhecido como NFS-e" });
-          }
-        } else {
-          try {
-            parseNFSeXml(xmlContent);
-            return res.status(400).json({ message: "XML é de NFS-e; selecione o tipo Serviço" });
-          } catch {
-            return res.status(400).json({ message: "XML inválido ou não reconhecido como NF-e" });
-          }
+      parsed = isService ? parseNFSeXml(xmlContent) : parseNFeXml(xmlContent);
+    } catch (err) {
+      if (isService) {
+        try {
+          parseNFeXml(xmlContent);
+          throw new ValidationError("XML é de NF-e; selecione o tipo Produto");
+        } catch (e) {
+          if (e instanceof ValidationError) throw e;
+          throw new ValidationError("XML inválido ou não reconhecido como NFS-e");
+        }
+      } else {
+        try {
+          parseNFSeXml(xmlContent);
+          throw new ValidationError("XML é de NFS-e; selecione o tipo Serviço");
+        } catch (e) {
+          if (e instanceof ValidationError) throw e;
+          throw new ValidationError("XML inválido ou não reconhecido como NF-e");
         }
       }
+    }
 
-      if (!parsed) {
-        return res.status(400).json({ message: "Erro ao processar XML" });
+    if (!parsed) {
+      throw new ValidationError("Erro ao processar XML");
+    }
+
+    const prIdRaw = (req.body?.purchaseRequestId ?? req.query?.purchaseRequestId) as any;
+    const purchaseRequestId = prIdRaw ? Number(prIdRaw) : undefined;
+    let savedAttachmentId: number | undefined = undefined;
+    try {
+      const storedFile = await fileStorageService.uploadFile({
+        category: "nfe-xml",
+        entityId: purchaseRequestId ?? req.file.originalname,
+        originalName: req.file.originalname,
+        contentType: req.file.mimetype,
+        buffer: req.file.buffer,
+        preferredLocalName: `${req.file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${(req.file.originalname.match(/\.[^.]+$/)?.[0]) || ".xml"}`,
+      });
+      const [att] = await db.insert(attachments).values({
+        purchaseRequestId: purchaseRequestId,
+        fileName: req.file.originalname,
+        filePath: storedFile.filePath,
+        fileType: req.file.mimetype,
+        fileSize: req.file.size,
+        attachmentType: isService ? "recebimento_nfse_xml" : "recebimento_nf_xml",
+      }).returning();
+      savedAttachmentId = att?.id as any;
+    } catch { }
+
+    if (reqTypeRaw === "servico") {
+      const missing: string[] = [];
+      if (!parsed.header.documentNumber) missing.push("Número da nota");
+      if (!parsed.header.supplier?.cnpjCpf) missing.push("CNPJ do prestador");
+      if (!parsed.header.totals?.vNF) missing.push("Valor total");
+      if (!Array.isArray(parsed.items) || parsed.items.length === 0) missing.push("Itens/Serviços");
+      if (missing.length) {
+        throw new ValidationError(`XML NFS-e com campos faltantes: ${missing.join(", ")}`);
       }
+    }
 
-      const prIdRaw = (req.body?.purchaseRequestId ?? req.query?.purchaseRequestId) as any;
-      const purchaseRequestId = prIdRaw ? Number(prIdRaw) : undefined;
-      let savedAttachmentId: number | undefined = undefined;
-      try {
-        const storedFile = await fileStorageService.uploadFile({
-          category: "nfe-xml",
-          entityId: purchaseRequestId ?? req.file.originalname,
-          originalName: req.file.originalname,
-          contentType: req.file.mimetype,
-          buffer: req.file.buffer,
-          preferredLocalName: `${req.file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${(req.file.originalname.match(/\.[^.]+$/)?.[0]) || ".xml"}`,
-        });
-        const [att] = await db.insert(attachments).values({
-          purchaseRequestId: purchaseRequestId,
-          fileName: req.file.originalname,
-          filePath: storedFile.filePath,
-          fileType: req.file.mimetype,
-          fileSize: req.file.size,
-          attachmentType: isService ? "recebimento_nfse_xml" : "recebimento_nf_xml",
-        }).returning();
-        savedAttachmentId = att?.id as any;
-      } catch { }
-
-      if (reqTypeRaw === "servico") {
-        const missing: string[] = [];
-        if (!parsed.header.documentNumber) missing.push("Número da nota");
-        if (!parsed.header.supplier?.cnpjCpf) missing.push("CNPJ do prestador");
-        if (!parsed.header.totals?.vNF) missing.push("Valor total");
-        if (!Array.isArray(parsed.items) || parsed.items.length === 0) missing.push("Itens/Serviços");
-        if (missing.length) {
-          return res.status(400).json({ message: `XML NFS-e com campos faltantes: ${missing.join(", ")}` });
-        }
-      }
-
-      const p = parsed;
-      const result = await db.transaction(async (tx) => {
+    const p = parsed;
+    let result;
+    try {
+      result = await db.transaction(async (tx) => {
         const [createdReceipt] = await tx.insert(receipts).values({
           receiptNumber: generateReceiptNumber(),
           purchaseOrderId: purchaseRequestId ? undefined as any : null,
@@ -451,26 +415,10 @@ export function registerReceiptsRoutes(app: Express) {
         }
         return createdReceipt;
       });
-      try {
-        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-          VALUES (${0}, ${isService ? 'recebimento_import_nfse' : 'recebimento_import_xml'}, ${isService ? 'Importação de XML NFS-e (prévia)' : 'Importação de XML NF-e (prévia)'}, ${null}, ${null}, ${JSON.stringify({ documentId: parsed.header.documentKey || parsed.header.documentNumber })}::jsonb, ${sql`ARRAY['receipts']`} );`);
-      } catch { }
-
-      return res.json({
-        receipt: result,
-        preview: {
-          header: parsed.header,
-          items: parsed.items,
-          installments: parsed.installments,
-          totals: parsed.header.totals,
-        },
-        attachment: savedAttachmentId ? { id: savedAttachmentId } : undefined,
-      });
     } catch (error) {
       let message = error instanceof Error ? error.message : "Erro ao processar XML";
       if (message.includes("receipt_nf_xmls_xml_hash_unique") || message.includes("receipt_nf_xmls_xml_hash_key") || (message.includes("duplicate key") && message.includes("xml_hash"))) {
         message = "Esta Nota Fiscal já foi importada anteriormente no sistema.";
-        // Return 200 with warning and preview so frontend can still populate data
         if (parsed) {
           return res.json({
             warning: message,
@@ -483,143 +431,149 @@ export function registerReceiptsRoutes(app: Express) {
           });
         }
       }
-      try {
-        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-          VALUES (${0}, ${'recebimento_import_xml_error'}, ${String(message)}, ${null}, ${null}, ${null}, ${sql`ARRAY['receipts']`} );`);
-      } catch { }
-      return res.status(400).json({ message });
+      await auditService.log({
+        actionType: 'recebimento_import_xml_error',
+        actionDescription: String(message),
+        performedBy: req.session?.userId,
+        affectedTables: ['receipts']
+      });
+      throw new ValidationError(message);
     }
-  });
 
-  app.get("/api/nfe/attachments", async (req: Request, res: Response) => {
-    try {
-      const limit = Math.min(Number(req.query.limit) || 50, 200);
-      const search = String(req.query.search || "").trim().toLowerCase();
-      const prId = req.query.purchaseRequestId ? Number(req.query.purchaseRequestId) : undefined;
-      const baseWhere = prId
-        ? sql`${attachments.attachmentType} = 'recebimento_nf_xml' AND ${attachments.purchaseRequestId} = ${prId}`
-        : sql`${attachments.attachmentType} = 'recebimento_nf_xml'`;
-      const rows = await db.select().from(attachments).where(baseWhere).limit(limit);
-      const result: any[] = [];
-      for (const row of rows) {
-        try {
-          const content = (await fileStorageService.readFileBuffer(row.filePath)).toString("utf-8");
-          const parsed = parseNFeXml(content);
-          const header = parsed?.header || {};
-          const hay = `${row.fileName} ${header.documentNumber || ''} ${header.documentSeries || ''} ${header.supplier?.name || ''} ${header.supplier?.cnpjCpf || ''}`.toLowerCase();
-          if (search && !hay.includes(search)) continue;
-          result.push({
-            id: row.id,
-            fileName: row.fileName,
-            uploadedAt: row.uploadedAt,
-            documentNumber: header.documentNumber,
-            documentSeries: header.documentSeries,
-            documentKey: header.documentKey,
-            supplierName: header.supplier?.name,
-            supplierCnpjCpf: header.supplier?.cnpjCpf,
-            total: header.totals?.vNF || header.totals?.vProd,
-          });
-        } catch { }
-      }
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ message: "Erro ao listar NF-es" });
-    }
-  });
+    await auditService.log({
+      actionType: isService ? 'recebimento_import_nfse' : 'recebimento_import_xml',
+      actionDescription: isService ? 'Importação de XML NFS-e (prévia)' : 'Importação de XML NF-e (prévia)',
+      performedBy: req.session?.userId,
+      afterData: { documentId: parsed.header.documentKey || parsed.header.documentNumber },
+      affectedTables: ['receipts']
+    });
 
-  app.get("/api/nfe/attachments/:id/preview", async (req: Request, res: Response) => {
-    try {
-      const id = Number(req.params.id);
-      if (!Number.isFinite(id)) return res.status(400).json({ message: "ID inválido" });
-      const [att] = await db.select().from(attachments).where(sql`${attachments.id} = ${id} AND ${attachments.attachmentType} = 'recebimento_nf_xml'`).limit(1);
-      if (!att) return res.status(404).json({ message: "Anexo não encontrado" });
-      const content = (await fileStorageService.readFileBuffer(att.filePath)).toString("utf-8");
-      const parsed = parseNFeXml(content);
-      const preview = {
+    return res.json({
+      receipt: result,
+      preview: {
         header: parsed.header,
         items: parsed.items,
         installments: parsed.installments,
         totals: parsed.header.totals,
-      };
+      },
+      attachment: savedAttachmentId ? { id: savedAttachmentId } : undefined,
+    });
+  });
+
+  app.get("/api/nfe/attachments", isAuthenticated, async (req: Request, res: Response) => {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const search = String(req.query.search || "").trim().toLowerCase();
+    const prId = req.query.purchaseRequestId ? Number(req.query.purchaseRequestId) : undefined;
+    const baseWhere = prId
+      ? sql`${attachments.attachmentType} = 'recebimento_nf_xml' AND ${attachments.purchaseRequestId} = ${prId}`
+      : sql`${attachments.attachmentType} = 'recebimento_nf_xml'`;
+    const rows = await db.select().from(attachments).where(baseWhere).limit(limit);
+    const result: any[] = [];
+    for (const row of rows) {
       try {
-        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-          VALUES (${att.purchaseRequestId ?? 0}, ${'recebimento_preview_xml'}, ${'Pré-visualização de XML NF-e (anexo)'}, ${null}, ${null}, ${JSON.stringify({ attachmentId: att.id, documentKey: parsed.header.documentKey })}::jsonb, ${sql`ARRAY['receipts']`} );`);
+        const content = (await fileStorageService.readFileBuffer(row.filePath)).toString("utf-8");
+        const parsed = parseNFeXml(content);
+        const header = parsed?.header || {};
+        const hay = `${row.fileName} ${header.documentNumber || ''} ${header.documentSeries || ''} ${header.supplier?.name || ''} ${header.supplier?.cnpjCpf || ''}`.toLowerCase();
+        if (search && !hay.includes(search)) continue;
+        result.push({
+          id: row.id,
+          fileName: row.fileName,
+          uploadedAt: row.uploadedAt,
+          documentNumber: header.documentNumber,
+          documentSeries: header.documentSeries,
+          documentKey: header.documentKey,
+          supplierName: header.supplier?.name,
+          supplierCnpjCpf: header.supplier?.cnpjCpf,
+          total: header.totals?.vNF || header.totals?.vProd,
+        });
       } catch { }
-      res.json({ preview, attachment: { id: att.id }, xmlRaw: content });
-    } catch (error) {
-      res.status(500).json({ message: "Erro ao gerar prévia de NF-e" });
     }
+    res.json(result);
+  });
+
+  app.get("/api/nfe/attachments/:id/preview", isAuthenticated, async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) throw new ValidationError("ID inválido");
+    const [att] = await db.select().from(attachments).where(sql`${attachments.id} = ${id} AND ${attachments.attachmentType} = 'recebimento_nf_xml'`).limit(1);
+    if (!att) throw new NotFoundError("Anexo não encontrado");
+    const content = (await fileStorageService.readFileBuffer(att.filePath)).toString("utf-8");
+    const parsed = parseNFeXml(content);
+    const preview = {
+      header: parsed.header,
+      items: parsed.items,
+      installments: parsed.installments,
+      totals: parsed.header.totals,
+    };
+    await auditService.log({
+      purchaseRequestId: att.purchaseRequestId || 0,
+      actionType: 'recebimento_preview_xml',
+      actionDescription: 'Pré-visualização de XML NF-e (anexo)',
+      performedBy: req.session?.userId,
+      afterData: { attachmentId: att.id, documentKey: parsed.header.documentKey },
+      affectedTables: ['receipts']
+    });
+    res.json({ preview, attachment: { id: att.id }, xmlRaw: content });
   });
 
   // Create draft (servico/avulso)
-  app.post("/api/recebimentos", async (req: Request, res: Response) => {
-    try {
-      const payload = insertReceiptSchema.parse(req.body);
-      if ((payload.receiptType === "servico" || payload.receiptType === "avulso") && (!payload.costCenterId || !payload.chartOfAccountsId)) {
-        return res.status(400).json({ message: "Centro de Custo e Plano de Contas são obrigatórios" });
-      }
-      const [created] = await db.insert(receipts).values({
-        receiptNumber: generateReceiptNumber(),
-        ...payload,
-        status: "rascunho",
-        createdAt: new Date(),
-      } as any).returning();
-      try {
-        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-          VALUES (${0}, ${'recebimento_criar'}, ${'Criação de recebimento'}, ${null}, ${null}, ${JSON.stringify({ receiptId: created.id, type: created.receiptType })}::jsonb, ${sql`ARRAY['receipts']`} );`);
-      } catch { }
-      res.status(201).json(created);
-    } catch (error) {
-      res.status(400).json({ message: error instanceof Error ? error.message : "Erro ao criar recebimento" });
+  app.post("/api/recebimentos", isAuthenticated, isReceiver, async (req: Request, res: Response) => {
+    const payload = insertReceiptSchema.parse(req.body);
+    if ((payload.receiptType === "servico" || payload.receiptType === "avulso") && (!payload.costCenterId || !payload.chartOfAccountsId)) {
+      throw new ValidationError("Centro de Custo e Plano de Contas são obrigatórios");
     }
+    const [created] = await db.insert(receipts).values({
+      receiptNumber: generateReceiptNumber(),
+      ...payload,
+      status: "rascunho",
+      createdAt: new Date(),
+    } as any).returning();
+    await auditService.log({
+      actionType: 'recebimento_criar',
+      actionDescription: 'Criação de recebimento',
+      performedBy: req.session?.userId,
+      afterData: { receiptId: created.id, type: created.receiptType },
+      affectedTables: ['receipts']
+    });
+    res.status(201).json(created);
   });
 
-  app.get("/api/recebimentos/:id(\\d+)", async (req: Request, res: Response) => {
+  app.get("/api/recebimentos/:id(\\d+)", isAuthenticated, async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
-    if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
+    if (!rec) throw new NotFoundError("Recebimento não encontrado");
     res.json({ receipt: rec });
   });
 
-  app.put("/api/recebimentos/:id(\\d+)", async (req: Request, res: Response) => {
-    try {
-      const id = Number(req.params.id);
-      const updates = req.body;
-      const [updated] = await db.update(receipts).set({ ...updates, updatedAt: new Date() }).where(eq(receipts.id, id)).returning();
-      if (!updated) return res.status(404).json({ message: "Recebimento não encontrado" });
-      res.json(updated);
-    } catch (error) {
-      res.status(400).json({ message: error instanceof Error ? error.message : "Erro ao atualizar recebimento" });
-    }
+  app.put("/api/recebimentos/:id(\\d+)", isAuthenticated, isReceiver, async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    const updates = req.body;
+    const [updated] = await db.update(receipts).set({ ...updates, updatedAt: new Date() }).where(eq(receipts.id, id)).returning();
+    if (!updated) throw new NotFoundError("Recebimento não encontrado");
+    res.json(updated);
   });
 
-  app.get("/api/receipts/:id(\\d+)", async (req: Request, res: Response) => {
-    try {
-      const id = Number(req.params.id);
-      const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
+  app.get("/api/receipts/:id(\\d+)", isAuthenticated, async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
 
-      if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
+    if (!rec) throw new NotFoundError("Recebimento não encontrado");
 
-      const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
-      const installments = await db.select().from(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
-      const allocations = await db.select().from(receiptAllocations).where(eq(receiptAllocations.receiptId, id));
+    const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
+    const installments = await db.select().from(receiptInstallments).where(eq(receiptInstallments.receiptId, id));
+    const allocations = await db.select().from(receiptAllocations).where(eq(receiptAllocations.receiptId, id));
 
-      // Merge arrays into the response object
-      const result = {
-        ...rec,
-        items,
-        installments,
-        allocations
-      };
+    const result = {
+      ...rec,
+      items,
+      installments,
+      allocations
+    };
 
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching receipt details:", error);
-      res.status(500).json({ message: "Erro ao buscar detalhes do recebimento" });
-    }
+    res.json(result);
   });
 
-  app.post("/api/receipts/:id(\\d+)/confirm-fiscal", async (req: Request, res: Response) => {
+  app.post("/api/receipts/:id(\\d+)/confirm-fiscal", isAuthenticated, isReceiver, async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const {
       paymentMethodCode,
@@ -641,14 +595,12 @@ export function registerReceiptsRoutes(app: Express) {
     console.log("Confirmando fiscalização do recebimento:", id);
 
     const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
-    if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
+    if (!rec) throw new NotFoundError("Recebimento não encontrado");
 
     const effectiveReceiptType = String(receiptType || rec.receiptType || "").trim().toLowerCase();
     const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, id));
     if (effectiveReceiptType !== "avulso" && (!items || items.length === 0)) {
-      return res.status(400).json({
-        message: "Erro de validação: A nota fiscal não possui itens vinculados. Verifique a importação ou inclusão manual.",
-      });
+      throw new ValidationError("Erro de validação: A nota fiscal não possui itens vinculados. Verifique a importação ou inclusão manual.");
     }
 
     // 1. Update Receipt Basic Info & Observations
@@ -657,7 +609,6 @@ export function registerReceiptsRoutes(app: Express) {
       try {
         currentObs = JSON.parse(rec.observations);
       } catch (e) {
-        // Fallback for legacy plain text observations
         currentObs = { note: rec.observations };
       }
     } else {
@@ -668,9 +619,7 @@ export function registerReceiptsRoutes(app: Express) {
     try {
       parsedProcessFiscal = parseOptionalBoolean(processFiscal);
     } catch {
-      return res.status(400).json({
-        message: "Erro de validação: processFiscal deve ser booleano (true/false).",
-      });
+      throw new ValidationError("Erro de validação: processFiscal deve ser booleano (true/false).");
     }
     const effectiveProcessFiscal = parsedProcessFiscal ?? true;
     const currentErpOptions =
@@ -789,10 +738,13 @@ export function registerReceiptsRoutes(app: Express) {
         }
       }
 
-      try {
-        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-          VALUES (${0}, ${'conferencia_fiscal_local'}, ${'Conferência fiscal finalizada (ERP desabilitado)'}, ${req.session?.userId || null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
-      } catch { }
+      await auditService.log({
+        actionType: 'conferencia_fiscal_local',
+        actionDescription: 'Conferência fiscal finalizada (ERP desabilitado)',
+        performedBy: req.session?.userId,
+        afterData: { receiptId: updated.id, status: updated.status },
+        affectedTables: ['receipts']
+      });
 
       return res.json({
         success: true,
@@ -1002,10 +954,14 @@ export function registerReceiptsRoutes(app: Express) {
         }
       }
 
-      try {
-        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-            VALUES (${purchaseRequest?.id || 0}, ${'conferencia_fiscal_erp'}, ${'Conferência fiscal finalizada (Integrado)'}, ${req.session?.userId || null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
-      } catch { }
+      await auditService.log({
+        purchaseRequestId: purchaseRequest?.id || 0,
+        actionType: 'conferencia_fiscal_erp',
+        actionDescription: 'Conferência fiscal finalizada (Integrado)',
+        performedBy: req.session?.userId,
+        afterData: { receiptId: updated.id, status: updated.status },
+        affectedTables: ['receipts']
+      });
 
       return res.json({
         success: true,
@@ -1057,83 +1013,68 @@ export function registerReceiptsRoutes(app: Express) {
   });
 
   app.post("/api/receipts/:id/finish-without-erp", async (req: Request, res: Response) => {
-    if (!req.session?.userId) return res.status(401).json({ message: "Não autenticado" });
+    if (!req.session?.userId) throw new UnauthorizedError("Não autenticado");
 
-    try {
-      const updated = await receiptService.finishReceiptWithoutErp(req.session.userId, Number(req.params.id));
+    const updated = await receiptService.finishReceiptWithoutErp(req.session.userId, Number(req.params.id));
 
-      // Notify Flow 2
-      realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
-        event: RECEIPT_EVENTS.PHASE_CHANGED,
-        payload: { id: updated.id, receiptPhase: "concluido", status: updated.status }
-      });
+    // Notify Flow 2
+    realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+      event: RECEIPT_EVENTS.PHASE_CHANGED,
+      payload: { id: updated.id, receiptPhase: "concluido", status: updated.status }
+    });
 
-      // If PR was also updated, notify Flow 1
-      if (updated.purchaseOrderId) {
-        const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, updated.purchaseOrderId));
-        if (order && order.purchaseRequestId) {
-          const [reqPR] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, order.purchaseRequestId));
-          if (reqPR.currentPhase === "conclusao_compra") {
-            realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
-              event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
-              payload: { id: reqPR.id, currentPhase: "conclusao_compra" }
-            });
-          }
+    // If PR was also updated, notify Flow 1
+    if (updated.purchaseOrderId) {
+      const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, updated.purchaseOrderId));
+      if (order && order.purchaseRequestId) {
+        const [reqPR] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, order.purchaseRequestId));
+        if (reqPR.currentPhase === "conclusao_compra") {
+          realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+            event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+            payload: { id: reqPR.id, currentPhase: "conclusao_compra" }
+          });
         }
       }
-
-      return res.json({ success: true, receipt: updated });
-    } catch (err: any) {
-      if (err.message === "Apenas compradores podem realizar esta ação.") {
-        return res.status(403).json({ message: err.message });
-      }
-      if (err.message === "Recebimento não encontrado") {
-        return res.status(404).json({ message: err.message });
-      }
-      if (err.message === "Recebimento já finalizado.") {
-        return res.status(400).json({ message: err.message });
-      }
-      console.error(err);
-      return res.status(500).json({ message: "Erro interno ao finalizar sem ERP" });
     }
+
+    return res.json({ success: true, receipt: updated });
   });
 
   app.post("/api/receipts/:id/undo-fiscal-conference", isAuthenticated, async (req, res) => {
-    try {
-      const id = Number(req.params.id);
-      const userId = req.session.userId!;
-      const updated = await receiptService.undoFiscalConference(id, userId);
-      return res.json({ success: true, receipt: updated });
-    } catch (err: any) {
-      res.status(err.message.includes("permissão") ? 403 : (err.message.includes("encontrado") ? 404 : 400)).json({ message: err.message });
-    }
+    const id = Number(req.params.id);
+    const userId = req.session.userId!;
+    const updated = await receiptService.undoFiscalConference(id, userId);
+    return res.json({ success: true, receipt: updated });
   });
 
-  app.post("/api/recebimentos/:id/validar", async (req: Request, res: Response) => {
+  app.post("/api/recebimentos/:id/validar", isAuthenticated, isReceiver, async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
-    if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
+    if (!rec) throw new NotFoundError("Recebimento não encontrado");
     if ((rec.receiptType === "servico" || rec.receiptType === "avulso") && (!rec.costCenterId || !rec.chartOfAccountsId)) {
-      return res.status(400).json({ message: "Centro de Custo e Plano de Contas são obrigatórios" });
+      throw new ValidationError("Centro de Custo e Plano de Contas são obrigatórios");
     }
     if (rec.receiptType === "produto") {
       const xmlRows = await db.select().from(receiptNfXmls).where(eq(receiptNfXmls.receiptId, id));
-      if (xmlRows.length === 0) return res.status(400).json({ message: "XML NF-e não associado ao recebimento" });
+      if (xmlRows.length === 0) throw new ValidationError("XML NF-e não associado ao recebimento");
     }
     const [updated] = await db.update(receipts).set({ status: "nf_confirmada", approvedAt: new Date() }).where(eq(receipts.id, id)).returning();
-    try {
-      await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-        VALUES (${0}, ${'recebimento_validar'}, ${'Validação de recebimento'}, ${null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
-    } catch { }
+    await auditService.log({
+      actionType: 'recebimento_validar',
+      actionDescription: 'Validação de recebimento',
+      performedBy: req.session?.userId,
+      afterData: { receiptId: updated.id, status: updated.status },
+      affectedTables: ['receipts']
+    });
     res.json(updated);
   });
 
-  app.post("/api/recebimentos/:id/enviar-locador", async (req: Request, res: Response) => {
+  app.post("/api/recebimentos/:id/enviar-locador", isAuthenticated, isReceiver, async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const [rec] = await db.select().from(receipts).where(eq(receipts.id, id));
-    if (!rec) return res.status(404).json({ message: "Recebimento não encontrado" });
+    if (!rec) throw new NotFoundError("Recebimento não encontrado");
     if (!["validado_compras", "nf_confirmada", "recebimento_confirmado", "recebimento_parcial", "erro_integracao"].includes(rec.status)) {
-      return res.status(400).json({ message: "Recebimento precisa estar validado ou com erro de integração para ser enviado" });
+      throw new ValidationError("Recebimento precisa estar validado ou com erro de integração para ser enviado");
     }
 
     const cfg = await configService.getLocadorConfig();
@@ -1168,10 +1109,14 @@ export function registerReceiptsRoutes(app: Express) {
           .where(eq(receipts.id, id))
           .returning();
 
-        try {
-          await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-            VALUES (${purchaseRequest?.id || 0}, ${'recebimento_envio_bloqueado'}, ${'Envio ao ERP bloqueado por configuração'}, ${null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
-        } catch { }
+        await auditService.log({
+          purchaseRequestId: purchaseRequest?.id || 0,
+          actionType: 'recebimento_envio_bloqueado',
+          actionDescription: 'Envio ao ERP bloqueado por configuração',
+          performedBy: req.session?.userId,
+          afterData: { receiptId: updated.id, status: updated.status },
+          affectedTables: ['receipts']
+        });
 
         return res.json({
           status_integracao: "bloqueado",
@@ -1324,10 +1269,14 @@ export function registerReceiptsRoutes(app: Express) {
         }
       }
 
-      try {
-        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-          VALUES (${purchaseRequest?.id || 0}, ${'recebimento_envio_locador'}, ${'Envio do recebimento ao Locador'}, ${null}, ${null}, ${JSON.stringify({ receiptId: updated.id, status: updated.status })}::jsonb, ${sql`ARRAY['receipts']`} );`);
-      } catch { }
+      await auditService.log({
+        purchaseRequestId: purchaseRequest?.id || 0,
+        actionType: 'recebimento_envio_locador',
+        actionDescription: 'Envio do recebimento ao Locador',
+        performedBy: req.session?.userId,
+        afterData: { receiptId: updated.id, status: updated.status },
+        affectedTables: ['receipts']
+      });
 
       res.json({
         status_integracao: "integrada",
@@ -1353,83 +1302,63 @@ export function registerReceiptsRoutes(app: Express) {
   });
 
   app.post("/api/requests/:id(\\d+)/return-to-receipt", isAuthenticated, async (req, res) => {
-    try {
-      const requestId = parseInt(req.params.id);
-      const userId = req.session.userId!;
-      const result = await receiptService.returnToPhysicalReceipt(requestId, userId);
-      res.json(result);
-    } catch (error: any) {
-      console.error("Error returning request to receipt:", error);
-      res.status(error.message.includes("permissão") ? 403 : 500).json({ message: error.message || "Erro ao retornar solicitação" });
-    }
+    const requestId = parseInt(req.params.id);
+    const userId = req.session.userId!;
+    const result = await receiptService.returnToPhysicalReceipt(requestId, userId);
+    res.json(result);
   });
 
   app.post("/api/receipts/:id(\\d+)/undo-physical-conference", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const id = Number(req.params.id);
-      const userId = req.session.userId!;
-      const result = await receiptService.undoPhysicalConference(id, userId);
-      res.json(result);
-    } catch (error: any) {
-      console.error("Error undoing physical conference:", error);
-      res.status(error.message.includes("permissão") ? 403 : (error.message.includes("encontrado") ? 404 : 500)).json({ message: error.message || "Erro ao desfazer conferência" });
-    }
+    const id = Number(req.params.id);
+    const userId = req.session.userId!;
+    const result = await receiptService.undoPhysicalConference(id, userId);
+    res.json(result);
   });
 
 
-  // Get receipts for a purchase order
   app.get("/api/purchase-orders/:id/receipts", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id);
-      const receiptsList = await storage.getReceiptsByPurchaseOrderId(id);
+    const id = parseInt(req.params.id);
+    const receiptsList = await storage.getReceiptsByPurchaseOrderId(id);
 
-      // Enrich with receiver user name when available and items
-      const enriched = await Promise.all(
-        receiptsList.map(async (rec: any) => {
-          // Fetch items for the receipt
-          const items = await db
-            .select()
-            .from(receiptItems)
-            .where(eq(receiptItems.receiptId, rec.id));
+    const enriched = await Promise.all(
+      receiptsList.map(async (rec: any) => {
+        const items = await db
+          .select()
+          .from(receiptItems)
+          .where(eq(receiptItems.receiptId, rec.id));
 
-          // Map items to include requestedQuantity for frontend compatibility
-          const mappedItems = items.map(item => ({
-            ...item,
-            requestedQuantity: item.quantity // Map quantity to requestedQuantity for frontend
-          }));
+        const mappedItems = items.map(item => ({
+          ...item,
+          requestedQuantity: item.quantity
+        }));
 
-          let receivedByName = String(rec.receivedBy);
+        let receivedByName = String(rec.receivedBy);
 
-          if (rec.receivedBy) {
-            try {
-              const user = await storage.getUser(rec.receivedBy);
-              if (user) {
-                receivedByName =
-                  (user.firstName && user.lastName
-                    ? `${user.firstName} ${user.lastName}`.trim()
-                    : user.firstName) ||
-                  user.username ||
-                  String(rec.receivedBy);
-              }
-            } catch {
-              // Ignore error
+        if (rec.receivedBy) {
+          try {
+            const user = await storage.getUser(rec.receivedBy);
+            if (user) {
+              receivedByName =
+                (user.firstName && user.lastName
+                  ? `${user.firstName} ${user.lastName}`.trim()
+                  : user.firstName) ||
+                user.username ||
+                String(rec.receivedBy);
             }
+          } catch {
           }
+        }
 
-          return {
-            ...rec,
-            items: mappedItems,
-            approval_date: rec.approvedAt, // Map approvedAt to approval_date for frontend
-            receivedByName,
-          };
-        }),
-      );
+        return {
+          ...rec,
+          items: mappedItems,
+          approval_date: rec.approvedAt,
+          receivedByName,
+        };
+      }),
+    );
 
-      res.json(enriched);
-    } catch (error) {
-      console.error("Error fetching receipts:", error);
-      res.status(500).json({ message: "Error fetching receipts" });
-    }
+    res.json(enriched);
   });
 
   // New Endpoint: Confirm Physical Receipt
@@ -1438,16 +1367,11 @@ export function registerReceiptsRoutes(app: Express) {
     isAuthenticated,
     isReceiver,
     async (req, res) => {
-    try {
       const id = parseInt(req.params.id);
       const userId = req.session.userId!;
       const result = await receiptService.confirmPhysical(id, userId, req.body);
       res.json(result);
-    } catch (error: any) {
-      console.error("Error confirming physical receipt:", error);
-      res.status(error.message.includes("encontrada") ? 404 : 400).json({ message: error.message || "Erro ao confirmar recebimento físico" });
-    }
-  });
+    });
 
   // Confirm Fiscal Receipt
   app.post(
@@ -1455,42 +1379,37 @@ export function registerReceiptsRoutes(app: Express) {
     isAuthenticated,
     isReceiver,
     async (req, res) => {
+      const id = parseInt(req.params.id);
+      const userId = req.session.userId!;
+      const { observations } = req.body;
+
+      const request = await storage.getPurchaseRequestById(id);
+      if (!request) throw new NotFoundError("Solicitação não encontrada");
+
+      await db.update(purchaseRequests)
+        .set({
+          fiscalReceiptAt: new Date(),
+          fiscalReceiptById: userId,
+          currentPhase: "conclusao_compra"
+        })
+        .where(eq(purchaseRequests.id, id));
+
       try {
-        const id = parseInt(req.params.id);
-        const userId = req.session.userId!;
-        const { observations } = req.body;
-
-        const request = await storage.getPurchaseRequestById(id);
-        if (!request) return res.status(404).json({ message: "Solicitação não encontrada" });
-
-        await db.update(purchaseRequests)
-          .set({
-            fiscalReceiptAt: new Date(),
-            fiscalReceiptById: userId,
-            currentPhase: "conclusao_compra"
-          })
-          .where(eq(purchaseRequests.id, id));
-
-        try {
-          await notifyRequestConclusion(id);
-        } catch (emailError) {
-          console.error("Erro ao enviar notificação de conclusão (confirm-fiscal):", emailError);
-        }
-
-        try {
-          await db.execute(
-            sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
-              VALUES (${id}, ${"conferencia_fiscal"}, ${"Conferência fiscal realizada"}, ${userId}, ${null}, ${JSON.stringify({ observations })}::jsonb, ${sql`ARRAY['purchase_requests']`} );`,
-          );
-        } catch (e) {
-          console.error("Error logging fiscal confirmation:", e);
-        }
-
-        res.json({ success: true });
-      } catch (error) {
-        console.error("Error confirming fiscal receipt:", error);
-        res.status(500).json({ message: "Erro ao confirmar recebimento fiscal" });
+        await notifyRequestConclusion(id);
+      } catch (emailError) {
+        console.error("Erro ao enviar notificação de conclusão (confirm-fiscal):", emailError);
       }
+
+      await auditService.log({
+        purchaseRequestId: id,
+        actionType: "conferencia_fiscal",
+        actionDescription: "Conferência fiscal realizada",
+        performedBy: userId,
+        afterData: { observations },
+        affectedTables: ['purchase_requests']
+      });
+
+      res.json({ success: true });
     }
   );
 
@@ -1499,31 +1418,26 @@ export function registerReceiptsRoutes(app: Express) {
     "/api/purchase-requests/:id/finalize-receipt",
     isAuthenticated,
     async (req: Request, res: Response) => {
-      try {
-        const id = parseInt(req.params.id);
-        const request = await storage.getPurchaseRequestById(id);
-        
-        if (!request?.physicalReceiptAt || !request?.fiscalReceiptAt) {
-           return res.status(400).json({ message: "É necessário concluir as etapas Física e Fiscal antes de finalizar." });
-        }
-
-        await storage.updatePurchaseRequest(id, {
-          currentPhase: "conclusao_compra",
-          receivedDate: new Date(),
-          receivedById: req.session.userId
-        });
-
-        try {
-          await notifyRequestConclusion(id);
-        } catch (emailError) {
-          console.error("Erro ao enviar notificação de conclusão (finalizar recebimento):", emailError);
-        }
-
-        res.json({ success: true });
-      } catch (error) {
-        console.error("Error finalizing receipt:", error);
-        res.status(500).json({ message: "Erro ao finalizar recebimento" });
+      const id = parseInt(req.params.id);
+      const request = await storage.getPurchaseRequestById(id);
+      
+      if (!request?.physicalReceiptAt || !request?.fiscalReceiptAt) {
+         throw new ValidationError("É necessário concluir as etapas Física e Fiscal antes de finalizar.");
       }
+
+      await storage.updatePurchaseRequest(id, {
+        currentPhase: "conclusao_compra",
+        receivedDate: new Date(),
+        receivedById: req.session.userId
+      });
+
+      try {
+        await notifyRequestConclusion(id);
+      } catch (emailError) {
+        console.error("Erro ao enviar notificação de conclusão (finalizar recebimento):", emailError);
+      }
+
+      res.json({ success: true });
     }
   );
 
@@ -1532,81 +1446,74 @@ export function registerReceiptsRoutes(app: Express) {
     isAuthenticated,
     isReceiver,
     async (req: Request, res: Response) => {
-      try {
-        const id = parseInt(req.params.id);
-        const { receivedById, receiptMode, paymentMethodCode, invoiceDueDate, nfNumber, nfSeries, nfIssueDate, nfEntryDate, nfTotal, manualCostCenterId, manualChartOfAccountsId, manualItems, allocations: rawAllocations, allocationMode, finalStatus } = req.body;
+      const id = parseInt(req.params.id);
+      const { receivedById, receiptMode, paymentMethodCode, invoiceDueDate, nfNumber, nfSeries, nfIssueDate, nfEntryDate, nfTotal, manualCostCenterId, manualChartOfAccountsId, manualItems, allocations: rawAllocations, allocationMode, finalStatus } = req.body;
 
-        const request = await storage.getPurchaseRequestById(id);
-        if (!request || request.currentPhase !== "recebimento") {
-          return res
-            .status(400)
-            .json({ message: "Request must be in the receiving phase" });
-        }
-
-        const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
-        if (!purchaseOrder) {
-          return res.status(400).json({ message: "Pedido de compra não encontrado para a solicitação" });
-        }
-
-        if (receiptMode !== "avulso") {
-          const receiptsList = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
-          const confirmedReceipt = receiptsList.find((rec) =>
-            ["nf_confirmada", "recebimento_confirmado", "recebimento_parcial", "validado_compras"].includes(rec.status),
-          );
-          if (!confirmedReceipt) {
-            return res.status(400).json({ message: "Necessário cadastro prévio da NF para confirmar o recebimento." });
-          }
-        }
-
-        const receipt = await storage.createReceipt({
-          purchaseOrderId: purchaseOrder.id,
-          status: finalStatus ? "recebimento_confirmado" : "recebimento_parcial",
-          receivedBy: receivedById,
-          receivedAt: new Date(),
-          observations: JSON.stringify({
-            mode: receiptMode,
-            financial: { paymentMethodCode: paymentMethodCode || null, invoiceDueDate: invoiceDueDate || null },
-            nf: { number: nfNumber, series: nfSeries, issueDate: nfIssueDate, entryDate: nfEntryDate, total: nfTotal },
-            accounting: { costCenterId: manualCostCenterId, chartOfAccountsId: manualChartOfAccountsId },
-            itemsCount: Array.isArray(manualItems) ? manualItems.length : 0,
-            rateio: { mode: allocationMode || null }
-          }),
-        } as any);
-
-        const receivedQuantities: Record<number, number> | undefined = (req.body as any).receivedQuantities;
-        if (receiptMode !== "avulso" && receivedQuantities && typeof receivedQuantities === "object") {
-          const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
-          for (const it of poItems) {
-            const qty = Number(receivedQuantities[it.id] || 0);
-            if (qty > 0) {
-              const current = Number(it.quantityReceived || 0);
-              await db.update(purchaseOrderItems)
-                .set({ quantityReceived: String(current + qty) })
-                .where(eq(purchaseOrderItems.id, it.id));
-              
-              await db.insert(receiptItems).values({
-                receiptId: receipt.id,
-                purchaseOrderItemId: it.id,
-                quantity: String(qty),
-                unitPrice: it.unitPrice,
-                totalPrice: String(qty * Number(it.unitPrice)),
-                createdAt: new Date(),
-              } as any);
-            }
-          }
-        }
-
-        await storage.updatePurchaseRequest(id, {
-          currentPhase: finalStatus ? "conclusao_compra" : "recebimento",
-          receivedById: receivedById,
-          receivedDate: new Date(),
-        });
-
-        res.json(receipt);
-      } catch (error) {
-        console.error("Error confirming receipt:", error);
-        res.status(500).json({ message: "Erro ao confirmar recebimento" });
+      const request = await storage.getPurchaseRequestById(id);
+      if (!request || request.currentPhase !== "recebimento") {
+        throw new ValidationError("Request must be in the receiving phase");
       }
+
+      const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+      if (!purchaseOrder) {
+        throw new NotFoundError("Pedido de compra não encontrado para a solicitação");
+      }
+
+      if (receiptMode !== "avulso") {
+        const receiptsList = await storage.getReceiptsByPurchaseOrderId(purchaseOrder.id);
+        const confirmedReceipt = receiptsList.find((rec) =>
+          ["nf_confirmada", "recebimento_confirmado", "recebimento_parcial", "validado_compras"].includes(rec.status),
+        );
+        if (!confirmedReceipt) {
+          throw new ValidationError("Necessário cadastro prévio da NF para confirmar o recebimento.");
+        }
+      }
+
+      const receipt = await storage.createReceipt({
+        purchaseOrderId: purchaseOrder.id,
+        status: finalStatus ? "recebimento_confirmado" : "recebimento_parcial",
+        receivedBy: receivedById,
+        receivedAt: new Date(),
+        observations: JSON.stringify({
+          mode: receiptMode,
+          financial: { paymentMethodCode: paymentMethodCode || null, invoiceDueDate: invoiceDueDate || null },
+          nf: { number: nfNumber, series: nfSeries, issueDate: nfIssueDate, entryDate: nfEntryDate, total: nfTotal },
+          accounting: { costCenterId: manualCostCenterId, chartOfAccountsId: manualChartOfAccountsId },
+          itemsCount: Array.isArray(manualItems) ? manualItems.length : 0,
+          rateio: { mode: allocationMode || null }
+        }),
+      } as any);
+
+      const receivedQuantities: Record<number, number> | undefined = (req.body as any).receivedQuantities;
+      if (receiptMode !== "avulso" && receivedQuantities && typeof receivedQuantities === "object") {
+        const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
+        for (const it of poItems) {
+          const qty = Number(receivedQuantities[it.id] || 0);
+          if (qty > 0) {
+            const current = Number(it.quantityReceived || 0);
+            await db.update(purchaseOrderItems)
+              .set({ quantityReceived: String(current + qty) })
+              .where(eq(purchaseOrderItems.id, it.id));
+            
+            await db.insert(receiptItems).values({
+              receiptId: receipt.id,
+              purchaseOrderItemId: it.id,
+              quantity: String(qty),
+              unitPrice: it.unitPrice,
+              totalPrice: String(qty * Number(it.unitPrice)),
+              createdAt: new Date(),
+            } as any);
+          }
+        }
+      }
+
+      await storage.updatePurchaseRequest(id, {
+        currentPhase: finalStatus ? "conclusao_compra" : "recebimento",
+        receivedById: receivedById,
+        receivedDate: new Date(),
+      });
+
+      res.json(receipt);
     }
   );
 }

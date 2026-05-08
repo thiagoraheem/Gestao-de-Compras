@@ -206,16 +206,27 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
     const qi = quotationItems.find((q: any) => q.id === si.quotationItemId);
     const description = si.description || qi?.description || '';
     const unit = si.confirmedUnit || qi?.unit || '';
-    const quantity = si.availableQuantity !== null && si.availableQuantity !== undefined 
-      ? parseLooseNumber(si.availableQuantity) 
-      : parseLooseNumber(qi?.quantity);
+    // Use available quantity if provided and > 0, otherwise fallback to requested quantity
+    const siQty = parseLooseNumber(si.availableQuantity);
+    const quantity = (siQty > 0) ? siQty : parseLooseNumber(qi?.quantity || 0);
     const unitPrice = parseLooseNumber(si.unitPrice);
-    const originalTotalPrice = unitPrice * quantity;
+    
+    // If we have a stored totalPrice, use it as a base, otherwise recalculate
+    const storedTotalPrice = parseLooseNumber(si.totalPrice);
+    const originalTotalPrice = (storedTotalPrice > 0) ? storedTotalPrice : (unitPrice * quantity);
+    
     let itemDiscount = 0;
     let totalPrice = originalTotalPrice;
+    
     const discountPercentageNum = parseLooseNumber(si.discountPercentage);
     const discountValueNum = parseLooseNumber(si.discountValue);
-    if (discountPercentageNum > 0) {
+    
+    // If we have discountedTotalPrice from DB, use it
+    const storedDiscountedTotal = parseLooseNumber(si.discountedTotalPrice);
+    if (storedDiscountedTotal > 0) {
+      totalPrice = storedDiscountedTotal;
+      itemDiscount = Math.max(0, originalTotalPrice - totalPrice);
+    } else if (discountPercentageNum > 0) {
       const d = discountPercentageNum;
       itemDiscount = (originalTotalPrice * d) / 100;
       totalPrice = originalTotalPrice - itemDiscount;
@@ -255,10 +266,19 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
       
     const total = Math.max(0, subtotal - discount) + freight;
     
-    return { subtotalNet: subtotal, proposalDiscount: discount, freightValue: freight, finalTotalValue: total };
+    // If calculated total is 0 but we have a stored total in the quotation, use it
+    const storedTotal = parseLooseNumber(selectedSupplierQuotation.finalValue || selectedSupplierQuotation.totalValue);
+    const finalTotal = (total > 0) ? total : (storedTotal > 0 ? storedTotal : subtotal);
+
+    return { 
+      subtotalNet: subtotal, 
+      proposalDiscount: discount, 
+      freightValue: freight, 
+      finalTotalValue: finalTotal 
+    };
   })();
 
-  const totalValue = finalTotalValue;
+  const totalValue = finalTotalValue || parseLooseNumber(request.totalValue);
 
   // Usar hook para determinar tipo de aprovação
   const { data: approvalType, approvalInfo } = useApprovalType(totalValue, request.id);

@@ -281,12 +281,16 @@ export default function UpdateSupplierQuotation({
       const totalValue = data.items.reduce((sum, item) => {
         if (!item.unitPrice || !item.isAvailable) return sum;
 
+        // Use available quantity if specified, otherwise use requested quantity
         const correspondingQuotationItem = quotationItems.find(
           (qi) => qi.id === item.quotationItemId,
         );
-        const quantity = parseFloat(
-          correspondingQuotationItem?.quantity || "0",
-        );
+        let quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+        const hasAvailableQuantity = item.availableQuantity !== null && item.availableQuantity !== undefined && item.availableQuantity !== "";
+        if (hasAvailableQuantity && !isNaN(parseFloat(item.availableQuantity || ""))) {
+          quantity = parseFloat(item.availableQuantity || "");
+        }
+
         const unitPrice = parseNumberFromCurrency(item.unitPrice || "0");
 
         return sum + quantity * unitPrice;
@@ -296,7 +300,14 @@ export default function UpdateSupplierQuotation({
         const correspondingQuotationItem = quotationItems.find(
           (qi) => qi.id === item.quotationItemId,
         );
-        const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+        
+        // Use available quantity if specified, otherwise use requested quantity
+        let quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+        const hasAvailableQuantity = item.availableQuantity !== null && item.availableQuantity !== undefined && item.availableQuantity !== "";
+        if (hasAvailableQuantity && !isNaN(parseFloat(item.availableQuantity || ""))) {
+          quantity = parseFloat(item.availableQuantity || "");
+        }
+
         const unitPrice = parseNumberFromCurrency(item.unitPrice || "0");
         const originalTotalPrice = quantity * unitPrice;
 
@@ -326,7 +337,7 @@ export default function UpdateSupplierQuotation({
           discountedTotalPrice,
           isAvailable: item.isAvailable,
           unavailabilityReason: item.unavailabilityReason || null,
-          availableQuantity: item.availableQuantity ? parseFloat(item.availableQuantity) : null,
+          availableQuantity: item.availableQuantity ? parseFloat(item.availableQuantity || "") : null,
           confirmedUnit: item.confirmedUnit || null,
           quantityAdjustmentReason: item.quantityAdjustmentReason || null,
         };
@@ -375,7 +386,14 @@ export default function UpdateSupplierQuotation({
 
       const processedItems = (data.items || []).map((item) => {
         const correspondingQuotationItem = quotationItems.find((qi) => qi.id === item.quotationItemId);
-        const quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+        
+        // Use available quantity if specified, otherwise use requested quantity
+        let quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
+        const hasAvailableQuantity = item.availableQuantity !== null && item.availableQuantity !== undefined && item.availableQuantity !== "";
+        if (hasAvailableQuantity && !isNaN(parseFloat(item.availableQuantity || ""))) {
+          quantity = parseFloat(item.availableQuantity || "");
+        }
+
         const unitPrice = parseNumberFromCurrency(item.unitPrice || "0");
         const originalTotalPrice = quantity * unitPrice;
         let discountedTotalPrice = originalTotalPrice;
@@ -401,7 +419,7 @@ export default function UpdateSupplierQuotation({
           discountedTotalPrice,
           isAvailable: item.isAvailable,
           unavailabilityReason: item.unavailabilityReason || null,
-          availableQuantity: item.availableQuantity ? parseFloat(item.availableQuantity) : null,
+          availableQuantity: item.availableQuantity ? parseFloat(item.availableQuantity || "") : null,
           confirmedUnit: item.confirmedUnit || null,
           quantityAdjustmentReason: item.quantityAdjustmentReason || null,
         };
@@ -685,8 +703,9 @@ export default function UpdateSupplierQuotation({
     
     // Use available quantity if specified, otherwise use requested quantity
     let quantity = parseFloat(correspondingQuotationItem?.quantity || "0");
-    if (item.availableQuantity && !isNaN(parseFloat(item.availableQuantity))) {
-      quantity = parseFloat(item.availableQuantity);
+    const hasAvailableQuantity = item.availableQuantity !== null && item.availableQuantity !== undefined && item.availableQuantity !== "";
+    if (hasAvailableQuantity && !isNaN(parseFloat(item.availableQuantity || ""))) {
+      quantity = parseFloat(item.availableQuantity || "");
     }
     
     const unitPrice = parseNumberFromCurrency(item.unitPrice);
@@ -708,7 +727,7 @@ export default function UpdateSupplierQuotation({
   const calculateSubtotal = () => {
     const watchedItems = form.watch("items") || [];
     return watchedItems.reduce((sum, item, index) => {
-      if (!item || !item.isAvailable) return sum;
+      if (!item || !item.isAvailable || !item.unitPrice) return sum;
       return sum + calculateItemTotal(item, index);
     }, 0);
   };
@@ -829,9 +848,10 @@ export default function UpdateSupplierQuotation({
                   <div className="flex justify-end">
                     <div className="text-lg font-bold text-blue-600">
                       Subtotal: R$ {(() => {
-                        const total = quotationItems.reduce((sum, item, index) => {
-                          const watchedItem = form.watch(`items.${index}`);
-                          const itemTotal = calculateItemTotal(watchedItem, index);
+                        const items = form.watch("items") || [];
+                        const total = items.reduce((sum, item, index) => {
+                          if (!item || !item.isAvailable || !item.unitPrice) return sum;
+                          const itemTotal = calculateItemTotal(item, index);
                           return sum + (isNaN(itemTotal) ? 0 : itemTotal);
                         }, 0);
                         return total.toLocaleString("pt-BR", {
