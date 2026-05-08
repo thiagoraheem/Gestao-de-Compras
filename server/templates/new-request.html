@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+    .content { margin-bottom: 20px; }
+    .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Nova Solicitação de Compra</h2>
+      <p>Número: <strong>{{requestNumber}}</strong></p>
+    </div>
+    <div class="content">
+      <p>Olá {{buyerName}},</p>
+      <p>Uma nova solicitação de compra foi criada por <strong>{{requesterName}}</strong> e precisa de sua atenção.</p>
+      <p>
+        <a href="{{requestUrl}}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+          Ver Solicitação
+        </a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
+    </div>
+  </div>
+</body>
+</html>

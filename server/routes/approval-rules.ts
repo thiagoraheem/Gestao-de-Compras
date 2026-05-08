@@ -3,6 +3,8 @@ import { storage } from "../storage";
 import { pool } from "../db";
 import { isAuthenticated, isAdmin } from "./middleware";
 import { z } from "zod";
+import { NotFoundError, ValidationError, UnauthorizedError } from "../utils/errors";
+import { auditService } from "../services/audit-service";
 
 // Schema for approval configuration
 const approvalConfigSchema = z.object({
@@ -48,311 +50,287 @@ function cleanIpAddress(ip: string): string {
 export function registerApprovalRulesRoutes(app: Express) {
   // Get current approval configuration
   app.get("/api/approval-rules/config", isAuthenticated, async (req, res) => {
-    try {
-      const config = await storage.getActiveApprovalConfiguration();
-      res.json(config);
-    } catch (error) {
-      console.error("Error fetching approval configuration:", error);
-      res.status(500).json({ message: "Failed to fetch approval configuration" });
-    }
+    const config = await storage.getActiveApprovalConfiguration();
+    res.json(config);
   });
 
   // Get approval type for a specific purchase request
   app.get("/api/approval-rules/:requestId", isAuthenticated, async (req, res) => {
-    try {
-      const requestId = parseInt(req.params.requestId);
-      
-      const request = await storage.getPurchaseRequestById(requestId);
-      if (!request) {
-        return res.status(404).json({ message: "Purchase request not found" });
-      }
-
-      const config = await storage.getActiveApprovalConfiguration();
-      if (!config) {
-        return res.status(500).json({ message: "No active approval configuration found" });
-      }
-
-      const totalValue = parseFloat(request.totalValue || "0");
-      const threshold = parseFloat(config.valueThreshold);
-      
-      const requiresDualApproval = totalValue > threshold;
-      
-      // Get CEO and directors for dual approval
-      let availableApprovers = [];
-      if (requiresDualApproval) {
-        availableApprovers = await storage.getCEOAndDirectors();
-      } else {
-        availableApprovers = await storage.getA2Approvers();
-      }
-
-      // Check current approval status
-      const approvalHistory = await storage.getApprovalHistoryByRequestId(requestId);
-      const a2Approvals = approvalHistory.filter(ah => ah.approverType === "A2");
-      
-      let approvalStatus = "pending";
-      let nextApprover = null;
-      let firstApprover = null;
-      
-      if (requiresDualApproval) {
-        const firstApproval = a2Approvals.find(ah => ah.approvalStep === 'first');
-        const finalApproval = a2Approvals.find(ah => ah.approvalStep === 'final');
-        
-        if (finalApproval) {
-          approvalStatus = finalApproval.approved ? "completed" : "rejected";
-        } else if (firstApproval) {
-          approvalStatus = "awaiting_final";
-          firstApprover = firstApproval;
-          // Next approver should be CEO if first approver is not CEO
-          const ceo = availableApprovers.find(u => u.isCEO);
-          if (ceo && firstApproval.approverId !== ceo.id) {
-            nextApprover = ceo;
-          }
-        } else {
-          approvalStatus = "awaiting_first";
-          // Next approver can be any director or CEO
-          nextApprover = availableApprovers[0]; // Will be determined by frontend
-        }
-      } else {
-        const singleApproval = a2Approvals.find(ah => ah.approved !== null);
-        if (singleApproval) {
-          approvalStatus = singleApproval.approved ? "completed" : "rejected";
-        } else {
-          approvalStatus = "pending";
-          nextApprover = availableApprovers[0]; // Will be determined by frontend
-        }
-      }
-
-      res.json({
-        requiresDualApproval,
-        valueThreshold: config.valueThreshold,
-        totalValue: request.totalValue,
-        approvalStatus,
-        availableApprovers,
-        nextApprover,
-        firstApprover,
-        approvalHistory: a2Approvals,
-      });
-    } catch (error) {
-      console.error("Error fetching approval rules:", error);
-      res.status(500).json({ message: "Failed to fetch approval rules" });
+    const requestId = parseInt(req.params.requestId);
+    
+    const request = await storage.getPurchaseRequestById(requestId);
+    if (!request) {
+      throw new NotFoundError("Solicitação de compra não encontrada");
     }
+
+    const config = await storage.getActiveApprovalConfiguration();
+    if (!config) {
+      throw new NotFoundError("Nenhuma configuração de aprovação ativa encontrada");
+    }
+
+    const totalValue = parseFloat(request.totalValue || "0");
+    const threshold = parseFloat(config.valueThreshold);
+    
+    const requiresDualApproval = totalValue > threshold;
+    
+    // Get CEO and directors for dual approval
+    let availableApprovers = [];
+    if (requiresDualApproval) {
+      availableApprovers = await storage.getCEOAndDirectors();
+    } else {
+      availableApprovers = await storage.getA2Approvers();
+    }
+
+    // Check current approval status
+    const approvalHistory = await storage.getApprovalHistoryByRequestId(requestId);
+    const a2Approvals = approvalHistory.filter(ah => ah.approverType === "A2");
+    
+    let approvalStatus = "pending";
+    let nextApprover = null;
+    let firstApprover = null;
+    
+    if (requiresDualApproval) {
+      const firstApproval = a2Approvals.find(ah => ah.approvalStep === 'first');
+      const finalApproval = a2Approvals.find(ah => ah.approvalStep === 'final');
+      
+      if (finalApproval) {
+        approvalStatus = finalApproval.approved ? "completed" : "rejected";
+      } else if (firstApproval) {
+        approvalStatus = "awaiting_final";
+        firstApprover = firstApproval;
+        // Next approver should be CEO if first approver is not CEO
+        const ceo = availableApprovers.find(u => u.isCEO);
+        if (ceo && firstApproval.approverId !== ceo.id) {
+          nextApprover = ceo;
+        }
+      } else {
+        approvalStatus = "awaiting_first";
+        // Next approver can be any director or CEO
+        nextApprover = availableApprovers[0]; // Will be determined by frontend
+      }
+    } else {
+      const singleApproval = a2Approvals.find(ah => ah.approved !== null);
+      if (singleApproval) {
+        approvalStatus = singleApproval.approved ? "completed" : "rejected";
+      } else {
+        approvalStatus = "pending";
+        nextApprover = availableApprovers[0]; // Will be determined by frontend
+      }
+    }
+
+    res.json({
+      requiresDualApproval,
+      valueThreshold: config.valueThreshold,
+      totalValue: request.totalValue,
+      approvalStatus,
+      availableApprovers,
+      nextApprover,
+      firstApprover,
+      approvalHistory: a2Approvals,
+    });
   });
 
   // Process A2 approval with dual approval support
   app.post("/api/approval-rules/:requestId/approve", isAuthenticated, async (req, res) => {
-    try {
-      const requestId = parseInt(req.params.requestId);
-      const data = approveA2WithRulesSchema.parse(req.body);
-      
-      const request = await storage.getPurchaseRequestById(requestId);
-      if (!request || request.currentPhase !== "aprovacao_a2") {
-        return res.status(400).json({ message: "Request must be in the A2 approval phase" });
+    const requestId = parseInt(req.params.requestId);
+    const data = approveA2WithRulesSchema.parse(req.body);
+    
+    const request = await storage.getPurchaseRequestById(requestId);
+    if (!request || request.currentPhase !== "aprovacao_a2") {
+      throw new ValidationError("A solicitação deve estar na fase de aprovação A2");
+    }
+
+    // Get approval configuration
+    const config = await storage.getActiveApprovalConfiguration();
+    if (!config) {
+      throw new NotFoundError("Nenhuma configuração de aprovação ativa encontrada");
+    }
+
+    const totalValue = parseFloat(request.totalValue || "0");
+    const threshold = parseFloat(config.valueThreshold);
+    const requiresDualApproval = totalValue > threshold;
+
+    // Validate approver permissions
+    const user = await storage.getUserById(data.approverId);
+    if (!user || !user.isApproverA2) {
+      throw new UnauthorizedError("O usuário não tem permissão de aprovação A2");
+    }
+
+    // Get existing approval history
+    const approvalHistory = await storage.getApprovalHistoryByRequestId(requestId);
+    const a2Approvals = approvalHistory.filter(ah => ah.approverType === "A2");
+
+    let approvalStep = 1;
+    let isComplete = false;
+    let newPhase = request.currentPhase;
+
+    if (requiresDualApproval) {
+      // Dual approval logic
+      if (!(user.isCEO || user.isDirector)) {
+        throw new UnauthorizedError("A aprovação dupla requer permissões de CEO ou Diretor");
       }
 
-      // Get approval configuration
-      const config = await storage.getActiveApprovalConfiguration();
-      if (!config) {
-        return res.status(500).json({ message: "No active approval configuration found" });
+      const existingFirstApproval = a2Approvals.find(ah => ah.approvalStep === 'first');
+      const existingFinalApproval = a2Approvals.find(ah => ah.approvalStep === 'final');
+
+      if (existingFinalApproval) {
+        throw new ValidationError("A solicitação já foi finalmente aprovada ou rejeitada");
       }
 
-      const totalValue = parseFloat(request.totalValue || "0");
-      const threshold = parseFloat(config.valueThreshold);
-      const requiresDualApproval = totalValue > threshold;
-
-      // Validate approver permissions
-      const user = await storage.getUserById(data.approverId);
-      if (!user || !user.isApproverA2) {
-        return res.status(403).json({ message: "User does not have A2 approval permissions" });
-      }
-
-      // Get existing approval history
-      const approvalHistory = await storage.getApprovalHistoryByRequestId(requestId);
-      const a2Approvals = approvalHistory.filter(ah => ah.approverType === "A2");
-
-      let approvalStep = 1;
-      let isComplete = false;
-      let newPhase = request.currentPhase;
-
-      if (requiresDualApproval) {
-        // Dual approval logic
-        if (!(user.isCEO || user.isDirector)) {
-          return res.status(403).json({ message: "Dual approval requires CEO or Director permissions" });
+      if (existingFirstApproval) {
+        // This is the second approval
+        if (existingFirstApproval.approverId === data.approverId) {
+          throw new ValidationError("O mesmo usuário não pode fornecer ambas as aprovações");
+        }
+        
+        // Final approval must be from CEO if first wasn't from CEO
+        if (!existingFirstApproval.approved) {
+          throw new ValidationError("Não é possível fornecer aprovação final quando a primeira aprovação foi rejeitada");
         }
 
-        const existingFirstApproval = a2Approvals.find(ah => ah.approvalStep === 'first');
-        const existingFinalApproval = a2Approvals.find(ah => ah.approvalStep === 'final');
-
-        if (existingFinalApproval) {
-          return res.status(400).json({ message: "Request has already been finally approved or rejected" });
+        const firstApprover = await storage.getUserById(existingFirstApproval.approverId);
+        if (firstApprover && !firstApprover.isCEO && !user.isCEO) {
+          throw new ValidationError("A aprovação final deve ser do CEO quando a primeira aprovação não foi do CEO");
         }
 
-        if (existingFirstApproval) {
-          // This is the second approval
-          if (existingFirstApproval.approverId === data.approverId) {
-            return res.status(400).json({ message: "Same user cannot provide both approvals" });
-          }
-          
-          // Final approval must be from CEO if first wasn't from CEO
-          if (!existingFirstApproval.approved) {
-            return res.status(400).json({ message: "Cannot provide final approval when first approval was rejected" });
-          }
-
-          const firstApprover = await storage.getUserById(existingFirstApproval.approverId);
-          if (firstApprover && !firstApprover.isCEO && !user.isCEO) {
-            return res.status(400).json({ message: "Final approval must be from CEO when first approval is not from CEO" });
-          }
-
-          approvalStep = 2;
-          isComplete = true;
-          
-          if (data.approved) {
-            newPhase = "pedido_compra";
-          } else {
-            newPhase = data.rejectionAction === "recotacao" ? "cotacao" : "arquivado";
-          }
-        } else {
-          // This is the first approval
-          if (!data.approved) {
-            // First rejection completes the process
-            isComplete = true;
-            newPhase = data.rejectionAction === "recotacao" ? "cotacao" : "arquivado";
-          } else {
-            // For dual approval, first approval must be from Director
-            // CEO cannot approve first in dual approval flow
-            if (user.isCEO) {
-              return res.status(400).json({ 
-                message: "Para aprovação dupla, a primeira aprovação deve ser realizada por um Diretor. CEO deve aguardar a primeira aprovação." 
-              });
-            }
-            
-            // First approval by Director - stays in aprovacao_a2 for CEO final approval
-            if (!user.isDirector) {
-              return res.status(403).json({ 
-                message: "Primeira aprovação em fluxo duplo deve ser realizada por Diretor." 
-              });
-            }
-          }
-          // If approved by Director, stays in aprovacao_a2 for CEO second approval
-        }
-      } else {
-        // Single approval logic
+        approvalStep = 2;
         isComplete = true;
+        
         if (data.approved) {
           newPhase = "pedido_compra";
         } else {
           newPhase = data.rejectionAction === "recotacao" ? "cotacao" : "arquivado";
         }
-      }
-
-      // Create approval history entry
-      await storage.createApprovalHistoryWithStep({
-        purchaseRequestId: requestId,
-        approverType: "A2",
-        approverId: data.approverId,
-        approved: data.approved,
-        rejectionReason: data.approved ? null : (data.rejectionReason || "Solicitação reprovada"),
-        approvalStep: requiresDualApproval ? (approvalStep === 1 ? "first" : "final") : "single",
-        approvalValue: request.totalValue ?? "0",
-        requiresDualApproval,
-        ipAddress: cleanIpAddress(req.ip || req.connection.remoteAddress || "unknown"),
-        userAgent: req.get("User-Agent") || "unknown",
-      });
-
-      // Update purchase request if approval is complete
-      let updatedRequest = request;
-      if (isComplete) {
-        const updateData: any = {
-          currentPhase: newPhase,
-          updatedAt: new Date(),
-        };
-
-        if (requiresDualApproval) {
-          if (approvalStep === 1) {
-            updateData.firstApproverA2Id = data.approverId;
-            updateData.firstApprovalDate = new Date();
-          } else {
-            // Final approval (step 2) or CEO single approval
-            updateData.finalApproverId = data.approverId;
-            updateData.finalApprovalDate = new Date();
-            updateData.approverA2Id = data.approverId; // For compatibility
-            updateData.approvalDateA2 = new Date();
-            updateData.approvedA2 = data.approved;
-            updateData.rejectionReasonA2 = data.approved ? null : data.rejectionReason;
-            updateData.rejectionActionA2 = data.approved ? null : data.rejectionAction;
-          }
+      } else {
+        // This is the first approval
+        if (!data.approved) {
+          // First rejection completes the process
+          isComplete = true;
+          newPhase = data.rejectionAction === "recotacao" ? "cotacao" : "arquivado";
         } else {
-          updateData.approverA2Id = data.approverId;
+          // For dual approval, first approval must be from Director
+          // CEO cannot approve first in dual approval flow
+          if (user.isCEO) {
+            throw new ValidationError("Para aprovação dupla, a primeira aprovação deve ser realizada por um Diretor. CEO deve aguardar a primeira aprovação.");
+          }
+          
+          // First approval by Director - stays in aprovacao_a2 for CEO final approval
+          if (!user.isDirector) {
+            throw new UnauthorizedError("Primeira aprovação em fluxo duplo deve ser realizada por Diretor.");
+          }
+        }
+        // If approved by Director, stays in aprovacao_a2 for CEO second approval
+      }
+    } else {
+      // Single approval logic
+      isComplete = true;
+      if (data.approved) {
+        newPhase = "pedido_compra";
+      } else {
+        newPhase = data.rejectionAction === "recotacao" ? "cotacao" : "arquivado";
+      }
+    }
+
+    // Create approval history entry
+    await storage.createApprovalHistoryWithStep({
+      purchaseRequestId: requestId,
+      approverType: "A2",
+      approverId: data.approverId,
+      approved: data.approved,
+      rejectionReason: data.approved ? null : (data.rejectionReason || "Solicitação reprovada"),
+      approvalStep: requiresDualApproval ? (approvalStep === 1 ? "first" : "final") : "single",
+      approvalValue: request.totalValue ?? "0",
+      requiresDualApproval,
+      ipAddress: cleanIpAddress(req.ip || req.connection.remoteAddress || "unknown"),
+      userAgent: req.get("User-Agent") || "unknown",
+    });
+
+    // Update purchase request if approval is complete
+    let updatedRequest = request;
+    if (isComplete) {
+      const updateData: any = {
+        currentPhase: newPhase,
+        updatedAt: new Date(),
+      };
+
+      if (requiresDualApproval) {
+        if (approvalStep === 1) {
+          updateData.firstApproverA2Id = data.approverId;
+          updateData.firstApprovalDate = new Date();
+        } else {
+          // Final approval (step 2) or CEO single approval
+          updateData.finalApproverId = data.approverId;
+          updateData.finalApprovalDate = new Date();
+          updateData.approverA2Id = data.approverId; // For compatibility
           updateData.approvalDateA2 = new Date();
           updateData.approvedA2 = data.approved;
           updateData.rejectionReasonA2 = data.approved ? null : data.rejectionReason;
           updateData.rejectionActionA2 = data.approved ? null : data.rejectionAction;
         }
+      } else {
+        updateData.approverA2Id = data.approverId;
+        updateData.approvalDateA2 = new Date();
+        updateData.approvedA2 = data.approved;
+        updateData.rejectionReasonA2 = data.approved ? null : data.rejectionReason;
+        updateData.rejectionActionA2 = data.approved ? null : data.rejectionAction;
+      }
 
-        updatedRequest = await storage.updatePurchaseRequest(requestId, updateData);
+      updatedRequest = await storage.updatePurchaseRequest(requestId, updateData);
 
-        console.log("Verificar se vai entrar no createPurchaseOrder")
-        console.log(data.approved, newPhase);
-
-        // Create purchase order if fully approved
-        if (data.approved && newPhase === "pedido_compra") {
-          try {
-            await createAutomaticPurchaseOrder(requestId, data.approverId);
-          } catch (purchaseOrderError) {
-            console.error("Error creating automatic purchase order:", purchaseOrderError);
-            // Don't fail the approval if purchase order creation fails
-          }
-        }
-
-        // Send notification emails
-        if (!data.approved && data.rejectionReason) {
-          const { notifyRejection } = await import("../email-service");
-          await notifyRejection(updatedRequest, data.rejectionReason, "A2");
+      // Create purchase order if fully approved
+      if (data.approved && newPhase === "pedido_compra") {
+        try {
+          await createAutomaticPurchaseOrder(requestId, data.approverId);
+        } catch (purchaseOrderError) {
+          console.error("Error creating automatic purchase order:", purchaseOrderError);
+          // Don't fail the approval if purchase order creation fails
         }
       }
 
-      res.json({
-        success: true,
-        request: updatedRequest,
-        approvalStep,
-        isComplete,
-        requiresDualApproval,
-        nextStep: isComplete ? null : (requiresDualApproval && approvalStep === 1 ? "awaiting_final" : null),
-      });
-    } catch (error) {
-      console.error("Error processing A2 approval with rules:", error);
-      res.status(500).json({ message: "Failed to process approval" });
+      // Send notification emails
+      if (!data.approved && data.rejectionReason) {
+        const { notifyRejection } = await import("../email-service");
+        await notifyRejection(updatedRequest, data.rejectionReason, "A2");
+      }
     }
+
+    res.json({
+      success: true,
+      request: updatedRequest,
+      approvalStep,
+      isComplete,
+      requiresDualApproval,
+      nextStep: isComplete ? null : (requiresDualApproval && approvalStep === 1 ? "awaiting_final" : null),
+    });
   });
 
   // Admin: Update approval configuration
   app.post("/api/approval-rules/config", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const data = approvalConfigSchema.parse(req.body);
-      const userId = req.session.userId!;
+    const data = approvalConfigSchema.parse(req.body);
+    const userId = req.session.userId!;
 
-      const config = await storage.createApprovalConfiguration({
-        valueThreshold: data.valueThreshold,
-        effectiveDate: new Date(),
-        reason: data.reason,
-        createdBy: userId,
-      });
+    const config = await storage.createApprovalConfiguration({
+      valueThreshold: data.valueThreshold,
+      effectiveDate: new Date(),
+      reason: data.reason,
+      createdBy: userId,
+    });
 
-      res.json(config);
-    } catch (error) {
-      console.error("Error updating approval configuration:", error);
-      res.status(500).json({ message: "Failed to update approval configuration" });
-    }
+    await auditService.log({
+      actionType: 'approval_config_updated',
+      actionDescription: `Configuração de aprovação atualizada para threshold de R$ ${data.valueThreshold}`,
+      performedBy: userId,
+      afterData: config,
+      affectedTables: ['approval_configurations']
+    });
+
+    res.json(config);
   });
 
   // Admin: Get configuration history
   app.get("/api/approval-rules/config/history", isAuthenticated, isAdmin, async (req, res) => {
-    try {
-      const history = await storage.getConfigurationHistory();
-      res.json(history);
-    } catch (error) {
-      console.error("Error fetching configuration history:", error);
-      res.status(500).json({ message: "Failed to fetch configuration history" });
-    }
+    const history = await storage.getConfigurationHistory();
+    res.json(history);
   });
 }
 
@@ -469,17 +447,15 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
   try {
     const supplierTotal = parseFloat(chosenSupplierQuotation.totalValue || "0");
     const discrepancy = Math.abs(supplierTotal - itemsTotal);
-    await pool.query(
-      `INSERT INTO audit_logs (purchase_request_id, performed_by, action_type, action_description, performed_at, before_data, after_data)
-       VALUES ($1, $2, $3, $4, NOW(), $5, $6)`,
-      [
-        requestId,
-        approverId,
-        'po_created_a2',
-        `PO criado na A2 a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(4)} | Total cotação: R$ ${supplierTotal.toFixed(4)} | Diferença: R$ ${discrepancy.toFixed(4)}`,
-        JSON.stringify({ supplierTotal }),
-        JSON.stringify({ itemsTotal })
-      ]
-    );
+    
+    await auditService.log({
+      purchaseRequestId: requestId,
+      performedBy: approverId,
+      actionType: 'po_created_a2',
+      actionDescription: `PO criado na A2 a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(4)} | Total cotação: R$ ${supplierTotal.toFixed(4)} | Diferença: R$ ${discrepancy.toFixed(4)}`,
+      beforeData: { supplierTotal },
+      afterData: { itemsTotal },
+      affectedTables: ['purchase_orders', 'purchase_order_items']
+    });
   } catch {}
 }

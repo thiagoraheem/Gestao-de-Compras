@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #111827; background-color: #f9fafb; }
+    .container { max-width: 720px; margin: 0 auto; padding: 24px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; }
+    .header { border-bottom: 1px solid #e5e7eb; padding-bottom: 16px; margin-bottom: 20px; }
+    .title { font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 4px 0; }
+    .subtitle { font-size: 14px; color: #6b7280; margin: 0; }
+    .section-title { font-size: 16px; font-weight: 600; margin: 20px 0 8px 0; color: #111827; }
+    .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; font-size: 14px; }
+    .label { color: #6b7280; }
+    .value { color: #111827; font-weight: 500; }
+    .items-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+    .items-table th { text-align: left; padding: 8px; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb; }
+    .items-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+    .items-table th:nth-child(3),
+    .items-table th:nth-child(4),
+    .items-table th:nth-child(5),
+    .items-table td:nth-child(3),
+    .items-table td:nth-child(4),
+    .items-table td:nth-child(5) { text-align: right; }
+    .total { text-align: right; font-weight: 600; margin-top: 8px; font-size: 14px; }
+    .footer { margin-top: 24px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 12px; }
+    .button { display: inline-block; margin-top: 12px; padding: 8px 16px; background-color: #2563eb; color: #ffffff; border-radius: 9999px; font-size: 13px; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <p class="subtitle">Solicitação {{requestNumber}}</p>
+      <h1 class="title">Pedido de compra concluído</h1>
+    </div>
+
+    <p>Olá {{userName}},</p>
+    <p>Informamos que o processo de compra da sua solicitação foi concluído com sucesso. Abaixo, um resumo dos principais dados do pedido de compra.</p>
+
+    <h2 class="section-title">Dados principais</h2>
+    <div class="info-grid">
+      <div>
+        <div class="label">Número da Solicitação</div>
+        <div class="value">{{requestNumber}}</div>
+      </div>
+      <div>
+        <div class="label">Número do Pedido de Compra</div>
+        <div class="value">{{orderNumber}}</div>
+      </div>
+      <div>
+        <div class="label">Data de Emissão</div>
+        <div class="value">{{issueDate}}</div>
+      </div>
+      <div>
+        <div class="label">Valor Total</div>
+        <div class="value">{{totalValue}}</div>
+      </div>
+      <div>
+        <div class="label">Fornecedor</div>
+        <div class="value">{{supplierName}}</div>
+      </div>
+      <div>
+        <div class="label">Departamento</div>
+        <div class="value">{{departmentName}}</div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Itens do pedido</h2>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>Descrição</th>
+          <th>Unidade</th>
+          <th>Quantidade</th>
+          <th>Valor Unitário</th>
+          <th>Valor Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{{itemRows}}}
+      </tbody>
+    </table>
+    <div class="total">Total do pedido: {{totalValue}}</div>
+
+    <p>Em anexo, você encontrará o PDF completo do Pedido de Compra, com todos os detalhes do processo.</p>
+
+    <p>
+      <a href="{{requestUrl}}" class="button">Abrir solicitação no sistema</a>
+    </p>
+
+    <div class="footer">
+      <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
+    </div>
+  </div>
+</body>
+</html>
