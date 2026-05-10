@@ -1,8 +1,9 @@
 import { storage } from "../storage";
 import { 
-  notifyApprovalA1, 
+  notifyApprovalA1,
   notifyApprovalA2, 
-  notifyRejection 
+  notifyRejection,
+  notifyArchival
 } from "../email-service";
 import { realtime } from "../realtime";
 import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../../shared/realtime-events";
@@ -149,6 +150,13 @@ export class WorkflowService {
     };
 
     const request = await storage.updatePurchaseRequest(id, updates);
+
+    // Enviar notificação de arquivamento
+    try {
+      await notifyArchival(request, conclusionObservations);
+    } catch (emailError) {
+      console.error("Erro ao enviar notificação de arquivamento:", emailError);
+    }
 
     realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
       event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,

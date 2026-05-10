@@ -59,13 +59,25 @@ export async function apiRequest(
     }
     throw new Error(errorMessage);
   }
-  return await res.json();
+  
+  const data = await res.json();
+  return handleStandardResponse(data);
+}
+
+/**
+ * Auxiliar para desempacotar respostas padronizadas { success: true, data: T }
+ */
+export function handleStandardResponse<T>(data: any): T {
+  if (data && typeof data === 'object' && data.success === true && 'data' in data) {
+    return data.data;
+  }
+  return data;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
+}) => QueryFunction<T | null> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey, signal }) => {
     try {
@@ -102,7 +114,8 @@ export const getQueryFn: <T>(options: {
         throw new Error(errorMessage);
       }
       
-      return await response.json();
+      const data = await response.json();
+      return handleStandardResponse(data);
     } catch (error: any) {
       if (error.name === 'AbortError') {
         throw error; // Let React Query handle aborted requests properly

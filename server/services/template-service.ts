@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 
-class EmailTemplateService {
+class TemplateService {
   private templates: Map<string, string> = new Map();
 
   /**
@@ -11,24 +11,24 @@ class EmailTemplateService {
    * - {{{variable}}} : Raw (unescaped) value
    * - {{#if variable}}...{{/if}} : Conditional block
    */
-  async render(templateName: string, data: Record<string, any>): Promise<string> {
-    let template = this.templates.get(templateName);
+  async render(templatePath: string, data: Record<string, any>): Promise<string> {
+    let template = this.templates.get(templatePath);
 
     if (!template) {
-      const templatePath = path.join(process.cwd(), "server", "templates", `${templateName}.html`);
+      // templatePath can be 'rfq' or 'pdf/dashboard'
+      const fullPath = path.join(process.cwd(), "server", "templates", `${templatePath}.html`);
       try {
-        template = await fs.readFile(templatePath, "utf-8");
-        this.templates.set(templateName, template);
+        template = await fs.readFile(fullPath, "utf-8");
+        this.templates.set(templatePath, template);
       } catch (error) {
-        console.error(`Error reading template ${templateName}:`, error);
-        throw new Error(`Template ${templateName} not found`);
+        console.error(`Error reading template ${templatePath}:`, error);
+        throw new Error(`Template ${templatePath} not found`);
       }
     }
 
     let rendered = template;
 
     // Handle {{#if variable}}...{{/if}}
-    // This simple version doesn't support nested if's but it's enough for our current templates
     rendered = rendered.replace(/\{\{#if (\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (match, variable, content) => {
       return data[variable] ? content : "";
     });
@@ -61,4 +61,4 @@ class EmailTemplateService {
   }
 }
 
-export const emailTemplateService = new EmailTemplateService();
+export const templateService = new TemplateService();

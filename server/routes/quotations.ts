@@ -613,20 +613,19 @@ export function registerQuotationRoutes(app: Express) {
 
       const storedFile = await fileStorageService.uploadFile({
         category: "supplier-quotations",
-        entityId: supplierQuotation.id,
         originalName: req.file.originalname,
         contentType: req.file.mimetype,
         buffer: req.file.buffer,
-        preferredLocalName: `${req.file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(req.file.originalname)}`,
+        entityId: supplierQuotation.id,
       });
 
       const attachment = await storage.createAttachment({
-        supplierQuotationId: supplierQuotation.id,
         fileName: req.file.originalname,
-        filePath: storedFile.filePath,
         fileType: req.file.mimetype,
         fileSize: req.file.size,
-        attachmentType: attachmentType || "supplier_proposal",
+        filePath: storedFile.filePath,
+        supplierQuotationId: supplierQuotation.id,
+        attachmentType: attachmentType || "other",
       });
 
       res.json({
@@ -774,14 +773,13 @@ export function registerQuotationRoutes(app: Express) {
           }
         }
 
-        const selectedSupplier = await storage.getSupplierById(selectedSupplierId);
         await auditService.log({
           purchaseRequestId: quotation.purchaseRequestId,
-          actionType: 'supplier_selected',
-          actionDescription: `Fornecedor ${selectedSupplier?.name || selectedSupplierId} selecionado para a cotação ${quotation.quotationNumber}`,
+          actionType: 'supplier_chosen',
+          actionDescription: `Fornecedor ${selectedSupplierId} escolhido como vencedor para a cotação ${quotation.quotationNumber}`,
           performedBy: req.session?.userId,
-          afterData: { selectedSupplierId, totalValue: finalTotalValue, observations },
-          affectedTables: ['supplier_quotations', 'purchase_requests']
+          afterData: { selectedSupplierId, finalTotalValue, observations },
+          affectedTables: ['purchase_requests', 'supplier_quotations']
         });
       }
 

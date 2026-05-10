@@ -3,7 +3,7 @@ import type { Supplier, User, PurchaseRequest, Quotation } from "../shared/schem
 import { storage } from "./storage";
 import { config, buildRequestUrl, isEmailEnabled } from "./config";
 import { PDFService } from "./pdf-service";
-import { emailTemplateService } from "./services/email-template-service";
+import { templateService } from "./services/template-service";
 
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -195,7 +195,7 @@ async function generateRFQEmailHTML(
     )
     .join("");
 
-  return await emailTemplateService.render("rfq", {
+  return await templateService.render("rfq", {
     quotationNumber: rfqData.quotationNumber,
     supplierContact: supplier.contact ?? supplier.name,
     requestNumber: rfqData.requestNumber,
@@ -482,7 +482,7 @@ async function generateRejectionEmailHTML(
     ? `A solicitação de compra <strong>${purchaseRequest.requestNumber}</strong>, aprovada tecnicamente por você, foi devolvida/rejeitada${phaseText}.`
     : `Sua solicitação de compra foi devolvida/rejeitada${phaseText}.`;
 
-  return await emailTemplateService.render("rejection", {
+  return await templateService.render("rejection", {
     requestNumber: purchaseRequest.requestNumber,
     userName: user.firstName || user.username,
     introText,
@@ -497,7 +497,7 @@ async function generateNewRequestEmailHTML(
   purchaseRequest: PurchaseRequest,
   requesterName: string,
 ): Promise<string> {
-  return await emailTemplateService.render("new-request", {
+  return await templateService.render("new-request", {
     requestNumber: purchaseRequest.requestNumber,
     buyerName: buyer.firstName || buyer.username,
     requesterName,
@@ -510,7 +510,7 @@ async function generateApprovalA1EmailHTML(
   purchaseRequest: PurchaseRequest,
   requesterName: string,
 ): Promise<string> {
-  return await emailTemplateService.render("approval-a1", {
+  return await templateService.render("approval-a1", {
     requestNumber: purchaseRequest.requestNumber,
     approverName: approver.firstName || approver.username,
     requesterName,
@@ -524,7 +524,7 @@ async function generateApprovalA2EmailHTML(
   requesterName: string,
   approverA1Name: string,
 ): Promise<string> {
-  return await emailTemplateService.render("approval-a2", {
+  return await templateService.render("approval-a2", {
     requestNumber: purchaseRequest.requestNumber,
     approverName: approver.firstName || approver.username,
     requesterName,
@@ -633,7 +633,7 @@ export async function notifyRequestConclusion(purchaseRequestId: number): Promis
       })
       .join("");
 
-    const html = await emailTemplateService.render("request-conclusion", {
+    const html = await templateService.render("request-conclusion", {
       requestNumber: purchaseRequest.requestNumber,
       userName: requester.firstName || requester.username,
       orderNumber: purchaseOrder.orderNumber || purchaseRequest.requestNumber,
@@ -703,7 +703,7 @@ export async function notifyPasswordReset(user: User, newPassword: string): Prom
     from: config.email.from,
     to: user.email,
     subject: "Redefinição de Senha - Sistema Locador",
-    html: await emailTemplateService.render("admin-set-password", {
+    html: await templateService.render("admin-set-password", {
       userName: user.firstName || user.username,
       temporaryPassword: newPassword,
     }),
@@ -735,7 +735,7 @@ export async function sendPasswordResetEmail(user: User, token: string): Promise
     from: config.email.from,
     to: user.email,
     subject: "Recuperação de Senha - Sistema Locador",
-    html: await emailTemplateService.render("password-reset", {
+    html: await templateService.render("password-reset", {
       userName: user.firstName || user.username,
       resetLink,
     }),
@@ -766,7 +766,7 @@ export async function notifyAdminSetPassword(user: User): Promise<void> {
     from: config.email.from,
     to: user.email,
     subject: "Senha Alterada pelo Administrador - Sistema Locador",
-    html: await emailTemplateService.render("admin-set-password", {
+    html: await templateService.render("admin-set-password", {
       userName: user.firstName || user.username,
     }),
   };
@@ -780,3 +780,48 @@ export async function notifyAdminSetPassword(user: User): Promise<void> {
 }
 
 export const testEmailConfiguration = verifyEmailConfig;
+
+export async function notifyArchival(
+  purchaseRequest: PurchaseRequest,
+  observations?: string,
+): Promise<void> {
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de arquivamento para solicitação ${purchaseRequest.requestNumber} não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
+  try {
+    if (purchaseRequest.requesterId) {
+      const requester = await storage.getUser(purchaseRequest.requesterId);
+      if (requester && requester.email) {
+        const mailOptions = {
+          from: config.email.from,
+          to: requester.email,
+          replyTo: config.email.from,
+          subject: `Solicitação Arquivada - ${purchaseRequest.requestNumber}`,
+          html: await generateArchivedEmailHTML(
+            requester,
+            purchaseRequest,
+            observations,
+          ),
+        };
+        await sendMailWithEnvironmentBanner(mailOptions);
+      }
+    }
+  } catch (error) {
+    console.error("Erro ao notificar arquivamento:", error);
+  }
+}
+
+async function generateArchivedEmailHTML(
+  user: User,
+  purchaseRequest: PurchaseRequest,
+  observations?: string,
+): Promise<string> {
+  return await templateService.render("archived", {
+    requestNumber: purchaseRequest.requestNumber,
+    userName: user.firstName || user.username,
+    conclusionObservations: observations || null,
+    requestUrl: buildRequestUrl(purchaseRequest.id),
+  });
+}

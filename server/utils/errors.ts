@@ -44,3 +44,20 @@ export class ConflictError extends AppError {
     this.name = 'ConflictError';
   }
 }
+
+export class BusinessError extends AppError {
+  public code?: string;
+
+  constructor(message: string, code?: string, statusCode: number = 422) {
+    super(message, statusCode);
+    this.name = 'BusinessError';
+    this.code = code;
+  }
+}
+
+export class InternalServerError extends AppError {
+  constructor(message: string = 'Ocorreu um erro interno no servidor.') {
+    super(message, 500, false);
+    this.name = 'InternalServerError';
+  }
+}

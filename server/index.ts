@@ -20,13 +20,28 @@ const LOG_CONFIG = {
   verboseMode: process.env.LOG_VERBOSE === 'true'
 };
 
-// GLOBAL NO-CACHE MIDDLEWARE
-// Forces browsers and proxies to always check with the server
+// GLOBAL RESPONSE WRAPPER & NO-CACHE MIDDLEWARE
 app.use('/api', (req, res, next) => {
+  // Configuração de cache
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   res.setHeader('Surrogate-Control', 'no-store');
+
+  // Padronização de resposta de sucesso
+  const originalJson = res.json;
+  res.json = function(body) {
+    // Apenas envolve se for sucesso (status < 400), for um objeto/array, 
+    // e ainda não tiver o formato padrão (success: true)
+    if (res.statusCode < 400 && 
+        body !== null && 
+        typeof body === 'object' && 
+        !(body.success === true && 'data' in body)) {
+      return originalJson.call(this, { success: true, data: body });
+    }
+    return originalJson.call(this, body);
+  };
+
   next();
 });
 

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AppError } from '../utils/errors';
+import { AppError, BusinessError } from '../utils/errors';
 import { ZodError } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 
@@ -11,9 +11,14 @@ export const errorHandler = (
 ) => {
   let statusCode = 500;
   let message = 'Ocorreu um erro interno no servidor.';
+  let code: string | undefined = undefined;
   let details: any = undefined;
 
-  if (err instanceof AppError) {
+  if (err instanceof BusinessError) {
+    statusCode = err.statusCode;
+    message = err.message;
+    code = err.code;
+  } else if (err instanceof AppError) {
     statusCode = err.statusCode;
     message = err.message;
   } else if (err instanceof ZodError) {
@@ -28,20 +33,16 @@ export const errorHandler = (
     message = err.message;
   } else {
     console.error(`[Unhandled Error] ${req.method} ${req.url}:`, err);
-    // Para erros que a gente já estava jogando como throw new Error('mensagem explicativa')
-    if (err.message) {
+    if (err.message && !err.message.includes('Erro interno')) {
       message = err.message;
-      // Default to 400 if it's a known string error from our business logic that doesn't fit 404/403
-      // We can refine this later by actually using the custom classes in the services
-      if (!err.message.includes('Erro interno')) {
-        statusCode = 400;
-      }
+      statusCode = 400;
     }
   }
 
   res.status(statusCode).json({
     success: false,
     message,
+    code,
     details,
     ...(process.env.NODE_ENV === 'development' && statusCode === 500 ? { stack: err.stack } : {})
   });
