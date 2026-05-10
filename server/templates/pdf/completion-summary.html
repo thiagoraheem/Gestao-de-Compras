@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório de Conclusão - {{requestNumber}}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 20px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #666;
+    }
+
+    .section {
+      margin-bottom: 25px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #333;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 5px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .info-item {
+      margin-bottom: 8px;
+    }
+
+    .info-label {
+      font-weight: bold;
+      color: #555;
+    }
+
+    .info-value {
+      color: #333;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    .table th,
+    .table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .table th {
+      background-color: #f5f5f5;
+      font-weight: bold;
+    }
+
+    .total-row {
+      background-color: #f9f9f9;
+      font-weight: bold;
+    }
+
+    .timeline {
+      margin-top: 15px;
+    }
+
+    .timeline-item {
+      margin-bottom: 10px;
+      padding: 10px;
+      border-left: 3px solid #007bff;
+      background-color: #f8f9fa;
+    }
+
+    .timeline-date {
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    .timeline-action {
+      margin-top: 5px;
+    }
+
+    .text-right {
+      text-align: right;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <div class="title">Relatório de Conclusão de Compra</div>
+    <div class="subtitle">Solicitação: {{requestNumber}}</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Informações Gerais</div>
+    <div class="info-grid">
+      <div>
+        <div class="info-item">
+          <span class="info-label">Solicitante:</span>
+          <span class="info-value">{{requesterName}}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Departamento:</span>
+          <span class="info-value">{{departmentName}}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Centro de Custo:</span>
+          <span class="info-value">{{costCenterName}}</span>
+        </div>
+      </div>
+      <div>
+        <div class="info-item">
+          <span class="info-label">Data da Solicitação:</span>
+          <span class="info-value">{{createdAt}}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Data de Conclusão:</span>
+          <span class="info-value">{{completionDate}}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Urgência:</span>
+          <span class="info-value">{{urgency}}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{#if hasSelectedSupplier}}
+  <div class="section">
+    <div class="section-title">Fornecedor Selecionado</div>
+    <div class="info-grid">
+      <div>
+        <div class="info-item">
+          <span class="info-label">Nome:</span>
+          <span class="info-value">{{supplierName}}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">CNPJ:</span>
+          <span class="info-value">{{supplierCnpj}}</span>
+        </div>
+      </div>
+      <div>
+        <div class="info-item">
+          <span class="info-label">E-mail:</span>
+          <span class="info-value">{{supplierEmail}}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Telefone:</span>
+          <span class="info-value">{{supplierPhone}}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{/if}}
+
+  <div class="section">
+    <div class="section-title">Itens Adquiridos</div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Descrição</th>
+          <th>Unidade</th>
+          <th class="text-right">Quantidade</th>
+          <th class="text-right">Valor Unitário</th>
+          <th class="text-right">Valor Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{{itemRows}}}
+        <tr class="total-row">
+          <td colspan="4"><strong>TOTAL GERAL</strong></td>
+          <td class="text-right"><strong>{{totalValue}}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  {{#if hasTimeline}}
+  <div class="section">
+    <div class="section-title">Histórico do Processo de Compra</div>
+    <div class="timeline">
+      {{{timelineHtml}}}
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if hasQuotationData}}
+  <div class="section">
+    <div class="section-title">Dados da Cotação Vencedora</div>
+    <div class="info-grid">
+      <div>
+        <div class="info-item">
+          <span class="info-label">Valor Total da Cotação:</span>
+          <span class="info-value">{{quotationTotalValue}}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Prazo de Entrega:</span>
+          <span class="info-value">{{quotationDeliveryTime}}</span>
+        </div>
+      </div>
+      <div>
+        <div class="info-item">
+          <span class="info-label">Condições de Pagamento:</span>
+          <span class="info-value">{{quotationPaymentTerms}}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Observações:</span>
+          <span class="info-value">{{quotationObservations}}</span>
+        </div>
+      </div>
+    </div>
+    {{#if hasQuotationDiscount}}
+    <div class="info-item" style="margin-top: 15px;">
+      <span class="info-label">Desconto da Proposta:</span>
+      <span class="info-value">{{quotationDiscount}}</span>
+    </div>
+    {{/if}}
+    {{#if quotationJustification}}
+    <div class="info-item" style="margin-top: 15px;">
+      <span class="info-label">Justificativa da Escolha:</span><br>
+      <span class="info-value">{{quotationJustification}}</span>
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+
+</body>
+
+</html>

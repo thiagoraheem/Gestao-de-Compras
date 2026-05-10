@@ -66,3 +66,25 @@ export async function isAdminOrBuyer(req: Request, res: Response, next: Function
     res.status(500).json({ message: "Internal server error" });
   }
 }
+
+export async function isReceiver(req: Request, res: Response, next: Function) {
+  if (!req.session.userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    const user = await storage.getUser(req.session.userId);
+    if (!user?.isReceiver && !user?.isAdmin) {
+      return res
+        .status(403)
+        .json({
+          message: "Acesso negado: permissão de recebimento necessária",
+        });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Authorization error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}

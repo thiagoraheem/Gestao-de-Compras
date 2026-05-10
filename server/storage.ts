@@ -1,4 +1,5 @@
 import { CalculadoraValoresSolicitacao, ItemCalculo } from "../shared/utils/CalculadoraValoresSolicitacao";
+import crypto from "crypto";
 import {
   users,
   companies,
@@ -80,6 +81,17 @@ import { db, pool } from "./db";
 import { eq, and, desc, like, sql, gt, count, or, isNull, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import bcrypt from "bcryptjs";
+import { companyRepository } from "./repositories/company-repository";
+import { departmentRepository } from "./repositories/department-repository";
+import { userRepository } from "./repositories/user-repository";
+import { supplierRepository } from "./repositories/supplier-repository";
+import { quotationRepository } from "./repositories/quotation-repository";
+import { purchaseOrderRepository } from "./repositories/purchase-order-repository";
+import { receiptRepository } from "./repositories/receipt-repository";
+import { purchaseRequestRepository } from "./repositories/purchase-request-repository";
+import { approvalRepository } from "./repositories/approval-repository";
+import { systemRepository } from "./repositories/system-repository";
+import { timelineService } from "./services/timeline-service";
 
 export interface IStorage {
   // Company operations
@@ -230,10 +242,12 @@ export interface IStorage {
     id: number,
     quotation: Partial<InsertQuotation>,
   ): Promise<Quotation>;
+  deleteQuotation(id: number): Promise<void>;
 
   // Quotation Items operations
   getQuotationItems(quotationId: number): Promise<QuotationItem[]>;
   createQuotationItem(item: InsertQuotationItem): Promise<QuotationItem>;
+  createQuotationItems(items: InsertQuotationItem[]): Promise<QuotationItem[]>;
   updateQuotationItem(
     id: number,
     item: Partial<InsertQuotationItem>,
@@ -258,6 +272,9 @@ export interface IStorage {
   createSupplierQuotationItem(
     item: InsertSupplierQuotationItem,
   ): Promise<SupplierQuotationItem>;
+  createSupplierQuotationItems(
+    items: InsertSupplierQuotationItem[],
+  ): Promise<SupplierQuotationItem[]>;
   updateSupplierQuotationItem(
     id: number,
     item: Partial<InsertSupplierQuotationItem>,
@@ -351,76 +368,52 @@ const chosenSupplier = alias(suppliers, "chosen_supplier");
 export class DatabaseStorage implements IStorage {
   // Company operations
   async getAllCompanies(): Promise<Company[]> {
-    return await db.select().from(companies).where(eq(companies.active, true));
+    return await companyRepository.getAllCompanies();
   }
 
   async getCompanyById(id: number): Promise<Company | undefined> {
-    const [company] = await db.select().from(companies).where(eq(companies.id, id));
-    return company || undefined;
+    return await companyRepository.getCompanyById(id);
   }
 
   async createCompany(company: InsertCompany): Promise<Company> {
-    const [newCompany] = await db.insert(companies).values(company).returning();
-    return newCompany;
+    return await companyRepository.createCompany(company);
   }
 
   async updateCompany(id: number, company: Partial<InsertCompany>): Promise<Company> {
-    const [updatedCompany] = await db
-      .update(companies)
-      .set({ ...company, updatedAt: new Date() })
-      .where(eq(companies.id, id))
-      .returning();
-    return updatedCompany;
+    return await companyRepository.updateCompany(id, company);
   }
 
   async deleteCompany(id: number): Promise<void> {
-    await db.update(companies).set({ active: false }).where(eq(companies.id, id));
+    return await companyRepository.deleteCompany(id);
   }
 
   // User operations
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    return await userRepository.getUser(id);
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.username, username));
-    return user || undefined;
+    return await userRepository.getUserByUsername(username);
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user || undefined;
+    return await userRepository.getUserByEmail(email);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
+    return await userRepository.createUser(insertUser);
   }
 
   async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User> {
-    const [user] = await db
-      .update(users)
-      .set({ ...updateData, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning();
-    return user;
+    return await userRepository.updateUser(id, updateData);
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await db.select().from(users);
+    return await userRepository.getAllUsers();
   }
 
   async deleteUser(id: number): Promise<void> {
-    // Delete all user associations first
-    await db.delete(userDepartments).where(eq(userDepartments.userId, id));
-    await db.delete(userCostCenters).where(eq(userCostCenters.userId, id));
-
-    // Delete the user
-    await db.delete(users).where(eq(users.id, id));
+    return await userRepository.deleteUser(id);
   }
 
   async checkUserCanBeDeleted(
@@ -430,83 +423,27 @@ export class DatabaseStorage implements IStorage {
     reason?: string;
     associatedRequests?: number;
   }> {
-    // Check if user has any purchase requests as requester
-    const requestsAsRequester = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(purchaseRequests)
-      .where(eq(purchaseRequests.requesterId, id));
-
-    // Check if user has any purchase requests as approver A1
-    const requestsAsApproverA1 = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(purchaseRequests)
-      .where(eq(purchaseRequests.approverA1Id, id));
-
-    // Check if user has any purchase requests as approver A2
-    const requestsAsApproverA2 = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(purchaseRequests)
-      .where(eq(purchaseRequests.approverA2Id, id));
-
-    // Check approval history
-    const approvalHistoryCount = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(approvalHistory)
-      .where(eq(approvalHistory.approverId, id));
-
-    const totalRequests =
-      Number(requestsAsRequester[0].count) +
-      Number(requestsAsApproverA1[0].count) +
-      Number(requestsAsApproverA2[0].count);
-
-    const totalApprovals = Number(approvalHistoryCount[0].count);
-
-    if (totalRequests > 0 || totalApprovals > 0) {
-      return {
-        canDelete: false,
-        reason:
-          "Usuário possui solicitações de compra ou histórico de aprovações associadas",
-        associatedRequests: totalRequests + totalApprovals,
-      };
-    }
-
-    return { canDelete: true };
+    return await userRepository.checkUserCanBeDeleted(id);
   }
 
+  // Department operations
   async getAllDepartments(companyId?: number): Promise<Department[]> {
-    const query = db.select().from(departments);
-    if (companyId) {
-      query.where(eq(departments.companyId, companyId));
-    }
-    return await query;
+    return await departmentRepository.getAllDepartments(companyId);
   }
 
   async createDepartment(department: InsertDepartment): Promise<Department> {
-    const [newDepartment] = await db
-      .insert(departments)
-      .values(department)
-      .returning();
-    return newDepartment;
+    return await departmentRepository.createDepartment(department);
   }
 
   async getDepartmentById(id: number): Promise<Department | undefined> {
-    const [department] = await db
-      .select()
-      .from(departments)
-      .where(eq(departments.id, id));
-    return department || undefined;
+    return await departmentRepository.getDepartmentById(id);
   }
 
   async updateDepartment(
     id: number,
     updateData: Partial<InsertDepartment>,
   ): Promise<Department> {
-    const [department] = await db
-      .update(departments)
-      .set({ ...updateData })
-      .where(eq(departments.id, id))
-      .returning();
-    return department;
+    return await departmentRepository.updateDepartment(id, updateData);
   }
 
   async checkDepartmentCanBeDeleted(
@@ -517,86 +454,37 @@ export class DatabaseStorage implements IStorage {
     associatedCostCenters?: number;
     associatedUsers?: number;
   }> {
-    // Check if department has cost centers
-    const costCentersCount = await db
-      .select({ count: count() })
-      .from(costCenters)
-      .where(eq(costCenters.departmentId, id));
-
-    const totalCostCenters = Number(costCentersCount[0].count);
-
-    // Check if department has users
-    const usersCount = await db
-      .select({ count: count() })
-      .from(userDepartments)
-      .where(eq(userDepartments.departmentId, id));
-
-    const totalUsers = Number(usersCount[0].count);
-
-    if (totalCostCenters > 0) {
-      return {
-        canDelete: false,
-        reason: "Departamento possui centros de custo associados",
-        associatedCostCenters: totalCostCenters,
-        associatedUsers: totalUsers,
-      };
-    }
-
-    if (totalUsers > 0) {
-      return {
-        canDelete: false,
-        reason: "Departamento possui usuários associados",
-        associatedCostCenters: totalCostCenters,
-        associatedUsers: totalUsers,
-      };
-    }
-
-    return { canDelete: true };
+    return await departmentRepository.checkDepartmentCanBeDeleted(id);
   }
 
   async deleteDepartment(id: number): Promise<void> {
-    await db.delete(departments).where(eq(departments.id, id));
+    return await departmentRepository.deleteDepartment(id);
   }
 
+  // Cost Center operations
   async getAllCostCenters(): Promise<CostCenter[]> {
-    return await db.select().from(costCenters);
+    return await departmentRepository.getAllCostCenters();
   }
 
   async getCostCenterById(id: number): Promise<CostCenter | undefined> {
-    const [costCenter] = await db
-      .select()
-      .from(costCenters)
-      .where(eq(costCenters.id, id));
-    return costCenter || undefined;
+    return await departmentRepository.getCostCenterById(id);
   }
 
   async getCostCentersByDepartment(
     departmentId: number,
   ): Promise<CostCenter[]> {
-    return await db
-      .select()
-      .from(costCenters)
-      .where(eq(costCenters.departmentId, departmentId));
+    return await departmentRepository.getCostCentersByDepartment(departmentId);
   }
 
   async createCostCenter(costCenter: InsertCostCenter): Promise<CostCenter> {
-    const [newCostCenter] = await db
-      .insert(costCenters)
-      .values(costCenter)
-      .returning();
-    return newCostCenter;
+    return await departmentRepository.createCostCenter(costCenter);
   }
 
   async updateCostCenter(
     id: number,
     updateData: Partial<InsertCostCenter>,
   ): Promise<CostCenter> {
-    const [costCenter] = await db
-      .update(costCenters)
-      .set({ ...updateData })
-      .where(eq(costCenters.id, id))
-      .returning();
-    return costCenter;
+    return await departmentRepository.updateCostCenter(id, updateData);
   }
 
   async checkCostCenterCanBeDeleted(
@@ -607,1167 +495,162 @@ export class DatabaseStorage implements IStorage {
     associatedUsers?: number;
     associatedRequests?: number;
   }> {
-    // Check if cost center has users
-    const usersCount = await db
-      .select({ count: count() })
-      .from(userCostCenters)
-      .where(eq(userCostCenters.costCenterId, id));
-
-    const totalUsers = Number(usersCount[0].count);
-
-    // Check if cost center has purchase requests
-    const requestsCount = await db
-      .select({ count: count() })
-      .from(purchaseRequests)
-      .where(eq(purchaseRequests.costCenterId, id));
-
-    const totalRequests = Number(requestsCount[0].count);
-
-    if (totalUsers > 0) {
-      return {
-        canDelete: false,
-        reason: "Centro de custo possui usuários associados",
-        associatedUsers: totalUsers,
-        associatedRequests: totalRequests,
-      };
-    }
-
-    if (totalRequests > 0) {
-      return {
-        canDelete: false,
-        reason: "Centro de custo possui solicitações de compra associadas",
-        associatedUsers: totalUsers,
-        associatedRequests: totalRequests,
-      };
-    }
-
-    return { canDelete: true };
+    return await departmentRepository.checkCostCenterCanBeDeleted(id);
   }
 
   async deleteCostCenter(id: number): Promise<void> {
-    await db.delete(costCenters).where(eq(costCenters.id, id));
+    return await departmentRepository.deleteCostCenter(id);
   }
 
   async getUserDepartments(userId: number): Promise<number[]> {
-    const userDepts = await db
-      .select({ departmentId: userDepartments.departmentId })
-      .from(userDepartments)
-      .where(eq(userDepartments.userId, userId));
-    return userDepts.map((ud) => ud.departmentId!).filter((id) => id !== null);
+    return await userRepository.getUserDepartments(userId);
   }
 
   async assignUserToDepartment(
     userId: number,
     departmentId: number,
   ): Promise<void> {
-    await db
-      .insert(userDepartments)
-      .values({ userId, departmentId })
-      .onConflictDoNothing();
+    return await userRepository.assignUserToDepartment(userId, departmentId);
   }
 
   async removeUserFromDepartment(
     userId: number,
     departmentId: number,
   ): Promise<void> {
-    await db
-      .delete(userDepartments)
-      .where(
-        and(
-          eq(userDepartments.userId, userId),
-          eq(userDepartments.departmentId, departmentId),
-        ),
-      );
+    return await userRepository.removeUserFromDepartment(userId, departmentId);
   }
 
   async getUserCostCenters(userId: number): Promise<number[]> {
-    const userCostCentersList = await db
-      .select({ costCenterId: userCostCenters.costCenterId })
-      .from(userCostCenters)
-      .where(eq(userCostCenters.userId, userId));
-    return userCostCentersList
-      .map((uc) => uc.costCenterId!)
-      .filter((id) => id !== null);
+    return await userRepository.getUserCostCenters(userId);
   }
 
   async assignUserToCostCenter(
     userId: number,
     costCenterId: number,
   ): Promise<void> {
-    await db
-      .insert(userCostCenters)
-      .values({ userId, costCenterId })
-      .onConflictDoNothing();
+    return await userRepository.assignUserToCostCenter(userId, costCenterId);
   }
 
   async removeUserFromCostCenter(
     userId: number,
     costCenterId: number,
   ): Promise<void> {
-    await db
-      .delete(userCostCenters)
-      .where(
-        and(
-          eq(userCostCenters.userId, userId),
-          eq(userCostCenters.costCenterId, costCenterId),
-        ),
-      );
+    return await userRepository.removeUserFromCostCenter(userId, costCenterId);
   }
 
   async setUserCostCenters(
     userId: number,
     costCenterIds: number[],
   ): Promise<void> {
-    // Remove all existing associations
-    await db.delete(userCostCenters).where(eq(userCostCenters.userId, userId));
-
-    // Add new associations
-    if (costCenterIds.length > 0) {
-      await db
-        .insert(userCostCenters)
-        .values(
-          costCenterIds.map((costCenterId) => ({ userId, costCenterId })),
-        );
-    }
+    return await userRepository.setUserCostCenters(userId, costCenterIds);
   }
 
   async getAllSuppliers(companyId?: number): Promise<Supplier[]> {
-    const query = db.select().from(suppliers);
-    if (companyId) {
-      query.where(eq(suppliers.companyId, companyId));
-    }
-    return await query;
+    return await supplierRepository.getAllSuppliers(companyId);
   }
 
   async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
-    const [newSupplier] = await db
-      .insert(suppliers)
-      .values(supplier)
-      .returning();
-    return newSupplier;
+    return await supplierRepository.createSupplier(supplier);
   }
 
   async getSupplierById(id: number): Promise<Supplier | undefined> {
-    const [supplier] = await db
-      .select()
-      .from(suppliers)
-      .where(eq(suppliers.id, id));
-    return supplier || undefined;
+    return await supplierRepository.getSupplierById(id);
   }
 
   async updateSupplier(
     id: number,
     supplier: Partial<InsertSupplier>,
   ): Promise<Supplier> {
-    const [updatedSupplier] = await db
-      .update(suppliers)
-      .set({
-        ...supplier,
-        // Ensure we don't accidentally clear the companyId
-        companyId: supplier.companyId || undefined,
-      })
-      .where(eq(suppliers.id, id))
-      .returning();
-    
-    if (!updatedSupplier) {
-      throw new Error("Supplier not found");
-    }
-    
-    return updatedSupplier;
+    return await supplierRepository.updateSupplier(id, supplier);
   }
 
   async getAllPaymentMethods(): Promise<PaymentMethod[]> {
-    return await db.select().from(paymentMethods);
+    return await systemRepository.getAllPaymentMethods();
   }
 
   async createPaymentMethod(
     paymentMethod: InsertPaymentMethod,
   ): Promise<PaymentMethod> {
-    const [newPaymentMethod] = await db
-      .insert(paymentMethods)
-      .values(paymentMethod)
-      .returning();
-    return newPaymentMethod;
+    return await systemRepository.createPaymentMethod(paymentMethod);
   }
 
   async getAllDeliveryLocations(): Promise<DeliveryLocation[]> {
-    return await db
-      .select()
-      .from(deliveryLocations)
-      .where(eq(deliveryLocations.active, true));
+    return await systemRepository.getAllDeliveryLocations();
   }
 
   async getDeliveryLocationById(
     id: number,
   ): Promise<DeliveryLocation | undefined> {
-    const [location] = await db
-      .select()
-      .from(deliveryLocations)
-      .where(eq(deliveryLocations.id, id));
-    return location || undefined;
+    return await systemRepository.getDeliveryLocationById(id);
   }
 
   async createDeliveryLocation(
     deliveryLocation: InsertDeliveryLocation,
   ): Promise<DeliveryLocation> {
-    const [newLocation] = await db
-      .insert(deliveryLocations)
-      .values(deliveryLocation)
-      .returning();
-    return newLocation;
+    return await systemRepository.createDeliveryLocation(deliveryLocation);
   }
 
   async updateDeliveryLocation(
     id: number,
     deliveryLocation: Partial<InsertDeliveryLocation>,
   ): Promise<DeliveryLocation> {
-    const [updatedLocation] = await db
-      .update(deliveryLocations)
-      .set({ ...deliveryLocation, updatedAt: new Date() })
-      .where(eq(deliveryLocations.id, id))
-      .returning();
-    return updatedLocation;
+    return await systemRepository.updateDeliveryLocation(id, deliveryLocation);
   }
 
   async deleteDeliveryLocation(id: number): Promise<void> {
-    await db
-      .update(deliveryLocations)
-      .set({ active: false, updatedAt: new Date() })
-      .where(eq(deliveryLocations.id, id));
+    return await systemRepository.deleteDeliveryLocation(id);
   }
 
+  // Purchase Request operations
   async getAllPurchaseRequests(companyId?: number, user?: User): Promise<PurchaseRequest[]> {
-    const conditions = [];
-
-    if (companyId) {
-      conditions.push(eq(purchaseRequests.companyId, companyId));
-    }
-
-    if (user) {
-      const hasFullAccess =
-        user.isAdmin ||
-        user.isBuyer ||
-        user.isReceiver ||
-        user.isApproverA1 ||
-        user.isApproverA2;
-
-      if (!hasFullAccess) {
-        // Restricted access: Creator OR Department
-        const userDeptIds = await this.getUserDepartments(user.id);
-        
-        const restrictions = [eq(purchaseRequests.requesterId, user.id)];
-        
-        if (userDeptIds.length > 0) {
-             restrictions.push(inArray(departments.id, userDeptIds));
-        }
-        
-        conditions.push(or(...restrictions));
-      }
-    }
-
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-    const requests = await db
-      .select({
-        id: purchaseRequests.id,
-        requestNumber: purchaseRequests.requestNumber,
-        requesterId: purchaseRequests.requesterId,
-        costCenterId: purchaseRequests.costCenterId,
-        companyId: purchaseRequests.companyId,
-        category: purchaseRequests.category,
-        urgency: purchaseRequests.urgency,
-        justification: purchaseRequests.justification,
-        idealDeliveryDate: purchaseRequests.idealDeliveryDate,
-        availableBudget: purchaseRequests.availableBudget,
-        additionalInfo: purchaseRequests.additionalInfo,
-        currentPhase: purchaseRequests.currentPhase,
-        lastPhase: purchaseRequests.lastPhase,
-        approverA1Id: purchaseRequests.approverA1Id,
-        approvedA1: purchaseRequests.approvedA1,
-        rejectionReasonA1: purchaseRequests.rejectionReasonA1,
-        approvalDateA1: purchaseRequests.approvalDateA1,
-        buyerId: purchaseRequests.buyerId,
-        totalValue: sql<string>`COALESCE(
-          NULLIF(${purchaseRequests.totalValue}, 0),
-          (SELECT SUM(total_price) FROM purchase_order_items WHERE purchase_order_id = ${purchaseOrders.id}),
-          0
-        )::text`,
-        paymentMethodId: purchaseRequests.paymentMethodId,
-        approverA2Id: purchaseRequests.approverA2Id,
-        approvedA2: purchaseRequests.approvedA2,
-        rejectionReasonA2: purchaseRequests.rejectionReasonA2,
-        rejectionActionA2: purchaseRequests.rejectionActionA2,
-        approvalDateA2: purchaseRequests.approvalDateA2,
-        chosenSupplierId: purchaseRequests.chosenSupplierId,
-        choiceReason: purchaseRequests.choiceReason,
-        negotiatedValue: purchaseRequests.negotiatedValue,
-        discountsObtained: purchaseRequests.discountsObtained,
-        deliveryDate: purchaseRequests.deliveryDate,
-        purchaseDate: purchaseRequests.purchaseDate,
-        purchaseObservations: purchaseRequests.purchaseObservations,
-        receivedById: purchaseRequests.receivedById,
-        receivedDate: purchaseRequests.receivedDate,
-        hasPendency: purchaseRequests.hasPendency,
-        pendencyReason: purchaseRequests.pendencyReason,
-        createdAt: purchaseRequests.createdAt,
-        updatedAt: purchaseRequests.updatedAt,
-        // Requester data
-        requester: {
-          id: requesterUser.id,
-          firstName: requesterUser.firstName,
-          lastName: requesterUser.lastName,
-          username: requesterUser.username,
-          email: requesterUser.email,
-        },
-        // Approver A1 data
-        approverA1: {
-          id: approverA1User.id,
-          firstName: approverA1User.firstName,
-          lastName: approverA1User.lastName,
-          username: approverA1User.username,
-          email: approverA1User.email,
-        },
-        // Cost Center and Department data
-        costCenter: {
-          id: costCenters.id,
-          code: costCenters.code,
-          name: costCenters.name,
-          departmentId: costCenters.departmentId,
-        },
-        department: {
-          id: departments.id,
-          name: departments.name,
-          description: departments.description,
-        },
-        // Check if quotation exists
-        hasQuotation: sql<boolean>`EXISTS(SELECT 1 FROM ${quotations} WHERE ${quotations.purchaseRequestId} = ${purchaseRequests.id})`,
-        // Chosen Supplier data
-        chosenSupplier: {
-          id: chosenSupplier.id,
-          name: chosenSupplier.name,
-          email: chosenSupplier.email,
-        },
-        // Purchase Order data
-        purchaseOrder: {
-          id: purchaseOrders.id,
-          orderNumber: purchaseOrders.orderNumber,
-          fulfillmentStatus: purchaseOrders.fulfillmentStatus,
-        },
-        // Check for pending fiscal receipts
-        hasPendingFiscal: sql<boolean>`EXISTS(SELECT 1 FROM ${receipts} WHERE ${receipts.purchaseOrderId} = ${purchaseOrders.id} AND ${receipts.status} = 'conf_fisica')`,
-      })
-      .from(purchaseRequests)
-      .leftJoin(
-        requesterUser,
-        eq(purchaseRequests.requesterId, requesterUser.id),
-      )
-      .leftJoin(
-        approverA1User,
-        eq(purchaseRequests.approverA1Id, approverA1User.id),
-      )
-      .leftJoin(costCenters, eq(purchaseRequests.costCenterId, costCenters.id))
-      .leftJoin(departments, eq(costCenters.departmentId, departments.id))
-      .leftJoin(
-        chosenSupplier,
-        eq(purchaseRequests.chosenSupplierId, chosenSupplier.id),
-      )
-      .leftJoin(
-        purchaseOrders,
-        eq(purchaseOrders.purchaseRequestId, purchaseRequests.id),
-      )
-      .where(whereClause)
-      .orderBy(desc(purchaseRequests.createdAt));
-
-    return requests as any[];
+    return await purchaseRequestRepository.getAllPurchaseRequests(companyId, user);
   }
 
   async getPurchaseRequestById(
     id: number,
   ): Promise<PurchaseRequest | undefined> {
-    // First get the purchase request
-    const [request] = await db
-      .select()
-      .from(purchaseRequests)
-      .where(eq(purchaseRequests.id, id));
-
-    if (!request) {
-      return undefined;
-    }
-
-    // Then get the requester data separately if requesterId exists
-    let requester = null;
-    let requesterName = "N/A";
-    let requesterUsername = "N/A";
-    let requesterEmail = "";
-
-    if (request.requesterId) {
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, request.requesterId));
-
-      if (user) {
-        requester = {
-          id: user.id,
-          username: user.username,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-        };
-        requesterName = user.firstName
-          ? `${user.firstName} ${user.lastName || ""}`.trim()
-          : user.username;
-        requesterUsername = user.username;
-        requesterEmail = user.email || "";
-      }
-    }
-
-    // Return the complete object with all necessary fields
-    const result = {
-      ...request,
-      requester,
-      requesterName,
-      requesterUsername,
-      requesterEmail,
-    };
-
-    return result as any;
+    return await purchaseRequestRepository.getPurchaseRequestById(id);
   }
 
   async getPurchaseRequestByNumber(requestNumber: string): Promise<PurchaseRequest | undefined> {
-    const [request] = await db
-      .select()
-      .from(purchaseRequests)
-      .where(eq(purchaseRequests.requestNumber, requestNumber));
-    
-    // Debug: Log the request data to verify category and urgency fields
-    if (request) {
-      console.log('getPurchaseRequestByNumber - Request data:', {
-        id: request.id,
-        requestNumber: request.requestNumber,
-        category: request.category,
-        urgency: request.urgency,
-        allFields: Object.keys(request)
-      });
-    }
-    
-    return request || undefined;
+    return await purchaseRequestRepository.getPurchaseRequestByNumber(requestNumber);
   }
 
   async createPurchaseRequest(
     request: InsertPurchaseRequest,
   ): Promise<PurchaseRequest> {
-    // Generate request number
-    const year = new Date().getFullYear();
-    const requests = await db
-      .select()
-      .from(purchaseRequests)
-      .orderBy(desc(purchaseRequests.requestNumber));
-
-    let maxSequence = 0;
-    const prefix = `SOL-${year}-`;
-
-    // Find the highest sequence number for the current year
-    for (const req of requests) {
-      if (req.requestNumber?.startsWith(prefix)) {
-        const sequence = parseInt(req.requestNumber.substring(prefix.length));
-        if (!isNaN(sequence) && sequence > maxSequence) {
-          maxSequence = sequence;
-        }
-      }
-    }
-
-    // Generate next sequence number
-    const nextSequence = maxSequence + 1;
-    const requestNumber = `${prefix}${String(nextSequence).padStart(3, "0")}`;
-
-    const [newRequest] = await db
-      .insert(purchaseRequests)
-      .values({ ...request, requestNumber })
-      .returning();
-    return newRequest;
+    return await purchaseRequestRepository.createPurchaseRequest(request);
   }
 
   async updatePurchaseRequest(
     id: number,
     request: Partial<InsertPurchaseRequest>,
   ): Promise<PurchaseRequest> {
-    const [updatedRequest] = await db
-      .update(purchaseRequests)
-      .set({ ...request, updatedAt: new Date() })
-      .where(eq(purchaseRequests.id, id))
-      .returning();
-    return updatedRequest;
+    return await purchaseRequestRepository.updatePurchaseRequest(id, request);
   }
 
   async getPurchaseRequestsByPhase(phase: string): Promise<PurchaseRequestWithDetails[]> {
-    const results = await db
-      .select({
-        request: purchaseRequests,
-        supplier: suppliers,
-        requester: users,
-      })
-      .from(purchaseRequests)
-      .leftJoin(suppliers, eq(purchaseRequests.chosenSupplierId, suppliers.id))
-      .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
-      .where(eq(purchaseRequests.currentPhase, phase))
-      .orderBy(desc(purchaseRequests.createdAt));
-
-    const requestsWithItems = await Promise.all(
-      results.map(async ({ request, supplier, requester }) => {
-        const items = await this.getPurchaseRequestItems(request.id);
-        
-        // Buscar pedido de compra associado
-        const [purchaseOrder] = await db
-          .select()
-          .from(purchaseOrders)
-          .where(eq(purchaseOrders.purchaseRequestId, request.id))
-          .limit(1);
-
-        return {
-          ...request,
-          chosenSupplier: supplier,
-          requester,
-          items,
-          purchaseOrder,
-        };
-      })
-    );
-
-    return requestsWithItems as unknown as PurchaseRequestWithDetails[];
+    return await purchaseRequestRepository.getPurchaseRequestsByPhase(phase);
   }
 
   async getPendingMaterialsForConference(): Promise<PurchaseRequestWithDetails[]> {
-    // New flow: requests in 'pedido_concluido' with pending receipts in 'recebimento_fisico'
-    // Legacy flow: requests still in 'recebimento' phase
-    const results = await db
-      .selectDistinct({
-        request: purchaseRequests,
-        supplier: suppliers,
-        requester: users,
-      })
-      .from(purchaseRequests)
-      .leftJoin(suppliers, eq(purchaseRequests.chosenSupplierId, suppliers.id))
-      .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
-      .leftJoin(receipts, eq(purchaseRequests.id, receipts.purchaseRequestId))
-      .leftJoin(purchaseOrders, eq(purchaseRequests.id, purchaseOrders.purchaseRequestId))
-      .where(
-        or(
-          eq(purchaseRequests.currentPhase, 'recebimento'),
-          and(
-            eq(purchaseRequests.currentPhase, 'pedido_concluido'),
-            eq(receipts.receiptPhase, 'recebimento_fisico'),
-            // Filter out orphans: if PO is fully received, the receipt must NOT be nf_pendente/rascunho
-            sql`NOT (${purchaseOrders.fulfillmentStatus} = 'fulfilled' AND (${receipts.status} = 'nf_pendente' OR ${receipts.status} = 'rascunho'))`
-          )
-        )
-      )
-      .orderBy(desc(purchaseRequests.createdAt));
-
-    const requestsWithItems = await Promise.all(
-      results.map(async ({ request, supplier, requester }) => {
-        const items = await this.getPurchaseRequestItems(request.id);
-        
-        const [purchaseOrder] = await db
-          .select()
-          .from(purchaseOrders)
-          .where(eq(purchaseOrders.purchaseRequestId, request.id))
-          .limit(1);
-
-        return {
-          ...request,
-          chosenSupplier: supplier,
-          requester,
-          items,
-          purchaseOrder,
-        };
-      })
-    );
-
-    return requestsWithItems as unknown as PurchaseRequestWithDetails[];
+    return await purchaseRequestRepository.getPendingMaterialsForConference();
   }
 
   async getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]> {
-    return await db
-      .select()
-      .from(purchaseRequests)
-      .where(eq(purchaseRequests.requesterId, userId))
-      .orderBy(desc(purchaseRequests.createdAt));
+    return await purchaseRequestRepository.getPurchaseRequestsByUser(userId);
   }
 
   async getPurchaseRequestsForReport(filters: any): Promise<{ data: any[]; total: number; summary?: any }> {
-    try {
-      const timeoutMsRaw = Number(process.env.REPORT_QUERY_TIMEOUT_MS ?? "");
-      const timeoutMs =
-        Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : 20_000;
-
-      // Base SQL query parts
-      let selectClause = `
-        SELECT 
-          pr.id,
-          pr.request_number as "requestNumber",
-          pr.justification,
-          pr.category,
-          pr.requester_id as "requesterId",
-          pr.cost_center_id as "costCenterId",
-          pr.current_phase as "currentPhase",
-          pr.urgency,
-          pr.created_at as "createdAt",
-          pr.updated_at as "updatedAt",
-          pr.buyer_id as "buyerId",
-          pr.approver_a1_id as "approverA1Id",
-          pr.approver_a2_id as "approverA2Id",
-          pr.total_value as "totalValue",
-          pr.chosen_supplier_id as "chosenSupplierId"
-      `;
-      
-      let fromClause = `FROM purchase_requests pr`;
-      
-      const whereConditions: string[] = [];
-      const params: any[] = [];
-      let paramCounter = 1;
-      
-      // Build WHERE conditions
-      if (filters?.startDate) {
-        whereConditions.push(`pr.created_at >= $${paramCounter}`);
-        params.push(filters.startDate);
-        paramCounter++;
-      }
-
-      if (filters?.endDate) {
-        whereConditions.push(`pr.created_at <= $${paramCounter}`);
-        params.push(filters.endDate);
-        paramCounter++;
-      }
-      
-      if (filters?.departmentId && !isNaN(parseInt(filters.departmentId))) {
-        whereConditions.push(`pr.cost_center_id = $${paramCounter}`);
-        params.push(parseInt(filters.departmentId));
-        paramCounter++;
-      }
-      
-      if (filters?.requesterId && !isNaN(parseInt(filters.requesterId))) {
-        whereConditions.push(`pr.requester_id = $${paramCounter}`);
-        params.push(parseInt(filters.requesterId));
-        paramCounter++;
-      }
-      
-      if (filters?.phase && typeof filters.phase === 'string') {
-        whereConditions.push(`pr.current_phase = $${paramCounter}`);
-        params.push(filters.phase);
-        paramCounter++;
-      }
-      
-      if (filters?.urgency && typeof filters.urgency === 'string') {
-        whereConditions.push(`pr.urgency = $${paramCounter}`);
-        params.push(filters.urgency);
-        paramCounter++;
-      }
-      
-      if (filters?.supplierId && typeof filters.supplierId === 'string') {
-        // Filter by supplier name instead of ID since frontend sends supplier name
-        whereConditions.push(`pr.chosen_supplier_id IN (SELECT id FROM suppliers WHERE name = $${paramCounter})`);
-        params.push(filters.supplierId);
-        paramCounter++;
-      }
-      
-      if (filters?.search && typeof filters.search === 'string' && filters.search.trim() !== '') {
-        const searchTerm = `%${filters.search.trim()}%`;
-        whereConditions.push(`(pr.justification ILIKE $${paramCounter} OR pr.request_number ILIKE $${paramCounter + 1} OR pr.category ILIKE $${paramCounter + 2})`);
-        params.push(searchTerm, searchTerm, searchTerm);
-        paramCounter += 3;
-      }
-      
-      if (filters?.itemDescription && typeof filters.itemDescription === 'string' && filters.itemDescription.trim() !== '') {
-        const itemDesc = `%${filters.itemDescription.trim()}%`;
-        whereConditions.push(`pr.id IN (SELECT purchase_request_id FROM purchase_request_items WHERE description ILIKE $${paramCounter})`);
-        params.push(itemDesc);
-        paramCounter++;
-      }
-      
-      // Combine clauses
-      let whereClause = '';
-      if (whereConditions.length > 0) {
-        whereClause = ' WHERE ' + whereConditions.join(' AND ');
-      }
-      
-      // 1. Get total count + data with timeout for the main report query
-      const client = await pool.connect();
-      let total = 0;
-      let requests: any[] = [];
-      try {
-        await client.query("BEGIN");
-        await client.query(`SET LOCAL statement_timeout = '${timeoutMs}ms'`);
-
-        const countSql = `SELECT COUNT(*) as total ${fromClause} ${whereClause}`;
-        const countResult = await client.query(countSql, params);
-        total = parseInt(countResult.rows[0]?.total || "0");
-
-        let sqlQuery = `${selectClause} ${fromClause} ${whereClause} ORDER BY pr.created_at DESC`;
-
-        if (filters.limit !== undefined && filters.offset !== undefined && !filters.resumo && !filters.export) {
-          sqlQuery += ` LIMIT $${paramCounter} OFFSET $${paramCounter + 1}`;
-          params.push(filters.limit, filters.offset);
-          paramCounter += 2;
-        }
-
-        const result = await client.query(sqlQuery, params);
-        requests = result.rows;
-        await client.query("COMMIT");
-      } catch (error) {
-        try {
-          await client.query("ROLLBACK");
-        } catch {}
-        throw error;
-      } finally {
-        client.release();
-      }
-      
-      // Get requester and department names separately, plus related data
-      const requestsWithNames = await Promise.all(
-        requests.map(async (request: any) => {
-          let requesterName = 'N/A';
-          let requesterEmail = 'N/A';
-          let departmentName = 'N/A';
-          
-          if (request.requesterId) {
-            try {
-              const requesterResult = await pool.query(
-                'SELECT first_name, last_name, email FROM users WHERE id = $1 LIMIT 1',
-                [request.requesterId]
-              );
-              
-              if (requesterResult.rows.length > 0) {
-                const user = requesterResult.rows[0];
-                const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'N/A';
-                requesterName = fullName;
-                requesterEmail = user.email || 'N/A';
-              }
-            } catch (error) {
-              // Error fetching requester data
-            }
-          }
-          
-          if (request.costCenterId) {
-            try {
-              const costCenterResult = await pool.query(
-                'SELECT cc.name as cost_center_name, d.name as department_name FROM cost_centers cc LEFT JOIN departments d ON cc.department_id = d.id WHERE cc.id = $1 LIMIT 1',
-                [request.costCenterId]
-              );
-              
-              if (costCenterResult.rows.length > 0) {
-                departmentName = costCenterResult.rows[0].department_name || 'N/A';
-              }
-            } catch (error) {
-              // Error fetching department data
-            }
-          }
-          
-          // Fetch chosen supplier information
-          let supplierName = 'N/A';
-          if (request.chosenSupplierId) {
-            try {
-              const supplierResult = await pool.query(
-                'SELECT name FROM suppliers WHERE id = $1 LIMIT 1',
-                [request.chosenSupplierId]
-              );
-              
-              if (supplierResult.rows.length > 0) {
-                supplierName = supplierResult.rows[0].name || 'N/A';
-              }
-            } catch (error) {
-              // Error fetching supplier data
-            }
-          }
-          
-          // Fetch approvers information
-          let approverA1Name = 'N/A';
-          let approverA2Name = 'N/A';
-          
-          if (request.approverA1Id) {
-            try {
-              const approverResult = await pool.query(
-                'SELECT first_name, last_name FROM users WHERE id = $1 LIMIT 1',
-                [request.approverA1Id]
-              );
-              
-              if (approverResult.rows.length > 0) {
-                const user = approverResult.rows[0];
-                approverA1Name = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'N/A';
-              }
-            } catch (error) {
-              // Error fetching approver A1 data
-            }
-          }
-          
-          if (request.approverA2Id) {
-            try {
-              const approverResult = await pool.query(
-                'SELECT first_name, last_name FROM users WHERE id = $1 LIMIT 1',
-                [request.approverA2Id]
-              );
-              
-              if (approverResult.rows.length > 0) {
-                const user = approverResult.rows[0];
-                approverA2Name = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'N/A';
-              }
-            } catch (error) {
-              // Error fetching approver A2 data
-            }
-          }
-          
-          let itemsParaCalculo: ItemCalculo[] = [];
-          let globalDiscount = { tipo: "none" as any, valor: 0 };
-          
-          let poItemsSum = 0;
-          let purchaseOrderOriginalDescFound = false;
-
-          try {
-            const poItemsResult = await pool.query(
-              `SELECT poi.unit_price, poi.quantity, poi.total_price
-               FROM purchase_order_items poi 
-               JOIN purchase_orders po ON poi.purchase_order_id = po.id 
-               WHERE po.purchase_request_id = $1`,
-              [request.id]
-            );
-            if (poItemsResult.rows.length > 0) {
-              purchaseOrderOriginalDescFound = true;
-              itemsParaCalculo = poItemsResult.rows.map((row: any) => ({
-                valorOriginal: (parseFloat(row.unit_price) || 0) * (parseFloat(row.quantity) || 0),
-                descontoItem: ((parseFloat(row.unit_price) || 0) * (parseFloat(row.quantity) || 0)) - (parseFloat(row.total_price) || 0)
-              }));
-              poItemsSum = itemsParaCalculo.reduce((acc, curr) => acc + (curr.valorOriginal - curr.descontoItem), 0);
-            }
-          } catch {}
-
-          if (!purchaseOrderOriginalDescFound && request.chosenSupplierId) {
-            const chosenSupplierQuotationResult = await pool.query(
-              `SELECT sq.id, sq.discount_type, sq.discount_value
-               FROM supplier_quotations sq
-               JOIN quotations q ON sq.quotation_id = q.id
-               WHERE q.purchase_request_id = $1 AND sq.supplier_id = $2
-               ORDER BY sq.created_at DESC LIMIT 1`,
-              [request.id, request.chosenSupplierId]
-            );
-            if (chosenSupplierQuotationResult.rows.length > 0) {
-              const quotation = chosenSupplierQuotationResult.rows[0];
-              globalDiscount = {
-                tipo: quotation.discount_type,
-                valor: parseFloat(quotation.discount_value) || 0
-              };
-              
-              try {
-                const itemsRes = await pool.query(
-                  `SELECT original_total_price, discounted_total_price, total_price, discount_percentage, discount_value
-                   FROM supplier_quotation_items
-                   WHERE supplier_quotation_id = $1`,
-                  [quotation.id]
-                );
-                
-                itemsParaCalculo = itemsRes.rows.map((row: any) => {
-                  let orig = parseFloat(row.original_total_price || '0') || 0;
-                  const final = parseFloat(row.total_price || '0') || 0;
-                  if (orig === 0 || orig < final) orig = final; // safeguard
-
-                  // We trust the explicit discount if mapped
-                  let descItem = orig - final;
-                  return { valorOriginal: orig, descontoItem: Math.max(0, descItem) };
-                });
-              } catch (err) {}
-            }
-          }
-
-          if (itemsParaCalculo.length === 0 && request.totalValue) {
-             const v = parseFloat(request.totalValue);
-             if (v > 0) {
-               itemsParaCalculo.push({ valorOriginal: v, descontoItem: 0 });
-             }
-          }
-
-          const resultadoCalculo = CalculadoraValoresSolicitacao.calcularTotais(itemsParaCalculo, globalDiscount);
-
-          // Fetch related items with prices from purchase orders if available
-          let items: any[] = [];
-          try {
-            const itemsResult = await pool.query(
-              'SELECT id, description, requested_quantity, unit, product_code, technical_specification FROM purchase_request_items WHERE purchase_request_id = $1 ORDER BY id',
-              [request.id]
-            );
-            
-            // Get purchase order items for pricing if purchase order exists
-            let purchaseOrderItems = [];
-            try {
-              const poItemsResult = await pool.query(
-                `SELECT poi.item_code, poi.description, poi.unit_price, poi.total_price, po.id as purchase_order_id
-                 FROM purchase_order_items poi 
-                 JOIN purchase_orders po ON poi.purchase_order_id = po.id 
-                 WHERE po.purchase_request_id = $1
-                 ORDER BY poi.id`,
-                [request.id]
-              );
-              purchaseOrderItems = poItemsResult.rows;
-              
-              // Purchase order items found
-            } catch (error) {
-              // Error fetching purchase order items - will use fallback
-            }
-            
-            // Fallback: Get pricing from supplier quotations if no purchase order items or if they have zero prices
-            let supplierQuotationItems = [];
-            if (request.chosenSupplierId && (purchaseOrderItems.length === 0 || purchaseOrderItems.every(poi => parseFloat(poi.unit_price) === 0))) {
-              try {
-                const quotationResult = await pool.query(
-                  'SELECT id FROM quotations WHERE purchase_request_id = $1 ORDER BY created_at DESC LIMIT 1',
-                  [request.id]
-                );
-                
-                if (quotationResult.rows.length > 0) {
-                  const quotationId = quotationResult.rows[0].id;
-                  const supplierQuotationResult = await pool.query(
-                    'SELECT id FROM supplier_quotations WHERE quotation_id = $1 AND supplier_id = $2 AND (is_chosen = true OR is_chosen IS NULL) LIMIT 1',
-                    [quotationId, request.chosenSupplierId]
-                  );
-                  
-                  if (supplierQuotationResult.rows.length > 0) {
-                    const supplierQuotationId = supplierQuotationResult.rows[0].id;
-                    const sqItemsResult = await pool.query(
-                      `SELECT sqi.unit_price, sqi.total_price, qi.description, qi.item_code
-                       FROM supplier_quotation_items sqi
-                       JOIN quotation_items qi ON sqi.quotation_item_id = qi.id
-                       WHERE sqi.supplier_quotation_id = $1 AND sqi.is_available = true`,
-                      [supplierQuotationId]
-                    );
-                    supplierQuotationItems = sqItemsResult.rows;
-                  }
-                }
-              } catch (error) {
-                // Error fetching supplier quotation items fallback
-              }
-            }
-            
-            items = itemsResult.rows.map(item => {
-              // Try to find matching purchase order item for pricing
-              let poItem = purchaseOrderItems.find(poi => {
-                const descMatch = poi.description?.toLowerCase().trim() === item.description?.toLowerCase().trim();
-                const codeMatch = poi.item_code === item.product_code;
-                return descMatch || codeMatch;
-              });
-              
-              // Fallback to supplier quotation items if no purchase order match
-              if (!poItem && supplierQuotationItems.length > 0) {
-                poItem = supplierQuotationItems.find(sqi => {
-                  const descMatch = sqi.description?.toLowerCase().trim() === item.description?.toLowerCase().trim();
-                  const codeMatch = sqi.item_code === item.product_code;
-                  return descMatch || codeMatch;
-                });
-                if (poItem) {
-                  // Using supplier quotation fallback
-                }
-              }
-              
-              // Parse the prices safely - always return numeric values or null
-              let unitPrice = null;
-              let totalPrice = null;
-              
-              if (poItem) {
-                const parsedUnitPrice = parseFloat(poItem.unit_price) || 0;
-                const parsedTotalPrice = parseFloat(poItem.total_price) || 0;
-                
-                // Set the prices regardless of value (including zero)
-                unitPrice = parsedUnitPrice;
-                totalPrice = parsedTotalPrice;
-              } else {
-                // Final fallback: if we're in conclusion phase and still no pricing, 
-                // try to estimate based on the total request value
-                if (request.currentPhase === 'conclusao_compra' && request.totalValue) {
-                  const totalRequestValue = parseFloat(request.totalValue) || 0;
-                  if (totalRequestValue > 0) {
-                    // Distribute total value evenly among items as a fallback
-                    const itemCount = itemsResult.rows.length;
-                    if (itemCount > 0) {
-                      const estimatedTotal = totalRequestValue / itemCount;
-                      const requestedQty = parseFloat(item.requested_quantity) || 1;
-                      unitPrice = estimatedTotal / requestedQty;
-                      totalPrice = estimatedTotal;
-                    }
-                  }
-                }
-              }
-              
-              return {
-                id: item.id,
-                description: item.description,
-                quantity: parseFloat(item.requested_quantity) || 0,
-                unit: item.unit,
-                productCode: item.product_code,
-                technicalSpecification: item.technical_specification,
-                unitPrice,
-                totalPrice
-              };
-            });
-          } catch (error) {
-            // Error fetching items for request - skip this request
-          }
-          
-          return {
-            ...request,
-            requestDate: request.createdAt, // Map createdAt to requestDate for frontend compatibility
-            phase: request.currentPhase, // Map currentPhase to phase for frontend compatibility
-            description: request.justification, // Map justification to description for frontend compatibility
-            requesterName,
-            requesterEmail,
-            departmentName,
-            supplierName,
-            approverA1Name,
-            approverA2Name,
-            valorItens: resultadoCalculo.valorItens,
-            desconto: resultadoCalculo.desconto,
-            subTotal: resultadoCalculo.subTotal,
-            descontoProposta: resultadoCalculo.descontoProposta,
-            valorFinal: resultadoCalculo.valorFinal,
-            items,
-            approvals: [],
-            quotations: [],
-            purchaseOrders: []
-          };
-        })
-      );
-      
-      let summaryData = undefined;
-      if (filters.resumo || filters.export) {
-        summaryData = requestsWithNames.reduce((acc, curr) => ({
-          totalValorItens: acc.totalValorItens + curr.valorItens,
-          totalDesconto: acc.totalDesconto + curr.desconto,
-          totalSubTotal: acc.totalSubTotal + curr.subTotal,
-          totalDescontoProposta: acc.totalDescontoProposta + curr.descontoProposta,
-          totalValorFinal: acc.totalValorFinal + curr.valorFinal,
-        }), {
-          totalValorItens: 0,
-          totalDesconto: 0,
-          totalSubTotal: 0,
-          totalDescontoProposta: 0,
-          totalValorFinal: 0
-        });
-      }
-
-      if (filters.resumo && !filters.export) {
-        return { data: [], total, summary: summaryData };
-      }
-
-      // Return with total count and summary (if exported/resumo limits removed everything from memory)
-      return { data: requestsWithNames, total, summary: summaryData };
-    } catch (error) {
-      console.error('Error in getPurchaseRequestsForReport:', error);
-      throw error;
-    }
+    return await purchaseRequestRepository.getPurchaseRequestsForReport(filters);
   }
 
   async getQuotationsDashboardData(): Promise<any> {
-    // 1. Fetch active quotations (Purchase Requests in 'cotacao')
-    const activeRequests = await this.getPurchaseRequestsByPhase('cotacao');
+    return await purchaseRequestRepository.getQuotationsDashboardData();
+  }
 
-    // Enhance with Quotation details (deadline, status, supplier count)
-    const enhancedRequests = await Promise.all(activeRequests.map(async (req) => {
-      // Find the active quotation for this request
-      const [quotation] = await db
-        .select()
-        .from(quotations)
-        .where(eq(quotations.purchaseRequestId, req.id))
-        .orderBy(desc(quotations.createdAt))
-        .limit(1);
-
-      let supplierCount = 0;
-      let responseCount = 0;
-      let quotationStatus = 'pending'; // default
-      let quotationDeadline = null;
-
-      if (quotation) {
-        quotationStatus = quotation.status;
-        quotationDeadline = quotation.quotationDeadline;
-        const supplierQuotes = await db
-          .select()
-          .from(supplierQuotations)
-          .where(eq(supplierQuotations.quotationId, quotation.id));
-        
-        supplierCount = supplierQuotes.length;
-        responseCount = supplierQuotes.filter(sq => sq.status === 'received').length;
-      }
-
-      // Fetch Department info
-      let departmentName = 'N/A';
-      if (req.costCenterId) {
-         const [cc] = await db.select().from(costCenters).where(eq(costCenters.id, req.costCenterId));
-         if (cc && cc.departmentId) {
-             const [dept] = await db.select().from(departments).where(eq(departments.id, cc.departmentId));
-             if (dept) departmentName = dept.name;
-         }
-      }
-
-      return {
-        ...req,
-        quotationId: quotation?.id,
-        quotationStatus,
-        quotationDeadline,
-        departmentName,
-        supplierCount,
-        responseCount
-      };
-    }));
-
-    // 2. Calculate KPIs (Global)
-    // Avg Response Time (only for received supplier quotations)
-    const resultResponseTime = await db.execute(sql`
-      SELECT AVG(EXTRACT(EPOCH FROM (sq.received_at - sq.sent_at))/3600) as avg_hours
-      FROM supplier_quotations sq
-      WHERE sq.status = 'received' AND sq.sent_at IS NOT NULL AND sq.received_at IS NOT NULL
-    `);
-    const avgResponseTime = Number(resultResponseTime.rows[0]?.avg_hours || 0);
-
-    // Response Rate
-    const resultResponseRate = await db.execute(sql`
-      SELECT 
-        COUNT(*) FILTER (WHERE status = 'received') as received_count,
-        COUNT(*) as total_count
-      FROM supplier_quotations
-    `);
-    const receivedCount = Number(resultResponseRate.rows[0]?.received_count || 0);
-    const totalSentCount = Number(resultResponseRate.rows[0]?.total_count || 0);
-    const responseRate = totalSentCount > 0 ? (receivedCount / totalSentCount) * 100 : 0;
-
-    // Conversion Rate (Quotations turned into POs)
-    const resultConversion = await db.execute(sql`
-      SELECT 
-        (SELECT COUNT(*) FROM purchase_orders) as po_count,
-        (SELECT COUNT(*) FROM quotations) as quote_count
-    `);
-    const poCount = Number(resultConversion.rows[0]?.po_count || 0);
-    const quoteCount = Number(resultConversion.rows[0]?.quote_count || 0);
-    const conversionRate = quoteCount > 0 ? (poCount / quoteCount) * 100 : 0;
-
-    // Total Value in Open Quotations (Estimated from PR total value)
-    const totalOpenValue = activeRequests.reduce((sum, req) => sum + Number(req.totalValue || 0), 0);
-
-    // Avg Suppliers per Quotation
-    const resultAvgSuppliers = await db.execute(sql`
-      SELECT AVG(supplier_count) as avg_suppliers
-      FROM (
-        SELECT quotation_id, COUNT(*) as supplier_count
-        FROM supplier_quotations
-        GROUP BY quotation_id
-      ) sub
-    `);
-    const avgSuppliers = Number(resultAvgSuppliers.rows[0]?.avg_suppliers || 0);
-
-    return {
-      requests: enhancedRequests,
-      kpis: {
-        avgResponseTime, // in hours
-        responseRate,
-        conversionRate,
-        totalOpenValue,
-        avgSuppliers
-      }
-    };
+  async deletePurchaseRequest(id: number): Promise<void> {
+    return await purchaseRequestRepository.deletePurchaseRequest(id);
   }
 
   // Purchase Request Items operations
@@ -1775,1246 +658,281 @@ export class DatabaseStorage implements IStorage {
     purchaseRequestId: number,
     includeTransferred: boolean = false
   ): Promise<PurchaseRequestItem[]> {
-    let query;
-    if (!includeTransferred) {
-      query = db
-        .select()
-        .from(purchaseRequestItems)
-        .where(
-          and(
-            eq(purchaseRequestItems.purchaseRequestId, purchaseRequestId),
-            or(
-              eq(purchaseRequestItems.isTransferred, false),
-              isNull(purchaseRequestItems.isTransferred)
-            )
-          )
-        );
-    } else {
-      query = db
-        .select()
-        .from(purchaseRequestItems)
-        .where(eq(purchaseRequestItems.purchaseRequestId, purchaseRequestId));
-    }
-    
-    return await query.orderBy(purchaseRequestItems.id);
+    return await purchaseRequestRepository.getPurchaseRequestItems(purchaseRequestId, includeTransferred);
   }
 
   async createPurchaseRequestItem(
     item: InsertPurchaseRequestItem,
   ): Promise<PurchaseRequestItem> {
-    const [newItem] = await db
-      .insert(purchaseRequestItems)
-      .values(item)
-      .returning();
-    return newItem;
+    return await purchaseRequestRepository.createPurchaseRequestItem(item);
   }
 
   async updatePurchaseRequestItem(
     id: number,
     item: Partial<InsertPurchaseRequestItem>,
   ): Promise<PurchaseRequestItem> {
-    const [updatedItem] = await db
-      .update(purchaseRequestItems)
-      .set({ ...item, updatedAt: new Date() })
-      .where(eq(purchaseRequestItems.id, id))
-      .returning();
-    return updatedItem;
+    return await purchaseRequestRepository.updatePurchaseRequestItem(id, item);
   }
 
   async deletePurchaseRequestItem(id: number): Promise<void> {
-    await db
-      .delete(purchaseRequestItems)
-      .where(eq(purchaseRequestItems.id, id));
+    return await purchaseRequestRepository.deletePurchaseRequestItem(id);
   }
 
   async createPurchaseRequestItems(
     items: InsertPurchaseRequestItem[],
   ): Promise<PurchaseRequestItem[]> {
-    if (items.length === 0) return [];
-
-    return await db.insert(purchaseRequestItems).values(items).returning();
+    return await purchaseRequestRepository.createPurchaseRequestItems(items);
   }
 
   // RFQ (Quotation) operations
   async getAllQuotations(): Promise<Quotation[]> {
-    return await db
-      .select()
-      .from(quotations)
-      .orderBy(desc(quotations.createdAt));
+    return await quotationRepository.getAllQuotations();
   }
 
   async getQuotationById(id: number): Promise<Quotation | undefined> {
-    const [quotation] = await db
-      .select()
-      .from(quotations)
-      .where(eq(quotations.id, id));
-    return quotation || undefined;
+    return await quotationRepository.getQuotationById(id);
   }
 
   async getQuotationByPurchaseRequestId(
     purchaseRequestId: number,
   ): Promise<Quotation | undefined> {
-    const [quotation] = await db
-      .select()
-      .from(quotations)
-      .where(
-        and(
-          eq(quotations.purchaseRequestId, purchaseRequestId),
-          eq(quotations.isActive, true)
-        )
-      );
-    return quotation || undefined;
+    return await quotationRepository.getQuotationByPurchaseRequestId(purchaseRequestId);
   }
 
   async getRFQHistoryByPurchaseRequestId(
     purchaseRequestId: number,
   ): Promise<Quotation[]> {
-    const quotationHistory = await db
-      .select()
-      .from(quotations)
-      .where(eq(quotations.purchaseRequestId, purchaseRequestId))
-      .orderBy(desc(quotations.createdAt));
-    return quotationHistory;
+    return await quotationRepository.getRFQHistoryByPurchaseRequestId(purchaseRequestId);
   }
 
   async createQuotation(quotationData: InsertQuotation): Promise<Quotation> {
-    // Check if there's an existing quotation for this purchase request
-    const existingQuotations = await db
-      .select()
-      .from(quotations)
-      .where(eq(quotations.purchaseRequestId, quotationData.purchaseRequestId))
-      .orderBy(desc(quotations.rfqVersion));
-
-    // If there's an existing quotation, deactivate it and create a new version
-    let newVersion = 1;
-    let parentQuotationId: number | undefined;
-
-    if (existingQuotations.length > 0) {
-      const currentQuotation = existingQuotations[0];
-      newVersion = (currentQuotation.rfqVersion || 1) + 1;
-      parentQuotationId = currentQuotation.id;
-
-      // Deactivate the current quotation
-      await db
-        .update(quotations)
-        .set({ isActive: false })
-        .where(eq(quotations.id, currentQuotation.id));
-    }
-
-    // Generate quotation number
-    const year = new Date().getFullYear();
-    const quotationsThisYear = await db
-      .select()
-      .from(quotations)
-      .where(like(quotations.quotationNumber, `COT-${year}-%`));
-
-    // Find the highest number used this year
-    let maxNumber = 0;
-    quotationsThisYear.forEach((q) => {
-      const match = q.quotationNumber.match(/COT-\d{4}-(\d{4})/);
-      if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) maxNumber = num;
-      }
-    });
-
-    const quotationNumber = `COT-${year}-${String(maxNumber + 1).padStart(4, "0")}`;
-
-    const [quotation] = await db
-      .insert(quotations)
-      .values({
-        ...quotationData,
-        quotationNumber,
-        rfqVersion: newVersion,
-        parentQuotationId,
-        isActive: true,
-      })
-      .returning();
-    return quotation;
+    return await quotationRepository.createQuotation(quotationData);
   }
 
   async updateQuotation(
     id: number,
     quotationData: Partial<InsertQuotation>,
   ): Promise<Quotation> {
-    const [quotation] = await db
-      .update(quotations)
-      .set({ ...quotationData, updatedAt: new Date() })
-      .where(eq(quotations.id, id))
-      .returning();
-    return quotation;
+    return await quotationRepository.updateQuotation(id, quotationData);
+  }
+
+  async deleteQuotation(id: number): Promise<void> {
+    return await quotationRepository.deleteQuotation(id);
   }
 
   // Quotation Items operations
   async getQuotationItems(quotationId: number): Promise<QuotationItem[]> {
-    return await db
-      .select()
-      .from(quotationItems)
-      .where(eq(quotationItems.quotationId, quotationId));
+    return await quotationRepository.getQuotationItems(quotationId);
   }
 
   async createQuotationItem(
     itemData: InsertQuotationItem,
   ): Promise<QuotationItem> {
-    const [item] = await db.insert(quotationItems).values(itemData).returning();
-    return item;
+    return await quotationRepository.createQuotationItem(itemData);
+  }
+
+  async createQuotationItems(
+    itemsData: InsertQuotationItem[],
+  ): Promise<QuotationItem[]> {
+    return await quotationRepository.createQuotationItems(itemsData);
   }
 
   async updateQuotationItem(
     id: number,
     itemData: Partial<InsertQuotationItem>,
   ): Promise<QuotationItem> {
-    const [item] = await db
-      .update(quotationItems)
-      .set(itemData)
-      .where(eq(quotationItems.id, id))
-      .returning();
-    return item;
+    return await quotationRepository.updateQuotationItem(id, itemData);
   }
 
   async deleteQuotationItem(id: number): Promise<void> {
-    await db.delete(quotationItems).where(eq(quotationItems.id, id));
+    return await quotationRepository.deleteQuotationItem(id);
   }
 
   // Supplier Quotations operations
   async getSupplierQuotations(
     quotationId: number,
   ): Promise<SupplierQuotation[]> {
-    const results = await db
-      .select({
-        id: supplierQuotations.id,
-        quotationId: supplierQuotations.quotationId,
-        supplierId: supplierQuotations.supplierId,
-        status: supplierQuotations.status,
-        sentAt: supplierQuotations.sentAt,
-        receivedAt: supplierQuotations.receivedAt,
-        totalValue: supplierQuotations.totalValue,
-        subtotalValue: supplierQuotations.subtotalValue,
-        finalValue: supplierQuotations.finalValue,
-        discountType: supplierQuotations.discountType,
-        discountValue: supplierQuotations.discountValue,
-        includesFreight: supplierQuotations.includesFreight,
-        freightValue: supplierQuotations.freightValue,
-        paymentTerms: supplierQuotations.paymentTerms,
-        deliveryTerms: supplierQuotations.deliveryTerms,
-        warrantyPeriod: supplierQuotations.warrantyPeriod,
-        observations: supplierQuotations.observations,
-        createdAt: supplierQuotations.createdAt,
-        isChosen: supplierQuotations.isChosen,
-        choiceReason: supplierQuotations.choiceReason,
-        supplier: {
-          id: suppliers.id,
-          name: suppliers.name,
-          email: suppliers.email,
-          phone: suppliers.phone,
-          cnpj: suppliers.cnpj,
-          contact: suppliers.contact,
-          address: suppliers.address,
-          paymentTerms: suppliers.paymentTerms,
-        },
-      })
-      .from(supplierQuotations)
-      .leftJoin(suppliers, eq(supplierQuotations.supplierId, suppliers.id))
-      .where(eq(supplierQuotations.quotationId, quotationId));
-
-    // Recalculate totalValue to include freight when applicable
-    return results.map(quotation => {
-      let calculatedTotalValue = quotation.totalValue;
-      
-      // If includes freight and has freight value, ensure totalValue includes it
-      if (quotation.includesFreight && quotation.freightValue) {
-        const baseValue = quotation.finalValue || quotation.subtotalValue || quotation.totalValue;
-        if (baseValue) {
-          const baseAmount = parseFloat(baseValue);
-          const freightAmount = parseFloat(quotation.freightValue);
-          
-          // Only add freight if it's not already included in totalValue
-          // Check if totalValue is approximately equal to baseValue + freight
-          const expectedTotal = baseAmount + freightAmount;
-          const currentTotal = parseFloat(quotation.totalValue || '0');
-          
-          // If current total doesn't match expected total (with small tolerance for rounding)
-          if (Math.abs(currentTotal - expectedTotal) > 0.01) {
-            calculatedTotalValue = expectedTotal.toString();
-          }
-        }
-      }
-      
-      return {
-        ...quotation,
-        totalValue: calculatedTotalValue
-      };
-    });
+    return await quotationRepository.getSupplierQuotations(quotationId);
   }
 
   async getSupplierQuotationById(
     id: number,
   ): Promise<SupplierQuotation | undefined> {
-    const [supplierQuotation] = await db
-      .select()
-      .from(supplierQuotations)
-      .where(eq(supplierQuotations.id, id));
-    return supplierQuotation || undefined;
+    return await quotationRepository.getSupplierQuotationById(id);
   }
 
   async createSupplierQuotation(
     supplierQuotationData: InsertSupplierQuotation,
   ): Promise<SupplierQuotation> {
-    const [supplierQuotation] = await db
-      .insert(supplierQuotations)
-      .values(supplierQuotationData)
-      .returning();
-    return supplierQuotation;
+    return await quotationRepository.createSupplierQuotation(supplierQuotationData);
   }
 
   async updateSupplierQuotation(
     id: number,
     supplierQuotationData: Partial<InsertSupplierQuotation>,
   ): Promise<SupplierQuotation> {
-    const [supplierQuotation] = await db
-      .update(supplierQuotations)
-      .set(supplierQuotationData)
-      .where(eq(supplierQuotations.id, id))
-      .returning();
-    return supplierQuotation;
+    return await quotationRepository.updateSupplierQuotation(id, supplierQuotationData);
   }
 
   // Supplier Quotation Items operations
   async getSupplierQuotationItems(
     supplierQuotationId: number,
   ): Promise<SupplierQuotationItem[]> {
-    return await db
-      .select()
-      .from(supplierQuotationItems)
-      .where(
-        eq(supplierQuotationItems.supplierQuotationId, supplierQuotationId),
-      );
+    return await quotationRepository.getSupplierQuotationItems(supplierQuotationId);
   }
 
   async createSupplierQuotationItem(
     itemData: InsertSupplierQuotationItem,
   ): Promise<SupplierQuotationItem> {
-    const [item] = await db
-      .insert(supplierQuotationItems)
-      .values(itemData)
-      .returning();
-    return item;
+    return await quotationRepository.createSupplierQuotationItem(itemData);
+  }
+
+  async createSupplierQuotationItems(
+    itemsData: InsertSupplierQuotationItem[],
+  ): Promise<SupplierQuotationItem[]> {
+    return await quotationRepository.createSupplierQuotationItems(itemsData);
   }
 
   async updateSupplierQuotationItem(
     id: number,
     itemData: Partial<InsertSupplierQuotationItem>,
   ): Promise<SupplierQuotationItem> {
-    const [item] = await db
-      .update(supplierQuotationItems)
-      .set(itemData)
-      .where(eq(supplierQuotationItems.id, id))
-      .returning();
-    return item;
+    return await quotationRepository.updateSupplierQuotationItem(id, itemData);
   }
 
   // Approved Quotation Items operations
   async getApprovedQuotationItems(quotationId: number): Promise<ApprovedQuotationItem[]> {
-    return await db
-      .select()
-      .from(approvedQuotationItems)
-      .where(eq(approvedQuotationItems.quotationId, quotationId));
+    return await quotationRepository.getApprovedQuotationItems(quotationId);
   }
 
   async createApprovedQuotationItem(item: InsertApprovedQuotationItem): Promise<ApprovedQuotationItem> {
-    const [created] = await db
-      .insert(approvedQuotationItems)
-      .values(item)
-      .returning();
-    return created;
+    return await quotationRepository.createApprovedQuotationItem(item);
   }
 
   async clearApprovedQuotationItems(quotationId: number): Promise<void> {
-    await db
-      .delete(approvedQuotationItems)
-      .where(eq(approvedQuotationItems.quotationId, quotationId));
-  }
-
-  async deletePurchaseRequest(id: number): Promise<void> {
-    // 1. Get all quotations for this PR
-    const prQuotations = await db
-      .select()
-      .from(quotations)
-      .where(eq(quotations.purchaseRequestId, id));
-
-    for (const quotation of prQuotations) {
-      // 2. Get all supplier quotations for each quotation
-      const prSupplierQuotations = await db
-        .select()
-        .from(supplierQuotations)
-        .where(eq(supplierQuotations.quotationId, quotation.id));
-
-      for (const supplierQuotation of prSupplierQuotations) {
-        // 3. Get all supplier quotation items IDs
-        const sqItems = await db
-          .select({ id: supplierQuotationItems.id })
-          .from(supplierQuotationItems)
-          .where(eq(supplierQuotationItems.supplierQuotationId, supplierQuotation.id));
-        
-        const sqItemIds = sqItems.map(i => i.id);
-
-        if (sqItemIds.length > 0) {
-            // 4. Delete quantity adjustment history for these items
-            await db.delete(quantityAdjustmentHistory)
-                .where(inArray(quantityAdjustmentHistory.supplierQuotationItemId, sqItemIds));
-        }
-
-        // 5. Delete attachments linked to supplier quotation
-        await db.delete(attachments)
-            .where(eq(attachments.supplierQuotationId, supplierQuotation.id));
-
-        // 6. Delete supplier quotation items
-        await db.delete(supplierQuotationItems)
-            .where(eq(supplierQuotationItems.supplierQuotationId, supplierQuotation.id));
-      }
-
-      // 7. Delete supplier quotations
-      await db.delete(supplierQuotations)
-        .where(eq(supplierQuotations.quotationId, quotation.id));
-
-      // 8. Delete approved quotation items (snapshot)
-      await db.delete(approvedQuotationItems)
-        .where(eq(approvedQuotationItems.quotationId, quotation.id));
-
-      // 9. Delete quotation version history
-      await db.delete(quotationVersionHistory)
-        .where(eq(quotationVersionHistory.quotationId, quotation.id));
-
-      // 10. Delete quotation items
-      await db.delete(quotationItems)
-        .where(eq(quotationItems.quotationId, quotation.id));
-
-      // 11. Delete attachments linked to quotation
-      await db.delete(attachments)
-        .where(eq(attachments.quotationId, quotation.id));
-    }
-
-    // 12. Delete quotations
-    await db.delete(quotations)
-      .where(eq(quotations.purchaseRequestId, id));
-
-    // 13. Delete approval history
-    await db.delete(approvalHistory)
-      .where(eq(approvalHistory.purchaseRequestId, id));
-
-    // 14. Delete audit logs
-    await db.delete(auditLogs)
-      .where(eq(auditLogs.purchaseRequestId, id));
-
-    // 15. Delete attachments linked to PR
-    await db.delete(attachments)
-      .where(eq(attachments.purchaseRequestId, id));
-
-    // 16. Delete PR items
-    await db
-      .delete(purchaseRequestItems)
-      .where(eq(purchaseRequestItems.purchaseRequestId, id));
-
-    // 17. Delete PR
-    await db.delete(purchaseRequests).where(eq(purchaseRequests.id, id));
+    return await quotationRepository.clearApprovedQuotationItems(quotationId);
   }
 
   // Purchase Order operations
   async getPurchaseOrderById(id: number): Promise<PurchaseOrder | undefined> {
-    const [purchaseOrder] = await db
-      .select()
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.id, id));
-    return purchaseOrder || undefined;
+    return await purchaseOrderRepository.getPurchaseOrderById(id);
   }
 
   async getPurchaseOrderByRequestId(purchaseRequestId: number): Promise<PurchaseOrder | undefined> {
-    const [purchaseOrder] = await db
-      .select()
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.purchaseRequestId, purchaseRequestId));
-    return purchaseOrder || undefined;
+    return await purchaseOrderRepository.getPurchaseOrderByRequestId(purchaseRequestId);
   }
 
   async createPurchaseOrder(purchaseOrder: InsertPurchaseOrder): Promise<PurchaseOrder> {
-    const [created] = await db
-      .insert(purchaseOrders)
-      .values(purchaseOrder)
-      .returning();
-    return created;
+    return await purchaseOrderRepository.createPurchaseOrder(purchaseOrder);
   }
 
   async updatePurchaseOrder(
     id: number,
     purchaseOrder: Partial<InsertPurchaseOrder>,
   ): Promise<PurchaseOrder> {
-    const [updated] = await db
-      .update(purchaseOrders)
-      .set({ ...purchaseOrder, updatedAt: new Date() })
-      .where(eq(purchaseOrders.id, id))
-      .returning();
-    return updated;
+    return await purchaseOrderRepository.updatePurchaseOrder(id, purchaseOrder);
   }
 
   // Purchase Order Items operations
   async getPurchaseOrderItems(purchaseOrderId: number): Promise<PurchaseOrderItem[]> {
-    return await db
-      .select()
-      .from(purchaseOrderItems)
-      .where(eq(purchaseOrderItems.purchaseOrderId, purchaseOrderId))
-      .orderBy(purchaseOrderItems.id);
+    return await purchaseOrderRepository.getPurchaseOrderItems(purchaseOrderId);
   }
 
   async createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
-    const [created] = await db
-      .insert(purchaseOrderItems)
-      .values(item)
-      .returning();
-    return created;
+    return await purchaseOrderRepository.createPurchaseOrderItem(item);
   }
 
   async deletePurchaseOrderByRequestId(purchaseRequestId: number): Promise<number> {
-    const po = await this.getPurchaseOrderByRequestId(purchaseRequestId);
-    if (!po) return 0;
-    await db.delete(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, po.id));
-    await db.delete(purchaseOrders).where(eq(purchaseOrders.id, po.id));
-    return 1;
+    return await purchaseOrderRepository.deletePurchaseOrderByRequestId(purchaseRequestId);
   }
 
   async updatePurchaseOrderItem(
     id: number,
     item: Partial<InsertPurchaseOrderItem>,
   ): Promise<PurchaseOrderItem> {
-    const [updated] = await db
-      .update(purchaseOrderItems)
-      .set(item)
-      .where(eq(purchaseOrderItems.id, id))
-      .returning();
-    return updated;
+    return await purchaseOrderRepository.updatePurchaseOrderItem(id, item);
   }
 
+  // Receipts operations
   async createReceipt(receipt: InsertReceipt): Promise<Receipt> {
-    const now = new Date();
-    const gen = () => {
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, "0");
-      const d = String(now.getDate()).padStart(2, "0");
-      const rand = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
-      return `REC-${y}${m}${d}-${rand}`;
-    };
-    const values = {
-      receiptNumber: gen(),
-      status: receipt.status,
-      purchaseOrderId: receipt.purchaseOrderId,
-      receivedBy: receipt.receivedBy,
-      receivedAt: receipt.receivedAt ?? now,
-      observations: receipt.observations ?? null,
-      approvedBy: receipt.approvedBy ?? null,
-      approvedAt: receipt.approvedAt ?? null,
-      qualityApproved: receipt.qualityApproved ?? null,
-      createdAt: now,
-    };
-    const [created] = await db
-      .insert(receipts)
-      .values(values as any)
-      .returning();
-    return created as Receipt;
+    return await receiptRepository.createReceipt(receipt);
   }
 
   async createReceiptItem(item: InsertReceiptItem): Promise<ReceiptItem> {
-    const values = {
-      ...item,
-      quantityReceived: item.quantityReceived ?? "0",
-      quantityApproved: item.quantityApproved ?? null,
-      condition: item.condition ?? null,
-      observations: item.observations ?? null,
-      createdAt: new Date(),
-    };
-    const [created] = await db
-      .insert(receiptItems)
-      .values(values as any)
-      .returning();
-    return created as ReceiptItem;
+    return await receiptRepository.createReceiptItem(item);
   }
 
   async getReceiptsByPurchaseOrderId(purchaseOrderId: number): Promise<Receipt[]> {
-    return await db
-      .select()
-      .from(receipts)
-      .where(eq(receipts.purchaseOrderId, purchaseOrderId))
-      .orderBy(desc(receipts.createdAt));
+    return await receiptRepository.getReceiptsByPurchaseOrderId(purchaseOrderId);
   }
 
   async getReceiptById(id: number): Promise<Receipt | undefined> {
-    const [receipt] = await db
-      .select()
-      .from(receipts)
-      .where(eq(receipts.id, id));
-    return receipt;
+    return await receiptRepository.getReceiptById(id);
   }
 
   async returnToPhysicalReceipt(purchaseRequestId: number, userId: number): Promise<void> {
-    const purchaseOrder = await this.getPurchaseOrderByRequestId(purchaseRequestId);
-    if (!purchaseOrder) throw new Error("Pedido de compra não encontrado");
-
-    const allReceipts = await this.getReceiptsByPurchaseOrderId(purchaseOrder.id);
-
-    const confirmedReceipts = allReceipts.filter(
-      (r) => r.status === "conferida" || r.status === "fiscal_conferida",
-    );
-
-    const isPartialReturn = confirmedReceipts.length > 0;
-
-    const receiptsToDelete = isPartialReturn
-      ? allReceipts.filter((r) => r.status !== "conferida" && r.status !== "fiscal_conferida")
-      : allReceipts;
-
-    // Requirement T05: No physical deletion - mark as cancelled
-    for (const receipt of receiptsToDelete) {
-      await db.update(receipts)
-        .set({ 
-          status: "cancelado", 
-          receiptPhase: "cancelado",
-          updatedAt: new Date() 
-        } as any)
-        .where(eq(receipts.id, receipt.id));
-    }
-
-    if (!isPartialReturn) {
-      const poItems = await this.getPurchaseOrderItems(purchaseOrder.id);
-      for (const item of poItems) {
-        await db
-          .update(purchaseOrderItems)
-          .set({ quantityReceived: "0" })
-          .where(eq(purchaseOrderItems.id, item.id));
-      }
-    }
-
-    const updateData: Partial<PurchaseRequest> = {
-      // NOTE: We no longer revert currentPhase to 'recebimento'.
-      // Procurement remains finished (Flow 1). Flow 2 (Receipts) will handle its own states.
-      fiscalReceiptAt: null,
-      fiscalReceiptById: null,
-      updatedAt: new Date(),
-    };
-
-    if (!isPartialReturn) {
-      updateData.physicalReceiptAt = null;
-      updateData.physicalReceiptById = null;
-      updateData.receivedDate = null;
-      updateData.receivedById = null;
-    }
-
-    await db
-      .update(purchaseRequests)
-      .set(updateData)
-      .where(eq(purchaseRequests.id, purchaseRequestId));
-    
-    // Ensure we have at least one draft receipt in Flow 2 if everything was cancelled
-    if (!isPartialReturn) {
-        // Create a new draft receipt for Flow 2
-        await db.insert(receipts).values({
-            purchaseRequestId,
-            purchaseOrderId: purchaseOrder.id,
-            receiptNumber: `REC-RESTART-${purchaseRequestId}`,
-            status: "nf_pendente",
-            receiptPhase: "recebimento_fisico",
-            supplierId: purchaseOrder.supplierId
-        } as any);
-    }
-
-    await db
-      .update(purchaseOrders)
-      .set({
-        fulfillmentStatus: isPartialReturn ? "partial" : "pending",
-      })
-      .where(eq(purchaseOrders.id, purchaseOrder.id));
-
-    try {
-      await db.insert(auditLogs).values({
-        purchaseRequestId,
-        performedBy: userId,
-        actionType: "phase_rollback_receipt",
-        actionDescription: `Retorno da Conf. Fiscal para Recebimento Físico. Tipo: ${isPartialReturn ? "Parcial" : "Total"}. ${receiptsToDelete.length} recibos excluídos.`,
-        performedAt: new Date(),
-        beforeData: {
-          phase: "conf_fiscal",
-          isPartialReturn,
-        } as any,
-        afterData: {
-          phase: "recebimento",
-          receiptsDeleted: receiptsToDelete.map((r) => r.id),
-        } as any,
-        affectedTables: ["receipts", "purchase_requests", "purchase_orders", "purchase_order_items"],
-      });
-    } catch (error) {
-      console.error("Error logging phase rollback in audit_logs:", error);
-    }
+    return await receiptRepository.returnToPhysicalReceipt(purchaseRequestId, userId);
   }
 
   // Approval History operations
   async getApprovalHistory(purchaseRequestId: number): Promise<any[]> {
-    return await db
-      .select({
-        id: approvalHistory.id,
-        approverType: approvalHistory.approverType,
-        approved: approvalHistory.approved,
-        rejectionReason: approvalHistory.rejectionReason,
-        createdAt: approvalHistory.createdAt,
-        approver: {
-          id: users.id,
-          username: users.username,
-          firstName: users.firstName,
-          lastName: users.lastName,
-        },
-      })
-      .from(approvalHistory)
-      .leftJoin(users, eq(approvalHistory.approverId, users.id))
-      .where(eq(approvalHistory.purchaseRequestId, purchaseRequestId))
-      .orderBy(desc(approvalHistory.createdAt));
+    return await approvalRepository.getApprovalHistory(purchaseRequestId);
   }
 
   async createApprovalHistory(
     approvalHistoryData: InsertApprovalHistory,
   ): Promise<ApprovalHistory> {
-    const [newApprovalHistory] = await db
-      .insert(approvalHistory)
-      .values(approvalHistoryData)
-      .returning();
-    return newApprovalHistory;
+    return await approvalRepository.createApprovalHistory(approvalHistoryData);
   }
 
   async getCompleteTimeline(purchaseRequestId: number): Promise<any[]> {
-    // Get the purchase request details
-    const request = await this.getPurchaseRequestById(purchaseRequestId);
-    if (!request) {
-      return [];
-    }
-
-    const timeline: any[] = [];
-
-    // 1. Request Creation
-    timeline.push({
-      id: 'request_created',
-      type: 'creation',
-      phase: 'solicitacao',
-      action: 'Solicitação criada',
-      userId: request.requesterId,
-      userName: (() => {
-        const first = (request as any).requester?.firstName;
-        const last = (request as any).requester?.lastName;
-        const username = (request as any).requester?.username;
-        if (first && last) return `${first} ${last}`;
-        if (username) return username;
-        return '';
-      })() || 'Sistema',
-      timestamp: request.createdAt,
-      status: 'completed',
-      icon: 'file-plus',
-      description: `Solicitação ${request.requestNumber} criada`
-    });
-
-    // 2. Get approval history and convert to timeline events
-    const approvals = await this.getApprovalHistory(purchaseRequestId);
-    for (const approval of approvals) {
-      const phaseMap: Record<string, string> = {
-        'A1': 'aprovacao_a1',
-        'A2': 'aprovacao_a2'
-      };
-
-      timeline.push({
-        id: `approval_${approval.id}`,
-        type: 'approval',
-        phase: phaseMap[approval.approverType] || approval.approverType,
-        action: approval.approved ? 'Aprovação' : 'Reprovação',
-        userId: approval.approver?.id,
-        userName: approval.approver?.firstName && approval.approver?.lastName
-          ? `${approval.approver.firstName} ${approval.approver.lastName}`
-          : approval.approver?.username || 'Sistema',
-        timestamp: approval.createdAt,
-        status: approval.approved ? 'approved' : 'rejected',
-        icon: approval.approved ? 'check-circle' : 'x-circle',
-        description: approval.approved 
-          ? `Aprovado por ${approval.approver?.firstName || approval.approver?.username || 'Sistema'}`
-          : `Reprovado por ${approval.approver?.firstName || approval.approver?.username || 'Sistema'}`,
-        reason: approval.rejectionReason
-      });
-    }
-
-    // 2.1 Ensure A1 appears before RFQ even if history is missing
-    const hasA1InTimeline = timeline.some((e) => e.type === 'approval' && e.phase === 'aprovacao_a1');
-    if (!hasA1InTimeline && request.approvalDateA1) {
-      let approverA1Name = 'Sistema';
-      if (request.approverA1Id) {
-        const approverA1 = await this.getUserById(request.approverA1Id);
-        if (approverA1) {
-          approverA1Name = approverA1.firstName && approverA1.lastName
-            ? `${approverA1.firstName} ${approverA1.lastName}`
-            : approverA1.username || 'Sistema';
-        }
-      }
-      timeline.push({
-        id: 'approval_a1_fallback',
-        type: 'approval',
-        phase: 'aprovacao_a1',
-        action: request.approvedA1 ? 'Aprovação' : 'Reprovação',
-        userId: request.approverA1Id,
-        userName: approverA1Name,
-        timestamp: request.approvalDateA1,
-        status: request.approvedA1 ? 'approved' : 'rejected',
-        icon: request.approvedA1 ? 'check-circle' : 'x-circle',
-        description: request.approvedA1
-          ? `Aprovado por ${approverA1Name}`
-          : `Reprovado por ${approverA1Name}`,
-        reason: request.rejectionReasonA1 || null,
-      });
-    }
-
-    // 3. RFQ creation
-    const quotation = await this.getQuotationByPurchaseRequestId(purchaseRequestId);
-    if (quotation) {
-      let rfqCreatorName = 'Sistema';
-      if (quotation.createdBy) {
-        const rfqCreator = await this.getUserById(quotation.createdBy);
-        if (rfqCreator) {
-          rfqCreatorName = rfqCreator.firstName && rfqCreator.lastName
-            ? `${rfqCreator.firstName} ${rfqCreator.lastName}`
-            : rfqCreator.username || rfqCreator.email || 'Sistema';
-        }
-      }
-      timeline.push({
-        id: 'quotation_created',
-        type: 'quotation',
-        phase: 'cotacao',
-        action: 'Cotação (RFQ) criada',
-        userId: quotation.createdBy,
-        userName: rfqCreatorName,
-        timestamp: quotation.createdAt,
-        status: 'completed',
-        icon: 'file-text',
-        description: quotation.termsAndConditions || quotation.technicalSpecs || 'Solicitação de cotação enviada aos fornecedores'
-      });
-
-      const supplierQuotations = await this.getSupplierQuotations(quotation.id);
-      const chosen = supplierQuotations.find((sq) => sq.isChosen);
-      if (chosen) {
-        let buyerName = 'Sistema';
-        if (request.buyerId) {
-          const buyer = await this.getUserById(request.buyerId);
-          if (buyer) {
-            buyerName = buyer.firstName && buyer.lastName
-              ? `${buyer.firstName} ${buyer.lastName}`
-              : buyer.username || 'Sistema';
-          }
-        }
-        let chosenSupplierName = '';
-        if ((chosen as any).supplier?.name) {
-          chosenSupplierName = (chosen as any).supplier.name;
-        } else if (chosen.supplierId) {
-          const chosenSupplier = await this.getSupplierById(chosen.supplierId);
-          if (chosenSupplier?.name) {
-            chosenSupplierName = chosenSupplier.name;
-          }
-        }
-        timeline.push({
-          id: 'supplier_selected',
-          type: 'supplier_selection',
-          phase: 'cotacao',
-          action: 'Fornecedor selecionado',
-          userId: request.buyerId,
-          userName: buyerName,
-          timestamp: request.updatedAt || quotation.createdAt,
-          status: 'completed',
-          icon: 'check-circle',
-          description: `Fornecedor vencedor selecionado${chosenSupplierName ? `: ${chosenSupplierName}` : ''}${chosen.choiceReason ? ` • Motivo: ${chosen.choiceReason}` : ''}`
-        });
-      }
-    }
-
-    // 4. Purchase Order
-    const po = await this.getPurchaseOrderByRequestId(purchaseRequestId);
-    let hasDetailedReceipts = false;
-
-    if (po) {
-      let poCreatorName = 'Sistema';
-      if (po.createdBy) {
-        const poCreator = await this.getUserById(po.createdBy);
-        if (poCreator) {
-          poCreatorName = poCreator.firstName && poCreator.lastName
-            ? `${poCreator.firstName} ${poCreator.lastName}`
-            : poCreator.username || 'Sistema';
-        }
-      }
-      timeline.push({
-        id: 'purchase_order_created',
-        type: 'purchase_order',
-        phase: 'pedido_compra',
-        action: 'Pedido de Compra criado',
-        userId: po.createdBy,
-        userName: poCreatorName,
-        timestamp: po.createdAt || request.purchaseDate || request.updatedAt,
-        status: 'completed',
-        icon: 'shopping-cart',
-        description: po.observations || request.purchaseObservations || 'Pedido de compra oficial gerado'
-      });
-
-      // 4.1 Detailed Receipts (Physical & Fiscal)
-      const linkedReceipts = await db.select().from(receipts).where(eq(receipts.purchaseOrderId, po.id));
-      if (linkedReceipts.length > 0) {
-        hasDetailedReceipts = true;
-        for (const receipt of linkedReceipts) {
-          // Physical Receipt Event
-          let receiverName = 'Sistema';
-          if (receipt.receivedBy) {
-            const receiver = await this.getUserById(receipt.receivedBy);
-            if (receiver) {
-              receiverName = receiver.firstName && receiver.lastName
-                ? `${receiver.firstName} ${receiver.lastName}`
-                : receiver.username || 'Sistema';
-            }
-          }
-
-          timeline.push({
-            id: `receipt_${receipt.id}_physical`,
-            type: 'receipt',
-            phase: 'recebimento',
-            action: `Recebimento Físico - NF ${receipt.documentNumber || 'S/N'}`,
-            userId: receipt.receivedBy,
-            userName: receiverName,
-            timestamp: receipt.receivedAt || receipt.createdAt,
-            status: 'completed',
-            icon: 'package',
-            description: `Recebimento da Nota Fiscal ${receipt.documentNumber || 'S/N'} (Série: ${receipt.documentSeries || '-'})`
-          });
-
-          // Fiscal Conference Event
-          if (receipt.approvedAt || ['conferida', 'nf_confirmada', 'fiscal_conferida'].includes(receipt.status || '')) {
-            let approverName = 'Sistema';
-            if (receipt.approvedBy) {
-              const approver = await this.getUserById(receipt.approvedBy);
-              if (approver) {
-                approverName = approver.firstName && approver.lastName
-                  ? `${approver.firstName} ${approver.lastName}`
-                  : approver.username || 'Sistema';
-              }
-            }
-
-            timeline.push({
-              id: `receipt_${receipt.id}_fiscal`,
-              type: 'fiscal_conference',
-              phase: 'conf_fiscal',
-              action: `Conferência Fiscal - NF ${receipt.documentNumber || 'S/N'}`,
-              userId: receipt.approvedBy,
-              userName: approverName,
-              timestamp: receipt.approvedAt || receipt.createdAt || new Date(),
-              status: 'completed',
-              icon: 'file-check',
-              description: `Conferência Fiscal realizada com sucesso.`
-            });
-          }
-        }
-      }
-    }
-
-    if (request.receivedDate && !hasDetailedReceipts) {
-      let receiverName = 'Sistema';
-      if (request.receivedById) {
-        const receiver = await this.getUserById(request.receivedById);
-        if (receiver) {
-          receiverName = receiver.firstName && receiver.lastName
-            ? `${receiver.firstName} ${receiver.lastName}`
-            : receiver.username || 'Sistema';
-        }
-      }
-      timeline.push({
-        id: 'material_received',
-        type: 'receipt',
-        phase: 'recebimento',
-        action: 'Material recebido',
-        userId: request.receivedById,
-        userName: receiverName,
-        timestamp: request.receivedDate,
-        status: 'completed',
-        icon: 'package-check',
-        description: request.pendencyReason ? `Recebimento com pendência: ${request.pendencyReason}` : 'Material recebido e conferido'
-      });
-    }
-
-    if (request.currentPhase === 'conclusao_compra' || request.currentPhase === 'arquivado') {
-      let finisherName = 'Sistema';
-      if (request.buyerId) {
-        const buyer = await this.getUserById(request.buyerId);
-        if (buyer) {
-          finisherName = buyer.firstName && buyer.lastName ? `${buyer.firstName} ${buyer.lastName}` : buyer.username || 'Sistema';
-        }
-      } else if (request.approverA2Id) {
-        const approverA2 = await this.getUserById(request.approverA2Id);
-        if (approverA2) {
-          finisherName = approverA2.firstName && approverA2.lastName ? `${approverA2.firstName} ${approverA2.lastName}` : approverA2.username || 'Sistema';
-        }
-      } else if (request.requesterId) {
-        const requesterUser = await this.getUserById(request.requesterId);
-        if (requesterUser) {
-          finisherName = requesterUser.firstName && requesterUser.lastName ? `${requesterUser.firstName} ${requesterUser.lastName}` : requesterUser.username || 'Sistema';
-        }
-      }
-      timeline.push({
-        id: 'process_completed',
-        type: 'completion',
-        phase: request.currentPhase,
-        action: request.currentPhase === 'arquivado' ? 'Processo arquivado' : 'Processo concluído',
-        userId: request.buyerId || request.approverA2Id || request.requesterId,
-        userName: finisherName,
-        timestamp: (request as any).archivedDate || request.updatedAt || new Date(),
-        status: 'completed',
-        icon: request.currentPhase === 'arquivado' ? 'archive' : 'check-circle-2',
-        description: request.currentPhase === 'arquivado' 
-          ? (request as any).conclusionObservations || 'Processo arquivado com sucesso'
-          : 'Processo de compra concluído'
-      });
-    }
-
-    // Sort timeline by timestamp with stable tie-breaker using business phase order
-    const phaseRank: Record<string, number> = {
-      solicitacao: 1,
-      aprovacao_a1: 2,
-      cotacao: 3,
-      aprovacao_a2: 4,
-      pedido_compra: 5,
-      recebimento: 6,
-      conclusao_compra: 7,
-      arquivado: 8,
-    };
-    timeline.sort((a, b) => {
-      const ta = new Date(a.timestamp).getTime();
-      const tb = new Date(b.timestamp).getTime();
-      if (ta !== tb) return ta - tb;
-      const ra = phaseRank[a.phase] ?? 99;
-      const rb = phaseRank[b.phase] ?? 99;
-      if (ra !== rb) return ra - rb;
-      const sa = String(a.id);
-      const sb = String(b.id);
-      return sa.localeCompare(sb);
-    });
-
-    return timeline;
+    return await timelineService.getCompleteTimeline(purchaseRequestId);
   }
 
   async createAttachment(
     attachmentData: InsertAttachment,
   ): Promise<Attachment> {
-    const [attachment] = await db
-      .insert(attachments)
-      .values(attachmentData)
-      .returning();
-    return attachment;
+    return await systemRepository.createAttachment(attachmentData);
   }
 
   async getAttachmentsByPurchaseRequestId(purchaseRequestId: number): Promise<Attachment[]> {
-    return await db
-      .select()
-      .from(attachments)
-      .where(eq(attachments.purchaseRequestId, purchaseRequestId));
+    return await systemRepository.getAttachmentsByPurchaseRequestId(purchaseRequestId);
   }
 
   async cleanupPurchaseRequestsData(): Promise<void> {
-    try {
-      // Delete in the correct order to respect foreign key constraints
-
-      // 1. Delete receipt items first
-      await db.delete(receiptItems);
-
-      // 2. Delete receipts
-      await db.delete(receipts);
-
-      // 3. Delete purchase order items
-      await db.delete(purchaseOrderItems);
-
-      // 4. Delete purchase orders
-      await db.delete(purchaseOrders);
-
-      // 5. Delete supplier quotation items
-      await db.delete(supplierQuotationItems);
-
-      // 6. Delete attachments (all types)
-      await db.delete(attachments);
-
-      // 7. Delete supplier quotations
-      await db.delete(supplierQuotations);
-
-      // 8. Delete quotation items
-      await db.delete(quotationItems);
-
-      // 9. Delete quotations
-      await db.delete(quotations);
-
-      // 10. Delete approval history
-      await db.delete(approvalHistory);
-
-
-
-      // 12. Delete purchase request items
-      await db.delete(purchaseRequestItems);
-
-      // 13. Finally, delete purchase requests
-      await db.delete(purchaseRequests);
-    } catch (error) {
-      console.error("❌ Erro durante a limpeza:", error);
-      throw error;
-    }
+    return await purchaseRequestRepository.cleanupPurchaseRequestsData();
   }
 
   async generatePasswordResetToken(email: string): Promise<string | null> {
-    try {
-      const user = await this.getUserByEmail(email);
-      if (!user) {
-        return null;
-      }
-
-      // Generate a secure random token
-      const token =
-        Math.random().toString(36).substr(2, 15) +
-        Math.random().toString(36).substr(2, 15);
-
-      // Set expiration to 1 hour from now
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 1);
-
-      // Update user with reset token and expiration
-      await db
-        .update(users)
-        .set({
-          passwordResetToken: token,
-          passwordResetExpires: expiresAt,
-        })
-        .where(eq(users.id, user.id));
-
-      return token;
-    } catch (error) {
-      console.error("Error generating password reset token:", error);
-      return null;
-    }
+    return await userRepository.generatePasswordResetToken(email);
   }
 
   async validatePasswordResetToken(token: string): Promise<User | null> {
-    try {
-      const user = await db
-        .select()
-        .from(users)
-        .where(
-          and(
-            eq(users.passwordResetToken, token),
-            gt(users.passwordResetExpires, new Date()),
-          ),
-        )
-        .limit(1);
-
-      return user[0] || null;
-    } catch (error) {
-      console.error("Error validating password reset token:", error);
-      return null;
-    }
+    return await userRepository.validatePasswordResetToken(token);
   }
 
   async resetPassword(token: string, newPassword: string): Promise<boolean> {
-    try {
-      const user = await this.validatePasswordResetToken(token);
-      if (!user) {
-        return false;
-      }
-
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-      await db
-        .update(users)
-        .set({
-          password: hashedPassword,
-          passwordResetToken: null,
-          passwordResetExpires: null,
-        })
-        .where(eq(users.id, user.id));
-
-      return true;
-    } catch (error) {
-      console.error("Error resetting password:", error);
-      return false;
-    }
+    return await userRepository.resetPassword(token, newPassword);
   }
 
   async getUserById(id: number): Promise<User | undefined> {
-    try {
-      const result = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, id))
-        .limit(1);
-      return result[0];
-    } catch (error) {
-      console.error("Error fetching user by ID:", error);
-      return undefined;
-    }
+    return await userRepository.getUser(id);
   }
 
   async getApprovalHistoryByRequestId(requestId: number): Promise<ApprovalHistory[]> {
-    try {
-      const result = await db
-        .select()
-        .from(approvalHistory)
-        .where(eq(approvalHistory.purchaseRequestId, requestId))
-        .orderBy(desc(approvalHistory.createdAt));
-      return result;
-    } catch (error) {
-      console.error("Error fetching approval history by request ID:", error);
-      return [];
-    }
+    return await approvalRepository.getApprovalHistoryByRequestId(requestId);
   }
 
   async getActiveApprovalConfiguration(): Promise<ApprovalConfiguration | undefined> {
-    try {
-      const result = await db
-        .select()
-        .from(approvalConfigurations)
-        .where(eq(approvalConfigurations.isActive, true))
-        .orderBy(desc(approvalConfigurations.effectiveDate))
-        .limit(1);
-      return result[0];
-    } catch (error) {
-      console.error("Error fetching active approval configuration:", error);
-      return undefined;
-    }
+    return await approvalRepository.getActiveApprovalConfiguration();
   }
 
   async getCEOAndDirectors(): Promise<User[]> {
-    try {
-      const result = await db
-        .select()
-        .from(users)
-        .where(
-          and(
-            or(eq(users.isCEO, true), eq(users.isDirector, true)),
-            eq(users.isApproverA2, true)
-          )
-        )
-        .orderBy(desc(users.isCEO), users.firstName, users.lastName);
-      return result;
-    } catch (error) {
-      console.error("Error fetching CEO and Directors:", error);
-      return [];
-    }
+    return await approvalRepository.getCEOAndDirectors();
   }
 
   async getA2Approvers(): Promise<User[]> {
-    try {
-      const result = await db
-        .select()
-        .from(users)
-        .where(eq(users.isApproverA2, true))
-        .orderBy(users.firstName, users.lastName);
-      return result;
-    } catch (error) {
-      console.error("Error fetching A2 approvers:", error);
-      return [];
-    }
+    return await approvalRepository.getA2Approvers();
   }
 
   async createApprovalHistoryWithStep(history: InsertApprovalHistory & { 
@@ -3024,91 +942,15 @@ export class DatabaseStorage implements IStorage {
     ipAddress: string; 
     userAgent: string; 
   }): Promise<ApprovalHistory> {
-    try {
-      const result = await db
-        .insert(approvalHistory)
-        .values({
-          purchaseRequestId: history.purchaseRequestId,
-          approverType: history.approverType,
-          approverId: history.approverId,
-          approved: history.approved,
-          rejectionReason: history.rejectionReason,
-          approvalStep: history.approvalStep,
-          approvalValue: history.approvalValue,
-          requiresDualApproval: history.requiresDualApproval,
-          ipAddress: history.ipAddress,
-          userAgent: history.userAgent,
-          createdAt: new Date(),
-        })
-        .returning();
-      return result[0];
-    } catch (error) {
-      console.error("Error creating approval history with step:", error);
-      throw error;
-    }
+    return await approvalRepository.createApprovalHistoryWithStep(history);
   }
 
   async createApprovalConfiguration(config: InsertApprovalConfiguration): Promise<ApprovalConfiguration> {
-    try {
-      // Deactivate current active configuration
-      await db
-        .update(approvalConfigurations)
-        .set({ isActive: false })
-        .where(eq(approvalConfigurations.isActive, true));
-
-      // Create new configuration
-      const result = await db
-        .insert(approvalConfigurations)
-        .values({
-          valueThreshold: config.valueThreshold,
-          isActive: true,
-          effectiveDate: new Date(),
-          createdBy: config.createdBy,
-          reason: config.reason,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning();
-      
-      return result[0];
-    } catch (error) {
-      console.error("Error creating approval configuration:", error);
-      throw error;
-    }
+    return await approvalRepository.createApprovalConfiguration(config);
   }
 
   async getConfigurationHistory(): Promise<ConfigurationHistory[]> {
-    try {
-      const result = await db
-        .select({
-          id: configurationHistory.id,
-          configurationId: configurationHistory.configurationId,
-          changeType: configurationHistory.changeType,
-          previousValues: configurationHistory.previousValues,
-          newValues: configurationHistory.newValues,
-          changedBy: configurationHistory.changedBy,
-          ipAddress: configurationHistory.ipAddress,
-          userAgent: configurationHistory.userAgent,
-          changedAt: configurationHistory.changedAt,
-          changedByUser: {
-            id: users.id,
-            firstName: users.firstName,
-            lastName: users.lastName,
-            email: users.email,
-          }
-        })
-        .from(configurationHistory)
-        .leftJoin(users, eq(configurationHistory.changedBy, users.id))
-        .orderBy(desc(configurationHistory.changedAt));
-      
-      return result.map(row => ({
-        ...row,
-        changedByUser: row.changedByUser && row.changedByUser.id ? row.changedByUser : undefined,
-      })) as ConfigurationHistory[];
-    } catch (error) {
-      console.error("Error fetching configuration history:", error);
-      return [];
-    }
+    return await approvalRepository.getConfigurationHistory();
   }
 
   async initializeDefaultData(): Promise<void> {
@@ -3227,50 +1069,11 @@ export class DatabaseStorage implements IStorage {
 
   // Quantity Adjustment History operations
   async createQuantityAdjustmentHistory(history: any): Promise<any> {
-    try {
-      const [result] = await db
-        .insert(quantityAdjustmentHistory)
-        .values({
-          supplierQuotationItemId: history.supplierQuotationItemId,
-          quotationId: history.quotationId,
-          supplierId: history.supplierId,
-          previousQuantity: history.previousQuantity,
-          newQuantity: history.newQuantity,
-          previousUnit: history.previousUnit,
-          newUnit: history.newUnit,
-          adjustmentReason: history.adjustmentReason,
-          adjustedBy: history.adjustedBy,
-          adjustedAt: history.adjustedAt,
-          previousTotalValue: history.previousTotalValue,
-          newTotalValue: history.newTotalValue,
-          createdAt: new Date(),
-        })
-        .returning();
-      return result;
-    } catch (error) {
-      console.error("Error creating quantity adjustment history:", error);
-      throw error;
-    }
+    return await systemRepository.createQuantityAdjustmentHistory(history);
   }
 
   async getDistinctItemDescriptions(query?: string): Promise<string[]> {
-    try {
-      let sql = `SELECT DISTINCT description FROM purchase_request_items`;
-      const params: any[] = [];
-      
-      if (query && query.trim()) {
-        sql += ` WHERE description ILIKE $1`;
-        params.push(`%${query.trim()}%`);
-      }
-      
-      sql += ` ORDER BY description ASC LIMIT 50`;
-      
-      const result = await pool.query(sql, params);
-      return result.rows.map((row: any) => row.description);
-    } catch (error) {
-      console.error("Error fetching item descriptions:", error);
-      return [];
-    }
+    return await systemRepository.getDistinctItemDescriptions(query);
   }
 }
 

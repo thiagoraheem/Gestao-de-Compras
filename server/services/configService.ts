@@ -376,7 +376,7 @@ export class ConfigService {
       await db.execute(sql`
         INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
         VALUES (
-          0,
+          NULL,
           'config_update',
           ${actionDescription},
           ${updatedBy},
@@ -402,8 +402,13 @@ export class ConfigService {
     const value = row[0].value as any;
     if (row[0].isSecret) {
       if (typeof value !== "string") return null;
-      const decrypted = decryptString(value);
-      return JSON.parse(decrypted);
+      try {
+        const decrypted = decryptString(value);
+        return JSON.parse(decrypted);
+      } catch (err: any) {
+        console.error(`[ConfigService] Failed to decrypt setting "${key}":`, err.message);
+        return null; // Return null to fall back to defaults
+      }
     }
     return value;
   }
@@ -481,7 +486,10 @@ function getKeyBytes(): Buffer {
   const tryHex = Buffer.from(raw, "hex");
   if (tryHex.length === 32) return tryHex;
 
-  throw new Error("CONFIG_ENCRYPTION_KEY must decode to 32 bytes (base64 or hex)");
+  // If it's too long, maybe it was a mistake? Log it and try to truncate if it makes sense,
+  // but for security it's better to fail with a clear message.
+  // Actually, we'll just throw the error as before but with more context.
+  throw new Error(`CONFIG_ENCRYPTION_KEY must decode to 32 bytes (base64 or hex). Current raw length: ${raw.length}`);
 }
 
 function encryptString(plainText: string): string {

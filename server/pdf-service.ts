@@ -6,6 +6,8 @@ import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
 import { execFile } from 'child_process';
+import { templateService } from "./services/template-service";
+import { formatCurrency, formatDate, formatDateTime } from "./utils/formatters";
 
 interface PurchaseOrderData {
   purchaseRequest: any;
@@ -501,7 +503,7 @@ export class PDFService {
         // Could not fetch quotation data for completion summary
       }
 
-      const html = this.generateCompletionSummaryHTML({
+      const html = await this.generateCompletionSummaryHTML({
         purchaseRequest,
         items,
         completeTimeline,
@@ -521,912 +523,274 @@ export class PDFService {
 
   static async generateDashboardPDF(dashboardData: any): Promise<Buffer> {
     try {
-      return await this.generatePDFWithFallback(this.generateDashboardHTML(dashboardData), 'dashboard');
+      const html = await this.generateDashboardHTML(dashboardData);
+      return await this.generatePDFWithFallback(html, 'dashboard');
     } catch (error) {
       throw error;
     }
   }
 
-  private static generateDashboardHTML(data: any): string {
-    const formatCurrency = (value: number) => {
-      return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      }).format(value);
-    };
+  private static async generateDashboardHTML(data: any): Promise<string> {
+    const departmentRows = (data.requestsByDepartment || []).map((item: any) => `
+      <tr>
+        <td>${item.name}</td>
+        <td>${item.value}</td>
+      </tr>
+    `).join('');
 
-    const formatDate = (date: Date) => {
-      return date.toLocaleDateString('pt-BR');
-    };
+    const urgencyRows = (data.urgencyDistribution || []).map((item: any) => `
+      <tr>
+        <td>${item.name}</td>
+        <td>${item.value}</td>
+      </tr>
+    `).join('');
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Dashboard Executivo - Sistema de Compras</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              margin: 0;
-              padding: 20px;
-              background-color: #f5f5f5;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-              padding: 20px;
-              border-radius: 10px;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 28px;
-            }
-            .header p {
-              margin: 5px 0 0 0;
-              font-size: 14px;
-              opacity: 0.9;
-            }
-            .kpi-grid {
-              display: grid;
-              grid-template-columns: repeat(2, 1fr);
-              gap: 20px;
-              margin-bottom: 30px;
-            }
-            .kpi-card {
-              background: white;
-              padding: 20px;
-              border-radius: 10px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-              border-left: 4px solid #667eea;
-            }
-            .kpi-card h3 {
-              margin: 0 0 10px 0;
-              color: #333;
-              font-size: 14px;
-              font-weight: 500;
-            }
-            .kpi-card .value {
-              font-size: 24px;
-              font-weight: bold;
-              color: #667eea;
-              margin-bottom: 5px;
-            }
-            .kpi-card .subtitle {
-              font-size: 12px;
-              color: #666;
-            }
-            .charts-section {
-              margin-bottom: 30px;
-            }
-            .chart-grid {
-              display: grid;
-              grid-template-columns: repeat(2, 1fr);
-              gap: 20px;
-              margin-bottom: 20px;
-            }
-            .chart-card {
-              background: white;
-              padding: 20px;
-              border-radius: 10px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }
-            .chart-card h3 {
-              margin: 0 0 15px 0;
-              color: #333;
-              font-size: 16px;
-            }
-            .data-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 10px;
-            }
-            .data-table th,
-            .data-table td {
-              padding: 8px 12px;
-              text-align: left;
-              border-bottom: 1px solid #ddd;
-            }
-            .data-table th {
-              background-color: #f8f9fa;
-              font-weight: 600;
-              color: #333;
-            }
-            .data-table tr:hover {
-              background-color: #f8f9fa;
-            }
-            .footer {
-              text-align: center;
-              margin-top: 30px;
-              padding-top: 20px;
-              border-top: 1px solid #ddd;
-              color: #666;
-              font-size: 12px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Dashboard Executivo</h1>
-            <p>Sistema de Gestão de Compras - Relatório gerado em ${formatDate(new Date())}</p>
-          </div>
+    const topDepartmentRows = (data.topDepartments || []).map((item: any) => `
+      <tr>
+        <td>${item.name}</td>
+        <td>${formatCurrency(item.totalValue)}</td>
+        <td>${item.requestCount}</td>
+      </tr>
+    `).join('');
 
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <h3>Solicitações Ativas</h3>
-              <div class="value">${data.totalActiveRequests || 0}</div>
-              <div class="subtitle">Total de solicitações em andamento</div>
-            </div>
-            
-            <div class="kpi-card">
-              <h3>Valor Total em Processamento</h3>
-              <div class="value">${formatCurrency(data.totalProcessingValue || 0)}</div>
-              <div class="subtitle">Valor total das solicitações ativas</div>
-            </div>
-            
-            <div class="kpi-card">
-              <h3>Tempo Médio de Aprovação</h3>
-              <div class="value">${data.averageApprovalTime || 0} dias</div>
-              <div class="subtitle">Média de tempo para aprovação</div>
-            </div>
-            
-            <div class="kpi-card">
-              <h3>Taxa de Aprovação</h3>
-              <div class="value">${data.approvalRate || 0}%</div>
-              <div class="subtitle">Percentual de aprovações</div>
-            </div>
-          </div>
-
-          <div class="charts-section">
-            <div class="chart-grid">
-              <div class="chart-card">
-                <h3>Solicitações por Departamento</h3>
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Departamento</th>
-                      <th>Quantidade</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${(data.requestsByDepartment || []).map((item: any) => `
-                      <tr>
-                        <td>${item.name}</td>
-                        <td>${item.value}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
-              
-              <div class="chart-card">
-                <h3>Distribuição por Urgência</h3>
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Urgência</th>
-                      <th>Quantidade</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${(data.urgencyDistribution || []).map((item: any) => `
-                      <tr>
-                        <td>${item.name}</td>
-                        <td>${item.value}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            
-            <div class="chart-card">
-              <h3>Top Departamentos por Valor</h3>
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Departamento</th>
-                    <th>Valor Total</th>
-                    <th>Quantidade</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${(data.topDepartments || []).map((item: any) => `
-                    <tr>
-                      <td>${item.name}</td>
-                      <td>${formatCurrency(item.totalValue)}</td>
-                      <td>${item.requestCount}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="footer">
-            <p>Relatório gerado automaticamente pelo Sistema de Gestão de Compras</p>
-          </div>
-        </body>
-      </html>
-    `;
+    return await templateService.render("pdf/dashboard", {
+      generatedDate: formatDate(new Date()),
+      totalActiveRequests: data.totalActiveRequests || 0,
+      totalProcessingValue: formatCurrency(data.totalProcessingValue || 0),
+      averageApprovalTime: data.averageApprovalTime || 0,
+      approvalRate: data.approvalRate || 0,
+      departmentRows,
+      urgencyRows,
+      topDepartmentRows,
+    });
   }
 
   private static async generateApprovalA2HTML(data: any): Promise<string> {
     const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, supplierQuotations, deliveryLocation, company, requester, quotationItems } = data;
     
-    // Função para formatar data brasileira
-    const formatBrazilianDate = (dateString: string | null | undefined): string => {
-      if (!dateString) return 'Não informado';
-      try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('pt-BR');
-      } catch {
-        return 'Não informado';
-      }
-    };
 
-    // Função para formatar moeda
-    const formatCurrency = (value: number): string => {
-      return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      }).format(value || 0);
-    };
-
-    // Generate QR Code for tracking
-    let qrCodeDataURL = '';
+    let qrCodeHtml = '';
     try {
       const frontendUrl = process.env.FRONTEND_URL || 
                          (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000');
       const trackingUrl = `${frontendUrl}/public/request/${purchaseRequest.id}`;
-      qrCodeDataURL = await QRCode.toDataURL(trackingUrl, {
-        width: 100,
-        margin: 1,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
+      const qrCodeDataURL = await QRCode.toDataURL(trackingUrl, {
+        width: 100, margin: 1,
+        color: { dark: '#000000', light: '#FFFFFF' }
       });
-    } catch (error) {
-      // QR code generation failed - continue without QR code
-    }
+      qrCodeHtml = `<div class="qr-code-container"><img src="${qrCodeDataURL}" alt="QR Code"><div class="qr-code-text">Acompanhe online</div></div>`;
+    } catch {}
 
-    // Carregar logo da empresa como base64
     const companyLogoBase64 = await getCompanyLogoBase64(company);
+    const companyLogoHtml = companyLogoBase64 ? `<div class="header-logo"><img src="${companyLogoBase64}" alt="Logo da Empresa"></div>` : '';
     
-    // Calcular totais
     const subtotal = items.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0);
     const itemDiscountTotal = items.reduce((sum: number, item: any) => sum + (Number(item.itemDiscount) || 0), 0);
-    
-    // Calcular desconto da proposta
     let proposalDiscount = 0;
     if (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) {
       const discountValue = Number(selectedSupplierQuotation.discountValue) || 0;
-      
       if (selectedSupplierQuotation.discountType === 'percentage') {
         proposalDiscount = (subtotal * discountValue) / 100;
       } else if (selectedSupplierQuotation.discountType === 'fixed') {
         proposalDiscount = discountValue;
       }
     }
-    
     const desconto = itemDiscountTotal + proposalDiscount;
     const freightValue = Number(selectedSupplierQuotation?.freightValue) || 0;
     const valorFinal = subtotal - desconto + freightValue;
-    
-    // Encontrar aprovações
-    const aprovacaoA1 = approvalHistory.find((h: any) => h.approverType === 'A1');
-    const aprovacaoA2 = approvalHistory.find((h: any) => h.approverType === 'A2');
-    
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Aprovação A2 - ${purchaseRequest.requestNumber}</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      font-size: 12px;
-      margin: 10px;
-      color: #000;
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 20px;
-      border-bottom: 2px solid #333;
-      padding-bottom: 15px;
-    }
-    .qr-code-container {
-      position: static;
-      margin-left: 20px;
-      text-align: center;
-      font-size: 10px;
-    }
-    .qr-code-container img {
-      width: 90px;
-      height: 90px;
-      display: block;
-      margin-bottom: 5px;
-    }
-    .qr-code-text {
-      font-size: 9px;
-      color: #666;
-      font-weight: normal;
-    }
-    .header-logo {
-      flex: 0 0 150px;
-      margin-right: 20px;
-    }
-    .header-logo img {
-      max-width: 150px;
-      max-height: 100px;
-      object-fit: contain;
-    }
-    .header-info {
-      flex: 1;
-      text-align: center;
-      padding: 0 10px;
-    }
-    .header-info h1 {
-      font-size: 16px;
-      font-weight: bold;
-      margin: 5px 0;
-    }
-    .header-info h2 {
-      font-size: 14px;
-      font-weight: bold;
-      margin: 5px 0;
-      color: #333;
-    }
-    .header-info p {
-      margin: 2px 0;
-      font-size: 11px;
-    }
-    .section {
-      margin: 10px 0;
-    }
-    .section-title {
-      background-color: #f0f0f0;
-      padding: 5px;
-      font-weight: bold;
-      border: 1px solid #ccc;
-    }
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin: 10px 0;
-    }
-    .info-item {
-      margin: 3px 0;
-    }
-    .info-label {
-      font-weight: bold;
-      display: inline-block;
-      width: 120px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 10px 0;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: left;
-    }
-    th {
-      background-color: #f0f0f0;
-      font-weight: bold;
-    }
-    .text-center { text-align: center; }
-    .text-right { text-align: right; }
-    .total-row {
-      font-weight: bold;
-      background-color: #f9f9f9;
-    }
-    .discount-row {
-      font-weight: bold;
-      background-color: #fff3cd;
-      color: #856404;
-    }
-    .subtotal-row {
-      font-weight: bold;
-      background-color: #f8f9fa;
-    }
-    .footer {
-      margin-top: 15px;
-      font-size: 10px;
-    }
-    .approval-status {
-      background-color: #d4edda;
-      color: #155724;
-      padding: 5px;
-      border-radius: 3px;
-      font-weight: bold;
-    }
-    .approval-pending {
-      background-color: #fff3cd;
-      color: #856404;
-    }
-    .approval-rejected {
-      background-color: #f8d7da;
-      color: #721c24;
-    }
-    .supplier-comparison-row.selected {
-      background-color: #e8f5e9;
-    }
-    .badge-selected {
-      background-color: #28a745;
-      color: white;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      margin-left: 5px;
-    }
-      .comparison-matrix {
-        margin-top: 15px;
-        overflow-x: auto;
-      }
-      .matrix-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 10px;
-        table-layout: fixed;
-      }
-      .matrix-table th, .matrix-table td {
-        padding: 8px;
-        border: 1px solid #e2e8f0;
-        vertical-align: top;
-      }
-      .matrix-table th {
-        background-color: #f8fafc;
-        font-weight: 600;
-        color: #475569;
-        text-align: center;
-      }
-      .matrix-table .item-col {
-        width: 20%;
-        text-align: left;
-        background-color: #f1f5f9;
-      }
-      .matrix-table .supplier-col {
-        text-align: center;
-      }
-      .matrix-table .item-name {
-        font-weight: 600;
-        color: #1e293b;
-      }
-      .supplier-cell {
-        text-align: center;
-      }
-      .selected-header {
-        background-color: #f0fdf4 !important;
-        border-bottom: 2px solid #22c55e !important;
-      }
-      .selected-cell {
-        background-color: #f0fdf4;
-      }
-      .selected-badge {
-        display: inline-block;
-        font-size: 9px;
-        color: #166534;
-        margin-top: 4px;
-        font-weight: normal;
-      }
-      .price-container {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        padding: 4px;
-        border-radius: 4px;
-      }
-      .lowest-price {
-        border: 1px solid #22c55e;
-        background-color: #dcfce7;
-      }
-      .best-value-badge {
-        font-size: 8px;
-        background-color: #166534;
-        color: white;
-        padding: 2px 4px;
-        border-radius: 2px;
-        align-self: center;
-        margin-bottom: 4px;
-      }
-      .qty-row {
-        color: #64748b;
-        font-size: 9px;
-      }
-      .unit-row {
-        color: #475569;
-      }
-      .total-row {
-        font-weight: 700;
-        color: #0f172a;
-        margin-top: 2px;
-        font-size: 11px;
-      }
-      .lowest-price .total-row {
-        color: #166534;
-      }
-      .no-quote {
-        color: #94a3b8;
-        font-style: italic;
-        padding: 10px;
-      }
-  </style>
-</head>
-<body>
-  <div class="header">
-    ${companyLogoBase64 ? `
-    <div class="header-logo">
-      <img src="${companyLogoBase64}" alt="Logo da Empresa">
-    </div>
-    ` : ''}
-    <div class="header-info">
-      <h1>APROVAÇÃO A2</h1>
-      <h2>Solicitação de Compra Nº ${purchaseRequest.requestNumber}</h2>
-      <p>Data de Geração: ${formatBrazilianDate(new Date().toISOString())}</p>
-      ${company ? `<p>${company.name}</p>` : ''}
-    </div>
-    ${qrCodeDataURL ? `
-    <div class="qr-code-container">
-      <img src="${qrCodeDataURL}" alt="QR Code">
-      <div class="qr-code-text">Acompanhe online</div>
-    </div>
-    ` : ''}
-  </div>
 
-  <div class="section">
-    <div class="section-title">Informações da Solicitação</div>
-    <div class="info-grid">
-      <div>
-        <div class="info-item">
-          <span class="info-label">Número:</span> ${purchaseRequest.requestNumber}
+    const selectedSupplierHtml = supplier ? `
+      <div class="section">
+        <div class="section-title">Fornecedor Selecionado</div>
+        <div class="info-grid">
+          <div>
+            <div class="info-item"><span class="info-label">Nome:</span> ${supplier.name}</div>
+            <div class="info-item"><span class="info-label">CNPJ:</span> ${supplier.cnpj || 'Não informado'}</div>
+            <div class="info-item"><span class="info-label">Email:</span> ${supplier.email || 'Não informado'}</div>
+          </div>
+          <div>
+            <div class="info-item"><span class="info-label">Telefone:</span> ${supplier.phone || 'Não informado'}</div>
+          </div>
         </div>
-        <div class="info-item">
-          <span class="info-label">Solicitante:</span> ${requester?.firstName ? `${requester.firstName} ${requester.lastName || ''}`.trim() : requester?.username || 'Não informado'}
-        </div>
-        <div class="info-item">
-          <span class="info-label">Departamento:</span> ${purchaseRequest.departmentName}
-        </div>
-        <div class="info-item">
-          <span class="info-label">Centro de Custo:</span> ${purchaseRequest.costCenterName}
-        </div>
-      </div>
-      <div>
-        <div class="info-item">
-          <span class="info-label">Data Solicitação:</span> ${formatBrazilianDate(purchaseRequest.createdAt)}
-        </div>
-        <div class="info-item">
-          <span class="info-label">Data Entrega:</span> ${formatBrazilianDate(purchaseRequest.deliveryDate)}
-        </div>
-        <div class="info-item">
-          <span class="info-label">Urgência:</span> ${purchaseRequest.urgency || 'Normal'}
-        </div>
-        <div class="info-item">
-          <span class="info-label">Valor Total:</span> ${formatCurrency(valorFinal)}
-        </div>
-      </div>
-    </div>
-    ${purchaseRequest.justification ? `
-    <div class="info-item">
-      <span class="info-label">Justificativa:</span><br>
-      ${purchaseRequest.justification}
-    </div>
-    ` : ''}
-  </div>
+      </div>` : '';
 
-  ${supplier ? `
-  <div class="section">
-    <div class="section-title">Fornecedor Selecionado</div>
-    <div class="info-grid">
-      <div>
-        <div class="info-item">
-          <span class="info-label">Nome:</span> ${supplier.name}
-        </div>
-        <div class="info-item">
-          <span class="info-label">CNPJ:</span> ${supplier.cnpj || 'Não informado'}
-        </div>
-        <div class="info-item">
-          <span class="info-label">Email:</span> ${supplier.email || 'Não informado'}
-        </div>
-      </div>
-      <div>
-        <div class="info-item">
-          <span class="info-label">Telefone:</span> ${supplier.phone || 'Não informado'}
-        </div>
-      </div>
-    </div>
-  </div>
-  ` : ''}
+    const itemRows = items.map((item: any, index: number) => `
+      <tr>
+        <td class="text-center">${index + 1}</td>
+        <td>${item.description}</td>
+        <td class="text-center">${Number(item.quantity) || 0}</td>
+        <td class="text-center">${item.unit || 'UN'}</td>
+        <td class="text-right">${item.discountPercentage ? item.discountPercentage + '%' : (item.itemDiscount ? formatCurrency(item.itemDiscount) : '-')}</td>
+        <td class="text-right">${formatCurrency(item.unitPrice)}</td>
+        <td class="text-right">${formatCurrency(item.totalPrice)}</td>
+      </tr>`).join('');
 
-  <div class="section">
-    <div class="section-title">Itens da Solicitação</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Descrição</th>
-          <th>Qtd</th>
-          <th>Unidade</th>
-          <th>Desconto</th>
-          <th>Valor Unit.</th>
-          <th>Valor Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items.map((item: any, index: number) => `
-        <tr>
-          <td class="text-center">${index + 1}</td>
-          <td>${item.description}</td>
-          <td class="text-center">${Number(item.quantity) || 0}</td>
-          <td class="text-center">${item.unit || 'UN'}</td>
-          <td class="text-right">${item.discountPercentage ? item.discountPercentage + '%' : (item.itemDiscount ? formatCurrency(item.itemDiscount) : '-')}</td>
-          <td class="text-right">${formatCurrency(item.unitPrice)}</td>
-          <td class="text-right">${formatCurrency(item.totalPrice)}</td>
-        </tr>
-        `).join('')}
-        <tr class="subtotal-row">
-          <td colspan="6" class="text-right">Subtotal:</td>
-          <td class="text-right">${formatCurrency(subtotal)}</td>
-        </tr>
-        ${desconto > 0 ? `
-        <tr class="discount-row">
-          <td colspan="6" class="text-right">Desconto:</td>
-          <td class="text-right">-${formatCurrency(desconto)}</td>
-        </tr>
-        ` : ''}
-        ${freightValue > 0 ? `
-        <tr>
-          <td colspan="6" class="text-right">Frete:</td>
-          <td class="text-right">${formatCurrency(freightValue)}</td>
-        </tr>
-        ` : ''}
-        <tr class="total-row">
-          <td colspan="6" class="text-right">VALOR TOTAL:</td>
-          <td class="text-right">${formatCurrency(valorFinal)}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  ${deliveryLocation ? `
-  <div class="section">
-    <div class="section-title">Local de Entrega</div>
-    <div class="info-grid">
-      <div>
-        <div class="info-item">
-          <span class="info-label">Nome:</span> ${deliveryLocation.name}
+    const deliveryLocationHtml = deliveryLocation ? `
+      <div class="section">
+        <div class="section-title">Local de Entrega</div>
+        <div class="info-grid">
+          <div>
+            <div class="info-item"><span class="info-label">Nome:</span> ${deliveryLocation.name}</div>
+            <div class="info-item"><span class="info-label">Endereço:</span> ${deliveryLocation.address}</div>
+          </div>
         </div>
-        <div class="info-item">
-          <span class="info-label">Endereço:</span> ${deliveryLocation.address}
-        </div>
-      </div>
-    </div>
-  </div>
-  ` : ''}
+      </div>` : '';
 
-  <div class="section">
-    <div class="section-title">Histórico de Aprovações</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Nível</th>
-          <th>Aprovador</th>
-          <th>Data</th>
-          <th>Status</th>
-          <th>Observações</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${approvalHistory.map((approval: any) => `
-        <tr>
-          <td>${approval.approverType}</td>
-          <td>${approval.approver ? `${approval.approver.firstName} ${approval.approver.lastName || ''}`.trim() : 'N/A'}</td>
-          <td>${formatBrazilianDate(approval.createdAt)}</td>
-          <td>
-            <span class="approval-status ${approval.approved === true ? '' : approval.approved === false ? 'approval-rejected' : 'approval-pending'}">
-              ${approval.approved === true ? 'Aprovado' : approval.approved === false ? 'Rejeitado' : 'Pendente'}
-            </span>
-          </td>
-          <td>${approval.rejectionReason || '-'}</td>
-        </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  </div>
+    const approvalHistoryRows = approvalHistory.map((approval: any) => `
+      <tr>
+        <td>${approval.approverType}</td>
+        <td>${approval.approver ? `${approval.approver.firstName} ${approval.approver.lastName || ''}`.trim() : 'N/A'}</td>
+        <td>${formatDate(approval.createdAt)}</td>
+        <td>
+          <span class="approval-status ${approval.approved === true ? 'approval-approved' : approval.approved === false ? 'approval-rejected' : 'approval-pending'}">
+            ${approval.approved === true ? 'Aprovado' : approval.approved === false ? 'Rejeitado' : 'Pendente'}
+          </span>
+        </td>
+        <td>${approval.rejectionReason || '-'}</td>
+      </tr>`).join('');
 
-  ${supplierQuotations && supplierQuotations.length > 0 ? `
-  <div class="section">
-    <div class="section-title">Comparação de Fornecedores</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Fornecedor</th>
-          <th class="text-right">Valor Total</th>
-          <th>Prazo</th>
-          <th>Pagamento</th>
-          <th>Garantia</th>
-          <th class="text-right">Desconto</th>
-          <th class="text-right">Frete</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${supplierQuotations.map((sq: any) => `
-        <tr class="${sq.isChosen ? 'supplier-comparison-row selected' : 'supplier-comparison-row'}">
-          <td>
-            ${sq.supplierName}
-            ${sq.isChosen ? '<span class="badge-selected">Selecionado</span>' : ''}
-          </td>
-          <td class="text-right">${formatCurrency(Number(sq.totalValue))}</td>
-          <td>${sq.deliveryTerms || '-'}</td>
-          <td>${sq.paymentTerms || '-'}</td>
-          <td>${sq.warrantyPeriod || '-'}</td>
-          <td class="text-right">
-            ${sq.discountType === 'percentage' 
-              ? `${sq.discountValue}%` 
-              : (sq.discountValue && Number(sq.discountValue) > 0) ? formatCurrency(Number(sq.discountValue)) : '-'}
-          </td>
-          <td class="text-right">${Number(sq.freightValue) > 0 ? formatCurrency(Number(sq.freightValue)) : '-'}</td>
-        </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  </div>
-  ` : ''}
-
-  ${supplierQuotations.length > 0 && items.length > 0 ? `
-  <div class="section-title" style="margin-top: 20px;">Comparação Detalhada de Itens</div>
-  <div class="comparison-matrix">
-      <table class="matrix-table">
+    const supplierComparisonHtml = (supplierQuotations && supplierQuotations.length > 0) ? `
+      <div class="section">
+        <div class="section-title">Comparação de Fornecedores</div>
+        <table>
           <thead>
-              <tr>
-                  <th class="item-col">Item</th>
-                  ${supplierQuotations.map((sq: any) => `
-                      <th class="supplier-col ${sq.isChosen ? 'selected-header' : ''}">
-                          ${sq.supplierName}
-                          ${sq.isChosen ? '<div class="selected-badge">Selecionado</div>' : ''}
-                      </th>
-                  `).join('')}
-              </tr>
+            <tr>
+              <th>Fornecedor</th>
+              <th class="text-right">Valor Total</th>
+              <th>Prazo</th>
+              <th>Pagamento</th>
+              <th>Garantia</th>
+              <th class="text-right">Desconto</th>
+              <th class="text-right">Frete</th>
+            </tr>
           </thead>
           <tbody>
-              ${items.map((item: any) => {
-                  // Encontrar item da cotação correspondente
-                  let quotationItem = quotationItems && quotationItems.find((qi: any) => 
-                      qi.purchaseRequestItemId === item.id
-                  );
-                  
-                  // Fallback match by description
-                  if (!quotationItem && item.description && quotationItems) {
-                      quotationItem = quotationItems.find((qi: any) => 
-                          qi.description && qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()
-                      );
-                  }
-
-                  // Encontrar o menor preço para este item entre todos os fornecedores
-                  let lowestPrice = Infinity;
-                  
-                  supplierQuotations.forEach((sq: any) => {
-                      const sqItem = sq.items && sq.items.find((i: any) => 
-                        (quotationItem && i.quotationItemId === quotationItem.id) || 
-                        (i.description && i.description.trim() === item.description.trim())
-                      );
-                      
-                      if (sqItem) {
-                          const quantity = Number(sqItem.availableQuantity || item.quantity);
-                          const unitPrice = Number(sqItem.unitPrice) || 0;
-                          const totalPrice = Number(sqItem.totalPrice) || (unitPrice * quantity);
-                          
-                          if (totalPrice > 0 && totalPrice < lowestPrice) {
-                            lowestPrice = totalPrice;
-                          }
-                      }
-                  });
-
-                  return `
-                  <tr>
-                      <td class="item-name">${item.description}</td>
-                      ${supplierQuotations.map((sq: any) => {
-                          const sqItem = sq.items && sq.items.find((i: any) => 
-                            (quotationItem && i.quotationItemId === quotationItem.id) || 
-                            (i.description && i.description.trim() === item.description.trim())
-                          );
-                          
-                          const quantity = sqItem ? Number(sqItem.availableQuantity || item.quantity) : item.quantity;
-                          const unitPrice = sqItem ? Number(sqItem.unitPrice) : 0;
-                          const totalPrice = sqItem ? (Number(sqItem.totalPrice) || (unitPrice * quantity)) : 0;
-                          
-                          // Verificar se é o menor preço (com margem de erro pequena para float)
-                          const isLowest = totalPrice > 0 && Math.abs(totalPrice - lowestPrice) < 0.01;
-                          const isSelected = sq.isChosen;
-
-                          return `
-                          <td class="supplier-cell ${isSelected ? 'selected-cell' : ''}">
-                              ${sqItem ? `
-                                  <div class="price-container ${isLowest ? 'lowest-price' : ''}">
-                                      ${isLowest ? '<div class="best-value-badge">Melhor valor</div>' : ''}
-                                      <div class="qty-row">Quantidade: ${quantity} ${item.unit}</div>
-                                      <div class="unit-row">Vlr. Unit.: ${formatCurrency(unitPrice)}</div>
-                                      <div class="total-row">Vlr Final: ${formatCurrency(totalPrice)}</div>
-                                  </div>
-                              ` : '<div class="no-quote">-</div>'}
-                          </td>
-                          `;
-                      }).join('')}
-                  </tr>
-                  `;
-              }).join('')}
+            ${supplierQuotations.map((sq: any) => `
+            <tr class="${sq.isChosen ? 'supplier-comparison-row selected' : 'supplier-comparison-row'}">
+              <td>${sq.supplierName}${sq.isChosen ? '<span class="badge-selected">Selecionado</span>' : ''}</td>
+              <td class="text-right">${formatCurrency(Number(sq.totalValue))}</td>
+              <td>${sq.deliveryTerms || '-'}</td>
+              <td>${sq.paymentTerms || '-'}</td>
+              <td>${sq.warrantyPeriod || '-'}</td>
+              <td class="text-right">${sq.discountType === 'percentage' ? `${sq.discountValue}%` : (sq.discountValue && Number(sq.discountValue) > 0 ? formatCurrency(Number(sq.discountValue)) : '-')}</td>
+              <td class="text-right">${Number(sq.freightValue) > 0 ? formatCurrency(Number(sq.freightValue)) : '-'}</td>
+            </tr>`).join('')}
           </tbody>
-      </table>
-  </div>
-  ` : ''}
+        </table>
+      </div>` : '';
 
-  <div class="footer">
-    <p><strong>Documento gerado automaticamente pelo Sistema de Gestão de Compras</strong></p>
-    <p>Data/Hora: ${new Date().toLocaleString('pt-BR')}</p>
-  </div>
-</body>
-</html>
-    `;
+    let comparisonMatrixHtml = '';
+    if (supplierQuotations.length > 0 && items.length > 0) {
+      comparisonMatrixHtml = `
+      <div class="section-title" style="margin-top: 20px;">Comparação Detalhada de Itens</div>
+      <div class="comparison-matrix">
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th class="item-col">Item</th>
+              ${supplierQuotations.map((sq: any) => `
+                <th class="supplier-col ${sq.isChosen ? 'selected-header' : ''}">
+                  ${sq.supplierName}${sq.isChosen ? '<div class="selected-badge">Selecionado</div>' : ''}
+                </th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((item: any) => {
+              let quotationItem = quotationItems && quotationItems.find((qi: any) => qi.purchaseRequestItemId === item.id);
+              if (!quotationItem && item.description && quotationItems) {
+                quotationItem = quotationItems.find((qi: any) => qi.description && qi.description.trim().toLowerCase() === item.description.trim().toLowerCase());
+              }
+              let lowestPrice = Infinity;
+              supplierQuotations.forEach((sq: any) => {
+                const sqItem = sq.items && sq.items.find((i: any) => (quotationItem && i.quotationItemId === quotationItem.id) || (i.description && i.description.trim() === item.description.trim()));
+                if (sqItem) {
+                  const quantity = Number(sqItem.availableQuantity || item.quantity);
+                  const unitPrice = Number(sqItem.unitPrice) || 0;
+                  const totalPrice = Number(sqItem.totalPrice) || (unitPrice * quantity);
+                  if (totalPrice > 0 && totalPrice < lowestPrice) lowestPrice = totalPrice;
+                }
+              });
+              return `
+                <tr>
+                  <td class="item-name">${item.description}</td>
+                  ${supplierQuotations.map((sq: any) => {
+                    const sqItem = sq.items && sq.items.find((i: any) => (quotationItem && i.quotationItemId === quotationItem.id) || (i.description && i.description.trim() === item.description.trim()));
+                    const quantity = sqItem ? Number(sqItem.availableQuantity || item.quantity) : item.quantity;
+                    const unitPrice = sqItem ? Number(sqItem.unitPrice) : 0;
+                    const totalPrice = sqItem ? (Number(sqItem.totalPrice) || (unitPrice * quantity)) : 0;
+                    const isLowest = totalPrice > 0 && Math.abs(totalPrice - lowestPrice) < 0.01;
+                    return `
+                      <td class="supplier-cell ${sq.isChosen ? 'selected-cell' : ''}">
+                        ${sqItem ? `
+                          <div class="price-container ${isLowest ? 'lowest-price' : ''}">
+                            ${isLowest ? '<div class="best-value-badge">Melhor valor</div>' : ''}
+                            <div class="qty-row">Quantidade: ${quantity} ${item.unit}</div>
+                            <div class="unit-row">Vlr. Unit.: ${formatCurrency(unitPrice)}</div>
+                            <div class="total-row-item">Vlr Final: ${formatCurrency(totalPrice)}</div>
+                          </div>` : '<div class="no-quote">-</div>'}
+                      </td>`;
+                  }).join('')}
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    }
+
+    return await templateService.render("pdf/approval-a2", {
+      companyLogoHtml,
+      qrCodeHtml,
+      requestNumber: purchaseRequest.requestNumber,
+      generationDate: formatDate(new Date().toISOString()),
+      companyName: company?.name || '',
+      requesterName: requester?.firstName ? `${requester.firstName} ${requester.lastName || ''}`.trim() : requester?.username || 'Não informado',
+      departmentName: purchaseRequest.departmentName,
+      costCenterName: purchaseRequest.costCenterName,
+      createdAt: formatDate(purchaseRequest.createdAt),
+      deliveryDate: formatDate(purchaseRequest.deliveryDate),
+      urgency: purchaseRequest.urgency || 'Normal',
+      finalValue: formatCurrency(valorFinal),
+      justification: purchaseRequest.justification,
+      selectedSupplierHtml,
+      itemRows,
+      subtotal: formatCurrency(subtotal),
+      hasDiscount: desconto > 0,
+      discount: formatCurrency(desconto),
+      hasFreight: freightValue > 0,
+      freight: formatCurrency(freightValue),
+      deliveryLocationHtml,
+      approvalHistoryRows,
+      supplierComparisonHtml,
+      comparisonMatrixHtml,
+      timestamp: new Date().toLocaleString('pt-BR')
+    });
   }
 
   private static async generatePurchaseOrderHTML(data: PurchaseOrderData): Promise<string> {
     const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company, buyer, purchaseOrder } = data;
     
-    // Função para formatar data brasileira
-    const formatBrazilianDate = (dateString: string | null | undefined): string => {
-      if (!dateString) return 'Não informado';
-      try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('pt-BR');
-      } catch {
-        return 'Não informado';
-      }
-    };
 
-    // Note: getImageAsBase64 function removed - logos now stored as base64 in database
-
-    // Generate QR Code for tracking
-    let qrCodeDataURL = '';
+    let qrCodeHtml = '';
     try {
       const frontendUrl = process.env.FRONTEND_URL || 
                          (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000');
       const trackingUrl = `${frontendUrl}/public/request/${purchaseRequest.id}`;
-      qrCodeDataURL = await QRCode.toDataURL(trackingUrl, {
-        width: 100,
-        margin: 1,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
+      const qrCodeDataURL = await QRCode.toDataURL(trackingUrl, {
+        width: 100, margin: 1,
+        color: { dark: '#000000', light: '#FFFFFF' }
       });
-    } catch (error) {
-      // QR code generation failed - continue without QR code
-    }
+      qrCodeHtml = `<div class="qr-code-container"><img src="${qrCodeDataURL}" alt="QR Code" /><div class="qr-code-text">Escaneie para acompanhar</div></div>`;
+    } catch {}
 
-    // Carregar logo da empresa como base64
     const companyLogoBase64 = await getCompanyLogoBase64(company);
+    const companyLogoHtml = companyLogoBase64 ? `<div class="header-logo"><img src="${companyLogoBase64}" alt="Logo da Empresa" /></div>` : '';
     
-    // Calcular totais usando preços originais para evitar desconto duplicado
     const subtotal = items.reduce((sum, item) => sum + (Number(item.originalTotalPrice) || Number(item.totalPrice) || 0), 0);
+    const itemDiscountTotal = items.reduce((sum, item) => sum + (Number(item.itemDiscount) || 0), 0);
     
-    // Calcular desconto total dos itens
-    const itemDiscountTotal = items.reduce((sum, item) => 
-      sum + (Number(item.itemDiscount) || 0), 0
-    );
-    
-    // Calcular desconto da proposta (aplicado sobre o subtotal original)
     let proposalDiscount = 0;
     if (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) {
       const discountValue = Number(selectedSupplierQuotation.discountValue) || 0;
-      
       if (selectedSupplierQuotation.discountType === 'percentage') {
         proposalDiscount = (subtotal * discountValue) / 100;
       } else if (selectedSupplierQuotation.discountType === 'fixed') {
@@ -1438,414 +802,145 @@ export class PDFService {
     const freightValue = Number(selectedSupplierQuotation?.freightValue) || 0;
     const valorFinal = subtotal - desconto + freightValue;
     
-    // Encontrar aprovações - usando approverType em vez de phase
     const aprovacaoA1 = approvalHistory.find(h => h.approverType === 'A1');
     const aprovacaoA2 = approvalHistory.find(h => h.approverType === 'A2');
     
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Pedido de Compras - ${purchaseOrder?.orderNumber || ''}</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      font-size: 12px;
-      margin: 10px;
-      color: #000;
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 20px;
-      border-bottom: 2px solid #333;
-      padding-bottom: 15px;
-      position: relative;
-      padding-right: 120px;
-      min-height: 120px;
-    }
-    .qr-code-container {
-      position: absolute;
-      top: 0;
-      right: 0;
-      text-align: center;
-      font-size: 10px;
-    }
-    .qr-code-container img {
-      width: 100px;
-      height: 100px;
-      display: block;
-      margin-bottom: 5px;
-    }
-    .qr-code-text {
-      font-size: 9px;
-      color: #666;
-      font-weight: normal;
-    }
-    .header-logo {
-      flex: 0 0 150px;
-      margin-right: 20px;
-    }
-    .header-logo img {
-      max-width: 150px;
-      max-height: 100px;
-      object-fit: contain;
-    }
-    .header-info {
-      flex: 1;
-      text-align: center;
-    }
-    .header-info h1 {
-      font-size: 16px;
-      font-weight: bold;
-      margin: 5px 0;
-    }
-    .header-info h2 {
-      font-size: 14px;
-      font-weight: bold;
-      margin: 5px 0;
-      color: #333;
-    }
-    .header-info p {
-      margin: 2px 0;
-      font-size: 11px;
-    }
-    .section {
-      margin: 10px 0;
-    }
-    .section-title {
-      background-color: #f0f0f0;
-      padding: 5px;
-      font-weight: bold;
-      border: 1px solid #ccc;
-    }
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin: 10px 0;
-    }
-    .info-item {
-      margin: 3px 0;
-    }
-    .info-label {
-      font-weight: bold;
-      display: inline-block;
-      width: 120px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 10px 0;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: left;
-    }
-    th {
-      background-color: #f0f0f0;
-      font-weight: bold;
-    }
-    .text-center { text-align: center; }
-    .text-right { text-align: right; }
-    .total-row {
-      font-weight: bold;
-      background-color: #f9f9f9;
-    }
-    .discount-row {
-      font-weight: bold;
-      background-color: #fff3cd;
-      color: #856404;
-    }
-    .subtotal-row {
-      font-weight: bold;
-      background-color: #f8f9fa;
-    }
-    .footer {
-      margin-top: 15px;
-      font-size: 10px;
-    }
-    .electronic-signature-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 30px;
-      margin-top: 20px;
-    }
-    .electronic-signature-grid-three {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 20px;
-      margin-top: 20px;
-    }
-    .signature-electronic {
-      border: 1px solid #000;
-      padding: 15px;
-      text-align: center;
-      background-color: #f9f9f9;
-    }
-    .signature-header {
-      font-weight: bold;
-      font-size: 10px;
-      margin-bottom: 10px;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 5px;
-    }
-    .signature-name {
-      font-weight: bold;
-      font-size: 12px;
-      margin: 8px 0;
-      text-decoration: underline;
-    }
-    .signature-role {
-      font-size: 11px;
-      margin: 5px 0;
-      font-style: italic;
-    }
-    .signature-date {
-      font-size: 10px;
-      margin-top: 8px;
-      color: #666;
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    ${companyLogoBase64 ? `
-    <div class="header-logo">
-      <img src="${companyLogoBase64}" alt="Logo da Empresa" />
-    </div>
-    ` : ''}
-    <div class="header-info">
-      <h1>PEDIDO DE COMPRAS - ${purchaseOrder?.orderNumber || ''}</h1>
-      <h2>${company?.name || company?.tradingName || 'EMPRESA NÃO INFORMADA'}</h2>
-      ${company?.address ? `<p>Endereço: ${company.address}</p>` : ''}
-      ${company?.cnpj ? `<p>CNPJ: ${company.cnpj}</p>` : ''}
-      ${company?.phone ? `<p>Telefone: ${company.phone}</p>` : ''}
-      ${company?.email ? `<p>Email: ${company.email}</p>` : ''}
-    </div>
-    ${qrCodeDataURL ? `
-    <div class="qr-code-container">
-      <img src="${qrCodeDataURL}" alt="QR Code para acompanhamento" />
-      <div class="qr-code-text">Escaneie para acompanhar</div>
-    </div>
-    ` : ''}
-  </div>
-
-  <div class="info-grid">
-    <div class="section">
-      <div class="section-title">DADOS FORNECEDOR</div>
-      <div class="info-item">
-        <span class="info-label">FORNECEDOR:</span> ${supplier?.name || 'Não informado'}
-      </div>
-      <div class="info-item">
-        <span class="info-label">CNPJ:</span> ${supplier?.cnpj || 'Não informado'}
-      </div>
-      <div class="info-item">
-        <span class="info-label">ENDEREÇO:</span> ${supplier?.address || 'Não informado'}
-      </div>
-      <div class="info-item">
-        <span class="info-label">CONTATO:</span> ${supplier?.contactPerson || 'Não informado'}
-      </div>
-      <div class="info-item">
-        <span class="info-label">TELEFONE:</span> ${supplier?.phone || 'Não informado'}
-      </div>
-      ${(selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) ? `
-      <div class="info-item">
-        <span class="info-label">DESCONTO:</span> ${selectedSupplierQuotation.discountType === 'percentage' 
-          ? `${selectedSupplierQuotation.discountValue}%` 
-          : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(4).replace('.', ',')}`}
-      </div>
-      ` : ''}
-    </div>
-
-    <div class="section">
-      <div class="section-title">LOCAL DE ENTREGA</div>
-      <div class="info-item">
-        <span class="info-label">LOCAL:</span> ${deliveryLocation?.name || 'Sede da empresa'}
-      </div>
-      <div class="info-item">
-        <span class="info-label">ENDEREÇO:</span> ${deliveryLocation?.address || 'Av. Nathan Lemos Xavier de Albuquerque, 1.328, Novo Aleixo, Manaus-AM, 69098-145'}
-      </div>
-      ${deliveryLocation?.contactPerson ? `
-      <div class="info-item">
-        <span class="info-label">RESPONSÁVEL:</span> ${deliveryLocation.contactPerson}
-      </div>
-      ` : ''}
-      ${deliveryLocation?.phone ? `
-      <div class="info-item">
-        <span class="info-label">TELEFONE:</span> ${deliveryLocation.phone}
-      </div>
-      ` : ''}
-      ${deliveryLocation?.email ? `
-      <div class="info-item">
-        <span class="info-label">EMAIL:</span> ${deliveryLocation.email}
-      </div>
-      ` : ''}
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="info-grid">
-      <div>
-        <div class="info-item">
-          <span class="info-label">SOLICITAÇÃO:</span> ${purchaseRequest.requestNumber}
-        </div>
-        <div class="info-item">
-          <span class="info-label">SOLICITANTE:</span> ${purchaseRequest.requesterName || (purchaseRequest.requester ? `${purchaseRequest.requester.firstName || ''} ${purchaseRequest.requester.lastName || ''}`.trim() : 'Não informado')}
-        </div>
-        <div class="info-item">
-          <span class="info-label">DEPARTAMENTO:</span> ${purchaseRequest.departmentName || 'Não informado'}
-        </div>
-      </div>
-      <div>
-        <div class="info-item">
-          <span class="info-label">DATA PEDIDO:</span> ${formatBrazilianDate(purchaseOrder?.createdAt || purchaseRequest.createdAt)}
-        </div>
-        <div class="info-item">
-          <span class="info-label">PRAZO ENTREGA:</span> ${selectedSupplierQuotation?.deliveryDate ? formatBrazilianDate(selectedSupplierQuotation.deliveryDate) : (selectedSupplierQuotation?.deliveryTerms || formatBrazilianDate(purchaseRequest.idealDeliveryDate))}
-        </div>
-        <div class="info-item">
-          <span class="info-label">COND. PAGAMENTO:</span> ${selectedSupplierQuotation?.paymentTerms || supplier?.paymentTerms || 'A definir'}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <table>
-      <thead>
+    const itemRows = items.map(item => {
+      const hasDiscount = Number(item.itemDiscount) > 0;
+      const originalUnitPrice = Number(item.originalUnitPrice) || Number(item.unitPrice) || 0;
+      const originalTotalPrice = Number(item.originalTotalPrice) || Number(item.totalPrice) || 0;
+      const finalTotalPrice = Number(item.totalPrice) || 0;
+      
+      return `
         <tr>
-          <th class="text-center">QUANT.</th>
-          <th class="text-center">UND</th>
-          <th>ITEM</th>
-          <th class="text-center">MARCA</th>
-          <th class="text-center">VL. UNITÁRIO</th>
-          <th class="text-center">VL. TOTAL</th>
-          <th>OBSERVAÇÃO</th>
+          <td class="text-center">${parseInt(item.quantity) || 0}</td>
+          <td class="text-center">${item.unit || 'UND'}</td>
+          <td>${item.itemCode || ''} ${item.itemCode ? '-' : ''} ${item.description}</td>
+          <td class="text-center">${item.brand || 'Não informado'}</td>
+          <td class="text-right">
+            ${hasDiscount ? 
+              `<span style="text-decoration: line-through; color: #999;">R$ ${originalUnitPrice.toFixed(4).replace('.', ',')}</span><br>
+               <span style="color: #28a745; font-weight: bold;">R$ ${(finalTotalPrice / Number(item.quantity || 1)).toFixed(4).replace('.', ',')}</span>` :
+              `R$ ${originalUnitPrice.toFixed(4).replace('.', ',')}`
+            }
+          </td>
+          <td class="text-right">
+            ${hasDiscount ? 
+              `<span style="text-decoration: line-through; color: #999;">R$ ${originalTotalPrice.toFixed(4).replace('.', ',')}</span><br>
+               <span style="color: #28a745; font-weight: bold;">R$ ${finalTotalPrice.toFixed(4).replace('.', ',')}</span>` :
+              `R$ ${originalTotalPrice.toFixed(4).replace('.', ',')}`
+            }
+          </td>
+          <td>${item.specifications || ''}</td>
+        </tr>`;
+    }).join('');
+
+    const fillerRows = Array(Math.max(0, 8 - items.length)).fill(0).map(() => `
+      <tr>
+        <td class="text-center">&nbsp;</td>
+        <td class="text-center">&nbsp;</td>
+        <td>&nbsp;</td>
+        <td class="text-center">&nbsp;</td>
+        <td class="text-right">&nbsp;</td>
+        <td class="text-right">&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>`).join('');
+
+    let totalRows = '';
+    if (desconto > 0 || freightValue > 0) {
+      totalRows = `
+        <tr class="subtotal-row">
+          <td colspan="5" class="text-right"><strong>SUBTOTAL:</strong></td>
+          <td class="text-right"><strong>R$ ${subtotal.toFixed(4).replace('.', ',')}</strong></td>
+          <td>&nbsp;</td>
         </tr>
-      </thead>
-      <tbody>
-        ${items.map(item => {
-          const hasDiscount = Number(item.itemDiscount) > 0;
-          const originalUnitPrice = Number(item.originalUnitPrice) || Number(item.unitPrice) || 0;
-          const originalTotalPrice = Number(item.originalTotalPrice) || Number(item.totalPrice) || 0;
-          const finalTotalPrice = Number(item.totalPrice) || 0;
-          
-          return `
-          <tr>
-            <td class="text-center">${parseInt(item.quantity) || 0}</td>
-            <td class="text-center">${item.unit || 'UND'}</td>
-            <td>${item.itemCode || ''} ${item.itemCode ? '-' : ''} ${item.description}</td>
-            <td class="text-center">${item.brand || 'Não informado'}</td>
-            <td class="text-right">
-              ${hasDiscount ? 
-                `<span style="text-decoration: line-through; color: #999;">R$ ${originalUnitPrice.toFixed(4).replace('.', ',')}</span><br>
-                 <span style="color: #28a745; font-weight: bold;">R$ ${(finalTotalPrice / Number(item.quantity || 1)).toFixed(4).replace('.', ',')}</span>` :
-                `R$ ${originalUnitPrice.toFixed(4).replace('.', ',')}`
-              }
-            </td>
-            <td class="text-right">
-              ${hasDiscount ? 
-                `<span style="text-decoration: line-through; color: #999;">R$ ${originalTotalPrice.toFixed(4).replace('.', ',')}</span><br>
-                 <span style="color: #28a745; font-weight: bold;">R$ ${finalTotalPrice.toFixed(4).replace('.', ',')}</span>` :
-                `R$ ${originalTotalPrice.toFixed(4).replace('.', ',')}`
-              }
-            </td>
-            <td>${item.specifications || ''}</td>
-          </tr>
-          `;
-        }).join('')}
-        
-        <!-- Linhas vazias para completar o template -->
-        ${Array(Math.max(0, 8 - items.length)).fill(0).map(() => `
-          <tr>
-            <td class="text-center">&nbsp;</td>
-            <td class="text-center">&nbsp;</td>
-            <td>&nbsp;</td>
-            <td class="text-center">&nbsp;</td>
-            <td class="text-right">&nbsp;</td>
-            <td class="text-right">&nbsp;</td>
-            <td>&nbsp;</td>
-          </tr>
-        `).join('')}
-        
-        ${desconto > 0 || freightValue > 0 ? `
-         <tr class="subtotal-row">
-           <td colspan="5" class="text-right"><strong>SUBTOTAL:</strong></td>
-           <td class="text-right"><strong>R$ ${subtotal.toFixed(4).replace('.', ',')}</strong></td>
-           <td>&nbsp;</td>
-         </tr>
-         ${desconto > 0 ? `
-         <tr class="discount-row">
-           <td colspan="5" class="text-right"><strong>DESCONTO ${selectedSupplierQuotation.discountType === 'percentage' ? `(${selectedSupplierQuotation.discountValue}%)` : ''}:</strong></td>
-           <td class="text-right"><strong>- R$ ${desconto.toFixed(4).replace('.', ',')}</strong></td>
-           <td>&nbsp;</td>
-         </tr>
-         ` : ''}
-         ${freightValue > 0 ? `
-         <tr class="subtotal-row">
-           <td colspan="5" class="text-right"><strong>FRETE:</strong></td>
-           <td class="text-right"><strong>R$ ${freightValue.toFixed(4).replace('.', ',')}</strong></td>
-           <td>&nbsp;</td>
-         </tr>
-         ` : ''}
-         <tr class="total-row">
-           <td colspan="5" class="text-right"><strong>TOTAL FINAL:</strong></td>
-           <td class="text-right"><strong>R$ ${valorFinal.toFixed(4).replace('.', ',')}</strong></td>
-           <td>&nbsp;</td>
-         </tr>
-         ` : `
+        ${desconto > 0 ? `
+        <tr class="discount-row">
+          <td colspan="5" class="text-right"><strong>TOTAL DESCONTO:</strong></td>
+          <td class="text-right"><strong>- R$ ${desconto.toFixed(4).replace('.', ',')}</strong></td>
+          <td>&nbsp;</td>
+        </tr>` : ''}
+        ${freightValue > 0 ? `
+        <tr class="subtotal-row">
+          <td colspan="5" class="text-right"><strong>FRETE:</strong></td>
+          <td class="text-right"><strong>R$ ${freightValue.toFixed(4).replace('.', ',')}</strong></td>
+          <td>&nbsp;</td>
+        </tr>` : ''}
+        <tr class="total-row">
+          <td colspan="5" class="text-right"><strong>TOTAL FINAL:</strong></td>
+          <td class="text-right"><strong>R$ ${valorFinal.toFixed(4).replace('.', ',')}</strong></td>
+          <td>&nbsp;</td>
+        </tr>`;
+    } else {
+      totalRows = `
         <tr class="total-row">
           <td colspan="5" class="text-right"><strong>TOTAL GERAL:</strong></td>
           <td class="text-right"><strong>R$ ${(subtotal + freightValue).toFixed(4).replace('.', ',')}</strong></td>
           <td>&nbsp;</td>
-        </tr>
-        `}
-      </tbody>
-    </table>
-  </div>
+        </tr>`;
+    }
 
-  <div class="section">
-    <div class="section-title">OBSERVAÇÕES GERAIS</div>
-    <p>${purchaseRequest.description || 'Nenhuma observação adicional.'}</p>
-    ${purchaseRequest.urgencyLevel ? `<p><strong>Urgência:</strong> ${purchaseRequest.urgencyLevel}</p>` : ''}
-    ${purchaseRequest.budgetCenter ? `<p><strong>Centro de Custo:</strong> ${purchaseRequest.budgetCenter}</p>` : ''}
-  </div>
+    const renderSignature = (approval: any, role: string) => {
+      const name = approval?.approver ? `${approval.approver.firstName || ''} ${approval.approver.lastName || ''}`.trim() || approval.approver.username : 'Não informado';
+      const dateText = approval ? `${new Date(approval.createdAt).toLocaleDateString('pt-BR')} às ${new Date(approval.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}` : 'Não assinado';
+      return `
+        <div class="signature-electronic">
+          <div class="signature-header">ASSINADO ELETRONICAMENTE POR:</div>
+          <div class="signature-name">${name}</div>
+          <div class="signature-role">${role}</div>
+          <div class="signature-date">${dateText}</div>
+        </div>`;
+    };
 
-  <div class="section">
-    <div class="section-title">ASSINADO ELETRONICAMENTE POR:</div>
-    <div class="electronic-signature-grid-three">
+    const buyerSignatureHtml = `
       <div class="signature-electronic">
         <div class="signature-header">ASSINADO ELETRONICAMENTE POR:</div>
-        <div class="signature-name">${buyer ? `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || buyer.username || 'Não informado' : 'Comprador não definido'}</div>
+        <div class="signature-name">${buyer ? `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || buyer.username : 'Comprador não definido'}</div>
         <div class="signature-role">Comprador</div>
         <div class="signature-date">${new Date(purchaseRequest.createdAt || new Date()).toLocaleDateString('pt-BR')} às ${new Date(purchaseRequest.createdAt || new Date()).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</div>
-      </div>
-      
-      <div class="signature-electronic">
-        <div class="signature-header">ASSINADO ELETRONICAMENTE POR:</div>
-        <div class="signature-name">${aprovacaoA1?.approver?.firstName && aprovacaoA1?.approver?.lastName ? `${aprovacaoA1.approver.firstName} ${aprovacaoA1.approver.lastName}` : (aprovacaoA1?.approver?.username || 'Não informado')}</div>
-        <div class="signature-role">Aprovador A1</div>
-        <div class="signature-date">${aprovacaoA1 ? new Date(aprovacaoA1.createdAt).toLocaleDateString('pt-BR') + ' às ' + new Date(aprovacaoA1.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) : 'Não assinado'}</div>
-      </div>
-      
-      <div class="signature-electronic">
-        <div class="signature-header">ASSINADO ELETRONICAMENTE POR:</div>
-        <div class="signature-name">${aprovacaoA2?.approver?.firstName && aprovacaoA2?.approver?.lastName ? `${aprovacaoA2.approver.firstName} ${aprovacaoA2.approver.lastName}` : (aprovacaoA2?.approver?.username || 'Não informado')}</div>
-        <div class="signature-role">Aprovador A2 (Liberador)</div>
-        <div class="signature-date">${aprovacaoA2 ? new Date(aprovacaoA2.createdAt).toLocaleDateString('pt-BR') + ' às ' + new Date(aprovacaoA2.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) : 'Não assinado'}</div>
-      </div>
-    </div>
-  </div>
+      </div>`;
 
-  <div class="footer">
-    <p><strong>Documento gerado automaticamente em:</strong> ${new Date().toLocaleString('pt-BR')}</p>
-  </div>
-</body>
-</html>
-    `;
+    const a1SignatureHtml = renderSignature(aprovacaoA1, "Aprovador A1");
+    const a2SignatureHtml = renderSignature(aprovacaoA2, "Aprovador A2 (Liberador)");
+
+    return await templateService.render("pdf/purchase-order", {
+      orderNumber: purchaseOrder?.orderNumber || '',
+      companyLogoHtml,
+      companyName: company?.name || company?.tradingName || 'EMPRESA NÃO INFORMADA',
+      companyAddress: company?.address,
+      companyCnpj: company?.cnpj,
+      companyPhone: company?.phone,
+      companyEmail: company?.email,
+      qrCodeHtml,
+      supplierName: supplier?.name || 'Não informado',
+      supplierCnpj: supplier?.cnpj || 'Não informado',
+      supplierAddress: supplier?.address || 'Não informado',
+      supplierContact: supplier?.contactPerson || 'Não informado',
+      supplierPhone: supplier?.phone || 'Não informado',
+      hasProposalDiscount: (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue),
+      proposalDiscount: selectedSupplierQuotation?.discountType === 'percentage' ? `${selectedSupplierQuotation.discountValue}%` : `R$ ${Number(selectedSupplierQuotation?.discountValue || 0).toFixed(4).replace('.', ',')}`,
+      deliveryName: deliveryLocation?.name || 'Sede da empresa',
+      deliveryAddress: deliveryLocation?.address || 'Av. Nathan Lemos Xavier de Albuquerque, 1.328, Novo Aleixo, Manaus-AM, 69098-145',
+      deliveryContact: deliveryLocation?.contactPerson,
+      deliveryPhone: deliveryLocation?.phone,
+      deliveryEmail: deliveryLocation?.email,
+      requestNumber: purchaseRequest.requestNumber,
+      requesterName: purchaseRequest.requesterName || (purchaseRequest.requester ? `${purchaseRequest.requester.firstName || ''} ${purchaseRequest.requester.lastName || ''}`.trim() : 'Não informado'),
+      departmentName: purchaseRequest.departmentName || 'Não informado',
+      orderDate: formatDate(purchaseOrder?.createdAt || purchaseRequest.createdAt),
+      deliveryDeadline: selectedSupplierQuotation?.deliveryDate ? formatDate(selectedSupplierQuotation.deliveryDate) : (selectedSupplierQuotation?.deliveryTerms || formatDate(purchaseRequest.idealDeliveryDate)),
+      paymentTerms: selectedSupplierQuotation?.paymentTerms || supplier?.paymentTerms || 'A definir',
+      itemRows,
+      fillerRows,
+      totalRows,
+      description: purchaseRequest.description || 'Nenhuma observação adicional.',
+      urgencyLevel: purchaseRequest.urgencyLevel,
+      budgetCenter: purchaseRequest.budgetCenter,
+      buyerSignatureHtml,
+      a1SignatureHtml,
+      a2SignatureHtml,
+      timestamp: new Date().toLocaleString('pt-BR')
+    });
   }
 
   static async generateApprovalA2PDF(purchaseRequestId: number): Promise<Buffer> {
@@ -2154,7 +1249,7 @@ export class PDFService {
     return await this.generatePDFWithFallback(html, 'purchase-order');
   }
 
-  private static generateCompletionSummaryHTML(data: any): string {
+  private static async generateCompletionSummaryHTML(data: any): Promise<string> {
     const { 
       purchaseRequest, 
       items, 
@@ -2167,307 +1262,79 @@ export class PDFService {
       supplierQuotationItems 
     } = data;
     
-    const formatDate = (date: Date) => {
-      return new Date(date).toLocaleDateString('pt-BR');
-    };
 
-    const formatCurrency = (value: number) => {
-      return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      }).format(value);
-    };
-
-    // Calcular valor total usando os itens de cotação do fornecedor selecionado
     let totalValue = 0;
-      let itemsWithPrices = items.map((item: any) => {
-      const quotationItem = supplierQuotationItems.find((qi: any) => 
-        qi.itemDescription === item.description
-      );
-        const unitPrice = quotationItem ? Number(quotationItem.unitPrice) : 0;
-        const totalPrice = Number(item.requestedQuantity ?? item.quantity ?? 0) * unitPrice;
+    const itemRows = items.map((item: any) => {
+      const quotationItem = supplierQuotationItems.find((qi: any) => qi.itemDescription === item.description);
+      const unitPrice = quotationItem ? Number(quotationItem.unitPrice) : 0;
+      const totalPrice = Number(item.requestedQuantity ?? item.quantity ?? 0) * unitPrice;
       totalValue += totalPrice;
       
-      return {
-        ...item,
-        unitPrice,
-        totalPrice
+      return `
+        <tr>
+          <td>${item.description}</td>
+          <td>${item.unit}</td>
+          <td class="text-right">${parseInt(String(item.requestedQuantity ?? item.quantity ?? 0)) || 0}</td>
+          <td class="text-right">${formatCurrency(unitPrice)}</td>
+          <td class="text-right">${formatCurrency(totalPrice)}</td>
+        </tr>`;
+    }).join('');
+
+    const timelineHtml = (completeTimeline || []).map((event: any) => {
+      const phaseLabels: Record<string, string> = {
+        'solicitacao': 'Solicitação',
+        'aprovacao_a1': 'Aprovação A1',
+        'cotacao': 'Cotação (RFQ)',
+        'aprovacao_a2': 'Aprovação A2',
+        'pedido_compra': 'Pedido de Compra',
+        'recebimento': 'Recebimento',
+        'conf_fiscal': 'Conf. Fiscal',
+        'conclusao_compra': 'Conclusão',
+        'arquivado': 'Arquivado'
       };
+      
+      const phaseLabel = phaseLabels[event.phase] || event.phase;
+      const eventDate = event.timestamp ? formatDate(event.timestamp) : 'N/A';
+      const userName = event.userName || 'Sistema';
+      
+      return `
+        <div class="timeline-item">
+          <div class="timeline-date">${eventDate}</div>
+          <div class="timeline-action">
+            <strong>${phaseLabel}</strong><br>
+            Por: <strong>${userName}</strong>
+            ${event.description ? `<br>${event.description}` : ''}
+            ${event.reason ? `<br>Motivo: ${event.reason}` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    return await templateService.render("pdf/completion-summary", {
+      requestNumber: purchaseRequest.requestNumber,
+      requesterName: requester ? `${requester.firstName} ${requester.lastName}` : 'N/A',
+      departmentName: department?.name || 'N/A',
+      costCenterName: costCenter?.name || 'N/A',
+      createdAt: formatDate(purchaseRequest.createdAt),
+      completionDate: purchaseRequest.receivedDate ? formatDate(purchaseRequest.receivedDate) : 'N/A',
+      urgency: purchaseRequest.urgency || 'N/A',
+      hasSelectedSupplier: !!selectedSupplier,
+      supplierName: selectedSupplier?.name,
+      supplierCnpj: selectedSupplier?.cnpj,
+      supplierEmail: selectedSupplier?.email,
+      supplierPhone: selectedSupplier?.phone,
+      itemRows,
+      totalValue: formatCurrency(totalValue),
+      hasTimeline: completeTimeline && completeTimeline.length > 0,
+      timelineHtml,
+      hasQuotationData: !!selectedSupplierQuotation,
+      quotationTotalValue: formatCurrency(Number(selectedSupplierQuotation?.totalValue || 0)),
+      quotationDeliveryTime: selectedSupplierQuotation?.deliveryTime || 'N/A',
+      quotationPaymentTerms: selectedSupplierQuotation?.paymentTerms || selectedSupplier?.paymentTerms || 'N/A',
+      quotationObservations: selectedSupplierQuotation?.observations || 'N/A',
+      hasQuotationDiscount: (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue),
+      quotationDiscount: selectedSupplierQuotation?.discountType === 'percentage' ? `${selectedSupplierQuotation.discountValue}%` : formatCurrency(Number(selectedSupplierQuotation?.discountValue)),
+      quotationJustification: selectedSupplierQuotation?.justification
     });
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Relatório de Conclusão - ${purchaseRequest.requestNumber}</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            font-size: 12px;
-            line-height: 1.4;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #333;
-            padding-bottom: 20px;
-          }
-          .title {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 10px;
-          }
-          .subtitle {
-            font-size: 16px;
-            color: #666;
-          }
-          .section {
-            margin-bottom: 25px;
-          }
-          .section-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #333;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 5px;
-          }
-          .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-          }
-          .info-item {
-            margin-bottom: 8px;
-          }
-          .info-label {
-            font-weight: bold;
-            color: #555;
-          }
-          .info-value {
-            color: #333;
-          }
-          .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-          }
-          .table th, .table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-          }
-          .table th {
-            background-color: #f5f5f5;
-            font-weight: bold;
-          }
-          .total-row {
-            background-color: #f9f9f9;
-            font-weight: bold;
-          }
-          .timeline {
-            margin-top: 15px;
-          }
-          .timeline-item {
-            margin-bottom: 10px;
-            padding: 10px;
-            border-left: 3px solid #007bff;
-            background-color: #f8f9fa;
-          }
-          .timeline-date {
-            font-weight: bold;
-            color: #007bff;
-          }
-          .timeline-action {
-            margin-top: 5px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="title">Relatório de Conclusão de Compra</div>
-          <div class="subtitle">Solicitação: ${purchaseRequest.requestNumber}</div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">Informações Gerais</div>
-          <div class="info-grid">
-            <div>
-              <div class="info-item">
-                <span class="info-label">Solicitante:</span>
-                <span class="info-value">${requester ? `${requester.firstName} ${requester.lastName}` : 'N/A'}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Departamento:</span>
-                <span class="info-value">${department?.name || 'N/A'}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Centro de Custo:</span>
-                <span class="info-value">${costCenter?.name || 'N/A'}</span>
-              </div>
-            </div>
-            <div>
-              <div class="info-item">
-                <span class="info-label">Data da Solicitação:</span>
-                <span class="info-value">${formatDate(purchaseRequest.createdAt)}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Data de Conclusão:</span>
-                <span class="info-value">${purchaseRequest.receivedDate ? formatDate(purchaseRequest.receivedDate) : 'N/A'}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Urgência:</span>
-                <span class="info-value">${purchaseRequest.urgency || 'N/A'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        ${selectedSupplier ? `
-        <div class="section">
-          <div class="section-title">Fornecedor Selecionado</div>
-          <div class="info-grid">
-            <div>
-              <div class="info-item">
-                <span class="info-label">Nome:</span>
-                <span class="info-value">${selectedSupplier.name}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">CNPJ:</span>
-                <span class="info-value">${selectedSupplier.cnpj || 'N/A'}</span>
-              </div>
-            </div>
-            <div>
-              <div class="info-item">
-                <span class="info-label">E-mail:</span>
-                <span class="info-value">${selectedSupplier.email || 'N/A'}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Telefone:</span>
-                <span class="info-value">${selectedSupplier.phone || 'N/A'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        ` : ''}
-
-        <div class="section">
-          <div class="section-title">Itens Adquiridos</div>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Descrição</th>
-                <th>Unidade</th>
-                <th>Quantidade</th>
-                <th>Valor Unitário</th>
-                <th>Valor Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsWithPrices.map((item: any) => `
-                <tr>
-                  <td>${item.description}</td>
-                  <td>${item.unit}</td>
-                  <td>${parseInt(String(item.requestedQuantity ?? item.quantity ?? 0)) || 0}</td>
-                  <td>${formatCurrency(item.unitPrice)}</td>
-                  <td>${formatCurrency(item.totalPrice)}</td>
-                </tr>
-              `).join('')}
-              <tr class="total-row">
-                <td colspan="4"><strong>TOTAL GERAL</strong></td>
-                <td><strong>${formatCurrency(totalValue)}</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        ${completeTimeline && completeTimeline.length > 0 ? `
-        <div class="section">
-          <div class="section-title">Histórico do Processo de Compra</div>
-          <div class="timeline">
-            ${completeTimeline.map((event: any) => {
-              // Mapeamento de fases para português
-              const phaseLabels: Record<string, string> = {
-                'solicitacao': 'Solicitação',
-                'aprovacao_a1': 'Aprovação A1',
-                'cotacao': 'Cotação (RFQ)',
-                'aprovacao_a2': 'Aprovação A2',
-                'pedido_compra': 'Pedido de Compra',
-                'recebimento': 'Recebimento',
-                'conf_fiscal': 'Conf. Fiscal',
-                'conclusao_compra': 'Conclusão',
-                'arquivado': 'Arquivado'
-              };
-              
-              const phaseLabel = phaseLabels[event.phase] || event.phase;
-              const eventDate = event.timestamp ? formatDate(new Date(event.timestamp)) : 'N/A';
-              const userName = event.userName || 'Sistema';
-              
-              return `
-              <div class="timeline-item">
-                <div class="timeline-date">${eventDate}</div>
-                <div class="timeline-action">
-                  <strong>${phaseLabel}</strong><br>
-                  Por: <strong>${userName}</strong>
-                  ${event.description ? `<br>${event.description}` : ''}
-                  ${event.reason ? `<br>Motivo: ${event.reason}` : ''}
-                </div>
-              </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-        ` : ''}
-
-        ${selectedSupplierQuotation ? `
-        <div class="section">
-          <div class="section-title">Dados da Cotação Vencedora</div>
-          <div class="info-grid">
-            <div>
-              <div class="info-item">
-                <span class="info-label">Valor Total da Cotação:</span>
-                <span class="info-value">${formatCurrency(Number(selectedSupplierQuotation.totalValue || 0))}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Prazo de Entrega:</span>
-                <span class="info-value">${selectedSupplierQuotation.deliveryTime || 'N/A'}</span>
-              </div>
-            </div>
-            <div>
-              <div class="info-item">
-                <span class="info-label">Condições de Pagamento:</span>
-                <span class="info-value">${selectedSupplierQuotation.paymentTerms || selectedSupplier?.paymentTerms || 'N/A'}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Observações:</span>
-                <span class="info-value">${selectedSupplierQuotation.observations || 'N/A'}</span>
-              </div>
-            </div>
-          </div>
-          ${(selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) ? `
-          <div class="info-item" style="margin-top: 15px;">
-            <span class="info-label">Desconto da Proposta:</span>
-            <span class="info-value">${selectedSupplierQuotation.discountType === 'percentage' 
-              ? `${selectedSupplierQuotation.discountValue}%` 
-              : formatCurrency(Number(selectedSupplierQuotation.discountValue))}</span>
-          </div>
-          ` : ''}
-          ${selectedSupplierQuotation.justification ? `
-          <div class="info-item" style="margin-top: 15px;">
-            <span class="info-label">Justificativa da Escolha:</span><br>
-            <span class="info-value">${selectedSupplierQuotation.justification}</span>
-          </div>
-          ` : ''}
-        </div>
-        ` : ''}
-
-      </body>
-      </html>
-    `;
   }
 }
 

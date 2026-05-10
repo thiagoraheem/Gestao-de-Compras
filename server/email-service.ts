@@ -1,8 +1,9 @@
 import nodemailer from "nodemailer";
-import type { Supplier, User, PurchaseRequest } from "../shared/schema";
+import type { Supplier, User, PurchaseRequest, Quotation } from "../shared/schema";
 import { storage } from "./storage";
 import { config, buildRequestUrl, isEmailEnabled } from "./config";
 import { PDFService } from "./pdf-service";
+import { templateService } from "./services/template-service";
 
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -104,7 +105,7 @@ export async function sendRFQToSuppliers(
     }
 
     try {
-      const emailHtml = generateRFQEmailHTML(supplier, rfqData);
+      const emailHtml = await generateRFQEmailHTML(supplier, rfqData);
 
       const mailOptions = {
         from: senderEmail || config.email.from,
@@ -131,110 +132,78 @@ export async function sendRFQToSuppliers(
   };
 }
 
-function generateRFQEmailHTML(
+export async function notifyNewRFQ(
+  supplier: Supplier,
+  quotation: Quotation,
+  token?: string,
+): Promise<void> {
+  // Verificar se o envio de e-mails está habilitado
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de nova RFQ para ${supplier.name} (Cotação: ${quotation.quotationNumber}) não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
+  try {
+    const purchaseRequest = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
+    if (!purchaseRequest) {
+      console.error(`Purchase request ${quotation.purchaseRequestId} not found for quotation ${quotation.id}`);
+      return;
+    }
+
+    const items = await storage.getQuotationItems(quotation.id);
+    
+    const rfqData: RFQEmailData = {
+      quotationNumber: quotation.quotationNumber,
+      requestNumber: purchaseRequest.requestNumber,
+      quotationDeadline: quotation.quotationDeadline instanceof Date 
+        ? quotation.quotationDeadline.toISOString() 
+        : String(quotation.quotationDeadline),
+      items: items.map(item => ({
+        itemCode: item.itemCode,
+        description: item.description,
+        quantity: String(item.quantity),
+        unit: item.unit,
+        specifications: item.specifications || undefined
+      })),
+      termsAndConditions: quotation.termsAndConditions || undefined,
+      technicalSpecs: quotation.technicalSpecs || undefined
+    };
+
+    const result = await sendRFQToSuppliers([supplier], rfqData);
+    if (!result.success) {
+      console.error(`Failed to send RFQ email to ${supplier.name}:`, result.errors);
+    }
+  } catch (error) {
+    console.error(`Error in notifyNewRFQ for ${supplier.name}:`, error);
+  }
+}
+
+async function generateRFQEmailHTML(
   supplier: Supplier,
   rfqData: RFQEmailData,
-): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
-        .content { padding: 20px; }
-        .item-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        .item-table th { background: #f4f4f4; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
-        .deadline { background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 15px 0; border-radius: 4px; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>Solicitação de Cotação</h1>
-        <h2>${rfqData.quotationNumber}</h2>
-      </div>
-      
-      <div class="content">
-        <p>Prezado(a) <strong>${supplier.contact ?? supplier.name}</strong>,</p>
-        
-        <p>Solicitamos sua cotação para os itens relacionados na solicitação <strong>${rfqData.requestNumber}</strong>.</p>
-        
-        <div class="deadline">
-          <strong>⏰ Prazo para envio da cotação: ${new Date(rfqData.quotationDeadline).toLocaleDateString("pt-BR")}</strong>
-        </div>
-        
-        <h3>Itens Solicitados:</h3>
-        <table class="item-table">
-          <thead>
-            <tr>
-              <th>Descrição</th>
-              <th>Quantidade</th>
-              <th>Unidade</th>
-              <th>Especificações</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rfqData.items
-              .map(
-                (item) => `
-              <tr>
-                <td>${item.description}</td>
-                <td>${item.quantity}</td>
-                <td>${item.unit}</td>
-                <td>${item.specifications || "-"}</td>
-              </tr>
-            `,
-              )
-              .join("")}
-          </tbody>
-        </table>
-        
-        ${
-          rfqData.technicalSpecs
-            ? `
-          <h3>Especificações Técnicas:</h3>
-          <div style="background: #f8f9fa; padding: 15px; border-radius: 4px;">
-            ${rfqData.technicalSpecs.replace(/\n/g, "<br>")}
-          </div>
-        `
-            : ""
-        }
-        
-        ${
-          rfqData.termsAndConditions
-            ? `
-          <h3>Termos e Condições:</h3>
-          <div style="background: #f8f9fa; padding: 15px; border-radius: 4px;">
-            ${rfqData.termsAndConditions.replace(/\n/g, "<br>")}
-          </div>
-        `
-            : ""
-        }
-        
-        <h3>Informações Necessárias na Cotação:</h3>
-        <ul>
-          <li>Preço unitário e total para cada item</li>
-          <li>Prazo de entrega</li>
-          <li>Condições de pagamento</li>
-          <li>Validade da proposta</li>
-          <li>Dados bancários para transferência</li>
-        </ul>
-        
-        <p>Agradecemos sua participação e aguardamos retorno até a data limite informada.</p>
-        
-        <p>Atenciosamente,<br>
-        <strong>Departamento de Compras</strong></p>
-      </div>
-      
-      <div class="footer">
-        <p>Esta é uma mensagem automática do sistema de compras.</p>
-      </div>
-    </body>
-    </html>
-  `;
+): Promise<string> {
+  const itemRows = rfqData.items
+    .map(
+      (item) => `
+    <tr>
+      <td>${item.description}</td>
+      <td style="text-align: right;">${item.quantity}</td>
+      <td>${item.unit}</td>
+      <td>${item.specifications || "-"}</td>
+    </tr>
+  `,
+    )
+    .join("");
+
+  return await templateService.render("rfq", {
+    quotationNumber: rfqData.quotationNumber,
+    supplierContact: supplier.contact ?? supplier.name,
+    requestNumber: rfqData.requestNumber,
+    quotationDeadline: new Date(rfqData.quotationDeadline).toLocaleDateString("pt-BR"),
+    itemRows,
+    technicalSpecs: rfqData.technicalSpecs ? rfqData.technicalSpecs.replace(/\n/g, "<br>") : null,
+    termsAndConditions: rfqData.termsAndConditions ? rfqData.termsAndConditions.replace(/\n/g, "<br>") : null,
+  });
 }
 
 // Workflow notification functions
@@ -274,7 +243,7 @@ export async function notifyNewRequest(
         to: buyer.email,
         replyTo: config.email.from,
         subject: `Nova Solicitação de Compra - ${purchaseRequest.requestNumber}`,
-        html: generateNewRequestEmailHTML(
+        html: await generateNewRequestEmailHTML(
           buyer,
           purchaseRequest,
           requesterName,
@@ -344,7 +313,7 @@ export async function notifyApprovalA1(
         to: approver.email,
         replyTo: config.email.from,
         subject: `Solicitação Pendente de Aprovação A1 - ${purchaseRequest.requestNumber}`,
-        html: generateApprovalA1EmailHTML(
+        html: await generateApprovalA1EmailHTML(
           approver,
           purchaseRequest,
           requesterName,
@@ -414,7 +383,7 @@ export async function notifyApprovalA2(
         to: approver.email,
         replyTo: config.email.from,
         subject: `Solicitação Pendente de Aprovação A2 - ${purchaseRequest.requestNumber}`,
-        html: generateApprovalA2EmailHTML(
+        html: await generateApprovalA2EmailHTML(
           approver,
           purchaseRequest,
           requesterName,
@@ -462,7 +431,7 @@ export async function notifyRejection(
           to: requester.email,
           replyTo: config.email.from,
           subject: subject,
-          html: generateRejectionEmailHTML(
+          html: await generateRejectionEmailHTML(
             requester,
             purchaseRequest,
             rejectionReason,
@@ -485,7 +454,7 @@ export async function notifyRejection(
           to: approverA1.email,
           replyTo: config.email.from,
           subject: subject,
-          html: generateRejectionEmailHTML(
+          html: await generateRejectionEmailHTML(
             approverA1,
             purchaseRequest,
             rejectionReason,
@@ -502,183 +471,66 @@ export async function notifyRejection(
   }
 }
 
-function generateRejectionEmailHTML(
+async function generateRejectionEmailHTML(
   user: User,
   purchaseRequest: PurchaseRequest,
   rejectionReason: string,
   phaseText: string,
   isManager: boolean
-): string {
+): Promise<string> {
   const introText = isManager 
     ? `A solicitação de compra <strong>${purchaseRequest.requestNumber}</strong>, aprovada tecnicamente por você, foi devolvida/rejeitada${phaseText}.`
     : `Sua solicitação de compra foi devolvida/rejeitada${phaseText}.`;
 
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #fee2e2; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-        .content { margin-bottom: 20px; }
-        .reason { background-color: #f8f9fa; padding: 15px; border-left: 4px solid #dc2626; margin: 15px 0; }
-        .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h2 style="color: #dc2626; margin: 0;">Solicitação Rejeitada</h2>
-          <p style="margin: 5px 0 0 0;">Número: <strong>${purchaseRequest.requestNumber}</strong></p>
-        </div>
-        <div class="content">
-          <p>Olá ${user.firstName || user.username},</p>
-          <p>${introText}</p>
-          
-          <div class="reason">
-            <strong>Motivo da rejeição:</strong><br>
-            ${rejectionReason}
-          </div>
-
-          <p>
-            <a href="${buildRequestUrl(purchaseRequest.id)}" style="background-color: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Ver Detalhes
-            </a>
-          </p>
-        </div>
-        <div class="footer">
-          <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+  return await templateService.render("rejection", {
+    requestNumber: purchaseRequest.requestNumber,
+    userName: user.firstName || user.username,
+    introText,
+    rejectionReason,
+    requestUrl: buildRequestUrl(purchaseRequest.id),
+  });
 }
 
 // Email templates for notifications
-function generateNewRequestEmailHTML(
+async function generateNewRequestEmailHTML(
   buyer: User,
   purchaseRequest: PurchaseRequest,
   requesterName: string,
-): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-        .content { margin-bottom: 20px; }
-        .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h2>Nova Solicitação de Compra</h2>
-          <p>Número: <strong>${purchaseRequest.requestNumber}</strong></p>
-        </div>
-        <div class="content">
-          <p>Olá ${buyer.firstName || buyer.username},</p>
-          <p>Uma nova solicitação de compra foi criada por <strong>${requesterName}</strong> e precisa de sua atenção.</p>
-          <p>
-            <a href="${buildRequestUrl(purchaseRequest.id)}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Ver Solicitação
-            </a>
-          </p>
-        </div>
-        <div class="footer">
-          <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+): Promise<string> {
+  return await templateService.render("new-request", {
+    requestNumber: purchaseRequest.requestNumber,
+    buyerName: buyer.firstName || buyer.username,
+    requesterName,
+    requestUrl: buildRequestUrl(purchaseRequest.id),
+  });
 }
 
-function generateApprovalA1EmailHTML(
+async function generateApprovalA1EmailHTML(
   approver: User,
   purchaseRequest: PurchaseRequest,
   requesterName: string,
-): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-        .content { margin-bottom: 20px; }
-        .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h2>Solicitação Aguardando Aprovação A1</h2>
-          <p>Número: <strong>${purchaseRequest.requestNumber}</strong></p>
-        </div>
-        <div class="content">
-          <p>Olá ${approver.firstName || approver.username},</p>
-          <p>A solicitação criada por <strong>${requesterName}</strong> aguarda sua aprovação técnica.</p>
-          <p>
-            <a href="${buildRequestUrl(purchaseRequest.id)}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Revisar e Aprovar
-            </a>
-          </p>
-        </div>
-        <div class="footer">
-          <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+): Promise<string> {
+  return await templateService.render("approval-a1", {
+    requestNumber: purchaseRequest.requestNumber,
+    approverName: approver.firstName || approver.username,
+    requesterName,
+    requestUrl: buildRequestUrl(purchaseRequest.id),
+  });
 }
 
-function generateApprovalA2EmailHTML(
+async function generateApprovalA2EmailHTML(
   approver: User,
   purchaseRequest: PurchaseRequest,
   requesterName: string,
   approverA1Name: string,
-): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-        .content { margin-bottom: 20px; }
-        .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h2>Solicitação Aguardando Aprovação A2</h2>
-          <p>Número: <strong>${purchaseRequest.requestNumber}</strong></p>
-        </div>
-        <div class="content">
-          <p>Olá ${approver.firstName || approver.username},</p>
-          <p>A solicitação criada por <strong>${requesterName}</strong> foi aprovada tecnicamente por <strong>${approverA1Name}</strong> e agora aguarda sua aprovação final.</p>
-          <p>
-            <a href="${buildRequestUrl(purchaseRequest.id)}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Revisar e Aprovar
-            </a>
-          </p>
-        </div>
-        <div class="footer">
-          <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+): Promise<string> {
+  return await templateService.render("approval-a2", {
+    requestNumber: purchaseRequest.requestNumber,
+    approverName: approver.firstName || approver.username,
+    requesterName,
+    approverA1Name,
+    requestUrl: buildRequestUrl(purchaseRequest.id),
+  });
 }
 
 export async function notifyRequestConclusion(purchaseRequestId: number): Promise<void> {
@@ -781,103 +633,17 @@ export async function notifyRequestConclusion(purchaseRequestId: number): Promis
       })
       .join("");
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #111827; background-color: #f9fafb; }
-          .container { max-width: 720px; margin: 0 auto; padding: 24px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; }
-          .header { border-bottom: 1px solid #e5e7eb; padding-bottom: 16px; margin-bottom: 20px; }
-          .title { font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 4px 0; }
-          .subtitle { font-size: 14px; color: #6b7280; margin: 0; }
-          .section-title { font-size: 16px; font-weight: 600; margin: 20px 0 8px 0; color: #111827; }
-          .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; font-size: 14px; }
-          .label { color: #6b7280; }
-          .value { color: #111827; font-weight: 500; }
-          .items-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
-          .items-table th { text-align: left; padding: 8px; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb; }
-          .items-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
-          .items-table th:nth-child(3),
-          .items-table th:nth-child(4),
-          .items-table th:nth-child(5),
-          .items-table td:nth-child(3),
-          .items-table td:nth-child(4),
-          .items-table td:nth-child(5) { text-align: right; }
-          .total { text-align: right; font-weight: 600; margin-top: 8px; font-size: 14px; }
-          .footer { margin-top: 24px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 12px; }
-          .button { display: inline-block; margin-top: 12px; padding: 8px 16px; background-color: #2563eb; color: #ffffff; border-radius: 9999px; font-size: 13px; text-decoration: none; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <p class="subtitle">Solicitação ${purchaseRequest.requestNumber}</p>
-            <h1 class="title">Pedido de compra concluído</h1>
-          </div>
-
-          <p>Olá ${requester.firstName || requester.username},</p>
-          <p>Informamos que o processo de compra da sua solicitação foi concluído com sucesso. Abaixo, um resumo dos principais dados do pedido de compra.</p>
-
-          <h2 class="section-title">Dados principais</h2>
-          <div class="info-grid">
-            <div>
-              <div class="label">Número da Solicitação</div>
-              <div class="value">${purchaseRequest.requestNumber}</div>
-            </div>
-            <div>
-              <div class="label">Número do Pedido de Compra</div>
-              <div class="value">${purchaseOrder.orderNumber || purchaseRequest.requestNumber}</div>
-            </div>
-            <div>
-              <div class="label">Data de Emissão</div>
-              <div class="value">${formattedIssueDate}</div>
-            </div>
-            <div>
-              <div class="label">Valor Total</div>
-              <div class="value">${formattedTotal}</div>
-            </div>
-            <div>
-              <div class="label">Fornecedor</div>
-              <div class="value">${supplierName}</div>
-            </div>
-            <div>
-              <div class="label">Departamento</div>
-              <div class="value">${departmentName}</div>
-            </div>
-          </div>
-
-          <h2 class="section-title">Itens do pedido</h2>
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th>Descrição</th>
-                <th>Unidade</th>
-                <th>Quantidade</th>
-                <th>Valor Unitário</th>
-                <th>Valor Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemRows || `<tr><td colspan="5">Nenhum item encontrado.</td></tr>`}
-            </tbody>
-          </table>
-          <div class="total">Total do pedido: ${formattedTotal}</div>
-
-          <p>Em anexo, você encontrará o PDF completo do Pedido de Compra, com todos os detalhes do processo.</p>
-
-          <p>
-            <a href="${buildRequestUrl(purchaseRequest.id)}" class="button">Abrir solicitação no sistema</a>
-          </p>
-
-          <div class="footer">
-            <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    const html = await templateService.render("request-conclusion", {
+      requestNumber: purchaseRequest.requestNumber,
+      userName: requester.firstName || requester.username,
+      orderNumber: purchaseOrder.orderNumber || purchaseRequest.requestNumber,
+      issueDate: formattedIssueDate,
+      totalValue: formattedTotal,
+      supplierName,
+      departmentName,
+      itemRows: itemRows || `<tr><td colspan="5">Nenhum item encontrado.</td></tr>`,
+      requestUrl: buildRequestUrl(purchaseRequest.id),
+    });
 
     let pdfBuffer: Buffer | null = null;
     try {
@@ -937,50 +703,10 @@ export async function notifyPasswordReset(user: User, newPassword: string): Prom
     from: config.email.from,
     to: user.email,
     subject: "Redefinição de Senha - Sistema Locador",
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; }
-          .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
-          .password-box { background: #f4f4f4; border: 1px solid #ddd; padding: 15px; margin: 15px 0; border-radius: 4px; text-align: center; font-size: 1.2em; font-family: monospace; letter-spacing: 2px; }
-          .warning { color: #d32f2f; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Redefinição de Senha</h1>
-        </div>
-        
-        <div class="content">
-          <p>Prezado(a) <strong>${user.firstName || user.username}</strong>,</p>
-          
-          <p>Sua senha de acesso ao Sistema de Gestão de Compras foi redefinida por um administrador.</p>
-          
-          <p>Sua nova senha temporária é:</p>
-          
-          <div class="password-box">
-            ${newPassword}
-          </div>
-          
-          <p class="warning">Por segurança, você será solicitado a alterar esta senha no próximo login.</p>
-          
-          <p>Se você não solicitou esta alteração, entre em contato imediatamente com o suporte.</p>
-          
-          <p>Atenciosamente,<br>
-          <strong>Administração do Sistema</strong></p>
-        </div>
-        
-        <div class="footer">
-          <p>Esta é uma mensagem automática do sistema.</p>
-        </div>
-      </body>
-      </html>
-    `
+    html: await templateService.render("admin-set-password", {
+      userName: user.firstName || user.username,
+      temporaryPassword: newPassword,
+    }),
   };
   
   try {
@@ -1009,50 +735,10 @@ export async function sendPasswordResetEmail(user: User, token: string): Promise
     from: config.email.from,
     to: user.email,
     subject: "Recuperação de Senha - Sistema Locador",
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; }
-          .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
-          .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Recuperação de Senha</h1>
-        </div>
-        
-        <div class="content">
-          <p>Prezado(a) <strong>${user.firstName || user.username}</strong>,</p>
-          
-          <p>Recebemos uma solicitação de recuperação de senha para sua conta.</p>
-          
-          <p>Para redefinir sua senha, clique no botão abaixo:</p>
-          
-          <div style="text-align: center;">
-            <a href="${resetLink}" class="button">Redefinir Senha</a>
-          </div>
-          
-          <p>Se o botão não funcionar, copie e cole o link abaixo no seu navegador:</p>
-          <p><a href="${resetLink}">${resetLink}</a></p>
-          
-          <p>Se você não solicitou esta recuperação, ignore este e-mail.</p>
-          
-          <p>Atenciosamente,<br>
-          <strong>Equipe do Sistema</strong></p>
-        </div>
-        
-        <div class="footer">
-          <p>Este é uma mensagem automática do sistema.</p>
-        </div>
-      </body>
-      </html>
-    `
+    html: await templateService.render("password-reset", {
+      userName: user.firstName || user.username,
+      resetLink,
+    }),
   };
   
   try {
@@ -1080,43 +766,9 @@ export async function notifyAdminSetPassword(user: User): Promise<void> {
     from: config.email.from,
     to: user.email,
     subject: "Senha Alterada pelo Administrador - Sistema Locador",
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; }
-          .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; }
-          .warning { color: #d32f2f; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Senha Alterada</h1>
-        </div>
-        
-        <div class="content">
-          <p>Prezado(a) <strong>${user.firstName || user.username}</strong>,</p>
-          
-          <p>Sua senha de acesso ao Sistema de Gestão de Compras foi alterada manualmente por um administrador.</p>
-          
-          <p>Por favor, utilize a nova senha fornecida pelo administrador para acessar o sistema.</p>
-          
-          <p class="warning">Se você não solicitou esta alteração ou desconhece o motivo, entre em contato imediatamente com o suporte ou com o administrador do sistema.</p>
-          
-          <p>Atenciosamente,<br>
-          Equipe de TI</p>
-        </div>
-        
-        <div class="footer">
-          <p>Este é um e-mail automático. Não responda a este endereço.</p>
-        </div>
-      </body>
-      </html>
-    `,
+    html: await templateService.render("admin-set-password", {
+      userName: user.firstName || user.username,
+    }),
   };
 
   try {
@@ -1128,3 +780,48 @@ export async function notifyAdminSetPassword(user: User): Promise<void> {
 }
 
 export const testEmailConfiguration = verifyEmailConfig;
+
+export async function notifyArchival(
+  purchaseRequest: PurchaseRequest,
+  observations?: string,
+): Promise<void> {
+  if (!isEmailEnabled()) {
+    console.log(`📧 [EMAIL DISABLED] Notificação de arquivamento para solicitação ${purchaseRequest.requestNumber} não foi enviada - envio de e-mails desabilitado`);
+    return;
+  }
+
+  try {
+    if (purchaseRequest.requesterId) {
+      const requester = await storage.getUser(purchaseRequest.requesterId);
+      if (requester && requester.email) {
+        const mailOptions = {
+          from: config.email.from,
+          to: requester.email,
+          replyTo: config.email.from,
+          subject: `Solicitação Arquivada - ${purchaseRequest.requestNumber}`,
+          html: await generateArchivedEmailHTML(
+            requester,
+            purchaseRequest,
+            observations,
+          ),
+        };
+        await sendMailWithEnvironmentBanner(mailOptions);
+      }
+    }
+  } catch (error) {
+    console.error("Erro ao notificar arquivamento:", error);
+  }
+}
+
+async function generateArchivedEmailHTML(
+  user: User,
+  purchaseRequest: PurchaseRequest,
+  observations?: string,
+): Promise<string> {
+  return await templateService.render("archived", {
+    requestNumber: purchaseRequest.requestNumber,
+    userName: user.firstName || user.username,
+    conclusionObservations: observations || null,
+    requestUrl: buildRequestUrl(purchaseRequest.id),
+  });
+}

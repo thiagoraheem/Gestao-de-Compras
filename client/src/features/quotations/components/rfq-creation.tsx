@@ -225,9 +225,17 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
           // Keep link to PR if exists, null for extra items added in previous RFQ
           purchaseRequestItemId: item.purchaseRequestItemId || undefined,
         }));
-        replace(mappedItems);
+
+        // De-duplicate items by itemCode and description
+        const uniqueItems = mappedItems.filter((item, index, self) => 
+          index === self.findIndex((t) => (
+            t.itemCode === item.itemCode && t.description === item.description
+          ))
+        );
+
+        replace(uniqueItems);
         itemsInitializedRef.current = true;
-        debug.log("RFQCreation: itens inicializados da cotação base (clonagem)", mappedItems.length);
+        debug.log("RFQCreation: itens inicializados da cotação base (clonagem)", uniqueItems.length);
         
         // Also copy other fields if desired
         if (baseQuotation.termsAndConditions) form.setValue("termsAndConditions", baseQuotation.termsAndConditions);
@@ -247,9 +255,17 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
         deliveryDeadline: format(addDays(new Date(), 15), "yyyy-MM-dd"),
         purchaseRequestItemId: item.id,
       }));
-      replace(mappedItems);
+
+      // De-duplicate items by itemCode and description
+      const uniqueItems = mappedItems.filter((item, index, self) => 
+        index === self.findIndex((t) => (
+          t.itemCode === item.itemCode && t.description === item.description
+        ))
+      );
+
+      replace(uniqueItems);
       itemsInitializedRef.current = true;
-      debug.log("RFQCreation: itens inicializados da solicitação", mappedItems.length);
+      debug.log("RFQCreation: itens inicializados da solicitação", uniqueItems.length);
       return;
     }
 
@@ -361,13 +377,19 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          suppliers: data.selectedSuppliers,
           sendEmail: true,
           releaseWithoutEmail: false
         }),
       });
 
       if (!sendRFQResponse.ok) {
-        throw new Error('Erro ao enviar e-mails para fornecedores');
+        let errorDetail = 'Erro ao enviar e-mails para fornecedores';
+        try {
+          const errorJson = await sendRFQResponse.json();
+          if (errorJson.message) errorDetail = errorJson.message;
+        } catch {}
+        throw new Error(errorDetail);
       }
 
       const emailResult = await sendRFQResponse.json();
@@ -473,13 +495,19 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          suppliers: data.selectedSuppliers,
           sendEmail: false,
           releaseWithoutEmail: true
         }),
       });
 
       if (!releaseRFQResponse.ok) {
-        throw new Error('Erro ao liberar cotação');
+        let errorDetail = 'Erro ao liberar cotação';
+        try {
+          const errorJson = await releaseRFQResponse.json();
+          if (errorJson.message) errorDetail = errorJson.message;
+        } catch {}
+        throw new Error(errorDetail);
       }
 
       const releaseResult = await releaseRFQResponse.json();

@@ -16,6 +16,7 @@ interface Supplier {
   contact?: string;
   cnpj?: string;
   cpf?: string;
+  idSupplierERP?: number | null;
 }
 
 interface SupplierSelectorProps {
@@ -41,13 +42,16 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
       const phone = normalize((supplier as any).phone);
       const cnpj = normalize((supplier as any).cnpj);
       const cpf = normalize((supplier as any).cpf);
+      const erpCode = (supplier as any).idSupplierERP ? String((supplier as any).idSupplierERP) : "";
+      
       return (
         name.includes(term) ||
         email.includes(term) ||
         contact.includes(term) ||
         phone.includes(term) ||
         cnpj.includes(term) ||
-        cpf.includes(term)
+        cpf.includes(term) ||
+        erpCode.includes(term)
       );
     });
   }, [suppliers, searchTerm]);
@@ -208,9 +212,16 @@ export function SupplierSelector({ suppliers, selectedSuppliers, onSelectionChan
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium text-sm text-foreground truncate">
-                        {supplier.name} ({supplier.cnpj || supplier.cpf})
-                      </p>
+                      <div className="flex items-center gap-2 truncate">
+                        <p className="font-medium text-sm text-foreground truncate">
+                          {supplier.name} ({supplier.cnpj || supplier.cpf})
+                        </p>
+                        {supplier.idSupplierERP && (
+                          <Badge variant="outline" className="text-[10px] py-0 px-1 border-blue-400 text-blue-600 dark:border-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 h-4">
+                            ERP: {supplier.idSupplierERP}
+                          </Badge>
+                        )}
+                      </div>
                       {selectedSuppliers.includes(supplier.id) && (
                         <Check className="h-4 w-4 text-primary flex-shrink-0" />
                       )}

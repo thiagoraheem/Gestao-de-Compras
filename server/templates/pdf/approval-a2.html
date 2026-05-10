@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Aprovação A2 - {{requestNumber}}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      margin: 10px;
+      color: #000;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 15px;
+    }
+
+    .qr-code-container {
+      position: static;
+      margin-left: 20px;
+      text-align: center;
+      font-size: 10px;
+    }
+
+    .qr-code-container img {
+      width: 90px;
+      height: 90px;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .qr-code-text {
+      font-size: 9px;
+      color: #666;
+      font-weight: normal;
+    }
+
+    .header-logo {
+      flex: 0 0 150px;
+      margin-right: 20px;
+    }
+
+    .header-logo img {
+      max-width: 150px;
+      max-height: 100px;
+      object-fit: contain;
+    }
+
+    .header-info {
+      flex: 1;
+      text-align: center;
+      padding: 0 10px;
+    }
+
+    .header-info h1 {
+      font-size: 16px;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+
+    .header-info h2 {
+      font-size: 14px;
+      font-weight: bold;
+      margin: 5px 0;
+      color: #333;
+    }
+
+    .header-info p {
+      margin: 2px 0;
+      font-size: 11px;
+    }
+
+    .section {
+      margin: 10px 0;
+    }
+
+    .section-title {
+      background-color: #f0f0f0;
+      padding: 5px;
+      font-weight: bold;
+      border: 1px solid #ccc;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 10px 0;
+    }
+
+    .info-item {
+      margin: 3px 0;
+    }
+
+    .info-label {
+      font-weight: bold;
+      display: inline-block;
+      width: 120px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+    }
+
+    th,
+    td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f0f0f0;
+      font-weight: bold;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .total-row {
+      font-weight: bold;
+      background-color: #f9f9f9;
+    }
+
+    .discount-row {
+      font-weight: bold;
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
+    .subtotal-row {
+      font-weight: bold;
+      background-color: #f8f9fa;
+    }
+
+    .footer {
+      margin-top: 15px;
+      font-size: 10px;
+    }
+
+    .approval-status {
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 10px;
+    }
+
+    .approval-approved {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .approval-pending {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
+    .approval-rejected {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .supplier-comparison-row.selected {
+      background-color: #e8f5e9;
+    }
+
+    .badge-selected {
+      background-color: #28a745;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      margin-left: 5px;
+    }
+
+    .comparison-matrix {
+      margin-top: 15px;
+      overflow-x: auto;
+    }
+
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+      table-layout: fixed;
+    }
+
+    .matrix-table th,
+    .matrix-table td {
+      padding: 8px;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+
+    .matrix-table th {
+      background-color: #f8fafc;
+      font-weight: 600;
+      color: #475569;
+      text-align: center;
+    }
+
+    .matrix-table .item-col {
+      width: 20%;
+      text-align: left;
+      background-color: #f1f5f9;
+    }
+
+    .matrix-table .supplier-col {
+      text-align: center;
+    }
+
+    .matrix-table .item-name {
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .supplier-cell {
+      text-align: center;
+    }
+
+    .selected-header {
+      background-color: #f0fdf4 !important;
+      border-bottom: 2px solid #22c55e !important;
+    }
+
+    .selected-cell {
+      background-color: #f0fdf4;
+    }
+
+    .selected-badge {
+      display: inline-block;
+      font-size: 9px;
+      color: #166534;
+      margin-top: 4px;
+      font-weight: normal;
+    }
+
+    .price-container {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 4px;
+      border-radius: 4px;
+    }
+
+    .lowest-price {
+      border: 1px solid #22c55e;
+      background-color: #dcfce7;
+    }
+
+    .best-value-badge {
+      font-size: 8px;
+      background-color: #166534;
+      color: white;
+      padding: 2px 4px;
+      border-radius: 2px;
+      align-self: center;
+      margin-bottom: 4px;
+    }
+
+    .qty-row {
+      color: #64748b;
+      font-size: 9px;
+    }
+
+    .unit-row {
+      color: #475569;
+    }
+
+    .total-row-item {
+      font-weight: 700;
+      color: #0f172a;
+      margin-top: 2px;
+      font-size: 11px;
+    }
+
+    .lowest-price .total-row-item {
+      color: #166534;
+    }
+
+    .no-quote {
+      color: #94a3b8;
+      font-style: italic;
+      padding: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    {{{companyLogoHtml}}}
+    <div class="header-info">
+      <h1>APROVAÇÃO A2</h1>
+      <h2>Solicitação de Compra Nº {{requestNumber}}</h2>
+      <p>Data de Geração: {{generationDate}}</p>
+      <p>{{companyName}}</p>
+    </div>
+    {{{qrCodeHtml}}}
+  </div>
+
+  <div class="section">
+    <div class="section-title">Informações da Solicitação</div>
+    <div class="info-grid">
+      <div>
+        <div class="info-item">
+          <span class="info-label">Número:</span> {{requestNumber}}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Solicitante:</span> {{requesterName}}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Departamento:</span> {{departmentName}}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Centro de Custo:</span> {{costCenterName}}
+        </div>
+      </div>
+      <div>
+        <div class="info-item">
+          <span class="info-label">Data Solicitação:</span> {{createdAt}}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Data Entrega:</span> {{deliveryDate}}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Urgência:</span> {{urgency}}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Valor Total:</span> {{finalValue}}
+        </div>
+      </div>
+    </div>
+    {{#if justification}}
+    <div class="info-item">
+      <span class="info-label">Justificativa:</span><br>
+      {{justification}}
+    </div>
+    {{/if}}
+  </div>
+
+  {{{selectedSupplierHtml}}}
+
+  <div class="section">
+    <div class="section-title">Itens da Solicitação</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Descrição</th>
+          <th>Qtd</th>
+          <th>Unidade</th>
+          <th>Desconto</th>
+          <th>Valor Unit.</th>
+          <th>Valor Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{{itemRows}}}
+        <tr class="subtotal-row">
+          <td colspan="6" class="text-right">Subtotal:</td>
+          <td class="text-right">{{subtotal}}</td>
+        </tr>
+        {{#if hasDiscount}}
+        <tr class="discount-row">
+          <td colspan="6" class="text-right">Desconto:</td>
+          <td class="text-right">-{{discount}}</td>
+        </tr>
+        {{/if}}
+        {{#if hasFreight}}
+        <tr>
+          <td colspan="6" class="text-right">Frete:</td>
+          <td class="text-right">{{freight}}</td>
+        </tr>
+        {{/if}}
+        <tr class="total-row">
+          <td colspan="6" class="text-right">VALOR TOTAL:</td>
+          <td class="text-right">{{finalValue}}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  {{{deliveryLocationHtml}}}
+
+  <div class="section">
+    <div class="section-title">Histórico de Aprovações</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Nível</th>
+          <th>Aprovador</th>
+          <th>Data</th>
+          <th>Status</th>
+          <th>Observações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{{approvalHistoryRows}}}
+      </tbody>
+    </table>
+  </div>
+
+  {{{supplierComparisonHtml}}}
+
+  {{{comparisonMatrixHtml}}}
+
+  <div class="footer">
+    <p><strong>Documento gerado automaticamente pelo Sistema de Gestão de Compras</strong></p>
+    <p>Data/Hora: {{timestamp}}</p>
+  </div>
+</body>
+
+</html>

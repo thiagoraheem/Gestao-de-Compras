@@ -128,7 +128,8 @@ export function ItemsAnalysisReport() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="h-full overflow-y-auto">
+      <div className="container mx-auto py-6 space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Análise de Itens Comprados</h1>
@@ -278,6 +279,7 @@ export function ItemsAnalysisReport() {
         </CardContent>
       </Card>
     </div>
+  </div>
   );
 }
 

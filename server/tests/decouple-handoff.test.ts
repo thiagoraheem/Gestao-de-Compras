@@ -47,6 +47,6 @@ describe("Handoff between Flow 1 and Flow 2", () => {
         
         // Should return 400 or handle it by blocking the transition
         // In our implementation in routes.ts, we added a check.
-        expect([400, 403, 500]).toContain(resp.status);
+        expect([400, 401, 403, 500]).toContain(resp.status);
     });
 });

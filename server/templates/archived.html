@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+    .content { margin-bottom: 20px; }
+    .reason { background-color: #f8f9fa; padding: 15px; border-left: 4px solid #6b7280; margin: 15px 0; }
+    .footer { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2 style="color: #4b5563; margin: 0;">Solicitação Arquivada</h2>
+      <p style="margin: 5px 0 0 0;">Número: <strong>{{requestNumber}}</strong></p>
+    </div>
+    <div class="content">
+      <p>Olá {{userName}},</p>
+      <p>Sua solicitação de compra <strong>{{requestNumber}}</strong> foi arquivada.</p>
+      
+      {{#if conclusionObservations}}
+      <div class="reason">
+        <strong>Observações do arquivamento:</strong><br>
+        {{conclusionObservations}}
+      </div>
+      {{/if}}
+
+      <p>
+        <a href="{{requestUrl}}" style="background-color: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+          Ver Detalhes
+        </a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>Este é um e-mail automático do Sistema de Gestão de Compras.</p>
+    </div>
+  </div>
+</body>
+</html>

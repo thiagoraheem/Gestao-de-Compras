@@ -1,6 +1,6 @@
 import { useState, Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Building2, Package, Calendar, Eye, Plus, Clock, CheckCircle, X } from "lucide-react";
+import { FileText, Building2, Package, Calendar, Eye, Plus, Clock, CheckCircle, X, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -94,6 +94,29 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
     }
   };
   
+  const handleDeleteRFQ = async (rfqId: number) => {
+    if (!window.confirm("Tem certeza que deseja excluir esta RFQ? Esta ação não pode ser desfeita e removerá todos os dados relacionados, incluindo respostas de fornecedores.")) {
+      return;
+    }
+
+    try {
+      await apiRequest(`/api/quotations/${rfqId}`, {
+        method: "DELETE",
+      });
+      toast({
+        title: "RFQ excluída",
+        description: "A RFQ foi excluída com sucesso.",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${request.id}/history`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${request.id}`] });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a RFQ.",
+        variant: "destructive",
+      });
+    }
+  };
 
 
   const { data: quotation, isLoading } = useQuery<Quotation>({
@@ -598,8 +621,21 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                           {(rfq as any).isActive && <Badge className="ml-2 bg-blue-600 dark:bg-blue-600">Ativa</Badge>}
                           {!(rfq as any).isActive && <Badge variant="outline" className="ml-2">Inativa</Badge>}
                         </CardTitle>
-                        <div className="text-sm text-gray-500 dark:text-slate-400">
-                          Versão {(rfq as any).rfqVersion || 1}
+                        <div className="flex items-center gap-2">
+                          {user?.isBuyer && !(rfq as any).isActive && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              onClick={() => handleDeleteRFQ(rfq.id)}
+                              title="Excluir RFQ"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <div className="text-sm text-gray-500 dark:text-slate-400">
+                            Versão {(rfq as any).rfqVersion || 1}
+                          </div>
                         </div>
                       </div>
                     </CardHeader>

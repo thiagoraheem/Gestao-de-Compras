@@ -14,12 +14,19 @@ import { registerConfigRoutes } from "./configRoutes";
 import { registerLocadorIntegrationRoutes } from "./locadorIntegrationRoutes";
 import { PDFService } from "../pdf-service";
 import { storage } from "../storage";
-// Import other route modules as they are created
-// import { registerUserRoutes } from "./users";
-// import { registerCompanyRoutes } from "./companies";
-// import { registerPurchaseRequestRoutes } from "./purchase-requests";
-// import { registerQuotationRoutes } from "./quotations";
-// import { registerPurchaseOrderRoutes } from "./purchase-orders";
+// Phase 2: Extracted domain route modules
+import { registerUserRoutes } from "./users";
+import { registerCompanyRoutes } from "./companies";
+import { registerSupplierRoutes } from "./suppliers";
+// TODO: Phase 2 continued — extract these next
+import { registerPurchaseRequestRoutes } from "./purchase-requests";
+import { registerQuotationRoutes } from "./quotations";
+import { registerPurchaseOrderRoutes } from "./purchase-orders";
+import { registerReportRoutes } from "./reports";
+import { registerDashboardRoutes } from "./dashboard";
+import { registerMasterDataManagementRoutes } from "./master-data-management";
+
+import { registerProductRoutes } from "./products";
 
 // Register public routes (no authentication required)
 function registerPublicRoutes(app: Express) {
@@ -257,16 +264,22 @@ export function registerAllRoutes(app: Express) {
   // Register integrity validation routes
   app.use(integrityValidationRoutes);
   app.use(itemsAnalysisRoutes);
-  
-  // Register other route modules
-  // registerUserRoutes(app);
-  // registerCompanyRoutes(app);
-  // registerPurchaseRequestRoutes(app);
-  // registerQuotationRoutes(app);
-  // registerPurchaseOrderRoutes(app);
+
+  // Phase 2: Extracted domain route modules
+  registerUserRoutes(app);
+  registerCompanyRoutes(app);
+  registerSupplierRoutes(app);
+  // TODO: Phase 2 continued
+  registerPurchaseRequestRoutes(app);
+  registerQuotationRoutes(app);
+  registerPurchaseOrderRoutes(app);
+  registerReportRoutes(app);
+  registerDashboardRoutes(app);
+  registerMasterDataManagementRoutes(app);
+  registerProductRoutes(app);
 }
 
 // Export middleware for use in other modules
 export { isAuthenticated } from "./auth";
-export { canApproveRequest, isAdmin, isAdminOrBuyer } from "./middleware";
+export { canApproveRequest, isAdmin, isAdminOrBuyer, isReceiver } from "./middleware";
 export { quotationUpload, companyLogoUpload } from "./upload-config";

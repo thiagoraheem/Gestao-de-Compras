@@ -648,7 +648,7 @@ export const chartOfAccounts = pgTable("chart_of_accounts", {
 
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
-  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id).notNull(),
+  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
   performedBy: integer("performed_by").references(() => users.id),
   actionType: varchar("action_type", { length: 100 }).notNull(),
   actionDescription: text("action_description"),

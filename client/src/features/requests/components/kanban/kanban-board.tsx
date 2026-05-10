@@ -842,7 +842,8 @@ export default function KanbanBoard({
                         id: receipt.purchaseRequestId, 
                         requestNumber: receipt.requestNumber,
                         currentPhase: phase === RECEIPT_PHASES.CONCLUIDO ? PURCHASE_PHASES.CONCLUSAO_COMPRA : PURCHASE_PHASES.RECEBIMENTO,
-                        createdAt: (receipt as any).createdAt || (receipt as any).created_at || new Date().toISOString()
+                        createdAt: (receipt as any).createdAt || (receipt as any).created_at || new Date().toISOString(),
+                        chosenSupplier: receipt.supplierName ? { name: receipt.supplierName } : null
                       });
                       
                       if (phase === RECEIPT_PHASES.CONCLUIDO) {

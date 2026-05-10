@@ -81,6 +81,8 @@ interface RequestPhaseProps {
   request?: any;
 }
 
+const EMPTY_ARRAY: any[] = [];
+
 export default function RequestPhase({ open, onOpenChange, request }: RequestPhaseProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -104,13 +106,13 @@ export default function RequestPhase({ open, onOpenChange, request }: RequestPha
   // Filter cost centers based on user's assigned cost centers
   // Managers can see all cost centers, others only their assigned ones
   const costCenters = user?.isManager 
-    ? (allCostCenters || [])
+    ? (allCostCenters || EMPTY_ARRAY)
     : (allCostCenters?.filter((center) =>
         userCostCenterIds?.includes(center.id),
-      ) || []);
+      ) || EMPTY_ARRAY);
 
   // Buscar itens existentes da solicitação se estiver editando
-  const { data: existingItems = [] } = useQuery<any[]>({
+  const { data: existingItems = EMPTY_ARRAY } = useQuery<any[]>({
     queryKey: [`/api/purchase-requests/${request?.id}/items`],
     enabled: !!request?.id,
   });

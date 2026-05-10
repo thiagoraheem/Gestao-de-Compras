@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
 // Unidades pré-definidas do sistema
 const DEFAULT_UNITS = [
@@ -72,6 +72,12 @@ interface Unit {
 
 export function useUnits() {
   const [customUnits, setCustomUnits] = useState<Unit[]>([]);
+  
+  // Use a ref to keep track of custom units for stable callbacks
+  const customUnitsRef = useRef<Unit[]>(customUnits);
+  useEffect(() => {
+    customUnitsRef.current = customUnits;
+  }, [customUnits]);
 
   // Combina unidades padrão com unidades customizadas
   const allUnits = useMemo(() => {
@@ -114,7 +120,8 @@ export function useUnits() {
     }
 
     // Verifica se já existe nas unidades customizadas (case-insensitive)
-    const existsInCustom = customUnits.find(unit => 
+    // Usamos o REF para não depender da mudança de estado e causar loops
+    const existsInCustom = customUnitsRef.current.find(unit => 
       unit.value.toLowerCase() === trimmedUnit.toLowerCase()
     );
     
@@ -128,9 +135,14 @@ export function useUnits() {
       label: unitLabel || `${trimmedUnit.toUpperCase()} - ${trimmedUnit}`
     };
 
-    setCustomUnits(prev => [...prev, newUnit]);
+    setCustomUnits(prev => {
+      // Dupla verificação dentro do set para evitar duplicados em chamadas paralelas
+      if (prev.find(u => u.value === newUnit.value)) return prev;
+      return [...prev, newUnit];
+    });
+    
     return newUnit.value;
-  }, [customUnits]);
+  }, []); // Sem dependências para ser estável
 
   // Processa unidade vinda do ERP
   const processERPUnit = useCallback((erpUnit: string) => {

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, handleStandardResponse } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { setAdminStatus } from "@/lib/debug";
 import { useEffect } from "react";
@@ -51,7 +51,7 @@ export function useAuth() {
         if (!response.ok) {
           return null;
         }
-        return response.json();
+        return handleStandardResponse(await response.json());
       } catch (error: any) {
         if (error.name === 'AbortError') {
           throw error;
@@ -82,7 +82,7 @@ export function useAuth() {
       if (!response.ok) {
         throw new Error("Login failed");
       }
-      return response.json();
+      return handleStandardResponse(await response.json());
     },
     onSuccess: () => {
       // Invalidate auth check to get fresh user data
@@ -138,7 +138,7 @@ export function useAuth() {
       if (!response.ok) {
         throw new Error("Logout failed");
       }
-      return response.json();
+      return handleStandardResponse(await response.json());
     },
     onSuccess: () => {
       // Immediately set user to null to trigger immediate UI update
