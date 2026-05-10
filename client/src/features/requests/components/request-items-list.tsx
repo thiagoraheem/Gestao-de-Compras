@@ -8,6 +8,7 @@ interface RequestItem {
   unit: string;
   requestedQuantity: number;
   technicalSpecification?: string;
+  partNumber?: string;
 }
 
 interface RequestItemsListProps {
@@ -65,6 +66,9 @@ export default function RequestItemsList({ requestId }: RequestItemsListProps) {
                 Descrição
               </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-300 border-b border-border">
+                Part Number
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-300 border-b border-border">
                 Quantidade
               </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-300 border-b border-border">
@@ -77,6 +81,11 @@ export default function RequestItemsList({ requestId }: RequestItemsListProps) {
               <tr key={item.id} className={index % 2 === 0 ? 'bg-white dark:bg-slate-900/30' : 'bg-slate-50 dark:bg-slate-800/40'}>
                 <td className="px-4 py-3 text-sm text-slate-900 dark:text-slate-200">
                   {item.description}
+                </td>
+                <td className="px-4 py-3 text-sm text-slate-900 dark:text-slate-200 font-medium">
+                  {item.partNumber || (
+                    <span className="text-slate-400 dark:text-slate-500 italic">Não informado</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-900 dark:text-slate-200">
                   <span className="font-semibold">

@@ -337,6 +337,7 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                     <thead>
                       <tr className="border-b border-border bg-muted">
                         <th className="text-left p-3 text-sm font-medium text-muted-foreground">Descrição</th>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Part Number</th>
                         <th className="text-center p-3 text-sm font-medium text-muted-foreground w-32">Quantidade</th>
                         <th className="text-center p-3 text-sm font-medium text-muted-foreground w-40">Prazo de Entrega</th>
                       </tr>
@@ -356,13 +357,15 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                                     Valor Custo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(item.purchaseRequestItem.price))}
                                   </Badge>
                                 )}
-                                {item.purchaseRequestItem?.partNumber && String(item.purchaseRequestItem.partNumber).trim() !== "" && (
-                                  <Badge variant="secondary" className="text-xs font-normal">
-                                    Part Number: {item.purchaseRequestItem.partNumber}
-                                  </Badge>
-                                )}
                               </div>
                             </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-sm font-medium text-foreground">
+                              {item.purchaseRequestItem?.partNumber || (
+                                <span className="text-muted-foreground italic text-xs">Não informado</span>
+                              )}
+                            </span>
                           </td>
                           <td className="p-3 text-center">
                             <span className="text-sm font-semibold text-foreground">
