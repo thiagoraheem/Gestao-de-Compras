@@ -5,6 +5,7 @@ import ConferenceDashboard from "@/features/receipts/components/conference/Confe
 import ConferenceOrderList from "@/features/receipts/components/conference/ConferenceOrderList";
 const ReceiptPhase = lazy(() => import("@/features/receipts/components/receipt-phase"));
 import { PackageCheck } from "lucide-react";
+import { handleStandardResponse } from "@/lib/queryClient";
 
 export default function MaterialConferencePage() {
   const { user } = useAuth();
@@ -16,7 +17,8 @@ export default function MaterialConferencePage() {
     queryFn: async () => {
       const res = await fetch("/api/receipts/pending-conference");
       if (!res.ok) throw new Error("Failed to fetch requests");
-      return res.json();
+      const data = await res.json();
+      return handleStandardResponse<any[]>(data);
     },
     refetchInterval: 30000,
     enabled: !!user,

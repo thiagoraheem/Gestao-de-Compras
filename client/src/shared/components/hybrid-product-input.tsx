@@ -4,6 +4,7 @@ import { Button } from "@/shared/ui/button";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import debug from "@/lib/debug";
+import { handleStandardResponse } from "@/lib/queryClient";
 
 interface Product {
   codigo: string;
@@ -58,8 +59,9 @@ export function HybridProductInput({
     try {
       const response = await fetch(`/api/products/search?q=${encodeURIComponent(term)}`);
       if (response.ok) {
-        const products = await response.json();
-        setSearchResults(products);
+        const data = await response.json();
+        const products = handleStandardResponse<Product[]>(data);
+        setSearchResults(Array.isArray(products) ? products : []);
         setShowResults(true);
       }
     } catch (error) {

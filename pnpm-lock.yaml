@@ -167,6 +167,9 @@ importers:
       express:
         specifier: ^4.21.2
         version: 4.21.2
+      express-async-errors:
+        specifier: ^3.1.1
+        version: 3.1.1(express@4.21.2)
       express-session:
         specifier: ^1.18.1
         version: 1.18.2
@@ -3152,6 +3155,7 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+    deprecated: Potential CWE-502 - Update to 1.3.1 or higher
 
   '@vitejs/plugin-legacy@5.4.3':
     resolution: {integrity: sha512-wsyXK9mascyplcqvww1gA1xYiy29iRHfyciw+a0t7qRNdzX6PdfSWmOoCi74epr87DujM+5J+rnnSv+4PazqVg==}
@@ -4200,6 +4204,11 @@ packages:
   expect@30.2.0:
     resolution: {integrity: sha512-u/feCi0GPsI+988gU2FLcsHyAHTU0MX1Wg68NhAnN7z/+C5wqG+CY8J53N9ioe8RXgaoz0nBR/TYMf3AycUuPw==}
     engines: {node: ^18.14.0 || ^20.0.0 || ^22.0.0 || >=24.0.0}
+
+  express-async-errors@3.1.1:
+    resolution: {integrity: sha512-h6aK1da4tpqWSbyCa3FxB/V6Ehd4EEB15zyQq9qe75OZBp0krinNKuH4rAY+S/U/2I36vdLAUFSjQJ+TFmODng==}
+    peerDependencies:
+      express: ^4.16.2
 
   express-session@1.18.2:
     resolution: {integrity: sha512-SZjssGQC7TzTs9rpPDuUrR23GNZ9+2+IkA/+IJWmvQilTr5OSliEHGF+D9scbIpdC6yGtTI0/VhaHoVes2AN/A==}
@@ -10696,6 +10705,10 @@ snapshots:
       jest-message-util: 30.2.0
       jest-mock: 30.2.0
       jest-util: 30.2.0
+
+  express-async-errors@3.1.1(express@4.21.2):
+    dependencies:
+      express: 4.21.2
 
   express-session@1.18.2:
     dependencies:

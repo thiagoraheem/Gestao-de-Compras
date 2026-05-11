@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { handleStandardResponse } from "@/lib/queryClient";
 
 const schema = z.object({
   // Campos do formulário
@@ -55,8 +56,15 @@ export default function ReceiptFormPage() {
   });
 
   useEffect(() => {
-    fetch("/api/integration/locador/combos/centros-custo").then(r => r.json()).then(setCostCenters).catch(() => setCostCenters([]));
-    fetch("/api/integration/locador/combos/planos-conta").then(r => r.json()).then(setChartAccounts).catch(() => setChartAccounts([]));
+    fetch("/api/integration/locador/combos/centros-custo")
+      .then(r => r.json())
+      .then(d => setCostCenters(handleStandardResponse<any[]>(d)))
+      .catch(() => setCostCenters([]));
+      
+    fetch("/api/integration/locador/combos/planos-conta")
+      .then(r => r.json())
+      .then(d => setChartAccounts(handleStandardResponse<any[]>(d)))
+      .catch(() => setChartAccounts([]));
   }, []);
 
   useEffect(() => {
@@ -74,20 +82,31 @@ export default function ReceiptFormPage() {
     setValue("receivedAt", nowIsoLocal);
     // Buscar dados do pedido e itens para comparação
     if (poId) {
-      fetch(`/api/purchase-orders/${poId}`).then(r => r.json()).then(setPo).catch(() => setPo(null));
-      fetch(`/api/purchase-orders/${poId}/items`).then(r => r.json()).then(setPoItems).catch(() => setPoItems([]));
+      fetch(`/api/purchase-orders/${poId}`)
+        .then(r => r.json())
+        .then(d => setPo(handleStandardResponse<any>(d)))
+        .catch(() => setPo(null));
+        
+      fetch(`/api/purchase-orders/${poId}/items`)
+        .then(r => r.json())
+        .then(d => setPoItems(handleStandardResponse<any[]>(d)))
+        .catch(() => setPoItems([]));
+        
       // Validar mapeamento Tipo ↔ Categoria
-      fetch(`/api/purchase-orders/${poId}`).then(r => r.json()).then((p) => {
-        const category = p?.category || p?.purchaseRequest?.category;
-        const map: Record<string, string> = { Produto: "produto", Serviço: "servico", Outros: "avulso" };
-        const expected = map[category] || undefined;
-        const current = mode;
-        if (expected && current && expected !== current) {
-          setTypeCategoryError(`Tipo selecionado (${current}) incompatível com a Categoria de Compra (${category}). Ajuste o Tipo para '${expected}'.`);
-        } else {
-          setTypeCategoryError("");
-        }
-      }).catch(() => setTypeCategoryError(""));
+      fetch(`/api/purchase-orders/${poId}`)
+        .then(r => r.json())
+        .then((d) => {
+          const p = handleStandardResponse<any>(d);
+          const category = p?.category || p?.purchaseRequest?.category;
+          const map: Record<string, string> = { Produto: "produto", Serviço: "servico", Outros: "avulso" };
+          const expected = map[category] || undefined;
+          const current = mode;
+          if (expected && current && expected !== current) {
+            setTypeCategoryError(`Tipo selecionado (${current}) incompatível com a Categoria de Compra (${category}). Ajuste o Tipo para '${expected}'.`);
+          } else {
+            setTypeCategoryError("");
+          }
+        }).catch(() => setTypeCategoryError(""));
     }
   }, [user, setValue]);
 
@@ -122,7 +141,8 @@ export default function ReceiptFormPage() {
         const err = await res.json();
         throw new Error(err.message || "Falha na importação");
       }
-      const data = await res.json();
+      const resData = await res.json();
+      const data = handleStandardResponse<any>(resData);
       const preview = data.preview || data;
       setXmlPreview(preview);
       setValue("documentNumber", preview?.header?.documentNumber || "");

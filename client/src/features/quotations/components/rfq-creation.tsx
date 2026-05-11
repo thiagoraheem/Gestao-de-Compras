@@ -37,6 +37,7 @@ import { UnitSelect } from "@/shared/components/unit-select";
 import { useUnits } from "@/hooks/useUnits";
 import HybridProductInput from "@/shared/components/hybrid-product-input";
 import debug from "@/lib/debug";
+import { handleStandardResponse } from "@/lib/queryClient";
 
 import { getBadges } from "./rfq-badges-logic";
 
@@ -117,7 +118,8 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
           const detail = await resp.text().catch(() => '');
           throw new Error(`POST /api/purchase-requests ${resp.status} - ${detail || 'Falha ao persistir solicitação'}`);
         }
-        const saved = await resp.json();
+        const data = await resp.json();
+        const saved = handleStandardResponse<any>(data);
         // Atualiza form para usar o novo ID
         form.setValue('purchaseRequestId', saved.id);
         // Recarrega consultas associadas
@@ -341,7 +343,8 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
         throw new Error(`POST /api/quotations ${quotationResponse.status} - ${serverDetail || 'Erro ao criar cotação'}`);
       }
 
-      const quotation = await quotationResponse.json();
+      const quotationData = await quotationResponse.json();
+      const quotation = handleStandardResponse<any>(quotationData);
 
       // Create quotation items
       for (const item of data.items) {
@@ -392,7 +395,8 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
         throw new Error(errorDetail);
       }
 
-      const emailResult = await sendRFQResponse.json();
+      const emailResultData = await sendRFQResponse.json();
+      const emailResult = handleStandardResponse<any>(emailResultData);
       if (emailResult.emailResult?.errors?.length > 0) {
         debug.warn('Alguns e-mails não foram enviados:', emailResult.emailResult.errors);
       }
@@ -448,13 +452,15 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
         }),
       });
       if (createResp.ok) {
-        quotation = await createResp.json();
+        const data = await createResp.json();
+        quotation = handleStandardResponse<any>(data);
       } else {
         let serverDetail = '';
         try { serverDetail = await createResp.text(); } catch {}
         const existingResp = await fetch(`/api/quotations/purchase-request/${data.purchaseRequestId}`);
         if (existingResp.ok) {
-          quotation = await existingResp.json();
+          const data = await existingResp.json();
+          quotation = handleStandardResponse<any>(data);
         }
         if (!quotation) {
           throw new Error(`POST /api/quotations ${createResp.status} - ${serverDetail || 'Erro ao criar cotação'}`);
@@ -510,7 +516,8 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
         throw new Error(errorDetail);
       }
 
-      const releaseResult = await releaseRFQResponse.json();
+      const releaseResultData = await releaseRFQResponse.json();
+      const releaseResult = handleStandardResponse<any>(releaseResultData);
       return { quotation, releaseResult };
     },
     onSuccess: (result) => {
