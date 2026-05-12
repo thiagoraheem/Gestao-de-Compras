@@ -398,7 +398,7 @@ export function registerReceiptsRoutes(app: Express) {
             quantity: it.quantity as any,
             unitPrice: it.unitPrice as any,
             totalPrice: it.totalPrice as any,
-            locadorProductCode: it.code,
+            locadorProductCode: (it as any).code,
             ncm: (it as any).ncm,
             cfop: (it as any).cfop,
             icmsRate: (it as any).taxes?.icmsRate as any,

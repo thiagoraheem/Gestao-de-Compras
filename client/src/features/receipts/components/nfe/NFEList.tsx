@@ -4,6 +4,7 @@ import { Button } from '@/shared/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/shared/ui/dialog';
 import { NFEViewer } from './NFEViewer';
+import { handleStandardResponse } from '@/lib/queryClient';
 
 interface NFEAttachmentRow {
   id: number;
