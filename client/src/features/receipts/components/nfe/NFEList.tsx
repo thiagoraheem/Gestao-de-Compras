@@ -23,10 +23,15 @@ export function NFEList({ purchaseRequestId, onPreviewLoaded }: { purchaseReques
   const [selectedXml, setSelectedXml] = useState<string>('');
 
   const load = async () => {
-    const url = `/api/nfe/attachments?search=${encodeURIComponent(search)}&limit=100${purchaseRequestId ? `&purchaseRequestId=${purchaseRequestId}` : ''}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    setRows(Array.isArray(data) ? data : []);
+    try {
+      const url = `/api/nfe/attachments?search=${encodeURIComponent(search)}&limit=100${purchaseRequestId ? `&purchaseRequestId=${purchaseRequestId}` : ''}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      const data = handleStandardResponse<NFEAttachmentRow[]>(json);
+      setRows(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setRows([]);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -58,13 +63,15 @@ export function NFEList({ purchaseRequestId, onPreviewLoaded }: { purchaseReques
                 <TableCell className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={async () => {
                     try {
-                      const res = await fetch(`/api/nfe/attachments/${r.id}/preview`);
+                      const url = `/api/nfe/attachments/${r.id}/preview`;
+                      const res = await fetch(url);
                       if (!res.ok) {
                         let msg = 'Falha ao carregar prévia';
                         try { const err = await res.json(); if (err?.message) msg = err.message; } catch {}
                         throw new Error(msg);
                       }
-                      const data = await res.json();
+                      const json = await res.json();
+                      const data = handleStandardResponse<any>(json);
                       const xml = String(data?.xmlRaw || '');
                       setSelectedXml(xml);
                       if (onPreviewLoaded) {

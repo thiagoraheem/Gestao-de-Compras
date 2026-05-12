@@ -34,6 +34,7 @@ export type NFeParseResult = {
     totalPrice?: string;
     ncm?: string;
     cfop?: string;
+    code?: string;
     taxes?: {
       icmsRate?: string;
       icmsAmount?: string;
@@ -146,6 +147,7 @@ export function parseNFeXml(xmlContent: string): NFeParseResult {
       totalPrice: prod.vProd,
       ncm: prod.NCM,
       cfop: prod.CFOP,
+      code: prod.cProd,
       taxes: {
         icmsRate: icms.pICMS,
         icmsAmount: icms.vICMS,

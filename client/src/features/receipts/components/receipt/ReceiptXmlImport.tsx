@@ -72,12 +72,11 @@ export function ReceiptXmlImport() {
       fd.append("file", file);
       fd.append("purchaseRequestId", String(request.id));
       fd.append("receiptType", String(receiptType));
-      const res = await fetch("/api/recebimentos/import-xml", { method: "POST", body: fd });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Falha na importação");
-      }
-      const data = await res.json();
+      const data = await apiRequest("/api/recebimentos/import-xml", { 
+        method: "POST", 
+        body: fd 
+      });
+
       const preview = data.preview || data;
       setXmlPreview(preview);
       setXmlAttachmentId(data.attachment?.id ?? null);

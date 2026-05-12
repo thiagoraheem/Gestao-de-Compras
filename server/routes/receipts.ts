@@ -357,13 +357,21 @@ export function registerReceiptsRoutes(app: Express) {
       }
     }
 
+    // Encontrar o pedido de compra associado, se houver um ID de solicitação
+    let poId: number | null = null;
+    if (purchaseRequestId) {
+      const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.purchaseRequestId, purchaseRequestId));
+      if (po) poId = po.id;
+    }
+
     const p = parsed;
     let result;
     try {
       result = await db.transaction(async (tx) => {
         const [createdReceipt] = await tx.insert(receipts).values({
           receiptNumber: generateReceiptNumber(),
-          purchaseOrderId: purchaseRequestId ? undefined as any : null,
+          purchaseOrderId: poId || null,
+          purchaseRequestId: purchaseRequestId || null,
           status: "nf_pendente",
           receiptType: isService ? "servico" : "produto",
           documentNumber: p.header.documentNumber,
@@ -390,6 +398,7 @@ export function registerReceiptsRoutes(app: Express) {
             quantity: it.quantity as any,
             unitPrice: it.unitPrice as any,
             totalPrice: it.totalPrice as any,
+            locadorProductCode: it.code,
             ncm: (it as any).ncm,
             cfop: (it as any).cfop,
             icmsRate: (it as any).taxes?.icmsRate as any,
