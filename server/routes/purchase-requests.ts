@@ -632,6 +632,18 @@ export function registerPurchaseRequestRoutes(app: Express) {
     },
   );
 
+  // Quick archive endpoint for Kanban board
+  app.post(
+    "/api/purchase-requests/:id/archive-direct",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      const request = await workflowService.archiveRequest(id, "Arquivado diretamente via Kanban");
+      res.json(request);
+    },
+  );
+
   // Rota para desarquivar uma solicitação (somente Comprador ou Admin)
   app.post(
     "/api/purchase-requests/:id/unarchive",

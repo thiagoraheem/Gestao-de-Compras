@@ -5,8 +5,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
-    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "build:dev": "vite build --mode development && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --define:process.env.APP_MODE=\\\"'development'\\\"",
+    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && node scripts/copy-templates.js",
+    "build:dev": "vite build --mode development && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --define:process.env.APP_MODE=\\\"'development'\\\" && node scripts/copy-templates.js",
     "build:prod": "npm run build",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc",

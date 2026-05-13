@@ -1,5 +1,9 @@
 import fs from "fs/promises";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 class TemplateService {
   private templates: Map<string, string> = new Map();
@@ -15,14 +19,22 @@ class TemplateService {
     let template = this.templates.get(templatePath);
 
     if (!template) {
-      // templatePath can be 'rfq' or 'pdf/dashboard'
-      const fullPath = path.join(process.cwd(), "server", "templates", `${templatePath}.html`);
+      // In development, this file is in server/services/template-service.ts
+      // templates are in server/templates
+      // In production, everything is bundled into dist/index.js
+      // we will copy templates to dist/templates
+      const isProduction = process.env.NODE_ENV === "production";
+      const templatesDir = isProduction
+        ? path.join(__dirname, "templates")
+        : path.join(__dirname, "..", "templates");
+
+      const fullPath = path.join(templatesDir, `${templatePath}.html`);
       try {
         template = await fs.readFile(fullPath, "utf-8");
         this.templates.set(templatePath, template);
       } catch (error) {
-        console.error(`Error reading template ${templatePath}:`, error);
-        throw new Error(`Template ${templatePath} not found`);
+        console.error(`Error reading template from ${fullPath}:`, error);
+        throw new Error(`Template ${templatePath} not found at ${fullPath}`);
       }
     }
 
