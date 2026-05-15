@@ -816,9 +816,9 @@ export function registerReceiptsRoutes(app: Express) {
       const cnpjFornecedor: string | undefined = supplierData?.cnpj || undefined;
       const nomeFornecedor: string | undefined = supplierData?.name || undefined;
 
-      /*if (!fornecedorId) {
-          throw new Error("Erro de Validação: Fornecedor não encontrado ou não vinculado ao Locador. Não é possível integrar.");
-      }*/
+      // Get PO items to fallback for product code if missing in receipt items
+      const poItems = rec.purchaseOrderId ? await storage.getPurchaseOrderItems(rec.purchaseOrderId) : [];
+      const poItemsMap = new Map(poItems.map(poi => [poi.id, poi.itemCode]));
 
       const payload: PurchaseReceiveRequest = {
         pedido_id: purchaseOrder?.id || 0,
@@ -857,7 +857,7 @@ export function registerReceiptsRoutes(app: Express) {
             centro_custo_id: a.costCenterId ? Number(a.costCenterId) : undefined,
             plano_conta_id: a.chartOfAccountsId ? Number(a.chartOfAccountsId) : undefined,
             valor: Number(a.amount || 0),
-            percentual: a.percentage ? Number(a.percentage) : undefined,
+            percentage: a.percentage ? Number(a.percentage) : undefined,
           })),
           parcelas_detalhes: dbInstallments.map((dup, index) => {
             const numeroParcelaRaw = dup.installmentNumber;
@@ -871,7 +871,7 @@ export function registerReceiptsRoutes(app: Express) {
           }),
         },
         itens: items.map((it) => ({
-          codigo_produto: it.locadorProductCode || undefined,
+          codigo_produto: it.locadorProductCode || (it.purchaseOrderItemId ? poItemsMap.get(it.purchaseOrderItemId) : undefined),
           descricao: it.description || "",
           unidade: it.unit || "UN",
           quantidade: Number(it.quantity || 0),
@@ -1163,6 +1163,10 @@ export function registerReceiptsRoutes(app: Express) {
         [supplierData] = await db.select().from(suppliers).where(eq(suppliers.idSupplierERP, fornecedorId));
       }
 
+      // Get PO items to fallback for product code if missing in receipt items
+      const poItems = rec.purchaseOrderId ? await storage.getPurchaseOrderItems(rec.purchaseOrderId) : [];
+      const poItemsMap = new Map(poItems.map(poi => [poi.id, poi.itemCode]));
+
       const payload: PurchaseReceiveRequest = {
         pedido_id: purchaseOrder?.id || 0,
         numero_pedido: purchaseOrder?.orderNumber || "",
@@ -1209,7 +1213,7 @@ export function registerReceiptsRoutes(app: Express) {
           }),
         },
         itens: items.map((it) => ({
-          codigo_produto: it.locadorProductCode || undefined,
+          codigo_produto: it.locadorProductCode || (it.purchaseOrderItemId ? poItemsMap.get(it.purchaseOrderItemId) : undefined),
           descricao: it.description || "",
           unidade: it.unit || "UN",
           quantidade: Number(it.quantity || 0),

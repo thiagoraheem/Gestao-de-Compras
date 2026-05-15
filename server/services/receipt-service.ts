@@ -322,6 +322,7 @@ export class ReceiptService {
               unitPrice: String(it.unitPrice),
               totalPrice: String(qtyReceivedNow * parseFloat(it.unitPrice || "0")),
               quantityReceived: String(qtyReceivedNow),
+              locadorProductCode: it.itemCode, // Mapeando o código do produto do pedido
               condition: "bom",
               createdAt: new Date(),
            });
