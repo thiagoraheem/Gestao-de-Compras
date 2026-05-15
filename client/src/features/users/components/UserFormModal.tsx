@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Crown, Shield, UserCheck, User, Building, Shield as ShieldIcon } from "lucide-react";
 import { UseFormReturn } from "react-hook-form";
 import { UserFormData } from "../schemas/user.schema";
+import { apiRequest, handleStandardResponse } from "@/lib/queryClient";
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -41,9 +42,8 @@ export function UserFormModal({
 
   useEffect(() => {
     if (editingUser) {
-      fetch(`/api/users/${editingUser.id}/cost-centers`)
-        .then(res => res.json())
-        .then(data => setSelectedCostCenters(data))
+      apiRequest(`/api/users/${editingUser.id}/cost-centers`)
+        .then(data => setSelectedCostCenters(data || []))
         .catch(() => setSelectedCostCenters([]));
     } else {
       setSelectedCostCenters([]);
