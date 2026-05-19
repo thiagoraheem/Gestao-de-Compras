@@ -696,13 +696,15 @@ export class PDFService {
           </thead>
           <tbody>
             ${items.map((item: any) => {
-              let quotationItem = quotationItems && quotationItems.find((qi: any) => qi.purchaseRequestItemId === item.id);
+              const quotationItemId = item.quotationItemId ?? item.id;
+              let quotationItem = quotationItems && quotationItems.find((qi: any) => qi.id === quotationItemId);
               if (!quotationItem && item.description && quotationItems) {
-                quotationItem = quotationItems.find((qi: any) => qi.description && qi.description.trim().toLowerCase() === item.description.trim().toLowerCase());
+                const normalized = item.description.trim().toLowerCase();
+                quotationItem = quotationItems.find((qi: any) => qi.description && qi.description.trim().toLowerCase() === normalized);
               }
               let lowestPrice = Infinity;
               supplierQuotations.forEach((sq: any) => {
-                const sqItem = sq.items && sq.items.find((i: any) => (quotationItem && i.quotationItemId === quotationItem.id) || (i.description && i.description.trim() === item.description.trim()));
+                const sqItem = sq.items && sq.items.find((i: any) => (quotationItem && i.quotationItemId === quotationItem.id));
                 if (sqItem) {
                   const quantity = Number(sqItem.availableQuantity || item.quantity);
                   const unitPrice = Number(sqItem.unitPrice) || 0;
@@ -714,7 +716,7 @@ export class PDFService {
                 <tr>
                   <td class="item-name">${item.description}</td>
                   ${supplierQuotations.map((sq: any) => {
-                    const sqItem = sq.items && sq.items.find((i: any) => (quotationItem && i.quotationItemId === quotationItem.id) || (i.description && i.description.trim() === item.description.trim()));
+                    const sqItem = sq.items && sq.items.find((i: any) => (quotationItem && i.quotationItemId === quotationItem.id));
                     const quantity = sqItem ? Number(sqItem.availableQuantity || item.quantity) : item.quantity;
                     const unitPrice = sqItem ? Number(sqItem.unitPrice) : 0;
                     const totalPrice = sqItem ? (Number(sqItem.totalPrice) || (unitPrice * quantity)) : 0;
@@ -950,9 +952,6 @@ export class PDFService {
       throw new Error('Solicitação de compra não encontrada');
     }
 
-    // Buscar itens da solicitação
-    const items = await storage.getPurchaseRequestItems(purchaseRequestId);
-    
     // Buscar dados da empresa através da solicitação
     let company = null;
     const requester = await storage.getUser(purchaseRequest.requesterId!);
@@ -975,7 +974,7 @@ export class PDFService {
     // Buscar fornecedor e valores dos itens do fornecedor selecionado
     let supplier = null;
     let selectedSupplierQuotation = null;
-    let itemsWithPrices = items;
+    let itemsWithPrices: any[] = [];
     let deliveryLocation = null;
     let enrichedSupplierQuotations: any[] = [];
     let quotationItems: any[] = [];
@@ -1015,67 +1014,54 @@ export class PDFService {
         
         // Buscar os itens do fornecedor selecionado com preços
         const supplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
-        const quotationItems = await storage.getQuotationItems(quotation.id);
-        
-        // Combinar os itens da solicitação com os preços do fornecedor
-        itemsWithPrices = items.map(item => {
-          let quotationItem = quotationItems.find(qi => 
-            qi.purchaseRequestItemId && qi.purchaseRequestItemId === item.id
-          );
-          
-          if (!quotationItem && item.description) {
-            quotationItem = quotationItems.find(qi => 
-              qi.description && 
-              qi.description.trim().toLowerCase() === item.description.trim().toLowerCase()
-            );
-          }
-          
-          if (quotationItem) {
-            const supplierItem = supplierItems.find(si => si.quotationItemId === quotationItem.id);
-            
-            if (supplierItem) {
-              const unitPrice = Number(supplierItem.unitPrice) || 0;
-              const quantity = Number((item as any).requestedQuantity ?? (item as any).quantity) || 1;
-              const originalTotal = unitPrice * quantity;
-              let discountedTotal = originalTotal;
-              let itemDiscount = 0;
-              
-              if (supplierItem.discountPercentage && Number(supplierItem.discountPercentage) > 0) {
-                const discountPercent = Number(supplierItem.discountPercentage);
-                itemDiscount = (originalTotal * discountPercent) / 100;
-                discountedTotal = originalTotal - itemDiscount;
-              } else if (supplierItem.discountValue && Number(supplierItem.discountValue) > 0) {
-                itemDiscount = Number(supplierItem.discountValue);
-                discountedTotal = Math.max(0, originalTotal - itemDiscount);
-              }
-              
-              return {
-                ...item,
-                quantity: quantity,
-                unitPrice: unitPrice,
-                originalUnitPrice: unitPrice,
-                itemDiscount: itemDiscount,
-                discountPercentage: supplierItem.discountPercentage ? Number(supplierItem.discountPercentage) : 0,
-                brand: supplierItem.brand || '',
-                deliveryTime: supplierItem.deliveryDays ? `${supplierItem.deliveryDays} dias` : '',
-                totalPrice: discountedTotal,
-                originalTotalPrice: originalTotal
-              };
+        const currentQuotationItems = await storage.getQuotationItems(quotation.id);
+
+        itemsWithPrices = supplierItems
+          .filter((si: any) => si.isAvailable !== false)
+          .map((si: any) => {
+            const qi = currentQuotationItems.find((q: any) => q.id === si.quotationItemId);
+            const description = qi?.description || '';
+            const unit = si.confirmedUnit || qi?.unit || 'UN';
+            const quantityRaw = si.availableQuantity ?? qi?.quantity ?? 0;
+            const quantity = Number(quantityRaw) || 0;
+            const unitPrice = Number(si.unitPrice) || 0;
+
+            const storedTotalPrice = Number(si.totalPrice) || 0;
+            const originalTotalPrice = storedTotalPrice > 0 ? storedTotalPrice : unitPrice * quantity;
+
+            const discountedCandidate = si.discountedTotalPrice ? Number(si.discountedTotalPrice) : 0;
+            const discountPercentage = Number(si.discountPercentage) || 0;
+            const discountValue = Number(si.discountValue) || 0;
+
+            let totalPrice = originalTotalPrice;
+            let itemDiscount = 0;
+
+            if (discountedCandidate > 0) {
+              totalPrice = discountedCandidate;
+              itemDiscount = Math.max(0, originalTotalPrice - totalPrice);
+            } else if (discountPercentage > 0) {
+              itemDiscount = (originalTotalPrice * discountPercentage) / 100;
+              totalPrice = Math.max(0, originalTotalPrice - itemDiscount);
+            } else if (discountValue > 0) {
+              itemDiscount = discountValue;
+              totalPrice = Math.max(0, originalTotalPrice - itemDiscount);
             }
-          }
-          
-          return {
-            ...item,
-            quantity: Number((item as any).requestedQuantity ?? (item as any).quantity) || 0,
-            unitPrice: 0,
-            originalUnitPrice: 0,
-            itemDiscount: 0,
-            brand: '',
-            deliveryTime: '',
-            totalPrice: 0,
-            originalTotalPrice: 0
-          };
-        });
+
+            return {
+              quotationItemId: qi?.id || si.quotationItemId,
+              description,
+              quantity,
+              unit,
+              unitPrice,
+              originalUnitPrice: unitPrice,
+              itemDiscount,
+              discountPercentage: discountPercentage > 0 ? discountPercentage : 0,
+              brand: si.brand || '',
+              deliveryTime: si.deliveryDays ? `${si.deliveryDays} dias` : '',
+              totalPrice,
+              originalTotalPrice,
+            };
+          });
       }
     }
 

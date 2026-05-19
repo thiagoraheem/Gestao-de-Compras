@@ -334,6 +334,45 @@ export function registerApprovalRulesRoutes(app: Express) {
   });
 }
 
+export function buildPurchaseOrderItemsFromApprovedSnapshot(params: {
+  approvedItems: any[];
+  supplierQuotationItems: any[];
+  quotationItems: any[];
+}) {
+  const { approvedItems, supplierQuotationItems, quotationItems } = params;
+
+  const items = approvedItems
+    .map((approved: any) => {
+      const supplierItem = supplierQuotationItems.find((s: any) => s.id === approved.supplierQuotationItemId);
+      const quotationItem = supplierItem
+        ? quotationItems.find((q: any) => q.id === supplierItem.quotationItemId)
+        : null;
+
+      if (!supplierItem || !quotationItem) return null;
+
+      const totalPrice = Number.parseFloat(approved.totalPrice);
+      return {
+        itemCode: quotationItem.itemCode || `ITEM-${approved.id}`,
+        description: quotationItem.description || "",
+        quantity: approved.approvedQuantity,
+        unit: supplierItem.confirmedUnit || quotationItem.unit || "UN",
+        unitPrice: approved.unitPrice,
+        totalPrice: Number.isFinite(totalPrice) ? totalPrice.toFixed(4) : "0.0000",
+      };
+    })
+    .filter(Boolean) as Array<{
+      itemCode: string;
+      description: string;
+      quantity: any;
+      unit: string;
+      unitPrice: any;
+      totalPrice: string;
+    }>;
+
+  const itemsTotal = items.reduce((sum, it) => sum + (Number.parseFloat(it.totalPrice) || 0), 0);
+  return { items, itemsTotal };
+}
+
 // Helper function to create automatic purchase order
 async function createAutomaticPurchaseOrder(requestId: number, approverId: number) {
   // Get quotation
@@ -385,25 +424,24 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
   let itemsTotal = 0;
 
   if (approvedItems.length > 0) {
-    // CAMINHO NOVO: Usa dados snapshotados (Garante integridade e seleção parcial)
-    // Necessário buscar supplier items apenas para recuperar informações auxiliares (unidade confirmada, etc)
-    const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
+    const snapshotSupplierItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
+    const mapped = buildPurchaseOrderItemsFromApprovedSnapshot({
+      approvedItems,
+      supplierQuotationItems: snapshotSupplierItems,
+      quotationItems,
+    });
 
-    for (const item of approvedItems) {
-      const qi = quotationItems.find(q => q.purchaseRequestItemId === item.purchaseRequestItemId);
-      const si = supplierQuotationItems.find(s => s.id === item.supplierQuotationItemId);
+    itemsTotal = mapped.itemsTotal;
 
-      const totalPrice = parseFloat(item.totalPrice);
-      itemsTotal += totalPrice;
-
+    for (const it of mapped.items) {
       await storage.createPurchaseOrderItem({
         purchaseOrderId: purchaseOrder.id,
-        itemCode: qi?.itemCode || `ITEM-${item.id}`,
-        description: qi?.description || "",
-        quantity: item.approvedQuantity,
-        unit: si?.confirmedUnit || qi?.unit || "UN",
-        unitPrice: item.unitPrice,
-        totalPrice: totalPrice.toFixed(4),
+        itemCode: it.itemCode,
+        description: it.description,
+        quantity: it.quantity,
+        unit: it.unit,
+        unitPrice: it.unitPrice,
+        totalPrice: it.totalPrice,
         deliveryDeadline: null,
         costCenterId: null,
         accountCode: null,

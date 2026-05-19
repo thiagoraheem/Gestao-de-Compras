@@ -274,6 +274,15 @@ export function registerQuotationRoutes(app: Express) {
     res.json(items);
   });
 
+  app.get("/api/supplier-quotations/:id/items", isAuthenticated, async (req, res) => {
+    const supplierQuotationId = parseInt(req.params.id);
+    if (Number.isNaN(supplierQuotationId)) {
+      throw new ValidationError("ID da cotação do fornecedor inválido");
+    }
+    const items = await storage.getSupplierQuotationItems(supplierQuotationId);
+    res.json(items);
+  });
+
   app.post("/api/quotations/:id/send-rfq", isAuthenticated, async (req, res) => {
     const quotationId = parseInt(req.params.id);
     const { suppliers: supplierIds, releaseWithoutEmail, sendEmail } = req.body;
@@ -749,11 +758,28 @@ export function registerQuotationRoutes(app: Express) {
         await storage.clearApprovedQuotationItems(quotationId);
         const finalQuotationItems = await storage.getQuotationItems(quotationId);
         const finalSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+        const purchaseRequestItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+        const singlePurchaseRequestItemId =
+          purchaseRequestItems.length === 1 ? purchaseRequestItems[0].id : null;
 
         for (const item of finalSupplierItems) {
           if (item.isAvailable !== false) {
             const qItem = finalQuotationItems.find(qi => qi.id === item.quotationItemId);
-            if (qItem && qItem.purchaseRequestItemId) {
+            const resolvedPurchaseRequestItemId = (() => {
+              if (qItem?.purchaseRequestItemId) return qItem.purchaseRequestItemId;
+              if (singlePurchaseRequestItemId) return singlePurchaseRequestItemId;
+              const normalizedDescription = (qItem?.description || "").trim().toLowerCase();
+              if (normalizedDescription) {
+                const matches = purchaseRequestItems.filter((pi: any) => {
+                  const piDesc = (pi?.description || "").trim().toLowerCase();
+                  return piDesc === normalizedDescription;
+                });
+                if (matches.length === 1) return matches[0].id;
+              }
+              return null;
+            })();
+
+            if (qItem && resolvedPurchaseRequestItemId) {
               const quantity = item.availableQuantity || qItem.quantity;
               const pct = parseFloat(item.discountPercentage || "0") || 0;
               const fixed = parseFloat(item.discountValue || "0") || 0;
@@ -764,7 +790,7 @@ export function registerQuotationRoutes(app: Express) {
               await storage.createApprovedQuotationItem({
                 quotationId: quotationId,
                 supplierQuotationItemId: item.id,
-                purchaseRequestItemId: qItem.purchaseRequestItemId,
+                purchaseRequestItemId: resolvedPurchaseRequestItemId,
                 approvedQuantity: quantity.toString(),
                 unitPrice: item.unitPrice,
                 totalPrice: itemTotalPrice,
