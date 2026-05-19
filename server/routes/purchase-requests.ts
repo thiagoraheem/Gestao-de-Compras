@@ -224,9 +224,67 @@ export function registerPurchaseRequestRoutes(app: Express) {
         throw new NotFoundError("Solicitação não encontrada");
       }
 
+      const phasesBeforePurchaseOrder = new Set([
+        "solicitacao",
+        "aprovacao_a1",
+        "cotacao",
+        "aprovacao_a2",
+      ]);
+      const phasesWithPurchaseOrder = new Set([
+        "pedido_compra",
+        "recebimento",
+        "conf_fiscal",
+        "conclusao_compra",
+        "pedido_concluido",
+      ]);
+
+      const isRollbackFromPurchaseOrderFlow =
+        phasesWithPurchaseOrder.has(String(request.currentPhase)) &&
+        phasesBeforePurchaseOrder.has(String(newPhase));
+
+      if (isRollbackFromPurchaseOrderFlow) {
+        const existingPurchaseOrder = await storage.getPurchaseOrderByRequestId(id);
+        if (existingPurchaseOrder) {
+          const receiptsLinked = await storage.getReceiptsByPurchaseOrderId(existingPurchaseOrder.id);
+          if (receiptsLinked.length > 0) {
+            throw new ValidationError(
+              "Não é possível retornar para uma fase anterior porque já existem recebimentos vinculados a este Pedido de Compra. Remova/estorne os recebimentos antes de retroceder.",
+            );
+          }
+
+          await storage.deletePurchaseOrderByRequestId(id);
+
+          await auditService.log({
+            purchaseRequestId: id,
+            actionType: "purchase_order_deleted_on_phase_rollback",
+            actionDescription: `Pedido de compra excluído automaticamente ao retroceder da fase ${request.currentPhase} para ${newPhase}`,
+            performedBy: req.session?.userId,
+            affectedTables: ["purchase_orders", "purchase_order_items"],
+          });
+        }
+      }
+
       const updatedRequest = await storage.updatePurchaseRequest(id, {
         currentPhase: newPhase as any,
         updatedAt: new Date(),
+        ...(isRollbackFromPurchaseOrderFlow
+          ? {
+              purchaseDate: null,
+              purchaseObservations: null,
+              receivedById: null,
+              receivedDate: null,
+              hasPendency: false,
+              pendencyReason: null,
+              physicalReceiptAt: null,
+              physicalReceiptById: null,
+              fiscalReceiptAt: null,
+              fiscalReceiptById: null,
+              procurementStatus: "aberta",
+              procurementConcludedAt: null,
+              procurementConcludedById: null,
+              sentToPhysicalReceipt: false,
+            }
+          : {}),
       } as any);
 
       realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {

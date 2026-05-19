@@ -386,7 +386,15 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
 
   // Check if purchase order already exists
   const existingPurchaseOrder = await storage.getPurchaseOrderByRequestId(requestId);
-  if (existingPurchaseOrder) return;
+  if (existingPurchaseOrder) {
+    const receiptsLinked = await storage.getReceiptsByPurchaseOrderId(existingPurchaseOrder.id);
+    if (receiptsLinked.length > 0) {
+      throw new ValidationError(
+        "Já existe um Pedido de Compra com recebimentos vinculados. Não é possível recriar automaticamente o pedido sem antes remover/estornar os recebimentos.",
+      );
+    }
+    await storage.deletePurchaseOrderByRequestId(requestId);
+  }
 
   const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
   if (supplierQuotationItems.length === 0) return;
@@ -423,11 +431,20 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
   const approvedItems = await storage.getApprovedQuotationItems(quotation.id);
   let itemsTotal = 0;
 
-  if (approvedItems.length > 0) {
-    const snapshotSupplierItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
+  const approvedSupplierItemIds = new Set(
+    approvedItems.map((i: any) => i.supplierQuotationItemId),
+  );
+  const availableSupplierItems = supplierQuotationItems.filter(
+    (si: any) => si.isAvailable !== false,
+  );
+  const isSnapshotComplete =
+    approvedItems.length > 0 &&
+    availableSupplierItems.every((si: any) => approvedSupplierItemIds.has(si.id));
+
+  if (isSnapshotComplete) {
     const mapped = buildPurchaseOrderItemsFromApprovedSnapshot({
       approvedItems,
-      supplierQuotationItems: snapshotSupplierItems,
+      supplierQuotationItems,
       quotationItems,
     });
 
