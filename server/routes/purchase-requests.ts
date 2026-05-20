@@ -26,7 +26,7 @@ import {
 } from "../email-service";
 import { invalidateCache } from "../cache";
 import { realtime } from "../realtime";
-import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../../shared/realtime-events";
+import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS, RECEIPT_EVENTS } from "../../shared/realtime-events";
 import {
   isAuthenticated,
   canApproveRequest,
@@ -43,6 +43,7 @@ import { isEmailEnabled } from "../config";
 import { PDFService } from "../pdf-service";
 import { workflowService } from "../services/workflow-service";
 import { purchaseRequestService } from "../services/purchase-request-service";
+import { receiptService } from "../services/receipt-service";
 import { NotFoundError, ValidationError, UnauthorizedError } from "../utils/errors";
 
 export function registerPurchaseRequestRoutes(app: Express) {
@@ -659,6 +660,56 @@ export function registerPurchaseRequestRoutes(app: Express) {
       });
 
       res.json(updatedRequest);
+    },
+  );
+
+  app.get(
+    "/api/purchase-requests/:id/undo-receipt/preview",
+    isAuthenticated,
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) throw new ValidationError("ID inválido");
+
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
+      if (!user || (!user.isAdmin && !user.isManager && !user.isBuyer)) {
+        throw new UnauthorizedError("Sem permissão para desfazer recebimento");
+      }
+
+      const preview = await receiptService.getUndoReceiptPreview(id);
+      res.json({ success: true, data: preview });
+    },
+  );
+
+  app.post(
+    "/api/purchase-requests/:id/undo-receipt",
+    isAuthenticated,
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) throw new ValidationError("ID inválido");
+
+      const schema = z.object({
+        confirm: z.boolean().optional(),
+        expectedReceiptIds: z.array(z.number()).optional(),
+      });
+      const body = schema.parse(req.body || {});
+
+      const userId = req.session.userId!;
+      const result = await receiptService.undoReceiptForPurchaseRequest(id, userId, {
+        confirm: body.confirm,
+        expectedReceiptIds: body.expectedReceiptIds,
+      });
+
+      realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+        event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+        payload: { id, currentPhase: "pedido_compra", updatedAt: new Date() },
+      });
+      realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+        event: RECEIPT_EVENTS.PHASE_CHANGED,
+        payload: { purchaseRequestId: id, action: "undo_receiving" } as any,
+      });
+
+      res.json({ success: true, data: result });
     },
   );
 

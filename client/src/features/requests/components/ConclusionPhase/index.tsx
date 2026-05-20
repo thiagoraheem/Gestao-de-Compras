@@ -1,4 +1,4 @@
-import { useMemo, forwardRef, useImperativeHandle } from "react";
+import { useMemo, forwardRef, useImperativeHandle, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -6,6 +6,16 @@ import { Badge } from "@/shared/ui/badge";
 import { Separator } from "@/shared/ui/separator";
 import { Textarea } from "@/shared/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -100,6 +110,8 @@ function normalizeReceiptObservations(raw: any): any {
 const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(function ConclusionPhase({ request, onClose, className }: ConclusionPhaseProps, ref) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [undoDialogOpen, setUndoDialogOpen] = useState(false);
+  const [undoPreview, setUndoPreview] = useState<any | null>(null);
 
   const {
     items, purchaseOrder, purchaseOrderItems, completeTimeline, attachments, requester, costCenter, department,
@@ -113,6 +125,63 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
     resolver: zodResolver(archiveSchema),
     defaultValues: {
       conclusionObservations: "",
+    },
+  });
+
+  const previewUndoReceiptMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/purchase-requests/${request.id}/undo-receipt/preview`);
+    },
+    onSuccess: (data: any) => {
+      if (data?.erpSyncedReceipts?.length > 0) {
+        const first = data.erpSyncedReceipts[0];
+        const ref = first?.receiptNumber ? `nº ${first.receiptNumber}` : `ID ${first?.id}`;
+        toast({
+          title: "Operação bloqueada",
+          description: `Não é possível desfazer o recebimento: o recebimento parcial ${ref} já foi enviado ao ERP.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      setUndoPreview(data);
+      setUndoDialogOpen(true);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error?.message || "Falha ao validar desfazer recebimento",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const undoReceiptMutation = useMutation({
+    mutationFn: async () => {
+      const expectedReceiptIds = Array.isArray(undoPreview?.receipts)
+        ? undoPreview.receipts.map((r: any) => Number(r.id)).filter((id: number) => Number.isFinite(id))
+        : [];
+      return apiRequest(`/api/purchase-requests/${request.id}/undo-receipt`, {
+        method: "POST",
+        body: { confirm: true, expectedReceiptIds },
+      });
+    },
+    onSuccess: async () => {
+      setUndoDialogOpen(false);
+      setUndoPreview(null);
+      await queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/receipts/board"] });
+      toast({
+        title: "Sucesso",
+        description: "Recebimentos desfeitos e solicitação retornada para Pedido de Compra",
+      });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error?.message || "Falha ao desfazer recebimento",
+        variant: "destructive",
+      });
     },
   });
 
@@ -328,6 +397,75 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
             <Mail className="h-4 w-4 mr-2" />
             Enviar E-mail
           </Button>
+
+          {([PURCHASE_PHASES.PEDIDO_CONCLUIDO, PURCHASE_PHASES.CONCLUSAO_COMPRA, PURCHASE_PHASES.RECEBIMENTO, PURCHASE_PHASES.CONF_FISCAL] as const).includes(request.currentPhase) && (
+            <>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => previewUndoReceiptMutation.mutate()}
+                disabled={previewUndoReceiptMutation.isPending || undoReceiptMutation.isPending}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                {previewUndoReceiptMutation.isPending ? "Validando..." : "Desfazer Recebimento"}
+              </Button>
+
+              <AlertDialog open={undoDialogOpen} onOpenChange={setUndoDialogOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Desfazer recebimento</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {(() => {
+                        const receipts = Array.isArray(undoPreview?.receipts) ? undoPreview.receipts : [];
+                        const count = receipts.length;
+                        const hasFiscal = Array.isArray(undoPreview?.fiscalConferenceReceipts) && undoPreview.fiscalConferenceReceipts.length > 0;
+                        return (
+                          <div className="space-y-3">
+                            <div>
+                              Esta ação excluirá o recebimento principal e todos os recebimentos parciais não sincronizados com o ERP ({count} registro(s)) e retornará a solicitação para a fase Pedido de Compra.
+                            </div>
+                            {hasFiscal && (
+                              <div className="text-amber-700 dark:text-amber-300">
+                                Há recebimentos com conferência fiscal registrada. Todos serão desfeitos junto com a operação.
+                              </div>
+                            )}
+                            {count > 0 && (
+                              <div className="rounded-md border p-3">
+                                <div className="text-sm font-medium mb-2">Recebimentos que serão excluídos</div>
+                                <div className="space-y-1 text-sm">
+                                  {receipts.slice(0, 10).map((r: any) => (
+                                    <div key={r.id} className="flex justify-between gap-2">
+                                      <span>{r.receiptNumber ? r.receiptNumber : `ID ${r.id}`}</span>
+                                      <span className="text-muted-foreground">{String(r.receiptPhase || "")} • {String(r.status || "")}</span>
+                                    </div>
+                                  ))}
+                                  {count > 10 && (
+                                    <div className="text-muted-foreground">+ {count - 10} outro(s)</div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={undoReceiptMutation.isPending}>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault();
+                        undoReceiptMutation.mutate();
+                      }}
+                      disabled={undoReceiptMutation.isPending}
+                    >
+                      {undoReceiptMutation.isPending ? "Processando..." : "Confirmar e desfazer"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          )}
 
           {request.currentPhase === PURCHASE_PHASES.CONCLUSAO_COMPRA && (
             <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>

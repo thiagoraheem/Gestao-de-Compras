@@ -8,12 +8,13 @@ import {
   receiptAllocations, 
   receiptInstallments, 
   receiptNfXmls,
+  auditLogs,
   suppliers,
   purchaseRequestItems,
   attachments,
   purchaseOrderItems
 } from "../../shared/schema";
-import { eq, and, sql, desc, like, or } from "drizzle-orm";
+import { eq, and, sql, desc, like, or, inArray } from "drizzle-orm";
 import { storage } from "../storage";
 import { notifyRequestConclusion } from "../email-service";
 import { generateReceiptNumber } from "../utils/generate-receipt-number";
@@ -21,6 +22,156 @@ import { realtime } from "../realtime";
 import { REALTIME_CHANNELS, RECEIPT_EVENTS } from "../../shared/realtime-events";
 
 export class ReceiptService {
+  private isReceiptSyncedWithErp(receipt: any): boolean {
+    const status = String(receipt?.status || "").toLowerCase();
+    if (status === "enviado_locador" || status === "integrado_locador") return true;
+    if (receipt?.locadorReceiptId || receipt?.locador_receipt_id) return true;
+    return false;
+  }
+
+  async getUndoReceiptPreview(purchaseRequestId: number) {
+    const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseRequestId));
+    if (!pr) throw new Error("Solicitação não encontrada");
+
+    const [po] = await db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.purchaseRequestId, purchaseRequestId))
+      .limit(1);
+    if (!po) throw new Error("Pedido de compra não encontrado");
+
+    const receiptRows = await db
+      .select({
+        id: receipts.id,
+        receiptNumber: receipts.receiptNumber,
+        status: receipts.status,
+        receiptPhase: receipts.receiptPhase,
+        locadorReceiptId: receipts.locadorReceiptId,
+        createdAt: receipts.createdAt,
+      })
+      .from(receipts)
+      .where(or(eq(receipts.purchaseOrderId, po.id), eq(receipts.purchaseRequestId, purchaseRequestId)))
+      .orderBy(desc(receipts.createdAt));
+
+    const erpSynced = receiptRows.filter((r: any) => this.isReceiptSyncedWithErp(r));
+    const fiscalConferences = receiptRows.filter((r: any) => String(r.receiptPhase) === "conf_fiscal" || String(r.receiptPhase) === "concluido");
+
+    return {
+      purchaseRequestId,
+      purchaseOrderId: po.id,
+      currentPhase: pr.currentPhase,
+      receipts: receiptRows,
+      erpSyncedReceipts: erpSynced,
+      fiscalConferenceReceipts: fiscalConferences,
+      requiresConfirmation: receiptRows.length > 1,
+    };
+  }
+
+  async undoReceiptForPurchaseRequest(purchaseRequestId: number, userId: number, options?: { confirm?: boolean; expectedReceiptIds?: number[] }) {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user || (!user.isAdmin && !user.isManager && !user.isBuyer)) {
+      throw new Error("Sem permissão para desfazer recebimento");
+    }
+
+    const preview = await this.getUndoReceiptPreview(purchaseRequestId);
+
+    const allowedPhases = new Set(["pedido_concluido", "conclusao_compra", "recebimento", "conf_fiscal"]);
+    if (!allowedPhases.has(String(preview.currentPhase))) {
+      throw new Error("A solicitação não está em um estado válido para desfazer recebimento");
+    }
+
+    if (preview.receipts.length === 0) {
+      throw new Error("Nenhum recebimento encontrado para este pedido");
+    }
+
+    if (preview.erpSyncedReceipts.length > 0) {
+      const r = preview.erpSyncedReceipts[0] as any;
+      const ref = r?.receiptNumber ? `nº ${r.receiptNumber}` : `ID ${r?.id}`;
+      throw new Error(`Não é possível desfazer o recebimento: o recebimento parcial ${ref} já foi enviado ao ERP.`);
+    }
+
+    const receiptIds = preview.receipts.map((r: any) => Number(r.id)).filter((id: number) => Number.isFinite(id));
+    if (options?.expectedReceiptIds && options.expectedReceiptIds.length > 0) {
+      const expected = [...options.expectedReceiptIds].sort((a, b) => a - b);
+      const current = [...receiptIds].sort((a, b) => a - b);
+      if (expected.length !== current.length || expected.some((v, i) => v !== current[i])) {
+        throw new Error("Os recebimentos foram alterados desde a confirmação. Recarregue e tente novamente.");
+      }
+    }
+
+    if (preview.requiresConfirmation && options?.confirm !== true) {
+      throw new Error("Esta ação também desfará recebimentos parciais não sincronizados com o ERP. Confirme para prosseguir.");
+    }
+
+    const now = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx.delete(receiptItems).where(inArray(receiptItems.receiptId, receiptIds));
+      await tx.delete(receiptAllocations).where(inArray(receiptAllocations.receiptId, receiptIds));
+      await tx.delete(receiptInstallments).where(inArray(receiptInstallments.receiptId, receiptIds));
+      await tx.delete(receiptNfXmls).where(inArray(receiptNfXmls.receiptId, receiptIds));
+      await tx.delete(receipts).where(inArray(receipts.id, receiptIds));
+
+      await tx
+        .update(purchaseOrderItems)
+        .set({ quantityReceived: "0" } as any)
+        .where(eq(purchaseOrderItems.purchaseOrderId, preview.purchaseOrderId));
+
+      await tx
+        .update(purchaseOrders)
+        .set({ fulfillmentStatus: "pending", updatedAt: now } as any)
+        .where(eq(purchaseOrders.id, preview.purchaseOrderId));
+
+      await tx
+        .update(purchaseRequests)
+        .set({
+          currentPhase: "pedido_compra",
+          updatedAt: now,
+          receivedById: null,
+          receivedDate: null,
+          hasPendency: false,
+          pendencyReason: null,
+          physicalReceiptAt: null,
+          physicalReceiptById: null,
+          fiscalReceiptAt: null,
+          fiscalReceiptById: null,
+          procurementStatus: "aberta",
+          procurementConcludedAt: null,
+          procurementConcludedById: null,
+          sentToPhysicalReceipt: false,
+        } as any)
+        .where(eq(purchaseRequests.id, purchaseRequestId));
+
+      await tx.insert(auditLogs).values({
+        purchaseRequestId,
+        performedBy: userId,
+        actionType: "undo_receiving",
+        actionDescription: `Desfazer recebimento: ${receiptIds.length} recebimento(s) excluído(s) e retorno para Pedido de Compra`,
+        performedAt: now,
+        beforeData: {
+          phase: preview.currentPhase,
+          purchaseOrderId: preview.purchaseOrderId,
+          receipts: preview.receipts,
+        } as any,
+        afterData: {
+          phase: "pedido_compra",
+          purchaseOrderId: preview.purchaseOrderId,
+          deletedReceiptIds: receiptIds,
+        } as any,
+        affectedTables: ["receipts", "receipt_items", "receipt_allocations", "receipt_installments", "receipt_nf_xmls", "purchase_requests", "purchase_orders", "purchase_order_items"] as any,
+        metadata: {
+          fiscalConferenceReceiptIds: preview.fiscalConferenceReceipts.map((r: any) => r.id),
+        } as any,
+      } as any);
+    });
+
+    return {
+      success: true,
+      deletedReceiptIds: receiptIds,
+      newPhase: "pedido_compra",
+    };
+  }
+
   async getReceiptsBoard() {
     const results = await db.execute(sql`
       SELECT 
@@ -491,3 +642,6 @@ export const receiptService = new ReceiptService();
 
 // Export legacy function for compatibility if needed, but we should migrate to the class instance
 export const finishReceiptWithoutErp = (userId: number, receiptId: number) => receiptService.finishReceiptWithoutErp(userId, receiptId);
+export const getUndoReceiptPreview = (purchaseRequestId: number) => receiptService.getUndoReceiptPreview(purchaseRequestId);
+export const undoReceiptForPurchaseRequest = (purchaseRequestId: number, userId: number, options?: { confirm?: boolean; expectedReceiptIds?: number[] }) =>
+  receiptService.undoReceiptForPurchaseRequest(purchaseRequestId, userId, options);
