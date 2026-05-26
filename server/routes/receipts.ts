@@ -21,7 +21,7 @@ import {
   purchaseRequestItems,
   users,
 } from "../../shared/schema";
-import { notifyRequestConclusion } from "../email-service";
+import { notifyRequestConclusion, notifyFinancialDepartment } from "../email-service";
 import { purchaseReceiveService, PurchaseReceiveRequest } from "../integracao_locador/services/purchase-receive-service";
 import { parseNFeXml } from "../services/nfe-parser";
 import { parseNFSeXml } from "../services/nfse-parser";

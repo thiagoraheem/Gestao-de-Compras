@@ -10,6 +10,84 @@ import { Switch } from "@/shared/ui/switch";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { locadorConfigSchema, LocadorConfigFormData, ApiConfig } from "./schemas/locador-config.schema";
+import { financialEmailConfigSchema, FinancialEmailConfigFormData, FinancialEmailApiConfig } from "./schemas/financial-email.schema";
+
+function FinancialEmailConfigCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery<FinancialEmailApiConfig>({
+    queryKey: ["/api/config/financial-email"],
+    queryFn: () => apiRequest("/api/config/financial-email"),
+  });
+
+  const form = useForm<FinancialEmailConfigFormData>({
+    resolver: zodResolver(financialEmailConfigSchema),
+    defaultValues: {
+      enabled: false,
+      emails: "",
+    },
+  });
+
+  useEffect(() => {
+    if (!data) return;
+    form.reset({
+      enabled: data.enabled,
+      emails: data.emails,
+    });
+  }, [data, form]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (values: FinancialEmailConfigFormData) => {
+      return apiRequest("/api/config/financial-email", { method: "PUT", body: values });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/financial-email"] });
+      toast({ title: "Sucesso", description: "Configuração de E-mail Financeiro atualizada." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro", description: error.message || "Falha ao atualizar configuração.", variant: "destructive" });
+    },
+  });
+
+  const values = form.watch();
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Notificação Setor Financeiro</CardTitle>
+        <Button onClick={form.handleSubmit((v) => saveMutation.mutate(v))} disabled={saveMutation.isPending || isLoading}>
+          Salvar
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Enviar e-mail de conclusão</Label>
+            <div className="text-sm text-muted-foreground">
+              Envia um e-mail para o setor financeiro quando a conferência fiscal é concluída ou integrada no Locador.
+            </div>
+          </div>
+          <Switch
+            checked={values.enabled}
+            onCheckedChange={(checked) => form.setValue("enabled", checked)}
+            disabled={isLoading}
+          />
+        </div>
+
+        {values.enabled && (
+          <div className="space-y-2 border-t pt-4">
+            <Label htmlFor="emails">Endereços de E-mail</Label>
+            <Input id="emails" {...form.register("emails")} placeholder="financeiro@empresa.com, outro@empresa.com" />
+            <div className="text-xs text-muted-foreground">
+              Separe múltiplos e-mails com vírgula.
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function AdminLocadorConfig() {
   const { toast } = useToast();
@@ -181,6 +259,8 @@ export function AdminLocadorConfig() {
             </Card>
           </CardContent>
         </Card>
+        
+        <FinancialEmailConfigCard />
       </div>
     </div>
   );

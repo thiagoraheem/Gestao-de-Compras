@@ -16,7 +16,7 @@ import {
 } from "../../shared/schema";
 import { eq, and, sql, desc, like, or, inArray } from "drizzle-orm";
 import { storage } from "../storage";
-import { notifyRequestConclusion } from "../email-service";
+import { notifyRequestConclusion, notifyFinancialDepartment } from "../email-service";
 import { generateReceiptNumber } from "../utils/generate-receipt-number";
 import { realtime } from "../realtime";
 import { REALTIME_CHANNELS, RECEIPT_EVENTS } from "../../shared/realtime-events";
@@ -369,6 +369,12 @@ export class ReceiptService {
                 }
             }
         }
+    }
+
+    try {
+      await notifyFinancialDepartment(receiptId);
+    } catch (emailError) {
+      console.error("Erro ao enviar notificação financeira:", emailError);
     }
 
     try {

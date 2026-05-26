@@ -4,6 +4,10 @@ import { storage } from "./storage";
 import { config, buildRequestUrl, isEmailEnabled } from "./config";
 import { PDFService } from "./pdf-service";
 import { templateService } from "./services/template-service";
+import { configService } from "./services/configService";
+import { db } from "./db";
+import { receipts, receiptItems, receiptInstallments, purchaseOrders, purchaseRequests, suppliers } from "../shared/schema";
+import { eq } from "drizzle-orm";
 
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -825,3 +829,106 @@ async function generateArchivedEmailHTML(
     requestUrl: buildRequestUrl(purchaseRequest.id),
   });
 }
+
+export async function notifyFinancialDepartment(receiptId: number): Promise<void> {
+  if (!isEmailEnabled()) return;
+
+  const cfg = await configService.getFinancialEmailConfig();
+  if (!cfg.enabled || !cfg.emails) {
+    console.log(`📧 [EMAIL DISABLED] Notificação financeira para recebimento ${receiptId} ignorada - desabilitada ou sem e-mails`);
+    return;
+  }
+
+  try {
+    const [receipt] = await db.select().from(receipts).where(eq(receipts.id, receiptId));
+    if (!receipt) return;
+
+    let purchaseOrder: any = undefined;
+    let purchaseRequest: any = undefined;
+    
+    if (receipt.purchaseOrderId) {
+      [purchaseOrder] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, receipt.purchaseOrderId));
+      if (purchaseOrder?.purchaseRequestId) {
+        [purchaseRequest] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseOrder.purchaseRequestId));
+      }
+    }
+
+    const items = await db.select().from(receiptItems).where(eq(receiptItems.receiptId, receiptId));
+    const installments = await db.select().from(receiptInstallments).where(eq(receiptInstallments.receiptId, receiptId));
+
+    let supplierName = "Não informado";
+    let supplierCnpj = "Não informado";
+    
+    const supplierId = receipt.supplierId || purchaseOrder?.supplierId || purchaseRequest?.chosenSupplierId;
+    if (supplierId) {
+      const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, supplierId));
+      if (supplier) {
+        supplierName = supplier.name || supplierName;
+        supplierCnpj = supplier.cnpj || supplierCnpj;
+      }
+    }
+
+    // Format fields
+    const formatCurrency = (val: any) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(val) || 0);
+
+    const itemRows = items.map(it => `
+      <tr>
+        <td>${it.description || "-"}</td>
+        <td style="text-align: right;">${Number(it.quantity || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</td>
+        <td style="text-align: right;">${formatCurrency(it.unitPrice)}</td>
+        <td style="text-align: right;">${formatCurrency(it.totalPrice)}</td>
+      </tr>
+    `).join("");
+
+    const installmentRows = installments.map(inst => `
+      <tr>
+        <td>${inst.installmentNumber}</td>
+        <td>${new Date(inst.dueDate).toLocaleDateString("pt-BR")}</td>
+        <td style="text-align: right;">${formatCurrency(inst.amount)}</td>
+      </tr>
+    `).join("");
+
+    // Read financial info from observations if present
+    let paymentMethodCode = "";
+    if (typeof receipt.observations === 'string') {
+      try {
+        const obs = JSON.parse(receipt.observations);
+        paymentMethodCode = obs.financial?.paymentMethodCode || "";
+      } catch (e) {}
+    }
+
+    const emailHtml = await templateService.render("financial-email", {
+      purchaseOrderNumber: purchaseOrder?.orderNumber || "Avulso",
+      requestNumber: purchaseRequest?.requestNumber || "Avulso",
+      supplierName,
+      supplierCnpj,
+      documentNumber: receipt.documentNumber || "S/N",
+      documentSeries: receipt.documentSeries || "S/S",
+      documentKey: receipt.documentKey || "Não informada",
+      documentIssueDate: receipt.documentIssueDate ? new Date(receipt.documentIssueDate).toLocaleDateString("pt-BR") : "Não informada",
+      totalAmount: formatCurrency(receipt.totalAmount),
+      paymentMethodCode,
+      itemRows: itemRows || `<tr><td colspan="4">Nenhum item</td></tr>`,
+      hasInstallments: installments.length > 0,
+      installmentRows,
+    });
+
+    const emails = cfg.emails.split(",").map(e => e.trim()).filter(Boolean);
+    if (emails.length === 0) return;
+
+    const mailOptions = {
+      from: config.email.from,
+      to: emails.join(", "),
+      subject: `Conferência Fiscal Concluída - NF ${receipt.documentNumber || 'S/N'} (${supplierName})`,
+      html: emailHtml,
+    };
+
+    await sendMailWithEnvironmentBanner(mailOptions);
+    console.log(`📧 Notificação financeira enviada para: ${emails.join(", ")}`);
+
+  } catch (error) {
+    console.error("Erro ao enviar notificação financeira:", error);
+  }
+}
+
+

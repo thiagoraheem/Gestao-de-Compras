@@ -34,4 +34,15 @@ export function registerConfigRoutes(app: Express) {
     const cfg = await configService.reloadFileStorageConfig();
     res.json(cfg);
   });
+
+  app.get("/api/config/financial-email", isAuthenticated, isAdmin, async (_req, res) => {
+    const cfg = await configService.getFinancialEmailConfig();
+    res.json(cfg);
+  });
+
+  app.put("/api/config/financial-email", isAuthenticated, isAdmin, async (req, res) => {
+    const updatedBy = req.session.userId ?? null;
+    const cfg = await configService.updateFinancialEmailConfig(req.body, updatedBy);
+    res.json(cfg);
+  });
 }

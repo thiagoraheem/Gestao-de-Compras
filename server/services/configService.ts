@@ -61,10 +61,16 @@ const FileStorageCredentialsPatchSchema = z.object({
   secretAccessKey: z.string().optional(),
 });
 
+const FinancialEmailConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  emails: z.string().default(""),
+});
+
 export type LocadorConfig = z.infer<typeof LocadorConfigSchema>;
 export type LocadorCredentials = z.infer<typeof LocadorCredentialsSchema>;
 export type FileStorageConfig = z.infer<typeof FileStorageConfigSchema>;
 export type FileStorageCredentials = z.infer<typeof FileStorageCredentialsSchema>;
+export type FinancialEmailConfig = z.infer<typeof FinancialEmailConfigSchema>;
 
 export type LocadorIntegrationConfig = LocadorConfig & {
   credentials: LocadorCredentials;
@@ -128,6 +134,11 @@ const DEFAULT_FILE_STORAGE_CONFIG: FileStorageConfig = {
 const DEFAULT_FILE_STORAGE_CREDENTIALS: FileStorageCredentials = {
   accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+};
+
+const DEFAULT_FINANCIAL_EMAIL_CONFIG: FinancialEmailConfig = {
+  enabled: false,
+  emails: "",
 };
 
 type CacheEntry<T> = {
@@ -364,6 +375,38 @@ export class ConfigService {
   async reloadFileStorageConfig(): Promise<FileStorageIntegrationConfigPublic> {
     this.invalidateFileStorageCache();
     return this.getFileStorageConfigPublic();
+  }
+
+  async getFinancialEmailConfig(): Promise<FinancialEmailConfig> {
+    const row = await this.getSetting("financial_email.config");
+    return FinancialEmailConfigSchema.parse({
+      ...DEFAULT_FINANCIAL_EMAIL_CONFIG,
+      ...(row ?? {}),
+    });
+  }
+
+  async updateFinancialEmailConfig(
+    payload: unknown,
+    updatedBy: number | null,
+  ): Promise<FinancialEmailConfig> {
+    const incoming = FinancialEmailConfigSchema.partial().parse(payload);
+    const current = await this.getFinancialEmailConfig();
+
+    const nextConfig = FinancialEmailConfigSchema.parse({
+      enabled: incoming.enabled ?? current.enabled,
+      emails: incoming.emails ?? current.emails,
+    });
+
+    await this.setSetting("financial_email.config", nextConfig, false, updatedBy);
+
+    await this.writeAuditLog(
+      "Atualização de configuração de E-mail Financeiro",
+      updatedBy,
+      current,
+      nextConfig,
+    );
+
+    return nextConfig;
   }
 
   private async writeAuditLog(
