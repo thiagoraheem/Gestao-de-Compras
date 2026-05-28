@@ -29,7 +29,7 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
   const [createNewRequestForUnavailable, setCreateNewRequestForUnavailable] = useState(false);
   const [unavailableItemsOption, setUnavailableItemsOption] = useState<'none' | 'with-rfq' | 'without-rfq'>('none');
   const [selectedItems, setSelectedItems] = useState<{ [key: number]: boolean }>({});
-  const [nonSelectedItemsOption, setNonSelectedItemsOption] = useState<'none' | 'separate-quotation' | 'info-only'>('none');
+  const [nonSelectedItemsOption, setNonSelectedItemsOption] = useState<'none' | 'separate-quotation'>('none');
   const [showItemSelection, setShowItemSelection] = useState(false);
   const [showRecommendedDetails, setShowRecommendedDetails] = useState(false);
   const [weights, setWeights] = useState({ price: 60, delivery: 20, discount: 10, freight: 5, payment: 5 });
@@ -465,17 +465,7 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                                 />
                                 <span className="text-sm">Criar nova cotação imediatamente para os itens não selecionados</span>
                               </label>
-                              <label className="flex items-start gap-2 cursor-pointer">
-                                <input 
-                                  type="radio" 
-                                  name="nonSelectedAction" 
-                                  value="info-only"
-                                  className="mt-1"
-                                  checked={nonSelectedItemsOption === 'info-only'}
-                                  onChange={() => setNonSelectedItemsOption('info-only')}
-                                />
-                                <span className="text-sm">Manter na cotação atual como pendentes (serão resolvidos depois)</span>
-                              </label>
+
                             </div>
                           </div>
                         )}

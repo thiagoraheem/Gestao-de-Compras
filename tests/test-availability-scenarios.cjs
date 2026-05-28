@@ -2,7 +2,7 @@
 const fetch = require('node-fetch');
 
 const BASE_URL = 'http://localhost:5201';
-const LOGIN_DATA = { username: 'usuario', password: 'admin123' };
+const LOGIN_DATA = { username: 'admin', password: 'admin123' };
 
 async function login() {
   const loginRes = await fetch(`${BASE_URL}/api/auth/login`, {
@@ -14,7 +14,8 @@ async function login() {
     const text = await loginRes.text();
     throw new Error(`Login failed: ${loginRes.status} ${text}`);
   }
-  const user = await loginRes.json();
+  const userJson = await loginRes.json();
+  const user = userJson.data || userJson;
   const cookie = loginRes.headers.get('set-cookie');
   const headers = { 'Content-Type': 'application/json', 'Cookie': cookie };
   console.log('Logged in as', user.username);
@@ -38,25 +39,31 @@ async function createPR(user, headers, scenarioName) {
       ]
     })
   });
-  const pr = await prRes.json();
+  const prJson = await prRes.json();
+  const pr = prJson.data || prJson;
   // console.log('PR Response:', JSON.stringify(pr, null, 2));
   if (!pr.id) {
-    console.error('PR Creation Failed:', JSON.stringify(pr, null, 2));
+    console.error('PR Creation Failed:', JSON.stringify(prJson, null, 2));
     throw new Error('PR ID missing');
   }
   console.log(`[${scenarioName}] Created PR:`, pr.id);
-  
-  // Approve A1
+
+  // Send to approval and approve A1
+  await fetch(`${BASE_URL}/api/purchase-requests/${pr.id}/send-to-approval`, {
+    method: 'POST',
+    headers
+  });
+
   await fetch(`${BASE_URL}/api/purchase-requests/${pr.id}/approve-a1`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ approved: true, approverId: user.id })
   });
-  
+
   return pr;
 }
 
-async function createQuotationFlow(pr, headers, scenarioName) {
+async function createQuotationFlow(pr, headers, scenarioName, supplierId, unavailableItemIndices) {
   // Create Quotation
   const quoteRes = await fetch(`${BASE_URL}/api/quotations`, {
     method: 'POST',
@@ -68,12 +75,14 @@ async function createQuotationFlow(pr, headers, scenarioName) {
       technicalSpecs: 'Specs'
     })
   });
-  const quote = await quoteRes.json();
-  
+  const quoteJson = await quoteRes.json();
+  const quote = quoteJson.data || quoteJson;
+
   // Create Items
   const prItemsRes = await fetch(`${BASE_URL}/api/purchase-requests/${pr.id}/items`, { headers });
-  const prItems = await prItemsRes.json();
-  
+  const prItemsJson = await prItemsRes.json();
+  const prItems = prItemsJson.data || prItemsJson;
+
   for (const item of prItems) {
     await fetch(`${BASE_URL}/api/quotations/${quote.id}/items`, {
       method: 'POST',
@@ -90,31 +99,46 @@ async function createQuotationFlow(pr, headers, scenarioName) {
   }
 
   // Add Supplier
-  await fetch(`${BASE_URL}/api/quotations/${quote.id}/supplier-quotations`, {
+  await fetch(`${BASE_URL}/api/quotations/${quote.id}/send-rfq`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ supplierId: 20 })
+    body: JSON.stringify({ suppliers: [supplierId], releaseWithoutEmail: true })
   });
 
   // Get Supplier Quotation
   const sqRes = await fetch(`${BASE_URL}/api/quotations/${quote.id}/supplier-quotations`, { headers });
-  const supplierQuotations = await sqRes.json();
+  const supplierQuotationsJson = await sqRes.json();
+  const supplierQuotations = supplierQuotationsJson.data || supplierQuotationsJson;
   const sq = supplierQuotations[0];
-  
+
   // Simulate Supplier Response (fill items)
   const sqItemsRes = await fetch(`${BASE_URL}/api/supplier-quotations/${sq.id}/items`, { headers });
-  const sqItems = await sqItemsRes.json();
-  
-  for (const item of sqItems) {
-    await fetch(`${BASE_URL}/api/supplier-quotation-items/${item.id}`, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify({
-        unitPrice: '10.00',
-        isAvailable: true 
-      })
-    });
-  }
+  const sqItemsJson = await sqItemsRes.json();
+  const sqItems = sqItemsJson.data || sqItemsJson;
+
+  const items = sqItems.map((item, index) => {
+    const isAvailable = !unavailableItemIndices.includes(index);
+    return {
+      quotationItemId: item.quotationItemId,
+      unitPrice: '10.00',
+      isAvailable: isAvailable,
+      availableQuantity: isAvailable ? '10' : '0',
+      unavailabilityReason: isAvailable ? null : 'Sem estoque'
+    };
+  });
+
+  await fetch(`${BASE_URL}/api/quotations/${quote.id}/update-supplier-quotation`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      supplierId: supplierId,
+      items: items,
+      totalValue: '100.00',
+      paymentTerms: '30 dias',
+      deliveryTerms: '5 dias',
+      warrantyPeriod: '12 meses'
+    })
+  });
   
   return { quote, sq, sqItems };
 }
@@ -122,9 +146,39 @@ async function createQuotationFlow(pr, headers, scenarioName) {
 async function runScenario(scenarioName, unavailableItemIndices) {
   console.log(`\n--- Running Scenario: ${scenarioName} ---`);
   const { user, headers } = await login();
+
+  // Garantir fornecedor
+  const suppliersRes = await fetch(`${BASE_URL}/api/suppliers`, { headers });
+  const suppliersJson = await suppliersRes.json();
+  const suppliersList = suppliersJson.data || suppliersJson;
+  let testSupplierId;
+  if (suppliersList && suppliersList.length > 0) {
+    testSupplierId = suppliersList[0].id;
+  } else {
+    const newSupplierRes = await fetch(`${BASE_URL}/api/suppliers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        name: 'Fornecedor Teste Ltda',
+        type: 0,
+        cnpj: '11.444.777/0001-61',
+        contact: 'Contato Teste',
+        email: 'fornecedor@teste.com',
+        phone: '11999999999',
+        address: 'Rua do Teste, 123',
+        paymentTerms: '30 dias',
+        productsServices: 'Geral',
+        companyId: 1
+      })
+    });
+    const newSupplierJson = await newSupplierRes.json();
+    const newSupplier = newSupplierJson.data || newSupplierJson;
+    testSupplierId = newSupplier.id;
+  }
+
   const pr = await createPR(user, headers, scenarioName);
-  const { quote, sq, sqItems } = await createQuotationFlow(pr, headers, scenarioName);
-  
+  const { quote, sq, sqItems } = await createQuotationFlow(pr, headers, scenarioName, testSupplierId, unavailableItemIndices);
+
   // Prepare unavailability payload
   const unavailableItemsPayload = [];
   for (const index of unavailableItemIndices) {
@@ -145,10 +199,11 @@ async function runScenario(scenarioName, unavailableItemIndices) {
       selectedSupplierId: sq.supplierId,
       totalValue: '100.00',
       observations: `Selected for ${scenarioName}`,
-      unavailableItems: unavailableItemsPayload
+      unavailableItems: unavailableItemsPayload,
+      unavailableItemsOption: 'with-rfq'
     })
   });
-  
+
   const resultText = await selectRes.text();
   console.log(`Select result: ${selectRes.status}`);
   if (!selectRes.ok) console.log(resultText);
@@ -156,11 +211,14 @@ async function runScenario(scenarioName, unavailableItemIndices) {
   // Verify
   // Check New PR
   const allPrsRes = await fetch(`${BASE_URL}/api/purchase-requests`, { headers });
-  const allPrs = await allPrsRes.json();
+  const allPrsJson = await allPrsRes.json();
+  const allPrs = allPrsJson.data || allPrsJson;
+  console.log(`Searching for new PR containing: Derivado da solicitação ${pr.requestNumber}`);
+  console.log('Recent justifications:', allPrs.slice(0, 5).map(p => `[${p.id}]: ${p.justification}`).join(', '));
   const newPr = allPrs.find(p => 
-    p.justification && p.justification.includes(`[Item Indisponível] Derivado da solicitação ${pr.requestNumber}`)
+    p.justification && p.justification.includes(`Derivado da solicitação ${pr.requestNumber}`)
   );
-  
+
   if (newPr) {
     console.log('SUCCESS: New PR created:', newPr.id);
   } else {
@@ -173,12 +231,14 @@ async function runScenario(scenarioName, unavailableItemIndices) {
 
   // Check Original PR
   const updatedPrRes = await fetch(`${BASE_URL}/api/purchase-requests/${pr.id}`, { headers });
-  const updatedPr = await updatedPrRes.json();
+  const updatedPrJson = await updatedPrRes.json();
+  const updatedPr = updatedPrJson.data || updatedPrJson;
   console.log('Original PR Phase:', updatedPr.currentPhase);
-  
+
   // Check Original PR Items
   const finalItemsRes = await fetch(`${BASE_URL}/api/purchase-requests/${pr.id}/items`, { headers });
-  const finalItems = await finalItemsRes.json();
+  const finalItemsJson = await finalItemsRes.json();
+  const finalItems = finalItemsJson.data || finalItemsJson;
   console.log(`Original PR has ${finalItems.length} items remaining (visible via API)`);
 }
 

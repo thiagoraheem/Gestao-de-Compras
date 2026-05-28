@@ -1015,9 +1015,19 @@ export class PDFService {
         // Buscar os itens do fornecedor selecionado com preços
         const supplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
         const currentQuotationItems = await storage.getQuotationItems(quotation.id);
+        const approvedItems = await storage.getApprovedQuotationItems(quotation.id);
+        const approvedSupplierItemIds = new Set(
+          approvedItems.map((i: any) => i.supplierQuotationItemId),
+        );
+        const hasApprovedItems = approvedItems.length > 0;
 
         itemsWithPrices = supplierItems
-          .filter((si: any) => si.isAvailable !== false)
+          .filter((si: any) => {
+            if (hasApprovedItems) {
+              return approvedSupplierItemIds.has(si.id);
+            }
+            return si.isAvailable !== false;
+          })
           .map((si: any) => {
             const qi = currentQuotationItems.find((q: any) => q.id === si.quotationItemId);
             const description = qi?.description || '';

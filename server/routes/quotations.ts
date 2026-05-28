@@ -209,7 +209,7 @@ export function registerQuotationRoutes(app: Express) {
 
     const quotation = await storage.createQuotation({
       ...quotationDataForApi,
-      status: "open",
+      status: "draft",
       createdBy: req.session.userId!,
     });
 
@@ -659,6 +659,9 @@ export function registerQuotationRoutes(app: Express) {
         observations,
         unavailableItems,
         nonSelectedItems,
+        selectedItems,
+        nonSelectedItemsOption,
+        unavailableItemsOption,
       } = req.body;
 
       const quotation = await storage.getQuotationById(quotationId);
@@ -677,12 +680,32 @@ export function registerQuotationRoutes(app: Express) {
       );
       
       let finalTotalValue = totalValue;
+      let newPR: any = null;
+      let newQuotation: any = null;
+      let itemsTransferredCount = 0;
 
       if (selectedSupplierQuotation) {
+        const currentSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
+        
+        // Determinar quais items de cotação estão selecionados (aprovados)
+        const selectedQuotationItemIds = new Set<number>();
+        if (Array.isArray(selectedItems) && selectedItems.length > 0) {
+          selectedItems.forEach((item: any) => {
+            selectedQuotationItemIds.add(item.quotationItemId);
+          });
+        } else {
+          // Default: todos os itens disponíveis do fornecedor vencedor
+          currentSupplierItems.forEach((item) => {
+            if (item.isAvailable !== false) {
+              selectedQuotationItemIds.add(item.quotationItemId);
+            }
+          });
+        }
+
+        // Calcular valor total baseado apenas nos itens selecionados/aprovados
         let calculatedTotal = 0;
-        const items = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
-        for (const item of items) {
-          if (item.isAvailable !== false) {
+        for (const item of currentSupplierItems) {
+          if (selectedQuotationItemIds.has(item.quotationItemId)) {
             calculatedTotal += parseFloat(item.totalPrice || "0");
           }
         }
@@ -705,45 +728,136 @@ export function registerQuotationRoutes(app: Express) {
           choiceReason: observations,
         });
 
-        const currentSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
-        const unavailableSupplierItems = currentSupplierItems.filter(item => item.isAvailable === false);
+        // Identificar itens restantes
+        const quotationItems = await storage.getQuotationItems(quotationId);
+        const remainingQuotationItems = quotationItems.filter(qi => !selectedQuotationItemIds.has(qi.id));
 
-        if (unavailableSupplierItems.length > 0) {
+        const itemsToTransferToNewPR: any[] = [];
+        const itemsToDiscard: any[] = [];
+
+        for (const qItem of remainingQuotationItems) {
+          const supplierItem = currentSupplierItems.find(si => si.quotationItemId === qItem.id);
+          const isAvailable = supplierItem ? supplierItem.isAvailable !== false : true;
+
+          let shouldTransfer = false;
+          if (!isAvailable) {
+            shouldTransfer = (unavailableItemsOption === 'with-rfq' || req.body.createNewRequest === true);
+          } else {
+            shouldTransfer = (nonSelectedItemsOption === 'separate-quotation');
+          }
+
+          if (shouldTransfer) {
+            itemsToTransferToNewPR.push({ qItem, supplierItem });
+          } else {
+            itemsToDiscard.push({ qItem, supplierItem });
+          }
+        }
+
+        // Criar nova solicitação de compra se houver itens para transferir
+        if (itemsToTransferToNewPR.length > 0) {
           const originalPR = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
           if (originalPR) {
             const { id: _prId, requestNumber: _rn, createdAt: _prC, updatedAt: _prU, ...prData } = originalPR;
-            const newPR = await storage.createPurchaseRequest({
+            const targetJustification = `[Divisão de Pedido] Derivado da solicitação ${originalPR.requestNumber}. ` + (originalPR.justification || "");
+            const targetAdditionalInfo = `[Rastreabilidade] Solicitação dividida. Solicitação original: ${originalPR.requestNumber}.\n` + (originalPR.additionalInfo || "");
+            
+            console.log('originalPR.additionalInfo:', originalPR.additionalInfo);
+            console.log('targetAdditionalInfo to insert:', targetAdditionalInfo);
+
+            newPR = await storage.createPurchaseRequest({
               ...prData,
               category: prData.category as any,
-              justification: `[Item Indisponível] Derivado da solicitação ${originalPR.requestNumber}. ` + (originalPR.justification || ""),
+              justification: targetJustification,
+              additionalInfo: targetAdditionalInfo,
               currentPhase: "cotacao",
               approvedA1: true,
               approvalDateA1: new Date(),
             });
 
-            const quotationItems = await storage.getQuotationItems(quotationId);
-            const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+            console.log('newPR returned from DB:', JSON.stringify(newPR, null, 2));
 
-            for (const supplierItem of unavailableSupplierItems) {
-              const qItem = quotationItems.find(qi => qi.id === supplierItem.quotationItemId);
-              if (qItem && qItem.purchaseRequestItemId) {
-                const originalItem = originalItems.find(pi => pi.id === qItem.purchaseRequestItemId);
-                if (originalItem && !originalItem.isTransferred) {
-                  const { id: _id, createdAt: _c, updatedAt: _u, ...itemData } = originalItem;
-                  await storage.createPurchaseRequestItem({
-                    ...itemData,
-                    stockQuantity: itemData.stockQuantity || "0",
-                    averageMonthlyQuantity: itemData.averageMonthlyQuantity || "0",
-                    purchaseRequestId: newPR.id,
-                  });
-                  await storage.updatePurchaseRequestItem(originalItem.id, {
-                    isTransferred: true,
-                    transferredToRequestId: newPR.id,
-                    transferReason: supplierItem.unavailabilityReason || "Item indisponível no fornecedor selecionado",
-                    transferredAt: new Date()
+            itemsTransferredCount = itemsToTransferToNewPR.length;
+
+            // Automatically open/create Quotation (RFQ) for the new Purchase Request
+            newQuotation = await storage.createQuotation({
+              purchaseRequestId: newPR.id,
+              quotationDeadline: quotation.quotationDeadline,
+              deliveryLocationId: quotation.deliveryLocationId,
+              termsAndConditions: quotation.termsAndConditions || "",
+              technicalSpecs: quotation.technicalSpecs || "",
+              status: "draft",
+              createdBy: req.session.userId!,
+            });
+
+            await auditService.log({
+              purchaseRequestId: newQuotation.purchaseRequestId,
+              actionType: 'rfq_created',
+              actionDescription: `RFQ ${newQuotation.quotationNumber} aberta automaticamente (Rascunho) devido a divisão de pedido da solicitação ${originalPR.requestNumber}`,
+              performedBy: req.session?.userId,
+              afterData: newQuotation,
+              affectedTables: ['quotations']
+            });
+          }
+        }
+
+        const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+
+        // Processar itens transferidos
+        for (const { qItem, supplierItem } of itemsToTransferToNewPR) {
+          if (qItem.purchaseRequestItemId) {
+            const originalItem = originalItems.find(pi => pi.id === qItem.purchaseRequestItemId);
+            if (originalItem && !originalItem.isTransferred) {
+              const { id: _id, createdAt: _c, updatedAt: _u, ...itemData } = originalItem;
+              
+              let newPRItem: any = null;
+              if (newPR) {
+                newPRItem = await storage.createPurchaseRequestItem({
+                  ...itemData,
+                  stockQuantity: itemData.stockQuantity || "0",
+                  averageMonthlyQuantity: itemData.averageMonthlyQuantity || "0",
+                  purchaseRequestId: newPR.id,
+                });
+
+                if (newQuotation && newPRItem) {
+                  // Create corresponding quotation item linked to the new RFQ and the new PR Item
+                  await storage.createQuotationItem({
+                    quotationId: newQuotation.id,
+                    purchaseRequestItemId: newPRItem.id,
+                    itemCode: newPRItem.productCode || qItem.itemCode || "",
+                    description: newPRItem.description || qItem.description || "",
+                    quantity: newPRItem.requestedQuantity || qItem.quantity || "1",
+                    unit: newPRItem.unit || qItem.unit || "UN",
+                    specifications: newPRItem.technicalSpecification || qItem.specifications || "",
+                    deliveryDeadline: qItem.deliveryDeadline ? new Date(qItem.deliveryDeadline) : null,
                   });
                 }
               }
+
+              await storage.updatePurchaseRequestItem(originalItem.id, {
+                isTransferred: true,
+                transferredToRequestId: newPR ? newPR.id : null,
+                transferReason: supplierItem && supplierItem.isAvailable === false
+                  ? (supplierItem.unavailabilityReason || "Item indisponível no fornecedor selecionado")
+                  : "Item não selecionado pelo comprador na cotação parcial",
+                transferredAt: new Date()
+              });
+            }
+          }
+        }
+
+        // Processar itens descartados
+        for (const { qItem, supplierItem } of itemsToDiscard) {
+          if (qItem.purchaseRequestItemId) {
+            const originalItem = originalItems.find(pi => pi.id === qItem.purchaseRequestItemId);
+            if (originalItem && !originalItem.isTransferred) {
+              await storage.updatePurchaseRequestItem(originalItem.id, {
+                isTransferred: true,
+                transferredToRequestId: null,
+                transferReason: supplierItem && supplierItem.isAvailable === false
+                  ? (supplierItem.unavailabilityReason || "Item indisponível no fornecedor selecionado (descartado)")
+                  : "Item não selecionado pelo comprador na cotação parcial (descartado)",
+                transferredAt: new Date()
+              });
             }
           }
         }
@@ -755,6 +869,7 @@ export function registerQuotationRoutes(app: Express) {
           choiceReason: observations,
         });
 
+        // Gravar snapshot de itens aprovados
         await storage.clearApprovedQuotationItems(quotationId);
         const finalQuotationItems = await storage.getQuotationItems(quotationId);
         const finalSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
@@ -763,7 +878,7 @@ export function registerQuotationRoutes(app: Express) {
           purchaseRequestItems.length === 1 ? purchaseRequestItems[0].id : null;
 
         for (const item of finalSupplierItems) {
-          if (item.isAvailable !== false) {
+          if (selectedQuotationItemIds.has(item.quotationItemId)) {
             const qItem = finalQuotationItems.find(qi => qi.id === item.quotationItemId);
             const resolvedPurchaseRequestItemId = (() => {
               if (qItem?.purchaseRequestItemId) return qItem.purchaseRequestItemId;
@@ -809,7 +924,11 @@ export function registerQuotationRoutes(app: Express) {
         });
       }
 
-      res.json({ message: "Fornecedor selecionado com sucesso" });
+      res.json({ 
+        message: "Fornecedor selecionado com sucesso",
+        nonSelectedRequestId: newPR ? newPR.id : null,
+        nonSelectedItemsCount: itemsTransferredCount
+      });
     },
   );
 

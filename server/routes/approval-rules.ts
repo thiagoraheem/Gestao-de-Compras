@@ -431,15 +431,7 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
   const approvedItems = await storage.getApprovedQuotationItems(quotation.id);
   let itemsTotal = 0;
 
-  const approvedSupplierItemIds = new Set(
-    approvedItems.map((i: any) => i.supplierQuotationItemId),
-  );
-  const availableSupplierItems = supplierQuotationItems.filter(
-    (si: any) => si.isAvailable !== false,
-  );
-  const isSnapshotComplete =
-    approvedItems.length > 0 &&
-    availableSupplierItems.every((si: any) => approvedSupplierItemIds.has(si.id));
+  const isSnapshotComplete = approvedItems.length > 0;
 
   if (isSnapshotComplete) {
     const mapped = buildPurchaseOrderItemsFromApprovedSnapshot({

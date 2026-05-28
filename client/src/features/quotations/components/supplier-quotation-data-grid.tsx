@@ -157,7 +157,7 @@ export function SupplierQuotationDataGrid({
         id: "pricing",
         header: "Preço Unitário",
         cell: ({ row }) => {
-          const index = row.index;
+          const index = Number(row.id);
           const qItem = quotationItems.find((qi) => qi.id === row.original.quotationItemId);
           
           return (
@@ -183,7 +183,7 @@ export function SupplierQuotationDataGrid({
               />
               <div className="text-[10px] text-muted-foreground text-right">
                 Total Orig.: R$ {(() => {
-                   const itemValue = watchedItems[index];
+                   const itemValue = row.original;
                    const unitPrice = parseFloat(itemValue?.unitPrice || "0");
                    
                    // Use available quantity if specified, otherwise requested quantity
@@ -205,7 +205,7 @@ export function SupplierQuotationDataGrid({
         id: "discount",
         header: "Desconto",
         cell: ({ row }) => {
-          const index = row.index;
+          const index = Number(row.id);
           return (
             <div className="space-y-2 min-w-[80px]">
               <FormField
@@ -239,7 +239,7 @@ export function SupplierQuotationDataGrid({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                         <div className="relative">
+                          <div className="relative">
                             <DecimalInput
                                 value={field.value}
                                 onChange={(val) => {
@@ -266,7 +266,7 @@ export function SupplierQuotationDataGrid({
         id: "delivery",
         header: "Prazo / Disp.",
         cell: ({ row }) => {
-            const index = row.index;
+            const index = Number(row.id);
             const item = row.original;
             const qItem = quotationItems.find(qi => qi.id === item.quotationItemId);
 
@@ -327,14 +327,12 @@ export function SupplierQuotationDataGrid({
       {
         id: "total",
         header: "Total Final",
-        accessorFn: (row, index) => {
-             const item = watchedItems[index];
-             const qItem = quotationItems.find(qi => qi.id === item?.quotationItemId);
-             return calculateItemTotal(item, qItem);
+        accessorFn: (row) => {
+             const qItem = quotationItems.find(qi => qi.id === row?.quotationItemId);
+             return calculateItemTotal(row, qItem);
         },
         cell: ({ row }) => {
-             const index = row.index;
-             const item = watchedItems[index];
+             const item = row.original;
              const qItem = quotationItems.find(qi => qi.id === item?.quotationItemId);
              const total = calculateItemTotal(item, qItem);
              
@@ -349,8 +347,8 @@ export function SupplierQuotationDataGrid({
         id: "status",
         header: "Disp.",
         cell: ({ row }) => {
-            const index = row.index;
-            const isAvailable = form.watch(`items.${index}.isAvailable`);
+            const index = Number(row.id);
+            const isAvailable = row.original.isAvailable;
             
             return (
                 <div className="space-y-2 min-w-[150px]">
@@ -407,7 +405,7 @@ export function SupplierQuotationDataGrid({
         id: "brand_model",
         header: "Marca / Modelo",
         cell: ({ row }) => {
-          const index = row.index;
+          const index = Number(row.id);
           return (
             <div className="space-y-2 min-w-[140px]">
               <FormField
@@ -450,7 +448,7 @@ export function SupplierQuotationDataGrid({
         id: "obs",
         header: "Observações",
         cell: ({ row }) => {
-            const index = row.index;
+            const index = Number(row.id);
             return (
                 <FormField
                     control={form.control}
@@ -594,7 +592,7 @@ export function SupplierQuotationDataGrid({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className={!form.watch(`items.${row.index}.isAvailable`) ? "bg-red-50/50 dark:bg-red-900/10" : ""}
+                  className={!row.original.isAvailable ? "bg-red-50/50 dark:bg-red-900/10" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="p-2">

@@ -435,10 +435,13 @@ export function registerPurchaseRequestRoutes(app: Express) {
         selectedSupplier.id,
       );
 
+      const approvedItems = await storage.getApprovedQuotationItems(quotation.id);
+
       res.json({
         supplier,
         quotation: selectedSupplier,
         items,
+        approvedItems,
         choiceReason: selectedSupplier.choiceReason,
       });
     },

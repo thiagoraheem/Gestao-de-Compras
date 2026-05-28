@@ -202,7 +202,19 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
     requestedQuantity: parseLooseNumber(item.requestedQuantity)
   }));
 
-  const winningItems = supplierQuotationItems.map(si => {
+  const approvedItemIds = new Set(
+    selectedSupplier?.approvedItems?.map((ai: any) => ai.supplierQuotationItemId) || []
+  );
+  const hasApprovedItems = selectedSupplier?.approvedItems && selectedSupplier.approvedItems.length > 0;
+
+  const winningItems = supplierQuotationItems
+    .filter(si => {
+      if (hasApprovedItems) {
+        return approvedItemIds.has(si.id);
+      }
+      return si.isAvailable !== false;
+    })
+    .map(si => {
     const qi = quotationItems.find((q: any) => q.id === si.quotationItemId);
     const description = si.description || qi?.description || '';
     const unit = si.confirmedUnit || qi?.unit || '';
