@@ -646,41 +646,50 @@ export class PurchaseRequestRepository {
             }
           } catch {}
 
-          if (!purchaseOrderOriginalDescFound && request.chosenSupplierId) {
-            const chosenSupplierQuotationResult = await pool.query(
-              `SELECT sq.id, sq.discount_type, sq.discount_value
-               FROM supplier_quotations sq
-               JOIN quotations q ON sq.quotation_id = q.id
-               WHERE q.purchase_request_id = $1 AND sq.supplier_id = $2
-               ORDER BY sq.created_at DESC LIMIT 1`,
-              [request.id, request.chosenSupplierId]
-            );
-            if (chosenSupplierQuotationResult.rows.length > 0) {
-              const quotation = chosenSupplierQuotationResult.rows[0];
-              globalDiscount = {
-                tipo: quotation.discount_type,
-                valor: parseFloat(quotation.discount_value) || 0
-              };
-              
-              try {
-                const itemsRes = await pool.query(
-                  `SELECT original_total_price, discounted_total_price, total_price, discount_percentage, discount_value
-                   FROM supplier_quotation_items
-                   WHERE supplier_quotation_id = $1`,
-                  [quotation.id]
-                );
-                
-                itemsParaCalculo = itemsRes.rows.map((row: any) => {
-                  let orig = parseFloat(row.original_total_price || '0') || 0;
-                  const final = parseFloat(row.total_price || '0') || 0;
-                  if (orig === 0 || orig < final) orig = final; // safeguard
+          // Busca o desconto global (proposta) da cotação do fornecedor escolhido.
+          // Feito de forma independente: mesmo quando há itens do pedido de compra,
+          // o desconto global da cotação (ex: 20%) deve ser aplicado sobre o subtotal.
+          if (request.chosenSupplierId) {
+            try {
+              const chosenSupplierQuotationResult = await pool.query(
+                `SELECT sq.id, sq.discount_type, sq.discount_value
+                 FROM supplier_quotations sq
+                 JOIN quotations q ON sq.quotation_id = q.id
+                 WHERE q.purchase_request_id = $1 AND sq.supplier_id = $2
+                 ORDER BY sq.created_at DESC LIMIT 1`,
+                [request.id, request.chosenSupplierId]
+              );
+              if (chosenSupplierQuotationResult.rows.length > 0) {
+                const quotation = chosenSupplierQuotationResult.rows[0];
+                globalDiscount = {
+                  tipo: quotation.discount_type,
+                  valor: parseFloat(quotation.discount_value) || 0
+                };
 
-                  // We trust the explicit discount if mapped
-                  let descItem = orig - final;
-                  return { valorOriginal: orig, descontoItem: Math.max(0, descItem) };
-                });
-              } catch (err) {}
-            }
+                // Se não temos itens do pedido de compra, usa os itens da cotação
+                if (!purchaseOrderOriginalDescFound) {
+                  try {
+                    const itemsRes = await pool.query(
+                      `SELECT original_total_price, discounted_total_price, total_price, discount_percentage, discount_value
+                       FROM supplier_quotation_items
+                       WHERE supplier_quotation_id = $1`,
+                      [quotation.id]
+                    );
+
+                    if (itemsRes.rows.length > 0) {
+                      itemsParaCalculo = itemsRes.rows.map((row: any) => {
+                        let orig = parseFloat(row.original_total_price || '0') || 0;
+                        const final = parseFloat(row.total_price || '0') || 0;
+                        if (orig === 0 || orig < final) orig = final; // safeguard
+
+                        let descItem = orig - final;
+                        return { valorOriginal: orig, descontoItem: Math.max(0, descItem) };
+                      });
+                    }
+                  } catch (err) {}
+                }
+              }
+            } catch {}
           }
 
           if (itemsParaCalculo.length === 0 && request.totalValue) {

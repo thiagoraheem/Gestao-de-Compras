@@ -8,6 +8,10 @@ import {
 import { realtime } from "../realtime";
 import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../../shared/realtime-events";
 import { purchaseOrderService } from "./purchase-order-service";
+import { db } from "../db";
+import { receipts } from "../../shared/schema";
+import { and, eq, inArray } from "drizzle-orm";
+import { ValidationError } from "../utils/errors";
 
 export class WorkflowService {
   async sendToApproval(id: number): Promise<any> {
@@ -141,6 +145,21 @@ export class WorkflowService {
   async archiveRequest(id: number, conclusionObservations: string): Promise<any> {
     const currentRequest = await storage.getPurchaseRequestById(id);
     if (!currentRequest) throw new Error("Request not found");
+
+    const blockingReceipt = await db
+      .select({ id: receipts.id, receiptPhase: receipts.receiptPhase })
+      .from(receipts)
+      .where(and(
+        eq(receipts.purchaseRequestId, id),
+        inArray(receipts.receiptPhase, ["recebimento_fisico", "conf_fiscal"]),
+      ))
+      .limit(1);
+
+    if (String(currentRequest.currentPhase) === "pedido_concluido" || blockingReceipt.length > 0) {
+      throw new ValidationError(
+        'Não é possível arquivar um pedido que está na fase "Pedido Concluído".',
+      );
+    }
 
     const updates = {
       currentPhase: "arquivado" as const,

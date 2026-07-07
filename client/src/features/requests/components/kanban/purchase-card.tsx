@@ -306,10 +306,10 @@ export default function PurchaseCard({
         description: "Requisição arquivada com sucesso",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Erro",
-        description: "Não foi possível arquivar a requisição",
+        description: error?.message || "Não foi possível arquivar a requisição",
         variant: "destructive",
       });
     },
@@ -330,10 +330,10 @@ export default function PurchaseCard({
         description: "Requisição arquivada com sucesso",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Erro",
-        description: "Não foi possível arquivar a requisição",
+        description: error?.message || "Não foi possível arquivar a requisição",
         variant: "destructive",
       });
     },
