@@ -41,6 +41,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { UnitSelect } from "@/shared/components/unit-select";
 import {
   URGENCY_LEVELS,
   CATEGORY_OPTIONS,
@@ -835,21 +836,11 @@ export default function EnhancedNewRequestModal({
                       )}
                     </div>
                     <div className="sm:col-span-3">
-                      <Select value={newItemForm.unit} onValueChange={(value) => setNewItemForm(prev => ({ ...prev, unit: value }))}>
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder="Unidade" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="UN">UN - Unidade</SelectItem>
-                          <SelectItem value="KG">KG - Quilograma</SelectItem>
-                          <SelectItem value="M">M - Metro</SelectItem>
-                          <SelectItem value="CM">CM - Centímetro</SelectItem>
-                          <SelectItem value="L">L - Litro</SelectItem>
-                          <SelectItem value="Par">Par - Par</SelectItem>
-                          <SelectItem value="PCT">PCT - Pacote</SelectItem>
-                          <SelectItem value="Kit">Kit</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <UnitSelect
+                        value={newItemForm.unit}
+                        onValueChange={(value) => setNewItemForm(prev => ({ ...prev, unit: value }))}
+                        className="h-9"
+                      />
                     </div>
                     <div className="sm:col-span-2">
                       <Input
@@ -950,21 +941,11 @@ export default function EnhancedNewRequestModal({
                             </TableCell>
                             <TableCell>
                               {editingItemId === item.id ? (
-                                <Select
+                                <UnitSelect
                                   value={item.unit}
                                   onValueChange={(value) => updateManualItem(item.id, 'unit', value)}
-                                >
-                                  <SelectTrigger className="h-8">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="UN">UN</SelectItem>
-                                    <SelectItem value="KG">KG</SelectItem>
-                                    <SelectItem value="M">M</SelectItem>
-                                    <SelectItem value="L">L</SelectItem>
-                                    <SelectItem value="Par">Par - Par</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  className="h-8 text-xs"
+                                />
                               ) : (
                                 item.unit
                               )}

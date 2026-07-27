@@ -19,6 +19,7 @@ import ChangePasswordPage from "@/features/auth/pages/ChangePasswordPage";
 import RequestManagementPage from "@/features/requests/pages/RequestManagementPage";
 import QuotationManagementPage from "@/features/quotations/pages/QuotationManagementPage";
 import CompaniesManagement from "@/features/companies";
+import UnitsOfMeasureManagement from "@/features/units-of-measure";
 import PipefyHeader from "@/shared/components/pipefy-header";
 import FloatingNewRequestButton from "@/shared/components/floating-new-request-button";
 import FloatingHelpButton from "@/shared/components/floating-help-button";
@@ -130,6 +131,7 @@ export function AppRoutes() {
         <Route path="/users" component={UsersManagement} />
         <Route path="/departments" component={DepartmentsManagement} />
         <Route path="/delivery-locations" component={DeliveryLocationsManagement} />
+        <Route path="/units-of-measure" component={UnitsOfMeasureManagement} />
         <Route path="/admin/cleanup" component={AdminCleanupPage} />
         <Route path="/admin/super-user">
           <AdminRoute>

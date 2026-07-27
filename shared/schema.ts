@@ -187,6 +187,15 @@ export const paymentMethods = pgTable("payment_methods", {
   active: boolean("active").default(true),
 });
 
+// Units of Measure table
+export const unitsOfMeasure = pgTable("units_of_measure", {
+  code: text("code").primaryKey(),
+  description: text("description").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Purchase Requests table
 export const purchaseRequests = pgTable("purchase_requests", {
   id: serial("id").primaryKey(),
@@ -268,7 +277,7 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
   productCode: text("product_code"), // Código do produto no ERP
   description: text("description").notNull(),
-  unit: text("unit").notNull(),
+  unit: text("unit").notNull().references(() => unitsOfMeasure.code),
   stockQuantity: decimal("stock_quantity", { precision: 10, scale: 2 }),
   averageMonthlyQuantity: decimal("average_monthly_quantity", { precision: 10, scale: 2 }),
   requestedQuantity: decimal("requested_quantity", { precision: 10, scale: 2 }).notNull(),
@@ -1357,6 +1366,14 @@ export type ApprovalConfiguration = typeof approvalConfigurations.$inferSelect;
 export type InsertApprovalConfiguration = z.infer<typeof insertApprovalConfigurationSchema>;
 export type ConfigurationHistory = typeof configurationHistory.$inferSelect;
 export type InsertConfigurationHistory = z.infer<typeof insertConfigurationHistorySchema>;
+
+// Units of Measure Schemas & Types
+export const insertUnitOfMeasureSchema = createInsertSchema(unitsOfMeasure).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+export type UnitOfMeasure = typeof unitsOfMeasure.$inferSelect;
+export type InsertUnitOfMeasure = z.infer<typeof insertUnitOfMeasureSchema>;
 
 // Extended Types
 export type PurchaseRequestWithDetails = PurchaseRequest & {

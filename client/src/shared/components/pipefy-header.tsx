@@ -32,6 +32,7 @@ import {
   Truck,
   PackageCheck,
   DollarSign,
+  Ruler,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Filter } from "lucide-react";
@@ -125,6 +126,7 @@ export default function PipefyHeader() {
         { label: "Departamentos", href: "/departments", icon: <Building className="w-4 h-4" /> },
         { label: "Locais de Entrega", href: "/delivery-locations", icon: <MapPin className="w-4 h-4" /> },
         { label: "Empresas", href: "/companies", icon: <Building className="w-4 h-4" /> },
+        { label: "Unidades de Medida", href: "/units-of-measure", icon: <Ruler className="w-4 h-4" /> },
         { label: "Configuração de Aprovação", href: "/admin/approval-config", icon: <Settings className="w-4 h-4" /> },
         { label: "Limpeza de Dados", href: "/admin/cleanup", icon: <Database className="w-4 h-4" /> },
         { label: "Super Usuário", href: "/admin/super-user", icon: <Settings className="w-4 h-4" /> }

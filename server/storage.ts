@@ -76,6 +76,9 @@ import {
   type ApprovedQuotationItem,
   type InsertApprovedQuotationItem,
   type PurchaseRequestWithDetails,
+  unitsOfMeasure,
+  type UnitOfMeasure,
+  type InsertUnitOfMeasure,
 } from "../shared/schema";
 import { db, pool } from "./db";
 import { eq, and, desc, like, sql, gt, count, or, isNull, inArray } from "drizzle-orm";
@@ -91,6 +94,7 @@ import { receiptRepository } from "./repositories/receipt-repository";
 import { purchaseRequestRepository } from "./repositories/purchase-request-repository";
 import { approvalRepository } from "./repositories/approval-repository";
 import { systemRepository } from "./repositories/system-repository";
+import { unitOfMeasureRepository } from "./repositories/unit-of-measure-repository";
 import { timelineService } from "./services/timeline-service";
 
 export interface IStorage {
@@ -184,15 +188,18 @@ export interface IStorage {
 
   // Delivery Location operations
   getAllDeliveryLocations(): Promise<DeliveryLocation[]>;
+  createDeliveryLocation(location: InsertDeliveryLocation): Promise<DeliveryLocation>;
   getDeliveryLocationById(id: number): Promise<DeliveryLocation | undefined>;
-  createDeliveryLocation(
-    deliveryLocation: InsertDeliveryLocation,
-  ): Promise<DeliveryLocation>;
-  updateDeliveryLocation(
-    id: number,
-    deliveryLocation: Partial<InsertDeliveryLocation>,
-  ): Promise<DeliveryLocation>;
+  updateDeliveryLocation(id: number, location: Partial<InsertDeliveryLocation>): Promise<DeliveryLocation>;
   deleteDeliveryLocation(id: number): Promise<void>;
+
+  // Unit of Measure operations
+  getAllUnitsOfMeasure(includeInactive?: boolean): Promise<UnitOfMeasure[]>;
+  getUnitOfMeasureByCode(code: string): Promise<UnitOfMeasure | undefined>;
+  createUnitOfMeasure(unit: InsertUnitOfMeasure): Promise<UnitOfMeasure>;
+  updateUnitOfMeasure(code: string, unit: Partial<InsertUnitOfMeasure>): Promise<UnitOfMeasure>;
+  checkUnitOfMeasureCanBeDeleted(code: string): Promise<{ canDelete: boolean; usageCount: number; reason?: string }>;
+  deleteUnitOfMeasure(code: string): Promise<boolean>;
 
   // Purchase Request operations
   getAllPurchaseRequests(companyId?: number, user?: User): Promise<PurchaseRequest[]>;
@@ -1074,6 +1081,31 @@ export class DatabaseStorage implements IStorage {
 
   async getDistinctItemDescriptions(query?: string): Promise<string[]> {
     return await systemRepository.getDistinctItemDescriptions(query);
+  }
+
+  // Unit of Measure operations
+  async getAllUnitsOfMeasure(includeInactive?: boolean): Promise<UnitOfMeasure[]> {
+    return await unitOfMeasureRepository.getAllUnits(includeInactive);
+  }
+
+  async getUnitOfMeasureByCode(code: string): Promise<UnitOfMeasure | undefined> {
+    return await unitOfMeasureRepository.getUnitByCode(code);
+  }
+
+  async createUnitOfMeasure(unit: InsertUnitOfMeasure): Promise<UnitOfMeasure> {
+    return await unitOfMeasureRepository.createUnit(unit);
+  }
+
+  async updateUnitOfMeasure(code: string, unit: Partial<InsertUnitOfMeasure>): Promise<UnitOfMeasure> {
+    return await unitOfMeasureRepository.updateUnit(code, unit);
+  }
+
+  async checkUnitOfMeasureCanBeDeleted(code: string): Promise<{ canDelete: boolean; usageCount: number; reason?: string }> {
+    return await unitOfMeasureRepository.checkUnitCanBeDeleted(code);
+  }
+
+  async deleteUnitOfMeasure(code: string): Promise<boolean> {
+    return await unitOfMeasureRepository.deleteUnit(code);
   }
 }
 
