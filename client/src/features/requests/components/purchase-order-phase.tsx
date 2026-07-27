@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/shared/ui/button";
 import PDFViewer from "@/shared/components/pdf-viewer";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
@@ -7,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Separator } from "@/shared/ui/separator";
 import { Textarea } from "@/shared/ui/textarea";
+import { Label } from "@/shared/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/shared/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,7 +27,9 @@ import {
   Package,
   Truck,
   X,
-  Eye
+  Eye,
+  RotateCcw,
+  AlertTriangle
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -48,7 +52,16 @@ interface PurchaseOrderPhaseProps {
 
 export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, onPreviewClose, className }: PurchaseOrderPhaseProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canReturnToQuotation = user?.isAdmin || user?.isBuyer;
+
+  // Return-to-quotation dialog state
+  const [showReturnDialog, setShowReturnDialog] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnReasonError, setReturnReasonError] = useState("");
+  // Bloqueio por recebimento com NF
+  const [blockedByReceipts, setBlockedByReceipts] = useState<{ receiptsWithNF: any[] } | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -177,9 +190,65 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
     }
   };
 
+  // Mutation para retornar para cotação
+  const returnToQuotationMutation = useMutation({
+    mutationFn: async (reason: string) => {
+      const response = await fetch(`/api/purchase-requests/${request.id}/return-to-quotation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason }),
+      });
+      if (response.status === 409) {
+        const data = await response.json();
+        // Bloqueio por NF registrada — guardar dados e não fechar o dialog
+        setBlockedByReceipts({ receiptsWithNF: data.receiptsWithNF || [] });
+        throw new Error(data.error || "Existem recebimentos com NF registrada");
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || "Erro ao retornar para cotação");
+      }
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      if (data && data.partial) {
+        toast({
+          title: "Saldo Desmembrado",
+          description: `Pedido concluído parcialmente. Criada a nova solicitação ${data.newRequest.requestNumber} diretamente em Cotação para o saldo pendente.`,
+        });
+      } else {
+        toast({
+          title: "Sucesso",
+          description: "Solicitação retornada para Cotação. O Pedido de Compra foi excluído.",
+        });
+      }
+      setShowReturnDialog(false);
+      setReturnReason("");
+      setBlockedByReceipts(null);
+      onClose();
+    },
+    onError: (error: any) => {
+      // Se for bloqueio por NF, não exibe toast genérico — o dialog mostrará o estado
+      if (blockedByReceipts) return;
+      toast({
+        title: "Erro",
+        description: error?.message || "Falha ao retornar para cotação",
+        variant: "destructive",
+      });
+    },
+  });
 
+  const handleReturnToQuotation = () => {
+    if (!returnReason.trim()) {
+      setReturnReasonError("A justificativa é obrigatória.");
+      return;
+    }
+    setReturnReasonError("");
+    returnToQuotationMutation.mutate(returnReason.trim());
+  };
 
-  // Função para gerar pré-visualização do PDF
   const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
     let binary = "";
     const bytes = new Uint8Array(buffer);
@@ -827,47 +896,146 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
         </Card>
       )}
 
-      {/* Modal de Pré-visualização do PDF removido - substituído por renderização condicional */}
-      
       {/* Rodapé fixo com ações */}
       <div className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-30 px-6 py-3">
-        <div className="flex justify-end gap-3">
-          <Button
-            onClick={handleAdvanceToReceipt}
-            disabled={advanceToReceiptMutation.isPending}
-            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-          >
-            <Truck className="w-4 h-4 mr-2" />
-            {advanceToReceiptMutation.isPending ? "Avançando..." : "Avançar para Recebimento"}
-          </Button>
-          <Button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handlePreviewPDF();
-            }}
-            disabled={isLoadingPreview}
-            variant="outline"
-            className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
-          </Button>
-          <Button
-            onClick={handleDownloadPDF}
-            disabled={isDownloading}
-            className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            {isDownloading ? "Gerando PDF..." : "Baixar PDF"}
-          </Button>
-          <Button variant="outline" onClick={onClose}>
-            <X className="w-4 h-4 mr-2" />
-            Fechar
-          </Button>
+        <div className="flex justify-between gap-3">
+          {/* Ações destrutivas / de retrocesso à esquerda */}
+          <div className="flex gap-2">
+            {canReturnToQuotation && (
+              <Button
+                variant="outline"
+                onClick={() => { setBlockedByReceipts(null); setReturnReason(""); setReturnReasonError(""); setShowReturnDialog(true); }}
+                className="border-orange-500 text-orange-600 hover:bg-orange-50 dark:border-orange-400 dark:text-orange-400 dark:hover:bg-orange-900/20"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Retornar para Cotação
+              </Button>
+            )}
+          </div>
+
+          {/* Ações de avanço à direita */}
+          <div className="flex gap-3">
+            <Button
+              onClick={handleAdvanceToReceipt}
+              disabled={advanceToReceiptMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            >
+              <Truck className="w-4 h-4 mr-2" />
+              {advanceToReceiptMutation.isPending ? "Avançando..." : "Avançar para Recebimento"}
+            </Button>
+            <Button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handlePreviewPDF();
+              }}
+              disabled={isLoadingPreview}
+              variant="outline"
+              className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
+            </Button>
+            <Button
+              onClick={handleDownloadPDF}
+              disabled={isDownloading}
+              className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {isDownloading ? "Gerando PDF..." : "Baixar PDF"}
+            </Button>
+            <Button variant="outline" onClick={onClose}>
+              <X className="w-4 h-4 mr-2" />
+              Fechar
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Dialog: Retornar para Cotação */}
+      <Dialog open={showReturnDialog} onOpenChange={(open) => { if (!open) { setShowReturnDialog(false); setBlockedByReceipts(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+              <RotateCcw className="w-5 h-5" />
+              Retornar para Cotação
+            </DialogTitle>
+          </DialogHeader>
+
+          {blockedByReceipts ? (
+            /* Estado de bloqueio — há NFs registradas */
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-md">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-800 dark:text-amber-300">
+                  <p className="font-semibold mb-1">Não é possível retornar para Cotação</p>
+                  <p>Este pedido possui {blockedByReceipts.receiptsWithNF.length} recebimento(s) com Nota Fiscal já registrada:</p>
+                  <ul className="mt-2 space-y-1 list-disc list-inside">
+                    {blockedByReceipts.receiptsWithNF.map((r: any) => (
+                      <li key={r.id}>NF {r.documentNumber} ({r.receiptNumber})</li>
+                    ))}
+                  </ul>
+                  <p className="mt-2">Para prosseguir, escolha uma das opções abaixo ou entre em contato com o comprador responsável.</p>
+                </div>
+              </div>
+              <DialogFooter className="gap-2 flex-col sm:flex-row">
+                <Button variant="outline" onClick={() => setShowReturnDialog(false)} className="w-full sm:w-auto">
+                  Deixar como está
+                </Button>
+                <Button
+                  variant="default"
+                  className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
+                  onClick={() => {
+                    // TODO: implementar fluxo de conclusão parcial quando necessário
+                    toast({ title: "Em breve", description: "O fluxo de conclusão com recebimento parcial será implementado em breve.", variant: "default" });
+                  }}
+                >
+                  Mover para Conclusão (parcial)
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            /* Estado normal — solicitar justificativa */
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Esta ação irá <strong>excluir o Pedido de Compra</strong> gerado e retornar a solicitação para a fase de Cotação,
+                permitindo que um novo processo de cotação seja iniciado.
+              </p>
+              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md text-sm text-orange-800 dark:text-orange-300">
+                ⚠️ Esta ação não pode ser desfeita. O Pedido de Compra e quaisquer recebimentos sem NF serão excluídos permanentemente.
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="return-reason" className="text-sm font-medium">
+                  Justificativa <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="return-reason"
+                  placeholder="Descreva o motivo do retorno para cotação (ex: fornecedor informou indisponibilidade de estoque)..."
+                  value={returnReason}
+                  onChange={(e) => { setReturnReason(e.target.value); if (returnReasonError) setReturnReasonError(""); }}
+                  className={returnReasonError ? "border-destructive" : ""}
+                  rows={3}
+                />
+                {returnReasonError && <p className="text-xs text-destructive">{returnReasonError}</p>}
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setShowReturnDialog(false)} disabled={returnToQuotationMutation.isPending}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleReturnToQuotation}
+                  disabled={returnToQuotationMutation.isPending || !returnReason.trim()}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  {returnToQuotationMutation.isPending ? "Processando..." : "Confirmar Retorno"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

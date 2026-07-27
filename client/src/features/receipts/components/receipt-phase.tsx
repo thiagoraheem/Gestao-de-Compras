@@ -24,7 +24,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/ui/table";
-import { X, Check, User, FileText, Download, Eye, Plus, ArrowLeft, History } from "lucide-react";
+import { X, Check, User, FileText, Download, Eye, Plus, ArrowLeft, History, RotateCcw, Archive, AlertTriangle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/shared/ui/dialog";
+import { Textarea } from "@/shared/ui/textarea";
+
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PHASE_LABELS } from "@/lib/types";
@@ -74,6 +77,17 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
   // Check permissions
   const canPerformReceiptActions = user?.isReceiver || user?.isAdmin;
+  const canManageQuotationFlow = user?.isAdmin || user?.isBuyer;
+
+  // --- Archive dialog state ---
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [archiveReason, setArchiveReason] = useState("");
+
+  // --- Return-to-quotation dialog state ---
+  const [showReturnDialog, setShowReturnDialog] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnReasonError, setReturnReasonError] = useState("");
+  const [blockedByReceipts, setBlockedByReceipts] = useState<{ receiptsWithNF: any[] } | null>(null);
 
   // --- Data Fetching ---
   const { data: purchaseOrder } = useQuery<any>({
@@ -166,6 +180,93 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
       toast({ title: "Erro", description: "Não foi possível reportar a pendência", variant: "destructive" });
     },
   });
+
+  // --- Mutation: Arquivar saldo pendente ---
+  const archiveMutation = useMutation({
+    mutationFn: async (observations: string) => {
+      const response = await apiRequest(`/api/purchase-requests/${request.id}/archive`, {
+        method: "PATCH",
+        body: { conclusionObservations: observations || "Arquivado com saldo pendente de recebimento" },
+      });
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Solicitação Arquivada",
+        description: "A solicitação foi arquivada com sucesso, mesmo com saldo pendente.",
+      });
+      setShowArchiveDialog(false);
+      setArchiveReason("");
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error?.message || "Não foi possível arquivar a solicitação",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // --- Mutation: Retornar para Cotação ---
+  const returnToQuotationMutation = useMutation({
+    mutationFn: async (reason: string) => {
+      const response = await fetch(`/api/purchase-requests/${request.id}/return-to-quotation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason }),
+      });
+      if (response.status === 409) {
+        const data = await response.json();
+        setBlockedByReceipts({ receiptsWithNF: data.receiptsWithNF || [] });
+        throw new Error(data.error || "Existem recebimentos com NF registrada");
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || "Erro ao retornar para cotação");
+      }
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      if (data && data.partial) {
+        toast({
+          title: "Saldo Desmembrado",
+          description: `Pedido concluído parcialmente. Criada a nova solicitação ${data.newRequest.requestNumber} diretamente em Cotação para o saldo pendente.`,
+        });
+      } else {
+        toast({
+          title: "Sucesso",
+          description: "Solicitação retornada para Cotação. O Pedido de Compra foi excluído.",
+        });
+      }
+      setShowReturnDialog(false);
+      setReturnReason("");
+      setBlockedByReceipts(null);
+      onClose();
+    },
+    onError: (error: any) => {
+      if (blockedByReceipts) return;
+      toast({
+        title: "Erro",
+        description: error?.message || "Falha ao retornar para cotação",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleReturnToQuotation = () => {
+    if (!returnReason.trim()) {
+      setReturnReasonError("A justificativa é obrigatória.");
+      return;
+    }
+    setReturnReasonError("");
+    returnToQuotationMutation.mutate(returnReason.trim());
+  };
+
+
 
   // --- Helper Functions ---
   const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
@@ -362,9 +463,30 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Gerenciamento de Recebimento</h2>
             <p className="text-sm text-slate-600 dark:text-slate-400">Histórico de NFs e status do pedido</p>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+          <div className="flex gap-2 flex-wrap justify-end">
+            {/* Ações de gestão de fluxo (somente Comprador/Admin) */}
+            {canManageQuotationFlow && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => { setArchiveReason(""); setShowArchiveDialog(true); }}
+                  className="border-slate-500 text-slate-600 hover:bg-slate-50 dark:border-slate-400 dark:text-slate-400 dark:hover:bg-slate-800"
+                >
+                  <Archive className="w-4 h-4 mr-2" />
+                  Arquivar Saldo Pendente
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { setBlockedByReceipts(null); setReturnReason(""); setReturnReasonError(""); setShowReturnDialog(true); }}
+                  className="border-orange-500 text-orange-600 hover:bg-orange-50 dark:border-orange-400 dark:text-orange-400 dark:hover:bg-orange-900/20"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Retornar para Cotação
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
               onClick={handlePreviewPDF}
               disabled={isLoadingPreview}
               className="border-green-600 text-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
@@ -373,7 +495,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
                {isLoadingPreview ? "Carregando..." : "Visualizar PDF"}
             </Button>
             
-            <Button 
+            <Button
                onClick={handleDownloadPDF}
                disabled={isDownloading}
                className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
@@ -469,6 +591,122 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             )}
           </CardContent>
         </Card>
+
+        {/* Dialog: Arquivar Saldo Pendente */}
+        <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Archive className="w-5 h-5" />
+                Arquivar Saldo Pendente
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                O pedido será arquivado mesmo que haja itens com recebimento pendente ou parcial.
+              </p>
+              <div className="space-y-1">
+                <Label htmlFor="archive-reason" className="text-sm font-medium">Observações (opcional)</Label>
+                <Textarea
+                  id="archive-reason"
+                  placeholder="Ex: item 13 sem estoque no fornecedor, saldo arquivado..."
+                  value={archiveReason}
+                  onChange={(e) => setArchiveReason(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setShowArchiveDialog(false)} disabled={archiveMutation.isPending}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => archiveMutation.mutate(archiveReason)}
+                disabled={archiveMutation.isPending}
+              >
+                <Archive className="w-4 h-4 mr-2" />
+                {archiveMutation.isPending ? "Arquivando..." : "Confirmar Arquivamento"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog: Retornar para Cotação */}
+        <Dialog open={showReturnDialog} onOpenChange={(open) => { if (!open) { setShowReturnDialog(false); setBlockedByReceipts(null); } }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                <RotateCcw className="w-5 h-5" />
+                Retornar para Cotação
+              </DialogTitle>
+            </DialogHeader>
+
+            {blockedByReceipts ? (
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-md">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-800 dark:text-amber-300">
+                    <p className="font-semibold mb-1">Não é possível retornar para Cotação</p>
+                    <p>Este pedido possui {blockedByReceipts.receiptsWithNF.length} recebimento(s) com Nota Fiscal já registrada:</p>
+                    <ul className="mt-2 space-y-1 list-disc list-inside">
+                      {blockedByReceipts.receiptsWithNF.map((r: any) => (
+                        <li key={r.id}>NF {r.documentNumber} ({r.receiptNumber})</li>
+                      ))}
+                    </ul>
+                    <p className="mt-2">Você pode arquivar o saldo pendente usando o botão "Arquivar Saldo Pendente".</p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowReturnDialog(false)}>Fechar</Button>
+                  <Button
+                    onClick={() => { setShowReturnDialog(false); setShowArchiveDialog(true); }}
+                    className="bg-slate-600 hover:bg-slate-700"
+                  >
+                    <Archive className="w-4 h-4 mr-2" />
+                    Arquivar Saldo Pendente
+                  </Button>
+                </DialogFooter>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Esta ação irá <strong>excluir o Pedido de Compra</strong> e retornar a solicitação para Cotação.
+                  Só é possível se nenhum recebimento com NF tiver sido registrado.
+                </p>
+                <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md text-sm text-orange-800 dark:text-orange-300">
+                  ⚠️ Esta ação não pode ser desfeita.
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="receipt-return-reason" className="text-sm font-medium">
+                    Justificativa <span className="text-destructive">*</span>
+                  </Label>
+                  <Textarea
+                    id="receipt-return-reason"
+                    placeholder="Ex: fornecedor informou indisponibilidade de estoque após aprovação do pedido..."
+                    value={returnReason}
+                    onChange={(e) => { setReturnReason(e.target.value); if (returnReasonError) setReturnReasonError(""); }}
+                    className={returnReasonError ? "border-destructive" : ""}
+                    rows={3}
+                  />
+                  {returnReasonError && <p className="text-xs text-destructive">{returnReasonError}</p>}
+                </div>
+                <DialogFooter className="gap-2">
+                  <Button variant="outline" onClick={() => setShowReturnDialog(false)} disabled={returnToQuotationMutation.isPending}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleReturnToQuotation}
+                    disabled={returnToQuotationMutation.isPending || !returnReason.trim()}
+                    className="bg-orange-600 hover:bg-orange-700"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    {returnToQuotationMutation.isPending ? "Processando..." : "Confirmar Retorno"}
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

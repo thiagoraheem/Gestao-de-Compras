@@ -521,9 +521,13 @@ export function registerPurchaseRequestRoutes(app: Express) {
       const { reportedById, pendencyReason, receivedQuantities } = req.body;
 
       const request = await storage.getPurchaseRequestById(id);
-      if (!request || request.currentPhase !== "recebimento") {
+      // A fase correta durante o Recebimento Físico é "pedido_concluido" (definida em advance-to-receipt).
+      // "recebimento" é mantido por compatibilidade com eventuais registros legados.
+      const validPhasesForReportIssue = ["recebimento", "pedido_concluido"];
+      if (!request || !validPhasesForReportIssue.includes(String(request.currentPhase))) {
         throw new ValidationError("Request must be in the receiving phase");
       }
+
 
       if (receivedQuantities && typeof receivedQuantities === "object") {
         for (const [key, value] of Object.entries(receivedQuantities)) {
@@ -753,6 +757,53 @@ export function registerPurchaseRequestRoutes(app: Express) {
       const id = parseInt(req.params.id);
       const request = await workflowService.archiveRequest(id, "Arquivado diretamente via Kanban");
       res.json(request);
+    },
+  );
+
+  // Retornar solicitação para Cotação (exclui PO e receipts sem NF)
+  app.post(
+    "/api/purchase-requests/:id/return-to-quotation",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) throw new ValidationError("ID inválido");
+
+      const schema = z.object({
+        reason: z.string().min(1, "A justificativa é obrigatória para retornar para Cotação"),
+      });
+
+      const { reason } = schema.parse(req.body);
+      const userId = req.session.userId!;
+
+      try {
+        const updated = await workflowService.returnToQuotation(id, reason, userId);
+
+        await auditService.log({
+          purchaseRequestId: id,
+          actionType: "return_to_quotation",
+          actionDescription: `Solicitação retornada para Cotação. Motivo: ${reason}`,
+          performedBy: userId,
+          affectedTables: ["purchase_requests", "purchase_orders", "receipts"],
+        });
+
+        realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+          event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+          payload: { id, currentPhase: "cotacao", updatedAt: new Date() },
+        });
+
+        res.json(updated);
+      } catch (err: any) {
+        // Bloqueado por recebimentos com NF — retornar 409 com dados para o front-end exibir opções
+        if (err?.blockedByReceipts) {
+          return res.status(409).json({
+            error: err.message,
+            blockedByReceipts: true,
+            receiptsWithNF: err.receiptsWithNF || [],
+          });
+        }
+        throw err;
+      }
     },
   );
 
