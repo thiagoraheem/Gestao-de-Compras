@@ -40,6 +40,7 @@ import { ArrowUpDown, ChevronDown, Download, SlidersHorizontal, AlertCircle } fr
 import * as XLSX from 'xlsx';
 import { parseBrazilianNumber, formatBrazilianNumber } from "@/lib/number-parser";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
+import { UnitSelect } from "@/shared/components/unit-select";
 
 interface QuotationItem {
   id: number;
@@ -320,6 +321,25 @@ export function SupplierQuotationDataGrid({
                             )}
                         />
                     </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] w-12 text-muted-foreground">Unidade:</span>
+                        <FormField
+                            control={form.control}
+                            name={`items.${index}.confirmedUnit`}
+                            render={({ field }) => (
+                            <FormItem className="flex-1">
+                                <FormControl>
+                                <UnitSelect
+                                    value={field.value || qItem?.unit || "UN"}
+                                    onValueChange={field.onChange}
+                                    disabled={viewMode === 'view'}
+                                    className="h-6 text-xs"
+                                />
+                                </FormControl>
+                            </FormItem>
+                            )}
+                        />
+                    </div>
                 </div>
             )
         }
@@ -499,7 +519,8 @@ export function SupplierQuotationDataGrid({
             "Código": qItem?.itemCode,
             "Descrição": qItem?.description,
             "Quantidade Solicitada": qItem?.quantity,
-            "Unidade": qItem?.unit,
+            "Unidade Solicitada": qItem?.unit,
+            "Unidade Confirmada": item.confirmedUnit || qItem?.unit,
             "Marca": item.brand,
             "Modelo": item.model,
             "Preço Unitário": item.unitPrice,

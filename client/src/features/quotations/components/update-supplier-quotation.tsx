@@ -199,7 +199,7 @@ export default function UpdateSupplierQuotation({
         isAvailable: true,
         unavailabilityReason: "",
         availableQuantity: "",
-        confirmedUnit: "",
+        confirmedUnit: item.unit || "UN",
         quantityAdjustmentReason: "",
       }));
 
@@ -234,7 +234,7 @@ export default function UpdateSupplierQuotation({
           isAvailable: existingItem?.isAvailable !== false,
           unavailabilityReason: existingItem?.unavailabilityReason || "",
           availableQuantity: existingItem?.availableQuantity || "",
-          confirmedUnit: existingItem?.confirmedUnit || "",
+          confirmedUnit: existingItem?.confirmedUnit || item.unit || "UN",
           quantityAdjustmentReason: existingItem?.quantityAdjustmentReason || "",
         };
       });

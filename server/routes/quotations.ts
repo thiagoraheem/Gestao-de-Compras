@@ -332,6 +332,7 @@ export function registerQuotationRoutes(app: Express) {
           supplierQuotationId: supplierQuotation!.id,
           quotationItemId: item.id,
           availableQuantity: item.quantity || "0",
+          confirmedUnit: item.unit || "UN",
           unitPrice: "0",
           totalPrice: "0",
           isAvailable: true,
