@@ -142,11 +142,11 @@ export function ReceiptKanbanCard({ receipt, onClick }: ReceiptKanbanCardProps) 
              <div className="h-1.5 flex-1 bg-secondary rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-primary transition-all" 
-                  style={{ width: `${Math.min(100, Number(receipt.receivingPercent || 0))}%` }} 
+                  style={{ width: `${Math.min(100, Math.max(0, Number(receipt.receivingPercent || 0)))}%` }} 
                 />
              </div>
              <span className="text-[9px] text-muted-foreground whitespace-nowrap">
-                {Math.round(Number(receipt.receivingPercent || 0))}%
+                {Math.min(100, Math.max(0, Math.round(Number(receipt.receivingPercent || 0))))}%
              </span>
           </div>
           

@@ -212,16 +212,16 @@ export class ReceiptService {
         (
           CASE 
             WHEN r.purchase_order_id IS NOT NULL THEN
-              (SELECT COALESCE(SUM(ri_all.quantity_received), 0) * 100.0 / NULLIF((SELECT SUM(poi.quantity) FROM purchase_order_items poi WHERE poi.purchase_order_id = r.purchase_order_id), 0)
+              COALESCE(LEAST(100.0, (SELECT COALESCE(SUM(ri_all.quantity_received), 0) * 100.0 / NULLIF((SELECT SUM(poi.quantity) FROM purchase_order_items poi WHERE poi.purchase_order_id = r.purchase_order_id), 0)
                FROM receipt_items ri_all
                JOIN receipts r_all ON ri_all.receipt_id = r_all.id
                WHERE r_all.purchase_order_id = r.purchase_order_id
-                 AND r_all.receipt_phase != 'cancelado')
+                 AND r_all.receipt_phase != 'cancelado')), 0)
             ELSE
-              (SELECT COALESCE(SUM(ri_single.quantity_received), 0) * 100.0 / NULLIF(SUM(poi_single.quantity), 0)
+              COALESCE(LEAST(100.0, (SELECT COALESCE(SUM(ri_single.quantity_received), 0) * 100.0 / NULLIF(SUM(poi_single.quantity), 0)
                FROM receipt_items ri_single
                JOIN purchase_order_items poi_single ON ri_single.purchase_order_item_id = poi_single.id
-               WHERE ri_single.receipt_id = r.id)
+               WHERE ri_single.receipt_id = r.id)), 0)
           END
         ) as "receivingPercent"
       FROM receipts r
@@ -260,16 +260,16 @@ export class ReceiptService {
           (
             CASE 
               WHEN r.purchase_order_id IS NOT NULL THEN
-                (SELECT COALESCE(SUM(ri_all.quantity_received), 0) * 100.0 / NULLIF((SELECT SUM(poi.quantity) FROM purchase_order_items poi WHERE poi.purchase_order_id = r.purchase_order_id), 0)
+                COALESCE(LEAST(100.0, (SELECT COALESCE(SUM(ri_all.quantity_received), 0) * 100.0 / NULLIF((SELECT SUM(poi.quantity) FROM purchase_order_items poi WHERE poi.purchase_order_id = r.purchase_order_id), 0)
                  FROM receipt_items ri_all
                  JOIN receipts r_all ON ri_all.receipt_id = r_all.id
                  WHERE r_all.purchase_order_id = r.purchase_order_id
-                   AND r_all.receipt_phase != 'cancelado')
+                   AND r_all.receipt_phase != 'cancelado')), 0)
               ELSE
-                (SELECT COALESCE(SUM(ri_single.quantity_received), 0) * 100.0 / NULLIF(SUM(poi_single.quantity), 0)
+                COALESCE(LEAST(100.0, (SELECT COALESCE(SUM(ri_single.quantity_received), 0) * 100.0 / NULLIF(SUM(poi_single.quantity), 0)
                  FROM receipt_items ri_single
                  JOIN purchase_order_items poi_single ON ri_single.purchase_order_item_id = poi_single.id
-                 WHERE ri_single.receipt_id = r.id)
+                 WHERE ri_single.receipt_id = r.id)), 0)
             END
           ) as "receivingPercent"
         FROM receipts r
