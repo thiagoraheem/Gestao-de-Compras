@@ -7,7 +7,7 @@ import { Label } from "@/shared/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { Loader2, Search, CheckCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { format } from "date-fns";
+import { formatLocalDate } from "@/lib/date";
 
 interface ReceiptSearchDialogProps {
   onSelect: (receiptId: number) => void;
@@ -175,7 +175,7 @@ export function ReceiptSearchDialog({ onSelect, trigger }: ReceiptSearchDialogPr
                       </div>
                     </TableCell>
                     <TableCell>
-                      {r.documentIssueDate ? format(new Date(r.documentIssueDate), "dd/MM/yyyy") : "-"}
+                      {r.documentIssueDate ? formatLocalDate(r.documentIssueDate) : "-"}
                     </TableCell>
                     <TableCell>
                       {r.totalAmount ? 

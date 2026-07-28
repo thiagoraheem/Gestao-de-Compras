@@ -1,6 +1,7 @@
 import React from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatLocalDate } from "@/lib/date";
 import { ChevronDown, ChevronRight, User, FileText, Eye, RefreshCw, Search } from "lucide-react";
 
 import {
@@ -171,9 +172,7 @@ export function ReportTable({
                         {request.description}
                       </TableCell>
                       <TableCell>
-                        {format(new Date(request.requestDate), "dd/MM/yyyy", {
-                          locale: ptBR,
-                        })}
+                        {formatLocalDate(request.requestDate)}
                       </TableCell>
                       <TableCell>{request.requesterName}</TableCell>
                       <TableCell>{request.departmentName}</TableCell>

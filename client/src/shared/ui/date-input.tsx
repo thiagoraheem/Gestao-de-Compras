@@ -8,6 +8,8 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+import { parseLocalDate } from "@/lib/date";
+
 interface DateInputProps {
   value?: string;
   onChange?: (value: string) => void;
@@ -134,7 +136,7 @@ export function DateInput({
   // Convert current value to Date object for calendar
   const getSelectedDate = () => {
     if (value && value.includes("-")) {
-      return new Date(value);
+      return parseLocalDate(value) ?? undefined;
     } else if (displayValue && displayValue.length === 10) {
       const [day, month, year] = displayValue.split("/");
       if (day && month && year && year.length === 4) {

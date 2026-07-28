@@ -10,6 +10,7 @@ import { URGENCY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { parseLocalDate, formatLocalDate } from "@/lib/date";
 
 import { 
   Tooltip,
@@ -239,7 +240,7 @@ export default function ConferenceOrderList({ requests, onSelect }: ConferenceOr
                 <TableBody>
                   {sortedRequests.map(request => {
                     const isUrgent = request.urgency === "alta_urgencia" || request.urgency === "alto";
-                    const deliveryDate = request.idealDeliveryDate ? new Date(request.idealDeliveryDate) : null;
+                    const deliveryDate = parseLocalDate(request.idealDeliveryDate);
                     const isLate = deliveryDate && deliveryDate < new Date() && deliveryDate.toDateString() !== new Date().toDateString();
                     return (
                       <TableRow
@@ -302,7 +303,7 @@ export default function ConferenceOrderList({ requests, onSelect }: ConferenceOr
                         <TableCell>
                           <span className={cn(isLate && "text-red-600 font-medium")}>
                             {request.idealDeliveryDate
-                              ? new Date(request.idealDeliveryDate).toLocaleDateString("pt-BR")
+                              ? formatLocalDate(request.idealDeliveryDate)
                               : "Não informada"}
                             {isLate && " (Atrasado)"}
                           </span>

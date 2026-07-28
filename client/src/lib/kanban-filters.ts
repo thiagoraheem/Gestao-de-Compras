@@ -13,6 +13,8 @@ export interface KanbanFilters {
   search?: string;
 }
 
+import { parseLocalDate } from "@/lib/date";
+
 export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
   if (!Array.isArray(requests)) return [];
 
@@ -56,8 +58,8 @@ export function filterRequests(requests: any[], filters: KanbanFilters): any[] {
     ) {
       // Use createdAt for filtering to avoid issues with updatedAt being bumped by migrations
       const requestDate = new Date(request.createdAt);
-      const startDate = new Date(filters.date.startDate);
-      const endDate = new Date(filters.date.endDate);
+      const startDate = parseLocalDate(filters.date.startDate) || new Date(filters.date.startDate);
+      const endDate = parseLocalDate(filters.date.endDate) || new Date(filters.date.endDate);
       endDate.setHours(23, 59, 59, 999); // Include the full end date
 
       passesFilters =
@@ -133,8 +135,8 @@ export function filterReceipts(receipts: any[], filters: KanbanFilters): any[] {
     if (filters.date && receipt.receiptPhase === RECEIPT_PHASES.CONCLUIDO) {
       // Use createdAt for filtering to avoid issues with updatedAt being bumped by migrations
       const receiptDate = new Date(receipt.createdAt);
-      const startDate = new Date(filters.date.startDate);
-      const endDate = new Date(filters.date.endDate);
+      const startDate = parseLocalDate(filters.date.startDate) || new Date(filters.date.startDate);
+      const endDate = parseLocalDate(filters.date.endDate) || new Date(filters.date.endDate);
       endDate.setHours(23, 59, 59, 999); // Include the full end date
 
       passesFilters =

@@ -48,12 +48,14 @@ interface ReceiptItem {
   quantityReceived: string;
 }
 
+import { formatLocalDate } from "@/lib/date";
+
 const formatCurrencyLocal = (value: string | number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value));
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return "-";
-  return format(new Date(dateStr), "dd/MM/yyyy");
+  return formatLocalDate(dateStr);
 };
 
 const STATUS_STYLES: Record<string, string> = {

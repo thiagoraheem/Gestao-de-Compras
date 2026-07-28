@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { URGENCY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { parseLocalDate } from "@/lib/date";
 
 interface ConferenceOrderCardProps {
   request: any;
@@ -21,7 +22,7 @@ interface ConferenceOrderCardProps {
 export default function ConferenceOrderCard({ request, onSelect }: ConferenceOrderCardProps) {
   const isUrgent = request.urgency === "alta_urgencia" || request.urgency === "alto";
   
-  const deliveryDate = request.idealDeliveryDate ? new Date(request.idealDeliveryDate) : null;
+  const deliveryDate = parseLocalDate(request.idealDeliveryDate);
   const isLate = deliveryDate && deliveryDate < new Date() && deliveryDate.toDateString() !== new Date().toDateString();
 
   return (

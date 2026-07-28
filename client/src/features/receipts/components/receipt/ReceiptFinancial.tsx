@@ -13,12 +13,9 @@ import { ChartAccountTreeSelect } from "@/components/fields/ChartAccountTreeSele
 import { formatCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { parseLocalDate, formatLocalDate } from "@/lib/date";
 
-function parseLocalDate(dateStr: string): Date {
-  const cleanStr = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
-  const [year, month, day] = cleanStr.split("-").map(Number);
-  return new Date(year, (month || 1) - 1, day || 1);
-}
+export { parseLocalDate, formatLocalDate };
 
 export function ReceiptFinancial() {
   const {
@@ -75,7 +72,7 @@ export function ReceiptFinancial() {
     if (rows.length === 0) return false;
     const sum = rows.reduce((acc, r) => acc + (parseFloat(String(r.amount || "0").replace(",", ".")) || 0), 0);
     const round2 = (n: number) => Math.round(n * 100) / 100;
-    const sorted = rows.every((r, i, arr) => i === 0 || parseLocalDate(r.dueDate) >= parseLocalDate(arr[i - 1].dueDate));
+    const sorted = rows.every((r, i, arr) => i === 0 || (parseLocalDate(r.dueDate)?.getTime() ?? 0) >= (parseLocalDate(arr[i - 1].dueDate)?.getTime() ?? 0));
     const allFilled = rows.every(r => !!r.dueDate && (parseFloat(String(r.amount || "0").replace(",", ".")) > 0) && (!!r.method || !!paymentMethodCode));
     return round2(sum) === round2(total) && sorted && allFilled;
   })();
@@ -203,7 +200,7 @@ export function ReceiptFinancial() {
                   const n = Math.max(1, Number(installmentCount || 1));
                   const per = Math.floor((total * 100) / n) / 100;
                   const vals = Array.from({ length: n }).map((_, i) => (i === n - 1 ? Number((total - per * (n - 1)).toFixed(2)) : per));
-                  const base = parseLocalDate(invoiceDueDate);
+                  const base = parseLocalDate(invoiceDueDate) || new Date();
                   console.log("Data vencimento: " + invoiceDueDate);
                   console.log("Data base: " + base);
                   const rows = vals.map((amt, i) => {

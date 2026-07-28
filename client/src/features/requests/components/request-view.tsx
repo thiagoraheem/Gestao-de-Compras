@@ -17,10 +17,12 @@ interface RequestViewProps {
 
 
 
+import { formatLocalDate } from "@/lib/date";
+
 function formatDate(dateString: string | null) {
   if (!dateString) return "Não informado";
   try {
-    return format(new Date(dateString), "dd/MM/yyyy", { locale: ptBR });
+    return formatLocalDate(dateString) || "Data inválida";
   } catch {
     return "Data inválida";
   }
