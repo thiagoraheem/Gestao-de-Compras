@@ -64,6 +64,30 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
   const queryClient = useQueryClient();
   const [undoReceiptId, setUndoReceiptId] = useState<number | null>(null);
 
+  const { data: fetchedRequest } = useQuery<any>({
+    queryKey: [`/api/purchase-requests/${request?.id}`],
+    enabled: !!request?.id,
+  });
+
+  const activeRequest = fetchedRequest || request;
+
+  const requesterName = React.useMemo(() => {
+    if (!activeRequest) return "N/A";
+    if (activeRequest.requesterName && activeRequest.requesterName.trim().length > 0 && activeRequest.requesterName !== "N/A") {
+      return activeRequest.requesterName;
+    }
+    if (activeRequest.requester) {
+      if (typeof activeRequest.requester === "string" && activeRequest.requester.trim().length > 0) return activeRequest.requester;
+      const name = `${activeRequest.requester.firstName || ""} ${activeRequest.requester.lastName || ""}`.trim();
+      if (name.length > 0) return name;
+    }
+    if (activeRequest.requesterFirstName || activeRequest.requesterLastName) {
+      const name = `${activeRequest.requesterFirstName || ""} ${activeRequest.requesterLastName || ""}`.trim();
+      if (name.length > 0) return name;
+    }
+    return "N/A";
+  }, [activeRequest]);
+
   const { data: purchaseOrder } = useQuery<any>({
     queryKey: [`/api/purchase-orders/by-request/${request?.id}`],
     enabled: !!request?.id,
@@ -163,14 +187,15 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
 
         <PurchaseRequestHeaderCard
           context="fiscal"
-          requestNumber={request?.requestNumber}
+          requestNumber={activeRequest?.requestNumber || request?.requestNumber}
           orderNumber={purchaseOrder?.orderNumber}
-          requesterName={request?.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "N/A"}
-          supplierName={purchaseOrder?.supplier?.name || request?.chosenSupplier?.name || "Não definido"}
-          orderDate={formatDate(purchaseOrder?.createdAt || request?.createdAt || null)}
-          totalValue={formatCurrency(purchaseOrder?.totalValue ?? request?.totalValue ?? 0)}
-          status={(request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
-          creationDate={request?.createdAt ? format(new Date(request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
+          requesterName={requesterName}
+          justification={activeRequest?.justification || request?.justification}
+          supplierName={purchaseOrder?.supplier?.name || activeRequest?.chosenSupplier?.name || request?.chosenSupplier?.name || "Não definido"}
+          orderDate={formatDate(purchaseOrder?.createdAt || activeRequest?.createdAt || request?.createdAt || null)}
+          totalValue={formatCurrency(purchaseOrder?.totalValue ?? activeRequest?.totalValue ?? request?.totalValue ?? 0)}
+          status={(activeRequest?.phase && (PHASE_LABELS as any)[activeRequest.phase as keyof typeof PHASE_LABELS]) || (request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
+          creationDate={(activeRequest?.createdAt || request?.createdAt) ? format(new Date(activeRequest?.createdAt || request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
         />
       </div>
 
@@ -547,6 +572,24 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     }
   };
 
+  const targetRequest = activeRequest || request;
+  const contentRequesterName = React.useMemo(() => {
+    if (!targetRequest) return "N/A";
+    if (targetRequest.requesterName && targetRequest.requesterName.trim().length > 0 && targetRequest.requesterName !== "N/A") {
+      return targetRequest.requesterName;
+    }
+    if (targetRequest.requester) {
+      if (typeof targetRequest.requester === "string" && targetRequest.requester.trim().length > 0) return targetRequest.requester;
+      const name = `${targetRequest.requester.firstName || ""} ${targetRequest.requester.lastName || ""}`.trim();
+      if (name.length > 0) return name;
+    }
+    if (targetRequest.requesterFirstName || targetRequest.requesterLastName) {
+      const name = `${targetRequest.requesterFirstName || ""} ${targetRequest.requesterLastName || ""}`.trim();
+      if (name.length > 0) return name;
+    }
+    return "N/A";
+  }, [targetRequest]);
+
   return (
     <div className={cn("flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 transition-all duration-300", className)}>
       {/* Header */}
@@ -565,14 +608,15 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
 
         <PurchaseRequestHeaderCard
           context="fiscal"
-          requestNumber={request?.requestNumber}
+          requestNumber={targetRequest?.requestNumber || request?.requestNumber}
           orderNumber={purchaseOrder?.orderNumber}
-          requesterName={request?.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "N/A"}
-          supplierName={selectedSupplier?.name || request?.chosenSupplier?.name || "Não definido"}
-          orderDate={formatDate(purchaseOrder?.createdAt || request?.createdAt || null)}
-          totalValue={formatCurrency(purchaseOrder?.totalValue ?? request?.totalValue ?? 0)}
-          status={(request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
-          creationDate={request?.createdAt ? format(new Date(request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
+          requesterName={contentRequesterName}
+          justification={targetRequest?.justification || request?.justification}
+          supplierName={selectedSupplier?.name || targetRequest?.chosenSupplier?.name || request?.chosenSupplier?.name || "Não definido"}
+          orderDate={formatDate(purchaseOrder?.createdAt || targetRequest?.createdAt || request?.createdAt || null)}
+          totalValue={formatCurrency(purchaseOrder?.totalValue ?? targetRequest?.totalValue ?? request?.totalValue ?? 0)}
+          status={(targetRequest?.phase && (PHASE_LABELS as any)[targetRequest.phase as keyof typeof PHASE_LABELS]) || (request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
+          creationDate={(targetRequest?.createdAt || request?.createdAt) ? format(new Date(targetRequest?.createdAt || request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
         />
       </div>
 

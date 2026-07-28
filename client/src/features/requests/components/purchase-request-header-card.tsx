@@ -36,6 +36,11 @@ export interface PurchaseRequestHeaderCardProps {
   requesterName?: string;
 
   /**
+   * Justificativa da solicitação.
+   */
+  justification?: string;
+
+  /**
    * Nome do fornecedor selecionado ou associado.
    */
   supplierName?: string;
@@ -71,6 +76,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
   requestNumber,
   orderNumber,
   requesterName,
+  justification,
   supplierName,
   orderDate,
   totalValue,
@@ -97,7 +103,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
 
   return (
     <Card className={cn("border", themeClasses, className)}>
-      <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 text-sm pt-4">
+      <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 text-sm pt-4">
         <div className="space-y-1">
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Solicitação / Pedido
@@ -112,7 +118,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Solicitante
           </p>
-          <p className="text-slate-900 dark:text-slate-100 truncate">
+          <p className="text-slate-900 dark:text-slate-100 truncate" title={requesterName}>
             {requesterName && requesterName.trim().length > 0
               ? requesterName
               : "N/A"}
@@ -123,7 +129,7 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Fornecedor
           </p>
-          <p className="text-slate-900 dark:text-slate-100 truncate">
+          <p className="text-slate-900 dark:text-slate-100 truncate" title={supplierName}>
             {supplierName && supplierName.trim().length > 0
               ? supplierName
               : "Não definido"}
@@ -163,6 +169,17 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
           </p>
           <p className="text-slate-900 dark:text-slate-100">
             {creationDate && creationDate.trim().length > 0 ? creationDate : "N/A"}
+          </p>
+        </div>
+        <br />
+        <div className="space-y-1 col-span-8">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            Justificativa
+          </p>
+          <p className="text-slate-900 dark:text-slate-100" title={justification}>
+            {justification && justification.trim().length > 0
+              ? justification
+              : "N/A"}
           </p>
         </div>
       </CardContent>

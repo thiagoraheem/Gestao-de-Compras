@@ -837,13 +837,35 @@ export default function KanbanBoard({
                    title={RECEIPT_PHASE_LABELS[phase as keyof typeof RECEIPT_PHASE_LABELS]}
                    receipts={receiptsByPhase[phase] || []}
                    onOpenReceipt={(receipt) => {
+                      // Find full request in purchaseRequests if available
+                      const fullPR = Array.isArray(purchaseRequests) 
+                        ? purchaseRequests.find((r: any) => r.id === receipt.purchaseRequestId)
+                        : null;
+
+                      const requesterObj = fullPR?.requester || (
+                        (receipt.requesterFirstName || receipt.requesterLastName)
+                          ? { firstName: receipt.requesterFirstName || "", lastName: receipt.requesterLastName || "" }
+                          : receipt.requester
+                      );
+
+                      const reqName = fullPR?.requesterName || (
+                        requesterObj?.firstName 
+                          ? `${requesterObj.firstName} ${requesterObj.lastName || ''}`.trim()
+                          : receipt.requesterName
+                      );
+
                       // Adapt activeRequest to look like a PR enough for current modals
                       setActiveRequest({ 
-                        id: receipt.purchaseRequestId, 
-                        requestNumber: receipt.requestNumber,
+                        ...fullPR,
+                        ...receipt,
+                        id: receipt.purchaseRequestId || fullPR?.id, 
+                        requestNumber: receipt.requestNumber || fullPR?.requestNumber,
+                        justification: receipt.justification || fullPR?.justification,
+                        requester: requesterObj,
+                        requesterName: reqName,
                         currentPhase: phase === RECEIPT_PHASES.CONCLUIDO ? PURCHASE_PHASES.CONCLUSAO_COMPRA : PURCHASE_PHASES.RECEBIMENTO,
-                        createdAt: (receipt as any).createdAt || (receipt as any).created_at || new Date().toISOString(),
-                        chosenSupplier: receipt.supplierName ? { name: receipt.supplierName } : null
+                        createdAt: (receipt as any).createdAt || (receipt as any).created_at || fullPR?.createdAt || new Date().toISOString(),
+                        chosenSupplier: receipt.supplierName ? { name: receipt.supplierName } : fullPR?.chosenSupplier
                       });
                       
                       if (phase === RECEIPT_PHASES.CONCLUIDO) {

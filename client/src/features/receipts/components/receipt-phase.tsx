@@ -90,6 +90,30 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   const [blockedByReceipts, setBlockedByReceipts] = useState<{ receiptsWithNF: any[] } | null>(null);
 
   // --- Data Fetching ---
+  const { data: fetchedRequest } = useQuery<any>({
+    queryKey: [`/api/purchase-requests/${request?.id}`],
+    enabled: !!request?.id,
+  });
+
+  const activeRequest = fetchedRequest || request;
+
+  const requesterName = React.useMemo(() => {
+    if (!activeRequest) return "N/A";
+    if (activeRequest.requesterName && activeRequest.requesterName.trim().length > 0 && activeRequest.requesterName !== "N/A") {
+      return activeRequest.requesterName;
+    }
+    if (activeRequest.requester) {
+      if (typeof activeRequest.requester === "string" && activeRequest.requester.trim().length > 0) return activeRequest.requester;
+      const name = `${activeRequest.requester.firstName || ""} ${activeRequest.requester.lastName || ""}`.trim();
+      if (name.length > 0) return name;
+    }
+    if (activeRequest.requesterFirstName || activeRequest.requesterLastName) {
+      const name = `${activeRequest.requesterFirstName || ""} ${activeRequest.requesterLastName || ""}`.trim();
+      if (name.length > 0) return name;
+    }
+    return "N/A";
+  }, [activeRequest]);
+
   const { data: purchaseOrder } = useQuery<any>({
     queryKey: [`/api/purchase-orders/by-request/${request?.id}`],
     enabled: !!request?.id,
@@ -516,15 +540,16 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
 
         <PurchaseRequestHeaderCard
           context="physical"
-          requestNumber={request?.requestNumber}
+          requestNumber={activeRequest?.requestNumber || request?.requestNumber}
           orderNumber={purchaseOrder?.orderNumber}
-          requesterName={request?.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "N/A"}
+          requesterName={requesterName}
+          justification={activeRequest?.justification || request?.justification}
           supplierName={selectedSupplier?.name || "Não definido"}
-          orderDate={formatDate(purchaseOrder?.createdAt || request?.createdAt || null)}
-          totalValue={formatCurrency(purchaseOrder?.totalValue ?? request?.totalValue ?? 0)}
+          orderDate={formatDate(purchaseOrder?.createdAt || activeRequest?.createdAt || request?.createdAt || null)}
+          totalValue={formatCurrency(purchaseOrder?.totalValue ?? activeRequest?.totalValue ?? request?.totalValue ?? 0)}
           //totalValue={typeof request?.totalValue === "number" ? formatCurrency(request.totalValue) : "R$ 0,00"}
-          status={(request?.phase && (PHASE_LABELS as any)[request.phase]) || "—"}
-          creationDate={request?.createdAt ? format(new Date(request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
+          status={(activeRequest?.phase && (PHASE_LABELS as any)[activeRequest.phase]) || (request?.phase && (PHASE_LABELS as any)[request.phase]) || "—"}
+          creationDate={(activeRequest?.createdAt || request?.createdAt) ? format(new Date(activeRequest?.createdAt || request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
         />
 
         {/* Global Progress */}

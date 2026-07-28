@@ -38,21 +38,25 @@ describe("PurchaseRequestHeaderCard", () => {
     // Assuming sections order based on component definition:
     // 0: Request/Order Number
     // 1: Requester
-    // 2: Supplier
-    // 3: Order Date
-    // 4: Total Value
-    // 5: Status
-    // 6: Creation Date (New)
+    // 2: Justification
+    // 3: Supplier
+    // 4: Order Date
+    // 5: Total Value
+    // 6: Status
+    // 7: Creation Date
 
     const requesterSection = sections[1];
-    const supplierSection = sections[2];
-    const dateSection = sections[3];
-    const totalSection = sections[4];
-    const statusSection = sections[5];
-    const creationDateSection = sections[6];
+    const justificationSection = sections[2];
+    const supplierSection = sections[3];
+    const dateSection = sections[4];
+    const totalSection = sections[5];
+    const statusSection = sections[6];
+    const creationDateSection = sections[7];
 
     // Check defaults
     expect(requesterSection.props.children[1].props.children).toBe("N/A");
+    expect(justificationSection.props.children[0].props.children).toBe("Justificativa");
+    expect(justificationSection.props.children[1].props.children).toBe("N/A");
     expect(supplierSection.props.children[1].props.children).toBe("Não definido");
     expect(dateSection.props.children[1].props.children).toBe("N/A");
     expect(totalSection.props.children[1].props.children).toBe("R$ 0,00");
@@ -63,10 +67,12 @@ describe("PurchaseRequestHeaderCard", () => {
     expect(creationDateSection.props.children[1].props.children).toBe("N/A");
   });
 
-  test("renderiza data de criação corretamente quando fornecida", () => {
+  test("renderiza data de criação e justificativa corretamente quando fornecidas", () => {
     const creationDate = "12/02/2026 14:30";
+    const justification = "Manutenção preventiva";
     const element: any = PurchaseRequestHeaderCard({
       creationDate: creationDate,
+      justification: justification,
     } as any);
 
     const cardContent = element.props.children;
@@ -74,8 +80,11 @@ describe("PurchaseRequestHeaderCard", () => {
       ? cardContent.props.children
       : [cardContent.props.children];
 
-    const creationDateSection = sections[6];
+    const justificationSection = sections[2];
+    const creationDateSection = sections[7];
 
+    expect(justificationSection.props.children[0].props.children).toBe("Justificativa");
+    expect(justificationSection.props.children[1].props.children).toBe(justification);
     expect(creationDateSection.props.children[0].props.children).toBe("Data de Criação");
     expect(creationDateSection.props.children[1].props.children).toBe(creationDate);
   });
