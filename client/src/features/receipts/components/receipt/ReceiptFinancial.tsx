@@ -14,6 +14,12 @@ import { formatCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+function parseLocalDate(dateStr: string): Date {
+  const cleanStr = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
+  const [year, month, day] = cleanStr.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
 export function ReceiptFinancial() {
   const {
     paymentMethods,
@@ -69,7 +75,7 @@ export function ReceiptFinancial() {
     if (rows.length === 0) return false;
     const sum = rows.reduce((acc, r) => acc + (parseFloat(String(r.amount || "0").replace(",", ".")) || 0), 0);
     const round2 = (n: number) => Math.round(n * 100) / 100;
-    const sorted = rows.every((r, i, arr) => i === 0 || new Date(r.dueDate) >= new Date(arr[i - 1].dueDate));
+    const sorted = rows.every((r, i, arr) => i === 0 || parseLocalDate(r.dueDate) >= parseLocalDate(arr[i - 1].dueDate));
     const allFilled = rows.every(r => !!r.dueDate && (parseFloat(String(r.amount || "0").replace(",", ".")) > 0) && (!!r.method || !!paymentMethodCode));
     return round2(sum) === round2(total) && sorted && allFilled;
   })();
@@ -161,10 +167,10 @@ export function ReceiptFinancial() {
             <Label className={cn(showValidationErrors && !invoiceDueDate && "text-red-500")}>
               Data de Vencimento da Fatura <span className="text-red-500">*</span>
             </Label>
-            <Input 
-              type="date" 
-              value={invoiceDueDate} 
-              onChange={(e) => setInvoiceDueDate(e.target.value)} 
+            <Input
+              type="date"
+              value={invoiceDueDate}
+              onChange={(e) => setInvoiceDueDate(e.target.value)}
               className={cn(showValidationErrors && !invoiceDueDate && "border-red-500")}
             />
             {showValidationErrors && !invoiceDueDate && (
@@ -173,7 +179,7 @@ export function ReceiptFinancial() {
           </div>
           <div>
             <Label>Parcelamento</Label>
-            <Select value={hasInstallments ? "sim" : "nao"} onValueChange={(v) => setHasInstallments(v === "sim")}> 
+            <Select value={hasInstallments ? "sim" : "nao"} onValueChange={(v) => setHasInstallments(v === "sim")}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="nao">Sem parcelamento</SelectItem>
@@ -197,7 +203,9 @@ export function ReceiptFinancial() {
                   const n = Math.max(1, Number(installmentCount || 1));
                   const per = Math.floor((total * 100) / n) / 100;
                   const vals = Array.from({ length: n }).map((_, i) => (i === n - 1 ? Number((total - per * (n - 1)).toFixed(2)) : per));
-                  const base = new Date(invoiceDueDate);
+                  const base = parseLocalDate(invoiceDueDate);
+                  console.log("Data vencimento: " + invoiceDueDate);
+                  console.log("Data base: " + base);
                   const rows = vals.map((amt, i) => {
                     const d = new Date(base);
                     d.setMonth(d.getMonth() + i);
