@@ -8,7 +8,8 @@ import {
   quantityAdjustmentHistory, 
   attachments, 
   quotationVersionHistory,
-  suppliers
+  suppliers,
+  purchaseRequestItems
 } from "../../shared/schema";
 import { eq, desc, and, like, inArray } from "drizzle-orm";
 import type { 
@@ -201,10 +202,65 @@ export class QuotationRepository {
 
   // Quotation Items operations
   async getQuotationItems(quotationId: number): Promise<QuotationItem[]> {
-    return await db
-      .select()
+    const results = await db
+      .select({
+        quotationItem: quotationItems,
+        purchaseRequestItem: {
+          id: purchaseRequestItems.id,
+          price: purchaseRequestItems.price,
+          partNumber: purchaseRequestItems.partNumber,
+          productCode: purchaseRequestItems.productCode,
+          technicalSpecification: purchaseRequestItems.technicalSpecification,
+        },
+      })
       .from(quotationItems)
+      .leftJoin(
+        purchaseRequestItems,
+        eq(quotationItems.purchaseRequestItemId, purchaseRequestItems.id),
+      )
       .where(eq(quotationItems.quotationId, quotationId));
+
+    const mapped = results.map((row) => ({
+      ...row.quotationItem,
+      purchaseRequestItem: row.purchaseRequestItem?.id ? row.purchaseRequestItem : undefined,
+    }));
+
+    const unlinkedItems = mapped.filter((item) => !item.purchaseRequestItem);
+    if (unlinkedItems.length > 0) {
+      const quotation = await this.getQuotationById(quotationId);
+      if (quotation?.purchaseRequestId) {
+        const prItems = await db
+          .select({
+            id: purchaseRequestItems.id,
+            price: purchaseRequestItems.price,
+            partNumber: purchaseRequestItems.partNumber,
+            productCode: purchaseRequestItems.productCode,
+            technicalSpecification: purchaseRequestItems.technicalSpecification,
+            description: purchaseRequestItems.description,
+          })
+          .from(purchaseRequestItems)
+          .where(eq(purchaseRequestItems.purchaseRequestId, quotation.purchaseRequestId));
+
+        for (const item of unlinkedItems) {
+          const matchedPrItem = prItems.find(
+            (pr) =>
+              (pr.productCode && item.itemCode && pr.productCode === item.itemCode) ||
+              (pr.description && item.description && pr.description === item.description),
+          );
+          if (matchedPrItem) {
+            item.purchaseRequestItem = {
+              id: matchedPrItem.id,
+              price: matchedPrItem.price,
+              partNumber: matchedPrItem.partNumber,
+              productCode: matchedPrItem.productCode,
+              technicalSpecification: matchedPrItem.technicalSpecification,
+            };
+          }
+        }
+      }
+    }
+
+    return mapped as any[];
   }
 
   async createQuotationItem(
