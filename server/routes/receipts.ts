@@ -390,6 +390,17 @@ export function registerReceiptsRoutes(app: Express) {
           xmlHash: p.xmlHash,
         } as any);
         for (const it of p.items || []) {
+          // O totalPrice salvo deve ser o valor líquido (vProd - vDesc).
+          // netTotalPrice já é calculado pelo parser quando vDesc existe.
+          const discountValue = (it as any).discount;
+          const grossTotalPrice = it.totalPrice; // vProd original (bruto)
+          const netTotalPrice   = (it as any).netTotalPrice ?? it.totalPrice; // líquido
+
+          // Observações do item para auditoria do desconto original
+          const itemObs = discountValue && parseFloat(discountValue) > 0
+            ? JSON.stringify({ discount: discountValue, grossTotalPrice })
+            : undefined;
+
           await tx.insert(receiptItems).values({
             receiptId,
             lineNumber: it.lineNumber,
@@ -397,7 +408,7 @@ export function registerReceiptsRoutes(app: Express) {
             unit: it.unit,
             quantity: it.quantity as any,
             unitPrice: it.unitPrice as any,
-            totalPrice: it.totalPrice as any,
+            totalPrice: netTotalPrice as any,  // valor líquido = vProd - vDesc
             locadorProductCode: (it as any).code,
             ncm: (it as any).ncm,
             cfop: (it as any).cfop,
@@ -411,9 +422,11 @@ export function registerReceiptsRoutes(app: Express) {
             cofinsAmount: (it as any).taxes?.cofinsAmount as any,
             quantityReceived: (it.quantity ?? "0") as any,
             condition: "xml",
+            observations: itemObs,
             createdAt: new Date(),
           } as any);
         }
+
         for (const dup of p.installments || []) {
           await tx.insert(receiptInstallments).values({
             receiptId,

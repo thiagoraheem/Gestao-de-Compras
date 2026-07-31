@@ -31,7 +31,9 @@ export type NFeParseResult = {
     unit?: string;
     quantity?: string;
     unitPrice?: string;
-    totalPrice?: string;
+    totalPrice?: string;     // valor bruto do item (vProd, antes do desconto)
+    discount?: string;        // desconto do item (vDesc)
+    netTotalPrice?: string;   // valor líquido = vProd - vDesc
     ncm?: string;
     cfop?: string;
     code?: string;
@@ -138,13 +140,25 @@ export function parseNFeXml(xmlContent: string): NFeParseResult {
     const cofins = imposto.COFINS?.COFINSAliq || {};
     const icms: any = imposto.ICMS && typeof imposto.ICMS === "object" ? (Object.values(imposto.ICMS)[0] as any) || {} : {};
 
+    // Calcular valor líquido do item (vProd - vDesc)
+    const vProd = prod.vProd != null ? String(prod.vProd) : undefined;
+    const vDesc = prod.vDesc != null ? String(prod.vDesc) : undefined;
+    let netTotalPrice: string | undefined = undefined;
+    if (vProd != null) {
+      const gross = parseFloat(vProd) || 0;
+      const disc  = parseFloat(vDesc || "0") || 0;
+      netTotalPrice = (gross - disc).toFixed(2);
+    }
+
     return {
       lineNumber: Number(det["@nItem"]) || undefined,
       description: prod.xProd,
       unit: prod.uCom,
       quantity: prod.qCom,
       unitPrice: prod.vUnCom,
-      totalPrice: prod.vProd,
+      totalPrice: vProd,          // valor bruto (vProd, sem desconto)
+      discount: vDesc,             // desconto do item (vDesc)
+      netTotalPrice,               // valor líquido = vProd - vDesc
       ncm: prod.NCM,
       cfop: prod.CFOP,
       code: prod.cProd,

@@ -376,51 +376,82 @@ export function ReceiptXmlImport() {
             <CardContent>
               {Array.isArray(manualItems) && manualItems.length > 0 ? (
                 <div className="rounded border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead className="text-center">Qtd</TableHead>
-                        <TableHead className="text-center">Un</TableHead>
-                        <TableHead className="text-right">Unitário</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                        <TableHead className="text-center">Vínculo</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {manualItems.map((it: any, idx: number) => (
-                        <TableRow key={idx}>
-                          <TableCell>{it.code || ""}</TableCell>
-                          <TableCell>{it.description || ""}</TableCell>
-                          <TableCell className="text-center">{Number(it.quantity ?? 0)}</TableCell>
-                          <TableCell className="text-center">{it.unit || ""}</TableCell>
-                          <TableCell className="text-right">{Number(it.unitPrice ?? 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{(Number(it.quantity ?? 0) * Number(it.unitPrice ?? 0)).toFixed(2)}</TableCell>
-                          <TableCell className="text-center">
-                            <Select
-                              value={it.purchaseOrderItemId ? String(it.purchaseOrderItemId) : "none"}
-                              onValueChange={(v) => setManualItems((prev: any[]) => prev.map((row, i) => i === idx ? { ...row, purchaseOrderItemId: v === "none" ? undefined : Number(v), matchSource: "manual" } : row))}
-                            >
-                              <SelectTrigger className={!it.purchaseOrderItemId
-                                ? "border-amber-300 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-100"
-                                : "border-green-300 bg-green-50 dark:border-green-500 dark:bg-green-900/30 dark:text-green-100"}>
-                                <SelectValue placeholder="Vincular ao Item do Pedido" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Sem vínculo</SelectItem>
-                                {Array.isArray(purchaseOrderItems) && purchaseOrderItems.map((poItem: any) => (
-                                  <SelectItem key={poItem.id} value={String(poItem.id)}>
-                                    {poItem.itemCode} - {poItem.description} ({poItem.quantity} {poItem.unit})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  {(() => {
+                    const hasAnyDiscount = manualItems.some((it: any) => Number(it.discount) > 0 || Number(it.desconto) > 0);
+                    return (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Código</TableHead>
+                            <TableHead>Descrição</TableHead>
+                            <TableHead className="text-center">Qtd</TableHead>
+                            <TableHead className="text-center">Un</TableHead>
+                            <TableHead className="text-right">Unitário</TableHead>
+                            {hasAnyDiscount && <TableHead className="text-right">Bruto</TableHead>}
+                            {hasAnyDiscount && <TableHead className="text-right text-amber-600">Desconto</TableHead>}
+                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead className="text-center">Vínculo</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {manualItems.map((it: any, idx: number) => {
+                            const disc = Number(it.discount ?? it.desconto ?? 0);
+                            const gross = Number(it.totalPrice ?? 0);
+                            // netTotalPrice vem do parser server; se não existe, calcula
+                            const net = it.netTotalPrice != null
+                              ? Number(it.netTotalPrice)
+                              : gross - disc;
+                            return (
+                              <TableRow key={idx}>
+                                <TableCell>{it.code || ""}</TableCell>
+                                <TableCell>{it.description || ""}</TableCell>
+                                <TableCell className="text-center">{Number(it.quantity ?? 0)}</TableCell>
+                                <TableCell className="text-center">{it.unit || ""}</TableCell>
+                                <TableCell className="text-right">{Number(it.unitPrice ?? 0).toFixed(2)}</TableCell>
+                                {hasAnyDiscount && (
+                                  <TableCell className="text-right text-muted-foreground">
+                                    {gross.toFixed(2)}
+                                  </TableCell>
+                                )}
+                                {hasAnyDiscount && (
+                                  <TableCell className="text-right">
+                                    {disc > 0 ? (
+                                      <span className="text-amber-600 font-medium">-{disc.toFixed(2)}</span>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                )}
+                                <TableCell className="text-right font-medium">
+                                  {net.toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Select
+                                    value={it.purchaseOrderItemId ? String(it.purchaseOrderItemId) : "none"}
+                                    onValueChange={(v) => setManualItems((prev: any[]) => prev.map((row, i) => i === idx ? { ...row, purchaseOrderItemId: v === "none" ? undefined : Number(v), matchSource: "manual" } : row))}
+                                  >
+                                    <SelectTrigger className={!it.purchaseOrderItemId
+                                      ? "border-amber-300 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-100"
+                                      : "border-green-300 bg-green-50 dark:border-green-500 dark:bg-green-900/30 dark:text-green-100"}>
+                                      <SelectValue placeholder="Vincular ao Item do Pedido" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">Sem vínculo</SelectItem>
+                                      {Array.isArray(purchaseOrderItems) && purchaseOrderItems.map((poItem: any) => (
+                                        <SelectItem key={poItem.id} value={String(poItem.id)}>
+                                          {poItem.itemCode} - {poItem.description} ({poItem.quantity} {poItem.unit})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground">Nenhum item importado</div>

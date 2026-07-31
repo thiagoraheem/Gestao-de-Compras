@@ -7,6 +7,8 @@ interface ItemsTableProps {
 }
 
 export function ItemsTable({ items }: ItemsTableProps) {
+  const hasAnyDiscount = items.some(it => it.valorDesconto > 0);
+
   return (
     <div className="rounded-lg border bg-slate-950/30">
       <Table>
@@ -20,6 +22,8 @@ export function ItemsTable({ items }: ItemsTableProps) {
             <TableHead className="text-center">UN</TableHead>
             <TableHead className="text-center">Qtd.</TableHead>
             <TableHead className="text-right">Vl. Unit.</TableHead>
+            {hasAnyDiscount && <TableHead className="text-right">Vl. Bruto</TableHead>}
+            {hasAnyDiscount && <TableHead className="text-right text-amber-400">Desconto</TableHead>}
             <TableHead className="text-right">Vl. Total</TableHead>
             <TableHead>Tributos</TableHead>
             <TableHead>Centro Custo</TableHead>
@@ -37,7 +41,25 @@ export function ItemsTable({ items }: ItemsTableProps) {
               <TableCell className="text-center">{it.unidade}</TableCell>
               <TableCell className="text-center">{it.quantidade}</TableCell>
               <TableCell className="text-right">{formatCurrency(it.valorUnitario)}</TableCell>
-              <TableCell className="text-right">{formatCurrency(it.valorTotal)}</TableCell>
+              {hasAnyDiscount && (
+                <TableCell className="text-right text-muted-foreground">
+                  {formatCurrency(it.valorBruto)}
+                </TableCell>
+              )}
+              {hasAnyDiscount && (
+                <TableCell className="text-right">
+                  {it.valorDesconto > 0 ? (
+                    <span className="text-amber-500 font-medium">
+                      -{formatCurrency(it.valorDesconto)}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+              )}
+              <TableCell className="text-right font-medium">
+                {formatCurrency(it.valorTotal)}
+              </TableCell>
               <TableCell>{formatCurrency(it.impostos.valorTotalTributos)}</TableCell>
               <TableCell>{it.centroCusto || '-'}</TableCell>
               <TableCell>

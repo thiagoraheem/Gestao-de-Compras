@@ -46,7 +46,9 @@ export interface ItemNFE {
   unidade: string;
   quantidade: number;
   valorUnitario: number;
-  valorTotal: number;
+  valorBruto: number;     // vProd: valor bruto antes do desconto
+  valorDesconto: number;  // vDesc: desconto concedido no item
+  valorTotal: number;     // vProd - vDesc: valor líquido do item
   impostos: ImpostosItem;
   centroCusto?: string;
   planoContas?: string;

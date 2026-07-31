@@ -55,6 +55,10 @@ export function parseNFEXml(xmlString: string): NFEData | null {
         valorTotalTributos: getNumber(imposto, 'vTotTrib'),
       };
 
+      const valorBruto = getNumber(prod, 'vProd');
+      const valorDesconto = getNumber(prod, 'vDesc'); // desconto por item (vDesc)
+      const valorTotal = valorBruto - valorDesconto;  // valor líquido do item
+
       itens.push({
         numero: parseInt(det.getAttribute('nItem') || '0'),
         codigo: getText(prod, 'cProd'),
@@ -64,11 +68,14 @@ export function parseNFEXml(xmlString: string): NFEData | null {
         unidade: getText(prod, 'uCom'),
         quantidade: getNumber(prod, 'qCom'),
         valorUnitario: getNumber(prod, 'vUnCom'),
-        valorTotal: getNumber(prod, 'vProd'),
+        valorBruto,        // vProd (antes do desconto)
+        valorDesconto,     // vDesc do item
+        valorTotal,        // vProd - vDesc (valor líquido)
         impostos,
         centroCusto: '',
         planoContas: '',
       });
+
     }
 
     const transportadora = transp?.getElementsByTagName('transporta')[0];

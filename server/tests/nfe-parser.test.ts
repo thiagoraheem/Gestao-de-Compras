@@ -1,4 +1,4 @@
-import { parseNFeXml } from "../server/services/nfe-parser";
+import { parseNFeXml } from "../services/nfe-parser";
 
 jest.mock("fast-xml-parser", () => {
   return {
