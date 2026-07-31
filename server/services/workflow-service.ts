@@ -154,7 +154,193 @@ export class WorkflowService {
     return updatedRequest;
   }
 
+  /**
+   * Arquiva apenas o SALDO PENDENTE de recebimento de uma solicitação.
+   *
+   * Diferente de arquivar a solicitação inteira, esta ação:
+   * - Permite que a solicitação seja concluída mesmo com itens não recebidos
+   * - Marca o Pedido de Compra como "encerrado parcialmente" com nota de auditoria
+   * - Exclui recebimentos em status rascunho (placeholders sem NF)
+   * - Encerra administrativamente os itens não recebidos (quantityReceived = quantity)
+   * - Move a solicitação para "conclusao_compra" se ainda estava em recebimento
+   * - Registra o motivo na auditoria para rastreabilidade
+   *
+   * Fases permitidas: pedido_concluido, recebimento, conclusao_compra
+   */
+  async archivePendingBalance(id: number, reason: string, userId: number): Promise<any> {
+    const request = await storage.getPurchaseRequestById(id);
+    if (!request) throw new Error("Solicitação não encontrada");
+
+    const validPhases = ["pedido_concluido", "recebimento", "conclusao_compra"];
+    if (!validPhases.includes(String(request.currentPhase))) {
+      throw new ValidationError(
+        `Esta ação só pode ser realizada em solicitações nas fases de Recebimento. Fase atual: ${request.currentPhase}`
+      );
+    }
+
+    // Buscar o Pedido de Compra
+    const [po] = await db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.purchaseRequestId, id))
+      .limit(1);
+
+    if (!po) {
+      throw new ValidationError("Não há Pedido de Compra vinculado a esta solicitação.");
+    }
+
+    // Buscar itens do PO para calcular saldo pendente
+    const poItems = await db
+      .select()
+      .from(purchaseOrderItems)
+      .where(eq(purchaseOrderItems.purchaseOrderId, po.id));
+
+    const pendingItems = poItems.filter(
+      (item: any) => Number(item.quantityReceived || 0) < Number(item.quantity || 0)
+    );
+
+    if (pendingItems.length === 0) {
+      throw new ValidationError(
+        "Não há saldo pendente de recebimento para arquivar. Todos os itens já foram recebidos."
+      );
+    }
+
+    // Buscar receipts vinculados
+    const receiptRows = await db
+      .select({
+        id: receipts.id,
+        receiptNumber: receipts.receiptNumber,
+        status: receipts.status,
+        receiptPhase: receipts.receiptPhase,
+      })
+      .from(receipts)
+      .where(
+        or(
+          eq(receipts.purchaseOrderId, po.id),
+          eq(receipts.purchaseRequestId, id)
+        )
+      );
+
+    const rascunhoIds = receiptRows
+      .filter((r: any) => String(r.status) === "rascunho")
+      .map((r: any) => Number(r.id))
+      .filter((rid: number) => Number.isFinite(rid));
+
+    const now = new Date();
+
+    // Calcular totais para o audit log
+    const totalPendingQty = pendingItems.reduce(
+      (sum: number, item: any) =>
+        sum + (Number(item.quantity || 0) - Number(item.quantityReceived || 0)),
+      0
+    );
+
+    await db.transaction(async (tx) => {
+      // 1. Excluir receipts rascunho (placeholders sem NF real)
+      if (rascunhoIds.length > 0) {
+        await tx.delete(receiptItems).where(inArray(receiptItems.receiptId, rascunhoIds));
+        await tx.delete(receiptAllocations).where(inArray(receiptAllocations.receiptId, rascunhoIds));
+        await tx.delete(receiptInstallments).where(inArray(receiptInstallments.receiptId, rascunhoIds));
+        await tx.delete(receiptNfXmls).where(inArray(receiptNfXmls.receiptId, rascunhoIds));
+        await tx.delete(receipts).where(inArray(receipts.id, rascunhoIds));
+      }
+
+      // 2. Encerrar administrativamente os itens pendentes do PO
+      //    (define quantityReceived = quantity, indicando que o saldo foi encerrado)
+      for (const item of pendingItems) {
+        await tx
+          .update(purchaseOrderItems)
+          .set({ quantityReceived: item.quantity } as any)
+          .where(eq(purchaseOrderItems.id, item.id));
+      }
+
+      // 3. Marcar o Pedido de Compra com observação de encerramento parcial
+      const poObs = [
+        po.observations || "",
+        `[Saldo Arquivado em ${now.toISOString().split("T")[0]}] ${pendingItems.length} item(ns) com saldo total de ${totalPendingQty.toFixed(3)} unidade(s) encerrado(s) administrativamente sem recebimento. Motivo: ${reason}`,
+      ]
+        .filter(Boolean)
+        .join("\n")
+        .trim();
+
+      await tx
+        .update(purchaseOrders)
+        .set({
+          fulfillmentStatus: "partial",
+          status: "completed",
+          observations: poObs,
+          updatedAt: now,
+        })
+        .where(eq(purchaseOrders.id, po.id));
+
+      // 4. Mover a solicitação para conclusao_compra (se ainda não estiver lá)
+      if (String(request.currentPhase) !== "conclusao_compra") {
+        await tx
+          .update(purchaseRequests)
+          .set({
+            currentPhase: "conclusao_compra" as any,
+            updatedAt: now,
+            procurementStatus: "concluida" as any,
+            procurementConcludedAt: now,
+            procurementConcludedById: userId,
+          })
+          .where(eq(purchaseRequests.id, id));
+      }
+
+      // 5. Audit log detalhado
+      const pendingItemsDescription = pendingItems
+        .map(
+          (item: any) =>
+            `"${item.description}" (${(Number(item.quantity || 0) - Number(item.quantityReceived || 0)).toFixed(3)} ${item.unit} não recebido(s))`
+        )
+        .join("; ");
+
+      await tx.insert(auditLogs).values({
+        purchaseRequestId: id,
+        performedBy: userId,
+        actionType: "archive_pending_balance",
+        actionDescription:
+          `Saldo pendente de recebimento arquivado. Motivo: "${reason}". ` +
+          `${pendingItems.length} item(ns) encerrado(s): ${pendingItemsDescription}. ` +
+          `${rascunhoIds.length > 0 ? `${rascunhoIds.length} recebimento(s) rascunho excluído(s). ` : ""}` +
+          `Pedido de Compra PO-${po.orderNumber} marcado como concluído parcialmente.`,
+        performedAt: now,
+        beforeData: {
+          phase: request.currentPhase,
+          purchaseOrderId: po.id,
+          pendingItems: pendingItems.map((item: any) => ({
+            id: item.id,
+            description: item.description,
+            quantity: item.quantity,
+            quantityReceived: item.quantityReceived,
+          })),
+        } as any,
+        afterData: {
+          phase: "conclusao_compra",
+          archivedBalance: totalPendingQty,
+          reason,
+        } as any,
+        affectedTables: ["purchase_requests", "purchase_orders", "purchase_order_items", "receipts"] as any,
+      } as any);
+    });
+
+    const updated = await storage.getPurchaseRequestById(id);
+
+    realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+      event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+      payload: { id, currentPhase: "conclusao_compra", updatedAt: now },
+    });
+
+    return {
+      success: true,
+      archivedItemsCount: pendingItems.length,
+      archivedBalance: totalPendingQty,
+      request: updated,
+    };
+  }
+
   async archiveRequest(id: number, conclusionObservations: string): Promise<any> {
+
     const currentRequest = await storage.getPurchaseRequestById(id);
     if (!currentRequest) throw new Error("Request not found");
 

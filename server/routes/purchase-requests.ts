@@ -748,6 +748,23 @@ export function registerPurchaseRequestRoutes(app: Express) {
     },
   );
 
+  // Archive only the PENDING BALANCE (not the whole request) — used from the receipt phase
+  app.post(
+    "/api/purchase-requests/:id/archive-pending-balance",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      const userId = req.session.userId!;
+      const { reason } = req.body;
+      if (!reason || String(reason).trim() === "") {
+        return res.status(400).json({ error: "O motivo do arquivamento é obrigatório." });
+      }
+      const result = await workflowService.archivePendingBalance(id, String(reason).trim(), userId);
+      res.json(result);
+    },
+  );
+
   // Quick archive endpoint for Kanban board
   app.post(
     "/api/purchase-requests/:id/archive-direct",

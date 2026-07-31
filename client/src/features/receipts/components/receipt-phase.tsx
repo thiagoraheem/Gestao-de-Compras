@@ -205,20 +205,29 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     },
   });
 
-  // --- Mutation: Arquivar saldo pendente ---
+  // --- Mutation: Arquivar saldo pendente (apenas o saldo, não a solicitação inteira) ---
   const archiveMutation = useMutation({
-    mutationFn: async (observations: string) => {
-      const response = await apiRequest(`/api/purchase-requests/${request.id}/archive`, {
-        method: "PATCH",
-        body: { conclusionObservations: observations || "Arquivado com saldo pendente de recebimento" },
+    mutationFn: async (reason: string) => {
+      if (!reason || reason.trim() === "") {
+        throw new Error("O motivo do arquivamento é obrigatório.");
+      }
+      const response = await fetch(`/api/purchase-requests/${request.id}/archive-pending-balance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason: reason.trim() }),
       });
-      return response;
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || data.message || "Erro ao arquivar saldo pendente");
+      }
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       toast({
-        title: "Solicitação Arquivada",
-        description: "A solicitação foi arquivada com sucesso, mesmo com saldo pendente.",
+        title: "Saldo Arquivado",
+        description: `Saldo pendente arquivado com sucesso. ${data.archivedItemsCount ?? 0} item(ns) encerrado(s) administrativamente.`,
       });
       setShowArchiveDialog(false);
       setArchiveReason("");
@@ -227,7 +236,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error?.message || "Não foi possível arquivar a solicitação",
+        description: error?.message || "Não foi possível arquivar o saldo pendente",
         variant: "destructive",
       });
     },
@@ -628,17 +637,24 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                O pedido será arquivado mesmo que haja itens com recebimento pendente ou parcial.
+                <strong>Apenas o saldo pendente será arquivado</strong>, não a solicitação inteira.
+                Os itens já recebidos continuam normais e a solicitação poderá ser concluída ao
+                finalizar as conferências fiscais pendentes.
               </p>
               <div className="space-y-1">
-                <Label htmlFor="archive-reason" className="text-sm font-medium">Observações (opcional)</Label>
+                <Label htmlFor="archive-reason" className="text-sm font-medium">
+                  Motivo do arquivamento <span className="text-destructive">*</span>
+                </Label>
                 <Textarea
                   id="archive-reason"
-                  placeholder="Ex: item 13 sem estoque no fornecedor, saldo arquivado..."
+                  placeholder="Descreva o motivo pelo qual o saldo pendente não será recebido. Ex: fornecedor não tem mais o produto em estoque, necessidade cancelada..."
                   value={archiveReason}
                   onChange={(e) => setArchiveReason(e.target.value)}
-                  rows={3}
+                  rows={4}
                 />
+                {archiveReason.trim() === "" && (
+                  <p className="text-xs text-muted-foreground">O motivo é obrigatório para fins de auditoria.</p>
+                )}
               </div>
             </div>
             <DialogFooter className="gap-2">
@@ -647,7 +663,7 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
               </Button>
               <Button
                 onClick={() => archiveMutation.mutate(archiveReason)}
-                disabled={archiveMutation.isPending}
+                disabled={archiveMutation.isPending || archiveReason.trim() === ""}
               >
                 <Archive className="w-4 h-4 mr-2" />
                 {archiveMutation.isPending ? "Arquivando..." : "Confirmar Arquivamento"}
