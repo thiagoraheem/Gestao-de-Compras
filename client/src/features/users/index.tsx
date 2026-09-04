@@ -64,7 +64,7 @@ export function UsersManagement() {
   const form = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      username: "", email: "", password: "", firstName: "", lastName: "", departmentId: null,
+      username: "", email: "", password: "", firstName: "", lastName: "", phone: "", departmentId: null,
       isBuyer: false, isApproverA1: false, isApproverA2: false, isAdmin: false, isManager: false, 
       isReceiver: false, isCEO: false, isDirector: false, isActive: true,
     },
@@ -90,6 +90,7 @@ export function UsersManagement() {
       password: "", // Security
       firstName: user.firstName || "",
       lastName: user.lastName || "",
+      phone: user.phone || "",
       departmentId: user.departmentId || null,
       isBuyer: user.isBuyer || false,
       isApproverA1: user.isApproverA1 || false,

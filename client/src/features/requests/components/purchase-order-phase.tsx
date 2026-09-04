@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Separator } from "@/shared/ui/separator";
+import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Label } from "@/shared/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
@@ -29,8 +30,12 @@ import {
   X,
   Eye,
   RotateCcw,
-  AlertTriangle
+  AlertTriangle,
+  Phone,
+  Mail,
+  Save
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import debug from "@/lib/debug";
@@ -69,6 +74,7 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
   const [previewMimeType, setPreviewMimeType] = useState<string | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewLoaded, setPreviewLoaded] = useState(false);
+  const [selectedBuyerUserId, setSelectedBuyerUserId] = useState<string>("");
 
   const form = useForm<PurchaseOrderFormData>({
     resolver: zodResolver(purchaseOrderSchema),
@@ -90,6 +96,41 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
     queryKey: [`/api/purchase-orders/by-request/${request?.id}`],
     enabled: !!request?.id,
   });
+
+  // Lista de todos os usuários (para filtrar compradores)
+  const { data: allUsers = [] } = useQuery<any[]>({
+    queryKey: ["/api/users"],
+  });
+
+  // Lista de empresas (para obter telefone do comprador via company)
+  const { data: allCompanies = [] } = useQuery<any[]>({
+    queryKey: ["/api/companies"],
+  });
+
+  // Apenas usuários marcados como comprador
+  const buyers = allUsers.filter((u: any) => u.isBuyer === true && u.isActive !== false);
+
+  // Seta o selectedBuyerUserId inicial quando purchaseOrder carrega
+  // Descobre o ID do usuário que "parece ser" o comprador atual (match por email e nome)
+  useEffect(() => {
+    if (!purchaseOrder || !allUsers.length) return;
+    const poEmail = purchaseOrder.buyerEmail;
+    const poName = purchaseOrder.buyerName;
+    // Tenta match por email primeiro (exato)
+    let matched = poEmail ? allUsers.find((u: any) => u.email === poEmail) : null;
+    // Fallback: match por nome completo
+    if (!matched && poName) {
+      matched = allUsers.find((u: any) => {
+        const uName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+        return uName === poName || u.username === poName;
+      });
+    }
+    // Fallback: createdBy
+    if (!matched && purchaseOrder.createdBy) {
+      matched = allUsers.find((u: any) => u.id === purchaseOrder.createdBy);
+    }
+    setSelectedBuyerUserId(matched ? String(matched.id) : "");
+  }, [purchaseOrder, allUsers]);
 
   // Buscar itens do pedido de compra (não da solicitação)
   const { data: items = [] } = useQuery<any[]>({
@@ -158,6 +199,62 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
       });
     },
   });
+
+  // Mutation para atualizar dados do comprador (via buyerUserId)
+  const updateBuyerMutation = useMutation({
+    mutationFn: async (params: { buyerUserId: number }) => {
+      if (!purchaseOrder?.id) throw new Error("Pedido de compra não encontrado");
+      return apiRequest(`/api/purchase-orders/${purchaseOrder.id}`, {
+        method: "PATCH",
+        body: params
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Sucesso",
+        description: "Comprador vinculado e dados atualizados com sucesso!",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-orders/by-request/${request?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Falha ao vincular comprador ao pedido",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleChangeBuyer = async (value: string) => {
+    setSelectedBuyerUserId(value);
+  };
+
+  const handleSaveBuyer = () => {
+    if (!selectedBuyerUserId) {
+      toast({ title: "Aviso", description: "Selecione um comprador antes de salvar", variant: "destructive" });
+      return;
+    }
+    updateBuyerMutation.mutate({ buyerUserId: Number(selectedBuyerUserId) });
+  };
+
+  // Dados do comprador selecionado atualmente para exibição preview
+  const selectedBuyerUser = selectedBuyerUserId
+    ? allUsers.find((u: any) => String(u.id) === selectedBuyerUserId)
+    : undefined;
+  const selectedBuyerCompany = selectedBuyerUser?.companyId
+    ? allCompanies.find((c: any) => c.id === selectedBuyerUser.companyId)
+    : undefined;
+
+  // Dados do comprador efetivamentes salvos no PO (podem ser os mesmos, mas refletem o estado do banco)
+  const displayBuyerName = purchaseOrder?.buyerName || (selectedBuyerUser && ([selectedBuyerUser.firstName, selectedBuyerUser.lastName].filter(Boolean).join(" ").trim() || selectedBuyerUser.username)) || "-";
+  const displayBuyerEmail = purchaseOrder?.buyerEmail || selectedBuyerUser?.email || "-";
+  const displayBuyerPhone =
+    purchaseOrder?.buyerPhone ||
+    selectedBuyerUser?.phone ||
+    selectedBuyerCompany?.phone ||
+    purchaseOrder?.contactPhone ||
+    "-";
 
   // Mutation para avançar para recebimento
   const advanceToReceiptMutation = useMutation({
@@ -528,11 +625,6 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">Solicitante:</span>
-                <span>{request.requester ? `${request.requester.firstName} ${request.requester.lastName}` : "Não informado"}</span>
-              </div>
-              <div className="flex items-center gap-2">
                 <Building className="w-4 h-4 text-muted-foreground" />
                 <span className="font-medium">Departamento:</span>
                 <span>{request.department?.name || "Não informado"}</span>
@@ -578,6 +670,93 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
           <div>
             <span className="font-medium">Justificativa:</span>
             <p className="text-sm text-muted-foreground mt-1">{request.justification}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Dados do Comprador */}
+      <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <User className="w-5 h-5" />
+            Dados do Comprador
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="border-t border-slate-200 dark:border-slate-700 space-y-5">
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <User className="w-4 h-4 text-muted-foreground" />
+              Selecione o Comprador
+            </Label>
+            <Select
+              value={selectedBuyerUserId}
+              onValueChange={handleChangeBuyer}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um comprador cadastrado..." />
+              </SelectTrigger>
+              <SelectContent>
+                {buyers.length === 0 && (
+                  <SelectItem value="__none__" disabled>
+                    Nenhum usuário "Comprador" cadastrado
+                  </SelectItem>
+                )}
+                {buyers.map((u: any) => {
+                  const display =
+                    [u.firstName, u.lastName].filter(Boolean).join(" ").trim() ||
+                    u.username;
+                  return (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      <span className="flex items-center justify-between w-full gap-4">
+                        <span>{display}</span>
+                        {u.email && (
+                          <span className="text-xs text-muted-foreground ml-2 truncate max-w-[220px]">
+                            {u.email}
+                          </span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Resumo dos dados do comprador (puxados do cadastro) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-200 dark:border-slate-700">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide">
+                <User className="w-3.5 h-3.5" />
+                Nome
+              </div>
+              <p className="text-sm font-medium break-words">{displayBuyerName}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide">
+                <Phone className="w-3.5 h-3.5" />
+                Telefone
+              </div>
+              <p className="text-sm font-medium break-words">{displayBuyerPhone}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide">
+                <Mail className="w-3.5 h-3.5" />
+                E-mail
+              </div>
+              <p className="text-sm font-medium break-words">{displayBuyerEmail}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end pt-1">
+            <Button
+              type="button"
+              onClick={handleSaveBuyer}
+              disabled={updateBuyerMutation.isPending || !selectedBuyerUserId}
+              size="sm"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {updateBuyerMutation.isPending ? "Salvando..." : "Salvar Comprador"}
+            </Button>
           </div>
         </CardContent>
       </Card>

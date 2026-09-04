@@ -84,6 +84,7 @@ export const users = pgTable("users", {
   forceChangePassword: boolean("force_change_password").default(false),
   passwordResetToken: text("password_reset_token"),
   passwordResetExpires: timestamp("password_reset_expires"),
+  phone: text("phone"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -500,6 +501,9 @@ export const purchaseOrders = pgTable("purchase_orders", {
   deliveryAddress: text("delivery_address"),
   contactPerson: text("contact_person"),
   contactPhone: text("contact_phone"),
+  buyerName: text("buyer_name"),
+  buyerPhone: text("buyer_phone"),
+  buyerEmail: text("buyer_email"),
   observations: text("observations"),
   approvedBy: integer("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),

@@ -68,6 +68,58 @@ export function registerPurchaseOrderRoutes(app: Express) {
     res.json(items);
   });
 
+  app.patch("/api/purchase-orders/:id", isAuthenticated, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const { buyerName, buyerPhone, buyerEmail, buyerUserId } = req.body;
+
+    const existing = await storage.getPurchaseOrderById(id);
+    if (!existing) {
+      throw new NotFoundError("Pedido de compra não encontrado");
+    }
+
+    let finalBuyerName = buyerName ?? existing.buyerName ?? null;
+    let finalBuyerPhone = buyerPhone ?? existing.buyerPhone ?? null;
+    let finalBuyerEmail = buyerEmail ?? existing.buyerEmail ?? null;
+
+    // Quando buyerUserId é informado, consulta os dados diretamente do cadastro do usuário
+    if (buyerUserId) {
+      const userIdNum = Number(buyerUserId);
+      if (!isNaN(userIdNum)) {
+        const u = await storage.getUser(userIdNum);
+        if (u) {
+          const firstName = u.firstName ?? "";
+          const lastName = u.lastName ?? "";
+          const fullName = `${firstName} ${lastName}`.trim();
+          finalBuyerName = fullName || u.username || finalBuyerName;
+          finalBuyerEmail = u.email || finalBuyerEmail;
+          // Telefone: campo direto do usuário (phone) - PRIORIDADE
+          // Fallbacks: companies.phone via companyId; purchase_orders.contact_phone
+          if ((u as any).phone) {
+            finalBuyerPhone = (u as any).phone;
+          } else if (u.companyId) {
+            const allCompanies = await storage.getAllCompanies();
+            const company = allCompanies.find((c) => c.id === u.companyId);
+            if (company?.phone) {
+              finalBuyerPhone = company.phone;
+            } else if (existing.contactPhone) {
+              finalBuyerPhone = existing.contactPhone;
+            }
+          } else if (existing.contactPhone) {
+            finalBuyerPhone = existing.contactPhone;
+          }
+        }
+      }
+    }
+
+    const updated = await storage.updatePurchaseOrder(id, {
+      buyerName: finalBuyerName,
+      buyerPhone: finalBuyerPhone,
+      buyerEmail: finalBuyerEmail,
+    });
+
+    res.json(updated);
+  });
+
   app.post(
     "/api/purchase-requests/:id/create-purchase-order",
     isAuthenticated,

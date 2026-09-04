@@ -48,6 +48,22 @@ export class PurchaseOrderService {
     // Fetch the purchase request for cost center data
     const purchaseRequest = await storage.getPurchaseRequestById(purchaseRequestId);
 
+    // Fetch buyer (creator user) data
+    let buyerName: string | null = null;
+    let buyerPhone: string | null = null;
+    let buyerEmail: string | null = null;
+    const buyerUser = await storage.getUser(createdByUserId);
+    if (buyerUser) {
+      buyerName = [buyerUser.firstName, buyerUser.lastName].filter(Boolean).join(" ").trim() || buyerUser.username || null;
+      buyerEmail = buyerUser.email || null;
+      // Prioriza o telefone direto do usuário (users.phone), depois a empresa
+      buyerPhone = (buyerUser as any).phone || null;
+      if (!buyerPhone && buyerUser.companyId) {
+        const company = (await storage.getAllCompanies()).find((c) => c.id === buyerUser.companyId);
+        buyerPhone = company?.phone || null;
+      }
+    }
+
     // Generate order number
     const orderNumber = `PO-${new Date().getFullYear()}-${String(purchaseRequestId).padStart(3, "0")}`;
 
@@ -64,6 +80,9 @@ export class PurchaseOrderService {
       deliveryAddress: null,
       contactPerson: null,
       contactPhone: null,
+      buyerName,
+      buyerPhone,
+      buyerEmail,
       observations: options?.purchaseObservations || null,
       approvedBy: null,
       approvedAt: null,

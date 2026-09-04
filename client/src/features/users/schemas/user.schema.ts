@@ -6,6 +6,7 @@ export const userSchema = z.object({
   password: z.string().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  phone: z.string().optional().nullable(),
   departmentId: z.number().nullable().optional(),
   isBuyer: z.boolean().default(false),
   isApproverA1: z.boolean().default(false),

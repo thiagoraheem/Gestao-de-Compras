@@ -7,7 +7,7 @@ import { Checkbox } from "@/shared/ui/checkbox";
 import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
-import { Crown, Shield, UserCheck, User, Building, Shield as ShieldIcon } from "lucide-react";
+import { Crown, Shield, UserCheck, User, Building, Shield as ShieldIcon, Phone } from "lucide-react";
 import { UseFormReturn } from "react-hook-form";
 import { UserFormData } from "../schemas/user.schema";
 import { apiRequest, handleStandardResponse } from "@/lib/queryClient";
@@ -143,6 +143,23 @@ export function UserFormModal({
                     <FormItem>
                       <FormLabel>Email *</FormLabel>
                       <FormControl><Input {...field} type="email" placeholder="Digite o email" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="phone" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                        Telefone
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value ?? ""}
+                          placeholder="(00) 00000-0000 ou (00) 0000-0000"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
