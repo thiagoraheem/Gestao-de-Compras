@@ -605,6 +605,62 @@ export default function PurchaseCard({
     opacity: isDragging || sortableIsDragging ? 0.5 : canDrag ? 1 : 0.7,
   };
 
+  const parseVal = (v: unknown): number => {
+    if (v === null || v === undefined) return 0;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+    const raw = String(v).trim();
+    if (!raw) return 0;
+    let cleaned = raw.replace(/[^\d,.\-]/g, "");
+    cleaned = cleaned.replace(/(?!^)-/g, "");
+    if (!cleaned) return 0;
+    const hasComma = cleaned.includes(",");
+    const hasDot = cleaned.includes(".");
+    let normalized = cleaned;
+    if (hasComma && hasDot) {
+      const lastComma = normalized.lastIndexOf(",");
+      const lastDot = normalized.lastIndexOf(".");
+      if (lastComma > lastDot) normalized = normalized.replace(/\./g, "").replace(",", ".");
+      else normalized = normalized.replace(/,/g, "");
+    } else if (hasComma && !hasDot) normalized = normalized.replace(",", ".");
+    else if (!hasComma && hasDot) {
+      const dotCount = (normalized.match(/\./g) || []).length;
+      if (dotCount > 1) normalized = normalized.replace(/\./g, "");
+    }
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const valuesDisplay = useMemo(() => {
+    const phasesWithCalculatedValues = new Set<string>([
+      PURCHASE_PHASES.APROVACAO_A2,
+      PURCHASE_PHASES.PEDIDO_COMPRA,
+      PURCHASE_PHASES.RECEBIMENTO,
+      PURCHASE_PHASES.CONF_FISCAL,
+      PURCHASE_PHASES.CONCLUSAO_COMPRA,
+    ]);
+
+    const rawOriginal = parseVal(request.originalValue);
+    const rawFinal = parseVal(request.finalValue);
+    const rawTotal = parseVal(request.totalValue);
+
+    if (phasesWithCalculatedValues.has(phase) && (rawOriginal > 0 || rawFinal > 0)) {
+      const original = rawOriginal > 0 ? rawOriginal : (rawFinal > 0 ? rawFinal : rawTotal);
+      const final = rawFinal > 0 ? rawFinal : rawTotal;
+      return {
+        original,
+        final,
+        showBoth: final > 0 && Math.abs(original - final) > 0.001,
+      };
+    }
+
+    const fallback = rawTotal > 0 ? rawTotal : 0;
+    return {
+      original: fallback,
+      final: fallback,
+      showBoth: false,
+    };
+  }, [request.originalValue, request.finalValue, request.totalValue, phase]);
+
   // Check user permissions for showing certain actions
   const canApproveA1 = user?.isApproverA1 || false;
   const canApproveA2 = user?.isApproverA2 || false;
@@ -918,10 +974,28 @@ export default function PurchaseCard({
               isArchived && "text-slate-500",
             )}
           >
-            {request.totalValue && (
-              <p>
-                <span className="font-medium text-slate-700 dark:text-slate-300">Valor:</span> {formatCurrency(request.totalValue)}
-              </p>
+            {(valuesDisplay.final > 0 || valuesDisplay.original > 0) && (
+              valuesDisplay.showBoth ? (
+                <div className="space-y-0.5">
+                  <p>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">Valor Original:</span>{' '}
+                    <span className="line-through text-slate-500 dark:text-slate-500">
+                      {formatCurrency(valuesDisplay.original)}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-green-700 dark:text-green-400">Valor Final:</span>{' '}
+                    <span className="font-semibold text-green-700 dark:text-green-400">
+                      {formatCurrency(valuesDisplay.final)}
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <p>
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Valor:</span>{' '}
+                  {formatCurrency(valuesDisplay.final > 0 ? valuesDisplay.final : valuesDisplay.original)}
+                </p>
+              )
             )}
 
             {/* Show requester on all cards */}

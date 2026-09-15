@@ -31,7 +31,7 @@ import type {
   User,
   PurchaseRequestWithDetails
 } from "../../shared/schema";
-import { CalculadoraValoresSolicitacao, ItemCalculo } from "../../shared/utils/CalculadoraValoresSolicitacao";
+import { CalculadoraValoresSolicitacao, ItemCalculo, PropostaDesconto } from "../../shared/utils/CalculadoraValoresSolicitacao";
 import { userRepository } from "./user-repository";
 
 // Create aliases for user tables
@@ -182,7 +182,111 @@ export class PurchaseRequestRepository {
       .where(whereClause)
       .orderBy(desc(purchaseRequests.createdAt));
 
-    return requests as any[];
+    // Enrich requests with calculated original/final values (considering discounts and freight)
+    const enrichedRequests = await Promise.all(
+      requests.map(async (request) => {
+        let itemsParaCalculo: ItemCalculo[] = [];
+        let globalDiscount: PropostaDesconto = { tipo: "none", valor: 0 };
+
+        const requestId = request.id;
+        const chosenSupplierId = request.chosenSupplierId;
+
+        let purchaseOrderOriginalDescFound = false;
+
+        try {
+          const poItemsResult = await pool.query(
+            `SELECT poi.unit_price, poi.quantity, poi.total_price
+             FROM purchase_order_items poi 
+             JOIN purchase_orders po ON poi.purchase_order_id = po.id 
+             WHERE po.purchase_request_id = $1`,
+            [requestId]
+          );
+          if (poItemsResult.rows.length > 0) {
+            purchaseOrderOriginalDescFound = true;
+            itemsParaCalculo = poItemsResult.rows.map((row: any) => {
+              const unitPrice = parseFloat(row.unit_price) || 0;
+              const quantity = parseFloat(row.quantity) || 0;
+              const totalPrice = parseFloat(row.total_price) || 0;
+              const valorOriginal = unitPrice * quantity;
+              const descontoItem = Math.max(0, valorOriginal - totalPrice);
+              return {
+                valorOriginal,
+                descontoItem
+              };
+            });
+          }
+        } catch {}
+
+        if (chosenSupplierId) {
+          try {
+            const chosenSupplierQuotationResult = await pool.query(
+              `SELECT sq.id, sq.discount_type, sq.discount_value, sq.includes_freight, sq.freight_value
+               FROM supplier_quotations sq
+               JOIN quotations q ON sq.quotation_id = q.id
+               WHERE q.purchase_request_id = $1 AND sq.supplier_id = $2
+               ORDER BY sq.created_at DESC LIMIT 1`,
+              [requestId, chosenSupplierId]
+            );
+            if (chosenSupplierQuotationResult.rows.length > 0) {
+              const quotation = chosenSupplierQuotationResult.rows[0];
+              globalDiscount = {
+                tipo: quotation.discount_type,
+                valor: parseFloat(quotation.discount_value) || 0
+              };
+
+              if (!purchaseOrderOriginalDescFound) {
+                try {
+                  const itemsRes = await pool.query(
+                    `SELECT original_total_price, discounted_total_price, total_price, discount_percentage, discount_value
+                     FROM supplier_quotation_items
+                     WHERE supplier_quotation_id = $1`,
+                    [quotation.id]
+                  );
+
+                  if (itemsRes.rows.length > 0) {
+                    itemsParaCalculo = itemsRes.rows.map((row: any) => {
+                      let orig = parseFloat(row.original_total_price || '0') || 0;
+                      const final = parseFloat(row.total_price || '0') || 0;
+                      if (orig === 0 || orig < final) orig = final;
+
+                      let descItem = orig - final;
+                      return { valorOriginal: orig, descontoItem: Math.max(0, descItem) };
+                    });
+                  }
+                } catch (err) {}
+              }
+
+              // Aplicar frete no valor final após desconto global (follow the same pattern as approval-a2-phase)
+              const calcSemFrete = CalculadoraValoresSolicitacao.calcularTotais(itemsParaCalculo, globalDiscount);
+              const includesFreight = quotation.includes_freight === true || quotation.includes_freight === 'true';
+              const freightValue = includesFreight ? (parseFloat(quotation.freight_value) || 0) : 0;
+
+              const valorItens = calcSemFrete.valorItens;
+              const valorOriginal = valorItens + freightValue;
+              const valorFinal = calcSemFrete.valorFinal + freightValue;
+
+              return {
+                ...request,
+                originalValue: String(valorOriginal),
+                finalValue: String(valorFinal),
+                // Also update totalValue to be the correct final value
+                totalValue: String(valorFinal > 0 ? valorFinal : parseFloat(request.totalValue || '0')),
+              };
+            }
+          } catch {}
+        }
+
+        // Fallback: if no supplier quotation data, use the existing totalValue for both
+        const fallbackVal = parseFloat(request.totalValue || '0') || 0;
+        return {
+          ...request,
+          originalValue: String(fallbackVal),
+          finalValue: String(fallbackVal),
+        };
+      })
+    );
+
+    return enrichedRequests as any[];
   }
 
   async getPurchaseRequestById(
