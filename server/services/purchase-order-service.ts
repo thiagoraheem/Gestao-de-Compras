@@ -48,15 +48,18 @@ export class PurchaseOrderService {
     // Fetch the purchase request for cost center data
     const purchaseRequest = await storage.getPurchaseRequestById(purchaseRequestId);
 
-    // Fetch buyer (creator user) data
+    // Determina o COMPRADOR: é quem CRIOU a COTAÇÃO (quotation.createdBy),
+    // NÃO quem apertou o botão final (pode ser Aprovador A2, etc.)
+    const buyerUserId = quotation.createdBy ?? createdByUserId;
+
+    // Fetch buyer (creator da cotação) data
     let buyerName: string | null = null;
     let buyerPhone: string | null = null;
     let buyerEmail: string | null = null;
-    const buyerUser = await storage.getUser(createdByUserId);
+    const buyerUser = await storage.getUser(buyerUserId);
     if (buyerUser) {
       buyerName = [buyerUser.firstName, buyerUser.lastName].filter(Boolean).join(" ").trim() || buyerUser.username || null;
       buyerEmail = buyerUser.email || null;
-      // Prioriza o telefone direto do usuário (users.phone), depois a empresa
       buyerPhone = (buyerUser as any).phone || null;
       if (!buyerPhone && buyerUser.companyId) {
         const company = (await storage.getAllCompanies()).find((c) => c.id === buyerUser.companyId);

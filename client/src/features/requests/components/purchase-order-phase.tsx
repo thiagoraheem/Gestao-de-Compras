@@ -110,28 +110,6 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
   // Apenas usuários marcados como comprador
   const buyers = allUsers.filter((u: any) => u.isBuyer === true && u.isActive !== false);
 
-  // Seta o selectedBuyerUserId inicial quando purchaseOrder carrega
-  // Descobre o ID do usuário que "parece ser" o comprador atual (match por email e nome)
-  useEffect(() => {
-    if (!purchaseOrder || !allUsers.length) return;
-    const poEmail = purchaseOrder.buyerEmail;
-    const poName = purchaseOrder.buyerName;
-    // Tenta match por email primeiro (exato)
-    let matched = poEmail ? allUsers.find((u: any) => u.email === poEmail) : null;
-    // Fallback: match por nome completo
-    if (!matched && poName) {
-      matched = allUsers.find((u: any) => {
-        const uName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
-        return uName === poName || u.username === poName;
-      });
-    }
-    // Fallback: createdBy
-    if (!matched && purchaseOrder.createdBy) {
-      matched = allUsers.find((u: any) => u.id === purchaseOrder.createdBy);
-    }
-    setSelectedBuyerUserId(matched ? String(matched.id) : "");
-  }, [purchaseOrder, allUsers]);
-
   // Buscar itens do pedido de compra (não da solicitação)
   const { data: items = [] } = useQuery<any[]>({
     queryKey: [`/api/purchase-orders/${purchaseOrder?.id}/items`],
@@ -152,6 +130,46 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
     queryKey: [`/api/quotations/purchase-request/${request?.id}`],
     enabled: !!request?.id,
   });
+
+  // Seta o selectedBuyerUserId inicial quando purchaseOrder carrega
+  // REGRA: NUNCA seleciona automaticamente quem não tem isBuyer=true
+  // 1) Match por email/nome salvo no PO (se o user for isBuyer)
+  // 2) CRIADOR DA COTAÇÃO (quotation.createdBy) = QUEM REALIZOU a cotação
+  //    - SE esse usuário tiver isBuyer=true
+  // Fallback safety: NÃO usa purchaseOrder.createdBy (pode ser Aprovador A2)
+  useEffect(() => {
+    if (!purchaseOrder || !allUsers.length) return;
+    const poEmail = purchaseOrder.buyerEmail;
+    const poName = purchaseOrder.buyerName;
+
+    // Only consider users with isBuyer=true for auto-selection
+    const isBuyerCheck = (u: any) => u.isBuyer === true;
+
+    // 1) Match por email primeiro (exato) e tem que ser comprador
+    let matched: any = null;
+    if (poEmail) {
+      const m = allUsers.find((u: any) => u.email === poEmail);
+      if (m && isBuyerCheck(m)) matched = m;
+    }
+    // 2) Fallback: match por nome completo e tem que ser comprador
+    if (!matched && poName) {
+      const m = allUsers.find((u: any) => {
+        const uName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+        return uName === poName || u.username === poName;
+      });
+      if (m && isBuyerCheck(m)) matched = m;
+    }
+    // 3) Fallback: CRIADOR DA COTAÇÃO (quotation.createdBy)
+    //    PRIORIDADE ALTA: quem fez a cotação de fato é o comprador real
+    //    Só aceita se for isBuyer
+    if (!matched && quotation?.createdBy) {
+      const m = allUsers.find((u: any) => u.id === quotation.createdBy);
+      if (m && isBuyerCheck(m)) matched = m;
+    }
+    // NOTA: NÃO usamos purchaseOrder.createdBy como fallback de segurança
+    // porque pode ser Aprovador A2 (Bruno Derzi) que não é comprador.
+    setSelectedBuyerUserId(matched ? String(matched.id) : "");
+  }, [purchaseOrder, allUsers, quotation]);
 
   const { data: supplierQuotations = [] } = useQuery<any[]>({
     queryKey: [`/api/quotations/${quotation?.id}/supplier-quotations`],
