@@ -416,6 +416,26 @@ export class ReceiptService {
 
     const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.purchaseRequestId, purchaseRequestId)).limit(1);
 
+    const existingDraft = await db
+      .select()
+      .from(receipts)
+      .where(and(
+        or(
+          order?.id ? eq(receipts.purchaseOrderId, order.id) : sql`1=1`,
+          eq(receipts.purchaseRequestId, purchaseRequestId)
+        ),
+        eq(receipts.status, "rascunho"),
+        eq(receipts.receiptPhase, "recebimento_fisico"),
+        sql`receipt_phase != 'cancelado'`,
+        sql`status != 'cancelado'`
+      ))
+      .orderBy(desc(receipts.createdAt))
+      .limit(1);
+
+    if (existingDraft && existingDraft.length > 0) {
+      return existingDraft[0];
+    }
+
     const [newReceipt] = await db.insert(receipts).values({
       receiptNumber: generateReceiptNumber(),
       purchaseOrderId: order?.id || null,
@@ -496,24 +516,87 @@ export class ReceiptService {
       throw new Error("Informe a quantidade recebida de pelo menos um item.");
     }
 
-    const [newReceipt] = await db.insert(receipts).values({
-      receiptNumber: generateReceiptNumber(),
-      purchaseOrderId: purchaseOrder.id,
-      purchaseRequestId: purchaseRequestId,
-      receivedAt: new Date(),
-      receivedBy: userId,
-      status: "conf_fisica",
-      receiptPhase: "conf_fiscal",
-      observations: observations ? JSON.stringify({ physical: observations }) : null,
-      documentNumber: manualNFNumber || null,
-      documentSeries: manualNFSeries || null,
-      createdAt: new Date(),
-    } as any).returning();
+    const existingDraft = await db
+      .select()
+      .from(receipts)
+      .where(and(
+        eq(receipts.purchaseOrderId, purchaseOrder.id),
+        eq(receipts.status, "rascunho"),
+        eq(receipts.receiptPhase, "recebimento_fisico"),
+        sql`receipt_phase != 'cancelado'`
+      ))
+      .orderBy(desc(receipts.createdAt))
+      .limit(1);
+
+    let targetReceipt: any;
+    const now = new Date();
+
+    if (existingDraft && existingDraft.length > 0) {
+      const draft = existingDraft[0];
+      const [updated] = await db.update(receipts)
+        .set({
+          receivedAt: now,
+          receivedBy: userId,
+          status: "conf_fisica",
+          receiptPhase: "conf_fiscal",
+          observations: observations ? JSON.stringify({ physical: observations }) : null,
+          documentNumber: manualNFNumber || draft.documentNumber || null,
+          documentSeries: manualNFSeries || draft.documentSeries || null,
+          updatedAt: now,
+        } as any)
+        .where(eq(receipts.id, draft.id))
+        .returning();
+      targetReceipt = updated;
+    } else {
+      const fallbackExisting = await db
+        .select()
+        .from(receipts)
+        .where(and(
+          or(eq(receipts.purchaseOrderId, purchaseOrder.id), eq(receipts.purchaseRequestId, purchaseRequestId)),
+          sql`receipt_phase != 'cancelado'`,
+          sql`status != 'cancelado'`
+        ))
+        .orderBy(desc(receipts.createdAt))
+        .limit(1);
+
+      if (fallbackExisting && fallbackExisting.length > 0) {
+        const rec = fallbackExisting[0];
+        const [updated] = await db.update(receipts)
+          .set({
+            receivedAt: now,
+            receivedBy: userId,
+            status: "conf_fisica",
+            receiptPhase: "conf_fiscal",
+            observations: observations ? JSON.stringify({ physical: observations }) : null,
+            documentNumber: manualNFNumber || rec.documentNumber || null,
+            documentSeries: manualNFSeries || rec.documentSeries || null,
+            updatedAt: now,
+          } as any)
+          .where(eq(receipts.id, rec.id))
+          .returning();
+        targetReceipt = updated;
+      } else {
+        const [created] = await db.insert(receipts).values({
+          receiptNumber: generateReceiptNumber(),
+          purchaseOrderId: purchaseOrder.id,
+          purchaseRequestId: purchaseRequestId,
+          receivedAt: now,
+          receivedBy: userId,
+          status: "conf_fisica",
+          receiptPhase: "conf_fiscal",
+          observations: observations ? JSON.stringify({ physical: observations }) : null,
+          documentNumber: manualNFNumber || null,
+          documentSeries: manualNFSeries || null,
+          createdAt: now,
+        } as any).returning();
+        targetReceipt = created;
+      }
+    }
 
     for (const item of itemsToInsert) {
       await db.insert(receiptItems).values({
         ...item,
-        receiptId: newReceipt.id,
+        receiptId: targetReceipt.id,
       } as any);
     }
 
@@ -524,15 +607,15 @@ export class ReceiptService {
 
     try {
       await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data)
-        VALUES (${purchaseRequestId}, ${'recebimento_fisico_confirmado'}, ${'Recebimento físico confirmado'}, ${userId}, ${null}, ${JSON.stringify({ receiptId: newReceipt.id, allFulfilled })}::jsonb )`);
+        VALUES (${purchaseRequestId}, ${'recebimento_fisico_confirmado'}, ${'Recebimento físico confirmado'}, ${userId}, ${null}, ${JSON.stringify({ receiptId: targetReceipt.id, allFulfilled })}::jsonb )`);
     } catch { }
 
     realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
       event: RECEIPT_EVENTS.PHASE_CHANGED,
-      payload: { id: newReceipt.id, receiptPhase: "conf_fiscal", status: "conf_fisica" }
+      payload: { id: targetReceipt.id, receiptPhase: "conf_fiscal", status: "conf_fisica" }
     });
 
-    return { success: true, receipt: newReceipt };
+    return { success: true, receipt: targetReceipt };
   }
 
   async undoPhysicalConference(id: number, userId: number) {

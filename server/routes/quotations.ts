@@ -535,12 +535,66 @@ export function registerQuotationRoutes(app: Express) {
             (ei) => ei.quotationItemId === item.quotationItemId,
           );
 
-          const quotationItems = await storage.getQuotationItems(quotationId);
-          const quotationItem = quotationItems.find(
+          let quotationItemsCache = await storage.getQuotationItems(quotationId);
+          let quotationItem = quotationItemsCache.find(
             (qi) => qi.id === item.quotationItemId,
           );
-          
-          // Use availableQuantity if provided, otherwise fallback to requested quantity
+
+          const isNewOrphanItem = (
+            !quotationItem ||
+            item.quotationItemId == null ||
+            Number.isNaN(Number(item.quotationItemId)) ||
+            Number(item.quotationItemId) <= 0
+          );
+
+          if (isNewOrphanItem) {
+            const qtyForPR = (item.availableQuantity != null && item.availableQuantity !== "")
+              ? String(item.availableQuantity)
+              : "1";
+            const descriptionForPR = (() => {
+              const customDesc = (item as any).customDescription || (item as any).description;
+              if (customDesc && String(customDesc).trim() !== "") {
+                return String(customDesc).trim();
+              }
+              if (item.observations && String(item.observations).trim() !== "") {
+                const firstLine = String(item.observations).split("\n")[0].slice(0, 240);
+                if (firstLine.trim() !== "") return firstLine;
+              }
+              if (item.brand || item.model) {
+                return `Item Manual - ${[item.brand, item.model].filter(Boolean).join(" / ")}`;
+              }
+              return "Item Incluído Manualmente via Cotação";
+            })();
+
+            const newPRItem = await storage.createPurchaseRequestItem({
+              purchaseRequestId: quotation.purchaseRequestId,
+              productCode: (item as any).itemCode || (item as any).productCode || `MANUAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+              description: descriptionForPR,
+              unit: item.confirmedUnit || (item as any).unit || "UN",
+              requestedQuantity: qtyForPR,
+              approvedQuantity: null,
+              stockQuantity: "0",
+              averageMonthlyQuantity: "0",
+              technicalSpecification: item.observations || null,
+              price: null,
+            });
+
+            const newQuotationItem = await storage.createQuotationItem({
+              quotationId: quotationId,
+              purchaseRequestItemId: newPRItem.id,
+              itemCode: (newPRItem as any).productCode || `QI-${newPRItem.id}`,
+              description: descriptionForPR,
+              quantity: qtyForPR,
+              unit: (newPRItem as any).unit || "UN",
+              specifications: item.observations || null,
+              deliveryDeadline: null,
+            });
+
+            item.quotationItemId = newQuotationItem.id;
+            quotationItem = newQuotationItem;
+            quotationItemsCache = await storage.getQuotationItems(quotationId);
+          }
+
           const quantity = (item.availableQuantity != null && item.availableQuantity !== "") 
             ? Number(item.availableQuantity) 
             : Number(quotationItem?.quantity || 1);
@@ -872,31 +926,107 @@ export function registerQuotationRoutes(app: Express) {
 
         // Gravar snapshot de itens aprovados
         await storage.clearApprovedQuotationItems(quotationId);
-        const finalQuotationItems = await storage.getQuotationItems(quotationId);
+        let finalQuotationItems = await storage.getQuotationItems(quotationId);
+        let finalPRItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
         const finalSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
-        const purchaseRequestItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
-        const singlePurchaseRequestItemId =
-          purchaseRequestItems.length === 1 ? purchaseRequestItems[0].id : null;
+        let singlePurchaseRequestItemId =
+          finalPRItems.length === 1 ? finalPRItems[0].id : null;
 
         for (const item of finalSupplierItems) {
-          if (selectedQuotationItemIds.has(item.quotationItemId)) {
-            const qItem = finalQuotationItems.find(qi => qi.id === item.quotationItemId);
-            const resolvedPurchaseRequestItemId = (() => {
-              if (qItem?.purchaseRequestItemId) return qItem.purchaseRequestItemId;
+          let itemQId = Number(item.quotationItemId) || 0;
+
+          const isItemAvailable = item.isAvailable !== false;
+          const selectedExplicitly = selectedQuotationItemIds.has(itemQId);
+          const selectedAsAvailableNew = (
+            !selectedExplicitly &&
+            isItemAvailable &&
+            (itemQId <= 0 || !finalQuotationItems.some(q => q.id === itemQId))
+          );
+          if (selectedExplicitly || selectedAsAvailableNew) {
+            let qItem = finalQuotationItems.find(qi => qi.id === itemQId);
+            let resolvedPRItemId = (qItem?.purchaseRequestItemId as number | undefined) || null;
+
+            if (!qItem || !resolvedPRItemId) {
+              const qtyForCreate = (item.availableQuantity != null && item.availableQuantity !== "")
+                ? String(item.availableQuantity)
+                : qItem?.quantity
+                ? String(qItem.quantity)
+                : "1";
+              const descForCreate = (() => {
+                if (qItem?.description && String(qItem.description).trim() !== "") return String(qItem.description).trim();
+                if (item.observations && String(item.observations).trim() !== "") {
+                  const firstLine = String(item.observations).split("\n")[0].slice(0, 240);
+                  if (firstLine.trim() !== "") return firstLine;
+                }
+                if (item.brand || item.model) {
+                  return `Item Manual - ${[item.brand, item.model].filter(Boolean).join(" / ")}`;
+                }
+                return "Item Incluído Manualmente via Cotação";
+              })();
+
+              let prItem: any = resolvedPRItemId
+                ? finalPRItems.find((p: any) => Number(p.id) === Number(resolvedPRItemId))
+                : null;
+              let qItemLocal: any = qItem;
+
+              if (!prItem) {
+                prItem = await storage.createPurchaseRequestItem({
+                  purchaseRequestId: quotation.purchaseRequestId,
+                  productCode: (qItemLocal as any)?.itemCode || `MANUAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                  description: descForCreate,
+                  unit: item.confirmedUnit || (qItemLocal as any)?.unit || "UN",
+                  requestedQuantity: qtyForCreate,
+                  approvedQuantity: null,
+                  stockQuantity: "0",
+                  averageMonthlyQuantity: "0",
+                  technicalSpecification: item.observations || null,
+                  price: null,
+                });
+                resolvedPRItemId = prItem.id;
+                finalPRItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
+                singlePurchaseRequestItemId = finalPRItems.length === 1 ? finalPRItems[0].id : singlePurchaseRequestItemId;
+              }
+
+              if (!qItemLocal) {
+                qItemLocal = await storage.createQuotationItem({
+                  quotationId: quotationId,
+                  purchaseRequestItemId: resolvedPRItemId!,
+                  itemCode: (prItem as any).productCode || (qItemLocal as any)?.itemCode || `QI-${item.id}`,
+                  description: descForCreate,
+                  quantity: qtyForCreate,
+                  unit: item.confirmedUnit || (qItemLocal as any)?.unit || (prItem as any).unit || "UN",
+                  specifications: item.observations || null,
+                  deliveryDeadline: null,
+                });
+                itemQId = qItemLocal.id;
+                item.quotationItemId = qItemLocal.id;
+                finalQuotationItems = await storage.getQuotationItems(quotationId);
+                selectedQuotationItemIds.add(qItemLocal.id);
+              } else if (!qItemLocal.purchaseRequestItemId) {
+                await (storage as any).updateQuotationItem?.(qItemLocal.id, {
+                  purchaseRequestItemId: resolvedPRItemId!,
+                }) || void 0;
+              }
+            }
+
+            const qItemFinal: any = (finalQuotationItems.find(qi => Number(qi.id) === Number(itemQId)) || qItem);
+
+            const finalResolvedPRId = (() => {
+              if (qItemFinal?.purchaseRequestItemId) return qItemFinal.purchaseRequestItemId;
               if (singlePurchaseRequestItemId) return singlePurchaseRequestItemId;
-              const normalizedDescription = (qItem?.description || "").trim().toLowerCase();
+              const normalizedDescription = (qItemFinal?.description || "").trim().toLowerCase();
               if (normalizedDescription) {
-                const matches = purchaseRequestItems.filter((pi: any) => {
+                const matches = finalPRItems.filter((pi: any) => {
                   const piDesc = (pi?.description || "").trim().toLowerCase();
                   return piDesc === normalizedDescription;
                 });
                 if (matches.length === 1) return matches[0].id;
               }
-              return null;
+              return resolvedPRItemId || null;
             })();
 
-            if (qItem && resolvedPurchaseRequestItemId) {
-              const quantity = item.availableQuantity || qItem.quantity;
+            if (qItemFinal && finalResolvedPRId) {
+              const quantity = item.availableQuantity || qItemFinal.quantity;
               const pct = parseFloat(item.discountPercentage || "0") || 0;
               const fixed = parseFloat(item.discountValue || "0") || 0;
               const discCand = item.discountedTotalPrice ? parseFloat(item.discountedTotalPrice) : NaN;
@@ -906,7 +1036,7 @@ export function registerQuotationRoutes(app: Express) {
               await storage.createApprovedQuotationItem({
                 quotationId: quotationId,
                 supplierQuotationItemId: item.id,
-                purchaseRequestItemId: resolvedPurchaseRequestItemId,
+                purchaseRequestItemId: finalResolvedPRId as number,
                 approvedQuantity: quantity.toString(),
                 unitPrice: item.unitPrice,
                 totalPrice: itemTotalPrice,

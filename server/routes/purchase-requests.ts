@@ -518,53 +518,145 @@ export function registerPurchaseRequestRoutes(app: Express) {
     isAuthenticated,
     async (req, res) => {
       const id = parseInt(req.params.id);
-      const { reportedById, pendencyReason, receivedQuantities } = req.body;
+      const userId = req.session.userId;
+      const { reportedById, pendencyReason } = req.body;
 
       const request = await storage.getPurchaseRequestById(id);
-      // A fase correta durante o Recebimento Físico é "pedido_concluido" (definida em advance-to-receipt).
-      // "recebimento" é mantido por compatibilidade com eventuais registros legados.
-      const validPhasesForReportIssue = ["recebimento", "pedido_concluido"];
+      const validPhasesForReportIssue = ["recebimento", "pedido_concluido", "conf_fiscal", "conclusao_compra"];
       if (!request || !validPhasesForReportIssue.includes(String(request.currentPhase))) {
         throw new ValidationError("Request must be in the receiving phase");
       }
 
-
-      if (receivedQuantities && typeof receivedQuantities === "object") {
-        for (const [key, value] of Object.entries(receivedQuantities)) {
-          const qty = Number(value);
-          if (!Number.isFinite(qty) || qty < 0) {
-            throw new ValidationError(`Quantidade inválida para o item ${key}. Utilize apenas números maiores ou iguais a zero.`);
-          }
-        }
-      }
-
-      // Persist received quantities if provided
       const purchaseOrder = await storage.getPurchaseOrderByRequestId(id);
-      if (purchaseOrder && receivedQuantities) {
-         const poItems = await storage.getPurchaseOrderItems(purchaseOrder.id);
-         
-         for (const it of poItems) {
-            const qty = Number(receivedQuantities[it.id] || 0);
-            if (qty > 0) {
-               const currentQty = Number(it.quantityReceived || 0);
-               await db.update(purchaseOrderItems)
-                 .set({ quantityReceived: String(currentQty + qty) })
-                 .where(eq(purchaseOrderItems.id, it.id));
+
+      await db.transaction(async (tx) => {
+        const erpSynced = await tx
+          .select({ id: receipts.id, locadorReceiptId: receipts.locadorReceiptId, status: receipts.status })
+          .from(receipts)
+          .where(and(
+            or(
+              purchaseOrder?.id ? eq(receipts.purchaseOrderId, purchaseOrder.id) : sql`1=1`,
+              eq(receipts.purchaseRequestId, id)
+            ),
+            or(
+              sql`LOWER(COALESCE(status, '')) IN ('enviado_locador','integrado_locador')`,
+              sql`locador_receipt_id IS NOT NULL`
+            )
+          ));
+
+        if (erpSynced && erpSynced.length > 0) {
+          throw new ValidationError(
+            `Não é possível reportar pendência: existe(m) ${erpSynced.length} recebimento(s) já integrado(s) ao ERP. Solicite desfazer a integração primeiro.`
+          );
+        }
+
+        const receiptsToCancel = await tx
+          .select({
+            id: receipts.id,
+            receiptNumber: receipts.receiptNumber,
+            status: receipts.status,
+            receiptPhase: receipts.receiptPhase,
+          })
+          .from(receipts)
+          .where(and(
+            or(
+              purchaseOrder?.id ? eq(receipts.purchaseOrderId, purchaseOrder.id) : sql`1=1`,
+              eq(receipts.purchaseRequestId, id)
+            ),
+            sql`receipt_phase != 'cancelado'`,
+            sql`COALESCE(status, '') != 'cancelado'`
+          ));
+
+        if (receiptsToCancel && receiptsToCancel.length > 0) {
+          const receiptIds = receiptsToCancel.map((r) => Number(r.id)).filter(Number.isFinite);
+
+          const itemsToRevert = await tx
+            .select({
+              purchaseOrderItemId: receiptItems.purchaseOrderItemId,
+              quantityReceived: receiptItems.quantityReceived,
+            })
+            .from(receiptItems)
+            .where(sql`receipt_id IN ${receiptIds.length > 0 ? sql`(${sql.join(receiptIds, sql`, `)})` : sql`(NULL)`}`);
+
+          if (itemsToRevert && itemsToRevert.length > 0 && purchaseOrder?.id) {
+            const poItems = await tx
+              .select({ id: purchaseOrderItems.id, quantityReceived: purchaseOrderItems.quantityReceived })
+              .from(purchaseOrderItems)
+              .where(eq(purchaseOrderItems.purchaseOrderId, purchaseOrder.id));
+
+            for (const pit of poItems) {
+              const totalToSubtract = itemsToRevert
+                .filter((it) => Number(it.purchaseOrderItemId) === Number(pit.id))
+                .reduce((acc, it) => acc + Number(it.quantityReceived || 0), 0);
+              if (totalToSubtract > 0) {
+                const newQty = Math.max(0, Number(pit.quantityReceived || 0) - totalToSubtract);
+                await tx
+                  .update(purchaseOrderItems)
+                  .set({ quantityReceived: String(newQty) })
+                  .where(eq(purchaseOrderItems.id, pit.id));
+              }
             }
-         }
-      }
+          }
+
+          await tx.delete(receiptAllocations).where(sql`receipt_id IN ${receiptIds.length > 0 ? sql`(${sql.join(receiptIds, sql`, `)})` : sql`(NULL)`}`);
+          await tx.delete(receiptItems).where(sql`receipt_id IN ${receiptIds.length > 0 ? sql`(${sql.join(receiptIds, sql`, `)})` : sql`(NULL)`}`);
+          await tx
+            .update(receipts)
+            .set({
+              receiptPhase: "cancelado",
+              status: "cancelado",
+              updatedAt: new Date(),
+            } as any)
+            .where(sql`id IN ${receiptIds.length > 0 ? sql`(${sql.join(receiptIds, sql`, `)})` : sql`(NULL)`}`);
+        }
+
+        if (purchaseOrder?.id) {
+          await tx
+            .update(purchaseOrderItems)
+            .set({ quantityReceived: "0" } as any)
+            .where(eq(purchaseOrderItems.purchaseOrderId, purchaseOrder.id));
+
+          await tx
+            .update(purchaseOrders)
+            .set({ fulfillmentStatus: "pending", updatedAt: new Date() } as any)
+            .where(eq(purchaseOrders.id, purchaseOrder.id));
+        }
+      });
 
       const updateData = {
         currentPhase: "pedido_compra" as any,
         hasPendency: true,
         pendencyReason: pendencyReason || "Pendência reportada",
         updatedAt: new Date(),
+        sentToPhysicalReceipt: false,
+        physicalReceiptAt: null,
+        physicalReceiptById: null,
+        fiscalReceiptAt: null,
+        fiscalReceiptById: null,
+        receivedById: null,
+        receivedDate: null,
       };
 
       const updatedRequest = await storage.updatePurchaseRequest(
         id,
         updateData,
       );
+
+      try {
+        await db.execute(sql`INSERT INTO audit_logs (purchase_request_id, action_type, action_description, performed_by, before_data, after_data, affected_tables)
+          VALUES (${id}, ${'reportar_pendencia'}, ${'Pendência reportada e retorno para Pedido de Compra (recebimentos cancelados e quantidades revertidas)'}, ${userId || reportedById || 0}, ${JSON.stringify({ phase: request.currentPhase })}::jsonb, ${JSON.stringify({ phase: "pedido_compra", hasPendency: true })}::jsonb, ${sql`ARRAY['receipts', 'receipt_items', 'receipt_allocations', 'purchase_order_items', 'purchase_requests', 'purchase_orders']`} );`);
+      } catch {}
+
+      realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+        event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+        payload: { id, currentPhase: "pedido_compra", updatedAt: updatedRequest.updatedAt },
+      });
+
+      realtime.publish(REALTIME_CHANNELS.RECEIPTS, {
+        event: RECEIPT_EVENTS.PHASE_CHANGED,
+        payload: { purchaseRequestId: id, receiptPhase: "cancelado", status: "cancelado", _bulk: true },
+      });
+
       res.json(updatedRequest);
     },
   );
@@ -634,19 +726,37 @@ export function registerPurchaseRequestRoutes(app: Express) {
 
       const updatedRequest = await storage.updatePurchaseRequest(id, {
         currentPhase: "pedido_concluido",
+        sentToPhysicalReceipt: true,
       });
 
-      await db.insert(receipts).values({
-        receiptNumber: generateReceiptNumber(),
-        purchaseOrderId: purchaseOrder?.id || null,
-        purchaseRequestId: id,
-        status: "rascunho",
-        receiptPhase: "recebimento_fisico",
-        receiptType: (request.category === "servico" ? "servico" : "produto") as any,
-        supplierId: request.chosenSupplierId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any);
+      const existingDraft = await db
+        .select()
+        .from(receipts)
+        .where(and(
+          or(
+            purchaseOrder?.id ? eq(receipts.purchaseOrderId, purchaseOrder.id) : sql`1=1`,
+            eq(receipts.purchaseRequestId, id)
+          ),
+          eq(receipts.status, "rascunho"),
+          eq(receipts.receiptPhase, "recebimento_fisico"),
+          sql`receipt_phase != 'cancelado'`,
+          sql`COALESCE(status, '') != 'cancelado'`
+        ))
+        .limit(1);
+
+      if (!existingDraft || existingDraft.length === 0) {
+        await db.insert(receipts).values({
+          receiptNumber: generateReceiptNumber(),
+          purchaseOrderId: purchaseOrder?.id || null,
+          purchaseRequestId: id,
+          status: "rascunho",
+          receiptPhase: "recebimento_fisico",
+          receiptType: (request.category === "servico" ? "servico" : "produto") as any,
+          supplierId: request.chosenSupplierId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any);
+      }
 
       await storage.createApprovalHistory({
         purchaseRequestId: id,

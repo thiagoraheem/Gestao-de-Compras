@@ -16,6 +16,11 @@ export const updateSupplierQuotationSchema = z.object({
       availableQuantity: z.string().optional(),
       confirmedUnit: z.string().optional(),
       quantityAdjustmentReason: z.string().optional(),
+      description: z.string().optional(),
+      customDescription: z.string().optional(),
+      itemCode: z.string().optional(),
+      productCode: z.string().optional(),
+      unit: z.string().optional(),
     })
     .refine((data) => {
       // Se o produto estiver disponível, o preço unitário é obrigatório

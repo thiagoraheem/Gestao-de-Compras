@@ -1,5 +1,11 @@
 import { storage } from "../storage";
-import { pool } from "../db";
+import { pool, db } from "../db";
+import {
+  approvedQuotationItems,
+  quotationItems as quotationItemsTable,
+  purchaseRequestItems,
+} from "../../shared/schema";
+import { eq, sql, and } from "drizzle-orm";
 
 /**
  * Creates a Purchase Order from an approved supplier quotation.
@@ -69,14 +75,78 @@ export async function createPurchaseOrderFromQuotation(
   const purchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
 
   // Create purchase order items from supplier quotation items
-  const quotationItems = await storage.getQuotationItems(quotation.id);
+  const quotationItemsList = await storage.getQuotationItems(quotation.id);
+  const prItems = await storage.getPurchaseRequestItems(purchaseRequestId, true);
+  const approvedSnapshotItems = await db
+    .select({
+      id: approvedQuotationItems.id,
+      supplierQuotationItemId: approvedQuotationItems.supplierQuotationItemId,
+      purchaseRequestItemId: approvedQuotationItems.purchaseRequestItemId,
+    })
+    .from(approvedQuotationItems)
+    .where(eq(approvedQuotationItems.quotationId, quotation.id));
   let itemsTotal = 0;
 
   for (const si of supplierQuotationItems) {
     if (si.isAvailable === false) continue;
 
-    const qi = quotationItems.find((q) => q.id === si.quotationItemId);
-    const description = qi?.description || "";
+    let qi: any = quotationItemsList.find((q: any) => Number(q.id) === Number(si.quotationItemId));
+
+    if (!qi) {
+      const snapshotMatch = approvedSnapshotItems.find(
+        (s) => Number(s.supplierQuotationItemId) === Number(si.id),
+      );
+      if (snapshotMatch?.purchaseRequestItemId) {
+        const prItemMatch = prItems.find(
+          (p: any) => Number(p.id) === Number(snapshotMatch.purchaseRequestItemId),
+        );
+        if (prItemMatch) {
+          qi = {
+            id: 0,
+            quotationId: quotation.id,
+            purchaseRequestItemId: prItemMatch.id,
+            itemCode: prItemMatch.productCode || `ITEM-${si.id}`,
+            description: prItemMatch.description || "",
+            quantity: prItemMatch.requestedQuantity || si.availableQuantity || "1",
+            unit: prItemMatch.unit || si.confirmedUnit || "UN",
+            specifications: prItemMatch.technicalSpecification || "",
+            deliveryDeadline: null,
+          } as any;
+        }
+      }
+    }
+
+    if (!qi && si.quotationItemId && Number(si.quotationItemId) > 0) {
+      const lookupQi = await db
+        .select()
+        .from(quotationItemsTable)
+        .where(eq(quotationItemsTable.id, Number(si.quotationItemId)))
+        .limit(1);
+      if (lookupQi && lookupQi.length > 0) qi = lookupQi[0] as any;
+    }
+
+    const description = (() => {
+      if (qi?.description && String(qi.description).trim() !== "") return qi.description;
+      const prFromQi = qi?.purchaseRequestItemId
+        ? prItems.find((p: any) => Number(p.id) === Number(qi.purchaseRequestItemId))
+        : null;
+      if (prFromQi?.description) return prFromQi.description;
+      const prFromSnapshot = approvedSnapshotItems
+        .filter((s) => Number(s.supplierQuotationItemId) === Number(si.id))
+        .map((s) => prItems.find((p: any) => Number(p.id) === Number(s.purchaseRequestItemId)))
+        .find(Boolean) as any;
+      if (prFromSnapshot?.description) return prFromSnapshot.description;
+      if (si.observations && si.observations.trim() !== "") {
+        const short = si.observations.split("\n")[0].slice(0, 240);
+        if (short.trim() !== "") return short;
+      }
+      const manualLabel =
+        si.brand || si.model
+          ? `Item Manual - ${[si.brand, si.model].filter(Boolean).join(" / ")}`
+          : null;
+      return manualLabel || "Item Incluído Manualmente";
+    })();
+
     const unit = si.confirmedUnit || qi?.unit || "UN";
     const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
     const unitPrice = si.unitPrice || "0";
@@ -96,7 +166,7 @@ export async function createPurchaseOrderFromQuotation(
 
     const purchaseOrderItemData = {
       purchaseOrderId: purchaseOrder.id,
-      itemCode: qi?.itemCode || `ITEM-${si.id}`,
+      itemCode: qi?.itemCode || (si.brand ? `BRAND-${si.id}` : `ITEM-${si.id}`),
       description,
       quantity,
       unit,
