@@ -192,6 +192,8 @@ export class PurchaseRequestRepository {
         const chosenSupplierId = request.chosenSupplierId;
 
         let purchaseOrderOriginalDescFound = false;
+        let includesFreight = false;
+        let freightValue = 0;
 
         try {
           const poItemsResult = await pool.query(
@@ -234,6 +236,9 @@ export class PurchaseRequestRepository {
                 valor: parseFloat(quotation.discount_value) || 0
               };
 
+              includesFreight = quotation.includes_freight === true || quotation.includes_freight === 'true';
+              freightValue = includesFreight ? (parseFloat(quotation.freight_value) || 0) : 0;
+
               if (!purchaseOrderOriginalDescFound) {
                 try {
                   const itemsRes = await pool.query(
@@ -255,28 +260,29 @@ export class PurchaseRequestRepository {
                   }
                 } catch (err) {}
               }
-
-              // Aplicar frete no valor final após desconto global (follow the same pattern as approval-a2-phase)
-              const calcSemFrete = CalculadoraValoresSolicitacao.calcularTotais(itemsParaCalculo, globalDiscount);
-              const includesFreight = quotation.includes_freight === true || quotation.includes_freight === 'true';
-              const freightValue = includesFreight ? (parseFloat(quotation.freight_value) || 0) : 0;
-
-              const valorItens = calcSemFrete.valorItens;
-              const valorOriginal = valorItens + freightValue;
-              const valorFinal = calcSemFrete.valorFinal + freightValue;
-
-              return {
-                ...request,
-                originalValue: String(valorOriginal),
-                finalValue: String(valorFinal),
-                // Also update totalValue to be the correct final value
-                totalValue: String(valorFinal > 0 ? valorFinal : parseFloat(request.totalValue || '0')),
-              };
             }
           } catch {}
         }
 
-        // Fallback: if no supplier quotation data, use the existing totalValue for both
+        if (itemsParaCalculo.length > 0) {
+          try {
+            // Aplicar frete no valor final após desconto global (follow the same pattern as approval-a2-phase)
+            const calcSemFrete = CalculadoraValoresSolicitacao.calcularTotais(itemsParaCalculo, globalDiscount);
+            const valorItens = calcSemFrete.valorItens;
+            const valorOriginal = valorItens + freightValue;
+            const valorFinal = calcSemFrete.valorFinal + freightValue;
+
+            return {
+              ...request,
+              originalValue: String(valorOriginal),
+              finalValue: String(valorFinal),
+              // Also update totalValue to be the correct final value
+              totalValue: String(valorFinal > 0 ? valorFinal : parseFloat(request.totalValue || '0')),
+            };
+          } catch {}
+        }
+
+        // Fallback: if no calculation could be performed, use the existing totalValue for both
         const fallbackVal = parseFloat(request.totalValue || '0') || 0;
         return {
           ...request,
