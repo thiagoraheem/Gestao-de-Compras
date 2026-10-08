@@ -1,9 +1,31 @@
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const g = globalThis as any;
+const globalsFilename: string | undefined =
+  typeof g.__filename === "string" ? g.__filename : undefined;
+const globalsDirname: string | undefined =
+  typeof g.__dirname === "string" ? g.__dirname : undefined;
+
+let resolvedFilename: string;
+let resolvedDirname: string;
+
+try {
+  const metaUrl = g.import?.meta?.url
+    ?? (globalsFilename ? pathToFileURL(globalsFilename).href : undefined);
+  if (typeof metaUrl === "string" && metaUrl) {
+    resolvedFilename = fileURLToPath(metaUrl);
+  } else if (globalsFilename) {
+    resolvedFilename = globalsFilename;
+  } else {
+    resolvedFilename = path.resolve(process.cwd(), "server", "services", "template-service.ts");
+  }
+  resolvedDirname = path.dirname(resolvedFilename);
+} catch {
+  resolvedFilename = globalsFilename ?? path.resolve(process.cwd(), "server", "services", "template-service.ts");
+  resolvedDirname = globalsDirname ?? path.dirname(resolvedFilename);
+}
 
 class TemplateService {
   private templates: Map<string, string> = new Map();
@@ -25,8 +47,8 @@ class TemplateService {
       // we will copy templates to dist/templates
       const isProduction = process.env.NODE_ENV === "production";
       const templatesDir = isProduction
-        ? path.join(__dirname, "templates")
-        : path.join(__dirname, "..", "templates");
+        ? path.join(resolvedDirname, "templates")
+        : path.join(resolvedDirname, "..", "templates");
 
       const fullPath = path.join(templatesDir, `${templatePath}.html`);
       try {

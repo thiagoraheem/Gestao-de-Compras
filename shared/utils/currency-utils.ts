@@ -1,3 +1,28 @@
+// ============================================================
+// SUPORTE MULTI-MOEDA — fonte ÚNICA de verdade para moedas suportadas
+// ============================================================
+//
+// Esta lista é a FONTE ÚNICA (single source of truth) para todas as
+// moedas aceitas no processo de compras a partir da fase Cotação.
+//
+// Sólides (fases Solicitação / A1) e Recebimento / Conferência Fiscal
+// operam EXCLUSIVAMENTE em BRL por construção — ver:
+//   - shared/schema.ts (receipts e receipt_items não possuem
+//     currency_code / exchange_rate / *Orig)
+//   - server/routes/receipts.ts L598-894 (payload ERP 100% BRL)
+//
+// Fases que usam estas constantes: Cotação, Aprovação A2, Pedido de
+// Compra, Kanban, Conclusão e PDFs (Pedido e A2).
+//
+// EXPANSÃO FUTURA (T5 / roadmap de internacionalização):
+// Para adicionar novas moedas (Ex.: JPY, CLP, ARS, MXN, CNY), BASTA
+// adicionar a entrada abaixo e, se necessário, ajustar a formatação
+// em `formatCurrencyIn` para o número de casas decimais desejado
+// (por padrão 2). Após adicionar nesta lista, os selects de moeda
+// em client/features/quotations e admin/currency-rates vão incluir
+// a nova moeda automaticamente via re-export em
+// client/src/lib/currency.ts.
+// ============================================================
 export const SUPPORTED_CURRENCIES = ['BRL', 'USD', 'EUR', 'GBP'] as const;
 
 export type CurrencyCode = typeof SUPPORTED_CURRENCIES[number];

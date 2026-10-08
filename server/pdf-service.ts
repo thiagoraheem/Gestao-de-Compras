@@ -902,6 +902,29 @@ export class PDFService {
       const unitBrlStored = Number((item as any).unitPriceBrl) || 0;
       const totalBrlStored = Number((item as any).totalPriceBrl) || 0;
 
+      // --------------------------------------------------------------------------------------
+      // DETECÇÃO AUTOMÁTICA: Modo Legado (pré-correção 07/10) vs Modo Novo (padrão BRL-FIRST)
+      //
+      // Contexto (definitivo, definido em mensagem 21):
+      //    * DEPOIS da correção: os 4 locais de criação do Pedido de Compra (approval-rules
+      //      buildPurchaseOrderItemsFromApprovedSnapshot + fallback, purchase-order-factory e
+      //      purchase-order-service) GRAVAM SEMPRE purchase_order_items.unitPrice = BRL.
+      //      Nesse modo, "unitPriceBrl" é apenas um campo redundante com o mesmo valor.
+      //    * ANTES da correção (pedidos legados como SOL-975 criados ANTES da correção):
+      //      unitPrice = moeda ORIGINAL e unitPriceBrl = BRL convertido. Esses são os
+      //      pedidos que o usuário pode "reprocessar" retornando para Aprovação A2.
+      //
+      // Heurística:
+      //    Se isForeign === true E unitBrlStored > 0 E a diferença entre unitBrlStored (BRL
+      //    armazenado) e unitMain (campo principal) for maior que 0.0001 (1 décimo de
+      //    centavo após HALF_UP arredondamento em 4 decimais), consideramos o registro como
+      //    "Modo Legado (Orig-Primeiro)". Caso contrário, "Modo Novo (BRL-Primeiro)".
+      //
+      // Valores de retorno (sempre normalizados):
+      //    * unitPriceBrl, totalPriceBrl: valor de referência PRINCIPAL (BRL)
+      //    * unitPriceOrig, totalPriceOrig: moeda ORIGINAL (para exibição em parênteses)
+      //    * itemDiscountBrl e itemDiscountOrig: desconto item-a-item também normalizado
+      // --------------------------------------------------------------------------------------
       const isLegacyOrigMode = isForeign && unitBrlStored > 0 && Math.abs(unitBrlStored - unitMain) > 0.0001;
 
       const unitPriceBrl = isForeign
@@ -950,6 +973,7 @@ export class PDFService {
         originalUnitPriceOrig,
         itemDiscountBrl,
         itemDiscountOrig,
+        isLegacyOrigMode,
       };
     };
 

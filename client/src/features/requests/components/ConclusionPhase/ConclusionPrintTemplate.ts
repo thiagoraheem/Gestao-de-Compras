@@ -10,7 +10,42 @@ export interface PrintTemplateProps {
   supplierQuotationItems: any[];
   completeTimeline: any[];
   getItemStatus: (item: any) => string;
+  currencyCode?: string;
+  exchangeRate?: number;
 }
+
+const SUPPORTED_LABELS: Record<string, string> = {
+  BRL: 'Real Brasileiro',
+  USD: 'Dólar Americano',
+  EUR: 'Euro',
+  GBP: 'Libra Esterlina',
+};
+
+const SUPPORTED_SYMBOLS: Record<string, string> = {
+  BRL: 'R$',
+  USD: 'US$',
+  EUR: '€',
+  GBP: '£',
+};
+
+const formatWithSymbol = (value: number | string, currencyCode: string = 'BRL') => {
+  const num = typeof value === 'string' ? parseFloat(value) : value || 0;
+  const upper = currencyCode.toUpperCase();
+  try {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: upper }).format(num);
+  } catch {
+    const sym = SUPPORTED_SYMBOLS[upper] || SUPPORTED_SYMBOLS.BRL;
+    return `${sym} ${num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+};
+
+const formatDualBrlFirst = (brlValue: number | string, originalValue: number | string, currencyCode: string = 'BRL'): string => {
+  const upper = currencyCode.toUpperCase();
+  if (upper === 'BRL') {
+    return formatWithSymbol(brlValue, 'BRL');
+  }
+  return `${formatWithSymbol(brlValue, 'BRL')} (${formatWithSymbol(originalValue, upper)})`;
+};
 
 export const generatePrintableHTML = ({
   request,
@@ -23,12 +58,23 @@ export const generatePrintableHTML = ({
   items,
   supplierQuotationItems,
   completeTimeline,
-  getItemStatus
+  getItemStatus,
+  currencyCode,
+  exchangeRate,
 }: PrintTemplateProps) => {
-  const formatCurrency = (value: number | string) => {
-    const num = typeof value === 'string' ? parseFloat(value) : value;
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num || 0);
+  const rawCode = (currencyCode || (request as any)?.currencyCode || (selectedSupplier as any)?.currencyCode || 'BRL').toUpperCase();
+  const rateNum = Number(exchangeRate ?? (request as any)?.exchangeRate ?? (selectedSupplier as any)?.exchangeRate ?? 0) || 0;
+  const isForeign = rawCode !== 'BRL' && rateNum > 0;
+  const label = SUPPORTED_LABELS[rawCode] || rawCode;
+
+  const toOrigFromBrl = (brl: number | string): number => {
+    const brlNum = typeof brl === 'string' ? parseFloat(brl) : brl || 0;
+    if (!isForeign || rateNum === 0) return brlNum;
+    return brlNum / rateNum;
   };
+
+  const formatCurrency = (value: number | string) =>
+    formatDualBrlFirst(value, toOrigFromBrl(value), rawCode);
 
   const formatDate = (date: string | Date | null) => {
     if (!date) return 'N/A';
@@ -46,6 +92,14 @@ export const generatePrintableHTML = ({
       return 'N/A';
     }
   };
+
+  const currencyNoteHtml = isForeign
+    ? `<div style="font-size: 11px; color: #3730a3; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 8px 12px; margin-bottom: 20px;">
+         <strong>🌍 Compra Internacional:</strong> valores originalmente negociados em <strong>${label} (${rawCode})</strong>.
+         Taxa de câmbio aplicada: <strong>1 ${rawCode} = ${formatWithSymbol(rateNum, 'BRL').replace('R$', 'R$ ')}</strong>.
+         Valores abaixo mostram <strong>BRL primeiro</strong> como referência principal.
+       </div>`
+    : '';
 
   return `
   <!DOCTYPE html>
@@ -67,7 +121,7 @@ export const generatePrintableHTML = ({
       }
       .header { 
         text-align: center; 
-        margin-bottom: 30px; 
+        margin-bottom: 20px; 
         border-bottom: 2px solid #e5e7eb; 
         padding-bottom: 20px; 
       }
@@ -85,12 +139,12 @@ export const generatePrintableHTML = ({
         display: grid; 
         grid-template-columns: repeat(3, 1fr); 
         gap: 20px; 
-        margin-bottom: 30px; 
+        margin-bottom: 24px; 
       }
       .metric-card { 
         border: 1px solid #e5e7eb; 
         border-radius: 8px; 
-        padding: 20px; 
+        padding: 16px; 
         text-align: center; 
       }
       .metric-label { 
@@ -100,33 +154,35 @@ export const generatePrintableHTML = ({
         margin-bottom: 5px; 
       }
       .metric-value { 
-        font-size: 20px; 
+        font-size: 18px; 
         font-weight: bold; 
         color: #111827; 
+        line-height: 1.3;
+        white-space: pre-wrap;
       }
       .section { 
-        margin-bottom: 30px; 
+        margin-bottom: 24px; 
         border: 1px solid #e5e7eb; 
         border-radius: 8px; 
         overflow: hidden; 
       }
       .section-header { 
         background: #f9fafb; 
-        padding: 15px 20px; 
+        padding: 12px 16px; 
         border-bottom: 1px solid #e5e7eb; 
         font-weight: 600; 
-        font-size: 16px; 
+        font-size: 15px; 
       }
       .section-content { 
-        padding: 20px; 
+        padding: 16px; 
       }
       .grid { 
         display: grid; 
         grid-template-columns: repeat(3, 1fr); 
-        gap: 20px; 
+        gap: 16px; 
       }
       .field { 
-        margin-bottom: 15px; 
+        margin-bottom: 12px; 
       }
       .field-label { 
         font-size: 12px; 
@@ -135,18 +191,19 @@ export const generatePrintableHTML = ({
         margin-bottom: 3px; 
       }
       .field-value { 
-        font-size: 14px; 
+        font-size: 13px; 
         color: #111827; 
         font-weight: 500; 
+        white-space: pre-wrap;
       }
       .table { 
         width: 100%; 
         border-collapse: collapse; 
-        margin-top: 15px; 
+        margin-top: 12px; 
       }
       .table th, .table td { 
         border: 1px solid #e5e7eb; 
-        padding: 8px 12px; 
+        padding: 8px 10px; 
         text-align: left; 
       }
       .table th { 
@@ -155,7 +212,8 @@ export const generatePrintableHTML = ({
         font-size: 12px; 
       }
       .table td { 
-        font-size: 13px; 
+        font-size: 12px; 
+        vertical-align: top;
       }
       .text-right { 
         text-align: right; 
@@ -182,7 +240,7 @@ export const generatePrintableHTML = ({
       .status-complete {
         background: #dcfce7;
         color: #166534;
-        padding: 15px;
+        padding: 12px;
         border-radius: 8px;
         text-align: center;
         font-weight: 600;
@@ -194,6 +252,8 @@ export const generatePrintableHTML = ({
       <h1>Conclusão da Compra</h1>
       <p>Solicitação ${request.requestNumber} • ${formatDate(new Date())}</p>
     </div>
+
+    ${currencyNoteHtml}
 
     <div class="metrics">
       <div class="metric-card">
@@ -263,7 +323,7 @@ export const generatePrintableHTML = ({
             </div>
           </div>
         </div>
-        <div class="field" style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+        <div class="field" style="margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 12px;">
           <div class="field-label">Justificativa</div>
           <div class="field-value">${request.justification}</div>
         </div>
@@ -352,19 +412,19 @@ export const generatePrintableHTML = ({
             sqi.quotationItemId === item.id;
         });
 
-        const unitPrice = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
+        const unitPriceBrl = supplierItem ? parseFloat(supplierItem.unitPrice) || 0 : 0;
         const quantity = parseFloat(item.requestedQuantity) || 0;
-        const total = quantity * unitPrice;
+        const totalBrl = quantity * unitPriceBrl;
         const status = getItemStatus(item);
 
         return `
                 <tr>
                   <td>${item.description}</td>
                   <td>${item.unit}</td>
-                  <td class="text-right">${quantity}</td>
-                  <td class="text-right">${quantity}</td>
-                  <td class="text-right">${formatCurrency(unitPrice)}</td>
-                  <td class="text-right" style="font-weight: 600;">${formatCurrency(total)}</td>
+                  <td class="text-right">${quantity.toLocaleString('pt-BR')}</td>
+                  <td class="text-right">${quantity.toLocaleString('pt-BR')}</td>
+                  <td class="text-right">${formatCurrency(unitPriceBrl)}</td>
+                  <td class="text-right" style="font-weight: 600;">${formatCurrency(totalBrl)}</td>
                   <td class="text-center">
                     <span class="badge ${status === 'received' ? 'badge-success' : 'badge-outline'}">
                       ${status === 'received' ? 'Recebido' : 'Pendente'}

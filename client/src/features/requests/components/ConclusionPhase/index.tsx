@@ -61,7 +61,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { formatCurrencyIn, normalizeCurrencyCode, CURRENCY_LABELS, formatDualCurrency } from "@/lib/currency";
+import { formatCurrencyIn, normalizeCurrencyCode, CURRENCY_LABELS, formatDualCurrency, formatDualCurrencyBrlFirst } from "@/lib/currency";
 
 const archiveSchema = z.object({
   conclusionObservations: z.string().optional(),
@@ -134,18 +134,18 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
 
   const fmt2 = (orig: number, brl: number): string => {
     if (!isForeign) return brl.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const origFmt = formatCurrencyIn(currencyCodeNorm, orig, 2);
     const brlFmt = formatCurrencyIn('BRL', brl, 2);
-    return `${origFmt}  (${brlFmt})`;
+    const origFmt = formatCurrencyIn(currencyCodeNorm, orig, 2);
+    return `${brlFmt}  (${origFmt})`;
   };
 
   const fmtBRL2 = (brl: number): string => fmt2(toOrig(brl), brl);
 
   const fmt4 = (orig: number, brl: number): string => {
     if (!isForeign) return brl.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 });
-    const origFmt = formatCurrencyIn(currencyCodeNorm, orig, 4);
     const brlFmt = formatCurrencyIn('BRL', brl, 4);
-    return `${origFmt}  (${brlFmt})`;
+    const origFmt = formatCurrencyIn(currencyCodeNorm, orig, 4);
+    return `${brlFmt}  (${origFmt})`;
   };
 
   const fmtBRL4 = (brl: number): string => fmt4(toOrig(brl), brl);
@@ -306,7 +306,9 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
       items,
       supplierQuotationItems,
       completeTimeline,
-      getItemStatus
+      getItemStatus,
+      currencyCode: currencyCodeNorm,
+      exchangeRate: exchangeRateNum,
     });
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -1196,7 +1198,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                         {(() => {
                           const brlVal = parseFloat(selectedSupplierQuotation.totalValue || '0') || 0;
                           const origVal = toOrig(brlVal);
-                          return formatDualCurrency(origVal, brlVal, currencyCodeNorm);
+                          return formatDualCurrencyBrlFirst(origVal, brlVal, currencyCodeNorm);
                         })()}
                       </p>
                     </div>
@@ -1241,7 +1243,7 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                         {(() => {
                           const brlVal = parseFloat(purchaseOrder.totalValue || '0') || 0;
                           const origVal = toOrig(brlVal);
-                          return formatDualCurrency(origVal, brlVal, currencyCodeNorm);
+                          return formatDualCurrencyBrlFirst(origVal, brlVal, currencyCodeNorm);
                         })()}
                       </p>
                     </div>

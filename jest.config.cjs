@@ -11,6 +11,9 @@ module.exports = {
         "ts-jest": {
           tsconfig: {
             jsx: "react-jsx",
+            module: "node16",
+            moduleResolution: "node16",
+            esModuleInterop: true,
           },
         },
       },
@@ -28,6 +31,9 @@ module.exports = {
         "ts-jest": {
           tsconfig: {
             jsx: "react-jsx",
+            module: "node16",
+            moduleResolution: "node16",
+            esModuleInterop: true,
           },
         },
       },
