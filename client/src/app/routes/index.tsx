@@ -27,6 +27,7 @@ import AdminCleanupPage from "@/features/admin/pages/AdminCleanupPage";
 import AdminSuperUser from "@/features/admin/super-user";
 import AdminApprovalConfig from "@/features/admin/approval-config";
 import AdminLocadorConfig from "@/features/admin/locador-config";
+import AdminCurrencyRatesPage from "@/features/admin/currency-rates";
 import DashboardPage from "@/features/dashboard";
 import UserManualPage from "@/shared/pages/UserManualPage";
 import PurchaseRequestsReportPage from "@/features/reports/pages/PurchaseRequestsReportPage";
@@ -146,6 +147,11 @@ export function AppRoutes() {
         <Route path="/admin/locador-config">
           <AdminRoute>
             <AdminLocadorConfig />
+          </AdminRoute>
+        </Route>
+        <Route path="/admin/currency-rates">
+          <AdminRoute>
+            <AdminCurrencyRatesPage />
           </AdminRoute>
         </Route>
         <Route path="/profile" component={ProfilePage} />

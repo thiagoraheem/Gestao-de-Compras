@@ -54,7 +54,7 @@ export function registerPurchaseRequestRoutes(app: Express) {
       : undefined;
     const userId = req.session.userId;
     const user = userId ? await storage.getUser(userId) : undefined;
-    const requests = await storage.getAllPurchaseRequests(companyId, user);
+    const requests = await storage.getPurchaseRequestsForBoard(companyId, user);
     res.json(requests);
   });
 
@@ -927,6 +927,51 @@ export function registerPurchaseRequestRoutes(app: Express) {
             error: err.message,
             blockedByReceipts: true,
             receiptsWithNF: err.receiptsWithNF || [],
+          });
+        }
+        throw err;
+      }
+    },
+  );
+
+  // Retornar solicitação para Aprovação A2 (exclui PO antigo e recria quando re-aprovado)
+  app.post(
+    "/api/purchase-requests/:id/return-to-approval-a2",
+    isAuthenticated,
+    isAdminOrBuyer,
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) throw new ValidationError("ID inválido");
+
+      const schema = z.object({
+        reason: z.string().min(1, "A justificativa é obrigatória para retornar para Aprovação A2"),
+      });
+
+      const { reason } = schema.parse(req.body);
+      const userId = req.session.userId!;
+
+      try {
+        const updated = await workflowService.returnToApprovalA2(id, reason, userId);
+
+        await auditService.log({
+          purchaseRequestId: id,
+          actionType: "return_to_approval_a2",
+          actionDescription: `Solicitação retornada para Aprovação A2 para recriação do Pedido de Compra. Motivo: ${reason}`,
+          performedBy: userId,
+          affectedTables: ["purchase_requests", "purchase_orders", "purchase_order_items", "receipts"],
+        });
+
+        realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+          event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+          payload: { id, currentPhase: "aprovacao_a2", updatedAt: new Date() },
+        });
+
+        res.json(updated);
+      } catch (err: any) {
+        if (err instanceof ValidationError) {
+          return res.status(409).json({
+            error: err.message,
+            blockedByReceipts: err.message.includes("recebimento") || err.message.includes("Nota Fiscal"),
           });
         }
         throw err;

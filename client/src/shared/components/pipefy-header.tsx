@@ -127,6 +127,7 @@ export default function PipefyHeader() {
         { label: "Locais de Entrega", href: "/delivery-locations", icon: <MapPin className="w-4 h-4" /> },
         { label: "Empresas", href: "/companies", icon: <Building className="w-4 h-4" /> },
         { label: "Unidades de Medida", href: "/units-of-measure", icon: <Ruler className="w-4 h-4" /> },
+        { label: "Cotações de Moeda", href: "/admin/currency-rates", icon: <DollarSign className="w-4 h-4" /> },
         { label: "Configuração de Aprovação", href: "/admin/approval-config", icon: <Settings className="w-4 h-4" /> },
         { label: "Limpeza de Dados", href: "/admin/cleanup", icon: <Database className="w-4 h-4" /> },
         { label: "Super Usuário", href: "/admin/super-user", icon: <Settings className="w-4 h-4" /> }

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/shared/ui/dialog";
+import { formatDualCurrency, normalizeCurrencyCode } from "@/lib/currency";
 
 interface SupplierComparisonReadonlyProps {
   quotationId: number;
@@ -165,24 +166,39 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                         <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                           <div className="flex items-center gap-2">
                             <DollarSign className="h-4 w-4 text-green-600 dark:text-green-300" />
-                            <span className="text-sm font-medium">Valor Total</span>
+                            <span className="text-sm font-medium">
+                              Total da Proposta
+                              {(() => {
+                                const sCode = normalizeCurrencyCode((supplierData as any)?.currencyCode);
+                                if (sCode !== 'BRL') {
+                                  return (
+                                    <span className="ml-1 text-xs text-green-700 dark:text-green-400/70">
+                                      ({sCode})
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </span>
                           </div>
-                          <span className="text-lg font-bold text-green-600 dark:text-green-300">
+                          <span className="text-lg font-bold text-green-600 dark:text-green-300 whitespace-pre-wrap text-right">
                             {(() => {
-                              // Calcular valor total dinamicamente para garantir consistência com o desconto e frete
+                              const sq = supplierData as any;
+                              const storedFinalBrl = Number(sq.finalValueBrl || sq.totalValueBrl || 0);
+                              const storedFinalOrig = Number(sq.finalValue || sq.totalValue || 0);
+                              if (storedFinalBrl > 0 || storedFinalOrig > 0) {
+                                return formatDualCurrency(storedFinalOrig, storedFinalBrl, sq.currencyCode);
+                              }
                               const subtotal = supplierData.items.reduce((sum, item) => sum + (Number(item.discountedTotalPrice) || Number(item.totalPrice) || 0), 0);
-                              
                               let discountAmount = 0;
                               if (supplierData.discountType === 'percentage' && supplierData.discountValue) {
                                 discountAmount = (subtotal * Number(supplierData.discountValue)) / 100;
                               } else if (supplierData.discountType === 'fixed' && supplierData.discountValue) {
                                 discountAmount = Number(supplierData.discountValue);
                               }
-                              
                               const freight = supplierData.includesFreight ? Number(supplierData.freightValue || 0) : 0;
                               const finalValue = Math.max(0, subtotal - discountAmount) + freight;
-                              
-                              return `R$ ${finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+                              return formatDualCurrency(finalValue, Number(sq.totalValueBrl || finalValue), sq.currencyCode);
                             })()}
                           </span>
                         </div>
@@ -212,10 +228,14 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                         {(supplierData.discountType && supplierData.discountType !== 'none' && supplierData.discountValue) && (
                           <div>
                             <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Desconto da Proposta:</span>
-                            <p className="text-sm mt-1 text-green-600 dark:text-green-300 font-medium">
+                            <p className="text-sm mt-1 text-green-600 dark:text-green-300 font-medium whitespace-pre-wrap">
                               {supplierData.discountType === 'percentage'
                                 ? `${supplierData.discountValue}%`
-                                : `R$ ${Number(supplierData.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                                : formatDualCurrency(
+                                    supplierData.discountValue,
+                                    (supplierData as any).discountValueBrl,
+                                    (supplierData as any).currencyCode
+                                  )
                               }
                             </p>
                           </div>
@@ -227,10 +247,14 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                             <Truck className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                             <span className="text-sm font-medium">Frete</span>
                           </div>
-                          <div className="text-sm">
+                          <div className="text-sm text-right">
                             {supplierData.includesFreight ? (
-                              <span className="text-blue-600 dark:text-blue-300 font-medium">
-                                R$ {Number(supplierData.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                              <span className="text-blue-600 dark:text-blue-300 font-medium whitespace-pre-wrap">
+                                {formatDualCurrency(
+                                  supplierData.freightValue,
+                                  (supplierData as any).freightValueBrl,
+                                  (supplierData as any).currencyCode
+                                )}
                               </span>
                             ) : (
                               <span className="text-slate-500 dark:text-slate-400">Não incluso</span>
@@ -344,8 +368,10 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                                 const item = supplier.items.find(
                                   item => item.quotationItemId === quotationItemId
                                 );
-                                const finalValue = item ? Number(item.discountedTotalPrice || item.totalPrice) : null;
-                                const isBest = item && bestFinalPrice !== null && finalValue === bestFinalPrice;
+                                const sqCurrency = (supplier as any).currencyCode;
+                                const finalValueBrl = item ? Number((item as any).totalPriceBrl || (item as any).discountedTotalPriceBrl || item.discountedTotalPrice || item.totalPrice) : null;
+                                const finalValueOrig = item ? Number(item.discountedTotalPrice || item.totalPrice) : null;
+                                const isBest = item && bestFinalPrice !== null && finalValueOrig === bestFinalPrice;
                                 return (
                                   <td key={supplier.id} className={`p-3 border-l text-center ${supplier.isChosen ? 'bg-green-50 dark:bg-green-900/20' : ''
                                     } ${isBest ? 'bg-green-50 dark:bg-green-900/25 ring-2 ring-green-300 dark:ring-green-500' : ''}`}>
@@ -373,25 +399,30 @@ export default function SupplierComparisonReadonly({ quotationId, onClose, isOpe
                                           }
                                           return null;
                                         })()}
-                                        <div className="text-xs text-slate-700 dark:text-slate-300">
-                                          Vlr. Unit.: R$ {Number(item.unitPrice).toLocaleString('pt-BR', {
-                                            minimumFractionDigits: 4,
-                                            maximumFractionDigits: 4
-                                          })}
+                                        <div className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                                          <span className="font-medium">Vlr. Unit.:</span>{' '}
+                                          {formatDualCurrency(
+                                            item.unitPrice,
+                                            (item as any).unitPriceBrl || item.unitPrice,
+                                            sqCurrency
+                                          )}
                                         </div>
                                         {(item.discountPercentage || item.discountValue) && (
-                                          <div className="text-xs text-orange-600">
-                                            Vlr. Desconto: {item.discountPercentage
+                                          <div className="text-xs text-orange-600 whitespace-pre-wrap">
+                                            <span className="font-medium">Vlr. Desconto:</span>{' '}
+                                            {item.discountPercentage
                                               ? `${item.discountPercentage}%`
-                                              : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                                              : formatDualCurrency(
+                                                  item.discountValue,
+                                                  (item as any).discountValueBrl || item.discountValue,
+                                                  sqCurrency
+                                                )
                                             }
                                           </div>
                                         )}
-                                        <div className="text-sm font-bold text-green-700 dark:text-green-300">
-                                          Vlr Final: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', {
-                                            minimumFractionDigits: 4,
-                                            maximumFractionDigits: 4
-                                          })}
+                                        <div className="text-sm font-bold text-green-700 dark:text-green-300 whitespace-pre-wrap">
+                                          <span className="font-semibold">Vlr Final:</span>{' '}
+                                          {formatDualCurrency(finalValueOrig, finalValueBrl, sqCurrency)}
                                         </div>
                                         {item.deliveryDays && (
                                           <div className="text-xs text-blue-600 dark:text-blue-300">Prazo: {item.deliveryDays} dias</div>

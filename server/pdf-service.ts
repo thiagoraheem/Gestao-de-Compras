@@ -8,6 +8,11 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { templateService } from "./services/template-service";
 import { formatCurrency, formatDate, formatDateTime } from "./utils/formatters";
+import {
+  normalizeCurrencyCode,
+  formatCurrencyIn,
+  toNumber,
+} from "../shared/utils/currency-utils";
 
 interface PurchaseOrderData {
   purchaseRequest: any;
@@ -583,21 +588,55 @@ export class PDFService {
 
     const companyLogoBase64 = await getCompanyLogoBase64(company);
     const companyLogoHtml = companyLogoBase64 ? `<div class="header-logo"><img src="${companyLogoBase64}" alt="Logo da Empresa"></div>` : '';
-    
-    const subtotal = items.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0);
-    const itemDiscountTotal = items.reduce((sum: number, item: any) => sum + (Number(item.itemDiscount) || 0), 0);
-    let proposalDiscount = 0;
+
+    const currencyCode = normalizeCurrencyCode(
+      (selectedSupplierQuotation as any)?.currencyCode || (purchaseRequest as any)?.currencyCode || 'BRL'
+    );
+    const exchangeRateRaw = (selectedSupplierQuotation as any)?.exchangeRate;
+    const exchangeRate = toNumber(exchangeRateRaw) > 0 ? toNumber(exchangeRateRaw) : 1;
+    const rateDate = formatDate(purchaseRequest.updatedAt || purchaseRequest.createdAt || new Date());
+    const isForeign = currencyCode !== 'BRL';
+
+    const a2fmt = (orig: number, brl: number, dec = 2): string => {
+      if (!isForeign) return formatCurrencyIn('BRL', brl, dec);
+      const brlFmt = formatCurrencyIn('BRL', brl, dec);
+      const origFmt = formatCurrencyIn(currencyCode, orig, dec);
+      return `${brlFmt}<br><span style="font-size: 10px; color: #555; font-style: italic;">(${origFmt})</span>`;
+    };
+
+    const a2toBRL = (orig: number): number => exchangeRate > 0 ? orig * exchangeRate : orig;
+
+    const currencyNoteHtml = isForeign
+      ? `<div style="font-size: 10px; color: #555; background-color: #f9f9f9; padding: 6px 8px; border: 1px solid #e0e0e0; border-radius: 3px; margin: 8px 0;">
+           <strong>Observação:</strong> Valores cotados originalmente em <strong>${currencyCode}</strong> usando taxa de câmbio de <strong>${exchangeRate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}</strong> (1 ${currencyCode} = R$ ${exchangeRate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}) em ${rateDate}.
+         </div>`
+      : '';
+
+    const subtotalOrig = items.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0);
+    const subtotalBrl = a2toBRL(subtotalOrig);
+    const itemDiscountTotalOrig = items.reduce((sum: number, item: any) => sum + (Number(item.itemDiscount) || 0), 0);
+    const itemDiscountTotalBrl = a2toBRL(itemDiscountTotalOrig);
+    let proposalDiscountOrig = 0;
     if (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) {
       const discountValue = Number(selectedSupplierQuotation.discountValue) || 0;
       if (selectedSupplierQuotation.discountType === 'percentage') {
-        proposalDiscount = (subtotal * discountValue) / 100;
+        proposalDiscountOrig = (subtotalOrig * discountValue) / 100;
       } else if (selectedSupplierQuotation.discountType === 'fixed') {
-        proposalDiscount = discountValue;
+        proposalDiscountOrig = discountValue;
       }
     }
-    const desconto = itemDiscountTotal + proposalDiscount;
-    const freightValue = Number(selectedSupplierQuotation?.freightValue) || 0;
-    const valorFinal = subtotal - desconto + freightValue;
+    const proposalDiscountBrl = a2toBRL(proposalDiscountOrig);
+    const descontoOrig = itemDiscountTotalOrig + proposalDiscountOrig;
+    const descontoBrl = itemDiscountTotalBrl + proposalDiscountBrl;
+    const freightValueOrig = Number(selectedSupplierQuotation?.freightValue) || 0;
+    const freightValueBrl = a2toBRL(freightValueOrig);
+    const valorFinalOrig = subtotalOrig - descontoOrig + freightValueOrig;
+    const valorFinalBrl = subtotalBrl - descontoBrl + freightValueBrl;
+
+    const subtotalHtml = a2fmt(subtotalOrig, subtotalBrl, 2);
+    const discountHtml = a2fmt(descontoOrig, descontoBrl, 2);
+    const freightHtml = a2fmt(freightValueOrig, freightValueBrl, 2);
+    const finalValueHtml = a2fmt(valorFinalOrig, valorFinalBrl, 2);
 
     const selectedSupplierHtml = supplier ? `
       <div class="section">
@@ -610,20 +649,28 @@ export class PDFService {
           </div>
           <div>
             <div class="info-item"><span class="info-label">Telefone:</span> ${supplier.phone || 'Não informado'}</div>
+            ${isForeign ? `<div class="info-item"><span class="info-label">Moeda · Taxa:</span> <strong>${currencyCode} · ${exchangeRate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}</strong></div>` : ''}
           </div>
         </div>
       </div>` : '';
 
-    const itemRows = items.map((item: any, index: number) => `
+    const itemRows = items.map((item: any, index: number) => {
+      const unitOrig = Number(item.unitPrice) || 0;
+      const unitBrl = a2toBRL(unitOrig);
+      const totalOrig = Number(item.totalPrice) || 0;
+      const totalBrl = a2toBRL(totalOrig);
+      const discount = Number(item.itemDiscount) || 0;
+      return `
       <tr>
         <td class="text-center">${index + 1}</td>
         <td>${item.description}</td>
         <td class="text-center">${Number(item.quantity) || 0}</td>
         <td class="text-center">${item.unit || 'UN'}</td>
-        <td class="text-right">${item.discountPercentage ? item.discountPercentage + '%' : (item.itemDiscount ? formatCurrency(item.itemDiscount) : '-')}</td>
-        <td class="text-right">${formatCurrency(item.unitPrice)}</td>
-        <td class="text-right">${formatCurrency(item.totalPrice)}</td>
-      </tr>`).join('');
+        <td class="text-right">${item.discountPercentage ? item.discountPercentage + '%' : (discount > 0 ? a2fmt(discount, a2toBRL(discount), 2) : '-')}</td>
+        <td class="text-right" style="white-space: nowrap;">${a2fmt(unitOrig, unitBrl, 2)}</td>
+        <td class="text-right" style="white-space: nowrap;">${a2fmt(totalOrig, totalBrl, 2)}</td>
+      </tr>`;
+    }).join('');
 
     const deliveryLocationHtml = deliveryLocation ? `
       <div class="section">
@@ -665,16 +712,38 @@ export class PDFService {
             </tr>
           </thead>
           <tbody>
-            ${supplierQuotations.map((sq: any) => `
+            ${supplierQuotations.map((sq: any) => {
+              const sqCurrency = normalizeCurrencyCode((sq as any)?.currencyCode || 'BRL');
+              const sqRateRaw = (sq as any)?.exchangeRate;
+              const sqRate = toNumber(sqRateRaw) > 0 ? toNumber(sqRateRaw) : 1;
+              const sqTotalOrig = Number(sq.totalValue) || 0;
+              const sqTotalBrl = sqRate > 0 ? sqTotalOrig * sqRate : sqTotalOrig;
+              const sqDiscOrig = sq.discountType === 'fixed' ? Number(sq.discountValue || 0) : 0;
+              const sqDiscBrl = a2toBRL(sqDiscOrig);
+              const sqFreOrig = Number(sq.freightValue) || 0;
+              const sqFreBrl = a2toBRL(sqFreOrig);
+
+              const fmtSqTotal = sqCurrency === 'BRL'
+                ? formatCurrencyIn('BRL', sqTotalBrl, 2)
+                : `${formatCurrencyIn('BRL', sqTotalBrl, 2)}<br><span style="font-size: 10px; color: #555; font-style: italic;">(${formatCurrencyIn(sqCurrency, sqTotalOrig, 2)})</span>`;
+              const fmtSqDisc = sqCurrency === 'BRL'
+                ? formatCurrencyIn('BRL', sqDiscBrl, 2)
+                : `${formatCurrencyIn('BRL', sqDiscBrl, 2)}<br><span style="font-size: 10px; color: #555;">(${formatCurrencyIn(sqCurrency, sqDiscOrig, 2)})</span>`;
+              const fmtSqFre = sqCurrency === 'BRL'
+                ? formatCurrencyIn('BRL', sqFreBrl, 2)
+                : `${formatCurrencyIn('BRL', sqFreBrl, 2)}<br><span style="font-size: 10px; color: #555;">(${formatCurrencyIn(sqCurrency, sqFreOrig, 2)})</span>`;
+
+              return `
             <tr class="${sq.isChosen ? 'supplier-comparison-row selected' : 'supplier-comparison-row'}">
-              <td>${sq.supplierName}${sq.isChosen ? '<span class="badge-selected">Selecionado</span>' : ''}</td>
-              <td class="text-right">${formatCurrency(Number(sq.totalValue))}</td>
+              <td>${sq.supplierName}${sq.isChosen ? '<span class="badge-selected">Selecionado</span>' : ''}${sqCurrency !== 'BRL' ? ` <span style="font-size: 10px; background: #eef2ff; color: #4338ca; padding: 1px 4px; border-radius: 3px; margin-left: 4px;">${sqCurrency}</span>` : ''}</td>
+              <td class="text-right" style="white-space: nowrap;">${fmtSqTotal}</td>
               <td>${sq.deliveryTerms || '-'}</td>
               <td>${sq.paymentTerms || '-'}</td>
               <td>${sq.warrantyPeriod || '-'}</td>
-              <td class="text-right">${sq.discountType === 'percentage' ? `${sq.discountValue}%` : (sq.discountValue && Number(sq.discountValue) > 0 ? formatCurrency(Number(sq.discountValue)) : '-')}</td>
-              <td class="text-right">${Number(sq.freightValue) > 0 ? formatCurrency(Number(sq.freightValue)) : '-'}</td>
-            </tr>`).join('')}
+              <td class="text-right" style="white-space: nowrap;">${sq.discountType === 'percentage' ? `${sq.discountValue}%` : (sq.discountValue && Number(sq.discountValue) > 0 ? fmtSqDisc : '-')}</td>
+              <td class="text-right" style="white-space: nowrap;">${Number(sq.freightValue) > 0 ? fmtSqFre : '-'}</td>
+            </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>` : '';
@@ -751,19 +820,28 @@ export class PDFService {
       createdAt: formatDate(purchaseRequest.createdAt),
       deliveryDate: formatDate(purchaseRequest.deliveryDate),
       urgency: purchaseRequest.urgency || 'Normal',
-      finalValue: formatCurrency(valorFinal),
+      finalValue: formatCurrencyIn('BRL', valorFinalBrl, 2),
+      finalValueHtml,
       justification: purchaseRequest.justification,
       selectedSupplierHtml,
       itemRows,
-      subtotal: formatCurrency(subtotal),
-      hasDiscount: desconto > 0,
-      discount: formatCurrency(desconto),
-      hasFreight: freightValue > 0,
-      freight: formatCurrency(freightValue),
+      subtotal: formatCurrencyIn('BRL', subtotalBrl, 2),
+      subtotalHtml,
+      hasDiscount: descontoOrig > 0,
+      discount: formatCurrencyIn('BRL', descontoBrl, 2),
+      discountHtml,
+      hasFreight: freightValueOrig > 0,
+      freight: formatCurrencyIn('BRL', freightValueBrl, 2),
+      freightHtml,
       deliveryLocationHtml,
       approvalHistoryRows,
       supplierComparisonHtml,
       comparisonMatrixHtml,
+      currencyNoteHtml,
+      currencyCode,
+      exchangeRate: isForeign ? exchangeRate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 }) : '',
+      rateDate,
+      isForeign,
       timestamp: new Date().toLocaleString('pt-BR')
     });
   }
@@ -786,51 +864,154 @@ export class PDFService {
 
     const companyLogoBase64 = await getCompanyLogoBase64(company);
     const companyLogoHtml = companyLogoBase64 ? `<div class="header-logo"><img src="${companyLogoBase64}" alt="Logo da Empresa" /></div>` : '';
-    
-    const subtotal = items.reduce((sum, item) => sum + (Number(item.originalTotalPrice) || Number(item.totalPrice) || 0), 0);
-    const itemDiscountTotal = items.reduce((sum, item) => sum + (Number(item.itemDiscount) || 0), 0);
-    
-    let proposalDiscount = 0;
+
+    const currencyCode = normalizeCurrencyCode(
+      (purchaseOrder as any)?.currencyCode || (selectedSupplierQuotation as any)?.currencyCode || 'BRL'
+    );
+    const exchangeRateRaw = (purchaseOrder as any)?.exchangeRate ?? (selectedSupplierQuotation as any)?.exchangeRate;
+    const exchangeRate = toNumber(exchangeRateRaw) > 0 ? toNumber(exchangeRateRaw) : 1;
+    const rateDate = formatDate((purchaseOrder as any)?.createdAt || purchaseRequest.createdAt || new Date());
+    const isForeign = currencyCode !== 'BRL';
+
+    const fmtDual = (orig: number, brl: number, dec = 4): string => {
+      if (!isForeign) {
+        return formatCurrencyIn('BRL', brl, dec);
+      }
+      const brlFmt = formatCurrencyIn('BRL', brl, dec);
+      const origFmt = formatCurrencyIn(currencyCode, orig, dec);
+      return `${brlFmt}<br><span style="font-size: 9px; color: #555; font-style: italic;">(${origFmt})</span>`;
+    };
+
+    const fmtDualInline = (orig: number, brl: number, dec = 4): string => {
+      if (!isForeign) {
+        return formatCurrencyIn('BRL', brl, dec);
+      }
+      const brlFmt = formatCurrencyIn('BRL', brl, dec);
+      const origFmt = formatCurrencyIn(currencyCode, orig, dec);
+      return `${brlFmt} <span style="font-size: 9px; color: #555;">(${origFmt})</span>`;
+    };
+
+    const toBRL = (orig: number): number => exchangeRate > 0 ? orig * exchangeRate : orig;
+    const toOrig = (brl: number): number => exchangeRate > 0 ? brl / exchangeRate : brl;
+
+    const getItemPrices = (item: any) => {
+      const unitMain = Number(item.unitPrice) || 0;
+      const totalMain = Number(item.totalPrice) || 0;
+      const origTotalMain = Number(item.originalTotalPrice) || totalMain;
+      const origUnitMain = Number(item.originalUnitPrice) || unitMain;
+      const unitBrlStored = Number((item as any).unitPriceBrl) || 0;
+      const totalBrlStored = Number((item as any).totalPriceBrl) || 0;
+
+      const isLegacyOrigMode = isForeign && unitBrlStored > 0 && Math.abs(unitBrlStored - unitMain) > 0.0001;
+
+      const unitPriceBrl = isForeign
+        ? (isLegacyOrigMode ? unitBrlStored : unitMain)
+        : unitMain;
+      const totalPriceBrl = isForeign
+        ? (isLegacyOrigMode ? totalBrlStored : totalMain)
+        : totalMain;
+      const originalTotalPriceBrl = isForeign
+        ? (isLegacyOrigMode
+            ? (Number((item as any).totalPriceBrl) || 0)
+            : (origTotalMain))
+        : origTotalMain;
+      const originalUnitPriceBrl = isForeign
+        ? (isLegacyOrigMode
+            ? unitBrlStored
+            : origUnitMain)
+        : origUnitMain;
+
+      const unitPriceOrig = isForeign
+        ? (isLegacyOrigMode ? unitMain : toOrig(unitMain))
+        : unitMain;
+      const totalPriceOrig = isForeign
+        ? (isLegacyOrigMode ? totalMain : toOrig(totalMain))
+        : totalMain;
+      const originalTotalPriceOrig = isForeign
+        ? (isLegacyOrigMode ? origTotalMain : toOrig(origTotalMain))
+        : origTotalMain;
+      const originalUnitPriceOrig = isForeign
+        ? (isLegacyOrigMode ? origUnitMain : toOrig(origUnitMain))
+        : origUnitMain;
+
+      const itemDiscountBrl = Number(item.itemDiscount) || 0;
+      const itemDiscountOrig = isForeign
+        ? (isLegacyOrigMode ? itemDiscountBrl : toOrig(itemDiscountBrl))
+        : itemDiscountBrl;
+
+      return {
+        unitPriceBrl,
+        totalPriceBrl,
+        originalTotalPriceBrl,
+        originalUnitPriceBrl,
+        unitPriceOrig,
+        totalPriceOrig,
+        originalTotalPriceOrig,
+        originalUnitPriceOrig,
+        itemDiscountBrl,
+        itemDiscountOrig,
+      };
+    };
+
+    const currencyNoteHtml = isForeign
+      ? `<div style="font-size: 10px; color: #555; background-color: #f9f9f9; padding: 6px 8px; border: 1px solid #e0e0e0; border-radius: 3px; margin: 8px 0;">
+           <strong>Observação:</strong> Valores cotados originalmente em <strong>${currencyCode}</strong> usando taxa de câmbio de <strong>${exchangeRate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}</strong> (1 ${currencyCode} = R$ ${exchangeRate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}) em ${rateDate}.
+         </div>`
+      : '';
+
+    const subtotalBrl = items.reduce((sum, item) => sum + getItemPrices(item).originalTotalPriceBrl, 0);
+    const subtotalOrig = items.reduce((sum, item) => sum + getItemPrices(item).originalTotalPriceOrig, 0);
+    const itemDiscountTotalBrl = items.reduce((sum, item) => sum + getItemPrices(item).itemDiscountBrl, 0);
+    const itemDiscountTotalOrig = items.reduce((sum, item) => sum + getItemPrices(item).itemDiscountOrig, 0);
+
+    let proposalDiscountOrig = 0;
     if (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue) {
       const discountValue = Number(selectedSupplierQuotation.discountValue) || 0;
       if (selectedSupplierQuotation.discountType === 'percentage') {
-        proposalDiscount = (subtotal * discountValue) / 100;
+        proposalDiscountOrig = (subtotalOrig * discountValue) / 100;
       } else if (selectedSupplierQuotation.discountType === 'fixed') {
-        proposalDiscount = discountValue;
+        proposalDiscountOrig = discountValue;
       }
     }
-    
-    const desconto = itemDiscountTotal + proposalDiscount;
-    const freightValue = Number(selectedSupplierQuotation?.freightValue) || 0;
-    const valorFinal = subtotal - desconto + freightValue;
+    const proposalDiscountBrl = toBRL(proposalDiscountOrig);
+
+    const descontoOrig = itemDiscountTotalOrig + proposalDiscountOrig;
+    const descontoBrl = itemDiscountTotalBrl + proposalDiscountBrl;
+    const freightValueOrig = Number(selectedSupplierQuotation?.freightValue) || 0;
+    const freightValueBrl = toBRL(freightValueOrig);
+    const valorFinalOrig = subtotalOrig - descontoOrig + freightValueOrig;
+    const valorFinalBrl = subtotalBrl - descontoBrl + freightValueBrl;
     
     const aprovacaoA1 = approvalHistory.find(h => h.approverType === 'A1');
     const aprovacaoA2 = approvalHistory.find(h => h.approverType === 'A2');
     
     const itemRows = items.map(item => {
-      const hasDiscount = Number(item.itemDiscount) > 0;
-      const originalUnitPrice = Number(item.originalUnitPrice) || Number(item.unitPrice) || 0;
-      const originalTotalPrice = Number(item.originalTotalPrice) || Number(item.totalPrice) || 0;
-      const finalTotalPrice = Number(item.totalPrice) || 0;
-      
+      const p = getItemPrices(item);
+      const hasDiscount = p.itemDiscountBrl > 0;
+      const finalTotalPriceBrl = p.totalPriceBrl;
+      const finalTotalPriceOrig = p.totalPriceOrig;
+      const qty = Number(item.quantity) || 1;
+      const finalUnitPriceBrl = qty > 0 ? finalTotalPriceBrl / qty : p.unitPriceBrl;
+      const finalUnitPriceOrig = qty > 0 ? finalTotalPriceOrig / qty : p.unitPriceOrig;
+
       return `
         <tr>
           <td class="text-center">${parseInt(item.quantity) || 0}</td>
           <td class="text-center">${item.unit || 'UND'}</td>
           <td>${item.itemCode || ''} ${item.itemCode ? '-' : ''} ${item.description}</td>
           <td class="text-center">${item.brand || 'Não informado'}</td>
-          <td class="text-right">
+          <td class="text-right" style="white-space: nowrap;">
             ${hasDiscount ? 
-              `<span style="text-decoration: line-through; color: #999;">R$ ${originalUnitPrice.toFixed(4).replace('.', ',')}</span><br>
-               <span style="color: #28a745; font-weight: bold;">R$ ${(finalTotalPrice / Number(item.quantity || 1)).toFixed(4).replace('.', ',')}</span>` :
-              `R$ ${originalUnitPrice.toFixed(4).replace('.', ',')}`
+              `<span style="text-decoration: line-through; color: #999;">${fmtDualInline(p.originalUnitPriceOrig, p.originalUnitPriceBrl, 4)}</span><br>
+               <span style="color: #28a745; font-weight: bold;">${fmtDualInline(finalUnitPriceOrig, finalUnitPriceBrl, 4)}</span>` :
+              fmtDual(p.originalUnitPriceOrig, p.originalUnitPriceBrl, 4)
             }
           </td>
-          <td class="text-right">
+          <td class="text-right" style="white-space: nowrap;">
             ${hasDiscount ? 
-              `<span style="text-decoration: line-through; color: #999;">R$ ${originalTotalPrice.toFixed(4).replace('.', ',')}</span><br>
-               <span style="color: #28a745; font-weight: bold;">R$ ${finalTotalPrice.toFixed(4).replace('.', ',')}</span>` :
-              `R$ ${originalTotalPrice.toFixed(4).replace('.', ',')}`
+              `<span style="text-decoration: line-through; color: #999;">${fmtDualInline(p.originalTotalPriceOrig, p.originalTotalPriceBrl, 4)}</span><br>
+               <span style="color: #28a745; font-weight: bold;">${fmtDualInline(finalTotalPriceOrig, finalTotalPriceBrl, 4)}</span>` :
+              fmtDual(p.originalTotalPriceOrig, p.originalTotalPriceBrl, 4)
             }
           </td>
           <td>${item.specifications || ''}</td>
@@ -849,35 +1030,35 @@ export class PDFService {
       </tr>`).join('');
 
     let totalRows = '';
-    if (desconto > 0 || freightValue > 0) {
+    if (descontoOrig > 0 || freightValueOrig > 0) {
       totalRows = `
         <tr class="subtotal-row">
           <td colspan="5" class="text-right"><strong>SUBTOTAL:</strong></td>
-          <td class="text-right"><strong>R$ ${subtotal.toFixed(4).replace('.', ',')}</strong></td>
+          <td class="text-right" style="white-space: nowrap;"><strong>${fmtDual(subtotalOrig, subtotalBrl, 4)}</strong></td>
           <td>&nbsp;</td>
         </tr>
-        ${desconto > 0 ? `
+        ${descontoOrig > 0 ? `
         <tr class="discount-row">
           <td colspan="5" class="text-right"><strong>TOTAL DESCONTO:</strong></td>
-          <td class="text-right"><strong>- R$ ${desconto.toFixed(4).replace('.', ',')}</strong></td>
+          <td class="text-right" style="white-space: nowrap;"><strong>- ${fmtDual(descontoOrig, descontoBrl, 4)}</strong></td>
           <td>&nbsp;</td>
         </tr>` : ''}
-        ${freightValue > 0 ? `
+        ${freightValueOrig > 0 ? `
         <tr class="subtotal-row">
           <td colspan="5" class="text-right"><strong>FRETE:</strong></td>
-          <td class="text-right"><strong>R$ ${freightValue.toFixed(4).replace('.', ',')}</strong></td>
+          <td class="text-right" style="white-space: nowrap;"><strong>${fmtDual(freightValueOrig, freightValueBrl, 4)}</strong></td>
           <td>&nbsp;</td>
         </tr>` : ''}
         <tr class="total-row">
           <td colspan="5" class="text-right"><strong>TOTAL FINAL:</strong></td>
-          <td class="text-right"><strong>R$ ${valorFinal.toFixed(4).replace('.', ',')}</strong></td>
+          <td class="text-right" style="white-space: nowrap;"><strong>${fmtDual(valorFinalOrig, valorFinalBrl, 4)}</strong></td>
           <td>&nbsp;</td>
         </tr>`;
     } else {
       totalRows = `
         <tr class="total-row">
           <td colspan="5" class="text-right"><strong>TOTAL GERAL:</strong></td>
-          <td class="text-right"><strong>R$ ${(subtotal + freightValue).toFixed(4).replace('.', ',')}</strong></td>
+          <td class="text-right" style="white-space: nowrap;"><strong>${fmtDual(subtotalOrig + freightValueOrig, subtotalBrl + freightValueBrl, 4)}</strong></td>
           <td>&nbsp;</td>
         </tr>`;
     }
@@ -920,7 +1101,9 @@ export class PDFService {
       supplierContact: supplier?.contactPerson || 'Não informado',
       supplierPhone: supplier?.phone || 'Não informado',
       hasProposalDiscount: (selectedSupplierQuotation?.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue),
-      proposalDiscount: selectedSupplierQuotation?.discountType === 'percentage' ? `${selectedSupplierQuotation.discountValue}%` : `R$ ${Number(selectedSupplierQuotation?.discountValue || 0).toFixed(4).replace('.', ',')}`,
+      proposalDiscount: selectedSupplierQuotation?.discountType === 'percentage'
+        ? `${selectedSupplierQuotation.discountValue}%`
+        : fmtDualInline(Number(selectedSupplierQuotation?.discountValue || 0), toBRL(Number(selectedSupplierQuotation?.discountValue || 0)), 4),
       deliveryName: deliveryLocation?.name || 'Sede da empresa',
       deliveryAddress: deliveryLocation?.address || 'Av. Nathan Lemos Xavier de Albuquerque, 1.328, Novo Aleixo, Manaus-AM, 69098-145',
       deliveryContact: deliveryLocation?.contactPerson,
@@ -943,6 +1126,11 @@ export class PDFService {
       buyerSignatureHtml,
       a1SignatureHtml,
       a2SignatureHtml,
+      currencyNoteHtml,
+      currencyCode,
+      exchangeRate: isForeign ? exchangeRate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 }) : '',
+      rateDate,
+      isForeign,
       timestamp: new Date().toLocaleString('pt-BR')
     });
   }
@@ -1203,17 +1391,17 @@ export class PDFService {
       selectedSupplierQuotation = supplierQuotations.find(sq => sq.isChosen) || supplierQuotations[0];
     }
     
-    // Os itens do pedido de compra já têm os preços corretos, apenas formatá-los
     const itemsWithPrices = items.map(item => ({
       ...item,
-      // Garantir que os campos estejam no formato esperado
       unitPrice: Number(item.unitPrice) || 0,
       totalPrice: Number(item.totalPrice) || 0,
-      brand: '', // Campo não disponível nos itens do pedido de compra
-      deliveryTime: '', // Campo não disponível nos itens do pedido de compra
+      unitPriceBrl: Number((item as any).unitPriceBrl) || 0,
+      totalPriceBrl: Number((item as any).totalPriceBrl) || 0,
+      brand: '',
+      deliveryTime: '',
       originalUnitPrice: Number(item.unitPrice) || 0,
       originalTotalPrice: Number(item.totalPrice) || 0,
-      itemDiscount: 0 // Desconto já aplicado no preço final
+      itemDiscount: 0
     }));
 
     // Buscar histórico de aprovações

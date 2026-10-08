@@ -24,14 +24,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/ui/table";
-import { X, Check, User, FileText, Download, Eye, Plus, ArrowLeft, History, RotateCcw, Archive, AlertTriangle } from "lucide-react";
+import { X, Check, User, FileText, Download, Eye, Plus, ArrowLeft, History, RotateCcw, Archive, AlertTriangle, Info } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/shared/ui/dialog";
 import { Textarea } from "@/shared/ui/textarea";
 
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PHASE_LABELS } from "@/lib/types";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, normalizeCurrencyCode, CURRENCY_LABELS, formatCurrencyIn } from "@/lib/currency";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import PendencyModal from "@/features/requests/components/pendency-modal";
@@ -441,10 +441,29 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
   }, [items]);
 
   const canConfirm = useMemo(() => {
-    // Basic validation: must have some quantity and NF number
     const hasAnyQty = Object.values(receivedQuantities).some(v => Number(v) > 0);
     return hasAnyQty && manualNFNumber.length > 0;
   }, [receivedQuantities, manualNFNumber]);
+
+  const currencyInfo = useMemo(() => {
+    const po = purchaseOrder as any;
+    const codeRaw = po?.currencyCode || activeRequest?.currencyCode;
+    const rateRaw = po?.exchangeRate ?? activeRequest?.exchangeRate;
+    const code = normalizeCurrencyCode(codeRaw);
+    const rate = Number(rateRaw) || 0;
+    const show = code !== 'BRL' && rate > 0;
+    if (!show) return null;
+    const totalBrl = Number(po?.totalValueBrl ?? po?.totalValue ?? activeRequest?.totalValue ?? 0) || 0;
+    const totalOrig = rate > 0 ? totalBrl / rate : 0;
+    const formatRate = rate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+    return {
+      code,
+      rate,
+      formatRate,
+      totalBrl,
+      totalOrig,
+    };
+  }, [purchaseOrder, activeRequest]);
 
   // --- Render Preview Modal ---
   if (showPreviewModal) {
@@ -556,10 +575,28 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           supplierName={selectedSupplier?.name || "Não definido"}
           orderDate={formatDate(purchaseOrder?.createdAt || activeRequest?.createdAt || request?.createdAt || null)}
           totalValue={formatCurrency(purchaseOrder?.totalValue ?? activeRequest?.totalValue ?? request?.totalValue ?? 0)}
-          //totalValue={typeof request?.totalValue === "number" ? formatCurrency(request.totalValue) : "R$ 0,00"}
           status={(activeRequest?.phase && (PHASE_LABELS as any)[activeRequest.phase]) || (request?.phase && (PHASE_LABELS as any)[request.phase]) || "—"}
           creationDate={(activeRequest?.createdAt || request?.createdAt) ? format(new Date(activeRequest?.createdAt || request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
         />
+
+        {currencyInfo && (
+          <Card className="bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800/50 mb-4">
+            <CardContent className="p-3">
+              <div className="flex items-start gap-2">
+                <Info className="w-5 h-5 text-sky-600 dark:text-sky-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sky-800 dark:text-sky-200">
+                    Valores do Pedido Original: {CURRENCY_LABELS[currencyInfo.code as keyof typeof CURRENCY_LABELS]} ({currencyInfo.code}) · Taxa 1 {currencyInfo.code} = R$ {currencyInfo.formatRate}
+                  </p>
+                  <p className="text-xs text-sky-700 dark:text-sky-300">
+                    Os campos desta tela operam em BRL (conversão aplicada automaticamente a partir da cotação vencedora).
+                    Total original: {formatCurrencyIn(currencyInfo.code, currencyInfo.totalOrig)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Global Progress */}
         <Card>
@@ -764,6 +801,25 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
         </Button>
       </div>
+
+      {currencyInfo && (
+        <Card className="bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800/50">
+          <CardContent className="p-3">
+            <div className="flex items-start gap-2">
+              <Info className="w-5 h-5 text-sky-600 dark:text-sky-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-sky-800 dark:text-sky-200">
+                  Valores do Pedido Original: {CURRENCY_LABELS[currencyInfo.code as keyof typeof CURRENCY_LABELS]} ({currencyInfo.code}) · Taxa 1 {currencyInfo.code} = R$ {currencyInfo.formatRate}
+                </p>
+                <p className="text-xs text-sky-700 dark:text-sky-300">
+                  Os campos desta tela operam em BRL (conversão aplicada automaticamente a partir da cotação vencedora).
+                  Total original: {formatCurrencyIn(currencyInfo.code, currencyInfo.totalOrig)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-6">
           <Card>

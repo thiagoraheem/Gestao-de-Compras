@@ -105,12 +105,18 @@ interface DashboardData {
     automationRate: number;
     digitalAdoption: number;
   };
+  // Multi-currency fields
+  totalForeignConvertedBrl?: number;
+  totalNativeBrl?: number;
+  foreignRequestCount?: number;
+  currencyBreakdown?: Record<string, number>;
 }
 
 export function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("30");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedCurrency, setSelectedCurrency] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [dateFilterType, setDateFilterType] = useState("created");
@@ -131,7 +137,7 @@ export function DashboardPage() {
     refetch,
   } = useQuery<DashboardData>({
     queryKey: [
-      `/api/dashboard?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}&dateFilterType=${dateFilterType}`,
+      `/api/dashboard?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&currencyCode=${selectedCurrency}&startDate=${startDate}&endDate=${endDate}&dateFilterType=${dateFilterType}`,
     ],
   });
 
@@ -142,7 +148,7 @@ export function DashboardPage() {
   const handleExportPDF = async () => {
     try {
       const response = await fetch(
-        `/api/dashboard/export-pdf?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&startDate=${startDate}&endDate=${endDate}&dateFilterType=${dateFilterType}`,
+        `/api/dashboard/export-pdf?period=${selectedPeriod}&department=${selectedDepartment}&status=${selectedStatus}&currencyCode=${selectedCurrency}&startDate=${startDate}&endDate=${endDate}&dateFilterType=${dateFilterType}`,
         {
           method: "GET",
         },
@@ -225,7 +231,7 @@ export function DashboardPage() {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger>
               <SelectValue placeholder="Período" />
@@ -303,10 +309,23 @@ export function DashboardPage() {
               <SelectItem value="arquivado">Arquivado</SelectItem>
             </SelectContent>
           </Select>
+
+          <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filtro Moeda" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as Moedas</SelectItem>
+              <SelectItem value="BRL">BRL (Real)</SelectItem>
+              <SelectItem value="USD">USD (Dólar)</SelectItem>
+              <SelectItem value="EUR">EUR (Euro)</SelectItem>
+              <SelectItem value="GBP">GBP (Libra)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -338,6 +357,11 @@ export function DashboardPage() {
               <p className="text-xs text-muted-foreground">
                 Valor total das solicitações ativas
               </p>
+              {(dashboardData?.foreignRequestCount || 0) > 0 && (
+                <Badge className="mt-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30">
+                  Contém {dashboardData?.foreignRequestCount} pedidos em moeda estrangeira (convertidos)
+                </Badge>
+              )}
             </CardContent>
           </Card>
 
@@ -449,6 +473,51 @@ export function DashboardPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Compras com contrato
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-teal-800 dark:text-teal-200">
+                Total Moeda Estrang. (conv. BRL)
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-teal-900 dark:text-teal-100">
+                {formatCurrency(dashboardData?.totalForeignConvertedBrl || 0)}
+              </div>
+              <p className="text-xs text-teal-700 dark:text-teal-300">
+                {dashboardData?.foreignRequestCount || 0} solicitações em USD/EUR/GBP
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1">
+                <Badge className="bg-teal-100 dark:bg-teal-800/50 text-teal-800 dark:text-teal-200 hover:bg-teal-100 dark:hover:bg-teal-800/50 text-xs">
+                  USD: {dashboardData?.currencyBreakdown?.USD || 0} pedidos
+                </Badge>
+                <Badge className="bg-teal-100 dark:bg-teal-800/50 text-teal-800 dark:text-teal-200 hover:bg-teal-100 dark:hover:bg-teal-800/50 text-xs">
+                  EUR: {dashboardData?.currencyBreakdown?.EUR || 0}
+                </Badge>
+                <Badge className="bg-teal-100 dark:bg-teal-800/50 text-teal-800 dark:text-teal-200 hover:bg-teal-100 dark:hover:bg-teal-800/50 text-xs">
+                  GBP: {dashboardData?.currencyBreakdown?.GBP || 0}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total em BRL (Nativo)
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatCurrency(dashboardData?.totalNativeBrl || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Solicitações em Real Brasileiro
               </p>
             </CardContent>
           </Card>

@@ -106,6 +106,11 @@ export class PurchaseRequestRepository {
         choiceReason: purchaseRequests.choiceReason,
         negotiatedValue: purchaseRequests.negotiatedValue,
         discountsObtained: purchaseRequests.discountsObtained,
+        currencyCode: purchaseRequests.currencyCode,
+        exchangeRate: purchaseRequests.exchangeRate,
+        totalValueOrig: purchaseRequests.totalValueOrig,
+        negotiatedValueOrig: purchaseRequests.negotiatedValueOrig,
+        discountsObtainedOrig: purchaseRequests.discountsObtainedOrig,
         deliveryDate: purchaseRequests.deliveryDate,
         purchaseDate: purchaseRequests.purchaseDate,
         purchaseObservations: purchaseRequests.purchaseObservations,
@@ -272,25 +277,451 @@ export class PurchaseRequestRepository {
             const valorOriginal = valorItens + freightValue;
             const valorFinal = calcSemFrete.valorFinal + freightValue;
 
-            return {
+            const currencyCode = request.currencyCode ? String(request.currencyCode).toUpperCase() : 'BRL';
+            const exchangeRateNum = parseFloat(String(request.exchangeRate || '0')) || 0;
+            const isForeign = currencyCode !== 'BRL' && exchangeRateNum > 0;
+
+            const enriched: any = {
               ...request,
-              originalValue: String(valorOriginal),
-              finalValue: String(valorFinal),
-              // Also update totalValue to be the correct final value
-              totalValue: String(valorFinal > 0 ? valorFinal : parseFloat(request.totalValue || '0')),
             };
+
+            if (purchaseOrderOriginalDescFound) {
+              // Itens vieram de purchase_order_items → valores EM BRL (PO é sempre em BRL)
+              enriched.originalValue = String(valorOriginal);
+              enriched.finalValue = String(valorFinal);
+              enriched.totalValue = String(valorFinal > 0 ? valorFinal : parseFloat(request.totalValue || '0'));
+
+              if (isForeign) {
+                enriched.originalValueOrig = String(valorOriginal / exchangeRateNum);
+                enriched.finalValueOrig = String(valorFinal / exchangeRateNum);
+              }
+            } else {
+              // Itens vieram de supplier_quotation_items → valores EM MOEDA ORIGINAL (USD/EUR/GBP/BRL)
+              const origOriginal = valorOriginal;
+              const origFinal = valorFinal;
+              const brlOriginal = isForeign ? origOriginal * exchangeRateNum : origOriginal;
+              const brlFinal = isForeign ? origFinal * exchangeRateNum : origFinal;
+
+              // Valor BRL (lado esquerdo) = moeda original × taxa
+              enriched.originalValue = String(brlOriginal);
+              enriched.finalValue = String(brlFinal);
+              enriched.totalValue = String(brlFinal > 0 ? brlFinal : parseFloat(request.totalValue || '0'));
+
+              // Valor Orig (lado direito) = já está na moeda original (vem do fornecedor)
+              enriched.originalValueOrig = String(origOriginal);
+              enriched.finalValueOrig = String(origFinal);
+
+              // Fallback: se a DB já tinha totalValueOrig do fornecedor, mantém se enriquecimento deu 0
+              const storedTotalValueOrig = parseFloat(request.totalValueOrig || '0') || 0;
+              if (storedTotalValueOrig > 0 && parseFloat(enriched.finalValueOrig || '0') <= 0) {
+                enriched.finalValueOrig = String(storedTotalValueOrig);
+                enriched.originalValueOrig = enriched.originalValueOrig || String(storedTotalValueOrig);
+                if (isForeign) {
+                  enriched.finalValue = String(storedTotalValueOrig * exchangeRateNum);
+                }
+              }
+            }
+
+            return enriched;
           } catch {}
         }
 
         // Fallback: if no calculation could be performed, use the existing totalValue for both
         const fallbackVal = parseFloat(request.totalValue || '0') || 0;
-        return {
+        const currencyCodeFb = request.currencyCode ? String(request.currencyCode).toUpperCase() : 'BRL';
+        const exchangeRateNumFb = parseFloat(String(request.exchangeRate || '0')) || 0;
+        const isForeignFb = currencyCodeFb !== 'BRL' && exchangeRateNumFb > 0;
+        const storedTotalValueOrigFb = parseFloat(request.totalValueOrig || '0') || 0;
+
+        const fallbackResult: any = {
           ...request,
-          originalValue: String(fallbackVal),
-          finalValue: String(fallbackVal),
         };
+
+        if (isForeignFb && storedTotalValueOrigFb > 0) {
+          // Temos totalValueOrig do SELECT direto → usar como fonte verdadeira
+          fallbackResult.originalValue = String(storedTotalValueOrigFb * exchangeRateNumFb);
+          fallbackResult.finalValue = String(storedTotalValueOrigFb * exchangeRateNumFb);
+          fallbackResult.originalValueOrig = String(storedTotalValueOrigFb);
+          fallbackResult.finalValueOrig = String(storedTotalValueOrigFb);
+        } else if (isForeignFb && fallbackVal > 0) {
+          // Fallback antigo (BRL/taxa), só usar quando sem Orig nenhum
+          fallbackResult.originalValue = String(fallbackVal);
+          fallbackResult.finalValue = String(fallbackVal);
+          fallbackResult.originalValueOrig = String(fallbackVal / exchangeRateNumFb);
+          fallbackResult.finalValueOrig = String(fallbackVal / exchangeRateNumFb);
+        } else {
+          fallbackResult.originalValue = String(fallbackVal);
+          fallbackResult.finalValue = String(fallbackVal);
+        }
+
+        return fallbackResult;
       })
     );
+
+    return enrichedRequests as any[];
+  }
+
+  /**
+   * Variante board-otimizada do getAllPurchaseRequests.
+   * Mantém 100% a semântica do enriquecimento original mas remove
+   * o N+1 de PO items / supplier quotations / quotation items
+   * substituindo-os por 3 queries batch + Map lookups em memória.
+   * SEM LIMITES: retorna tudo o que está nas fases ativas, como antes.
+   */
+  async getPurchaseRequestsForBoard(companyId?: number, user?: User): Promise<PurchaseRequest[]> {
+    const conditions = [];
+
+    if (companyId) {
+      conditions.push(eq(purchaseRequests.companyId, companyId));
+    }
+
+    if (user) {
+      const hasFullAccess =
+        user.isAdmin ||
+        user.isBuyer ||
+        user.isReceiver ||
+        user.isApproverA1 ||
+        user.isApproverA2;
+
+      if (!hasFullAccess) {
+        const userDeptIds = await userRepository.getUserDepartments(user.id);
+
+        const restrictions = [eq(purchaseRequests.requesterId, user.id)];
+
+        if (userDeptIds.length > 0) {
+             restrictions.push(inArray(departments.id, userDeptIds));
+        }
+
+        conditions.push(or(...restrictions));
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const requests = await db
+      .select({
+        id: purchaseRequests.id,
+        requestNumber: purchaseRequests.requestNumber,
+        requesterId: purchaseRequests.requesterId,
+        costCenterId: purchaseRequests.costCenterId,
+        companyId: purchaseRequests.companyId,
+        category: purchaseRequests.category,
+        urgency: purchaseRequests.urgency,
+        justification: purchaseRequests.justification,
+        idealDeliveryDate: purchaseRequests.idealDeliveryDate,
+        availableBudget: purchaseRequests.availableBudget,
+        additionalInfo: purchaseRequests.additionalInfo,
+        currentPhase: purchaseRequests.currentPhase,
+        lastPhase: purchaseRequests.lastPhase,
+        approverA1Id: purchaseRequests.approverA1Id,
+        approvedA1: purchaseRequests.approvedA1,
+        rejectionReasonA1: purchaseRequests.rejectionReasonA1,
+        approvalDateA1: purchaseRequests.approvalDateA1,
+        buyerId: purchaseRequests.buyerId,
+        totalValue: sql<string>`COALESCE(
+          NULLIF(${purchaseRequests.totalValue}, 0),
+          (SELECT SUM(total_price) FROM purchase_order_items WHERE purchase_order_id = ${purchaseOrders.id}),
+          0
+        )::text`,
+        paymentMethodId: purchaseRequests.paymentMethodId,
+        approverA2Id: purchaseRequests.approverA2Id,
+        approvedA2: purchaseRequests.approvedA2,
+        rejectionReasonA2: purchaseRequests.rejectionReasonA2,
+        rejectionActionA2: purchaseRequests.rejectionActionA2,
+        approvalDateA2: purchaseRequests.approvalDateA2,
+        chosenSupplierId: purchaseRequests.chosenSupplierId,
+        choiceReason: purchaseRequests.choiceReason,
+        negotiatedValue: purchaseRequests.negotiatedValue,
+        discountsObtained: purchaseRequests.discountsObtained,
+        currencyCode: purchaseRequests.currencyCode,
+        exchangeRate: purchaseRequests.exchangeRate,
+        totalValueOrig: purchaseRequests.totalValueOrig,
+        negotiatedValueOrig: purchaseRequests.negotiatedValueOrig,
+        discountsObtainedOrig: purchaseRequests.discountsObtainedOrig,
+        deliveryDate: purchaseRequests.deliveryDate,
+        purchaseDate: purchaseRequests.purchaseDate,
+        purchaseObservations: purchaseRequests.purchaseObservations,
+        receivedById: purchaseRequests.receivedById,
+        receivedDate: purchaseRequests.receivedDate,
+        hasPendency: purchaseRequests.hasPendency,
+        pendencyReason: purchaseRequests.pendencyReason,
+        createdAt: purchaseRequests.createdAt,
+        updatedAt: purchaseRequests.updatedAt,
+        requester: {
+          id: requesterUser.id,
+          firstName: requesterUser.firstName,
+          lastName: requesterUser.lastName,
+          username: requesterUser.username,
+          email: requesterUser.email,
+        },
+        approverA1: {
+          id: approverA1User.id,
+          firstName: approverA1User.firstName,
+          lastName: approverA1User.lastName,
+          username: approverA1User.username,
+          email: approverA1User.email,
+        },
+        costCenter: {
+          id: costCenters.id,
+          code: costCenters.code,
+          name: costCenters.name,
+          departmentId: costCenters.departmentId,
+        },
+        department: {
+          id: departments.id,
+          name: departments.name,
+          description: departments.description,
+        },
+        hasQuotation: sql<boolean>`EXISTS(SELECT 1 FROM ${quotations} WHERE ${quotations.purchaseRequestId} = ${purchaseRequests.id})`,
+        chosenSupplier: {
+          id: chosenSupplier.id,
+          name: chosenSupplier.name,
+          email: chosenSupplier.email,
+        },
+        purchaseOrder: {
+          id: purchaseOrders.id,
+          orderNumber: purchaseOrders.orderNumber,
+          fulfillmentStatus: purchaseOrders.fulfillmentStatus,
+        },
+        hasPendingFiscal: sql<boolean>`EXISTS(SELECT 1 FROM ${receipts} WHERE ${receipts.purchaseOrderId} = ${purchaseOrders.id} AND ${receipts.status} = 'conf_fisica')`,
+      })
+      .from(purchaseRequests)
+      .leftJoin(requesterUser, eq(purchaseRequests.requesterId, requesterUser.id))
+      .leftJoin(approverA1User, eq(purchaseRequests.approverA1Id, approverA1User.id))
+      .leftJoin(costCenters, eq(purchaseRequests.costCenterId, costCenters.id))
+      .leftJoin(departments, eq(costCenters.departmentId, departments.id))
+      .leftJoin(chosenSupplier, eq(purchaseRequests.chosenSupplierId, chosenSupplier.id))
+      .leftJoin(purchaseOrders, eq(purchaseOrders.purchaseRequestId, purchaseRequests.id))
+      .where(whereClause)
+      .orderBy(desc(purchaseRequests.createdAt));
+
+    if (requests.length === 0) {
+      return [] as any[];
+    }
+
+    const requestIds = requests.map(r => Number(r.id)).filter(id => Number.isFinite(id));
+
+    // ---------- BATCH 1: purchase_order_items -------------------------------
+    // 1 query (JOIN purchase_orders) para todos os requestIds
+    type PoRow = { purchase_request_id: number; unit_price: any; quantity: any; total_price: any };
+    const poItemsRes = requestIds.length > 0 ? await pool.query<PoRow>(
+      `SELECT po.purchase_request_id,
+              poi.unit_price,
+              poi.quantity,
+              poi.total_price
+       FROM purchase_order_items poi
+       JOIN purchase_orders po ON poi.purchase_order_id = po.id
+       WHERE po.purchase_request_id = ANY($1::int[])`,
+      [requestIds]
+    ) : { rows: [] as PoRow[] };
+
+    const poItemsByRequest = new Map<number, ItemCalculo[]>();
+    for (const row of poItemsRes.rows) {
+      const rid = Number(row.purchase_request_id);
+      if (!Number.isFinite(rid)) continue;
+      const unitPrice = parseFloat(String(row.unit_price ?? 0)) || 0;
+      const quantity = parseFloat(String(row.quantity ?? 0)) || 0;
+      const totalPrice = parseFloat(String(row.total_price ?? 0)) || 0;
+      const valorOriginal = unitPrice * quantity;
+      const descontoItem = Math.max(0, valorOriginal - totalPrice);
+      if (!poItemsByRequest.has(rid)) poItemsByRequest.set(rid, []);
+      poItemsByRequest.get(rid)!.push({ valorOriginal, descontoItem });
+    }
+
+    // ---------- BATCH 2: chosen supplier quotations (mais recente por PR+S)
+    type SqRow = {
+      purchase_request_id: number;
+      supplier_id: number;
+      supplier_quotation_id: number;
+      discount_type: any;
+      discount_value: any;
+      includes_freight: any;
+      freight_value: any;
+    };
+    const prSupplierKeys = requests
+      .filter(r => r.chosenSupplierId)
+      .map(r => `(${Number(r.id)},${Number(r.chosenSupplierId)})`)
+      .filter(k => !k.includes('NaN'));
+
+    const sqRes: { rows: SqRow[] } = prSupplierKeys.length > 0 ? await pool.query<SqRow>(
+      `SELECT DISTINCT ON (q.purchase_request_id, sq.supplier_id)
+              q.purchase_request_id,
+              sq.supplier_id,
+              sq.id                          AS supplier_quotation_id,
+              sq.discount_type,
+              sq.discount_value,
+              sq.includes_freight,
+              sq.freight_value
+       FROM supplier_quotations sq
+       JOIN quotations q ON sq.quotation_id = q.id
+       WHERE (q.purchase_request_id, sq.supplier_id) IN (${prSupplierKeys.join(',')})
+       ORDER BY q.purchase_request_id, sq.supplier_id, sq.created_at DESC`
+    ) : { rows: [] };
+
+    const sqByKey = new Map<string, {
+      supplierQuotationId: number;
+      globalDiscount: PropostaDesconto;
+      includesFreight: boolean;
+      freightValue: number;
+    }>();
+    for (const row of sqRes.rows) {
+      const key = `${row.purchase_request_id}_${row.supplier_id}`;
+      const discountType = (String(row.discount_type ?? 'none')) as 'none' | 'percent' | 'value';
+      const validType = (['none', 'percent', 'value'].includes(discountType))
+        ? (discountType as PropostaDesconto['tipo'])
+        : 'none';
+      sqByKey.set(key, {
+        supplierQuotationId: Number(row.supplier_quotation_id),
+        globalDiscount: {
+          tipo: validType,
+          valor: parseFloat(String(row.discount_value ?? 0)) || 0,
+        },
+        includesFreight: row.includes_freight === true || row.includes_freight === 'true',
+        freightValue: parseFloat(String(row.freight_value ?? 0)) || 0,
+      });
+    }
+
+    // ---------- BATCH 3: supplier_quotation_items ---------------------------
+    const sqIds = Array.from(sqByKey.values()).map(v => v.supplierQuotationId).filter(id => Number.isFinite(id));
+    type SqiRow = {
+      supplier_quotation_id: number;
+      original_total_price: any;
+      discounted_total_price: any;
+      total_price: any;
+      discount_percentage: any;
+      discount_value: any;
+    };
+    const sqiRes = sqIds.length > 0 ? await pool.query<SqiRow>(
+      `SELECT supplier_quotation_id,
+              original_total_price,
+              discounted_total_price,
+              total_price,
+              discount_percentage,
+              discount_value
+       FROM supplier_quotation_items
+       WHERE supplier_quotation_id = ANY($1::int[])`,
+      [sqIds]
+    ) : { rows: [] as SqiRow[] };
+
+    const sqiBySqId = new Map<number, ItemCalculo[]>();
+    for (const row of sqiRes.rows) {
+      const sid = Number(row.supplier_quotation_id);
+      if (!Number.isFinite(sid)) continue;
+      let orig = parseFloat(String(row.original_total_price ?? '0')) || 0;
+      const final = parseFloat(String(row.total_price ?? '0')) || 0;
+      if (orig === 0 || orig < final) orig = final;
+      const descItem = Math.max(0, orig - final);
+      if (!sqiBySqId.has(sid)) sqiBySqId.set(sid, []);
+      sqiBySqId.get(sid)!.push({ valorOriginal: orig, descontoItem: descItem });
+    }
+
+    // ---------- Enriquecimento em memória (algoritmo 1:1 do original) -------
+    const enrichedRequests = requests.map((request) => {
+      const rid = Number(request.id);
+      const chosenSupplierId = request.chosenSupplierId ? Number(request.chosenSupplierId) : null;
+
+      let itemsParaCalculo: ItemCalculo[] = [];
+      let globalDiscount: PropostaDesconto = { tipo: 'none', valor: 0 };
+      let purchaseOrderOriginalDescFound = false;
+      let includesFreight = false;
+      let freightValue = 0;
+
+      const poItems = poItemsByRequest.get(rid);
+      if (poItems && poItems.length > 0) {
+        purchaseOrderOriginalDescFound = true;
+        itemsParaCalculo = poItems;
+      }
+
+      if (chosenSupplierId) {
+        const sq = sqByKey.get(`${rid}_${chosenSupplierId}`);
+        if (sq) {
+          globalDiscount = sq.globalDiscount;
+          includesFreight = sq.includesFreight;
+          freightValue = includesFreight ? sq.freightValue : 0;
+
+          if (!purchaseOrderOriginalDescFound) {
+            const sqiItems = sqiBySqId.get(sq.supplierQuotationId);
+            if (sqiItems && sqiItems.length > 0) {
+              itemsParaCalculo = sqiItems;
+            }
+          }
+        }
+      }
+
+      if (itemsParaCalculo.length > 0) {
+        try {
+          const calcSemFrete = CalculadoraValoresSolicitacao.calcularTotais(itemsParaCalculo, globalDiscount);
+          const valorItens = calcSemFrete.valorItens;
+          const valorOriginal = valorItens + freightValue;
+          const valorFinal = calcSemFrete.valorFinal + freightValue;
+
+          const currencyCode = request.currencyCode ? String(request.currencyCode).toUpperCase() : 'BRL';
+          const exchangeRateNum = parseFloat(String(request.exchangeRate || '0')) || 0;
+          const isForeign = currencyCode !== 'BRL' && exchangeRateNum > 0;
+
+          const enriched: any = { ...request };
+
+          if (purchaseOrderOriginalDescFound) {
+            enriched.originalValue = String(valorOriginal);
+            enriched.finalValue = String(valorFinal);
+            enriched.totalValue = String(valorFinal > 0 ? valorFinal : parseFloat(String(request.totalValue || '0')));
+
+            if (isForeign) {
+              enriched.originalValueOrig = String(valorOriginal / exchangeRateNum);
+              enriched.finalValueOrig = String(valorFinal / exchangeRateNum);
+            }
+          } else {
+            const origOriginal = valorOriginal;
+            const origFinal = valorFinal;
+            const brlOriginal = isForeign ? origOriginal * exchangeRateNum : origOriginal;
+            const brlFinal = isForeign ? origFinal * exchangeRateNum : origFinal;
+
+            enriched.originalValue = String(brlOriginal);
+            enriched.finalValue = String(brlFinal);
+            enriched.totalValue = String(brlFinal > 0 ? brlFinal : parseFloat(String(request.totalValue || '0')));
+
+            enriched.originalValueOrig = String(origOriginal);
+            enriched.finalValueOrig = String(origFinal);
+
+            const storedTotalValueOrig = parseFloat(String(request.totalValueOrig || '0')) || 0;
+            if (storedTotalValueOrig > 0 && parseFloat(String(enriched.finalValueOrig || '0')) <= 0) {
+              enriched.finalValueOrig = String(storedTotalValueOrig);
+              enriched.originalValueOrig = enriched.originalValueOrig || String(storedTotalValueOrig);
+              if (isForeign) {
+                enriched.finalValue = String(storedTotalValueOrig * exchangeRateNum);
+              }
+            }
+          }
+
+          return enriched;
+        } catch {}
+      }
+
+      const fallbackVal = parseFloat(String(request.totalValue || '0')) || 0;
+      const currencyCodeFb = request.currencyCode ? String(request.currencyCode).toUpperCase() : 'BRL';
+      const exchangeRateNumFb = parseFloat(String(request.exchangeRate || '0')) || 0;
+      const isForeignFb = currencyCodeFb !== 'BRL' && exchangeRateNumFb > 0;
+      const storedTotalValueOrigFb = parseFloat(String(request.totalValueOrig || '0')) || 0;
+
+      const fallbackResult: any = { ...request };
+
+      if (isForeignFb && storedTotalValueOrigFb > 0) {
+        fallbackResult.originalValue = String(storedTotalValueOrigFb * exchangeRateNumFb);
+        fallbackResult.finalValue = String(storedTotalValueOrigFb * exchangeRateNumFb);
+        fallbackResult.originalValueOrig = String(storedTotalValueOrigFb);
+        fallbackResult.finalValueOrig = String(storedTotalValueOrigFb);
+      } else if (isForeignFb && fallbackVal > 0) {
+        fallbackResult.originalValue = String(fallbackVal);
+        fallbackResult.finalValue = String(fallbackVal);
+        fallbackResult.originalValueOrig = String(fallbackVal / exchangeRateNumFb);
+        fallbackResult.finalValueOrig = String(fallbackVal / exchangeRateNumFb);
+      } else {
+        fallbackResult.originalValue = String(fallbackVal);
+        fallbackResult.finalValue = String(fallbackVal);
+      }
+
+      return fallbackResult;
+    });
 
     return enrichedRequests as any[];
   }
@@ -534,7 +965,10 @@ export class PurchaseRequestRepository {
           pr.approver_a1_id as "approverA1Id",
           pr.approver_a2_id as "approverA2Id",
           pr.total_value as "totalValue",
-          pr.chosen_supplier_id as "chosenSupplierId"
+          pr.chosen_supplier_id as "chosenSupplierId",
+          pr.currency_code as "currencyCode",
+          pr.exchange_rate as "exchangeRate",
+          pr.total_value_orig as "totalValueOrig"
       `;
       
       let fromClause = `FROM purchase_requests pr`;
@@ -598,6 +1032,16 @@ export class PurchaseRequestRepository {
         const itemDesc = `%${filters.itemDescription.trim()}%`;
         whereConditions.push(`pr.id IN (SELECT purchase_request_id FROM purchase_request_items WHERE description ILIKE $${paramCounter})`);
         params.push(itemDesc);
+        paramCounter++;
+      }
+
+      if (filters?.currencyCode && typeof filters.currencyCode === 'string' && filters.currencyCode !== 'all') {
+        if (filters.currencyCode === 'BRL') {
+          whereConditions.push(`(pr.currency_code IS NULL OR pr.currency_code = $${paramCounter})`);
+        } else {
+          whereConditions.push(`pr.currency_code = $${paramCounter}`);
+        }
+        params.push(filters.currencyCode);
         paramCounter++;
       }
       

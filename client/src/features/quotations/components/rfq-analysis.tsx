@@ -30,6 +30,13 @@ import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Progress } from "@/shared/ui/progress";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/shared/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
+import {
+  formatDualCurrency,
+  formatCurrency,
+  normalizeCurrencyCode,
+  convertToBRL,
+  roundCurrency,
+} from "@/lib/currency";
 
 
 interface RFQAnalysisProps {
@@ -96,11 +103,35 @@ export default function RFQAnalysis({
   });
 
   const receivedQuotations = supplierQuotations.filter(sq => sq.status === 'received');
+
+  const resolveTotalBRL = (sq: any): number => {
+    if (!sq?.totalValue) return 0;
+    const totalOriginal = parseFloat(sq.totalValue || "0");
+    if (isNaN(totalOriginal)) return 0;
+    const code = normalizeCurrencyCode(sq.currencyCode);
+    if (code === 'BRL') return totalOriginal;
+    if (sq.totalValueBrl != null && String(sq.totalValueBrl).trim() !== "") {
+      const n = parseFloat(String(sq.totalValueBrl));
+      if (!isNaN(n)) return n;
+    }
+    const rate = sq.exchangeRate != null && String(sq.exchangeRate).trim() !== ""
+      ? Number(sq.exchangeRate) : 0;
+    return roundCurrency(convertToBRL(totalOriginal, rate || 0));
+  };
+
+  const formatSupplierTotalDual = (sq: any): string => {
+    if (!sq?.totalValue) return "Não informado";
+    const totalOriginal = parseFloat(sq.totalValue || "0");
+    if (isNaN(totalOriginal) || totalOriginal === 0) return "Não informado";
+    const code = normalizeCurrencyCode(sq.currencyCode);
+    const brl = resolveTotalBRL(sq);
+    return formatDualCurrency(totalOriginal, brl, code);
+  };
   
-  // Calculate statistics
+  // Calculate statistics (always in BRL for apples-to-apples comparison)
   const totalValues = receivedQuotations
-    .filter(sq => sq.totalValue)
-    .map(sq => parseFloat(sq.totalValue));
+    .filter(sq => sq.totalValue && parseFloat(sq.totalValue) !== 0)
+    .map(sq => resolveTotalBRL(sq));
   
   const averageValue = totalValues.length > 0 
     ? totalValues.reduce((a, b) => a + b, 0) / totalValues.length 
@@ -108,7 +139,6 @@ export default function RFQAnalysis({
   
   const minValue = totalValues.length > 0 ? Math.min(...totalValues) : 0;
   const maxValue = totalValues.length > 0 ? Math.max(...totalValues) : 0;
-
 
   // Calculate additional metrics
   const getSupplierScore = (supplierId: number) => {
@@ -124,8 +154,11 @@ export default function RFQAnalysis({
   };
   
   const getBestValueSupplier = () => {
-    const minValue = Math.min(...totalValues);
-    return receivedQuotations.find(sq => parseFloat(sq.totalValue || "0") === minValue);
+    if (totalValues.length === 0) return undefined;
+    const minVal = Math.min(...totalValues);
+    return receivedQuotations
+      .filter(sq => sq.totalValue && parseFloat(sq.totalValue) !== 0)
+      .find(sq => Math.abs(resolveTotalBRL(sq) - minVal) < 1e-6);
   };
   
   const getBestPerformanceSupplier = () => {
@@ -189,8 +222,8 @@ export default function RFQAnalysis({
                     <DollarSign className="h-8 w-8 text-green-600" />
                     <div>
                       <h3 className="font-semibold text-green-800">Melhor Preço</h3>
-                      <p className="text-sm text-green-700">
-                        {getBestValueSupplier()?.supplier?.name} - R$ {minValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                      <p className="text-sm text-green-700 font-mono whitespace-normal break-words">
+                        {getBestValueSupplier()?.supplier?.name} - {formatSupplierTotalDual(getBestValueSupplier())}
                       </p>
                     </div>
                   </div>
@@ -238,8 +271,8 @@ export default function RFQAnalysis({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Menor Valor</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      R$ {minValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                    <p className="text-2xl font-bold text-green-600 font-mono whitespace-normal break-words">
+                      {formatCurrency(minValue, 'BRL')}
                     </p>
                   </div>
                   <TrendingDown className="h-8 w-8 text-green-600" />
@@ -251,8 +284,8 @@ export default function RFQAnalysis({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Valor Médio</p>
-                    <p className="text-2xl font-bold">
-                      R$ {averageValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                    <p className="text-2xl font-bold font-mono whitespace-normal break-words">
+                      {formatCurrency(averageValue, 'BRL')}
                     </p>
                   </div>
                   <DollarSign className="h-8 w-8 text-blue-600" />
@@ -264,8 +297,8 @@ export default function RFQAnalysis({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Maior Valor</p>
-                    <p className="text-2xl font-bold text-red-600">
-                      R$ {maxValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                    <p className="text-2xl font-bold text-red-600 font-mono whitespace-normal break-words">
+                      {formatCurrency(maxValue, 'BRL')}
                     </p>
                   </div>
                   <TrendingUp className="h-8 w-8 text-red-600" />
@@ -298,9 +331,9 @@ export default function RFQAnalysis({
                   </TableHeader>
                   <TableBody>
                     {receivedQuotations.map((sq) => {
-                      const value = parseFloat(sq.totalValue || "0");
-                      const variation = averageValue > 0 ? ((value - averageValue) / averageValue) * 100 : 0;
-                      const isLowest = value === minValue;
+                      const valueBrl = resolveTotalBRL(sq);
+                      const variation = averageValue > 0 ? ((valueBrl - averageValue) / averageValue) * 100 : 0;
+                      const isLowest = totalValues.length > 0 && Math.abs(valueBrl - minValue) < 1e-6 && valueBrl > 0;
                       return (
                         <TableRow key={sq.id} className={isLowest ? "bg-green-50" : ""}>
                           <TableCell className="font-medium">
@@ -310,14 +343,14 @@ export default function RFQAnalysis({
                             </div>
                           </TableCell>
                           <TableCell>
-                            <span className={`font-semibold ${isLowest ? "text-green-600" : ""}`}>
-                              R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                            <span className={`font-semibold whitespace-normal break-words font-mono ${isLowest ? "text-green-600" : ""}`}>
+                              {formatSupplierTotalDual(sq)}
                             </span>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
-                              {getVariationIcon(value, averageValue)}
-                              <span className={getVariationColor(value, averageValue)}>
+                              {getVariationIcon(valueBrl, averageValue)}
+                              <span className={getVariationColor(valueBrl, averageValue)}>
                                 {variation > 0 ? "+" : ""}{variation.toFixed(1)}%
                               </span>
                             </div>

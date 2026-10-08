@@ -9,7 +9,7 @@ import {
   PHASE_LABELS,
   ReceiptMode,
 } from "@/lib/types";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, formatDualCurrency, formatDualCurrencyBrlFirst, normalizeCurrencyCode, roundCurrency } from "@/lib/currency";
 import {
   Clock,
   TriangleAlert,
@@ -639,27 +639,126 @@ export default function PurchaseCard({
       PURCHASE_PHASES.CONCLUSAO_COMPRA,
     ]);
 
-    const rawOriginal = parseVal(request.originalValue);
-    const rawFinal = parseVal(request.finalValue);
-    const rawTotal = parseVal(request.totalValue);
+    const brlOriginal = parseVal(request.originalValue);
+    const brlFinal = parseVal(request.finalValue);
+    const brlTotal = parseVal(request.totalValue);
 
-    if (phasesWithCalculatedValues.has(phase) && (rawOriginal > 0 || rawFinal > 0)) {
-      const original = rawOriginal > 0 ? rawOriginal : (rawFinal > 0 ? rawFinal : rawTotal);
-      const final = rawFinal > 0 ? rawFinal : rawTotal;
-      return {
-        original,
-        final,
-        showBoth: final > 0 && Math.abs(original - final) > 0.001,
-      };
+    const origOriginal = parseVal(request.originalValueOrig);
+    const origFinal = parseVal(request.finalValueOrig);
+    const origTotal = parseVal(request.totalValueOrig);
+
+    const currencyCodeNorm = normalizeCurrencyCode(request.currencyCode);
+    const isForeign = currencyCodeNorm !== 'BRL';
+    const rate = parseVal(request.exchangeRate);
+
+    const hasAnyOrig = origOriginal > 0 || origFinal > 0 || origTotal > 0;
+    const isCalcPhase = phasesWithCalculatedValues.has(phase);
+
+    let originalOrig = 0;
+    let finalOrig = 0;
+    let originalBrl = 0;
+    let finalBrl = 0;
+
+    if (isCalcPhase) {
+      if (isForeign && rate > 0 && hasAnyOrig) {
+        originalOrig = origOriginal > 0 ? origOriginal : origTotal;
+        finalOrig = origFinal > 0 ? origFinal : origTotal;
+
+        originalBrl = roundCurrency(originalOrig * rate);
+        finalBrl = roundCurrency(finalOrig * rate);
+      } else if (isForeign && rate > 0) {
+        const fallbackBrlOriginal = brlOriginal > 0 ? brlOriginal : (brlFinal > 0 ? brlFinal : brlTotal);
+        const fallbackBrlFinal = brlFinal > 0 ? brlFinal : brlTotal;
+
+        originalOrig = fallbackBrlOriginal / rate;
+        finalOrig = fallbackBrlFinal / rate;
+        originalBrl = fallbackBrlOriginal;
+        finalBrl = fallbackBrlFinal;
+      } else {
+        originalBrl = brlOriginal > 0 ? brlOriginal : (brlFinal > 0 ? brlFinal : brlTotal);
+        finalBrl = brlFinal > 0 ? brlFinal : brlTotal;
+        originalOrig = originalBrl;
+        finalOrig = finalBrl;
+      }
+    } else {
+      if (isForeign && rate > 0 && hasAnyOrig) {
+        finalOrig = origFinal > 0 ? origFinal : (origTotal > 0 ? origTotal : origOriginal);
+        finalBrl = roundCurrency(finalOrig * rate);
+        originalOrig = finalOrig;
+        originalBrl = finalBrl;
+      } else if (isForeign && rate > 0) {
+        finalBrl = brlTotal > 0 ? brlTotal : (brlFinal > 0 ? brlFinal : brlOriginal);
+        finalOrig = finalBrl > 0 ? finalBrl / rate : 0;
+        originalOrig = finalOrig;
+        originalBrl = finalBrl;
+      } else {
+        finalBrl = brlTotal > 0 ? brlTotal : (brlFinal > 0 ? brlFinal : brlOriginal);
+        originalBrl = finalBrl;
+        finalOrig = finalBrl;
+        originalOrig = finalBrl;
+      }
     }
 
-    const fallback = rawTotal > 0 ? rawTotal : 0;
+    // ✅ FALLBACK FINAL INFALÍVEL:
+    // Se ainda for moeda estrangeira E tiver totalValueOrig (do SELECT direto no DB)
+    // E o finalBrl calculado for menor que (origTotal × taxa), significa que o enriquecimento
+    // calculou dividindo por taxa indevidamente — sobrescreve com base no totalValueOrig.
+    if (isForeign && rate > 0 && origTotal > 0) {
+      const expectedFinalBrl = roundCurrency(origTotal * rate);
+      const expectedOriginalBrl = origOriginal > 0
+        ? roundCurrency(origOriginal * rate)
+        : expectedFinalBrl;
+
+      const finalOrigFromDb = origFinal > 0 ? origFinal : origTotal;
+      const originalOrigFromDb = origOriginal > 0 ? origOriginal : origTotal;
+
+      if (Math.abs(finalBrl - expectedFinalBrl) > 0.5) {
+        finalBrl = expectedFinalBrl;
+        finalOrig = finalOrigFromDb;
+      }
+      if (Math.abs(originalBrl - expectedOriginalBrl) > 0.5) {
+        originalBrl = expectedOriginalBrl;
+        originalOrig = originalOrigFromDb;
+      }
+    } else if (isForeign && rate > 0 && !hasAnyOrig && brlFinal > 0) {
+      // Caso legado: *Orig não foram persistidos, temos apenas BRL.
+      // Ajusta ambos os Origs para a consistência (não há desconto de verdade, é arredondamento/legado).
+      finalOrig = finalBrl / rate;
+      originalOrig = finalOrig;
+      originalBrl = finalBrl;
+    }
+
+    // Mostrar Original tachado + Final verde SOMENTE quando há DESCONTO REAL
+    // (Valor Original > Valor Final). Isso evita mostrar "Orig." em casos de:
+    // - BRL legado antigo diferente (R$ 100 vs R$ 499) sem desconto
+    // - Apenas arredondamentos sem desconto
+    const hasDiscount = isCalcPhase && finalBrl > 0 && originalBrl - finalBrl > 0.5;
+    const showBoth = hasDiscount;
+
+    // Garantia final de consistência dos valores Origs (quando NÃO mostrar os dois):
+    // Se showBoth=false (sem desconto real), os valores Orig devem ser consistentes
+    // (se Orig vieram de cálculos errados, ex: BRL/rate de BRL legado).
+    // Sempre forçar Orig = BRL / rate quando não houver desconto.
+    if (isForeign && rate > 0 && !showBoth) {
+      if (finalBrl > 0) finalOrig = finalBrl / rate;
+      if (originalBrl > 0) originalOrig = originalBrl / rate;
+      // Se finalBrl for o valor válido, manter original consistente.
+      if (finalBrl > 0 && (!originalBrl || Math.abs(originalBrl - finalBrl) < 0.5)) {
+        originalBrl = finalBrl;
+        originalOrig = finalOrig;
+      }
+    }
+
     return {
-      original: fallback,
-      final: fallback,
-      showBoth: false,
+      original: originalBrl,
+      final: finalBrl,
+      originalOrig,
+      finalOrig,
+      currencyCodeNorm,
+      isForeign,
+      showBoth,
     };
-  }, [request.originalValue, request.finalValue, request.totalValue, phase]);
+  }, [request.originalValue, request.finalValue, request.totalValue, request.originalValueOrig, request.finalValueOrig, request.totalValueOrig, request.currencyCode, request.exchangeRate, phase]);
 
   // Check user permissions for showing certain actions
   const canApproveA1 = user?.isApproverA1 || false;
@@ -828,7 +927,12 @@ export default function PurchaseCard({
                 {request.requestNumber}{request.purchaseOrder?.orderNumber ? ` - ${request.purchaseOrder.orderNumber}` : ''}
               </Badge>
             </div>
-            <div className="flex gap-0.5">
+            <div className="flex items-center gap-0.5">
+              {valuesDisplay.isForeign && (
+                <Badge variant="outline" className="font-mono text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 h-6 rounded-sm border-slate-300 dark:border-slate-700 shrink-0">
+                  {valuesDisplay.currencyCodeNorm}
+                </Badge>
+              )}
               {phase === "solicitacao" && !request.approvedA1 && (
                 <Button
                   variant="ghost"
@@ -976,25 +1080,53 @@ export default function PurchaseCard({
           >
             {(valuesDisplay.final > 0 || valuesDisplay.original > 0) && (
               valuesDisplay.showBoth ? (
-                <div className="space-y-0.5">
-                  <p>
-                    <span className="font-medium text-slate-700 dark:text-slate-300">Valor Original:</span>{' '}
-                    <span className="line-through text-slate-500 dark:text-slate-500">
-                      {formatCurrency(valuesDisplay.original)}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-semibold text-green-700 dark:text-green-400">Valor Final:</span>{' '}
-                    <span className="font-semibold text-green-700 dark:text-green-400">
-                      {formatCurrency(valuesDisplay.final)}
-                    </span>
-                  </p>
-                </div>
+                valuesDisplay.isForeign ? (
+                  <div className="space-y-0.5 break-words">
+                    <p>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">Orig.:</span>{' '}
+                      <span className="line-through text-slate-500 dark:text-slate-500">
+                        {formatDualCurrencyBrlFirst(valuesDisplay.originalOrig, valuesDisplay.original, valuesDisplay.currencyCodeNorm)}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="font-semibold text-green-700 dark:text-green-400">Final:</span>{' '}
+                      <span className="font-semibold text-green-700 dark:text-green-400">
+                        {formatDualCurrencyBrlFirst(valuesDisplay.finalOrig, valuesDisplay.final, valuesDisplay.currencyCodeNorm)}
+                      </span>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-0.5">
+                    <p>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">Valor Original:</span>{' '}
+                      <span className="line-through text-slate-500 dark:text-slate-500">
+                        {formatCurrency(valuesDisplay.original)}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="font-semibold text-green-700 dark:text-green-400">Valor Final:</span>{' '}
+                      <span className="font-semibold text-green-700 dark:text-green-400">
+                        {formatCurrency(valuesDisplay.final)}
+                      </span>
+                    </p>
+                  </div>
+                )
               ) : (
-                <p>
-                  <span className="font-medium text-slate-700 dark:text-slate-300">Valor:</span>{' '}
-                  {formatCurrency(valuesDisplay.final > 0 ? valuesDisplay.final : valuesDisplay.original)}
-                </p>
+                valuesDisplay.isForeign ? (
+                  <p className="break-words">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">Valor:</span>{' '}
+                    {formatDualCurrencyBrlFirst(
+                      valuesDisplay.final > 0 ? valuesDisplay.finalOrig : valuesDisplay.originalOrig,
+                      valuesDisplay.final > 0 ? valuesDisplay.final : valuesDisplay.original,
+                      valuesDisplay.currencyCodeNorm
+                    )}
+                  </p>
+                ) : (
+                  <p>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">Valor:</span>{' '}
+                    {formatCurrency(valuesDisplay.final > 0 ? valuesDisplay.final : valuesDisplay.original)}
+                  </p>
+                )
               )
             )}
 

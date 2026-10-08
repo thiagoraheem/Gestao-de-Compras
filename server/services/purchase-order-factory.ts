@@ -6,6 +6,12 @@ import {
   purchaseRequestItems,
 } from "../../shared/schema";
 import { eq, sql, and } from "drizzle-orm";
+import {
+  normalizeCurrencyCode,
+  convertToBRL,
+  roundCurrency,
+  toNumber,
+} from "../../shared/utils/currency-utils";
 
 /**
  * Creates a Purchase Order from an approved supplier quotation.
@@ -39,6 +45,18 @@ export async function createPurchaseOrderFromQuotation(
   const chosenSupplierQuotation = supplierQuotations.find((sq) => sq.isChosen);
   if (!chosenSupplierQuotation) return null;
 
+  const winnerCurrencyCode = normalizeCurrencyCode(
+    (chosenSupplierQuotation as any)?.currencyCode
+  );
+  const winnerExchangeRateRaw = (chosenSupplierQuotation as any)?.exchangeRate;
+  const winnerExchangeRate =
+    winnerCurrencyCode === 'BRL'
+      ? (winnerExchangeRateRaw ? toNumber(winnerExchangeRateRaw) : 1) || 1
+      : (winnerExchangeRateRaw ? toNumber(winnerExchangeRateRaw) : 1);
+
+  const totalOrig = parseFloat(chosenSupplierQuotation.totalValue || "0");
+  const totalValueBrl = roundCurrency(convertToBRL(totalOrig, winnerExchangeRate), 2);
+
   // Check if purchase order already exists
   const existingPurchaseOrder = await storage.getPurchaseOrderByRequestId(purchaseRequestId);
   if (existingPurchaseOrder) return null;
@@ -60,7 +78,10 @@ export async function createPurchaseOrderFromQuotation(
     supplierId: chosenSupplierQuotation.supplierId,
     quotationId: quotation.id,
     status: "draft" as const,
-    totalValue: chosenSupplierQuotation.totalValue || "0",
+    totalValue: totalValueBrl.toFixed(2),
+    totalValueBrl: totalValueBrl.toFixed(2),
+    currencyCode: winnerCurrencyCode,
+    exchangeRate: winnerExchangeRate > 0 ? winnerExchangeRate.toString() : "1",
     paymentTerms: chosenSupplierQuotation.paymentTerms || null,
     deliveryTerms: null,
     deliveryAddress: null,
@@ -149,20 +170,27 @@ export async function createPurchaseOrderFromQuotation(
 
     const unit = si.confirmedUnit || qi?.unit || "UN";
     const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
-    const unitPrice = si.unitPrice || "0";
-    const baseTotal = (parseFloat(unitPrice) || 0) * (parseFloat(quantity as any) || 0);
+    const unitPriceOrig = si.unitPrice || "0";
+    const baseTotalOrig = (parseFloat(unitPriceOrig) || 0) * (parseFloat(quantity as any) || 0);
 
-    let itemDiscount = 0;
-    let totalPrice = baseTotal;
+    let itemDiscountOrig = 0;
+    let totalPriceOrig = baseTotalOrig;
 
     if (si.discountPercentage && parseFloat(si.discountPercentage as any) > 0) {
-      itemDiscount = (baseTotal * parseFloat(si.discountPercentage as any)) / 100;
+      itemDiscountOrig = (baseTotalOrig * parseFloat(si.discountPercentage as any)) / 100;
     } else if (si.discountValue && parseFloat(si.discountValue as any) > 0) {
-      itemDiscount = parseFloat(si.discountValue as any);
+      itemDiscountOrig = parseFloat(si.discountValue as any);
     }
 
-    totalPrice = Math.max(0, baseTotal - itemDiscount);
-    itemsTotal += totalPrice;
+    totalPriceOrig = Math.max(0, baseTotalOrig - itemDiscountOrig);
+
+    // REGRA CRÍTICA: PO é SEMPRE armazenado EM BRL.
+    // Campos principais (unitPrice / totalPrice) = BRL convertido (Orig × taxa).
+    // Campos redundantes (*Brl) = mesmo valor para consistência.
+    const uPriceOrigNum = parseFloat(unitPriceOrig) || 0;
+    const unitPriceBrlVal = roundCurrency(convertToBRL(uPriceOrigNum, winnerExchangeRate), 4);
+    const totalPriceBrlVal = roundCurrency(convertToBRL(totalPriceOrig, winnerExchangeRate), 4);
+    itemsTotal += totalPriceBrlVal;
 
     const purchaseOrderItemData = {
       purchaseOrderId: purchaseOrder.id,
@@ -170,8 +198,10 @@ export async function createPurchaseOrderFromQuotation(
       description,
       quantity,
       unit,
-      unitPrice,
-      totalPrice: totalPrice.toFixed(4),
+      unitPrice: unitPriceBrlVal.toFixed(4),
+      totalPrice: totalPriceBrlVal.toFixed(4),
+      unitPriceBrl: unitPriceBrlVal.toFixed(4),
+      totalPriceBrl: totalPriceBrlVal.toFixed(4),
       deliveryDeadline: null,
       costCenterId: purchaseRequest?.costCenterId,
       accountCode: null,

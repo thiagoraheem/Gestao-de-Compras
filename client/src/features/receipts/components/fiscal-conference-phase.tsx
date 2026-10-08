@@ -6,7 +6,7 @@ import { Separator } from "@/shared/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/shared/ui/tabs";
 import PdfViewer from "@/shared/components/pdf-viewer";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
-import { Eye, X, FileText, Check, Clock, ArrowLeft, RefreshCw, Edit, Undo2, Download } from "lucide-react";
+import { Eye, X, FileText, Check, Clock, ArrowLeft, RefreshCw, Edit, Undo2, Download, Info } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -32,7 +32,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import PurchaseRequestHeaderCard from "@/features/requests/components/purchase-request-header-card";
 import { PHASE_LABELS } from "@/lib/types";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, normalizeCurrencyCode, CURRENCY_LABELS, formatCurrencyIn } from "@/lib/currency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { Label } from "@/shared/ui/label";
@@ -116,6 +116,20 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
     }
   });
 
+  const currencyInfo = useMemo(() => {
+    const po = purchaseOrder as any;
+    const codeRaw = po?.currencyCode || activeRequest?.currencyCode;
+    const rateRaw = po?.exchangeRate ?? activeRequest?.exchangeRate;
+    const code = normalizeCurrencyCode(codeRaw);
+    const rate = Number(rateRaw) || 0;
+    const show = code !== 'BRL' && rate > 0;
+    if (!show) return null;
+    const totalBrl = Number(po?.totalValueBrl ?? po?.totalValue ?? activeRequest?.totalValue ?? 0) || 0;
+    const totalOrig = rate > 0 ? totalBrl / rate : 0;
+    const formatRate = rate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+    return { code, rate, formatRate, totalBrl, totalOrig };
+  }, [purchaseOrder, activeRequest]);
+
   // Filter receipts that need fiscal conference or are already done
   const pendingReceipts = receipts.filter(r => r.status === 'conf_fisica' || r.status === 'erro_integracao');
   const doneReceipts = receipts.filter(r => r.status === 'conferida' || r.status === 'fiscal_conferida' || r.status === 'integrado_locador');
@@ -197,6 +211,25 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
           status={(activeRequest?.phase && (PHASE_LABELS as any)[activeRequest.phase as keyof typeof PHASE_LABELS]) || (request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
           creationDate={(activeRequest?.createdAt || request?.createdAt) ? format(new Date(activeRequest?.createdAt || request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
         />
+
+        {currencyInfo && (
+          <Card className="bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800/50 mb-4">
+            <CardContent className="p-3">
+              <div className="flex items-start gap-2">
+                <Info className="w-5 h-5 text-sky-600 dark:text-sky-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sky-800 dark:text-sky-200">
+                    Valores do Pedido Original: {CURRENCY_LABELS[currencyInfo.code as keyof typeof CURRENCY_LABELS]} ({currencyInfo.code}) · Taxa 1 {currencyInfo.code} = R$ {currencyInfo.formatRate}
+                  </p>
+                  <p className="text-xs text-sky-700 dark:text-sky-300">
+                    Os campos desta tela operam em BRL (conversão aplicada automaticamente a partir da cotação vencedora).
+                    Total original: {formatCurrencyIn(currencyInfo.code, currencyInfo.totalOrig)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card>
@@ -573,6 +606,20 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
   };
 
   const targetRequest = activeRequest || request;
+
+  const contentCurrencyInfo = useMemo(() => {
+    const po = purchaseOrder as any;
+    const codeRaw = po?.currencyCode || targetRequest?.currencyCode;
+    const rateRaw = po?.exchangeRate ?? targetRequest?.exchangeRate;
+    const code = normalizeCurrencyCode(codeRaw);
+    const rate = Number(rateRaw) || 0;
+    const show = code !== 'BRL' && rate > 0;
+    if (!show) return null;
+    const totalBrl = Number(po?.totalValueBrl ?? po?.totalValue ?? targetRequest?.totalValue ?? 0) || 0;
+    const totalOrig = rate > 0 ? totalBrl / rate : 0;
+    const formatRate = rate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+    return { code, rate, formatRate, totalBrl, totalOrig };
+  }, [purchaseOrder, targetRequest]);
   const contentRequesterName = React.useMemo(() => {
     if (!targetRequest) return "N/A";
     if (targetRequest.requesterName && targetRequest.requesterName.trim().length > 0 && targetRequest.requesterName !== "N/A") {
@@ -618,6 +665,25 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
           status={(targetRequest?.phase && (PHASE_LABELS as any)[targetRequest.phase as keyof typeof PHASE_LABELS]) || (request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
           creationDate={(targetRequest?.createdAt || request?.createdAt) ? format(new Date(targetRequest?.createdAt || request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
         />
+
+        {contentCurrencyInfo && (
+          <Card className="bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800/50 mb-4">
+            <CardContent className="p-3">
+              <div className="flex items-start gap-2">
+                <Info className="w-5 h-5 text-sky-600 dark:text-sky-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sky-800 dark:text-sky-200">
+                    Valores do Pedido Original: {CURRENCY_LABELS[contentCurrencyInfo.code as keyof typeof CURRENCY_LABELS]} ({contentCurrencyInfo.code}) · Taxa 1 {contentCurrencyInfo.code} = R$ {contentCurrencyInfo.formatRate}
+                  </p>
+                  <p className="text-xs text-sky-700 dark:text-sky-300">
+                    Os campos desta tela operam em BRL (conversão aplicada automaticamente a partir da cotação vencedora).
+                    Total original: {formatCurrencyIn(contentCurrencyInfo.code, contentCurrencyInfo.totalOrig)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Tabs value={activeTab === 'items' ? 'fiscal' : activeTab} onValueChange={(v: any) => setActiveTab(v)} className="space-y-4">

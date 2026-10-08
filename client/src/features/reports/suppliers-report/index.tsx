@@ -10,7 +10,7 @@ import { Badge } from "@/shared/ui/badge";
 import { RefreshCw, Truck, BarChart3, Clock, CheckCircle, Percent, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, normalizeCurrencyCode } from "@/lib/currency";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from "@/shared/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { DateInput } from "@/shared/ui/date-input";
@@ -274,6 +274,7 @@ export function SuppliersReport() {
                         <TableRow>
                           <TableHead>RFQ</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead>Moeda</TableHead>
                           <TableHead>Enviado</TableHead>
                           <TableHead>Recebido</TableHead>
                           <TableHead>Valor</TableHead>
@@ -282,12 +283,13 @@ export function SuppliersReport() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {report.quotations.map((q) => {
+                        {report.quotations.map((q: any) => {
                           const subtotal = q.subtotalValue ? parseFloat(q.subtotalValue) : null;
                           const final = q.finalValue ? parseFloat(q.finalValue) : null;
                           const discountRate = subtotal && final && subtotal > 0 && final <= subtotal
                             ? (subtotal - final) / subtotal
                             : null;
+                          const qCurrencyCode = normalizeCurrencyCode(q.currencyCode || 'BRL');
                           return (
                             <TableRow key={q.id}>
                               <TableCell className="font-medium">{q.quotationNumber || q.quotationId}</TableCell>
@@ -295,6 +297,9 @@ export function SuppliersReport() {
                                 <Badge className={q.status === 'received' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'}>
                                   {q.status || '—'}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{qCurrencyCode}</Badge>
                               </TableCell>
                               <TableCell>{q.sentAt ? format(new Date(q.sentAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : '—'}</TableCell>
                               <TableCell>{q.receivedAt ? format(new Date(q.receivedAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : '—'}</TableCell>

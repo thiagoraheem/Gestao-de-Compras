@@ -69,59 +69,116 @@ export class QuotationRepository {
   }
 
   async createQuotation(quotationData: InsertQuotation): Promise<Quotation> {
-    // Check if there's an existing quotation for this purchase request
-    const existingQuotations = await db
-      .select()
-      .from(quotations)
-      .where(eq(quotations.purchaseRequestId, quotationData.purchaseRequestId))
-      .orderBy(desc(quotations.rfqVersion));
+    return await db.transaction(async (tx) => {
+      // Check if there's an existing quotation for this purchase request
+      const existingQuotations = await tx
+        .select()
+        .from(quotations)
+        .where(eq(quotations.purchaseRequestId, quotationData.purchaseRequestId))
+        .orderBy(desc(quotations.rfqVersion));
 
-    // If there's an existing quotation, deactivate it and create a new version
-    let newVersion = 1;
-    let parentQuotationId: number | undefined;
+      // If there's an existing quotation, deactivate it and create a new version
+      let newVersion = 1;
+      let parentQuotationId: number | undefined;
+      let currentQuotation: any = null;
 
-    if (existingQuotations.length > 0) {
-      const currentQuotation = existingQuotations[0];
-      newVersion = (currentQuotation.rfqVersion || 1) + 1;
-      parentQuotationId = currentQuotation.id;
+      if (existingQuotations.length > 0) {
+        currentQuotation = existingQuotations[0];
+        newVersion = (currentQuotation.rfqVersion || 1) + 1;
+        parentQuotationId = currentQuotation.id;
 
-      // Deactivate the current quotation
-      await db
-        .update(quotations)
-        .set({ isActive: false })
-        .where(eq(quotations.id, currentQuotation.id));
-    }
-
-    // Generate quotation number
-    const year = new Date().getFullYear();
-    const quotationsThisYear = await db
-      .select()
-      .from(quotations)
-      .where(like(quotations.quotationNumber, `COT-${year}-%`));
-
-    // Find the highest number used this year
-    let maxNumber = 0;
-    quotationsThisYear.forEach((q) => {
-      const match = q.quotationNumber.match(/COT-\d{4}-(\d{4})/);
-      if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) maxNumber = num;
+        // Deactivate the current quotation
+        await tx
+          .update(quotations)
+          .set({ isActive: false })
+          .where(eq(quotations.id, currentQuotation.id));
       }
+
+      // Generate quotation number
+      const year = new Date().getFullYear();
+      const quotationsThisYear = await tx
+        .select()
+        .from(quotations)
+        .where(like(quotations.quotationNumber, `COT-${year}-%`));
+
+      // Find the highest number used this year
+      let maxNumber = 0;
+      quotationsThisYear.forEach((q) => {
+        const match = q.quotationNumber.match(/COT-\d{4}-(\d{4})/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) maxNumber = num;
+        }
+      });
+
+      const quotationNumber = `COT-${year}-${String(maxNumber + 1).padStart(4, "0")}`;
+
+      const [quotation] = await tx
+        .insert(quotations)
+        .values({
+          ...quotationData,
+          quotationNumber,
+          rfqVersion: newVersion,
+          parentQuotationId,
+          isActive: true,
+        })
+        .returning();
+
+      // Moeda e taxa são copiados ao criar nova versão de cotação.
+      // Copia as cotações de fornecedores da versão anterior para a nova versão,
+      // preservando currencyCode, exchangeRate, e todos os campos *BRL.
+      if (currentQuotation) {
+        const existingSupplierQuotations = await tx
+          .select()
+          .from(supplierQuotations)
+          .where(eq(supplierQuotations.quotationId, currentQuotation.id));
+
+        for (const sq of existingSupplierQuotations) {
+          const {
+            id: _sqId,
+            quotationId: _sqQuotationId,
+            createdAt: _sqCreatedAt,
+            updatedAt: _sqUpdatedAt,
+            ...restSupplierQuotation
+          } = sq as any;
+
+          const [copiedSQ] = await tx
+            .insert(supplierQuotations)
+            .values({
+              ...restSupplierQuotation,
+              quotationId: quotation.id,
+              isChosen: false,
+            } as any)
+            .returning();
+
+          const existingSQItems = await tx
+            .select()
+            .from(supplierQuotationItems)
+            .where(eq(supplierQuotationItems.supplierQuotationId, sq.id as number));
+
+          if (existingSQItems.length > 0) {
+            const itemsToCopy = existingSQItems.map((sqi: any) => {
+              const {
+                id: _sqiId,
+                supplierQuotationId: _sqiSupplierQuotationId,
+                createdAt: _sqiCreatedAt,
+                updatedAt: _sqiUpdatedAt,
+                ...restItem
+              } = sqi;
+
+              return {
+                ...restItem,
+                supplierQuotationId: copiedSQ.id,
+              };
+            });
+
+            await tx.insert(supplierQuotationItems).values(itemsToCopy as any[]);
+          }
+        }
+      }
+
+      return quotation;
     });
-
-    const quotationNumber = `COT-${year}-${String(maxNumber + 1).padStart(4, "0")}`;
-
-    const [quotation] = await db
-      .insert(quotations)
-      .values({
-        ...quotationData,
-        quotationNumber,
-        rfqVersion: newVersion,
-        parentQuotationId,
-        isActive: true,
-      })
-      .returning();
-    return quotation;
   }
 
   async updateQuotation(
@@ -319,6 +376,13 @@ export class QuotationRepository {
         createdAt: supplierQuotations.createdAt,
         isChosen: supplierQuotations.isChosen,
         choiceReason: supplierQuotations.choiceReason,
+        currencyCode: supplierQuotations.currencyCode,
+        exchangeRate: supplierQuotations.exchangeRate,
+        totalValueBrl: supplierQuotations.totalValueBrl,
+        subtotalValueBrl: supplierQuotations.subtotalValueBrl,
+        finalValueBrl: supplierQuotations.finalValueBrl,
+        freightValueBrl: supplierQuotations.freightValueBrl,
+        discountValueBrl: supplierQuotations.discountValueBrl,
         supplier: {
           id: suppliers.id,
           name: suppliers.name,

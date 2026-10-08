@@ -14,6 +14,80 @@ import { Slider } from "@/shared/ui/slider";
 import { useSupplierComparison } from "./useSupplierComparison";
 import { useRecommendedSupplier } from "./useRecommendedSupplier";
 import { ComparisonDataGrid } from "./ComparisonDataGrid";
+import {
+  formatDualCurrency,
+  formatCurrency,
+  normalizeCurrencyCode,
+  convertToBRL,
+  roundCurrency,
+} from "@/lib/currency";
+
+const resolveSupplierTotalBRL = (supplierData: any): number => {
+  if (!supplierData?.totalValue) return 0;
+  const totalOriginal = Number(supplierData.totalValue || 0);
+  if (isNaN(totalOriginal)) return 0;
+  const code = normalizeCurrencyCode(supplierData.currencyCode);
+  if (code === 'BRL') return totalOriginal;
+  if (supplierData.totalValueBrl != null && String(supplierData.totalValueBrl).trim() !== "") {
+    const n = Number(supplierData.totalValueBrl);
+    if (!isNaN(n)) return n;
+  }
+  const rate = supplierData.exchangeRate != null && String(supplierData.exchangeRate).trim() !== ""
+    ? Number(supplierData.exchangeRate)
+    : 0;
+  return roundCurrency(convertToBRL(totalOriginal, rate || 0));
+};
+
+const formatSupplierTotalDual = (supplierData: any): string => {
+  if (!supplierData?.totalValue) return "Não informado";
+  const totalOriginal = Number(supplierData.totalValue || 0);
+  if (isNaN(totalOriginal) || totalOriginal === 0) return "Não informado";
+  const code = normalizeCurrencyCode(supplierData.currencyCode);
+  const brl = resolveSupplierTotalBRL(supplierData);
+  return formatDualCurrency(totalOriginal, brl, code);
+};
+
+const resolveItemUnitBRL = (item: any, supplierData: any): number => {
+  if (!item?.unitPrice) return 0;
+  const original = Number(item.unitPrice || 0);
+  if (isNaN(original)) return 0;
+  const code = normalizeCurrencyCode(supplierData?.currencyCode);
+  if (code === 'BRL') return original;
+  const rate = supplierData?.exchangeRate != null && String(supplierData.exchangeRate).trim() !== ""
+    ? Number(supplierData.exchangeRate)
+    : 0;
+  return roundCurrency(convertToBRL(original, rate || 0));
+};
+
+const formatItemUnitDual = (item: any, supplierData: any): string => {
+  if (!item?.unitPrice) return "-";
+  const original = Number(item.unitPrice || 0);
+  if (isNaN(original)) return "-";
+  const code = normalizeCurrencyCode(supplierData?.currencyCode);
+  const brl = resolveItemUnitBRL(item, supplierData);
+  return formatDualCurrency(original, brl, code);
+};
+
+const resolveItemTotalBRL = (item: any, supplierData: any): number => {
+  if (!item?.totalPrice) return 0;
+  const original = Number(item.discountedTotalPrice || item.totalPrice || 0);
+  if (isNaN(original)) return 0;
+  const code = normalizeCurrencyCode(supplierData?.currencyCode);
+  if (code === 'BRL') return original;
+  const rate = supplierData?.exchangeRate != null && String(supplierData.exchangeRate).trim() !== ""
+    ? Number(supplierData.exchangeRate)
+    : 0;
+  return roundCurrency(convertToBRL(original, rate || 0));
+};
+
+const formatItemTotalDual = (item: any, supplierData: any): string => {
+  if (item?.totalPrice == null) return "-";
+  const original = Number(item.discountedTotalPrice || item.totalPrice || 0);
+  if (isNaN(original)) return "-";
+  const code = normalizeCurrencyCode(supplierData?.currencyCode);
+  const brl = resolveItemTotalBRL(item, supplierData);
+  return formatDualCurrency(original, brl, code);
+};
 
 interface SupplierComparisonProps {
   quotationId: number;
@@ -310,8 +384,8 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                             <DollarSign className="h-4 w-4 text-green-600" />
                             <span className="text-sm font-medium">Valor Total</span>
                           </div>
-                          <span className="text-lg font-bold text-green-600">
-                            R$ {supplierData.totalValue?.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                          <span className="text-lg font-bold text-green-600 font-mono whitespace-normal break-words">
+                            {formatSupplierTotalDual(supplierData)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -334,8 +408,8 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                           </div>
                           <div className="text-sm">
                             {supplierData.includesFreight ? (
-                              <span className="text-blue-600 font-medium">
-                                R$ {Number(supplierData.freightValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                              <span className="text-blue-600 font-medium font-mono whitespace-normal break-words">
+                                {formatCurrency(Number(supplierData.freightValue || 0), normalizeCurrencyCode(supplierData.currencyCode))}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">Não incluso</span>
@@ -425,13 +499,13 @@ export default function SupplierComparison({ quotationId, isOpen, onOpenChange, 
                                   />
                                   <div>
                                     <p className="font-medium text-sm">{qItem?.description || item.description || "Item não identificado"}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {item.quantity} {qItem?.unit || 'UN'} x R$ {Number(item.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                    <p className="text-xs text-muted-foreground font-mono whitespace-normal break-words">
+                                      {item.quantity} {qItem?.unit || 'UN'} x {formatItemUnitDual(item, selectedSupplierData)}
                                     </p>
                                   </div>
                                 </label>
-                                <div className="font-semibold text-sm cursor-default">
-                                  R$ {Number(item.totalPrice).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                <div className="font-semibold text-sm cursor-default font-mono whitespace-normal break-words">
+                                  {formatItemTotalDual(item, selectedSupplierData)}
                                 </div>
                               </div>
                             );

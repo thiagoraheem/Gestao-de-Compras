@@ -8,6 +8,7 @@ import {
 import { realtime } from "../realtime";
 import { REALTIME_CHANNELS, PURCHASE_REQUEST_EVENTS } from "../../shared/realtime-events";
 import { purchaseOrderService } from "./purchase-order-service";
+import { auditService } from "./audit-service";
 import { db } from "../db";
 import {
   receipts,
@@ -108,7 +109,26 @@ export class WorkflowService {
       }
     }
 
-    const updateData = {
+    // OQ-4 resolvido: dados antigos de fornecedores são preservados; apenas dados de PR (escolha vencedora) são apagados.
+    // Ao retroceder de A2 para Cotação, manter a taxa câmbio e moeda dos supplier_quotations existentes (eles não são tocados).
+    // Apenas os campos de nível de PR (escolha vencedora consolidada) são zerados.
+    const isRollbackRecotacao = !approved && rejectionAction === "recotacao";
+
+    const beforeDataForAudit = isRollbackRecotacao ? {
+      currencyCode: (request as any).currencyCode ?? null,
+      exchangeRate: (request as any).exchangeRate ?? null,
+      totalValueOrig: (request as any).totalValueOrig ?? null,
+      negotiatedValueOrig: (request as any).negotiatedValueOrig ?? null,
+      discountsObtainedOrig: (request as any).discountsObtainedOrig ?? null,
+      totalValue: (request as any).totalValue ?? null,
+      negotiatedValue: (request as any).negotiatedValue ?? null,
+      discountsObtained: (request as any).discountsObtained ?? null,
+      chosenSupplierId: (request as any).chosenSupplierId ?? null,
+      choiceReason: (request as any).choiceReason ?? null,
+      phase: request.currentPhase,
+    } : null;
+
+    const updateData: any = {
       approverA2Id: approverId,
       approvalDateA2: new Date(),
       approvedA2: approved,
@@ -117,7 +137,21 @@ export class WorkflowService {
       currentPhase: newPhase as any,
       lastPhase: newPhase === "arquivado" ? request.currentPhase : undefined,
       updatedAt: new Date(),
-    } as const;
+    };
+
+    if (isRollbackRecotacao) {
+      // Limpa os campos de moeda e valores que refletiam a escolha vencedora em A2
+      updateData.currencyCode = null;
+      updateData.exchangeRate = null;
+      updateData.totalValueOrig = null;
+      updateData.negotiatedValueOrig = null;
+      updateData.discountsObtainedOrig = null;
+      updateData.totalValue = null;
+      updateData.negotiatedValue = null;
+      updateData.discountsObtained = null;
+      updateData.chosenSupplierId = null;
+      updateData.choiceReason = null;
+    }
 
     // Create approval history entry
     await storage.createApprovalHistory({
@@ -129,6 +163,25 @@ export class WorkflowService {
     });
 
     const updatedRequest = await storage.updatePurchaseRequest(id, updateData);
+
+    if (isRollbackRecotacao) {
+      await auditService.log({
+        purchaseRequestId: id,
+        actionType: "REQUEST_ROLLBACK_A2_TO_COTACAO",
+        actionDescription: `Solicitação retornada de Aprovação A2 para Cotação (recotação). Campos de moeda e valores consolidados da escolha vencedora foram apagados da solicitação; propostas de fornecedores permanecem intactas. Motivo: ${rejectionReason || "Não informado"}`,
+        performedBy: approverId,
+        beforeData: beforeDataForAudit as any,
+        afterData: {
+          phase: "cotacao",
+          currencyCode: null,
+          exchangeRate: null,
+          totalValueOrig: null,
+          negotiatedValueOrig: null,
+          discountsObtainedOrig: null,
+        },
+        affectedTables: ["purchase_requests", "audit_logs"],
+      });
+    }
 
     // If approved, create purchase order automatically
     if (approved) {
@@ -745,6 +798,143 @@ export class WorkflowService {
 
       return updated;
     }
+  }
+
+  /**
+   * Retorna uma solicitação da fase Pedido de Compra para Aprovação A2.
+   *
+   * Finalidade: permitir recriar um Pedido de Compra com valores corrigidos (ex: após
+   * correções na criação do PO com valores BRL).
+   *
+   * Regras de negócio:
+   * - Permitido apenas nas fases: "pedido_compra" (ou seja, PO ainda não teve recebimento)
+   * - NÃO pode haver recebimentos parciais (nem rascunhos são permitidos e são apagados)
+   * - PO antigo (e seus itens) são EXCLUÍDOS do banco (para a recriação é limpa)
+   * - Recebimentos em rascunho são apagados.
+   * - Recebimentos com NF (documento vinculado bloqueiam a operação.
+   * - Solicitação volta para "aprovacao_a2" com status de pendência removido re-aprovação A2.
+   * - Quando A2 for re-aprovado → cria NOVO PO com valores corretos.
+   */
+  async returnToApprovalA2(id: number, reason: string, userId: number): Promise<any> {
+    const request = await storage.getPurchaseRequestById(id);
+    if (!request) throw new Error("Solicitação não encontrada");
+
+    const allowedPhases = ["pedido_compra"];
+    if (!allowedPhases.includes(String(request.currentPhase))) {
+      throw new ValidationError(
+        `Apenas solicitações na fase 'Pedido de Compra' (sem recebimento) podem ser retornadas para Aprovação A2. Fase atual: ${request.currentPhase}`
+      );
+    }
+
+    const [po] = await db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.purchaseRequestId, id))
+      .limit(1);
+
+    const poItems = po
+      ? await db
+          .select()
+          .from(purchaseOrderItems)
+          .where(eq(purchaseOrderItems.purchaseOrderId, po.id))
+      : [];
+
+    const hasPartialReceipt = poItems.some(
+      (item: any) => Number(item.quantityReceived || 0) > 0
+    );
+    if (hasPartialReceipt) {
+      throw new ValidationError(
+        "Este Pedido de Compra já teve recebimento (parcial ou total). Não é possível retornar para Aprovação A2. Use a opção 'Retornar para Cotação' (que cria nova solicitação)."
+      );
+    }
+
+    const receiptRows = po
+      ? await db
+          .select({
+            id: receipts.id,
+            receiptNumber: receipts.receiptNumber,
+            documentNumber: receipts.documentNumber,
+            receiptPhase: receipts.receiptPhase,
+            status: receipts.status,
+          })
+          .from(receipts)
+          .where(
+            or(
+              eq(receipts.purchaseOrderId, po.id),
+              eq(receipts.purchaseRequestId, id)
+            )
+          )
+      : [];
+
+    const hasNfReceipt = receiptRows.some((r: any) =>
+      r.documentNumber && String(r.status) !== "rascunho");
+    if (hasNfReceipt) {
+      throw new ValidationError(
+        "Existem recebimentos com Nota Fiscal vinculada a este Pedido de Compra. Não é possível retornar para Aprovação A2."
+      );
+    }
+
+    const now = new Date();
+    const receiptIds = receiptRows.map((r: any) => Number(r.id)).filter((rid: number) => Number.isFinite(rid));
+
+    await db.transaction(async (tx) => {
+      // 1. Apagar recebimentos (são todos rascunhos)
+      if (receiptIds.length > 0) {
+        await tx.delete(receiptItems).where(inArray(receiptItems.receiptId, receiptIds));
+        await tx.delete(receiptAllocations).where(inArray(receiptAllocations.receiptId, receiptIds));
+        await tx.delete(receiptInstallments).where(inArray(receiptInstallments.receiptId, receiptIds));
+        await tx.delete(receiptNfXmls).where(inArray(receiptNfXmls.receiptId, receiptIds));
+        await tx.delete(receipts).where(inArray(receipts.id, receiptIds));
+      }
+
+      // 2. Apagar PO antigo (cancelar e recriar limpo no re-aprovação A2)
+      if (po) {
+        await tx.delete(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, po.id));
+        await tx.delete(purchaseOrders).where(eq(purchaseOrders.id, po.id));
+      }
+
+      // 3. Voltar a solicitação para Aprovação A2
+      await tx
+        .update(purchaseRequests)
+        .set({
+          currentPhase: "aprovacao_a2" as any,
+          updatedAt: now,
+          hasPendency: false,
+          pendencyReason: null,
+          receivedById: null,
+          receivedDate: null,
+          physicalReceiptAt: null,
+          physicalReceiptById: null,
+          fiscalReceiptAt: null,
+          fiscalReceiptById: null,
+          procurementStatus: "aberta" as any,
+          procurementConcludedAt: null,
+          procurementConcludedById: null,
+          sentToPhysicalReceipt: false,
+        } as any)
+        .where(eq(purchaseRequests.id, id));
+
+      // 4. Audit
+      await tx.insert(auditLogs).values({
+        purchaseRequestId: id,
+        performedBy: userId,
+        actionType: "return_to_approval_a2",
+        actionDescription: `Retornado para Aprovação A2 para recriação do PO com valores corretos. Motivo: ${reason}. PO antigo excluído${receiptIds.length > 0 ? `. ${receiptIds.length} recebimento(s) rascunho excluído(s).` : ""}`,
+        performedAt: now,
+        beforeData: { phase: request.currentPhase, purchaseOrderId: po?.id ?? null } as any,
+        afterData: { phase: "aprovacao_a2", reason } as any,
+        affectedTables: ["purchase_requests", "purchase_orders", "purchase_order_items", "receipts"] as any,
+      } as any);
+    });
+
+    const updated = await storage.getPurchaseRequestById(id);
+
+    realtime.publish(REALTIME_CHANNELS.PURCHASE_REQUESTS, {
+      event: PURCHASE_REQUEST_EVENTS.PHASE_CHANGED,
+      payload: { id, currentPhase: "aprovacao_a2", updatedAt: now },
+    });
+
+    return updated;
   }
 }
 

@@ -1,24 +1,35 @@
-/**
- * Utilitários de formatação compartilhados para o servidor
- */
+import {
+  formatCurrencyIn,
+  formatDualCurrency as sharedFormatDualCurrency,
+  CurrencyCode,
+  roundCurrency,
+  convertToBRL,
+  normalizeCurrencyCode,
+  CURRENCY_SYMBOLS,
+  CURRENCY_LABELS,
+  SUPPORTED_CURRENCIES,
+} from '../../shared/utils/currency-utils';
 
-/**
- * Formata um valor numérico para moeda brasileira (BRL)
- */
-export const formatCurrency = (value: number | string | null | undefined): string => {
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  if (num === null || num === undefined || isNaN(num)) {
-    return 'R$ 0,00';
-  }
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(num);
+export type { CurrencyCode };
+export {
+  roundCurrency,
+  convertToBRL,
+  normalizeCurrencyCode,
+  CURRENCY_SYMBOLS,
+  CURRENCY_LABELS,
+  SUPPORTED_CURRENCIES,
+  sharedFormatDualCurrency as formatDualCurrency,
 };
 
-/**
- * Formata uma data para o padrão brasileiro (DD/MM/AAAA)
- */
+export const formatCurrency = (
+  value: number | string | null | undefined,
+  currencyCode?: CurrencyCode | string
+): string => {
+  return formatCurrencyIn(currencyCode || 'BRL', value);
+};
+
+export const formatCurrencyBR = formatCurrency;
+
 export const formatDate = (date: Date | string | null | undefined): string => {
   if (!date) return 'Não informado';
   try {
@@ -30,9 +41,6 @@ export const formatDate = (date: Date | string | null | undefined): string => {
   }
 };
 
-/**
- * Formata uma data e hora para o padrão brasileiro (DD/MM/AAAA HH:mm)
- */
 export const formatDateTime = (date: Date | string | null | undefined): string => {
   if (!date) return 'Não informado';
   try {
@@ -50,9 +58,6 @@ export const formatDateTime = (date: Date | string | null | undefined): string =
   }
 };
 
-/**
- * Escapa strings para uso em CSV
- */
 export const escapeCsv = (val: any): string => {
   if (val === null || val === undefined) return '';
   const str = String(val);

@@ -10,6 +10,7 @@ export interface DashboardFilters {
   startDate?: string;
   endDate?: string;
   dateFilterType?: string;
+  currencyCode?: string;
 }
 
 export class DashboardService {
@@ -21,6 +22,7 @@ export class DashboardService {
       startDate: startDateParam,
       endDate: endDateParam,
       dateFilterType = "created",
+      currencyCode = "all",
     } = filters;
 
     // Calculate date range
@@ -78,7 +80,13 @@ export class DashboardService {
 
       const statusMatch = status === "all" || request.currentPhase === status;
 
-      return isInPeriod && departmentMatch && statusMatch;
+      const currencyMatch =
+        currencyCode === "all" ||
+        (currencyCode === "BRL"
+          ? !request.currencyCode || request.currencyCode === "BRL"
+          : request.currencyCode === currencyCode);
+
+      return isInPeriod && departmentMatch && statusMatch && currencyMatch;
     });
 
     // Calculate KPIs
@@ -257,6 +265,31 @@ export class DashboardService {
       console.error("Error calculating value saved:", error);
     }
 
+    const foreignRequests = filteredRequests.filter(
+      (req) => req.currencyCode && req.currencyCode !== "BRL"
+    );
+    const brlRequests = filteredRequests.filter(
+      (req) => !req.currencyCode || req.currencyCode === "BRL"
+    );
+
+    const totalForeignConvertedBrl = foreignRequests.reduce(
+      (sum, req) => sum + (Number(req.totalValue) || Number(req.availableBudget) || 0),
+      0
+    );
+    const totalNativeBrl = brlRequests.reduce(
+      (sum, req) => sum + (Number(req.totalValue) || Number(req.availableBudget) || 0),
+      0
+    );
+    const foreignRequestCount = foreignRequests.length;
+
+    const currencyBreakdown: Record<string, number> = { USD: 0, EUR: 0, GBP: 0 };
+    foreignRequests.forEach((req) => {
+      const code = req.currencyCode || "BRL";
+      if (currencyBreakdown[code] !== undefined) {
+        currencyBreakdown[code]++;
+      }
+    });
+
     return {
       totalActiveRequests,
       totalProcessingValue,
@@ -294,6 +327,10 @@ export class DashboardService {
         automationRate: Math.round((filteredRequests.filter((req) => req.approvedA1 !== null).length / Math.max(totalActiveRequests, 1)) * 100),
         digitalAdoption: Math.round((filteredRequests.filter((req) => req.chosenSupplierId).length / Math.max(totalActiveRequests, 1)) * 100),
       },
+      totalForeignConvertedBrl,
+      totalNativeBrl,
+      foreignRequestCount,
+      currencyBreakdown,
     };
   }
 }

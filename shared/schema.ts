@@ -11,11 +11,13 @@ import {
   json,
   inet,
   index,
+  uniqueIndex,
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { SUPPORTED_CURRENCIES, normalizeCurrencyCode } from "./utils/currency-utils";
 
 // Session storage table (for future auth implementation)
 export const sessions = pgTable(
@@ -268,6 +270,13 @@ export const purchaseRequests = pgTable("purchase_requests", {
   procurementConcludedById: integer("procurement_concluded_by_id").references(() => users.id),
   sentToPhysicalReceipt: boolean("sent_to_physical_receipt").default(false),
 
+  // Multi-currency fields
+  currencyCode: text("currency_code"),
+  exchangeRate: decimal("exchange_rate", { precision: 15, scale: 6 }),
+  totalValueOrig: decimal("total_value_orig", { precision: 15, scale: 4 }),
+  negotiatedValueOrig: decimal("negotiated_value_orig", { precision: 15, scale: 4 }),
+  discountsObtainedOrig: decimal("discounts_obtained_orig", { precision: 15, scale: 4 }),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -402,6 +411,16 @@ export const supplierQuotations = pgTable("supplier_quotations", {
   // Freight fields
   includesFreight: boolean("includes_freight").default(false),
   freightValue: decimal("freight_value", { precision: 15, scale: 2 }),
+
+  // Multi-currency fields
+  currencyCode: text("currency_code").default("BRL"),
+  exchangeRate: decimal("exchange_rate", { precision: 15, scale: 6 }).default("1"),
+  totalValueBrl: decimal("total_value_brl", { precision: 15, scale: 4 }),
+  subtotalValueBrl: decimal("subtotal_value_brl", { precision: 15, scale: 4 }),
+  finalValueBrl: decimal("final_value_brl", { precision: 15, scale: 4 }),
+  freightValueBrl: decimal("freight_value_brl", { precision: 15, scale: 4 }),
+  discountValueBrl: decimal("discount_value_brl", { precision: 15, scale: 4 }),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -428,6 +447,14 @@ export const supplierQuotationItems = pgTable("supplier_quotation_items", {
   confirmedUnit: text("confirmed_unit"),
   quantityAdjustmentReason: text("quantity_adjustment_reason"),
   fulfillmentPercentage: decimal("fulfillment_percentage", { precision: 12, scale: 2 }),
+
+  // Multi-currency fields
+  unitPriceBrl: decimal("unit_price_brl", { precision: 15, scale: 4 }),
+  totalPriceBrl: decimal("total_price_brl", { precision: 15, scale: 4 }),
+  discountValueBrl: decimal("discount_value_brl", { precision: 15, scale: 4 }),
+  originalTotalPriceBrl: decimal("original_total_price_brl", { precision: 15, scale: 4 }),
+  discountedTotalPriceBrl: decimal("discounted_total_price_brl", { precision: 15, scale: 4 }),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -442,6 +469,10 @@ export const approvedQuotationItems = pgTable("approved_quotation_items", {
   approvedQuantity: decimal("approved_quantity", { precision: 10, scale: 3 }).notNull(),
   unitPrice: decimal("unit_price", { precision: 15, scale: 4 }).notNull(),
   totalPrice: decimal("total_price", { precision: 15, scale: 4 }).notNull(),
+
+  // Multi-currency fields
+  unitPriceBrl: decimal("unit_price_brl", { precision: 15, scale: 4 }),
+  totalPriceBrl: decimal("total_price_brl", { precision: 15, scale: 4 }),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -508,6 +539,12 @@ export const purchaseOrders = pgTable("purchase_orders", {
   approvedBy: integer("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
   fulfillmentStatus: text("fulfillment_status").default("pending"), // pending, partial, fulfilled
+
+  // Multi-currency fields
+  currencyCode: text("currency_code").default("BRL"),
+  exchangeRate: decimal("exchange_rate", { precision: 15, scale: 6 }).default("1"),
+  totalValueBrl: decimal("total_value_brl", { precision: 15, scale: 2 }),
+
   createdBy: integer("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -526,6 +563,11 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   costCenterId: integer("cost_center_id").references(() => costCenters.id),
   accountCode: text("account_code"),
   quantityReceived: decimal("quantity_received", { precision: 10, scale: 3 }).default("0"),
+
+  // Multi-currency fields
+  unitPriceBrl: decimal("unit_price_brl", { precision: 15, scale: 4 }),
+  totalPriceBrl: decimal("total_price_brl", { precision: 15, scale: 4 }),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -695,6 +737,34 @@ export const detailedAuditLog = pgTable("detailed_audit_log", {
   index("idx_detailed_audit_table_record").on(table.tableName, table.recordId),
   index("idx_detailed_audit_created_at").on(table.createdAt),
 ]);
+
+// Currency Rates table
+export const currencyRates = pgTable("currency_rates", {
+  id: serial("id").primaryKey(),
+  currencyCode: text("currency_code").notNull(),
+  rateDate: timestamp("rate_date").notNull(),
+  rateValue: decimal("rate_value", { precision: 15, scale: 6 }).notNull(),
+  observations: text("observations"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_currency_rates_currency_code").on(table.currencyCode),
+  index("idx_currency_rates_rate_date").on(table.rateDate),
+  uniqueIndex("uk_currency_rates_currency_code_rate_date").on(table.currencyCode, table.rateDate),
+]);
+
+export const insertCurrencyRateSchema = createInsertSchema(currencyRates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  rateDate: z.string().transform((val) => new Date(val)),
+  rateValue: z.string().transform((val) => val),
+});
+
+export type CurrencyRate = typeof currencyRates.$inferSelect;
+export type InsertCurrencyRate = z.infer<typeof insertCurrencyRateSchema>;
 
 // Relations
 export const companiesRelations = relations(companies, ({ many }) => ({
@@ -1095,6 +1165,10 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
   totalValue: z.string().optional().transform((val) => val || null),
   negotiatedValue: z.string().optional().transform((val) => val || null),
   discountsObtained: z.string().optional().transform((val) => val || null),
+  exchangeRate: z.string().optional().transform((val) => val || null),
+  totalValueOrig: z.string().optional().transform((val) => val || null),
+  negotiatedValueOrig: z.string().optional().transform((val) => val || null),
+  discountsObtainedOrig: z.string().optional().transform((val) => val || null),
   currentPhase: z.enum([
     'solicitacao',
     'aprovacao_a1',
@@ -1163,7 +1237,38 @@ export const insertSupplierQuotationSchema = createInsertSchema(supplierQuotatio
   totalValue: z.string().optional().transform((val) => val || null),
   sentAt: z.string().optional().transform((val) => val ? new Date(val) : null),
   receivedAt: z.string().optional().transform((val) => val ? new Date(val) : null),
-});
+  currencyCode: z
+    .enum(SUPPORTED_CURRENCIES as unknown as [string, ...string[]])
+    .optional()
+    .default('BRL')
+    .transform((val) => normalizeCurrencyCode(val)),
+  exchangeRate: z
+    .union([z.string(), z.number()])
+    .optional()
+    .refine(
+      (v) => v === undefined || v === null || v === '' || Number(v) > 0,
+      'Taxa de câmbio deve ser maior que zero'
+    )
+    .transform((val) => (val === undefined || val === null || val === '' ? null : String(val))),
+  totalValueBrl: z.string().optional().transform((val) => val || null),
+  subtotalValueBrl: z.string().optional().transform((val) => val || null),
+  finalValueBrl: z.string().optional().transform((val) => val || null),
+  freightValueBrl: z.string().optional().transform((val) => val || null),
+  discountValueBrl: z.string().optional().transform((val) => val || null),
+}).refine(
+  (data) => {
+    const code = (data.currencyCode || 'BRL').toUpperCase();
+    if (code !== 'BRL') {
+      const rate = data.exchangeRate ? Number(data.exchangeRate) : 0;
+      return rate > 0;
+    }
+    return true;
+  },
+  {
+    message: 'Para moedas diferentes de BRL, a taxa de câmbio (exchangeRate) é obrigatória e deve ser maior que zero',
+    path: ['exchangeRate'],
+  }
+);
 
 export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuotationItems).omit({
   id: true,
@@ -1184,6 +1289,11 @@ export const insertSupplierQuotationItemSchema = createInsertSchema(supplierQuot
   observations: z.string().optional().nullable(),
   originalTotalPrice: z.string().optional().nullable().transform((val) => val || null),
   discountedTotalPrice: z.string().optional().nullable().transform((val) => val || null),
+  unitPriceBrl: z.string().optional().transform((val) => val || null),
+  totalPriceBrl: z.string().optional().transform((val) => val || null),
+  discountValueBrl: z.string().optional().transform((val) => val || null),
+  originalTotalPriceBrl: z.string().optional().transform((val) => val || null),
+  discountedTotalPriceBrl: z.string().optional().transform((val) => val || null),
   availableQuantity: z.union([z.string(), z.number(), z.undefined(), z.null()])
     .optional()
     .nullable()
@@ -1201,6 +1311,8 @@ export const insertApprovedQuotationItemSchema = createInsertSchema(approvedQuot
   approvedQuantity: z.string().transform((val) => val),
   unitPrice: z.string().transform((val) => val),
   totalPrice: z.string().transform((val) => val),
+  unitPriceBrl: z.string().optional().transform((val) => val || null),
+  totalPriceBrl: z.string().optional().transform((val) => val || null),
 });
 
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
@@ -1210,6 +1322,8 @@ export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit
 }).extend({
   totalValue: z.string().transform((val) => val),
   approvedAt: z.string().optional().transform((val) => val ? new Date(val) : null),
+  exchangeRate: z.string().optional().transform((val) => val || null),
+  totalValueBrl: z.string().optional().transform((val) => val || null),
 });
 
 export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).omit({
@@ -1220,6 +1334,8 @@ export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderIte
   unitPrice: z.string().transform((val) => val),
   totalPrice: z.string().transform((val) => val),
   deliveryDeadline: z.string().optional().transform((val) => val ? new Date(val) : null),
+  unitPriceBrl: z.string().optional().transform((val) => val || null),
+  totalPriceBrl: z.string().optional().transform((val) => val || null),
 });
 
 export const insertReceiptSchema = createInsertSchema(receipts).omit({
