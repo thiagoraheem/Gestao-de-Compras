@@ -239,6 +239,27 @@ export function ReportFilters({
           </div>
 
           <div className="space-y-2">
+            <Label>Moeda</Label>
+            <Select
+              value={filters.currencyCode}
+              onValueChange={(value) =>
+                setFilters((prev) => ({ ...prev, currencyCode: value }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todas as moedas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as moedas</SelectItem>
+                <SelectItem value="BRL">BRL (Real Brasileiro)</SelectItem>
+                <SelectItem value="USD">USD (Dólar Americano)</SelectItem>
+                <SelectItem value="EUR">EUR (Euro)</SelectItem>
+                <SelectItem value="GBP">GBP (Libra Esterlina)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="include-archived">Considerar Arquivados na somatória</Label>
             <div className="flex items-center gap-2 py-2">
               <Checkbox

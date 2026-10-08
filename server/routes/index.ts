@@ -28,6 +28,7 @@ import { registerMasterDataManagementRoutes } from "./master-data-management";
 
 import { registerProductRoutes } from "./products";
 import { registerUnitOfMeasureRoutes } from "./units-of-measure";
+import { registerCurrencyRateRoutes } from "./currency-rates";
 
 // Register public routes (no authentication required)
 function registerPublicRoutes(app: Express) {
@@ -279,6 +280,7 @@ export function registerAllRoutes(app: Express) {
   registerMasterDataManagementRoutes(app);
   registerProductRoutes(app);
   registerUnitOfMeasureRoutes(app);
+  registerCurrencyRateRoutes(app);
 }
 
 // Export middleware for use in other modules

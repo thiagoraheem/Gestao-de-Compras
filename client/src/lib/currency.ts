@@ -1,12 +1,47 @@
-/**
- * Centralized utility functions for currency formatting that handle null/undefined values,
- * convert string numbers to numeric types, and support localization.
- * 
- * The utility properly handles zero values by displaying them as formatted currency (e.g., 'R$ 0,00')
- * rather than treating them as missing data ('N/A'). Only null or undefined values are displayed as 'N/A'.
- */
+import {
+  formatCurrencyIn,
+  formatDualCurrency as sharedFormatDualCurrency,
+  CurrencyCode,
+  roundCurrency,
+  convertToBRL,
+  normalizeCurrencyCode,
+  CURRENCY_SYMBOLS,
+  CURRENCY_LABELS,
+  SUPPORTED_CURRENCIES,
+} from '../../../shared/utils/currency-utils';
 
-export const formatCurrency = (value: any): string => {
+export type { CurrencyCode };
+export {
+  formatCurrencyIn,
+  roundCurrency,
+  convertToBRL,
+  normalizeCurrencyCode,
+  CURRENCY_SYMBOLS,
+  CURRENCY_LABELS,
+  SUPPORTED_CURRENCIES,
+};
+
+export const formatDualCurrency = sharedFormatDualCurrency;
+
+export const formatDualCurrencyBrlFirst = (
+  originalValue: number | string | null | undefined,
+  brlValue: number | string | null | undefined,
+  currencyCode?: CurrencyCode | string,
+  precision: number = 2
+): string => {
+  const code = normalizeCurrencyCode(currencyCode);
+  if (code === 'BRL') {
+    return formatCurrencyIn('BRL', brlValue ?? originalValue, precision);
+  }
+  const brlFormatted = formatCurrencyIn('BRL', brlValue, precision);
+  const originalFormatted = formatCurrencyIn(code, originalValue, precision);
+  return `${brlFormatted} (${originalFormatted})`;
+};
+
+export const formatCurrency = (
+  value: any,
+  currencyCode?: CurrencyCode | string
+): string => {
   if (value === null || value === undefined) {
     return "N/A";
   }
@@ -17,8 +52,7 @@ export const formatCurrency = (value: any): string => {
     return "N/A";
   }
   
-  // Always format valid numbers, including zero
-  return numValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return formatCurrencyIn(currencyCode || 'BRL', numValue);
 };
 
 export const formatCurrencyWithoutSymbol = (value: any): string => {
@@ -41,7 +75,6 @@ export const parseCurrencyToNumber = (value: string | number): number => {
   }
   
   if (typeof value === 'string') {
-    // Remove currency symbols and convert comma to dot
     const cleanValue = value.replace(/[R$\s]/g, '').replace(',', '.');
     const numValue = parseFloat(cleanValue);
     return isNaN(numValue) ? 0 : numValue;

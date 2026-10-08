@@ -90,7 +90,12 @@ class QuotationSyncServiceImpl implements QuotationSyncService {
               isAvailable: true,
               originalTotalPrice: null,
               discountedTotalPrice: null,
-              fulfillmentPercentage: null
+              fulfillmentPercentage: null,
+              discountValueBrl: "0.0000",
+              unitPriceBrl: "0.0000",
+              totalPriceBrl: "0.0000",
+              originalTotalPriceBrl: null,
+              discountedTotalPriceBrl: null,
             });
             console.log(`Novo supplier_item criado para quotation_item ${qItem.id}`);
           }

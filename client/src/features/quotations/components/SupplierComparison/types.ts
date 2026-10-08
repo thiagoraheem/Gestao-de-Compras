@@ -28,6 +28,10 @@ export interface SupplierQuotationData {
   status: string;
   receivedAt: string;
   totalValue: number;
+  totalValueBrl?: number;
+  subtotalValueBrl?: number;
+  currencyCode?: string | null;
+  exchangeRate?: number | string | null;
   items: SupplierQuotationItem[];
   deliveryDays: number;
   warranty: string;

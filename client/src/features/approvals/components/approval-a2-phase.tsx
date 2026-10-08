@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import AttachmentsViewer from "@/features/requests/components/attachments-viewer";
 import SupplierComparisonReadonly from "@/features/quotations/components/supplier-comparison-readonly";
 import debug from "@/lib/debug";
+import { formatDualCurrency, formatDualCurrencyBrlFirst, normalizeCurrencyCode, CURRENCY_SYMBOLS, formatCurrencyIn, roundCurrency } from "@/lib/currency";
 
 const approvalSchema = z.object({
   approved: z.boolean(),
@@ -150,6 +151,43 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
   const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | null>(initialAction);
   const [showComparison, setShowComparison] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  const currencyCodeNorm = normalizeCurrencyCode(request?.currencyCode);
+  const exchangeRateNum = parseLooseNumber(request?.exchangeRate);
+  const isForeign = currencyCodeNorm !== 'BRL' && exchangeRateNum > 0;
+
+  const sqExchangeRate = (sq: any) => {
+    const sqRate = parseLooseNumber(sq?.exchangeRate);
+    return sqRate > 0 ? sqRate : exchangeRateNum;
+  };
+
+  const toOrig = (brl: number, rate = exchangeRateNum): number => {
+    if (!isForeign) return brl;
+    return rate > 0 ? brl / rate : brl;
+  };
+
+  const toBRL = (orig: number, rate = exchangeRateNum): number => {
+    if (!isForeign) return orig;
+    return rate > 0 ? orig * rate : orig;
+  };
+
+  const formatCurrency4 = (orig: number, brl: number, code: any = currencyCodeNorm): string => {
+    const normCode = normalizeCurrencyCode(code);
+    if (normCode === 'BRL') return brlCurrencyFormatter4.format(brl);
+    const origFmt = formatCurrencyIn(normCode, orig, 4);
+    const brlFmt = formatCurrencyIn('BRL', brl, 4);
+    return `${origFmt}  (${brlFmt})`;
+  };
+
+  // Para valores informados EM BRL (request) — divide por taxa para obter moeda original
+  const fmtBRL4 = (brl: number, rate = exchangeRateNum): string => formatCurrency4(toOrig(brl, rate), brl);
+  // Para valores informados EM MOEDA ORIGINAL (itens do fornecedor) — multiplica por taxa p/ obter BRL
+  const fmtOrig4 = (orig: number, rate = exchangeRateNum): string => formatCurrency4(orig, toBRL(orig, rate), currencyCodeNorm);
+
+  const formatRate = (rate: number): string => {
+    if (!rate) return '—';
+    return rate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+  };
 
   // Check if user has A2 approval permissions
   const canApprove = user?.isApproverA2 || false;
@@ -259,42 +297,85 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
       };
     });
 
-  const { subtotalNet, proposalDiscount, freightValue, finalTotalValue } = (() => {
+  const { subtotalNet, proposalDiscount, freightValue, finalTotalValue, subtotalNetBrl, proposalDiscountBrl, freightValueBrl, finalTotalValueBrl } = ((): {
+    subtotalNet: number;
+    proposalDiscount: number;
+    freightValue: number;
+    finalTotalValue: number;
+    subtotalNetBrl: number;
+    proposalDiscountBrl: number;
+    freightValueBrl: number;
+    finalTotalValueBrl: number;
+  } => {
     const subtotal = winningItems.reduce((sum, it) => sum + (it.totalPrice || 0), 0);
 
-    if (!selectedSupplierQuotation) return { subtotalNet: subtotal, proposalDiscount: 0, freightValue: 0, finalTotalValue: subtotal };
+    if (!selectedSupplierQuotation) return {
+      subtotalNet: subtotal,
+      proposalDiscount: 0,
+      freightValue: 0,
+      finalTotalValue: subtotal,
+      subtotalNetBrl: subtotal,
+      proposalDiscountBrl: 0,
+      freightValueBrl: 0,
+      finalTotalValueBrl: subtotal,
+    };
+
+    const rate = sqExchangeRate(selectedSupplierQuotation);
 
     const discountInput = parseLooseNumber(selectedSupplierQuotation.discountValue);
     let discount = 0;
+    let discountBrl = 0;
 
     if (selectedSupplierQuotation.discountType === 'percentage') {
       discount = (subtotal * discountInput) / 100;
+      const subtotalBrl = toBRL(subtotal, rate);
+      discountBrl = (subtotalBrl * discountInput) / 100;
     } else if (selectedSupplierQuotation.discountType === 'fixed') {
       discount = discountInput;
+      discountBrl = toBRL(discountInput, rate);
     }
 
     const freight = selectedSupplierQuotation.includesFreight
       ? parseLooseNumber(selectedSupplierQuotation.freightValue)
       : 0;
+    const freightBrl = selectedSupplierQuotation.includesFreight
+      ? toBRL(parseLooseNumber(selectedSupplierQuotation.freightValue), rate)
+      : 0;
 
     const total = Math.max(0, subtotal - discount) + freight;
+    const totalBrl = Math.max(0, toBRL(subtotal, rate) - discountBrl) + freightBrl;
 
-    // If calculated total is 0 but we have a stored total in the quotation, use it
     const storedTotal = parseLooseNumber(selectedSupplierQuotation.finalValue || selectedSupplierQuotation.totalValue);
+    const storedTotalBrl = parseLooseNumber(selectedSupplierQuotation.finalValueBrl || selectedSupplierQuotation.totalValueBrl);
     const finalTotal = (total > 0) ? total : (storedTotal > 0 ? storedTotal : subtotal);
+    const finalTotalBrl = (totalBrl > 0)
+      ? totalBrl
+      : (storedTotalBrl > 0 ? storedTotalBrl : toBRL(storedTotal > 0 ? storedTotal : subtotal, rate));
 
+    const subtotalNetStoredBrl = parseLooseNumber(selectedSupplierQuotation.subtotalValueBrl);
     return {
       subtotalNet: subtotal,
       proposalDiscount: discount,
       freightValue: freight,
-      finalTotalValue: finalTotal
+      finalTotalValue: finalTotal,
+      subtotalNetBrl: subtotalNetStoredBrl > 0 ? subtotalNetStoredBrl : toBRL(subtotal, rate),
+      proposalDiscountBrl: discountBrl,
+      freightValueBrl: freightBrl,
+      finalTotalValueBrl: finalTotalBrl,
     };
   })();
 
   const totalValue = finalTotalValue || parseLooseNumber(request.totalValue);
+  const totalValueBrl = finalTotalValueBrl > 0
+    ? finalTotalValueBrl
+    : (parseLooseNumber(request.totalValue) > 0
+        ? parseLooseNumber(request.totalValue)
+        : toBRL(totalValue, sqExchangeRate(selectedSupplierQuotation)));
 
-  // Usar hook para determinar tipo de aprovação
-  const { data: approvalType, approvalInfo } = useApprovalType(totalValue, request.id);
+  // Regras de aprovação (valores limiares) são SEMPRE em BRL, mesmo que moeda original seja estrangeira
+  const { data: approvalType, approvalInfo } = useApprovalType(totalValueBrl, request.id);
+
+  const codeForDisplay = request.currencyCode || selectedSupplierQuotation?.currencyCode;
 
   const form = useForm<ApprovalFormData>({
     resolver: zodResolver(approvalSchema),
@@ -506,6 +587,33 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
           <p id="approval-a2-description" className="sr-only">Tela de detalhes de aprovação A2 da solicitação</p>
 
           <div className="space-y-6 px-6 pt-0 pb-24">
+            {(() => {
+              const reqCurrencyCode = normalizeCurrencyCode(request.currencyCode || selectedSupplierQuotation?.currencyCode);
+              const reqExchangeRate = request.exchangeRate || selectedSupplierQuotation?.exchangeRate;
+              if (reqCurrencyCode && reqCurrencyCode !== 'BRL') {
+                return (
+                  <Alert className="bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800">
+                    <div className="flex items-start gap-3">
+                      <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/40 rounded-full">
+                        <DollarSign className="h-4 w-4 text-indigo-700 dark:text-indigo-300" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="bg-white dark:bg-slate-900 border-indigo-300 dark:border-indigo-700 text-indigo-800 dark:text-indigo-200">
+                            Cotação em {reqCurrencyCode} · Taxa {Number(reqExchangeRate || 0).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-1">
+                          Todos os valores convertidos para BRL para avaliação. Valores originais em {reqCurrencyCode} exibidos em parênteses.
+                        </p>
+                      </div>
+                    </div>
+                  </Alert>
+                );
+              }
+              return null;
+            })()}
+
             {/* Request Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
@@ -568,10 +676,29 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">Valor Total:</span>
                       <span className="font-medium text-green-600">
-                        {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL',
-                        }).format(totalValue)}
+                        {(() => {
+                          const storedOrig = parseLooseNumber(request.totalValueOrig);
+                          const sqOrig = parseLooseNumber(selectedSupplierQuotation?.totalValue);
+                          const orig = storedOrig > 0 ? storedOrig : (sqOrig > 0 ? sqOrig : totalValue);
+                          const code = request.currencyCode || selectedSupplierQuotation?.currencyCode;
+                          const normCode = normalizeCurrencyCode(code);
+                          const rate = sqExchangeRate(selectedSupplierQuotation);
+                          const isForeign = normCode !== 'BRL';
+
+                          let sideBrl: number;
+                          if (isForeign && rate > 0 && storedOrig > 0) {
+                            sideBrl = roundCurrency(storedOrig * rate);
+                          } else if (isForeign && rate > 0 && sqOrig > 0) {
+                            sideBrl = roundCurrency(sqOrig * rate);
+                          } else if (totalValueBrl > 0) {
+                            sideBrl = totalValueBrl;
+                          } else if (isForeign && rate > 0) {
+                            sideBrl = roundCurrency(orig * rate);
+                          } else {
+                            sideBrl = orig;
+                          }
+                          return formatDualCurrencyBrlFirst(orig, sideBrl, code);
+                        })()}
                       </span>
                     </div>
                   )}
@@ -633,41 +760,55 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                       <p className="text-sm mt-1">{selectedSupplierQuotation.supplier?.cnpj || 'N/A'}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-gray-600">Valor Total da Proposta</Label>
+                      <Label className="text-sm font-medium text-gray-600">
+                        Total da Proposta
+                        {(() => {
+                          const sqCode = normalizeCurrencyCode(selectedSupplierQuotation?.currencyCode);
+                          if (sqCode && sqCode !== 'BRL') {
+                            return (
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                ({CURRENCY_SYMBOLS[sqCode]} {sqCode})
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </Label>
                       {proposalDiscount > 0 ? (
                         <div className="flex flex-col mt-1">
-                          <span className="text-sm text-muted-foreground line-through">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL',
-                              minimumFractionDigits: 4,
-                              maximumFractionDigits: 4,
-                            }).format(subtotalNet + freightValue)}
+                          <span className="text-sm text-muted-foreground line-through whitespace-pre-wrap">
+                            {formatDualCurrency(
+                              (parseLooseNumber(selectedSupplierQuotation?.subtotalValue) + parseLooseNumber(selectedSupplierQuotation?.freightValue)) || (subtotalNet + freightValue),
+                              (subtotalNetBrl + freightValueBrl) > 0 ? (subtotalNetBrl + freightValueBrl) : (subtotalNet + freightValue),
+                              selectedSupplierQuotation?.currencyCode
+                            )}
                           </span>
-                          <span className="text-lg font-bold text-green-600">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL',
-                              minimumFractionDigits: 4,
-                              maximumFractionDigits: 4,
-                            }).format(totalValue)}
+                          <span className="text-lg font-bold text-green-600 whitespace-pre-wrap">
+                            {formatDualCurrency(
+                              selectedSupplierQuotation?.finalValue || selectedSupplierQuotation?.totalValue || totalValue,
+                              totalValueBrl > 0 ? totalValueBrl : totalValue,
+                              selectedSupplierQuotation?.currencyCode
+                            )}
                           </span>
                         </div>
                       ) : (
-                        <p className="text-lg font-bold text-green-600 mt-1">
-                          {new Intl.NumberFormat('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL',
-                            minimumFractionDigits: 4,
-                            maximumFractionDigits: 4,
-                          }).format(totalValue)}
+                        <p className="text-lg font-bold text-green-600 mt-1 whitespace-pre-wrap">
+                          {formatDualCurrency(
+                            selectedSupplierQuotation?.finalValue || selectedSupplierQuotation?.totalValue || totalValue,
+                            totalValueBrl > 0 ? totalValueBrl : totalValue,
+                            selectedSupplierQuotation?.currencyCode
+                          )}
                         </p>
                       )}
                       {selectedSupplierQuotation.discountType && selectedSupplierQuotation.discountType !== 'none' && selectedSupplierQuotation.discountValue && (
                         <p className="text-sm text-orange-600 mt-1">
                           Desconto da proposta: {selectedSupplierQuotation.discountType === 'percentage'
                             ? `${selectedSupplierQuotation.discountValue}%`
-                            : `R$ ${Number(selectedSupplierQuotation.discountValue).toFixed(4).replace('.', ',')}`
+                            : formatDualCurrency(
+                                selectedSupplierQuotation.discountValue,
+                                selectedSupplierQuotation.discountValueBrl,
+                                selectedSupplierQuotation.currencyCode
+                              )
                           }
                         </p>
                       )}
@@ -679,13 +820,12 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                       </Label>
                       <p className="text-lg font-semibold mt-1">
                         {selectedSupplierQuotation.includesFreight ? (
-                          <span className="text-blue-600">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL',
-                              minimumFractionDigits: 4,
-                              maximumFractionDigits: 4,
-                            }).format(Number(selectedSupplierQuotation.freightValue || 0))}
+                          <span className="text-blue-600 whitespace-pre-wrap">
+                            {formatDualCurrency(
+                              selectedSupplierQuotation.freightValue,
+                              selectedSupplierQuotation.freightValueBrl,
+                              selectedSupplierQuotation.currencyCode
+                            )}
                           </span>
                         ) : (
                           <span className="text-gray-500">Não incluso</span>
@@ -784,17 +924,17 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                             <TableCell className="font-medium">{item.description}</TableCell>
                             <TableCell className="text-center">{formatDecimal4(item.quantity)}</TableCell>
                             <TableCell className="text-center">{item.unit}</TableCell>
-                            <TableCell className="text-right">
-                              {formatBRLCurrency4(item.unitPrice)}
+                            <TableCell className="text-right whitespace-nowrap">
+                              {fmtOrig4(item.unitPrice, sqExchangeRate(selectedSupplierQuotation))}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right whitespace-nowrap">
                               {item.itemDiscount > 0
-                                ? formatBRLCurrency4(item.itemDiscount)
+                                ? fmtOrig4(item.itemDiscount, sqExchangeRate(selectedSupplierQuotation))
                                 : <span className="text-gray-400">-</span>
                               }
                             </TableCell>
-                            <TableCell className="text-right">
-                              {formatBRLCurrency4(item.totalPrice)}
+                            <TableCell className="text-right whitespace-nowrap font-medium">
+                              {fmtOrig4(item.totalPrice, sqExchangeRate(selectedSupplierQuotation))}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -824,21 +964,45 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
 
                             const finalValue = Math.max(0, subtotalNet - proposalDiscount) + freightValue;
 
+                            const sqCurrency = selectedSupplierQuotation?.currencyCode;
+                            const sqSubtotalOrig = parseLooseNumber(selectedSupplierQuotation?.subtotalValue);
+                            const sqSubtotalBrl = parseLooseNumber(selectedSupplierQuotation?.subtotalValueBrl);
+                            const sqFinalOrig = parseLooseNumber(selectedSupplierQuotation?.finalValue || selectedSupplierQuotation?.totalValue);
+                            const sqFinalBrl = parseLooseNumber(selectedSupplierQuotation?.finalValueBrl || selectedSupplierQuotation?.totalValueBrl);
+
                             return (
                               <>
+                                {isForeign && (
+                                  <div className="flex justify-between items-center pb-1 mb-1 border-b border-blue-200/60 dark:border-slate-600/60">
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">Moeda · Taxa:</span>
+                                    <span className="font-semibold text-indigo-700 dark:text-indigo-300">
+                                      {currencyCodeNorm} · {formatRate(exchangeRateNum)}
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="flex justify-between items-center">
                                   <span className="text-sm text-gray-700 dark:text-gray-300">Subtotal (sem desconto):</span>
-                                  <span className="font-medium text-gray-900 dark:text-gray-100">
-                                    {formatBRLCurrency4(subtotal)}
+                                  <span className="font-medium text-gray-900 dark:text-gray-100 whitespace-pre-wrap text-right">
+                                    {formatDualCurrency(
+                                      sqSubtotalOrig > 0 ? sqSubtotalOrig : subtotal,
+                                      sqSubtotalBrl > 0 ? sqSubtotalBrl : toBRL(subtotal, sqExchangeRate(selectedSupplierQuotation)),
+                                      sqCurrency
+                                    )}
                                   </span>
                                 </div>
                                 {discountInput > 0 && (
                                   <div className="flex justify-between items-center">
                                     <span className="text-sm text-orange-600 dark:text-orange-300">Desconto da proposta:</span>
-                                    <span className="font-medium text-orange-600 dark:text-orange-300">
+                                    <span className="font-medium text-orange-600 dark:text-orange-300 whitespace-pre-wrap text-right">
                                       {selectedSupplierQuotation.discountType === 'percentage'
                                         ? `- ${discountInput}%`
-                                        : `- ${formatBRLCurrency4(discountInput)}`}
+                                        : `- ${formatDualCurrency(
+                                            parseLooseNumber(selectedSupplierQuotation.discountValue),
+                                            parseLooseNumber(selectedSupplierQuotation.discountValueBrl) > 0
+                                              ? parseLooseNumber(selectedSupplierQuotation.discountValueBrl)
+                                              : toBRL(parseLooseNumber(selectedSupplierQuotation.discountValue), sqExchangeRate(selectedSupplierQuotation)),
+                                            sqCurrency
+                                          )}`}
                                     </span>
                                   </div>
                                 )}
@@ -847,10 +1011,16 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                                     <Truck className="h-4 w-4" />
                                     Frete:
                                   </span>
-                                  <span className="font-medium">
+                                  <span className="font-medium whitespace-pre-wrap text-right">
                                     {selectedSupplierQuotation.includesFreight ? (
                                       <span className="text-blue-600 dark:text-blue-300">
-                                        {formatBRLCurrency4(selectedSupplierQuotation.freightValue)}
+                                        {formatDualCurrency(
+                                          parseLooseNumber(selectedSupplierQuotation.freightValue),
+                                          parseLooseNumber(selectedSupplierQuotation.freightValueBrl) > 0
+                                            ? parseLooseNumber(selectedSupplierQuotation.freightValueBrl)
+                                            : toBRL(parseLooseNumber(selectedSupplierQuotation.freightValue), sqExchangeRate(selectedSupplierQuotation)),
+                                          sqCurrency
+                                        )}
                                       </span>
                                     ) : (
                                       <span className="text-gray-500 dark:text-gray-400">Não incluso</span>
@@ -860,8 +1030,12 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                                 <div className="border-t border-blue-300 dark:border-slate-700 pt-2 mt-2">
                                   <div className="flex justify-between items-center">
                                     <span className="text-base font-semibold text-blue-800 dark:text-blue-200">Valor Final:</span>
-                                    <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                                      {formatBRLCurrency4(finalValue)}
+                                    <span className="text-lg font-bold text-green-700 dark:text-green-300 whitespace-pre-wrap text-right">
+                                      {formatDualCurrency(
+                                        sqFinalOrig > 0 ? sqFinalOrig : finalValue,
+                                        sqFinalBrl > 0 ? sqFinalBrl : toBRL(finalValue, sqExchangeRate(selectedSupplierQuotation)),
+                                        sqCurrency
+                                      )}
                                     </span>
                                   </div>
                                 </div>
@@ -951,12 +1125,12 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                 <CardContent>
                   <div className="space-y-2">
                     {approvalHistory.map((item: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={item.approved ? 'default' : 'destructive'} className="text-xs">
+                      <div key={index} className="flex items-start justify-between p-3 border rounded-lg gap-3">
+                        <div className="flex-1 flex items-start gap-2 min-w-0">
+                          <Badge variant={item.approved ? 'default' : 'destructive'} className="text-xs shrink-0 mt-0.5">
                             {item.approved ? 'Aprovado' : 'Reprovado'}
                           </Badge>
-                          <div className="flex flex-col">
+                          <div className="flex flex-col min-w-0">
                             <span className="text-sm font-medium">
                               {item.approver?.firstName && item.approver?.lastName
                                 ? `${item.approver.firstName} ${item.approver.lastName}`
@@ -965,15 +1139,33 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {getPhaseDescription(item.approverType)}
+                              {item.approvalStep && item.approvalStep !== 'single' && (
+                                <span className="ml-1">
+                                  · {item.approvalStep === 'first' ? '1ª aprovação' : item.approvalStep === 'final' ? 'Aprovação final' : item.approvalStep}
+                                </span>
+                              )}
                             </span>
+                            {item.approvalValue && parseLooseNumber(item.approvalValue) > 0 && (
+                              <span className="text-xs text-green-700 dark:text-green-400 mt-0.5">
+                                Valor: {(() => {
+                                  const histCurrency = request.currencyCode || selectedSupplierQuotation?.currencyCode;
+                                  const histOrig = request.totalValueOrig || selectedSupplierQuotation?.totalValue;
+                                  return formatDualCurrency(
+                                    (histCurrency && histCurrency !== 'BRL') ? histOrig : null,
+                                    item.approvalValue,
+                                    histCurrency
+                                  );
+                                })()}
+                              </span>
+                            )}
+                            {item.rejectionReason && (
+                              <span className="text-xs text-muted-foreground mt-0.5">
+                                - {item.rejectionReason}
+                              </span>
+                            )}
                           </div>
-                          {item.rejectionReason && (
-                            <span className="text-xs text-muted-foreground">
-                              - {item.rejectionReason}
-                            </span>
-                          )}
                         </div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground shrink-0 text-right">
                           {format(new Date(item.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                         </span>
                       </div>
@@ -1022,8 +1214,8 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                       </div>
                       <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                         {approvalType === 'dual'
-                          ? `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} requer aprovação sequencial de dois aprovadores A2.`
-                          : `Valor R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} requer apenas uma aprovação A2.`
+                          ? `Valor ${formatDualCurrencyBrlFirst(totalValue, totalValueBrl, codeForDisplay)} requer aprovação sequencial de dois aprovadores A2.`
+                          : `Valor ${formatDualCurrencyBrlFirst(totalValue, totalValueBrl, codeForDisplay)} requer apenas uma aprovação A2.`
                         }
                       </p>
                       {approvalInfo && approvalInfo.nextApprover && (

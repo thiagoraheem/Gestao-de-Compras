@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import { pool } from "../db";
+import { normalizeCurrencyCode, formatCurrencyIn } from "../../shared/utils/currency-utils";
 
 export class ReportService {
   async getPurchaseRequestReport(filters: any) {
@@ -25,6 +26,21 @@ export class ReportService {
       return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
+    const formatCurrencyInForCSV = (code: string | null | undefined, value: number | string | null): string => {
+      if (value === null || value === undefined || value === "") return "-";
+      const currencyCode = normalizeCurrencyCode(code);
+      const num = typeof value === "string" ? parseFloat(value) : value;
+      if (isNaN(num) || num === 0) return formatCurrencyIn(currencyCode, 0);
+      return formatCurrencyIn(currencyCode, num);
+    };
+
+    const formatExchangeRateForCSV = (value: number | string | null): string => {
+      if (value === null || value === undefined || value === "") return "-";
+      const num = typeof value === "string" ? parseFloat(value) : value;
+      if (isNaN(num) || num === 0) return "-";
+      return num.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+    };
+
     const urgencyMap: Record<string, string> = { baixa: "Baixa", medio: "Média", alto: "Alta", alta_urgencia: "Crítica" };
     const phaseMap: Record<string, string> = { 
        solicitacao: "Em Solicitação", 
@@ -36,7 +52,7 @@ export class ReportService {
     };
 
     const csvRows = [
-      ["Número", "Descrição", "Data", "Solicitante", "Departamento", "Fornecedor", "Fase", "Urgência", "Valor Itens", "Desconto", "Subtotal", "Desconto Proposta", "Valor Final"].join(";")
+      ["Número", "Descrição", "Data", "Solicitante", "Departamento", "Fornecedor", "Fase", "Urgência", "Moeda", "Taxa", "Total Original", "Total (BRL)", "Valor Itens", "Desconto", "Subtotal", "Desconto Proposta", "Valor Final"].join(";")
     ];
 
     data.forEach(req => {
@@ -45,6 +61,9 @@ export class ReportService {
            const d = new Date(req.createdAt);
            dateStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
        }
+
+       const currencyCode = req.currencyCode || "BRL";
+       const displayCurrency = req.currencyCode || "BRL";
 
        csvRows.push([
           escapeCsvField(req.requestNumber),
@@ -55,6 +74,10 @@ export class ReportService {
           escapeCsvField(req.supplierName === "N/A" ? "" : req.supplierName),
           escapeCsvField(phaseMap[req.phase] || req.phase),
           escapeCsvField(urgencyMap[req.urgency] || req.urgency),
+          escapeCsvField(displayCurrency),
+          escapeCsvField(formatExchangeRateForCSV(req.exchangeRate)),
+          escapeCsvField(formatCurrencyInForCSV(req.currencyCode || "BRL", req.totalValueOrig || req.valorFinal)),
+          escapeCsvField(formatCurrencyForCSV(req.valorFinal)),
           escapeCsvField(formatCurrencyForCSV(req.valorItens)),
           escapeCsvField(formatCurrencyForCSV(req.desconto)),
           escapeCsvField(formatCurrencyForCSV(req.subTotal)),
@@ -66,6 +89,7 @@ export class ReportService {
     if (summary) {
        csvRows.push([
           "TOTAL GERAL", "", "", "", "", "", "", "",
+          "", "", "", "",
           escapeCsvField(formatCurrencyForCSV(summary.totalValorItens)),
           escapeCsvField(formatCurrencyForCSV(summary.totalDesconto)),
           escapeCsvField(formatCurrencyForCSV(summary.totalSubTotal)),
@@ -111,7 +135,9 @@ export class ReportService {
          sq.freight_value as "freightValue",
          sq.is_chosen as "isChosen",
          sq.choice_reason as "choiceReason",
-         sq.created_at as "createdAt"
+         sq.created_at as "createdAt",
+         sq.currency_code as "currencyCode",
+         sq.exchange_rate as "exchangeRate"
        FROM supplier_quotations sq
        JOIN quotations q ON q.id = sq.quotation_id
        WHERE sq.supplier_id = $1` +

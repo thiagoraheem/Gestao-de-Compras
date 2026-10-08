@@ -5,6 +5,12 @@ import { isAuthenticated, isAdmin } from "./middleware";
 import { z } from "zod";
 import { NotFoundError, ValidationError, UnauthorizedError } from "../utils/errors";
 import { auditService } from "../services/audit-service";
+import {
+  normalizeCurrencyCode,
+  convertToBRL,
+  roundCurrency,
+  toNumber,
+} from "../../shared/utils/currency-utils";
 
 // Schema for approval configuration
 const approvalConfigSchema = z.object({
@@ -338,8 +344,9 @@ export function buildPurchaseOrderItemsFromApprovedSnapshot(params: {
   approvedItems: any[];
   supplierQuotationItems: any[];
   quotationItems: any[];
+  exchangeRate?: number;
 }) {
-  const { approvedItems, supplierQuotationItems, quotationItems } = params;
+  const { approvedItems, supplierQuotationItems, quotationItems, exchangeRate = 1 } = params;
 
   const items = approvedItems
     .map((approved: any) => {
@@ -350,14 +357,25 @@ export function buildPurchaseOrderItemsFromApprovedSnapshot(params: {
 
       if (!supplierItem || !quotationItem) return null;
 
-      const totalPrice = Number.parseFloat(approved.totalPrice);
+      // Valores da cotação (moeda ORIGINAL)
+      const totalOrig = Number.parseFloat(approved.totalPrice);
+      const unitPriceNumOrig = Number.parseFloat(approved.unitPrice || "0");
+
+      // REGRA CRÍTICA: PO é SEMPRE armazenado EM BRL.
+      // Campo principal (unitPrice/totalPrice) = BRL.
+      // Campo redundante (*Brl) = mesmo valor para consistência.
+      const unitPriceBrlVal = roundCurrency(convertToBRL(unitPriceNumOrig, exchangeRate), 4);
+      const totalPriceBrlVal = roundCurrency(convertToBRL(totalOrig, exchangeRate), 4);
+
       return {
         itemCode: quotationItem.itemCode || `ITEM-${approved.id}`,
         description: quotationItem.description || "",
         quantity: approved.approvedQuantity,
         unit: supplierItem.confirmedUnit || quotationItem.unit || "UN",
-        unitPrice: approved.unitPrice,
-        totalPrice: Number.isFinite(totalPrice) ? totalPrice.toFixed(4) : "0.0000",
+        unitPrice: Number.isFinite(unitPriceBrlVal) ? unitPriceBrlVal.toFixed(4) : "0.0000",
+        totalPrice: Number.isFinite(totalPriceBrlVal) ? totalPriceBrlVal.toFixed(4) : "0.0000",
+        unitPriceBrl: Number.isFinite(unitPriceBrlVal) ? unitPriceBrlVal.toFixed(4) : "0.0000",
+        totalPriceBrl: Number.isFinite(totalPriceBrlVal) ? totalPriceBrlVal.toFixed(4) : "0.0000",
       };
     })
     .filter(Boolean) as Array<{
@@ -365,8 +383,10 @@ export function buildPurchaseOrderItemsFromApprovedSnapshot(params: {
       description: string;
       quantity: any;
       unit: string;
-      unitPrice: any;
+      unitPrice: string;
       totalPrice: string;
+      unitPriceBrl: string;
+      totalPriceBrl: string;
     }>;
 
   const itemsTotal = items.reduce((sum, it) => sum + (Number.parseFloat(it.totalPrice) || 0), 0);
@@ -375,7 +395,6 @@ export function buildPurchaseOrderItemsFromApprovedSnapshot(params: {
 
 // Helper function to create automatic purchase order
 async function createAutomaticPurchaseOrder(requestId: number, approverId: number) {
-  // Get quotation
   const quotation = await storage.getQuotationByPurchaseRequestId(requestId);
   if (!quotation) return;
 
@@ -384,7 +403,15 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
 
   if (!chosenSupplierQuotation) return;
 
-  // Check if purchase order already exists
+  const winnerCurrencyCode = normalizeCurrencyCode(
+    (chosenSupplierQuotation as any)?.currencyCode
+  );
+  const winnerExchangeRateRaw = (chosenSupplierQuotation as any)?.exchangeRate;
+  const winnerExchangeRate =
+    winnerCurrencyCode === 'BRL'
+      ? (winnerExchangeRateRaw ? toNumber(winnerExchangeRateRaw) : 1) || 1
+      : (winnerExchangeRateRaw ? toNumber(winnerExchangeRateRaw) : 1) || 1;
+
   const existingPurchaseOrder = await storage.getPurchaseOrderByRequestId(requestId);
   if (existingPurchaseOrder) {
     const receiptsLinked = await storage.getReceiptsByPurchaseOrderId(existingPurchaseOrder.id);
@@ -399,17 +426,21 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
   const supplierQuotationItems = await storage.getSupplierQuotationItems(chosenSupplierQuotation.id);
   if (supplierQuotationItems.length === 0) return;
 
-  // Generate order number
   const orderNumber = `PO-${new Date().getFullYear()}-${String(requestId).padStart(3, "0")}`;
 
-  // Create purchase order
+  const totalOrig = parseFloat(chosenSupplierQuotation.totalValue || "0");
+  const totalValueBrl = roundCurrency(convertToBRL(totalOrig, winnerExchangeRate), 2);
+
   const purchaseOrderData = {
     orderNumber,
     purchaseRequestId: requestId,
     supplierId: chosenSupplierQuotation.supplierId,
     quotationId: quotation.id,
     status: "draft" as const,
-    totalValue: chosenSupplierQuotation.totalValue || "0",
+    totalValue: winnerExchangeRate > 0 ? totalValueBrl.toFixed(2) : (chosenSupplierQuotation.totalValue || "0"),
+    totalValueBrl: totalValueBrl.toFixed(2),
+    currencyCode: winnerCurrencyCode,
+    exchangeRate: winnerExchangeRate > 0 ? winnerExchangeRate.toString() : null,
     paymentTerms: null,
     deliveryTerms: null,
     deliveryAddress: null,
@@ -425,9 +456,6 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
 
   const quotationItems = await storage.getQuotationItems(quotation.id);
 
-  // ------------------------------------------------------------------
-  // NOVA LÓGICA: Prioriza itens do Snapshot (ApprovedQuotationItems)
-  // ------------------------------------------------------------------
   const approvedItems = await storage.getApprovedQuotationItems(quotation.id);
   let itemsTotal = 0;
 
@@ -438,6 +466,7 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
       approvedItems,
       supplierQuotationItems,
       quotationItems,
+      exchangeRate: winnerExchangeRate > 0 ? winnerExchangeRate : 1,
     });
 
     itemsTotal = mapped.itemsTotal;
@@ -451,38 +480,48 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
         unit: it.unit,
         unitPrice: it.unitPrice,
         totalPrice: it.totalPrice,
+        unitPriceBrl: it.unitPriceBrl,
+        totalPriceBrl: it.totalPriceBrl,
         deliveryDeadline: null,
         costCenterId: null,
         accountCode: null,
       });
     }
   } else {
-    // CAMINHO LEGADO: Fallback para cotações antigas sem snapshot
     for (const si of supplierQuotationItems) {
       if (si.isAvailable === false) continue;
       const qi = quotationItems.find(q => q.id === si.quotationItemId);
       const description = qi?.description || "";
       const unit = si.confirmedUnit || qi?.unit || "UN";
       const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
-      const unitPrice = si.unitPrice || "0";
-      const baseTotal = (parseFloat(unitPrice) || 0) * (parseFloat(quantity as any) || 0);
-      let itemDiscount = 0;
-      let totalPrice = baseTotal;
+      const unitPriceOrig = si.unitPrice || "0";
+      const baseTotalOrig = (parseFloat(unitPriceOrig) || 0) * (parseFloat(quantity as any) || 0);
+
+      let itemDiscountOrig = 0;
+      let totalPriceOrig = baseTotalOrig;
       if (si.discountPercentage && parseFloat(si.discountPercentage as any) > 0) {
-        itemDiscount = (baseTotal * parseFloat(si.discountPercentage as any)) / 100;
+        itemDiscountOrig = (baseTotalOrig * parseFloat(si.discountPercentage as any)) / 100;
       } else if (si.discountValue && parseFloat(si.discountValue as any) > 0) {
-        itemDiscount = parseFloat(si.discountValue as any);
+        itemDiscountOrig = parseFloat(si.discountValue as any);
       }
-      totalPrice = Math.max(0, baseTotal - itemDiscount);
-      itemsTotal += totalPrice;
+      totalPriceOrig = Math.max(0, baseTotalOrig - itemDiscountOrig);
+
+      // REGRA CRÍTICA: PO grava SEMPRE em BRL. Campos principais = BRL. *Brl = mesmos valores (redundantes).
+      const uPriceOrigNum = parseFloat(unitPriceOrig) || 0;
+      const unitPriceBrlVal = roundCurrency(convertToBRL(uPriceOrigNum, winnerExchangeRate), 4);
+      const totalPriceBrlVal = roundCurrency(convertToBRL(totalPriceOrig, winnerExchangeRate), 4);
+      itemsTotal += totalPriceBrlVal;
+
       const purchaseOrderItemData = {
         purchaseOrderId: purchaseOrder.id,
         itemCode: qi?.itemCode || `ITEM-${si.id}`,
         description,
         quantity,
         unit,
-        unitPrice,
-        totalPrice: totalPrice.toFixed(4),
+        unitPrice: unitPriceBrlVal.toFixed(4),
+        totalPrice: totalPriceBrlVal.toFixed(4),
+        unitPriceBrl: unitPriceBrlVal.toFixed(4),
+        totalPriceBrl: totalPriceBrlVal.toFixed(4),
         deliveryDeadline: null,
         costCenterId: null,
         accountCode: null,
@@ -494,14 +533,14 @@ async function createAutomaticPurchaseOrder(requestId: number, approverId: numbe
   try {
     const supplierTotal = parseFloat(chosenSupplierQuotation.totalValue || "0");
     const discrepancy = Math.abs(supplierTotal - itemsTotal);
-    
+
     await auditService.log({
       purchaseRequestId: requestId,
       performedBy: approverId,
       actionType: 'po_created_a2',
-      actionDescription: `PO criado na A2 a partir da cotação vencedora. Soma itens: R$ ${itemsTotal.toFixed(4)} | Total cotação: R$ ${supplierTotal.toFixed(4)} | Diferença: R$ ${discrepancy.toFixed(4)}`,
-      beforeData: { supplierTotal },
-      afterData: { itemsTotal },
+      actionDescription: `PO criado na A2 a partir da cotação vencedora (${winnerCurrencyCode}). Soma itens: ${winnerCurrencyCode} ${itemsTotal.toFixed(4)} | Total cotação: ${winnerCurrencyCode} ${supplierTotal.toFixed(4)} | Diferença: ${winnerCurrencyCode} ${discrepancy.toFixed(4)}`,
+      beforeData: { supplierTotal, currencyCode: winnerCurrencyCode, exchangeRate: winnerExchangeRate },
+      afterData: { itemsTotal, totalValueBrl: totalValueBrl.toFixed(2) },
       affectedTables: ['purchase_orders', 'purchase_order_items']
     });
   } catch {}

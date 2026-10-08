@@ -28,6 +28,15 @@ import { QuantityValidationMiddleware } from "../middleware/quantity-validation"
 import { quotationUpload } from "./upload-config";
 import { NotFoundError, ValidationError, UnauthorizedError } from "../utils/errors";
 import path from "path";
+import { currencyRateRepository } from "../repositories/currency-rate-repository";
+import {
+  normalizeCurrencyCode,
+  convertToBRL,
+  roundCurrency,
+  SUPPORTED_CURRENCIES,
+  toNumber,
+} from "../../shared/utils/currency-utils";
+import { CalculadoraValoresSolicitacao } from "../../shared/utils/CalculadoraValoresSolicitacao";
 
 export function registerQuotationRoutes(app: Express) {
   // Quotation routes
@@ -317,7 +326,6 @@ export function registerQuotationRoutes(app: Express) {
       const token = Math.random().toString(36).substring(2, 15);
 
       if (!supplierQuotation) {
-        // Create new supplier quotation if it doesn't exist
         supplierQuotation = await storage.createSupplierQuotation({
           quotationId,
           supplierId,
@@ -325,6 +333,13 @@ export function registerQuotationRoutes(app: Express) {
           totalValue: null,
           sentAt: null,
           receivedAt: null,
+          currencyCode: "BRL",
+          exchangeRate: "1",
+          totalValueBrl: "0.0000",
+          subtotalValueBrl: "0.0000",
+          finalValueBrl: "0.0000",
+          freightValueBrl: "0.0000",
+          discountValueBrl: "0.0000",
         });
 
         const quotationItems = await storage.getQuotationItems(quotationId);
@@ -340,6 +355,11 @@ export function registerQuotationRoutes(app: Express) {
           deliveryDays: null,
           originalTotalPrice: null,
           discountedTotalPrice: null,
+          discountValueBrl: "0.0000",
+          unitPriceBrl: "0.0000",
+          totalPriceBrl: "0.0000",
+          originalTotalPriceBrl: null,
+          discountedTotalPriceBrl: null,
         }));
 
         await storage.createSupplierQuotationItems(supplierQuotationItems);
@@ -455,10 +475,31 @@ export function registerQuotationRoutes(app: Express) {
         discountValue,
         includesFreight,
         freightValue,
+        currencyCode: rawCurrencyCode,
+        exchangeRate: rawExchangeRate,
       } = req.body;
 
       if (!supplierId) {
         throw new ValidationError("ID do fornecedor é obrigatório");
+      }
+
+      const currencyCode = normalizeCurrencyCode(rawCurrencyCode);
+      let exchangeRate: number;
+      if (currencyCode === 'BRL') {
+        exchangeRate = rawExchangeRate ? toNumber(rawExchangeRate) : 1;
+        if (!exchangeRate || exchangeRate <= 0) exchangeRate = 1;
+      } else {
+        if (rawExchangeRate === undefined || rawExchangeRate === null || rawExchangeRate === '') {
+          throw new ValidationError(
+            `Para moeda ${currencyCode}, a taxa de câmbio (exchangeRate) é obrigatória e deve ser maior que zero`
+          );
+        }
+        exchangeRate = toNumber(rawExchangeRate);
+        if (exchangeRate <= 0) {
+          throw new ValidationError(
+            `Taxa de câmbio inválida para ${currencyCode}: deve ser maior que zero`
+          );
+        }
       }
 
       const quotation = await storage.getQuotationById(quotationId);
@@ -468,6 +509,23 @@ export function registerQuotationRoutes(app: Express) {
 
       const currentUser = await storage.getUser(req.session.userId!);
       if (!currentUser) throw new UnauthorizedError("Usuário não encontrado");
+
+      try {
+        if (currencyCode !== 'BRL' && exchangeRate > 0) {
+          const todayRate = await currencyRateRepository.getTodayRate(currencyCode);
+          if (!todayRate) {
+            await currencyRateRepository.createRate({
+              currencyCode,
+              rateDate: new Date(),
+              rateValue: exchangeRate.toFixed(6),
+              observations: `Criado automaticamente ao salvar cotação RFQ-${quotationId}`,
+              createdBy: currentUser.id,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(`[currency-rates] auto-cadastro taxa ${currencyCode} falhou (continuando fluxo):`, err);
+      }
 
       const purchaseRequest = await storage.getPurchaseRequestById(
         quotation.purchaseRequestId,
@@ -494,36 +552,20 @@ export function registerQuotationRoutes(app: Express) {
           totalValue: null,
           sentAt: null,
           receivedAt: new Date(),
+          currencyCode,
+          exchangeRate: exchangeRate.toString(),
+          totalValueBrl: "0.0000",
+          subtotalValueBrl: "0.0000",
+          finalValueBrl: "0.0000",
+          freightValueBrl: "0.0000",
+          discountValueBrl: "0.0000",
         });
       }
 
-      const updateData = {
-        status: "received",
-        totalValue: totalValue || null,
-        subtotalValue: subtotalValue || null,
-        finalValue: finalValue || null,
-        discountType: discountType || null,
-        discountValue: discountValue ? String(discountType === 'fixed' ? NumberParser.parse(discountValue) : discountValue) : null,
-        paymentTerms: paymentTerms || null,
-        deliveryTerms: deliveryTerms || null,
-        warrantyPeriod: warrantyPeriod || null,
-        observations: observations || null,
-        includesFreight: includesFreight || false,
-        freightValue: freightValue ? String(NumberParser.parse(freightValue)) : null,
-        receivedAt: new Date(),
-      };
-
-      const updatedSupplierQuotation = await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
-
-      if (updatedSupplierQuotation.isChosen) {
-           const fVal = updateData.finalValue ? Number(updateData.finalValue) : 0;
-           const frVal = (updateData.includesFreight && updateData.freightValue) ? Number(updateData.freightValue) : 0;
-           const grandTotal = fVal + frVal;
-
-           await storage.updatePurchaseRequest(purchaseRequest.id, {
-               totalValue: grandTotal.toFixed(2),
-           });
-      }
+      const processedItems: Array<{
+        valorOriginal: number;
+        descontoItem: number;
+      }> = [];
 
       if (items && items.length > 0) {
         const existingItems = await storage.getSupplierQuotationItems(
@@ -595,10 +637,10 @@ export function registerQuotationRoutes(app: Express) {
             quotationItemsCache = await storage.getQuotationItems(quotationId);
           }
 
-          const quantity = (item.availableQuantity != null && item.availableQuantity !== "") 
-            ? Number(item.availableQuantity) 
+          const quantity = (item.availableQuantity != null && item.availableQuantity !== "")
+            ? Number(item.availableQuantity)
             : Number(quotationItem?.quantity || 1);
-            
+
           const unitPriceNum = NumberParser.parse(item.unitPrice);
           const totalNum = unitPriceNum * quantity;
 
@@ -608,12 +650,39 @@ export function registerQuotationRoutes(app: Express) {
 
           const originalTotalPrice = hasItemDiscount ? totalNum : null;
           let discountedTotalPrice: number | null = null;
+          let effectiveItemDiscountValue = 0;
           if (hasItemDiscount) {
             let discounted = totalNum;
-            if (discountPercentageNum > 0) discounted *= (1 - discountPercentageNum / 100);
-            if (discountValueNum > 0) discounted -= discountValueNum;
+            if (discountPercentageNum > 0) {
+              const pctDiscount = totalNum * (discountPercentageNum / 100);
+              discounted -= pctDiscount;
+              effectiveItemDiscountValue += pctDiscount;
+            }
+            if (discountValueNum > 0) {
+              discounted -= discountValueNum;
+              effectiveItemDiscountValue += discountValueNum;
+            }
             discountedTotalPrice = Math.max(0, discounted);
+            effectiveItemDiscountValue = Math.min(effectiveItemDiscountValue, totalNum);
           }
+
+          const baseForCalc = discountedTotalPrice !== null ? discountedTotalPrice : totalNum;
+          processedItems.push({
+            valorOriginal: totalNum,
+            descontoItem: effectiveItemDiscountValue,
+          });
+
+          const unitPriceBrl = roundCurrency(convertToBRL(unitPriceNum, exchangeRate), 4);
+          const totalPriceBrl = roundCurrency(convertToBRL(totalNum, exchangeRate), 4);
+          const discountValueBrl = effectiveItemDiscountValue > 0
+            ? roundCurrency(convertToBRL(effectiveItemDiscountValue, exchangeRate), 4)
+            : 0;
+          const originalTotalPriceBrl = originalTotalPrice !== null
+            ? roundCurrency(convertToBRL(originalTotalPrice, exchangeRate), 4)
+            : null;
+          const discountedTotalPriceBrl = discountedTotalPrice !== null
+            ? roundCurrency(convertToBRL(discountedTotalPrice, exchangeRate), 4)
+            : null;
 
           const itemPayload = {
             unitPrice: unitPriceNum.toFixed(4),
@@ -622,6 +691,11 @@ export function registerQuotationRoutes(app: Express) {
             discountPercentage: discountPercentageNum > 0 ? discountPercentageNum.toString() : null,
             discountValue: discountValueNum > 0 ? discountValueNum.toFixed(4) : null,
             discountedTotalPrice: discountedTotalPrice !== null ? discountedTotalPrice.toFixed(4) : null,
+            unitPriceBrl: unitPriceBrl.toFixed(4),
+            totalPriceBrl: totalPriceBrl.toFixed(4),
+            discountValueBrl: discountValueBrl > 0 ? discountValueBrl.toFixed(4) : '0.0000',
+            originalTotalPriceBrl: originalTotalPriceBrl !== null ? originalTotalPriceBrl.toFixed(4) : null,
+            discountedTotalPriceBrl: discountedTotalPriceBrl !== null ? discountedTotalPriceBrl.toFixed(4) : null,
             deliveryDays: item.deliveryDays,
             brand: item.brand,
             model: item.model,
@@ -646,7 +720,82 @@ export function registerQuotationRoutes(app: Express) {
         }
       }
 
-      res.json({ message: "Cotação do fornecedor atualizada com sucesso" });
+      const descontoGlobalTipo = discountType || 'none';
+      const descontoGlobalValor = discountValue != null
+        ? (descontoGlobalTipo === 'fixed' ? NumberParser.parse(discountValue) : Number(discountValue || 0))
+        : 0;
+
+      const {
+        valorItens: _valorItens,
+        desconto: descontoItens,
+        subTotal,
+        descontoProposta,
+        valorFinal,
+      } = CalculadoraValoresSolicitacao.calcularTotais(processedItems, {
+        tipo: descontoGlobalTipo as any,
+        valor: descontoGlobalValor,
+      });
+
+      const freightValueNum = includesFreight && freightValue ? NumberParser.parse(freightValue) : 0;
+      const grandTotalOrig = valorFinal + freightValueNum;
+
+      const subtotalValueOrig = subtotalValue != null ? NumberParser.parse(subtotalValue) : subTotal;
+      const finalValueOrig = finalValue != null ? NumberParser.parse(finalValue) : valorFinal;
+      const discountValueOrig = (discountType === 'fixed' && discountValue != null)
+        ? NumberParser.parse(discountValue)
+        : descontoProposta;
+      const totalValueOrig = totalValue != null ? NumberParser.parse(totalValue) : grandTotalOrig;
+
+      const subtotalValueBrl = roundCurrency(convertToBRL(subtotalValueOrig, exchangeRate), 4);
+      const finalValueBrl = roundCurrency(convertToBRL(finalValueOrig, exchangeRate), 4);
+      const discountValueBrl = roundCurrency(convertToBRL(discountValueOrig, exchangeRate), 4);
+      const freightValueBrl = roundCurrency(convertToBRL(freightValueNum, exchangeRate), 4);
+      const totalValueBrl = roundCurrency(convertToBRL(totalValueOrig, exchangeRate), 4);
+
+      const updateData = {
+        status: "received",
+        currencyCode,
+        exchangeRate: exchangeRate.toString(),
+        totalValue: totalValueOrig.toFixed(4),
+        totalValueBrl: totalValueBrl.toFixed(4),
+        subtotalValue: subtotalValueOrig.toFixed(4),
+        subtotalValueBrl: subtotalValueBrl.toFixed(4),
+        finalValue: finalValueOrig.toFixed(4),
+        finalValueBrl: finalValueBrl.toFixed(4),
+        discountType: descontoGlobalTipo === 'none' ? null : descontoGlobalTipo,
+        discountValue: discountValueOrig > 0 ? discountValueOrig.toFixed(4) : null,
+        discountValueBrl: discountValueBrl > 0 ? discountValueBrl.toFixed(4) : null,
+        paymentTerms: paymentTerms || null,
+        deliveryTerms: deliveryTerms || null,
+        warrantyPeriod: warrantyPeriod || null,
+        observations: observations || null,
+        includesFreight: includesFreight || false,
+        freightValue: freightValueNum > 0 ? freightValueNum.toFixed(2) : null,
+        freightValueBrl: freightValueBrl > 0 ? freightValueBrl.toFixed(4) : null,
+        receivedAt: new Date(),
+      };
+
+      const updatedSupplierQuotation = await storage.updateSupplierQuotation(supplierQuotation.id, updateData);
+
+      if (updatedSupplierQuotation.isChosen) {
+        await storage.updatePurchaseRequest(purchaseRequest.id, {
+          totalValue: totalValueBrl.toFixed(2),
+          totalValueOrig: totalValueOrig.toFixed(4),
+          currencyCode,
+          exchangeRate: exchangeRate.toString(),
+        });
+      }
+
+      res.json({
+        message: "Cotação do fornecedor atualizada com sucesso",
+        currencyCode,
+        exchangeRate,
+        totalValueBrl: totalValueBrl.toFixed(4),
+        subtotalValueBrl: subtotalValueBrl.toFixed(4),
+        finalValueBrl: finalValueBrl.toFixed(4),
+        freightValueBrl: freightValueBrl.toFixed(4),
+        discountValueBrl: discountValueBrl.toFixed(4),
+      });
     },
   );
 
@@ -733,23 +882,30 @@ export function registerQuotationRoutes(app: Express) {
       const selectedSupplierQuotation = supplierQuotations.find(
         (sq) => sq.supplierId === selectedSupplierId,
       );
-      
+
       let finalTotalValue = totalValue;
       let newPR: any = null;
       let newQuotation: any = null;
       let itemsTransferredCount = 0;
 
+      const winnerCurrencyCode = normalizeCurrencyCode(
+        (selectedSupplierQuotation as any)?.currencyCode
+      );
+      const winnerExchangeRateRaw = (selectedSupplierQuotation as any)?.exchangeRate;
+      const winnerExchangeRate =
+        winnerCurrencyCode === 'BRL'
+          ? (winnerExchangeRateRaw ? toNumber(winnerExchangeRateRaw) : 1) || 1
+          : (winnerExchangeRateRaw ? toNumber(winnerExchangeRateRaw) : 0);
+
       if (selectedSupplierQuotation) {
         const currentSupplierItems = await storage.getSupplierQuotationItems(selectedSupplierQuotation.id);
-        
-        // Determinar quais items de cotação estão selecionados (aprovados)
+
         const selectedQuotationItemIds = new Set<number>();
         if (Array.isArray(selectedItems) && selectedItems.length > 0) {
           selectedItems.forEach((item: any) => {
             selectedQuotationItemIds.add(item.quotationItemId);
           });
         } else {
-          // Default: todos os itens disponíveis do fornecedor vencedor
           currentSupplierItems.forEach((item) => {
             if (item.isAvailable !== false) {
               selectedQuotationItemIds.add(item.quotationItemId);
@@ -757,33 +913,59 @@ export function registerQuotationRoutes(app: Express) {
           });
         }
 
-        // Calcular valor total baseado apenas nos itens selecionados/aprovados
-        let calculatedTotal = 0;
+        let sumItensOrig = 0;
+        let sumDescontosItensOrig = 0;
         for (const item of currentSupplierItems) {
           if (selectedQuotationItemIds.has(item.quotationItemId)) {
-            calculatedTotal += parseFloat(item.totalPrice || "0");
+            const tPrice = parseFloat(item.totalPrice || "0");
+            sumItensOrig += tPrice;
+            const dValue = parseFloat((item as any).discountValue || "0");
+            if (dValue > 0) sumDescontosItensOrig += dValue;
           }
         }
 
+        const subTotalOrig = Math.max(0, sumItensOrig - sumDescontosItensOrig);
+
+        let descontoGlobalOrig = 0;
         if (selectedSupplierQuotation.discountType === 'percentage' && selectedSupplierQuotation.discountValue) {
-          calculatedTotal *= (1 - parseFloat(selectedSupplierQuotation.discountValue) / 100);
+          descontoGlobalOrig = subTotalOrig * (parseFloat(selectedSupplierQuotation.discountValue) / 100);
         } else if (selectedSupplierQuotation.discountType === 'fixed' && selectedSupplierQuotation.discountValue) {
-          calculatedTotal -= parseFloat(selectedSupplierQuotation.discountValue);
+          descontoGlobalOrig = parseFloat(selectedSupplierQuotation.discountValue);
         }
+        descontoGlobalOrig = Math.min(Math.max(0, descontoGlobalOrig), subTotalOrig);
 
-        if (selectedSupplierQuotation.includesFreight && selectedSupplierQuotation.freightValue) {
-          calculatedTotal += parseFloat(selectedSupplierQuotation.freightValue);
-        }
+        const valorFinalSemFreteOrig = Math.max(0, subTotalOrig - descontoGlobalOrig);
 
-        finalTotalValue = Math.max(0, calculatedTotal).toFixed(4);
+        const freteOrig =
+          selectedSupplierQuotation.includesFreight && selectedSupplierQuotation.freightValue
+            ? parseFloat(selectedSupplierQuotation.freightValue)
+            : 0;
+
+        let calculatedTotalOrig = valorFinalSemFreteOrig + freteOrig;
+        calculatedTotalOrig = Math.max(0, calculatedTotalOrig);
+
+        const descontosTotaisOrig = sumDescontosItensOrig + descontoGlobalOrig;
+
+        finalTotalValue = totalValue || calculatedTotalOrig.toFixed(4);
+        const negotiatedOrig = parseFloat(finalTotalValue) || calculatedTotalOrig;
+
+        const negotiatedValueBrl = roundCurrency(convertToBRL(negotiatedOrig, winnerExchangeRate), 2);
+        const totalValueBrl = roundCurrency(convertToBRL(calculatedTotalOrig, winnerExchangeRate), 2);
+        const discountsObtainedBrl = roundCurrency(convertToBRL(descontosTotaisOrig, winnerExchangeRate), 2);
+        const totalValueOrig = calculatedTotalOrig;
+        const negotiatedOrigVal = negotiatedOrig;
+        const discountsObtainedOrigVal = descontosTotaisOrig;
+
+        const finalTotalBrlToPersist = winnerExchangeRate > 0
+          ? totalValueBrl.toFixed(2)
+          : finalTotalValue;
 
         await storage.updateSupplierQuotation(selectedSupplierQuotation.id, {
-          totalValue: finalTotalValue,
+          totalValue: calculatedTotalOrig.toFixed(4),
           isChosen: true,
           choiceReason: observations,
         });
 
-        // Identificar itens restantes
         const quotationItems = await storage.getQuotationItems(quotationId);
         const remainingQuotationItems = quotationItems.filter(qi => !selectedQuotationItemIds.has(qi.id));
 
@@ -808,16 +990,12 @@ export function registerQuotationRoutes(app: Express) {
           }
         }
 
-        // Criar nova solicitação de compra se houver itens para transferir
         if (itemsToTransferToNewPR.length > 0) {
           const originalPR = await storage.getPurchaseRequestById(quotation.purchaseRequestId);
           if (originalPR) {
             const { id: _prId, requestNumber: _rn, createdAt: _prC, updatedAt: _prU, ...prData } = originalPR;
             const targetJustification = `[Divisão de Pedido] Derivado da solicitação ${originalPR.requestNumber}. ` + (originalPR.justification || "");
             const targetAdditionalInfo = `[Rastreabilidade] Solicitação dividida. Solicitação original: ${originalPR.requestNumber}.\n` + (originalPR.additionalInfo || "");
-            
-            console.log('originalPR.additionalInfo:', originalPR.additionalInfo);
-            console.log('targetAdditionalInfo to insert:', targetAdditionalInfo);
 
             newPR = await storage.createPurchaseRequest({
               ...prData,
@@ -829,11 +1007,8 @@ export function registerQuotationRoutes(app: Express) {
               approvalDateA1: new Date(),
             });
 
-            console.log('newPR returned from DB:', JSON.stringify(newPR, null, 2));
-
             itemsTransferredCount = itemsToTransferToNewPR.length;
 
-            // Automatically open/create Quotation (RFQ) for the new Purchase Request
             newQuotation = await storage.createQuotation({
               purchaseRequestId: newPR.id,
               quotationDeadline: quotation.quotationDeadline,
@@ -857,13 +1032,12 @@ export function registerQuotationRoutes(app: Express) {
 
         const originalItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
 
-        // Processar itens transferidos
         for (const { qItem, supplierItem } of itemsToTransferToNewPR) {
           if (qItem.purchaseRequestItemId) {
             const originalItem = originalItems.find(pi => pi.id === qItem.purchaseRequestItemId);
             if (originalItem && !originalItem.isTransferred) {
               const { id: _id, createdAt: _c, updatedAt: _u, ...itemData } = originalItem;
-              
+
               let newPRItem: any = null;
               if (newPR) {
                 newPRItem = await storage.createPurchaseRequestItem({
@@ -874,7 +1048,6 @@ export function registerQuotationRoutes(app: Express) {
                 });
 
                 if (newQuotation && newPRItem) {
-                  // Create corresponding quotation item linked to the new RFQ and the new PR Item
                   await storage.createQuotationItem({
                     quotationId: newQuotation.id,
                     purchaseRequestItemId: newPRItem.id,
@@ -900,7 +1073,6 @@ export function registerQuotationRoutes(app: Express) {
           }
         }
 
-        // Processar itens descartados
         for (const { qItem, supplierItem } of itemsToDiscard) {
           if (qItem.purchaseRequestItemId) {
             const originalItem = originalItems.find(pi => pi.id === qItem.purchaseRequestItemId);
@@ -919,12 +1091,18 @@ export function registerQuotationRoutes(app: Express) {
 
         await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
           currentPhase: "aprovacao_a2",
-          totalValue: finalTotalValue,
+          totalValue: finalTotalBrlToPersist,
+          totalValueOrig: totalValueOrig.toFixed(4),
+          negotiatedValue: negotiatedValueBrl.toFixed(2),
+          negotiatedValueOrig: negotiatedOrigVal.toFixed(4),
+          discountsObtained: discountsObtainedBrl.toFixed(2),
+          discountsObtainedOrig: discountsObtainedOrigVal.toFixed(4),
+          currencyCode: winnerCurrencyCode,
+          exchangeRate: winnerExchangeRate > 0 ? winnerExchangeRate.toString() : null,
           chosenSupplierId: selectedSupplierId,
           choiceReason: observations,
         });
 
-        // Gravar snapshot de itens aprovados
         await storage.clearApprovedQuotationItems(quotationId);
         let finalQuotationItems = await storage.getQuotationItems(quotationId);
         let finalPRItems = await storage.getPurchaseRequestItems(quotation.purchaseRequestId, true);
@@ -1033,6 +1211,11 @@ export function registerQuotationRoutes(app: Express) {
               const baseTotal = parseFloat(item.totalPrice || "0") || 0;
               const itemTotalPrice = (pct > 0 || fixed > 0) && Number.isFinite(discCand) && discCand > 0 ? discCand.toFixed(4) : baseTotal.toFixed(4);
 
+              const unitPriceNum = parseFloat(item.unitPrice || "0");
+              const unitPriceBrl = roundCurrency(convertToBRL(unitPriceNum, winnerExchangeRate), 4);
+              const totalPriceNum = parseFloat(itemTotalPrice);
+              const totalPriceBrl = roundCurrency(convertToBRL(totalPriceNum, winnerExchangeRate), 4);
+
               await storage.createApprovedQuotationItem({
                 quotationId: quotationId,
                 supplierQuotationItemId: item.id,
@@ -1040,6 +1223,8 @@ export function registerQuotationRoutes(app: Express) {
                 approvedQuantity: quantity.toString(),
                 unitPrice: item.unitPrice,
                 totalPrice: itemTotalPrice,
+                unitPriceBrl: unitPriceBrl.toFixed(4),
+                totalPriceBrl: totalPriceBrl.toFixed(4),
               });
             }
           }

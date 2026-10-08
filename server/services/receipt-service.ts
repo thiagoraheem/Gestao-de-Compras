@@ -286,13 +286,29 @@ export class ReceiptService {
       ORDER BY "createdAt" DESC
     `);
 
-    const formattedResults = await Promise.all(results.rows.map(async (row: any) => {
-      const prId = row.purchaseRequestId;
-      const items = prId ? await db
-        .select()
-        .from(purchaseRequestItems)
-        .where(eq(purchaseRequestItems.purchaseRequestId, prId)) : [];
+    const rows = results.rows as any[];
+    const prIds = rows
+      .map((r: any) => Number(r.purchaseRequestId))
+      .filter((id: number) => Number.isFinite(id));
 
+    const dedupedPrIds = Array.from(new Set(prIds));
+
+    const allItems = dedupedPrIds.length > 0
+      ? await db
+          .select()
+          .from(purchaseRequestItems)
+          .where(inArray(purchaseRequestItems.purchaseRequestId, dedupedPrIds))
+      : [];
+
+    const itemsByPr = new Map<number, any[]>();
+    for (const it of allItems) {
+      const key = Number((it as any).purchaseRequestId);
+      if (!itemsByPr.has(key)) itemsByPr.set(key, []);
+      itemsByPr.get(key)!.push(it);
+    }
+
+    const formattedResults = rows.map((row: any) => {
+      const prId = row.purchaseRequestId ? Number(row.purchaseRequestId) : null;
       return {
         id: prId,
         receiptId: row.receiptId,
@@ -308,10 +324,10 @@ export class ReceiptService {
           orderNumber: row.purchaseOrderNumber, 
           totalValue: row.orderTotalValue 
         } : null,
-        items: items,
+        items: prId ? (itemsByPr.get(prId) || []) : [],
         receivingPercent: row.receivingPercent
       };
-    }));
+    });
 
     return formattedResults;
   }

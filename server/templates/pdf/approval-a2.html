@@ -302,13 +302,15 @@
   <div class="header">
     {{{companyLogoHtml}}}
     <div class="header-info">
-      <h1>APROVAÇÃO A2</h1>
+      <h1>APROVAÇÃO A2 {{#if isForeign}}<span style="font-size: 12px; background-color: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 4px; margin-left: 8px;">MOEDA: {{currencyCode}}</span>{{/if}}</h1>
       <h2>Solicitação de Compra Nº {{requestNumber}}</h2>
       <p>Data de Geração: {{generationDate}}</p>
       <p>{{companyName}}</p>
     </div>
     {{{qrCodeHtml}}}
   </div>
+
+  {{{currencyNoteHtml}}}
 
   <div class="section">
     <div class="section-title">Informações da Solicitação</div>
@@ -326,6 +328,11 @@
         <div class="info-item">
           <span class="info-label">Centro de Custo:</span> {{costCenterName}}
         </div>
+        {{#if isForeign}}
+        <div class="info-item">
+          <span class="info-label">Moeda · Taxa:</span> <strong>{{currencyCode}} · {{exchangeRate}}</strong>
+        </div>
+        {{/if}}
       </div>
       <div>
         <div class="info-item">
@@ -338,7 +345,7 @@
           <span class="info-label">Urgência:</span> {{urgency}}
         </div>
         <div class="info-item">
-          <span class="info-label">Valor Total:</span> {{finalValue}}
+          <span class="info-label">Valor Total:</span> {{{finalValueHtml}}}
         </div>
       </div>
     </div>
@@ -370,23 +377,23 @@
         {{{itemRows}}}
         <tr class="subtotal-row">
           <td colspan="6" class="text-right">Subtotal:</td>
-          <td class="text-right">{{subtotal}}</td>
+          <td class="text-right">{{{subtotalHtml}}}</td>
         </tr>
         {{#if hasDiscount}}
         <tr class="discount-row">
           <td colspan="6" class="text-right">Desconto:</td>
-          <td class="text-right">-{{discount}}</td>
+          <td class="text-right">-{{{discountHtml}}}</td>
         </tr>
         {{/if}}
         {{#if hasFreight}}
         <tr>
           <td colspan="6" class="text-right">Frete:</td>
-          <td class="text-right">{{freight}}</td>
+          <td class="text-right">{{{freightHtml}}}</td>
         </tr>
         {{/if}}
         <tr class="total-row">
           <td colspan="6" class="text-right">VALOR TOTAL:</td>
-          <td class="text-right">{{finalValue}}</td>
+          <td class="text-right">{{{finalValueHtml}}}</td>
         </tr>
       </tbody>
     </table>
@@ -415,6 +422,8 @@
   {{{supplierComparisonHtml}}}
 
   {{{comparisonMatrixHtml}}}
+
+  {{{currencyNoteHtml}}}
 
   <div class="footer">
     <p><strong>Documento gerado automaticamente pelo Sistema de Gestão de Compras</strong></p>

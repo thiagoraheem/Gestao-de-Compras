@@ -52,7 +52,6 @@ import { formatLocalDate } from "@/lib/date";
 
 const formatCurrencyLocal = (value: string | number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value));
-
 const formatDate = (dateStr: string) => {
   if (!dateStr) return "-";
   return formatLocalDate(dateStr);
@@ -231,6 +230,12 @@ export function InvoicesReport() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Consulta de Notas Fiscais</h1>
           <p className="text-muted-foreground">Gerencie e visualize todas as notas fiscais registradas no sistema.</p>
+          <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 flex items-center gap-1">
+            <Badge variant="outline" className="h-5 text-[10px] border-indigo-200 dark:border-indigo-700">
+              💰 Todos os valores apresentados em BRL (Real Brasileiro) convertidos.
+              Para compras internacionais, valores são convertidos com a taxa de câmbio do Pedido de Compra.
+            </Badge>
+          </p>
         </div>
         <Button variant="outline" onClick={handleExport}>
           <Download className="mr-2 h-4 w-4" /> Exportar Lista

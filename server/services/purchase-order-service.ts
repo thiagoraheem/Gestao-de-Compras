@@ -1,5 +1,11 @@
 import { storage } from "../storage";
 import { pool } from "../db";
+import {
+  normalizeCurrencyCode,
+  convertToBRL,
+  roundCurrency,
+  toNumber,
+} from "../../shared/utils/currency-utils";
 
 export interface CreatePurchaseOrderResult {
   purchaseOrder: any;
@@ -36,6 +42,18 @@ export class PurchaseOrderService {
     const supplierQuotations = await storage.getSupplierQuotations(quotation.id);
     const chosenSupplierQuotation = supplierQuotations.find((sq) => sq.isChosen);
     if (!chosenSupplierQuotation) return null;
+
+    const winnerCurrencyCode = normalizeCurrencyCode(
+      (chosenSupplierQuotation as any)?.currencyCode
+    );
+    const winnerExchangeRateRaw = (chosenSupplierQuotation as any)?.exchangeRate;
+    const winnerExchangeRate =
+      winnerCurrencyCode === 'BRL'
+        ? (winnerExchangeRateRaw ? toNumber(winnerExchangeRateRaw) : 1) || 1
+        : (winnerExchangeRateRaw ? toNumber(winnerExchangeRateRaw) : 1);
+
+    const totalOrig = parseFloat(chosenSupplierQuotation.totalValue || "0");
+    const totalValueBrl = roundCurrency(convertToBRL(totalOrig, winnerExchangeRate), 2);
 
     // Check if purchase order already exists
     const existingPurchaseOrder = await storage.getPurchaseOrderByRequestId(purchaseRequestId);
@@ -77,7 +95,10 @@ export class PurchaseOrderService {
       supplierId: chosenSupplierQuotation.supplierId,
       quotationId: quotation.id,
       status: "draft" as const,
-      totalValue: chosenSupplierQuotation.totalValue || "0",
+      totalValue: totalValueBrl.toFixed(2),
+      totalValueBrl: totalValueBrl.toFixed(2),
+      currencyCode: winnerCurrencyCode,
+      exchangeRate: winnerExchangeRate > 0 ? winnerExchangeRate.toString() : "1",
       paymentTerms: chosenSupplierQuotation.paymentTerms || null,
       deliveryTerms: null,
       deliveryAddress: null,
@@ -94,7 +115,6 @@ export class PurchaseOrderService {
 
     const purchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
 
-    // Create purchase order items from supplier quotation items
     const quotationItems = await storage.getQuotationItems(quotation.id);
     let itemsTotal = 0;
 
@@ -105,20 +125,25 @@ export class PurchaseOrderService {
       const description = qi?.description || "";
       const unit = si.confirmedUnit || qi?.unit || "UN";
       const quantity = si.availableQuantity ?? qi?.quantity ?? "0";
-      const unitPrice = si.unitPrice || "0";
-      const baseTotal = (parseFloat(unitPrice) || 0) * (parseFloat(quantity as any) || 0);
+      const unitPriceOrig = si.unitPrice || "0";
+      const baseTotalOrig = (parseFloat(unitPriceOrig) || 0) * (parseFloat(quantity as any) || 0);
 
-      let itemDiscount = 0;
-      let totalPrice = baseTotal;
+      let itemDiscountOrig = 0;
+      let totalPriceOrig = baseTotalOrig;
 
       if (si.discountPercentage && parseFloat(si.discountPercentage as any) > 0) {
-        itemDiscount = (baseTotal * parseFloat(si.discountPercentage as any)) / 100;
+        itemDiscountOrig = (baseTotalOrig * parseFloat(si.discountPercentage as any)) / 100;
       } else if (si.discountValue && parseFloat(si.discountValue as any) > 0) {
-        itemDiscount = parseFloat(si.discountValue as any);
+        itemDiscountOrig = parseFloat(si.discountValue as any);
       }
 
-      totalPrice = Math.max(0, baseTotal - itemDiscount);
-      itemsTotal += totalPrice;
+      totalPriceOrig = Math.max(0, baseTotalOrig - itemDiscountOrig);
+
+      // REGRA CRÍTICA: PO grava SEMPRE em BRL. Campos principais = BRL. *Brl redundantes = mesmo valor.
+      const uPriceOrigNum = parseFloat(unitPriceOrig) || 0;
+      const unitPriceBrlVal = roundCurrency(convertToBRL(uPriceOrigNum, winnerExchangeRate), 4);
+      const totalPriceBrlVal = roundCurrency(convertToBRL(totalPriceOrig, winnerExchangeRate), 4);
+      itemsTotal += totalPriceBrlVal;
 
       const purchaseOrderItemData = {
         purchaseOrderId: purchaseOrder.id,
@@ -126,8 +151,10 @@ export class PurchaseOrderService {
         description,
         quantity,
         unit,
-        unitPrice,
-        totalPrice: totalPrice.toFixed(4),
+        unitPrice: unitPriceBrlVal.toFixed(4),
+        totalPrice: totalPriceBrlVal.toFixed(4),
+        unitPriceBrl: unitPriceBrlVal.toFixed(4),
+        totalPriceBrl: totalPriceBrlVal.toFixed(4),
         deliveryDeadline: null,
         costCenterId: purchaseRequest?.costCenterId,
         accountCode: null,

@@ -13,6 +13,7 @@ export interface ReportFilters {
   phase: string;
   urgency: string;
   itemDescription: string;
+  currencyCode: string;
 }
 
 export const initialFilters: ReportFilters = {
@@ -24,6 +25,7 @@ export const initialFilters: ReportFilters = {
   phase: "all",
   urgency: "all",
   itemDescription: "",
+  currencyCode: "all",
 };
 
 export function usePurchaseRequestsReport() {
@@ -46,9 +48,10 @@ export function usePurchaseRequestsReport() {
     const hasPhase = filters.phase !== "all";
     const hasUrgency = filters.urgency !== "all";
     const hasItem = !!filters.itemDescription;
+    const hasCurrency = filters.currencyCode !== "all";
     const hasSearch = !!searchTerm;
 
-    return hasDate || hasDepartment || hasRequester || hasSupplier || hasPhase || hasUrgency || hasItem || hasSearch;
+    return hasDate || hasDepartment || hasRequester || hasSupplier || hasPhase || hasUrgency || hasItem || hasCurrency || hasSearch;
   }, [filters, searchTerm]);
 
   const {

@@ -29,6 +29,10 @@ export function DecimalInput({
 }: DecimalInputProps) {
   // Internal state for the display value (what the user sees)
   const [displayValue, setDisplayValue] = useState("");
+  // Track whether the user has interacted with (typed in) this field.
+  // Used to distinguish between "zero because user explicitly typed 0" vs
+  // "zero because formatBrazilianNumber coerced an empty input on blur".
+  const [userHasInteracted, setUserHasInteracted] = useState(false);
 
   // Sync internal state with external value prop
   useEffect(() => {
@@ -59,6 +63,7 @@ export function DecimalInput({
   }, [value, precision]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUserHasInteracted(true);
     let inputValue = e.target.value;
 
     // Remove invalid characters
@@ -93,9 +98,18 @@ export function DecimalInput({
   };
 
   const handleBlur = () => {
-    // On blur, force format to look nice
+    // On blur, force format to look nice.
+    // Critical: if the user never typed anything (or erased everything),
+    // keep the value EMPTY instead of formatting "0". This ensures that
+    // "user hasn't set a price" is distinguishable from "user explicitly set 0".
     const parsed = parseBrazilianNumber(displayValue);
     if (!isNaN(parsed)) {
+      if (parsed === 0 && !userHasInteracted) {
+        // Empty/initial state — keep empty, don't coerce to zero.
+        setDisplayValue("");
+        onChange("");
+        return;
+      }
       setDisplayValue(formatBrazilianNumber(parsed, precision, precision));
     } else {
        // If invalid, clear or keep? 

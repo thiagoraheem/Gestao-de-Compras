@@ -124,10 +124,21 @@ export function ReceiptKanbanCard({ receipt, onClick }: ReceiptKanbanCardProps) 
             <Calendar className="w-3 h-3" />
             {receipt.createdAt ? format(new Date(receipt.createdAt), "dd/MM/yy", { locale: ptBR }) : '-'}
           </div>
-          <div className="flex items-center gap-1 font-medium justify-end">
-            <DollarSign className="w-3 h-3" />
-            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(receipt.totalAmount || 0))}
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 font-medium justify-end cursor-help">
+                  <DollarSign className="w-3 h-3" />
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(receipt.totalAmount || 0))}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[260px] text-[11px] leading-relaxed">
+                <p className="font-semibold mb-1">Valores de Recebimento em BRL</p>
+                <p>Todos os recebimentos do sistema operam exclusivamente em Real (BRL), mesmo quando o Pedido de Compra foi negociado em moeda internacional.</p>
+                <p className="mt-1 text-muted-foreground">Os valores são convertidos com a taxa de câmbio do pedido antes de chegar nesta fase.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {receipt.purchaseOrderNumber && (

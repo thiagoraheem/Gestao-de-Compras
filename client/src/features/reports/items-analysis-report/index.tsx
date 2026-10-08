@@ -134,6 +134,11 @@ export function ItemsAnalysisReport() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Análise de Itens Comprados</h1>
           <p className="text-muted-foreground">Visão gerencial de itens, preços e fornecedores</p>
+          <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+            <Badge variant="outline" className="h-5 text-[10px] border-indigo-200 dark:border-indigo-700">
+              💰 Valores consolidados em BRL (Real Brasileiro) — incluindo compras internacionais convertidas.
+            </Badge>
+          </p>
         </div>
         <Button variant="outline" onClick={exportToCSV} disabled={!sortedItems.length}>
           <Download className="mr-2 h-4 w-4" />

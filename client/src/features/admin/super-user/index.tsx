@@ -188,6 +188,29 @@ export function AdminSuperUser() {
                   </TabsTrigger>
                 </TabsList>
 
+                {(() => {
+                  const cCode = (currentRequest as any)?.currencyCode as string | undefined;
+                  const cRate = (currentRequest as any)?.exchangeRate as number | string | undefined;
+                  const rateNum = cRate != null ? Number(cRate) : 0;
+                  const hasCurrency = !!cCode && cCode.toUpperCase() !== 'BRL' && rateNum > 0;
+
+                  return hasCurrency ? (
+                    <div className="mt-6 mb-4 rounded-lg border border-indigo-200 dark:border-indigo-700/50 bg-indigo-50 dark:bg-indigo-900/20 p-4">
+                      <div className="flex items-start gap-2">
+                        <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-indigo-900 dark:text-indigo-100 space-y-1">
+                          <div className="font-semibold">Compra Internacional detectada</div>
+                          <ul className="space-y-1 text-indigo-800 dark:text-indigo-200 text-xs">
+                            <li>Moeda original: <strong>{cCode?.toUpperCase()}</strong></li>
+                            <li>Taxa de câmbio aplicada (1 {cCode?.toUpperCase()} / BRL): <strong>{rateNum.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}</strong></li>
+                            <li>Valores internos são convertidos e persistidos em BRL para controle orçamentário e aprovações.</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
                 <TabsContent value="edit" className="space-y-6 mt-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>

@@ -3,11 +3,35 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Package, XCircle } from 'lucide-react';
 import { Badge } from '@/shared/ui/badge';
 import { SupplierQuotationData } from './types';
+import {
+  formatDualCurrency,
+  formatCurrency,
+  normalizeCurrencyCode,
+  convertToBRL,
+  roundCurrency,
+} from "@/lib/currency";
 
 interface ComparisonDataGridProps {
   receivedQuotations: SupplierQuotationData[];
   quotationItems: any[];
 }
+
+const resolveBRL = (valueOriginal: number, sq: SupplierQuotationData): number => {
+  if (!valueOriginal || isNaN(valueOriginal)) return 0;
+  const code = normalizeCurrencyCode(sq.currencyCode);
+  if (code === 'BRL') return valueOriginal;
+  const rate = sq.exchangeRate != null && String(sq.exchangeRate).trim() !== ""
+    ? Number(sq.exchangeRate)
+    : 0;
+  return roundCurrency(convertToBRL(valueOriginal, rate || 0));
+};
+
+const formatItemValueDual = (valueOriginal: number, sq: SupplierQuotationData): string => {
+  if (!valueOriginal || isNaN(valueOriginal)) return "-";
+  const code = normalizeCurrencyCode(sq.currencyCode);
+  const brl = resolveBRL(valueOriginal, sq);
+  return formatDualCurrency(valueOriginal, brl, code);
+};
 
 export const ComparisonDataGrid = memo(function ComparisonDataGrid({
   receivedQuotations,
@@ -51,12 +75,12 @@ export const ComparisonDataGrid = memo(function ComparisonDataGrid({
               {uniqueQuotationItemIds.map((quotationItemId) => {
                 const quotationItem = quotationItems.find(qi => qi.id === quotationItemId);
                 
-                // Find best final price across all suppliers for this item
+                // Find best final price across all suppliers for this item (normalize to BRL)
                 const bestFinalPrice = (() => {
                   const values = receivedQuotations.map((supplier) => {
                     const it = supplier.items.find(i => i.quotationItemId === quotationItemId);
                     if (!it || it.isAvailable === false) return Infinity;
-                    return Number(it.discountedTotalPrice || it.totalPrice);
+                    return resolveBRL(Number(it.discountedTotalPrice || it.totalPrice || 0), supplier);
                   });
                   const min = Math.min(...values);
                   return isFinite(min) ? min : null;
@@ -84,8 +108,9 @@ export const ComparisonDataGrid = memo(function ComparisonDataGrid({
                       const item = supplier.items.find(
                         i => i.quotationItemId === quotationItemId
                       );
-                      const finalValue = item ? Number(item.discountedTotalPrice || item.totalPrice) : null;
-                      const isBest = item && item.isAvailable !== false && bestFinalPrice !== null && finalValue === bestFinalPrice;
+                      const finalValueOriginal = item ? Number(item.discountedTotalPrice || item.totalPrice) : null;
+                      const finalValueBRL = item ? resolveBRL(finalValueOriginal || 0, supplier) : null;
+                      const isBest = item && item.isAvailable !== false && bestFinalPrice !== null && finalValueBRL !== null && Math.abs(finalValueBRL - bestFinalPrice) < 1e-6 && finalValueBRL > 0;
                       
                       const cellClasses = `p-3 border-l text-center transition-colors 
                         ${item && item.isAvailable === false ? 'bg-red-50 dark:bg-red-900/20' : ''} 
@@ -134,22 +159,20 @@ export const ComparisonDataGrid = memo(function ComparisonDataGrid({
                                   return null;
                                 })()}
                                 <div className="text-xs text-foreground">
-                                  Vlr. Unit.: R$ {Number(item.unitPrice).toLocaleString('pt-BR', {
-                                    minimumFractionDigits: 4, maximumFractionDigits: 4
-                                  })}
+                                  <div className="font-medium">Vlr. Unit.:</div>
+                                  <div className="font-mono">{formatItemValueDual(Number(item.unitPrice), supplier)}</div>
                                 </div>
                                 {(item.discountPercentage || item.discountValue) && (
                                   <div className="text-xs text-orange-600 dark:text-orange-400">
                                     Desc.: {item.discountPercentage
                                       ? `${item.discountPercentage}%`
-                                      : `R$ ${Number(item.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                                      : formatItemValueDual(Number(item.discountValue), supplier)
                                     }
                                   </div>
                                 )}
                                 <div className="text-sm font-bold text-green-700 dark:text-green-400 mt-1">
-                                  Total: R$ {Number(item.discountedTotalPrice || item.totalPrice).toLocaleString('pt-BR', {
-                                    minimumFractionDigits: 4, maximumFractionDigits: 4
-                                  })}
+                                  <div>Total:</div>
+                                  <div className="font-mono">{formatItemValueDual(Number(item.discountedTotalPrice || item.totalPrice), supplier)}</div>
                                 </div>
                                 {item.deliveryDays && (
                                   <div className="text-xs text-blue-600 dark:text-blue-400">Prazo: {item.deliveryDays} dias</div>

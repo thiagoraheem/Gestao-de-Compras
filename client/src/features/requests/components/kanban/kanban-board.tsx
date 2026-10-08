@@ -106,13 +106,16 @@ export default function KanbanBoard({
     refetchInterval: false,
     refetchOnWindowFocus: false,
     refetchOnMount: "always",
-    staleTime: 1000 * 60 * 1,
+    staleTime: 1000 * 60 * 5,
     enabled: !!user,
   });
 
   const { data: receiptsBoard = [], isLoading: isLoadingReceipts } = useQuery<any[]>({
     queryKey: ["/api/receipts/board"],
-    refetchInterval: 10000, // Refresh receipts every 10s
+    refetchInterval: 30000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    staleTime: 1000 * 60 * 5,
     enabled: !!user,
   });
 

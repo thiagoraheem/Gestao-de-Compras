@@ -30,7 +30,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/shared/ui/pagination";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, formatCurrencyIn, normalizeCurrencyCode } from "@/lib/currency";
 
 import type { PurchaseRequest } from "./types";
 import type { ReportFilters } from "./usePurchaseRequestsReport";
@@ -140,6 +140,10 @@ export function ReportTable({
                   <TableHead>Departamento</TableHead>
                   <TableHead>Fornecedor</TableHead>
                   <TableHead>Fase</TableHead>
+                  <TableHead>Moeda</TableHead>
+                  <TableHead>Taxa</TableHead>
+                  <TableHead>Total Original</TableHead>
+                  <TableHead>Total (BRL)</TableHead>
                   <TableHead>Valor Itens</TableHead>
                   <TableHead>Desconto</TableHead>
                   <TableHead>Subtotal</TableHead>
@@ -189,6 +193,26 @@ export function ReportTable({
                         </Badge>
                       </TableCell>
                       <TableCell>
+                        <Badge variant="outline">
+                          {request.currencyCode || "BRL"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {request.exchangeRate
+                          ? Number(request.exchangeRate).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 6 })
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {request.totalValueOrig
+                          ? formatCurrencyIn(request.currencyCode || "BRL", Number(request.totalValueOrig))
+                          : request.currencyCode && request.currencyCode !== "BRL"
+                            ? "-"
+                            : formatCurrencyIn("BRL", Number(request.valorFinal))}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap font-semibold">
+                        {formatCurrency(request.valorFinal)}
+                      </TableCell>
+                      <TableCell>
                         {formatCurrency(request.valorItens)}
                       </TableCell>
                       <TableCell>
@@ -219,7 +243,7 @@ export function ReportTable({
                     {/* Expanded Row Content */}
                     {expandedRows.has(request.id) && (
                       <TableRow>
-                        <TableCell colSpan={12} className="bg-muted p-6">
+                        <TableCell colSpan={18} className="bg-muted p-6">
                           <div className="space-y-6">
                             {/* Approval Information */}
                             <div>
@@ -481,7 +505,7 @@ export function ReportTable({
                 {/* Subtotals Row (Current Page) */}
                 {requests.length > 0 && pageTotals && (
                   <TableRow className="bg-muted/50 font-semibold border-t border-border">
-                    <TableCell colSpan={8} className="font-bold text-right py-4 pr-6">Subtotal da Página</TableCell>
+                    <TableCell colSpan={12} className="font-bold text-right py-4 pr-6">Subtotal da Página</TableCell>
                     <TableCell className="font-bold whitespace-nowrap">
                       {formatCurrency(pageTotals.totalValorItens)}
                     </TableCell>
@@ -504,7 +528,7 @@ export function ReportTable({
                 {/* Totals Row (Global) */}
                 {requests.length > 0 && totals && (
                   <TableRow className="bg-muted font-semibold border-t border-border">
-                    <TableCell colSpan={8} className="font-bold text-right py-4 pr-6">Total Geral Estimado (Filtros)</TableCell>
+                    <TableCell colSpan={12} className="font-bold text-right py-4 pr-6">Total Geral Estimado (Filtros)</TableCell>
                     <TableCell className="font-bold whitespace-nowrap">
                       {formatCurrency(totals.totalValorItens)}
                     </TableCell>

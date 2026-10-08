@@ -56,10 +56,12 @@ import {
   AlertTriangle,
   RefreshCw,
   Activity,
-  PieChart
+  PieChart,
+  Info
 } from "lucide-react";
 import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatCurrencyIn, normalizeCurrencyCode, CURRENCY_LABELS, formatDualCurrency, formatDualCurrencyBrlFirst } from "@/lib/currency";
 
 const archiveSchema = z.object({
   conclusionObservations: z.string().optional(),
@@ -120,6 +122,103 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
     showAttachmentViewer, setShowAttachmentViewer, retryErpMutation, archiveMutation, exportPDFMutation, downloadPurchaseOrderPDFMutation,
     isLoading, timelineLoading
   } = useConclusionData({ request, onClose });
+
+  const currencyCodeNorm = normalizeCurrencyCode(request?.currencyCode || selectedSupplierQuotation?.currencyCode);
+  const exchangeRateNum = Number(request?.exchangeRate || selectedSupplierQuotation?.exchangeRate || 1) || 0;
+  const isForeign = currencyCodeNorm !== 'BRL' && exchangeRateNum > 0;
+
+  const toOrig = (brl: number): number => {
+    if (!isForeign) return brl;
+    return exchangeRateNum > 0 ? brl / exchangeRateNum : brl;
+  };
+
+  const fmt2 = (orig: number, brl: number): string => {
+    if (!isForeign) return brl.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const brlFmt = formatCurrencyIn('BRL', brl, 2);
+    const origFmt = formatCurrencyIn(currencyCodeNorm, orig, 2);
+    return `${brlFmt}  (${origFmt})`;
+  };
+
+  const fmtBRL2 = (brl: number): string => fmt2(toOrig(brl), brl);
+
+  const fmt4 = (orig: number, brl: number): string => {
+    if (!isForeign) return brl.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    const brlFmt = formatCurrencyIn('BRL', brl, 4);
+    const origFmt = formatCurrencyIn(currencyCodeNorm, orig, 4);
+    return `${brlFmt}  (${origFmt})`;
+  };
+
+  const fmtBRL4 = (brl: number): string => fmt4(toOrig(brl), brl);
+
+  const formatRate = (rate: number): string => {
+    if (!rate) return '—';
+    return rate.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+  };
+
+  // Calculate metrics
+  const selectedSupplier = selectedSupplierQuotation;
+  const totalProcessTime = (request.createdAt && !isNaN(new Date(request.createdAt).getTime())) 
+    ? differenceInDays(new Date(), new Date(request.createdAt)) 
+    : 0;
+
+  // Calculate total items value - prioritize request.totalValue for consistency
+  const totalItemsValue = useMemo(() => {
+    // Priority 1: Use request's total value to maintain consistency with Kanban card
+    if (request.totalValue && parseFloat(request.totalValue) > 0) {
+      return parseFloat(request.totalValue);
+    }
+
+    // Priority 2: Use selected supplier quotation's total value if available
+    if (selectedSupplierQuotation?.totalValue && parseFloat(selectedSupplierQuotation.totalValue) > 0) {
+      return parseFloat(selectedSupplierQuotation.totalValue);
+    }
+
+    // Priority 3: Calculate from supplier quotation items (excluding unavailable items)
+    if (supplierQuotationItems && supplierQuotationItems.length > 0 && items && items.length > 0) {
+      return items.reduce((sum: number, item: any) => {
+        // Find matching supplier quotation item
+        const supplierItem = supplierQuotationItems.find((sqi: any) => {
+          // First try by purchaseRequestItemId (most reliable)
+          if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
+            return true;
+          }
+          // Fallback: try by description, item code, or quotationItemId
+          return sqi.description === item.description ||
+            sqi.itemCode === item.itemCode ||
+            sqi.quotationItemId === item.id;
+        });
+
+        // Only include available items in the total
+        if (supplierItem && supplierItem.isAvailable !== false) {
+          const unitPrice = parseFloat(supplierItem.unitPrice) || 0;
+          const quantity = parseFloat(item.requestedQuantity) || 0;
+          return sum + (quantity * unitPrice);
+        }
+
+        return sum;
+      }, 0);
+    }
+
+    // Priority 4: Use available budget as fallback
+    if (request.availableBudget && parseFloat(request.availableBudget) > 0) {
+      return parseFloat(request.availableBudget);
+    }
+
+    // Default: 0
+    return 0;
+  }, [request, selectedSupplierQuotation, supplierQuotationItems, items]);
+
+  const conclusionCurrencyInfo = useMemo(() => {
+    if (!isForeign) return null;
+    const totalBrl = Number(totalItemsValue) || 0;
+    const totalOrig = toOrig(totalBrl);
+    return {
+      code: currencyCodeNorm,
+      formatRate: formatRate(exchangeRateNum),
+      totalBrl,
+      totalOrig,
+    };
+  }, [isForeign, currencyCodeNorm, exchangeRateNum, totalItemsValue, formatRate, toOrig]);
 
   const form = useForm<ArchiveFormData>({
     resolver: zodResolver(archiveSchema),
@@ -207,7 +306,9 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
       items,
       supplierQuotationItems,
       completeTimeline,
-      getItemStatus
+      getItemStatus,
+      currencyCode: currencyCodeNorm,
+      exchangeRate: exchangeRateNum,
     });
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -238,59 +339,6 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
       });
     }
   };
-
-  // Calculate metrics
-  const selectedSupplier = selectedSupplierQuotation;
-  const totalProcessTime = (request.createdAt && !isNaN(new Date(request.createdAt).getTime())) 
-    ? differenceInDays(new Date(), new Date(request.createdAt)) 
-    : 0;
-
-  // Calculate total items value - prioritize request.totalValue for consistency
-  const totalItemsValue = useMemo(() => {
-    // Priority 1: Use request's total value to maintain consistency with Kanban card
-    if (request.totalValue && parseFloat(request.totalValue) > 0) {
-      return parseFloat(request.totalValue);
-    }
-
-    // Priority 2: Use selected supplier quotation's total value if available
-    if (selectedSupplierQuotation?.totalValue && parseFloat(selectedSupplierQuotation.totalValue) > 0) {
-      return parseFloat(selectedSupplierQuotation.totalValue);
-    }
-
-    // Priority 3: Calculate from supplier quotation items (excluding unavailable items)
-    if (supplierQuotationItems && supplierQuotationItems.length > 0 && items && items.length > 0) {
-      return items.reduce((sum: number, item: any) => {
-        // Find matching supplier quotation item
-        const supplierItem = supplierQuotationItems.find((sqi: any) => {
-          // First try by purchaseRequestItemId (most reliable)
-          if (sqi.purchaseRequestItemId && item.id && sqi.purchaseRequestItemId === item.id) {
-            return true;
-          }
-          // Fallback: try by description, item code, or quotationItemId
-          return sqi.description === item.description ||
-            sqi.itemCode === item.itemCode ||
-            sqi.quotationItemId === item.id;
-        });
-
-        // Only include available items in the total
-        if (supplierItem && supplierItem.isAvailable !== false) {
-          const unitPrice = parseFloat(supplierItem.unitPrice) || 0;
-          const quantity = parseFloat(item.requestedQuantity) || 0;
-          return sum + (quantity * unitPrice);
-        }
-
-        return sum;
-      }, 0);
-    }
-
-    // Priority 4: Use available budget as fallback
-    if (request.availableBudget && parseFloat(request.availableBudget) > 0) {
-      return parseFloat(request.availableBudget);
-    }
-
-    // Default: 0
-    return 0;
-  }, [request, selectedSupplierQuotation, supplierQuotationItems, items]);
 
   // Função para formatar quantidades no padrão brasileiro
   const formatQuantity = (quantity: number | string) => {
@@ -550,6 +598,25 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
           </div>
         )}
 
+        {conclusionCurrencyInfo && (
+          <Card className="bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800/50 mb-4">
+            <CardContent className="p-3">
+              <div className="flex items-start gap-2">
+                <Info className="w-5 h-5 text-sky-600 dark:text-sky-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sky-800 dark:text-sky-200">
+                    Valores do Pedido Original: {CURRENCY_LABELS[conclusionCurrencyInfo.code as keyof typeof CURRENCY_LABELS]} ({conclusionCurrencyInfo.code}) · Taxa 1 {conclusionCurrencyInfo.code} = R$ {conclusionCurrencyInfo.formatRate}
+                  </p>
+                  <p className="text-xs text-sky-700 dark:text-sky-300">
+                    Valores convertidos automaticamente para BRL a partir da cotação vencedora.
+                    Total original: {formatCurrencyIn(conclusionCurrencyInfo.code, conclusionCurrencyInfo.totalOrig)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Process Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
@@ -569,9 +636,14 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Valor Total</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {totalItemsValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  <p className="text-2xl font-bold text-foreground whitespace-pre-wrap">
+                    {fmtBRL2(Number(totalItemsValue) || 0)}
                   </p>
+                  {isForeign && (
+                    <p className="text-xs text-indigo-600 dark:text-indigo-300 mt-0.5">
+                      {currencyCodeNorm} · Taxa {formatRate(exchangeRateNum)}
+                    </p>
+                  )}
                 </div>
                 <DollarSign className="h-8 w-8 text-green-500" />
               </div>
@@ -649,8 +721,10 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                 </div>
                 <div>
                   <span className="text-sm font-medium text-muted-foreground">Orçamento Disponível</span>
-                  <p className="font-medium">
-                    {request.availableBudget?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'Não informado'}
+                  <p className="font-medium whitespace-pre-wrap">
+                    {request.availableBudget != null
+                      ? fmtBRL2(Number(request.availableBudget) || 0)
+                      : 'Não informado'}
                   </p>
                 </div>
               </div>
@@ -698,12 +772,12 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                   <div className="space-y-4">
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Valor da Cotação</span>
-                      <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-                        {selectedSupplier.totalValue ?
-                          parseFloat(selectedSupplier.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
-                          (request.totalValue ?
-                            parseFloat(request.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) :
-                            'Não informado'
+                      <p className="text-lg font-semibold text-green-600 dark:text-green-400 whitespace-pre-wrap">
+                        {selectedSupplier.totalValue
+                          ? fmtBRL2(parseFloat(selectedSupplier.totalValue))
+                          : (request.totalValue
+                            ? fmtBRL2(parseFloat(request.totalValue))
+                            : 'Não informado'
                           )
                         }
                       </p>
@@ -723,10 +797,10 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                     {(selectedSupplier.discountType && selectedSupplier.discountType !== 'none' && selectedSupplier.discountValue) && (
                       <div>
                         <span className="text-sm font-medium text-muted-foreground">Desconto da Proposta</span>
-                        <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                        <p className="text-lg font-semibold text-green-600 dark:text-green-400 whitespace-pre-wrap">
                           {selectedSupplier.discountType === 'percentage'
                             ? `${selectedSupplier.discountValue}%`
-                            : `R$ ${Number(selectedSupplier.discountValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                            : fmtBRL2(Number(selectedSupplier.discountValue) || 0)
                           }
                         </p>
                       </div>
@@ -859,8 +933,8 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                                             <td className="py-2 px-3">{item.description}</td>
                                             <td className="py-2 px-3">{item.unit}</td>
                                             <td className="text-right py-2 px-3 font-medium">{formatQuantity(item.quantity)}</td>
-                                            <td className="text-right py-2 px-3">{parseFloat(item.unitPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                                            <td className="text-right py-2 px-3">{parseFloat(item.totalPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                            <td className="text-right py-2 px-3 whitespace-pre-wrap">{fmtBRL2(parseFloat(item.unitPrice || '0') || 0)}</td>
+                                            <td className="text-right py-2 px-3 whitespace-pre-wrap">{fmtBRL2(parseFloat(item.totalPrice || '0') || 0)}</td>
                                         </tr>
                                     ))}
                                     {(!currentReceipt.items || currentReceipt.items.length === 0) && (
@@ -999,8 +1073,8 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                             {obs.rateio.allocations?.map((alloc: any, i: number) => (
                                 <div key={i} className="flex justify-between text-sm border-b last:border-0 pb-1">
                                     <span>{alloc.costCenterName || `Centro de Custo ${alloc.costCenterId}`}</span>
-                                    <span className="font-mono">
-                                        {parseFloat(alloc.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    <span className="font-mono whitespace-pre-wrap">
+                                        {fmtBRL2(parseFloat(alloc.amount || '0') || 0)}
                                         {alloc.percentage && ` (${alloc.percentage}%)`}
                                     </span>
                                 </div>
@@ -1120,10 +1194,22 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                     </div>
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Valor Total da Proposta</span>
-                      <p className="font-medium text-green-600">
-                        {parseFloat(selectedSupplierQuotation.totalValue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                      <p className="font-medium text-green-600 whitespace-pre-wrap">
+                        {(() => {
+                          const brlVal = parseFloat(selectedSupplierQuotation.totalValue || '0') || 0;
+                          const origVal = toOrig(brlVal);
+                          return formatDualCurrencyBrlFirst(origVal, brlVal, currencyCodeNorm);
+                        })()}
                       </p>
                     </div>
+                    {isForeign && (
+                      <div>
+                        <span className="text-sm font-medium text-muted-foreground">Moeda · Taxa</span>
+                        <p className="font-semibold text-indigo-700 dark:text-indigo-300">
+                          {currencyCodeNorm} · {formatRate(exchangeRateNum)}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Data de Submissão</span>
                       <p>{formatDate(selectedSupplierQuotation.submissionDate)}</p>
@@ -1153,8 +1239,12 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                     </div>
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Valor Total</span>
-                      <p className="font-medium text-green-600">
-                        {parseFloat(purchaseOrder.totalValue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      <p className="font-medium text-green-600 whitespace-pre-wrap">
+                        {(() => {
+                          const brlVal = parseFloat(purchaseOrder.totalValue || '0') || 0;
+                          const origVal = toOrig(brlVal);
+                          return formatDualCurrencyBrlFirst(origVal, brlVal, currencyCodeNorm);
+                        })()}
                       </p>
                     </div>
                     <div>

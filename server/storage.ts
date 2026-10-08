@@ -203,6 +203,7 @@ export interface IStorage {
 
   // Purchase Request operations
   getAllPurchaseRequests(companyId?: number, user?: User): Promise<PurchaseRequest[]>;
+  getPurchaseRequestsForBoard(companyId?: number, user?: User): Promise<PurchaseRequest[]>;
   getPurchaseRequestById(id: number): Promise<PurchaseRequest | undefined>;
   getPurchaseRequestByNumber(requestNumber: string): Promise<PurchaseRequest | undefined>;
   createPurchaseRequest(
@@ -611,6 +612,10 @@ export class DatabaseStorage implements IStorage {
   // Purchase Request operations
   async getAllPurchaseRequests(companyId?: number, user?: User): Promise<PurchaseRequest[]> {
     return await purchaseRequestRepository.getAllPurchaseRequests(companyId, user);
+  }
+
+  async getPurchaseRequestsForBoard(companyId?: number, user?: User): Promise<PurchaseRequest[]> {
+    return await purchaseRequestRepository.getPurchaseRequestsForBoard(companyId, user);
   }
 
   async getPurchaseRequestById(

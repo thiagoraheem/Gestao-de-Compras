@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogClose } fr
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { formatDualCurrency, formatCurrency, normalizeCurrencyCode, convertToBRL, roundCurrency, CurrencyCode } from "@/lib/currency";
 import RFQCreation from "./rfq-creation";
 import RFQAnalysis from "./rfq-analysis";
 import { useLocation } from "wouter";
@@ -49,6 +50,10 @@ interface SupplierQuotation {
   status: 'pending' | 'sent' | 'received' | 'expired';
   receivedAt?: string;
   totalValue?: string;
+  totalValueBrl?: string;
+  subtotalValueBrl?: string;
+  currencyCode?: string | CurrencyCode | null;
+  exchangeRate?: string | number | null;
   observations?: string;
 }
 
@@ -427,8 +432,22 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                         </div>
                         <div>
                           <span className="text-sm font-medium text-muted-foreground">Valor Total</span>
-                          <p className="font-medium">
-                            {sq.totalValue ? `R$ ${parseFloat(sq.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}` : 'Não informado'}
+                          <p className="font-medium font-mono break-words">
+                            {(sq.totalValue && String(sq.totalValue).trim() !== "" && parseFloat(sq.totalValue) !== 0) ? (
+                              (() => {
+                                const totalOriginal = parseFloat(sq.totalValue || "0");
+                                const code = normalizeCurrencyCode(sq.currencyCode);
+                                const rate = sq.exchangeRate != null && String(sq.exchangeRate).trim() !== ""
+                                  ? Number(sq.exchangeRate)
+                                  : (code === 'BRL' ? 1 : 0);
+                                const totalBrlRaw = (sq.totalValueBrl != null && String(sq.totalValueBrl).trim() !== "")
+                                  ? parseFloat(String(sq.totalValueBrl))
+                                  : (code === 'BRL'
+                                      ? totalOriginal
+                                      : roundCurrency(convertToBRL(totalOriginal, rate || 0)));
+                                return formatDualCurrency(totalOriginal, totalBrlRaw, code);
+                              })()
+                            ) : 'Não informado'}
                           </p>
                         </div>
                         <div className="flex justify-end space-x-1">
@@ -591,6 +610,7 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                 queryClient.invalidateQueries({ queryKey: key1 });
                 queryClient.invalidateQueries({ queryKey: key2 });
               }}
+              onOpenComparativeAnalysis={() => setShowRFQAnalysis(true)}
             />
           )}
         </Suspense>

@@ -15,6 +15,9 @@ export interface PurchaseRequest {
   urgency: string;
   approverA1Name: string;
   approverA2Name: string;
+  currencyCode: string | null;
+  exchangeRate: string | null;
+  totalValueOrig: string | null;
   items: PurchaseRequestItem[];
   approvals: Approval[];
   quotations: Quotation[];
