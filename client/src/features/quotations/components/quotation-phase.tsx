@@ -190,15 +190,15 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
           <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <span className="text-sm font-medium text-gray-500">Número</span>
+                <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Número</span>
                 <p className="text-lg font-semibold">{request.requestNumber}</p>
               </div>
               <div>
-                <span className="text-sm font-medium text-gray-500">Solicitante</span>
+                <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Solicitante</span>
                 <p>{request.requesterName || (request.requester ? `${request.requester.firstName || ''} ${request.requester.lastName || ''}`.trim() : 'N/A')}</p>
               </div>
               <div>
-                <span className="text-sm font-medium text-gray-500">Data da Solicitação</span>
+                <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Data da Solicitação</span>
                 <p>{format(new Date(request.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
               </div>
             </div>
@@ -206,14 +206,14 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
             <Separator className="my-4" />
             
             <div>
-              <span className="text-sm font-medium text-gray-500">Justificativa</span>
+              <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Justificativa</span>
               <p className="mt-1">{request.justification}</p>
             </div>
             <Separator className="my-4" />
             
             {!hasQuotation ? (
             <div>
-              <span className="text-sm font-medium text-gray-500 mb-3 block">Itens da Solicitação</span>
+              <span className="text-sm font-medium text-gray-500 dark:text-slate-400 mb-3 block">Itens da Solicitação</span>
               <RequestItemsList requestId={request.id} />
             </div>
             ) : (
@@ -266,14 +266,14 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
             <Card className="bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
               <CardHeader className="p-4">
                 <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                   RFQ Ativa - {quotation.quotationNumber}
                 </CardTitle>
               </CardHeader>
               <CardContent className="border-t border-slate-200 dark:border-slate-700 p-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Status</span>
+                    <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Status</span>
                     <p className="text-lg font-semibold">
                       {quotation.status === 'draft' && 'Rascunho'}
                       {quotation.status === 'sent' && 'Enviada'}
@@ -283,21 +283,21 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Prazo para Resposta</span>
+                    <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Prazo para Resposta</span>
                     <p>{format(new Date(quotation.quotationDeadline), "dd/MM/yyyy", { locale: ptBR })}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Respostas Recebidas</span>
+                    <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Respostas Recebidas</span>
                     <p>{supplierQuotations.length}</p>
                   </div>
                 </div>
                 
                 {/* Option to create new RFQ */}
                 {user?.isBuyer && (
-                  <div className="mt-4 pt-4 border-t">
+                  <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-600 dark:text-slate-400">
                           Precisa de uma nova cotação? Você pode criar uma nova RFQ mantenendo o histórico anterior.
                         </p>
                       </div>
@@ -502,8 +502,8 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                         </div>
                       </div>
                       {(sq as any).observations && (
-                        <div className="mt-3 pt-3 border-t">
-                          <span className="text-sm font-medium text-gray-500">Observações:</span>
+                        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                          <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Observações:</span>
                           <p className="text-sm mt-1">{(sq as any).observations}</p>
                         </div>
                       )}
@@ -633,7 +633,7 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
             </div>
             <div className="space-y-4 px-6 pt-6 pb-24">
               {rfqHistory.length === 0 ? (
-                <p className="text-gray-500">Nenhuma RFQ encontrada no histórico.</p>
+                <p className="text-gray-500 dark:text-slate-400">Nenhuma RFQ encontrada no histórico.</p>
               ) : (
                 rfqHistory.map((rfq, index) => (
                   <Card key={rfq.id} className={(rfq as any).isActive ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800" : "border-gray-200 dark:border-slate-700"}>

@@ -176,6 +176,18 @@ export default function QuotationManagementPage() {
     setModalOpen(true);
   };
 
+  const hasRFQ = (r: any): boolean => Boolean(r?.hasRFQ || r?.quotationId || r?.quotationNumber);
+  const getQuotationNumber = (r: any): string | undefined => r?.quotationNumber;
+
+  const QUOTATION_STATUS_LABEL: Record<string, string> = {
+    draft: "Rascunho",
+    sent: "Enviada",
+    received: "Respondida",
+    analyzed: "Analisada",
+    approved: "Aprovada",
+    pending: "Pendente",
+  };
+
   const clearFilters = () => {
     setSearchTerm("");
     setUrgencyFilter("all");
@@ -416,6 +428,33 @@ export default function QuotationManagementPage() {
                   </div>
                 </div>
 
+                <div className="flex items-center gap-2">
+                  {hasRFQ(request) ? (
+                    <Badge
+                      variant="secondary"
+                      className="w-full justify-start gap-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 border border-emerald-500/30 dark:border-emerald-500/40 px-2 py-1"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      <span className="truncate">
+                        RFQ: {getQuotationNumber(request) || "Criada"}
+                      </span>
+                      {request.quotationStatus && QUOTATION_STATUS_LABEL[request.quotationStatus] && (
+                        <span className="ml-auto text-[10px] opacity-70 font-medium">
+                          {QUOTATION_STATUS_LABEL[request.quotationStatus]}
+                        </span>
+                      )}
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="w-full justify-start gap-1.5 text-slate-600 dark:text-slate-400 border-dashed px-2 py-1"
+                    >
+                      <FileText className="h-3.5 w-3.5 opacity-60" />
+                      <span>Sem RFQ criada</span>
+                    </Badge>
+                  )}
+                </div>
+
                 <div className="mt-auto pt-4 border-t flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="flex -space-x-2">
@@ -439,13 +478,13 @@ export default function QuotationManagementPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead 
+                <TableHead
                   className="w-[100px] cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort('requestNumber')}
                 >
                   Número <ArrowUpDown className="ml-1 h-3 w-3 inline" />
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort('createdAt')}
                 >
@@ -453,12 +492,13 @@ export default function QuotationManagementPage() {
                 </TableHead>
                 <TableHead>Solicitante</TableHead>
                 <TableHead>Departamento</TableHead>
-                <TableHead 
+                <TableHead
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort('urgency')}
                 >
                   Prioridade <ArrowUpDown className="ml-1 h-3 w-3 inline" />
                 </TableHead>
+                <TableHead>RFQ</TableHead>
                 <TableHead>Status Fornecedores</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -472,13 +512,37 @@ export default function QuotationManagementPage() {
                   <TableCell>{request.departmentName}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn(
-                      request.urgency === 'alta_urgencia' ? "text-red-500 border-red-200 bg-red-50" :
-                      request.urgency === 'alto' ? "text-orange-500 border-orange-200 bg-orange-50" :
-                      request.urgency === 'medio' ? "text-yellow-500 border-yellow-200 bg-yellow-50" :
-                      "text-green-500 border-green-200 bg-green-50"
-                    )}>
+                    request.urgency === 'alta_urgencia' ? "text-red-500 dark:text-red-400 border-red-200 dark:border-red-500/40 bg-red-50 dark:bg-red-500/10" :
+                    request.urgency === 'alto' ? "text-orange-500 dark:text-orange-400 border-orange-200 dark:border-orange-500/40 bg-orange-50 dark:bg-orange-500/10" :
+                    request.urgency === 'medio' ? "text-yellow-600 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/40 bg-yellow-50 dark:bg-yellow-500/10" :
+                    "text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/40 bg-green-50 dark:bg-green-500/10"
+                  )}>
                       {URGENCY_LABELS[request.urgency as keyof typeof URGENCY_LABELS]}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {hasRFQ(request) ? (
+                      <Badge
+                        variant="secondary"
+                        className="gap-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 dark:border-emerald-500/40"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        <span>{getQuotationNumber(request) || "Criada"}</span>
+                        {request.quotationStatus && QUOTATION_STATUS_LABEL[request.quotationStatus] && (
+                          <span className="text-[10px] opacity-70 font-medium ml-1">
+                            · {QUOTATION_STATUS_LABEL[request.quotationStatus]}
+                          </span>
+                        )}
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="gap-1.5 text-slate-600 dark:text-slate-400 border-dashed"
+                      >
+                        <FileText className="h-3.5 w-3.5 opacity-60" />
+                        <span>Sem RFQ</span>
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">

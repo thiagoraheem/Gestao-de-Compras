@@ -217,18 +217,18 @@ const actionLabels: Record<SupplierIntegrationItem["action"], string> = {
 };
 
 const statusStyles: Record<SupplierIntegrationItem["status"], string> = {
-  pending: "bg-blue-100 text-blue-800",
-  applied: "bg-emerald-100 text-emerald-800",
-  failed: "bg-red-100 text-red-800",
-  skipped: "bg-slate-100 text-slate-800",
-  invalid: "bg-amber-100 text-amber-800",
+  pending: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  applied: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
+  failed: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+  skipped: "bg-slate-100 text-slate-800 dark:bg-slate-500/15 dark:text-slate-300",
+  invalid: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
   cancelled: "bg-muted text-muted-foreground",
 };
 
 const actionStyles: Record<SupplierIntegrationItem["action"], string> = {
-  create: "bg-emerald-100 text-emerald-800",
-  update: "bg-blue-100 text-blue-800",
-  review: "bg-amber-100 text-amber-800",
+  create: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
+  update: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  review: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
 };
 
 const runStatusLabels: Record<SupplierIntegrationRun["status"], string> = {
@@ -240,10 +240,10 @@ const runStatusLabels: Record<SupplierIntegrationRun["status"], string> = {
 };
 
 const runStatusStyles: Record<SupplierIntegrationRun["status"], string> = {
-  running: "bg-blue-100 text-blue-800",
-  ready: "bg-amber-100 text-amber-800",
-  completed: "bg-emerald-100 text-emerald-800",
-  failed: "bg-red-100 text-red-800",
+  running: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  ready: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
+  completed: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
+  failed: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
   cancelled: "bg-muted text-muted-foreground",
 };
 
@@ -273,10 +273,10 @@ function formatDateTime(value?: string | null): string {
 }
 
 function getRowHighlight(status: SupplierIntegrationItem["status"], issues: string[]) {
-  if (status === "failed") return "bg-red-50";
-  if (status === "invalid") return "bg-amber-50";
-  if (status === "applied") return "bg-emerald-50";
-  if (issues.length > 0) return "bg-amber-50";
+  if (status === "failed") return "bg-red-50 dark:bg-red-500/10";
+  if (status === "invalid") return "bg-amber-50 dark:bg-amber-500/10";
+  if (status === "applied") return "bg-emerald-50 dark:bg-emerald-500/10";
+  if (issues.length > 0) return "bg-amber-50 dark:bg-amber-500/10";
   return "";
 }
 

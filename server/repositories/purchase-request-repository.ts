@@ -1451,7 +1451,9 @@ export class PurchaseRequestRepository {
 
       return {
         ...req,
+        hasRFQ: Boolean(quotation),
         quotationId: quotation?.id,
+        quotationNumber: quotation?.quotationNumber,
         quotationStatus,
         quotationDeadline,
         departmentName,
