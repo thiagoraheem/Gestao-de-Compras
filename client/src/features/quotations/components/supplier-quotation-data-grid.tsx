@@ -66,7 +66,27 @@ interface QuotationItem {
   quantity: string;
   unit: string;
   specifications?: string;
+  partNumber?: string | null;
+  productCode?: string | null;
+  purchaseRequestItem?: {
+    id: number;
+    price?: string | null;
+    partNumber?: string | null;
+    productCode?: string | null;
+    technicalSpecification?: string | null;
+  } | null;
 }
+
+const resolvePartNumber = (qItem: QuotationItem | undefined): string => {
+  if (!qItem) return "—";
+  return (
+    (qItem.partNumber && String(qItem.partNumber).trim()) ||
+    (qItem.purchaseRequestItem?.partNumber && String(qItem.purchaseRequestItem.partNumber).trim()) ||
+    (qItem.productCode && String(qItem.productCode).trim()) ||
+    (qItem.purchaseRequestItem?.productCode && String(qItem.purchaseRequestItem.productCode).trim()) ||
+    "—"
+  );
+};
 
 interface SupplierQuotationDataGridProps {
   form: UseFormReturn<UpdateSupplierQuotationData>;
@@ -242,7 +262,7 @@ export function SupplierQuotationDataGrid({
               )}
               <div className="flex items-center gap-2 text-[11px] text-slate-400 flex-wrap">
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#161c28] border border-[#263352] text-slate-300 font-medium">
-                  Solicitado: <strong className="text-white">{formatBrazilianNumber(qItem.quantity, 0, 2)} {qItem.unit}</strong>
+                  PartNumber: <strong className="text-white font-mono whitespace-nowrap">{resolvePartNumber(qItem)}</strong>
                 </span>
                 {item.brand || item.model ? (
                   <span>
@@ -250,18 +270,39 @@ export function SupplierQuotationDataGrid({
                     {item.brand && item.model && <span className="text-slate-600 mx-1">•</span>}
                     {item.model && <>Ref.: <strong className="text-slate-300 font-mono">{item.model}</strong></>}
                   </span>
-                ) : (
-                  <>
-                    {qItem.unit && qItem.unit !== 'UN' && (
-                      <span>Part: <strong className="text-slate-300 font-mono">{qItem.unit}</strong></span>
-                    )}
-                  </>
-                )}
+                ) : null}
               </div>
             </div>
           );
         },
         enableHiding: false,
+      },
+      {
+        id: "quantity",
+        header: () => (
+          <div className="uppercase text-[11px] text-slate-400 tracking-wider font-semibold text-center w-full">
+            Qtd
+          </div>
+        ),
+        accessorFn: (row) => {
+          const qItem = quotationItems.find(qi => qi.id === row.quotationItemId);
+          return parseFloat(qItem?.quantity || "0");
+        },
+        cell: ({ row }) => {
+          const qItem = quotationItems.find((qi) => qi.id === row.original.quotationItemId);
+          if (!qItem) return null;
+          return (
+            <div className="flex flex-col items-center justify-center gap-0.5 py-1">
+              <span className="font-mono font-bold text-sm text-slate-100">
+                {formatBrazilianNumber(qItem.quantity, 0, 2)}
+              </span>
+              <span className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold">
+                {qItem.unit || "UN"}
+              </span>
+            </div>
+          );
+        },
+        size: 70,
       },
       {
         id: "brandModel",
@@ -718,8 +759,9 @@ export function SupplierQuotationDataGrid({
 
         return {
             "Código": qItem?.itemCode,
+            "PartNumber": resolvePartNumber(qItem),
             "Descrição": qItem?.description,
-            "Quantidade Solicitada": qItem?.quantity,
+            "Qtd. Solicitada": qItem?.quantity,
             "Unidade Solicitada": qItem?.unit,
             "Unidade Confirmada": item.confirmedUnit || qItem?.unit,
             "Marca": item.brand,
@@ -753,6 +795,7 @@ export function SupplierQuotationDataGrid({
                   const colId = header.column.id;
                   let widthClass = "";
                   if (colId === "item") widthClass = "py-3 px-3.5 min-w-[210px]";
+                  else if (colId === "quantity") widthClass = "py-3 px-2 min-w-[70px] text-center";
                   else if (colId === "brandModel") widthClass = "py-3 px-2.5 min-w-[130px]";
                   else if (colId === "pricing") widthClass = "py-3 px-2.5 min-w-[110px] text-right";
                   else if (colId === "discount") widthClass = "py-3 px-2 min-w-[95px] text-center";
@@ -786,6 +829,7 @@ export function SupplierQuotationDataGrid({
                     const colId = cell.column.id;
                     let cellClass = "align-top ";
                     if (colId === "item") cellClass += "py-3.5 px-3.5 align-top";
+                    else if (colId === "quantity") cellClass += "py-3.5 px-2 align-top text-center";
                     else if (colId === "brandModel") cellClass += "py-3.5 px-2.5 align-top";
                     else if (colId === "pricing") cellClass += "py-3.5 px-2.5 align-top text-right";
                     else if (colId === "discount") cellClass += "py-3.5 px-2 align-top";

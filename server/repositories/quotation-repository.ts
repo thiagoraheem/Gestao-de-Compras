@@ -279,6 +279,8 @@ export class QuotationRepository {
 
     const mapped = results.map((row) => ({
       ...row.quotationItem,
+      partNumber: row.purchaseRequestItem?.partNumber ?? null,
+      productCode: row.purchaseRequestItem?.productCode ?? null,
       purchaseRequestItem: row.purchaseRequestItem?.id ? row.purchaseRequestItem : undefined,
     }));
 
@@ -312,6 +314,8 @@ export class QuotationRepository {
               productCode: matchedPrItem.productCode,
               technicalSpecification: matchedPrItem.technicalSpecification,
             };
+            item.partNumber = matchedPrItem.partNumber ?? null;
+            item.productCode = matchedPrItem.productCode ?? null;
           }
         }
       }

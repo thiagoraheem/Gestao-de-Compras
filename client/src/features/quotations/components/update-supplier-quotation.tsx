@@ -98,6 +98,15 @@ interface QuotationItem {
   unit: string;
   specifications?: string;
   deliveryDeadline?: string;
+  partNumber?: string | null;
+  productCode?: string | null;
+  purchaseRequestItem?: {
+    id: number;
+    price?: string | null;
+    partNumber?: string | null;
+    productCode?: string | null;
+    technicalSpecification?: string | null;
+  } | null;
 }
 
 interface SupplierQuotationItem {
