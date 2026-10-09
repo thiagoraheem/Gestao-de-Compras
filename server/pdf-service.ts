@@ -1254,8 +1254,18 @@ export class PDFService {
             const originalTotalPrice = storedTotalPrice > 0 ? storedTotalPrice : unitPrice * quantity;
 
             const discountedCandidate = si.discountedTotalPrice ? Number(si.discountedTotalPrice) : 0;
-            const discountPercentage = Number(si.discountPercentage) || 0;
-            const discountValue = Number(si.discountValue) || 0;
+            const rawDiscountPercentage = Number(si.discountPercentage) || 0;
+            const rawDiscountValue = Number(si.discountValue) || 0;
+            const itemDiscountType = String((si as any).discountType || 'none');
+
+            const discountPercentage =
+              itemDiscountType === 'percentage'
+                ? (rawDiscountPercentage > 0 ? rawDiscountPercentage : rawDiscountValue)
+                : rawDiscountPercentage;
+            const discountValue =
+              itemDiscountType === 'fixed'
+                ? (rawDiscountValue > 0 ? rawDiscountValue : 0)
+                : rawDiscountValue;
 
             let totalPrice = originalTotalPrice;
             let itemDiscount = 0;

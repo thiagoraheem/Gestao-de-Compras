@@ -176,10 +176,22 @@ export async function createPurchaseOrderFromQuotation(
     let itemDiscountOrig = 0;
     let totalPriceOrig = baseTotalOrig;
 
-    if (si.discountPercentage && parseFloat(si.discountPercentage as any) > 0) {
-      itemDiscountOrig = (baseTotalOrig * parseFloat(si.discountPercentage as any)) / 100;
-    } else if (si.discountValue && parseFloat(si.discountValue as any) > 0) {
-      itemDiscountOrig = parseFloat(si.discountValue as any);
+    const itemDiscountType = String((si as any).discountType || 'none');
+    const hasPctLegacy = si.discountPercentage && parseFloat(si.discountPercentage as any) > 0;
+    const hasValueLegacy = si.discountValue && parseFloat(si.discountValue as any) > 0;
+
+    if (itemDiscountType === 'percentage') {
+      const pct = hasPctLegacy ? parseFloat(si.discountPercentage as any) : parseFloat(si.discountValue as any);
+      if (!isNaN(pct) && pct > 0) itemDiscountOrig = (baseTotalOrig * pct) / 100;
+    } else if (itemDiscountType === 'fixed') {
+      const fxd = parseFloat(si.discountValue as any);
+      if (!isNaN(fxd) && fxd > 0) itemDiscountOrig = fxd;
+    } else {
+      if (hasPctLegacy) {
+        itemDiscountOrig = (baseTotalOrig * parseFloat(si.discountPercentage as any)) / 100;
+      } else if (hasValueLegacy) {
+        itemDiscountOrig = parseFloat(si.discountValue as any);
+      }
     }
 
     totalPriceOrig = Math.max(0, baseTotalOrig - itemDiscountOrig);

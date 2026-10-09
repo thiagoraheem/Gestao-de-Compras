@@ -108,6 +108,7 @@ interface SupplierQuotationItem {
   brand?: string;
   model?: string;
   observations?: string;
+  discountType?: 'none' | 'percentage' | 'fixed';
   discountPercentage?: string;
   discountValue?: string;
   originalTotalPrice?: string;
@@ -268,8 +269,9 @@ export default function UpdateSupplierQuotation({
         brand: "",
         model: "",
         observations: "",
-        discountPercentage: "",
+        discountType: "percentage" as const,
         discountValue: "",
+        discountPercentage: "",
         isAvailable: true,
         unavailabilityReason: "",
         availableQuantity: "",
@@ -329,8 +331,26 @@ export default function UpdateSupplierQuotation({
           brand: existingItem?.brand || "",
           model: existingItem?.model || "",
           observations: existingItem?.observations || "",
+          discountType: ((existingItem?.discountType as any) === 'percentage' || (existingItem?.discountType as any) === 'fixed' || (existingItem?.discountType as any) === 'none')
+            ? (existingItem?.discountType as any)
+            : ((existingItem?.discountPercentage && parseFloat(existingItem.discountPercentage) !== 0)
+                ? 'percentage'
+                : (existingItem?.discountValue && parseFloat(existingItem.discountValue) !== 0
+                    ? 'fixed'
+                    : 'percentage')),
+          discountValue: (() => {
+            const dt = (existingItem?.discountType as any);
+            if (dt === 'fixed') {
+              return (existingItem?.discountValue && parseFloat(existingItem.discountValue) !== 0) ? existingItem.discountValue : "";
+            }
+            if (dt === 'percentage' || !dt) {
+              if (existingItem?.discountPercentage && parseFloat(existingItem.discountPercentage) !== 0) return existingItem.discountPercentage;
+              if (existingItem?.discountValue && parseFloat(existingItem.discountValue) !== 0) return existingItem.discountValue;
+              return "";
+            }
+            return (existingItem?.discountValue && parseFloat(existingItem.discountValue) !== 0) ? existingItem.discountValue : "";
+          })(),
           discountPercentage: (existingItem?.discountPercentage && parseFloat(existingItem.discountPercentage) !== 0) ? existingItem.discountPercentage : "",
-          discountValue: (existingItem?.discountValue && parseFloat(existingItem.discountValue) !== 0) ? existingItem.discountValue : "",
           isAvailable: existingItem?.isAvailable !== false,
           unavailabilityReason: existingItem?.unavailabilityReason || "",
           availableQuantity: availableQtyValue,
@@ -501,15 +521,37 @@ export default function UpdateSupplierQuotation({
 
         // Calculate discounted total price
         let discountedTotalPrice = originalTotalPrice;
-        let discountPercentage = null;
-        let discountValue = null;
+        let discountPercentage: number | null = null;
+        let discountValue: number | null = null;
+        let discountType = String((item as any).discountType || 'none');
 
-        if (item.discountPercentage) {
-          discountPercentage = parseFloat(item.discountPercentage);
-          discountedTotalPrice = originalTotalPrice * (1 - discountPercentage / 100);
-        } else if (item.discountValue) {
-          discountValue = parseNumberFromCurrency(item.discountValue || "0");
-          discountedTotalPrice = Math.max(0, originalTotalPrice - discountValue);
+        // Inferência de segurança: se não houver discountType explicito mas houver valores, deriva p/ manter consistência
+        if (discountType !== 'percentage' && discountType !== 'fixed') {
+          if (item.discountPercentage && parseFloat(item.discountPercentage) > 0) discountType = 'percentage';
+          else if (item.discountValue && parseNumberFromCurrency(item.discountValue) > 0) discountType = 'fixed';
+        }
+
+        if (discountType === 'percentage') {
+          const pct = item.discountValue != null ? parseFloat(item.discountValue) : (item.discountPercentage ? parseFloat(item.discountPercentage) : 0);
+          if (!isNaN(pct) && pct > 0) {
+            discountPercentage = pct;
+            discountedTotalPrice = originalTotalPrice * (1 - pct / 100);
+          }
+        } else if (discountType === 'fixed') {
+          const fxd = item.discountValue != null ? parseNumberFromCurrency(item.discountValue) : 0;
+          if (!isNaN(fxd) && fxd > 0) {
+            discountValue = fxd;
+            discountedTotalPrice = Math.max(0, originalTotalPrice - fxd);
+          }
+        } else {
+          // Fluxo de compatibilidade legado (quando discountType = 'none' p/ inputs antigos)
+          if (item.discountPercentage) {
+            discountPercentage = parseFloat(item.discountPercentage);
+            discountedTotalPrice = originalTotalPrice * (1 - discountPercentage / 100);
+          } else if (item.discountValue) {
+            discountValue = parseNumberFromCurrency(item.discountValue || "0");
+            discountedTotalPrice = Math.max(0, originalTotalPrice - discountValue);
+          }
         }
 
         return {
@@ -519,6 +561,7 @@ export default function UpdateSupplierQuotation({
           brand: item.brand || null,
           model: item.model || null,
           observations: item.observations || null,
+          discountType: discountType === 'none' ? null : discountType,
           discountPercentage,
           discountValue,
           originalTotalPrice,
@@ -933,14 +976,43 @@ export default function UpdateSupplierQuotation({
     const unitPrice = parseNumberFromCurrency(item.unitPrice);
     const originalTotal = quantity * unitPrice;
 
-    // Apply item-level discount
+    // Apply item-level discount (novo fluxo: discountType + discountValue único, compatível legado)
     let discountedTotal = originalTotal;
-    if (item.discountPercentage) {
-      const discountPercent = parseFloat(item.discountPercentage) || 0;
-      discountedTotal = originalTotal * (1 - discountPercent / 100);
-    } else if (item.discountValue) {
-      const discountValue = parseNumberFromCurrency(item.discountValue);
-      discountedTotal = Math.max(0, originalTotal - discountValue);
+    const discountType = String(item.discountType || 'none');
+    const hasPctLegacy = item.discountPercentage && parseFloat(item.discountPercentage) > 0;
+    const hasFixedLegacy = item.discountValue && parseNumberFromCurrency(item.discountValue) > 0;
+
+    if (discountType === 'percentage') {
+      const pct = item.discountValue != null ? parseFloat(item.discountValue) : (hasPctLegacy ? parseFloat(item.discountPercentage) : 0);
+      if (!isNaN(pct) && pct > 0) {
+        discountedTotal = originalTotal * (1 - pct / 100);
+      } else if (hasPctLegacy) {
+        const discountPercent = parseFloat(item.discountPercentage) || 0;
+        discountedTotal = originalTotal * (1 - discountPercent / 100);
+      } else if (hasFixedLegacy) {
+        const discountValue = parseNumberFromCurrency(item.discountValue);
+        discountedTotal = Math.max(0, originalTotal - discountValue);
+      }
+    } else if (discountType === 'fixed') {
+      const fxd = item.discountValue != null ? parseNumberFromCurrency(item.discountValue) : (hasFixedLegacy ? parseNumberFromCurrency(item.discountValue) : 0);
+      if (!isNaN(fxd) && fxd > 0) {
+        discountedTotal = Math.max(0, originalTotal - fxd);
+      } else if (hasPctLegacy) {
+        const discountPercent = parseFloat(item.discountPercentage) || 0;
+        discountedTotal = originalTotal * (1 - discountPercent / 100);
+      } else if (hasFixedLegacy) {
+        const discountValue = parseNumberFromCurrency(item.discountValue);
+        discountedTotal = Math.max(0, originalTotal - discountValue);
+      }
+    } else {
+      // discountType 'none' -> fallback p/ legado se houver algo preenchido
+      if (hasPctLegacy) {
+        const discountPercent = parseFloat(item.discountPercentage) || 0;
+        discountedTotal = originalTotal * (1 - discountPercent / 100);
+      } else if (hasFixedLegacy) {
+        const discountValue = parseNumberFromCurrency(item.discountValue);
+        discountedTotal = Math.max(0, originalTotal - discountValue);
+      }
     }
 
     return discountedTotal;

@@ -43,6 +43,13 @@ import { parseBrazilianNumber, formatBrazilianNumber } from "@/lib/number-parser
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
 import { UnitSelect } from "@/shared/components/unit-select";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
+import {
   CURRENCY_SYMBOLS,
   formatCurrencyIn,
   formatDualCurrency,
@@ -180,15 +187,13 @@ export function SupplierQuotationDataGrid({
     const originalTotal = quantity * unitPrice;
     let discountedTotal = originalTotal;
 
-    if (item.discountPercentage) {
-      const discountPercent = parseFloat(item.discountPercentage) || 0;
-      discountedTotal = originalTotal * (1 - discountPercent / 100);
-    } else if (item.discountValue) {
-      // discountValue also comes from DecimalInput (standard string)
-      const discountValue = parseFloat(item.discountValue);
-      if (!isNaN(discountValue)) {
-        discountedTotal = Math.max(0, originalTotal - discountValue);
-      }
+    const discountType: string = String(item.discountType || "none");
+    const discountRawValue = parseFloat(item.discountValue || "0") || 0;
+
+    if (discountType === "percentage" && discountRawValue > 0) {
+      discountedTotal = originalTotal * (1 - discountRawValue / 100);
+    } else if (discountType === "fixed" && discountRawValue > 0) {
+      discountedTotal = Math.max(0, originalTotal - discountRawValue);
     }
 
     return discountedTotal;
@@ -381,44 +386,85 @@ export function SupplierQuotationDataGrid({
           }
           const originalTotal = isNaN(unitPrice) ? 0 : unitPrice * quantity;
 
-          const discountPercent = parseFloat(itemValue?.discountPercentage || "0") || 0;
-          const discountValueAbs = parseFloat(itemValue?.discountValue || "0") || 0;
+          const discountType = String(itemValue?.discountType || "none");
+          const discountRawValue = parseFloat(itemValue?.discountValue || "0") || 0;
 
           let discountCalc = 0;
-          if (discountPercent > 0) {
-            discountCalc = originalTotal * (discountPercent / 100);
-          } else if (discountValueAbs > 0) {
-            discountCalc = discountValueAbs;
+          if (discountType === "percentage" && discountRawValue > 0) {
+            discountCalc = originalTotal * (discountRawValue / 100);
+          } else if (discountType === "fixed" && discountRawValue > 0) {
+            discountCalc = discountRawValue;
           }
           const brlDiscount = roundCurrency(convertToBRL(discountCalc, resolvedRate));
 
           return (
             <div className="flex flex-col items-center gap-1">
-              <FormField
-                control={form.control}
-                name={`items.${index}.discountPercentage`}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <div className="flex w-24 rounded border border-[#263352] bg-[#0b101a] overflow-hidden focus-within:border-blue-500">
+              <div className="flex w-28 rounded border border-[#263352] bg-[#0b101a] overflow-hidden focus-within:border-blue-500">
+                <FormField
+                  control={form.control}
+                  name={`items.${index}.discountValue`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1 space-y-0">
+                      <FormControl>
                         <DecimalInput
                           value={field.value}
                           onChange={(val) => {
                             field.onChange(val);
-                            if (val) {
+                          }}
+                          precision={discountType === "percentage" ? 2 : 4}
+                          placeholder={discountType === "none" ? "—" : "0,00"}
+                          className="h-[30px] w-full py-1.5 px-2 text-right font-mono text-xs bg-transparent border-none text-white focus:ring-0 p-0"
+                          readOnly={viewMode === 'view' || discountType === "none"}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`items.${index}.discountType`}
+                  render={({ field }) => (
+                    <FormItem className="space-y-0 flex-shrink-0 w-[42px]">
+                      <FormControl>
+                        <Select
+                          disabled={viewMode === 'view'}
+                          value={field.value || "percentage"}
+                          onValueChange={(v: any) => {
+                            field.onChange(v);
+                            const current = form.getValues(`items.${index}.discountValue`) || "";
+                            if (v !== "none" && v !== field.value && current) {
+                              if (field.value === "percentage" && v === "fixed" && unitPrice && quantity) {
+                                const pct = parseFloat(current) || 0;
+                                const fixedAmount = (unitPrice * quantity) * (pct / 100);
+                                form.setValue(`items.${index}.discountValue`, Number(fixedAmount).toFixed(4));
+                              } else if (field.value === "fixed" && v === "percentage" && unitPrice && quantity) {
+                                const fixed = parseFloat(current) || 0;
+                                const base = unitPrice * quantity;
+                                const pct = base > 0 ? (fixed / base) * 100 : 0;
+                                form.setValue(`items.${index}.discountValue`, Number(pct).toFixed(2));
+                              }
+                            }
+                            if (v === "none") {
                               form.setValue(`items.${index}.discountValue`, "");
                             }
                           }}
-                          precision={2}
-                          className="h-[30px] w-14 py-1.5 px-2 text-right font-mono text-xs bg-transparent border-none text-white focus:ring-0 p-0"
-                          readOnly={viewMode === 'view'}
-                        />
-                        <span className="px-2 py-1.5 bg-[#161c28] text-[11px] font-semibold text-slate-400 border-l border-[#263352]">%</span>
-                      </div>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                        >
+                          <SelectTrigger
+                            className="h-[30px] w-[42px] border-0 border-l border-[#263352] rounded-none bg-[#161c28] text-[11px] font-semibold text-slate-300 focus:ring-0 px-1.5"
+                            aria-label="Tipo desconto item"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="w-[90px] bg-[#0b101a] border border-[#263352] text-xs text-slate-200">
+                            <SelectItem value="percentage">% Percentual</SelectItem>
+                            <SelectItem value="fixed">$ Valor Fixo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
               <span className={`text-[10px] ${discountCalc > 0 ? "text-emerald-400" : "text-slate-500"}`}>
                 - {formatDualCurrency(discountCalc, brlDiscount, resolvedCode)}
               </span>
@@ -582,20 +628,20 @@ export function SupplierQuotationDataGrid({
              const brl = roundCurrency(convertToBRL(total, resolvedRate));
              
              const unitPrice = parseFloat(item?.unitPrice || "0");
-             const discountPercent = parseFloat(item?.discountPercentage || "0") || 0;
-             const discountValueAbs = parseFloat(item?.discountValue || "0") || 0;
-             
+             let quantity = parseFloat(qItem?.quantity || "0");
+             const hasAvailableQuantity = item?.availableQuantity !== null && item?.availableQuantity !== undefined && item?.availableQuantity !== "";
+             if (hasAvailableQuantity && !isNaN(parseFloat(item?.availableQuantity || ""))) {
+                 quantity = parseFloat(item.availableQuantity || "0");
+             }
+             const totalOriginal = unitPrice * quantity;
+             const discountType = String(item?.discountType || "none");
+             const discountRawValue = parseFloat(item?.discountValue || "0") || 0;
+
              let unitFinal = unitPrice;
-             if (discountPercent > 0) {
-               unitFinal = unitPrice * (1 - discountPercent / 100);
-             } else if (discountValueAbs > 0) {
-               let quantity = parseFloat(qItem?.quantity || "0");
-               const hasAvailableQuantity = item?.availableQuantity !== null && item?.availableQuantity !== undefined && item?.availableQuantity !== "";
-               if (hasAvailableQuantity && !isNaN(parseFloat(item?.availableQuantity || ""))) {
-                   quantity = parseFloat(item.availableQuantity || "0");
-               }
-               const totalOriginal = unitPrice * quantity;
-               const totalAfter = Math.max(0, totalOriginal - discountValueAbs);
+             if (discountType === "percentage" && discountRawValue > 0) {
+               unitFinal = unitPrice * (1 - discountRawValue / 100);
+             } else if (discountType === "fixed" && discountRawValue > 0) {
+               const totalAfter = Math.max(0, totalOriginal - discountRawValue);
                unitFinal = quantity > 0 ? totalAfter / quantity : 0;
              }
              const brlUnit = roundCurrency(convertToBRL(unitFinal, resolvedRate));
@@ -667,6 +713,8 @@ export function SupplierQuotationDataGrid({
         const item = form.getValues(`items.${index}`);
         const qItem = quotationItems.find(qi => qi.id === item.quotationItemId);
         const total = calculateItemTotal(item, qItem);
+        const discountType = String(item.discountType || "none");
+        const discountRaw = parseFloat(item.discountValue || "0") || 0;
 
         return {
             "Código": qItem?.itemCode,
@@ -677,8 +725,8 @@ export function SupplierQuotationDataGrid({
             "Marca": item.brand,
             "Modelo": item.model,
             "Preço Unitário": item.unitPrice,
-            "Desconto %": item.discountPercentage,
-            "Desconto R$": item.discountValue,
+            "Tipo Desconto": discountType === "percentage" ? "%" : discountType === "fixed" ? "$" : "Sem desconto",
+            "Valor Desconto": discountRaw > 0 ? item.discountValue : "",
             "Prazo (dias)": item.deliveryDays,
             "Qtd. Disponível": item.availableQuantity,
             "Disponível": item.isAvailable ? "Sim" : "Não",

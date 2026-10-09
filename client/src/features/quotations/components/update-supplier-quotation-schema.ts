@@ -21,8 +21,9 @@ export const updateSupplierQuotationSchema = z.object({
       brand: z.string().optional(),
       model: z.string().optional(),
       observations: z.string().optional(),
-      discountPercentage: z.string().optional(),
+      discountType: z.enum(["none", "percentage", "fixed"]).default("percentage"),
       discountValue: z.string().optional(),
+      discountPercentage: z.string().optional(),
       isAvailable: z.boolean().default(true),
       unavailabilityReason: z.string().optional(),
       availableQuantity: z.string().optional(),
@@ -65,12 +66,13 @@ export const updateSupplierQuotationSchema = z.object({
       path: ["availableQuantity"],
     })
     .refine((data) => {
-      const hasPercentage = data.discountPercentage && parseFloat(data.discountPercentage) > 0;
-      const hasValue = data.discountValue && parseFloat(data.discountValue) > 0;
-      return !(hasPercentage && hasValue);
+      const filled = (data.discountValue ?? "").trim().length > 0 && parseFloat(data.discountValue || "0") > 0;
+      const typeNeedsValue = data.discountType === "percentage" || data.discountType === "fixed";
+      if (filled && !typeNeedsValue) return false;
+      return true;
     }, {
-      message: "Preencha apenas um tipo de desconto (percentual ou valor)",
-      path: ["discountPercentage"],
+      message: "Informe o tipo de desconto (% ou $)",
+      path: ["discountType"],
     })
   ),
   paymentTerms: z.string().optional(),

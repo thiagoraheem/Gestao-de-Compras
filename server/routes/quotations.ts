@@ -644,8 +644,29 @@ export function registerQuotationRoutes(app: Express) {
           const unitPriceNum = NumberParser.parse(item.unitPrice);
           const totalNum = unitPriceNum * quantity;
 
-          const discountPercentageNum = item.discountPercentage != null ? Number(item.discountPercentage) || 0 : 0;
-          const discountValueNum = item.discountValue != null ? NumberParser.parse(item.discountValue) || 0 : 0;
+          // (1) Resolve tipo desconto do item (frontend novo envia discountType; fallback infere por valores existentes)
+          let itemDiscountType: 'none' | 'percentage' | 'fixed' =
+            ((item as any).discountType === 'percentage' || (item as any).discountType === 'fixed')
+              ? ((item as any).discountType as any)
+              : 'none';
+
+          const rawDiscountPercentage = item.discountPercentage != null ? Number(item.discountPercentage) || 0 : 0;
+          const rawDiscountValue = item.discountValue != null ? NumberParser.parse(item.discountValue) : 0;
+
+          // Inferência segura p/ itens antigos sem discriminador
+          if (itemDiscountType === 'none') {
+            if (rawDiscountPercentage > 0) itemDiscountType = 'percentage';
+            else if (rawDiscountValue > 0) itemDiscountType = 'fixed';
+          }
+
+          // Valor numérico base de desconto do item (de acordo com tipo)
+          const discountPercentageNum = itemDiscountType === 'percentage'
+            ? (rawDiscountValue > 0 ? rawDiscountValue : rawDiscountPercentage)
+            : rawDiscountPercentage;
+          const discountValueNum = itemDiscountType === 'fixed'
+            ? (rawDiscountValue > 0 ? rawDiscountValue : 0)
+            : rawDiscountValue;
+
           const hasItemDiscount = discountPercentageNum > 0 || discountValueNum > 0;
 
           const originalTotalPrice = hasItemDiscount ? totalNum : null;
@@ -688,6 +709,7 @@ export function registerQuotationRoutes(app: Express) {
             unitPrice: unitPriceNum.toFixed(4),
             totalPrice: totalNum.toFixed(4),
             originalTotalPrice: originalTotalPrice !== null ? originalTotalPrice.toFixed(4) : null,
+            discountType: itemDiscountType === 'none' ? null : itemDiscountType,
             discountPercentage: discountPercentageNum > 0 ? discountPercentageNum.toString() : null,
             discountValue: discountValueNum > 0 ? discountValueNum.toFixed(4) : null,
             discountedTotalPrice: discountedTotalPrice !== null ? discountedTotalPrice.toFixed(4) : null,

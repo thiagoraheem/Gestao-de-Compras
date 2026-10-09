@@ -435,6 +435,7 @@ export const supplierQuotationItems = pgTable("supplier_quotation_items", {
   model: text("model"),
   observations: text("observations"),
   // Discount fields for items
+  discountType: text("discount_type").default("none"), // percentage, fixed, none
   discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default("0"),
   discountValue: decimal("discount_value", { precision: 15, scale: 4 }).default("0"),
   originalTotalPrice: decimal("original_total_price", { precision: 15, scale: 4 }),
