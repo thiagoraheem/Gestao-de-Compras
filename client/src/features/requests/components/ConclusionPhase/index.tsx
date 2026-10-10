@@ -32,6 +32,7 @@ import {
   User,
   Calendar,
   Building,
+  Building2,
   Clock,
   CheckCircle,
   Package,
@@ -705,6 +706,34 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                   <p>{department?.name || request.departmentName || 'Não informado'}</p>
                 </div>
                 <div>
+                  <span className="text-sm font-medium text-muted-foreground">Empresa Solicitante</span>
+                  <p className="font-medium">
+                    {request.company?.name || 'Não informado'}
+                    {request.company?.cnpj ? ` — CNPJ ${request.company.cnpj}` : ''}
+                  </p>
+                </div>
+                {(() => {
+                  const billingCompany = request.billingCompany;
+                  const differs = billingCompany?.id && request.company?.id && billingCompany.id !== request.company.id;
+                  if (!billingCompany) return null;
+                  return (
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Empresa para Faturamento</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium">
+                          {billingCompany.name}
+                          {billingCompany.cnpj ? ` — CNPJ ${billingCompany.cnpj}` : ''}
+                        </p>
+                        {differs && (
+                          <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 border-0">
+                            Difere da Solicitação
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div>
                   <span className="text-sm font-medium text-muted-foreground">Centro de Custo</span>
                   <p>{costCenter?.code} - {costCenter?.name || 'Não informado'}</p>
                 </div>
@@ -1145,6 +1174,34 @@ const ConclusionPhase = forwardRef<ConclusionPhaseHandle, ConclusionPhaseProps>(
                     <span className="text-sm font-medium text-muted-foreground">Departamento</span>
                     <p>{department?.name || request.departmentName || 'Não informado'}</p>
                   </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Empresa Solicitante</span>
+                    <p className="font-medium">
+                      {request.company?.name || 'Não informado'}
+                      {request.company?.cnpj ? ` — CNPJ ${request.company.cnpj}` : ''}
+                    </p>
+                  </div>
+                  {(() => {
+                    const billingCompany = request.billingCompany;
+                    const differs = billingCompany?.id && request.company?.id && billingCompany.id !== request.company.id;
+                    if (!billingCompany) return null;
+                    return (
+                      <div>
+                        <span className="text-sm font-medium text-muted-foreground">Empresa para Faturamento</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium">
+                            {billingCompany.name}
+                            {billingCompany.cnpj ? ` — CNPJ ${billingCompany.cnpj}` : ''}
+                          </p>
+                          {differs && (
+                            <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 border-0">
+                              Difere da Solicitação
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div>
                     <span className="text-sm font-medium text-muted-foreground">Centro de Custo</span>
                     <p>{costCenter?.code} - {costCenter?.name || 'Não informado'}</p>

@@ -19,7 +19,8 @@ import {
   attachments,
   quotationItems,
   quantityAdjustmentHistory,
-  approvedQuotationItems
+  approvedQuotationItems,
+  companies
 } from "../../shared/schema";
 import { eq, desc, and, or, inArray, like, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -38,6 +39,8 @@ import { userRepository } from "./user-repository";
 const requesterUser = alias(users, "requester_user");
 const approverA1User = alias(users, "approver_a1_user");
 const chosenSupplier = alias(suppliers, "chosen_supplier");
+const billingCompany = alias(companies, "billing_company");
+const requestCompany = alias(companies, "request_company");
 
 export class PurchaseRequestRepository {
   async getAllPurchaseRequests(companyId?: number, user?: User): Promise<PurchaseRequest[]> {
@@ -78,6 +81,7 @@ export class PurchaseRequestRepository {
         requesterId: purchaseRequests.requesterId,
         costCenterId: purchaseRequests.costCenterId,
         companyId: purchaseRequests.companyId,
+        billingCompanyId: purchaseRequests.billingCompanyId,
         category: purchaseRequests.category,
         urgency: purchaseRequests.urgency,
         justification: purchaseRequests.justification,
@@ -120,6 +124,20 @@ export class PurchaseRequestRepository {
         pendencyReason: purchaseRequests.pendencyReason,
         createdAt: purchaseRequests.createdAt,
         updatedAt: purchaseRequests.updatedAt,
+        company: {
+          id: requestCompany.id,
+          name: requestCompany.name,
+          tradingName: requestCompany.tradingName,
+          cnpj: requestCompany.cnpj,
+          active: requestCompany.active,
+        },
+        billingCompany: {
+          id: billingCompany.id,
+          name: billingCompany.name,
+          tradingName: billingCompany.tradingName,
+          cnpj: billingCompany.cnpj,
+          active: billingCompany.active,
+        },
         // Requester data
         requester: {
           id: requesterUser.id,
@@ -166,6 +184,14 @@ export class PurchaseRequestRepository {
         hasPendingFiscal: sql<boolean>`EXISTS(SELECT 1 FROM ${receipts} WHERE ${receipts.purchaseOrderId} = ${purchaseOrders.id} AND ${receipts.status} = 'conf_fisica')`,
       })
       .from(purchaseRequests)
+      .leftJoin(
+        requestCompany,
+        eq(purchaseRequests.companyId, requestCompany.id),
+      )
+      .leftJoin(
+        billingCompany,
+        eq(purchaseRequests.billingCompanyId, billingCompany.id),
+      )
       .leftJoin(
         requesterUser,
         eq(purchaseRequests.requesterId, requesterUser.id),
@@ -358,7 +384,15 @@ export class PurchaseRequestRepository {
       })
     );
 
-    return enrichedRequests as any[];
+    const withBillingFallback = enrichedRequests.map((r: any) => ({
+      ...r,
+      billingCompany:
+        r?.billingCompany && r.billingCompany.id != null
+          ? r.billingCompany
+          : r?.company || null,
+    }));
+
+    return withBillingFallback as any[];
   }
 
   /**
@@ -405,6 +439,7 @@ export class PurchaseRequestRepository {
         requesterId: purchaseRequests.requesterId,
         costCenterId: purchaseRequests.costCenterId,
         companyId: purchaseRequests.companyId,
+        billingCompanyId: purchaseRequests.billingCompanyId,
         category: purchaseRequests.category,
         urgency: purchaseRequests.urgency,
         justification: purchaseRequests.justification,
@@ -447,6 +482,20 @@ export class PurchaseRequestRepository {
         pendencyReason: purchaseRequests.pendencyReason,
         createdAt: purchaseRequests.createdAt,
         updatedAt: purchaseRequests.updatedAt,
+        company: {
+          id: requestCompany.id,
+          name: requestCompany.name,
+          tradingName: requestCompany.tradingName,
+          cnpj: requestCompany.cnpj,
+          active: requestCompany.active,
+        },
+        billingCompany: {
+          id: billingCompany.id,
+          name: billingCompany.name,
+          tradingName: billingCompany.tradingName,
+          cnpj: billingCompany.cnpj,
+          active: billingCompany.active,
+        },
         requester: {
           id: requesterUser.id,
           firstName: requesterUser.firstName,
@@ -486,6 +535,8 @@ export class PurchaseRequestRepository {
         hasPendingFiscal: sql<boolean>`EXISTS(SELECT 1 FROM ${receipts} WHERE ${receipts.purchaseOrderId} = ${purchaseOrders.id} AND ${receipts.status} = 'conf_fisica')`,
       })
       .from(purchaseRequests)
+      .leftJoin(requestCompany, eq(purchaseRequests.companyId, requestCompany.id))
+      .leftJoin(billingCompany, eq(purchaseRequests.billingCompanyId, billingCompany.id))
       .leftJoin(requesterUser, eq(purchaseRequests.requesterId, requesterUser.id))
       .leftJoin(approverA1User, eq(purchaseRequests.approverA1Id, approverA1User.id))
       .leftJoin(costCenters, eq(purchaseRequests.costCenterId, costCenters.id))
@@ -723,13 +774,20 @@ export class PurchaseRequestRepository {
       return fallbackResult;
     });
 
-    return enrichedRequests as any[];
+    const withBillingFallback = enrichedRequests.map((r: any) => ({
+      ...r,
+      billingCompany:
+        r?.billingCompany && r.billingCompany.id != null
+          ? r.billingCompany
+          : r?.company || null,
+    }));
+
+    return withBillingFallback as any[];
   }
 
   async getPurchaseRequestById(
     id: number,
   ): Promise<PurchaseRequest | undefined> {
-    // First get the purchase request
     const [request] = await db
       .select()
       .from(purchaseRequests)
@@ -739,7 +797,6 @@ export class PurchaseRequestRepository {
       return undefined;
     }
 
-    // Then get the requester data separately if requesterId exists
     let requester = null;
     let requesterName = "N/A";
     let requesterUsername = "N/A";
@@ -767,7 +824,6 @@ export class PurchaseRequestRepository {
       }
     }
 
-    // Get chosen supplier if exists
     let chosenSupplierData = null;
     if (request.chosenSupplierId) {
       const [supplier] = await db
@@ -779,7 +835,26 @@ export class PurchaseRequestRepository {
       }
     }
 
-    // Return the complete object with all necessary fields
+    let companyData = null;
+    if (request.companyId) {
+      const [c] = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, request.companyId));
+      if (c) companyData = c;
+    }
+
+    let billingCompanyData = null;
+    if (request.billingCompanyId) {
+      const [bc] = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, request.billingCompanyId));
+      if (bc) billingCompanyData = bc;
+    }
+
+    const effectiveBillingCompany = billingCompanyData ?? companyData;
+
     const result = {
       ...request,
       requester,
@@ -787,6 +862,8 @@ export class PurchaseRequestRepository {
       requesterUsername,
       requesterEmail,
       chosenSupplier: chosenSupplierData,
+      company: companyData,
+      billingCompany: effectiveBillingCompany,
     };
 
     return result as any;
@@ -804,7 +881,14 @@ export class PurchaseRequestRepository {
   async createPurchaseRequest(
     request: InsertPurchaseRequest,
   ): Promise<PurchaseRequest> {
-    // Generate request number
+    // FR-3: billingCompanyId default = companyId (empresa solicitante)
+    const effectiveRequest: InsertPurchaseRequest = {
+      ...request,
+      billingCompanyId: (request.billingCompanyId != null && request.billingCompanyId !== 0)
+        ? request.billingCompanyId
+        : (request.companyId ?? null) as any,
+    };
+
     const year = new Date().getFullYear();
     const requests = await db
       .select()
@@ -814,7 +898,6 @@ export class PurchaseRequestRepository {
     let maxSequence = 0;
     const prefix = `SOL-${year}-`;
 
-    // Find the highest sequence number for the current year
     for (const req of requests) {
       if (req.requestNumber?.startsWith(prefix)) {
         const sequence = parseInt(req.requestNumber.substring(prefix.length));
@@ -824,13 +907,12 @@ export class PurchaseRequestRepository {
       }
     }
 
-    // Generate next sequence number
     const nextSequence = maxSequence + 1;
     const requestNumber = `${prefix}${String(nextSequence).padStart(3, "0")}`;
 
     const [newRequest] = await db
       .insert(purchaseRequests)
-      .values({ ...request, requestNumber })
+      .values({ ...effectiveRequest, requestNumber })
       .returning();
     return newRequest;
   }
@@ -853,23 +935,30 @@ export class PurchaseRequestRepository {
         request: purchaseRequests,
         supplier: suppliers,
         requester: users,
+        company: requestCompany,
+        billingCompany: billingCompany,
       })
       .from(purchaseRequests)
+      .leftJoin(requestCompany, eq(purchaseRequests.companyId, requestCompany.id))
+      .leftJoin(billingCompany, eq(purchaseRequests.billingCompanyId, billingCompany.id))
       .leftJoin(suppliers, eq(purchaseRequests.chosenSupplierId, suppliers.id))
       .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
       .where(eq(purchaseRequests.currentPhase, phase))
       .orderBy(desc(purchaseRequests.createdAt));
 
     const requestsWithItems = await Promise.all(
-      results.map(async ({ request, supplier, requester }) => {
+      results.map(async ({ request, supplier, requester, company, billingCompany }) => {
         const items = await this.getPurchaseRequestItems(request.id);
         
-        // Buscar pedido de compra associado
         const [purchaseOrder] = await db
           .select()
           .from(purchaseOrders)
           .where(eq(purchaseOrders.purchaseRequestId, request.id))
           .limit(1);
+
+        const effectiveBilling = billingCompany && billingCompany.id != null
+          ? billingCompany
+          : (company ?? null);
 
         return {
           ...request,
@@ -877,6 +966,8 @@ export class PurchaseRequestRepository {
           requester,
           items,
           purchaseOrder,
+          company,
+          billingCompany: effectiveBilling,
         };
       })
     );
@@ -885,15 +976,17 @@ export class PurchaseRequestRepository {
   }
 
   async getPendingMaterialsForConference(): Promise<PurchaseRequestWithDetails[]> {
-    // New flow: requests in 'pedido_concluido' with pending receipts in 'recebimento_fisico'
-    // Legacy flow: requests still in 'recebimento' phase
     const results = await db
       .selectDistinct({
         request: purchaseRequests,
         supplier: suppliers,
         requester: users,
+        company: requestCompany,
+        billingCompany: billingCompany,
       })
       .from(purchaseRequests)
+      .leftJoin(requestCompany, eq(purchaseRequests.companyId, requestCompany.id))
+      .leftJoin(billingCompany, eq(purchaseRequests.billingCompanyId, billingCompany.id))
       .leftJoin(suppliers, eq(purchaseRequests.chosenSupplierId, suppliers.id))
       .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
       .leftJoin(receipts, eq(purchaseRequests.id, receipts.purchaseRequestId))
@@ -904,7 +997,6 @@ export class PurchaseRequestRepository {
           and(
             eq(purchaseRequests.currentPhase, 'pedido_concluido'),
             eq(receipts.receiptPhase, 'recebimento_fisico'),
-            // Filter out orphans: if PO is fully received, the receipt must NOT be nf_pendente/rascunho
             sql`NOT (${purchaseOrders.fulfillmentStatus} = 'fulfilled' AND (${receipts.status} = 'nf_pendente' OR ${receipts.status} = 'rascunho'))`
           )
         )
@@ -912,7 +1004,7 @@ export class PurchaseRequestRepository {
       .orderBy(desc(purchaseRequests.createdAt));
 
     const requestsWithItems = await Promise.all(
-      results.map(async ({ request, supplier, requester }) => {
+      results.map(async ({ request, supplier, requester, company, billingCompany }) => {
         const items = await this.getPurchaseRequestItems(request.id);
         
         const [purchaseOrder] = await db
@@ -921,12 +1013,18 @@ export class PurchaseRequestRepository {
           .where(eq(purchaseOrders.purchaseRequestId, request.id))
           .limit(1);
 
+        const effectiveBilling = billingCompany && billingCompany.id != null
+          ? billingCompany
+          : (company ?? null);
+
         return {
           ...request,
           chosenSupplier: supplier,
           requester,
           items,
           purchaseOrder,
+          company,
+          billingCompany: effectiveBilling,
         };
       })
     );
@@ -935,11 +1033,24 @@ export class PurchaseRequestRepository {
   }
 
   async getPurchaseRequestsByUser(userId: number): Promise<PurchaseRequest[]> {
-    return await db
-      .select()
+    const results = await db
+      .select({
+        pr: purchaseRequests,
+        company: requestCompany,
+        billingCompany: billingCompany,
+      })
       .from(purchaseRequests)
+      .leftJoin(requestCompany, eq(purchaseRequests.companyId, requestCompany.id))
+      .leftJoin(billingCompany, eq(purchaseRequests.billingCompanyId, billingCompany.id))
       .where(eq(purchaseRequests.requesterId, userId))
       .orderBy(desc(purchaseRequests.createdAt));
+
+    return results.map(({ pr, company, billingCompany }) => ({
+      ...pr,
+      company,
+      billingCompany:
+        billingCompany && billingCompany.id != null ? billingCompany : (company ?? null),
+    })) as unknown as PurchaseRequest[];
   }
 
   async getPurchaseRequestsForReport(filters: any): Promise<{ data: any[]; total: number; summary?: any }> {
@@ -957,6 +1068,8 @@ export class PurchaseRequestRepository {
           pr.category,
           pr.requester_id as "requesterId",
           pr.cost_center_id as "costCenterId",
+          pr.company_id as "companyId",
+          pr.billing_company_id as "billingCompanyId",
           pr.current_phase as "currentPhase",
           pr.urgency,
           pr.created_at as "createdAt",
@@ -1175,6 +1288,33 @@ export class PurchaseRequestRepository {
               // Error fetching approver A2 data
             }
           }
+
+          let companyInfo: any = null;
+          let billingCompanyInfo: any = null;
+
+          if (request.companyId) {
+            try {
+              const compRes = await pool.query(
+                'SELECT id, name, trading_name as "tradingName", cnpj, active FROM companies WHERE id = $1 LIMIT 1',
+                [request.companyId]
+              );
+              if (compRes.rows.length > 0) companyInfo = compRes.rows[0];
+            } catch {}
+          }
+
+          if (request.billingCompanyId) {
+            try {
+              const bcompRes = await pool.query(
+                'SELECT id, name, trading_name as "tradingName", cnpj, active FROM companies WHERE id = $1 LIMIT 1',
+                [request.billingCompanyId]
+              );
+              if (bcompRes.rows.length > 0) billingCompanyInfo = bcompRes.rows[0];
+            } catch {}
+          }
+
+          const effectiveBillingCompany = billingCompanyInfo ?? companyInfo;
+          const companyName = companyInfo?.name || 'N/A';
+          const billingCompanyName = effectiveBillingCompany?.name || 'N/A';
           
           let itemsParaCalculo: ItemCalculo[] = [];
           let globalDiscount = { tipo: "none" as any, valor: 0 };
@@ -1371,6 +1511,10 @@ export class PurchaseRequestRepository {
             supplierName,
             approverA1Name,
             approverA2Name,
+            companyName,
+            billingCompanyName,
+            company: companyInfo,
+            billingCompany: effectiveBillingCompany,
             valorItens: resultadoCalculo.valorItens,
             desconto: resultadoCalculo.desconto,
             subTotal: resultadoCalculo.subTotal,

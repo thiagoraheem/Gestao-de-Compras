@@ -9,7 +9,9 @@ import {
   attachments, 
   quotationVersionHistory,
   suppliers,
-  purchaseRequestItems
+  purchaseRequestItems,
+  purchaseRequests,
+  companies,
 } from "../../shared/schema";
 import { eq, desc, and, like, inArray } from "drizzle-orm";
 import type { 

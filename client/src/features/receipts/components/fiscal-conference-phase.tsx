@@ -210,6 +210,8 @@ const FiscalDashboard = ({ request, onClose, onSelectReceipt, onPreviewPDF, onDo
           totalValue={formatCurrency(purchaseOrder?.totalValue ?? activeRequest?.totalValue ?? request?.totalValue ?? 0)}
           status={(activeRequest?.phase && (PHASE_LABELS as any)[activeRequest.phase as keyof typeof PHASE_LABELS]) || (request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
           creationDate={(activeRequest?.createdAt || request?.createdAt) ? format(new Date(activeRequest?.createdAt || request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
+          billingCompanyName={activeRequest?.billingCompany?.name || request?.billingCompany?.name}
+          requestingCompanyName={activeRequest?.company?.name || request?.company?.name}
         />
 
         {currencyInfo && (
@@ -664,6 +666,8 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
           totalValue={formatCurrency(purchaseOrder?.totalValue ?? targetRequest?.totalValue ?? request?.totalValue ?? 0)}
           status={(targetRequest?.phase && (PHASE_LABELS as any)[targetRequest.phase as keyof typeof PHASE_LABELS]) || (request?.phase && (PHASE_LABELS as any)[request.phase as keyof typeof PHASE_LABELS]) || "—"}
           creationDate={(targetRequest?.createdAt || request?.createdAt) ? format(new Date(targetRequest?.createdAt || request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
+          billingCompanyName={targetRequest?.billingCompany?.name || request?.billingCompany?.name}
+          requestingCompanyName={targetRequest?.company?.name || request?.company?.name}
         />
 
         {contentCurrencyInfo && (

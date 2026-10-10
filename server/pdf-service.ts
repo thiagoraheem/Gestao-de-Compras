@@ -22,6 +22,7 @@ interface PurchaseOrderData {
   selectedSupplierQuotation?: any;
   deliveryLocation?: any;
   company?: any;
+  billingCompany?: any;
   buyer?: any;
   purchaseOrder?: any;
 }
@@ -847,7 +848,7 @@ export class PDFService {
   }
 
   private static async generatePurchaseOrderHTML(data: PurchaseOrderData): Promise<string> {
-    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company, buyer, purchaseOrder } = data;
+    const { purchaseRequest, items, supplier, approvalHistory, selectedSupplierQuotation, deliveryLocation, company, billingCompany, buyer, purchaseOrder } = data;
     
 
     let qrCodeHtml = '';
@@ -862,7 +863,10 @@ export class PDFService {
       qrCodeHtml = `<div class="qr-code-container"><img src="${qrCodeDataURL}" alt="QR Code" /><div class="qr-code-text">Escaneie para acompanhar</div></div>`;
     } catch {}
 
-    const companyLogoBase64 = await getCompanyLogoBase64(company);
+    // Cabecalho usa os dados da EMPRESA DE FATURAMENTO (destinataria da NF-e).
+    const billingCo = billingCompany || company;
+
+    const companyLogoBase64 = await getCompanyLogoBase64(billingCo);
     const companyLogoHtml = companyLogoBase64 ? `<div class="header-logo"><img src="${companyLogoBase64}" alt="Logo da Empresa" /></div>` : '';
 
     const currencyCode = normalizeCurrencyCode(
@@ -1110,14 +1114,26 @@ export class PDFService {
     const a1SignatureHtml = renderSignature(aprovacaoA1, "Aprovador A1");
     const a2SignatureHtml = renderSignature(aprovacaoA2, "Aprovador A2 (Liberador)");
 
+    // FR-17/FR-19: Bloco de rastreabilidade da Empresa Solicitante (origem).
+    // Exibido apenas quando a empresa de faturamento difere da empresa solicitante.
+    const areCompaniesDifferent =
+      !!billingCo && !!company && billingCo.id !== company.id;
+    const requestingCompanyHtml = areCompaniesDifferent
+      ? `<div class="requesting-company-block">
+           <div class="requesting-company-label">EMP. SOLICITANTE (ORIGEM)</div>
+           <div class="requesting-company-value">${company?.name || ''}${company?.cnpj ? ` — CNPJ: ${company.cnpj}` : ''}</div>
+         </div>`
+      : '';
+
     return await templateService.render("pdf/purchase-order", {
       orderNumber: purchaseOrder?.orderNumber || '',
       companyLogoHtml,
-      companyName: company?.name || company?.tradingName || 'EMPRESA NÃO INFORMADA',
-      companyAddress: company?.address,
-      companyCnpj: company?.cnpj,
-      companyPhone: company?.phone,
-      companyEmail: company?.email,
+      companyName: billingCo?.name || billingCo?.tradingName || 'EMPRESA NÃO INFORMADA',
+      companyAddress: billingCo?.address,
+      companyCnpj: billingCo?.cnpj,
+      companyPhone: billingCo?.phone,
+      companyEmail: billingCo?.email,
+      requestingCompanyHtml,
       qrCodeHtml,
       supplierName: supplier?.name || 'Não informado',
       supplierCnpj: supplier?.cnpj || 'Não informado',
@@ -1390,6 +1406,16 @@ export class PDFService {
     if (purchaseRequest.companyId) {
       company = await storage.getCompanyById(purchaseRequest.companyId);
     }
+
+    // Empresa para Faturamento (destinatária da NF-e). Fallback para a empresa solicitante.
+    let billingCompany = null;
+    const billingCompanyId = purchaseRequest.billingCompanyId ?? purchaseRequest.companyId;
+    if (billingCompanyId) {
+      billingCompany = await storage.getCompanyById(billingCompanyId);
+    }
+    if (!billingCompany) {
+      billingCompany = company;
+    }
     
     // Buscar departamento através do cost center
     let department = null;
@@ -1458,6 +1484,7 @@ export class PDFService {
       selectedSupplierQuotation,
       deliveryLocation,
       company,
+      billingCompany,
       buyer,
       purchaseOrder
     };

@@ -51,6 +51,7 @@ import {
 import { Plus, X, Edit3, Edit2, Copy, Trash2, Check } from "lucide-react";
 import HybridProductInput from "@/shared/components/hybrid-product-input";
 import { useUnits } from "@/hooks/useUnits";
+import { formatCNPJ } from "@/lib/cnpj-validator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 
 const MAX_TITLE_LENGTH = 150;
@@ -58,6 +59,7 @@ const MIN_ITEM_DESCRIPTION_LENGTH = 10;
 
 const requestSchema = z.object({
   companyId: z.coerce.number().min(1, "Empresa é obrigatória"),
+  billingCompanyId: z.coerce.number().min(1, "Empresa para Faturamento é obrigatória"),
   costCenterId: z.coerce.number().min(1, "Centro de custo é obrigatório"),
   category: z.string().min(1, "Categoria é obrigatória"),
   urgency: z.string().min(1, "Urgência é obrigatória"),
@@ -97,6 +99,8 @@ export default function EnhancedNewRequestModal({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { processERPUnit } = useUnits();
+  const isBuyer = !!user?.isBuyer;
+  const isAdmin = !!user?.isAdmin;
   const [itemsMethod, setItemsMethod] = useState<"manual" | "upload">("manual");
   const [manualItems, setManualItems] = useState<Item[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -113,6 +117,7 @@ export default function EnhancedNewRequestModal({
   const [maintainSearchMode, setMaintainSearchMode] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user?.companyId || null);
+  const [hasBillingBeenTouched, setHasBillingBeenTouched] = useState(false);
   const descriptionInputRef = useRef<HTMLInputElement>(null);
   const [isTitleFocused, setIsTitleFocused] = useState(false);
 
@@ -157,6 +162,7 @@ export default function EnhancedNewRequestModal({
     resolver: zodResolver(requestSchema),
     defaultValues: {
       companyId: user?.companyId || 0,
+      billingCompanyId: user?.companyId || 0,
       costCenterId: 0,
       category: "",
       urgency: "",
@@ -188,6 +194,7 @@ export default function EnhancedNewRequestModal({
     if (user?.companyId) {
       setSelectedCompanyId(user.companyId);
       form.setValue('companyId', user.companyId);
+      form.setValue('billingCompanyId', user.companyId);
     }
   }, [user, form]);
 
@@ -202,6 +209,7 @@ export default function EnhancedNewRequestModal({
         ...data,
         requesterId: user?.id || 1,
         companyId: Number(data.companyId),
+        billingCompanyId: Number(data.billingCompanyId),
         costCenterId: Number(data.costCenterId),
         availableBudget: data.availableBudget
           ? parseFloat(data.availableBudget)
@@ -290,6 +298,7 @@ export default function EnhancedNewRequestModal({
       form.reset();
       setManualItems([]);
       setUploadedFile(null);
+      setHasBillingBeenTouched(false);
       onOpenChange(false);
     },
   });
@@ -554,6 +563,9 @@ export default function EnhancedNewRequestModal({
                             onValueChange={(value) => {
                               field.onChange(value);
                               setSelectedCompanyId(Number(value));
+                              if (!hasBillingBeenTouched) {
+                                form.setValue('billingCompanyId', Number(value), { shouldValidate: true });
+                              }
                             }}
                             value={field.value?.toString()}
                           >
@@ -572,6 +584,48 @@ export default function EnhancedNewRequestModal({
                             </SelectContent>
                           </Select>
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {companies && companies.length > 0 && (
+                  <FormField
+                    control={form.control}
+                    name="billingCompanyId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Empresa para Faturamento *</FormLabel>
+                        <FormControl>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              setHasBillingBeenTouched(true);
+                            }}
+                            value={field.value?.toString()}
+                            disabled={!isBuyer && !isAdmin}
+                          >
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Selecione uma empresa para faturamento..." />
+                              </SelectTrigger>
+                            <SelectContent>
+                              {companies
+                                .filter((c: any) => c.active === true)
+                                .map((company: any) => (
+                                  <SelectItem
+                                    key={company.id}
+                                    value={company.id.toString()}
+                                  >
+                                    {company.name}  (CNPJ: {formatCNPJ(company.cnpj) || company.cnpj || 'sem CNPJ'})
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        {(!isBuyer && !isAdmin) && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Campo disponível apenas para Compradores e Administradores</p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

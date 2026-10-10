@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   User,
   Building,
+  Building2,
   FileText,
   Calendar,
   DollarSign,
@@ -634,6 +635,36 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
                       }
                     </span>
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Empresa Solicitante:</span>
+                    <span className="font-medium">
+                      {request.company?.name || 'N/A'}
+                      {request.company?.cnpj ? ` — CNPJ ${request.company.cnpj}` : ''}
+                    </span>
+                  </div>
+
+                  {(() => {
+                    const billingCompany = request.billingCompany;
+                    const differs = billingCompany?.id && request.company?.id && billingCompany.id !== request.company.id;
+                    if (!billingCompany) return null;
+                    return (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Empresa para Faturamento:</span>
+                        <span className="font-medium">
+                          {billingCompany.name}
+                          {billingCompany.cnpj ? ` — CNPJ ${billingCompany.cnpj}` : ''}
+                        </span>
+                        {differs && (
+                          <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 border-0">
+                            Difere da Solicitação
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="flex items-center gap-2">
                     <Building className="h-4 w-4 text-muted-foreground" />

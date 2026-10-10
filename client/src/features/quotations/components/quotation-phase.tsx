@@ -1,5 +1,5 @@
 import { useState, Suspense } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { FileText, Building2, Package, Calendar, Eye, Plus, Clock, CheckCircle, X, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -10,7 +10,10 @@ import { Badge } from "@/shared/ui/badge";
 import { Separator } from "@/shared/ui/separator";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogClose } from "@/shared/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import { useCompanies } from "@/features/companies/hooks/useCompanies";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDualCurrency, formatCurrency, normalizeCurrencyCode, convertToBRL, roundCurrency, CurrencyCode } from "@/lib/currency";
@@ -78,6 +81,7 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { allCompanies = [] } = useCompanies();
 
   // Mark supplier as no response
   const markSupplierAsNoResponse = async (supplierQuotationId: number) => {
@@ -144,6 +148,32 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
   const { data: rfqHistory = [] } = useQuery<Quotation[]>({
     queryKey: [`/api/quotations/purchase-request/${request.id}/history`],
     enabled: showRFQHistory,
+  });
+
+  // Atualiza a empresa de faturamento da RFQ
+  const updateBillingCompanyMutation = useMutation({
+    mutationFn: async (billingCompanyId: number) => {
+      if (!quotation?.id) throw new Error("RFQ não encontrada");
+      return apiRequest(`/api/quotations/${quotation.id}`, {
+        method: "PUT",
+        body: { billingCompanyId },
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Empresa de faturamento atualizada",
+        description: "A empresa para faturamento foi alterada com sucesso.",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/quotations/purchase-request/${request.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/purchase-requests/${request.id}`] });
+    },
+    onError: () => {
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível alterar a empresa de faturamento.",
+        variant: "destructive",
+      });
+    },
   });
 
   const hasQuotation = !!quotation;
@@ -289,6 +319,73 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                   <div>
                     <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Respostas Recebidas</span>
                     <p>{supplierQuotations.length}</p>
+                  </div>
+                  <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(() => {
+                      const billingCompanyId = (quotation as any)?.billingCompanyId ?? request.billingCompanyId ?? request.companyId;
+                      const billingCompany = allCompanies.find((c: any) => c.id === billingCompanyId)
+                        ?? request.billingCompany
+                        ?? allCompanies.find((c: any) => c.id === request.companyId);
+                      const prCompany = request.company
+                        ?? allCompanies.find((c: any) => c.id === request.companyId);
+                      const differs = billingCompany?.id && prCompany?.id && billingCompany.id !== prCompany.id;
+                      const canEdit = !!(user?.isBuyer || user?.isAdmin);
+                      const activeCompanies = allCompanies
+                        .filter((c: any) => c.active !== false)
+                        .sort((a: any, b: any) => a.name?.localeCompare(b.name) || 0);
+                      return (
+                        <>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Empresa Solicitante</span>
+                            <p className="font-medium mt-1">
+                              {prCompany?.name || 'Empresa não encontrada'}
+                              {prCompany?.cnpj ? ` — CNPJ ${prCompany.cnpj}` : ''}
+                            </p>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Empresa para Faturamento</span>
+                              {differs && (
+                                <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 border-0">
+                                  Difere da Solicitação
+                                </Badge>
+                              )}
+                            </div>
+                            {canEdit ? (
+                              <Select
+                                value={billingCompanyId ? String(billingCompanyId) : ""}
+                                onValueChange={(value) => updateBillingCompanyMutation.mutate(parseInt(value))}
+                                disabled={updateBillingCompanyMutation.isPending}
+                              >
+                                <SelectTrigger className="h-9 mt-1">
+                                  <SelectValue placeholder="Selecione a empresa para faturamento" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {activeCompanies.map((company: any) => (
+                                    <SelectItem key={company.id} value={String(company.id)}>
+                                      {company.name}
+                                      {company.cnpj ? ` — CNPJ ${company.cnpj}` : ""}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <p className="font-medium mt-1">
+                                    {billingCompany?.name || 'Empresa não encontrada'}
+                                    {billingCompany?.cnpj ? ` — CNPJ ${billingCompany.cnpj}` : ''}
+                                  </p>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Dados da empresa que receberá a NF-e — editável apenas por Compradores
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
                 

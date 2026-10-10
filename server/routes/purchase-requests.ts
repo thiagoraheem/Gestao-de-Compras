@@ -78,7 +78,26 @@ export function registerPurchaseRequestRoutes(app: Express) {
   });
 
   app.post("/api/purchase-requests", isAuthenticated, async (req, res) => {
-    const request = await purchaseRequestService.createRequest(req.body);
+    const userId = req.session.userId;
+    const user = userId ? await storage.getUser(userId) : undefined;
+    const isBuyerOrAdmin = !!(user?.isBuyer || user?.isAdmin);
+
+    const body = { ...req.body };
+
+    // FR-10: apenas compradores/administradores podem definir a empresa de faturamento.
+    if (!isBuyerOrAdmin) {
+      delete body.billingCompanyId;
+    }
+
+    // FR-20: valida que a empresa de faturamento esta ativa.
+    if (body.billingCompanyId != null) {
+      const billingCompany = await storage.getCompanyById(Number(body.billingCompanyId));
+      if (!billingCompany || billingCompany.active === false) {
+        throw new ValidationError("Empresa para faturamento selecionada está inativa ou não existe.");
+      }
+    }
+
+    const request = await purchaseRequestService.createRequest(body);
     res.status(201).json(request);
   });
 
@@ -94,7 +113,37 @@ export function registerPurchaseRequestRoutes(app: Express) {
       throw new ValidationError("ID inválido");
     }
 
-    const request = await purchaseRequestService.updateRequest(id, req.body);
+    const userId = req.session.userId;
+    const user = userId ? await storage.getUser(userId) : undefined;
+    const isBuyerOrAdmin = !!(user?.isBuyer || user?.isAdmin);
+
+    const existingRequest = await storage.getPurchaseRequestById(id);
+    if (!existingRequest) {
+      throw new NotFoundError("Solicitação não encontrada");
+    }
+
+    const body = { ...req.body };
+
+    // FR-21: bloqueia alteracao de empresa de faturamento em fases avancadas.
+    const editablePhases = ["solicitacao", "cotacao"];
+    if (!editablePhases.includes(existingRequest.currentPhase)) {
+      delete body.billingCompanyId;
+    }
+
+    // FR-10: apenas compradores/administradores podem alterar a empresa de faturamento.
+    if (!isBuyerOrAdmin) {
+      delete body.billingCompanyId;
+    }
+
+    // FR-20: valida que a empresa de faturamento esta ativa.
+    if (body.billingCompanyId != null) {
+      const billingCompany = await storage.getCompanyById(Number(body.billingCompanyId));
+      if (!billingCompany || billingCompany.active === false) {
+        throw new ValidationError("Empresa para faturamento selecionada está inativa ou não existe.");
+      }
+    }
+
+    const request = await purchaseRequestService.updateRequest(id, body);
     res.json(request);
   });
 

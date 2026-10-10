@@ -577,6 +577,8 @@ const ReceiptPhase = forwardRef((props: ReceiptPhaseProps, ref: React.Ref<Receip
           totalValue={formatCurrency(purchaseOrder?.totalValue ?? activeRequest?.totalValue ?? request?.totalValue ?? 0)}
           status={(activeRequest?.phase && (PHASE_LABELS as any)[activeRequest.phase]) || (request?.phase && (PHASE_LABELS as any)[request.phase]) || "—"}
           creationDate={(activeRequest?.createdAt || request?.createdAt) ? format(new Date(activeRequest?.createdAt || request.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}
+          billingCompanyName={activeRequest?.billingCompany?.name || request?.billingCompany?.name}
+          requestingCompanyName={activeRequest?.company?.name || request?.company?.name}
         />
 
         {currencyInfo && (

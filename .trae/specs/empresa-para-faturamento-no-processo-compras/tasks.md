@@ -1,0 +1,191 @@
+# Empresa para Faturamento - Implementation Plan
+
+## Task 1: Migração SQL + Schema Drizzle + Índices
+- **Status**: `pending`
+- **Priority**: high
+- **Depends On**: None
+- **Description**:
+  - Criar arquivo de migração `migrations/0026_add_billing_company_id_purchase_requests_and_quotations.sql` (ou número sequencial mais alto disponível) com:
+    - `ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS billing_company_id INTEGER REFERENCES companies(id) ON DELETE RESTRICT;`
+    - `ALTER TABLE quotations ADD COLUMN IF NOT EXISTS billing_company_id INTEGER REFERENCES companies(id) ON DELETE RESTRICT;`
+    - Backfill: `UPDATE purchase_requests SET billing_company_id = company_id WHERE billing_company_id IS NULL;`
+    - Backfill: `UPDATE quotations SET billing_company_id = pr.company_id FROM purchase_requests pr WHERE quotations.purchase_request_id = pr.id AND quotations.billing_company_id IS NULL;`
+    - `CREATE INDEX IF NOT EXISTS idx_purchase_requests_billing_company_id ON purchase_requests(billing_company_id);`
+    - `CREATE INDEX IF NOT EXISTS idx_quotations_billing_company_id ON quotations(billing_company_id);`
+    - `COMMENT ON COLUMN` explicando a finalidade e a regra de valor padrão.
+  - Atualizar `shared/schema.ts`:
+    - Adicionar `billingCompanyId: integer("billing_company_id").references(() => companies.id)` em `purchaseRequests` (após `companyId`).
+    - Adicionar o mesmo campo em `quotations` (após `purchaseRequestId`).
+    - Validar que `insertPurchaseRequestSchema` e `insertQuotationSchema` automaticamente herdam o campo pelo `createInsertSchema`; se não, incluir `extend` explicitamente.
+- **Acceptance Criteria Addressed**: AC-1 (estrutura + backfill), AC-7 (estrutura), NFR-1, NFR-2, NFR-3
+- **Test Requirements**:
+  - `rule` TR-1.1: Rodar script SQL e verificar que `information_schema.columns` contém `billing_company_id` em ambas as tabelas, `data_type = integer` e `is_nullable = YES`
+    - Evidence: `SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE column_name = 'billing_company_id';`
+  - `rule` TR-1.2: Executar backfill em banco de teste com dados antigos, confirmar que `billing_company_id` de `purchase_requests` tem `COUNT(billing_company_id IS NULL) = 0` após UPDATE
+    - Evidence: Query `SELECT COUNT(*) FROM purchase_requests WHERE billing_company_id IS NULL;` → 0
+  - `rule` TR-1.3: Compilação TypeScript (`npx tsc --noEmit`) passa sem erros após atualização de `shared/schema.ts`
+    - Evidence: Saída do comando tsc sem erros
+  - `rubric` TR-1.4: Qualidade da migração; escala 1-5; anchors 1=sem backfill/sem índices, 3=backfill em purchase_requests mas faltando quotations, 5=backfill em ambas + índices + COMMENT ON COLUMN; threshold >= 4
+    - Evidence: Arquivo SQL completo
+
+## Task 2: Repository Purchase Request + Quotation Enrichment (billingCompany)
+- **Status**: `pending`
+- **Priority**: high
+- **Depends On**: Task 1
+- **Description**:
+  - Atualizar `server/repositories/purchase-request-repository.ts`:
+    - Métodos `getPurchaseRequestById`, `getAllPurchaseRequests`, `getPurchaseRequestsForBoard`:
+      - Incluir JOIN com `companies AS billingCompany` (aliased) via `purchase_requests.billing_company_id`
+      - No resultado, popular `purchaseRequest.billingCompany` (além do `company` existente — empresa solicitante)
+      - Se `billing_company_id` for NULL, fallback para `company` (empresa solicitante) para NFR-1
+    - Métodos `createPurchaseRequest` e `updatePurchaseRequest`:
+      - Se `billingCompanyId` não vier no payload, setar default = `companyId` (garantir FR-3)
+      - Validar que a `billingCompanyId` existe e tem `active = true` (FR-20); se não, lançar erro 400
+      - Validar permissão: se o usuário não for `isBuyer` nem `isAdmin`, ignorar `billingCompanyId` no payload (usar valor existente ou default)
+    - Métodos de listagem/relatório: incluir `billingCompany.name` e `billingCompany.cnpj` em selects se possível
+  - Atualizar repositório de quotations (quotations storage / storage.ts):
+    - Ao criar `quotations` (POST / criar RFQ), copiar `billing_company_id` da `purchase_requests` correspondente (FR-4)
+    - Ao atualizar `quotations` (PUT), se `billingCompanyId` for alterado e usuário for comprador/admin, propagar a alteração também para a `purchase_requests.billing_company_id` (FR-13)
+    - Mesma validação de empresa ativa e permissão
+- **Acceptance Criteria Addressed**: AC-1 (default no create), AC-2 (persistência), AC-3 (validação active), AC-4 (permissão)
+- **Test Requirements**:
+  - `rule` TR-2.1: Chamar `createPurchaseRequest` SEM `billingCompanyId` no payload → resultado tem `billingCompanyId === companyId`
+    - Evidence: Objeto criado no retorno do POST
+  - `rule` TR-2.2: Chamar `updatePurchaseRequest` como usuário Aprovador A1 (não-buyer/não-admin) com `billingCompanyId = X` → banco permanece com valor original (X não é salvo)
+    - Evidence: `SELECT billing_company_id` antes e depois do update; valores permanecem iguais
+  - `rule` TR-2.3: Chamar update com empresa inativa → `Promise.reject` ou HTTP 400
+    - Evidence: Resposta do endpoint com mensagem de erro apropriada
+
+## Task 3: Endpoints API + Zod Validations
+- **Status**: `pending`
+- **Priority**: high
+- **Depends On**: Task 2
+- **Description**:
+  - Rotas de Purchase Request (`server/routes/purchase-requests.ts`):
+    - `POST /api/purchase-requests`: validar `billingCompanyId` opcional no `req.body`; se enviado, validar `active = true`
+    - `PUT /api/purchase-requests/:id`: aplicar regra de permissão; atualizar `billingCompanyId`
+    - Bloqueio de edição por fase: se fase atual estiver em `['aprovacao_a1', 'aprovacao_a2', 'pedido_compra', 'recebimento', 'conf_fiscal', 'conclusao_compra', 'pedido_concluido']` → ignorar `billingCompanyId` no payload do PUT (FR-21)
+  - Rotas de Quotation (CRUD RFQ):
+    - `POST /api/purchase-requests/:id/quotations`: copiar `billingCompanyId` da PR
+    - `PUT /api/quotations/:id`: idêntico a regra de PR + sincronia reversa
+    - Ao listar quotations por PR, incluir `billingCompany` no join
+  - Rota companies: confirmar se já existe query param `?onlyActive=true` ou filtro. Se não, manter client-side (`companies.filter(c => c.active)`) mas validar no backend sempre
+- **Acceptance Criteria Addressed**: AC-3, AC-4, AC-7
+- **Test Requirements**:
+  - `rule` TR-3.1: `PUT /api/purchase-requests/:id` com fase `pedido_compra` e `billingCompanyId=X` novo → coluna não atualiza no banco
+    - Evidence: Query antes/depois
+  - `rule` TR-3.2: `POST /api/purchase-requests/:id/quotations` cria quotation com `billing_company_id` igual ao da PR
+    - Evidence: Query em quotations recém-criada
+
+## Task 4: Formulário de Nova Solicitação (enhanced-new-request-modal.tsx)
+- **Status**: `pending`
+- **Priority**: high
+- **Depends On**: Task 1, Task 3
+- **Description**:
+  - Localizar o form [enhanced-new-request-modal.tsx](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/shared/components/enhanced-new-request-modal.tsx):
+    - Copiar o padrão do Select de "Empresa *" existente (linhas 544-579)
+    - Inserir imediatamente abaixo do campo "Empresa" um novo campo:
+      - Label: `Empresa para Faturamento *`
+      - Select `form.control` integrado ao `react-hook-form` (`useForm`)
+      - Opções: filtrar `companies.filter(c => c.active === true)`; display: `{c.name}  (CNPJ: ${formatCNPJ(c.cnpj)})`
+      - Valor inicial: `watch('companyId')` (sincronizado)
+      - `onValueChange` do select Empresa (solicitante):
+        - se o usuário não editou ainda o faturamento (flag `hasBillingBeenTouched = false` inicial), setar `setValue('billingCompanyId', novoCompanyId)` para sincronia automática
+        - após primeira alteração manual do usuário no faturamento, setar `hasBillingBeenTouched = true` via `useState`
+      - Estado `disabled`: se `!isBuyer && !isAdmin` → `disabled = true`
+      - Tooltip: quando `disabled`, explicar "Campo disponível apenas para Compradores e Administradores"
+  - Atualizar schema de validação Zod do form:
+    - Adicionar `billingCompanyId: z.coerce.number().min(1, "Empresa para Faturamento é obrigatória")`
+  - Payload POST: incluir `billingCompanyId: Number(data.billingCompanyId)`
+  - Atualizar `defaultValues` do form para incluir `billingCompanyId` (igual a `user?.companyId || 0`)
+- **Acceptance Criteria Addressed**: AC-1 (UI preenche valor padrão), AC-2 (edição), AC-3 (só ativas), AC-4 (permissão), AC-8 (posicionamento)
+- **Test Requirements**:
+  - `rule` TR-4.1: Abrir modal como comprador → campo "Empresa para Faturamento" mostra o mesmo valor que "Empresa" e está habilitado
+    - Evidence: Screenshot
+  - `rule` TR-4.2: Trocar "Empresa" solicitante → campo faturamento atualiza automaticamente; depois alterar faturamento manualmente para outra; depois trocar solicitante novamente → faturamento NÃO volta a sincronizar (flag touched)
+    - Evidence: Screencast curto ou sequência de prints
+  - `rule` TR-4.3: Abrir como Aprovador A1 → campo `disabled`
+    - Evidence: Screenshot do campo com visual de desabilitado
+  - `rubric` TR-4.4: Clareza visual; escala 1-5; anchors 1=campo sem tooltip/sem indicação de obrigatório, 3=campo existe mas sem sincronia automática, 5=sincronia inicial + tooltip + disabled amigável + label em negrito; threshold >= 4
+
+## Task 5: Tela de Cotação (quotation-phase + rfq-creation)
+- **Status**: `pending`
+- **Priority**: high
+- **Depends On**: Task 4
+- **Description**:
+  - **`rfq-creation.tsx`** (modal criação/edição RFQ):
+    - Localizar seção "Informações da Solicitação"
+    - Adicionar campo "Empresa para Faturamento" abaixo do bloco existente de dados da PR
+    - Carregar `companies` via hook `useCompanies` (ou da props purchaseRequest)
+    - Preencher valor inicial: `purchaseRequest.billingCompanyId` ou `purchaseRequest.companyId`
+    - `disabled = !isBuyer && !isAdmin`
+    - Salvar no payload de PUT/POST da quotation: `billingCompanyId: selectedBillingId`
+  - **`quotation-phase.tsx`**:
+    - No card de cabeçalho da RFQ (onde aparece status, prazo, respostas) adicionar linha:
+      - Label "Faturamento:" / Valor `{billingCompany?.name} — CNPJ {formatCNPJ(...)}`
+      - Se `billingCompany?.id !== company?.id` → adicionar badge sutil `Difere da Solicitação` em `dark:bg-amber-500/10 text-amber-700 dark:text-amber-300`
+    - Tooltip: "Dados da empresa que receberá a NF-e — editável apenas por Compradores durante a Cotação"
+- **Acceptance Criteria Addressed**: AC-2 (edição na Cotação), AC-7 (possibilidade de alteração após retorno de fase), AC-8
+- **Test Requirements**:
+  - `rule` TR-5.1: Editar RFQ como comprador, alterar faturamento → valor novo aparece no card de cabeçalho da quotation-phase após salvar
+    - Evidence: Antes/depois screenshot + query SQL
+
+## Task 6: PDF Service + Purchase Order Template
+- **Status**: `pending`
+- **Priority**: high
+- **Depends On**: Task 2
+- **Description**:
+  - **`server/pdf-service.ts`**:
+    - Método `generatePurchaseOrderPDF`:
+      - Buscar `billingCompany = companiesRepository.findById(pr.billingCompanyId ?? pr.companyId)`
+      - Garantir fallback: `!billingCompany ? (company do solicitante) : billingCompany`
+    - Método `generatePurchaseOrderHTML`:
+      - Parâmetro: enviar `billingCompany` completo + `requestingCompany` (solicitante)
+      - **Trocar** as variáveis `company.name, company.cnpj, company.address, company.phone, company.email, companyLogoHtml` para `billingCompany.xxx`
+      - Variável nova `areCompaniesDifferent = billingCompany.id !== requestingCompany.id`
+      - Nova variável `requestingCompanyHtml = areCompaniesDifferent ? renderBlock(...) : ''` que renderiza o bloco de rastreabilidade
+      - Injetar `{{{requestingCompanyHtml}}}` no handlebars
+  - **`server/templates/pdf/purchase-order.html`**:
+    - Inserir `{{{requestingCompanyHtml}}}` logo após o bloco grid de Fornecedor / Local de Entrega (entre linha 94 e a tabela), em estilo:
+      - Fundo `bg-slate-50` / `dark:bg-slate-800/50` sutil
+      - Cabeçalho: `EMP. SOLICITANTE (ORIGEM)` em `text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide`
+      - Valor: `{{companyRequestingName}} — CNPJ {{companyRequestingCnpj}}` + endereço (se OQ-1 confirmar necessidade — por enquanto só razão + CNPJ por padrão)
+  - Validar renderização sem quebra de layout (espaçamento A4)
+- **Acceptance Criteria Addressed**: AC-5 (PDF com empresa de faturamento), AC-6 (mesma empresa → sem bloco redundante), AC-8
+- **Test Requirements**:
+  - `rule` TR-6.1: Gerar PDF com empresas diferentes → cabeçalho contém `billingCompany.cnpj` correto; bloco "Emp. Solicitante" aparece no corpo
+    - Evidence: PDF salvo ou screenshot da página 1
+  - `rule` TR-6.2: Gerar PDF com mesmas empresas → bloco "Emp. Solicitante" não aparece; cabeçalho = empresa solicitante (idêntico a layout atual)
+    - Evidence: Comparação lado-a-lado antigo vs novo
+  - `rubric` TR-6.3: Estabilidade de layout; escala 1-5; anchors 1=texto corta ou empurra tabela para página 2, 3=funciona mas espaçamento inconsistente, 5=perfeito em ambas as situações; threshold >= 4
+
+## Task 7: Exibição no Kanban (purchase-card) + Header Card (PurchaseRequestHeaderCard)
+- **Status**: `pending`
+- **Priority**: medium
+- **Depends On**: Task 2
+- **Description**:
+  - Opcional conforme OQ-3, mas por padrão implementar sutilmente:
+    - Em [purchase-card.tsx](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/features/requests/components/kanban/purchase-card.tsx) (rodapé):
+      - Se `billingCompanyId !== companyId` → adicionar linha `Faturamento: {billingCompany.name}` em `text-xs text-slate-500 dark:text-slate-400`
+    - Em [purchase-request-header-card.tsx](file:///c:/Projetos/Locador/webapps/Gestao-de-Compras/client/src/features/requests/components/purchase-request-header-card.tsx):
+      - Mesma regra, adicionar item na lista de dados básicos
+- **Acceptance Criteria Addressed**: AC-8 (clareza geral do fluxo)
+- **Test Requirements**:
+  - `rule` TR-7.1: Card kanban com billingCompany diferente mostra informação; com mesma não mostra
+    - Evidence: Screenshot de ambos os casos
+
+## Task 8: Fluxo Completo de Testes E2E (Manual) + Validações
+- **Status**: `pending`
+- **Priority**: high
+- **Depends On**: Task 6, Task 7
+- **Description**:
+  - Rodar cenários de todos os ACs listados no spec: AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7
+  - Validar compilação TypeScript: `npx tsc --noEmit`
+  - Validar lint: `npm run lint` (ou equivalente)
+  - Se existir testes unitários (jest), executar `npm run test` para garantir não-regressão
+  - Validação manual do PDF: confirmar render correto em Chrome/Edge com Puppeteer (usar o mesmo método de `generatePDFWithPuppeteer` do PDFService ou abrir HTML salvo em navegador)
+- **Acceptance Criteria Addressed**: Todos ACs, incluindo rubricas de qualidade
+- **Test Requirements**:
+  - `rule` TR-8.1: `tsc --noEmit` passa sem erros
+  - `rule` TR-8.2: Todos os 7 ACs (rule) passam no teste manual
+  - `rubric` TR-8.3: Experiência completa; escala 1-5; threshold >= 4

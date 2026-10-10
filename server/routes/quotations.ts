@@ -199,6 +199,7 @@ export function registerQuotationRoutes(app: Express) {
       deliveryLocationId: z.number(),
       termsAndConditions: z.string().optional(),
       technicalSpecs: z.string().optional(),
+      billingCompanyId: z.number().optional(),
     });
 
     const quotationDataForApi = quotationApiSchema.parse(req.body);
@@ -216,8 +217,23 @@ export function registerQuotationRoutes(app: Express) {
       });
     }
 
+    // FR-4: copia billing_company_id da purchase_request (ou usa companyId como fallback)
+    const billingCompanyId =
+      (quotationDataForApi.billingCompanyId != null && quotationDataForApi.billingCompanyId !== 0)
+        ? quotationDataForApi.billingCompanyId
+        : (purchaseRequest.billingCompanyId ?? purchaseRequest.companyId ?? null);
+
+    // FR-20: valida empresa de faturamento ativa
+    if (billingCompanyId != null) {
+      const billingCompany = await storage.getCompanyById(Number(billingCompanyId));
+      if (!billingCompany || billingCompany.active === false) {
+        throw new ValidationError("Empresa para faturamento selecionada está inativa ou não existe.");
+      }
+    }
+
     const quotation = await storage.createQuotation({
       ...quotationDataForApi,
+      billingCompanyId,
       status: "draft",
       createdBy: req.session.userId!,
     });
@@ -237,7 +253,32 @@ export function registerQuotationRoutes(app: Express) {
   app.put("/api/quotations/:id", isAuthenticated, async (req, res) => {
     const id = parseInt(req.params.id);
     const quotationData = insertQuotationSchema.partial().parse(req.body);
+
+    const currentUser = await storage.getUser(req.session.userId!);
+    const isBuyerOrAdmin = !!(currentUser?.isBuyer || currentUser?.isAdmin);
+
+    // FR-10: apenas compradores/administradores podem alterar a empresa de faturamento
+    if (!isBuyerOrAdmin) {
+      delete (quotationData as any).billingCompanyId;
+    }
+
+    // FR-20: valida empresa de faturamento ativa
+    if ((quotationData as any).billingCompanyId != null) {
+      const billingCompany = await storage.getCompanyById(Number((quotationData as any).billingCompanyId));
+      if (!billingCompany || billingCompany.active === false) {
+        throw new ValidationError("Empresa para faturamento selecionada está inativa ou não existe.");
+      }
+    }
+
     const quotation = await storage.updateQuotation(id, quotationData);
+
+    // FR-13: sincroniza billingCompanyId de volta para a purchase_request
+    if ((quotationData as any).billingCompanyId != null && quotation.purchaseRequestId) {
+      await storage.updatePurchaseRequest(quotation.purchaseRequestId, {
+        billingCompanyId: (quotationData as any).billingCompanyId,
+      });
+    }
+
     res.json(quotation);
   });
 

@@ -66,6 +66,16 @@ export interface PurchaseRequestHeaderCardProps {
   creationDate?: string;
 
   /**
+   * Nome da empresa para faturamento (quando difere da empresa solicitante).
+   */
+  billingCompanyName?: string;
+
+  /**
+   * Nome da empresa solicitante (origem).
+   */
+  requestingCompanyName?: string;
+
+  /**
    * Classes adicionais para estilização do container.
    */
   className?: string;
@@ -82,6 +92,8 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
   totalValue,
   status,
   creationDate,
+  billingCompanyName,
+  requestingCompanyName,
   className,
 }) => {
   const themeClasses =
@@ -171,6 +183,17 @@ const PurchaseRequestHeaderCard: React.FC<PurchaseRequestHeaderCardProps> = ({
             {creationDate && creationDate.trim().length > 0 ? creationDate : "N/A"}
           </p>
         </div>
+
+        {billingCompanyName && billingCompanyName.trim().length > 0 && billingCompanyName !== requestingCompanyName && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+              Faturamento
+            </p>
+            <p className="text-slate-900 dark:text-slate-100 truncate" title={billingCompanyName}>
+              {billingCompanyName}
+            </p>
+          </div>
+        )}
         <br />
         <div className="space-y-1 col-span-8">
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">

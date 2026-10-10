@@ -35,23 +35,25 @@ describe("PurchaseRequestHeaderCard", () => {
       ? cardContent.props.children
       : [cardContent.props.children];
 
-    // Assuming sections order based on component definition:
-    // 0: Request/Order Number
-    // 1: Requester
-    // 2: Justification
-    // 3: Supplier
-    // 4: Order Date
-    // 5: Total Value
-    // 6: Status
-    // 7: Creation Date
+    // Ordem real das seções no componente:
+    // 0: Solicitação / Pedido
+    // 1: Solicitante
+    // 2: Fornecedor
+    // 3: Data do Pedido
+    // 4: Valor Total
+    // 5: Status Atual
+    // 6: Data de Criação
+    // 7: (condicional) Faturamento -> false quando não fornecido
+    // 8: <br />
+    // 9: Justificativa
 
     const requesterSection = sections[1];
-    const justificationSection = sections[2];
-    const supplierSection = sections[3];
-    const dateSection = sections[4];
-    const totalSection = sections[5];
-    const statusSection = sections[6];
-    const creationDateSection = sections[7];
+    const supplierSection = sections[2];
+    const dateSection = sections[3];
+    const totalSection = sections[4];
+    const statusSection = sections[5];
+    const creationDateSection = sections[6];
+    const justificationSection = sections[9];
 
     // Check defaults
     expect(requesterSection.props.children[1].props.children).toBe("N/A");
@@ -80,8 +82,8 @@ describe("PurchaseRequestHeaderCard", () => {
       ? cardContent.props.children
       : [cardContent.props.children];
 
-    const justificationSection = sections[2];
-    const creationDateSection = sections[7];
+    const justificationSection = sections[9];
+    const creationDateSection = sections[6];
 
     expect(justificationSection.props.children[0].props.children).toBe("Justificativa");
     expect(justificationSection.props.children[1].props.children).toBe(justification);

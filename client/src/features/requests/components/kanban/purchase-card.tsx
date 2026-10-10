@@ -1184,6 +1184,16 @@ export default function PurchaseCard({
             </div>
           )}
 
+          {/* Indicador de Empresa para Faturamento quando difere da solicitante */}
+          {request.billingCompany && request.company && request.billingCompany.id !== request.company.id && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Info className="h-3 w-3 shrink-0" />
+              <span className="truncate" title={`Faturamento: ${request.billingCompany.name}`}>
+                Faturamento: {request.billingCompany.name}
+              </span>
+            </p>
+          )}
+
           {/* Footer with Date and Actions */}
           <div className="border-t border-border pt-3 mt-3 flex items-center justify-between gap-2">
             <p className="text-xs text-slate-500 dark:text-slate-500">

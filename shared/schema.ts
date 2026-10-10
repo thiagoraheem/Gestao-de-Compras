@@ -205,6 +205,7 @@ export const purchaseRequests = pgTable("purchase_requests", {
   requestNumber: text("request_number").notNull().unique(),
   requesterId: integer("requester_id").references(() => users.id),
   companyId: integer("company_id").references(() => companies.id),
+  billingCompanyId: integer("billing_company_id").references(() => companies.id),
   costCenterId: integer("cost_center_id").references(() => costCenters.id),
   category: text("category").notNull(), // Produto, Serviço, Outros
   urgency: text("urgency").notNull(), // Baixo, Médio, Alto
@@ -362,6 +363,7 @@ export const quotations = pgTable("quotations", {
   id: serial("id").primaryKey(),
   quotationNumber: text("quotation_number").notNull().unique(),
   purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id).notNull(),
+  billingCompanyId: integer("billing_company_id").references(() => companies.id),
   deliveryLocationId: integer("delivery_location_id").references(() => deliveryLocations.id),
   status: text("status").notNull().default("draft"), // draft, sent, received, analyzed, approved, rejected
   quotationDeadline: timestamp("quotation_deadline").notNull(),

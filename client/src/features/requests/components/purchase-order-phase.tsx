@@ -23,6 +23,7 @@ import {
   User, 
   Calendar, 
   Building, 
+  Building2,
   Clock, 
   CheckCircle, 
   Package,
@@ -855,6 +856,28 @@ export default function PurchaseOrderPhase({ request, onClose, onPreviewOpen, on
                 <span className="font-medium">Data da Solicitação:</span>
                 <span>{new Date(request.createdAt).toLocaleDateString('pt-BR')}</span>
               </div>
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium">Empresa Solicitante:</span>
+                <span>{request.company?.name || "Não informado"}{request.company?.cnpj ? ` — CNPJ ${request.company.cnpj}` : ""}</span>
+              </div>
+              {(() => {
+                const billingCompany = request.billingCompany;
+                const differs = billingCompany?.id && request.company?.id && billingCompany.id !== request.company.id;
+                if (!billingCompany) return null;
+                return (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium">Empresa para Faturamento:</span>
+                    <span className="font-medium">{billingCompany.name}{billingCompany.cnpj ? ` — CNPJ ${billingCompany.cnpj}` : ""}</span>
+                    {differs && (
+                      <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 border-0">
+                        Difere da Solicitação
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })()}
               {isForeign && (
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">

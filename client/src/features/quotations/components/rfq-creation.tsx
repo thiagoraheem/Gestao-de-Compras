@@ -35,6 +35,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { SupplierSelector } from "./supplier-selector";
 import { UnitSelect } from "@/shared/components/unit-select";
 import { useUnits } from "@/hooks/useUnits";
+import { useCompanies } from "@/features/companies/hooks/useCompanies";
 import HybridProductInput from "@/shared/components/hybrid-product-input";
 import debug from "@/lib/debug";
 import { handleStandardResponse } from "@/lib/queryClient";
@@ -59,6 +60,7 @@ const rfqCreationSchema = z.object({
   technicalSpecs: z.string().optional(),
   selectedSuppliers: z.array(z.number()).min(1, "Selecione pelo menos um fornecedor"),
   items: z.array(quotationItemSchema).min(1, "Adicione pelo menos um item"),
+  billingCompanyId: z.number(),
 });
 
 type RFQCreationData = z.infer<typeof rfqCreationSchema>;
@@ -77,6 +79,9 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { processERPUnit } = useUnits();
+  const { allCompanies = [] } = useCompanies();
+  const isBuyer = user?.isBuyer ?? false;
+  const isAdmin = user?.isAdmin ?? false;
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const itemsInitializedRef = useRef(false);
   // Removido estado de modal de fornecedor
@@ -175,6 +180,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
       deliveryLocationId: 0,
       selectedSuppliers: [],
       items: [],
+      billingCompanyId: purchaseRequest?.billingCompanyId ?? purchaseRequest?.companyId ?? 0,
     },
   });
 
@@ -297,6 +303,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
       form.setValue("quotationDeadline", existingQuotation.quotationDeadline ? format(new Date(existingQuotation.quotationDeadline), "yyyy-MM-dd") : format(addDays(new Date(), 7), "yyyy-MM-dd"));
       form.setValue("termsAndConditions", existingQuotation.termsAndConditions || "");
       form.setValue("technicalSpecs", existingQuotation.technicalSpecs || "");
+      form.setValue("billingCompanyId", existingQuotation.billingCompanyId ?? purchaseRequest?.billingCompanyId ?? purchaseRequest?.companyId ?? 0);
     } else if (purchaseRequest?.additionalInfo && !form.getValues("technicalSpecs")) {
       // Load technical specs from original request when creating new quotation, only if not already set
       form.setValue("technicalSpecs", purchaseRequest.additionalInfo);
@@ -334,6 +341,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
           deliveryLocationId: data.deliveryLocationId,
           termsAndConditions: data.termsAndConditions,
           technicalSpecs: data.technicalSpecs,
+          billingCompanyId: data.billingCompanyId,
         }),
       });
 
@@ -449,6 +457,7 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
           deliveryLocationId: data.deliveryLocationId,
           termsAndConditions: data.termsAndConditions,
           technicalSpecs: data.technicalSpecs,
+          billingCompanyId: data.billingCompanyId,
         }),
       });
       if (createResp.ok) {
@@ -692,6 +701,51 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Data de Criação</Label>
                   <p className="text-lg">{purchaseRequest?.createdAt ? format(new Date(purchaseRequest.createdAt), "dd/MM/yyyy", { locale: ptBR }) : ""}</p>
+                </div>
+                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Empresa Solicitante</Label>
+                    <p className="text-base font-medium mt-1">
+                      {(() => {
+                        const prCompany = purchaseRequest?.company
+                          ?? allCompanies.find((c: any) => c.id === purchaseRequest?.companyId);
+                        if (!prCompany) return 'Empresa não encontrada';
+                        return prCompany.name + (prCompany.cnpj ? ` — CNPJ ${prCompany.cnpj}` : '');
+                      })()}
+                    </p>
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="billingCompanyId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Empresa para Faturamento</FormLabel>
+                        <FormControl>
+                          <Select
+                            value={field.value ? field.value.toString() : ""}
+                            onValueChange={(value) => field.onChange(parseInt(value))}
+                            disabled={!isBuyer && !isAdmin}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Selecione a empresa para faturamento" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allCompanies
+                                .filter((c: any) => c.active !== false)
+                                .sort((a: any, b: any) => a.name?.localeCompare(b.name) || 0)
+                                .map((company: any) => (
+                                  <SelectItem key={company.id} value={company.id.toString()}>
+                                    {company.name}
+                                    {company.cnpj ? ` — CNPJ ${company.cnpj}` : ""}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </CardContent>
             </Card>
