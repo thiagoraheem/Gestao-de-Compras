@@ -81,7 +81,6 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
   const { processERPUnit } = useUnits();
   const { allCompanies = [] } = useCompanies();
   const isBuyer = user?.isBuyer ?? false;
-  const isAdmin = user?.isAdmin ?? false;
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const itemsInitializedRef = useRef(false);
   // Removido estado de modal de fornecedor
@@ -714,38 +713,39 @@ export default function RFQCreation({ purchaseRequest, existingQuotation, baseQu
                       })()}
                     </p>
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="billingCompanyId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Empresa para Faturamento</FormLabel>
-                        <FormControl>
-                          <Select
-                            value={field.value ? field.value.toString() : ""}
-                            onValueChange={(value) => field.onChange(parseInt(value))}
-                            disabled={!isBuyer && !isAdmin}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Selecione a empresa para faturamento" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {allCompanies
-                                .filter((c: any) => c.active !== false)
-                                .sort((a: any, b: any) => a.name?.localeCompare(b.name) || 0)
-                                .map((company: any) => (
-                                  <SelectItem key={company.id} value={company.id.toString()}>
-                                    {company.name}
-                                    {company.cnpj ? ` — CNPJ ${company.cnpj}` : ""}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {isBuyer && (
+                    <FormField
+                      control={form.control}
+                      name="billingCompanyId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Empresa para Faturamento</FormLabel>
+                          <FormControl>
+                            <Select
+                              value={field.value ? field.value.toString() : ""}
+                              onValueChange={(value) => field.onChange(parseInt(value))}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Selecione a empresa para faturamento" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {allCompanies
+                                  .filter((c: any) => c.active !== false)
+                                  .sort((a: any, b: any) => a.name?.localeCompare(b.name) || 0)
+                                  .map((company: any) => (
+                                    <SelectItem key={company.id} value={company.id.toString()}>
+                                      {company.name}
+                                      {company.cnpj ? ` — CNPJ ${company.cnpj}` : ""}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>

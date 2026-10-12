@@ -10,7 +10,6 @@ import { Badge } from "@/shared/ui/badge";
 import { Separator } from "@/shared/ui/separator";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogClose } from "@/shared/ui/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanies } from "@/features/companies/hooks/useCompanies";
@@ -329,7 +328,7 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                       const prCompany = request.company
                         ?? allCompanies.find((c: any) => c.id === request.companyId);
                       const differs = billingCompany?.id && prCompany?.id && billingCompany.id !== prCompany.id;
-                      const canEdit = !!(user?.isBuyer || user?.isAdmin);
+                      const isBuyer = !!user?.isBuyer;
                       const activeCompanies = allCompanies
                         .filter((c: any) => c.active !== false)
                         .sort((a: any, b: any) => a.name?.localeCompare(b.name) || 0);
@@ -342,16 +341,16 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                               {prCompany?.cnpj ? ` — CNPJ ${prCompany.cnpj}` : ''}
                             </p>
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Empresa para Faturamento</span>
-                              {differs && (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 border-0">
-                                  Difere da Solicitação
-                                </Badge>
-                              )}
-                            </div>
-                            {canEdit ? (
+                          {isBuyer && (
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-500 dark:text-slate-400">Empresa para Faturamento</span>
+                                {differs && (
+                                  <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 border-0">
+                                    Difere da Solicitação
+                                  </Badge>
+                                )}
+                              </div>
                               <Select
                                 value={billingCompanyId ? String(billingCompanyId) : ""}
                                 onValueChange={(value) => updateBillingCompanyMutation.mutate(parseInt(value))}
@@ -369,20 +368,8 @@ export default function QuotationPhase({ request, open, onOpenChange }: Quotatio
                                   ))}
                                 </SelectContent>
                               </Select>
-                            ) : (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <p className="font-medium mt-1">
-                                    {billingCompany?.name || 'Empresa não encontrada'}
-                                    {billingCompany?.cnpj ? ` — CNPJ ${billingCompany.cnpj}` : ''}
-                                  </p>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Dados da empresa que receberá a NF-e — editável apenas por Compradores
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </>
                       );
                     })()}

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { Button } from "@/shared/ui/button";
@@ -76,9 +77,7 @@ const ReceiptItemsList = ({ receiptId }: { receiptId: number }) => {
   const { data: items, isLoading } = useQuery<ReceiptItem[]>({
     queryKey: ["receipt-items", receiptId],
     queryFn: async () => {
-      const res = await fetch(`/api/recebimentos/${receiptId}/items`);
-      if (!res.ok) throw new Error("Failed to fetch items");
-      return res.json();
+      return apiRequest(`/api/recebimentos/${receiptId}/items`);
     },
   });
   if (isLoading) return <div className="p-4 flex justify-center"><Loader2 className="animate-spin h-5 w-5" /></div>;
@@ -121,9 +120,8 @@ const ReceiptVisualizer = ({ receipt, open, onOpenChange }: { receipt: Receipt |
     queryKey: ["receipt-xml-preview", receipt?.id],
     queryFn: async () => {
       if (!receipt) return null;
-      const res = await fetch(`/api/recebimentos/parse-existing/${receipt.id}`, { method: 'POST' });
-      if (!res.ok) return null;
-      const data = await res.json();
+      const data = await apiRequest(`/api/recebimentos/parse-existing/${receipt.id}`, { method: 'POST' });
+      if (!data) return null;
       return { xmlRaw: data.receipt?.xmlContent || data.xmlRaw, preview: data.preview };
     },
     enabled: !!receipt && open,
@@ -191,9 +189,7 @@ export function InvoicesReport() {
     queryKey: ["invoices-search", page, filters],
     queryFn: async () => {
       const params = new URLSearchParams({ page: page.toString(), limit: "10", ...filters });
-      const res = await fetch(`/api/receipts/search?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to fetch invoices");
-      return res.json();
+      return apiRequest(`/api/receipts/search?${params.toString()}`);
     },
   });
 
@@ -230,12 +226,12 @@ export function InvoicesReport() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Consulta de Notas Fiscais</h1>
           <p className="text-muted-foreground">Gerencie e visualize todas as notas fiscais registradas no sistema.</p>
-          <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 flex items-center gap-1">
+          <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 flex items-center gap-1">
             <Badge variant="outline" className="h-5 text-[10px] border-indigo-200 dark:border-indigo-700">
               💰 Todos os valores apresentados em BRL (Real Brasileiro) convertidos.
               Para compras internacionais, valores são convertidos com a taxa de câmbio do Pedido de Compra.
             </Badge>
-          </p>
+          </div>
         </div>
         <Button variant="outline" onClick={handleExport}>
           <Download className="mr-2 h-4 w-4" /> Exportar Lista
