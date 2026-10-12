@@ -43,6 +43,62 @@ const billingCompany = alias(companies, "billing_company");
 const requestCompany = alias(companies, "request_company");
 
 export class PurchaseRequestRepository {
+  /**
+   * Fases que o Recebedor pode visualizar sem restrição de departamento.
+   * A partir de "Recebimento Físico" (recebimento) até o arquivamento.
+   */
+  private static readonly RECEIVER_UNRESTRICTED_PHASES = [
+    "recebimento",
+    "conf_fiscal",
+    "conclusao_compra",
+    "pedido_concluido",
+    "arquivado",
+  ];
+
+  /**
+   * Constrói a condição SQL de visibilidade de solicitações com base no perfil do usuário.
+   * Toda a lógica é aplicada diretamente na consulta ao banco de dados.
+   *
+   * Regras:
+   * - Admin, Comprador e Aprovador A2: acesso total a todas as solicitações.
+   * - Recebedor: acesso total às solicitações nas fases de Recebimento Físico ou posteriores;
+   *   nas fases anteriores, segue a regra padrão de restrição.
+   * - Demais usuários: visualizam apenas solicitações das quais é solicitante,
+   *   ou que pertencem ao seu departamento, ou aos seus centros de custo.
+   */
+  private async buildVisibilityCondition(user: User) {
+    const hasFullAccess = user.isAdmin || user.isBuyer || user.isApproverA2;
+
+    if (hasFullAccess) {
+      return undefined; // Sem restrições
+    }
+
+    const userDeptIds = await userRepository.getUserDepartments(user.id);
+    const userCostCenterIds = await userRepository.getUserCostCenters(user.id);
+
+    const restrictions: any[] = [eq(purchaseRequests.requesterId, user.id)];
+
+    if (userDeptIds.length > 0) {
+      restrictions.push(inArray(departments.id, userDeptIds));
+    }
+
+    if (userCostCenterIds.length > 0) {
+      restrictions.push(inArray(purchaseRequests.costCenterId, userCostCenterIds));
+    }
+
+    // Recebedor tem acesso irrestrito às fases de Recebimento Físico ou posteriores.
+    if (user.isReceiver) {
+      restrictions.push(
+        inArray(
+          purchaseRequests.currentPhase,
+          PurchaseRequestRepository.RECEIVER_UNRESTRICTED_PHASES,
+        ),
+      );
+    }
+
+    return or(...restrictions);
+  }
+
   async getAllPurchaseRequests(companyId?: number, user?: User): Promise<PurchaseRequest[]> {
     const conditions = [];
 
@@ -51,24 +107,9 @@ export class PurchaseRequestRepository {
     }
 
     if (user) {
-      const hasFullAccess =
-        user.isAdmin ||
-        user.isBuyer ||
-        user.isReceiver ||
-        user.isApproverA1 ||
-        user.isApproverA2;
-
-      if (!hasFullAccess) {
-        // Restricted access: Creator OR Department
-        const userDeptIds = await userRepository.getUserDepartments(user.id);
-        
-        const restrictions = [eq(purchaseRequests.requesterId, user.id)];
-        
-        if (userDeptIds.length > 0) {
-             restrictions.push(inArray(departments.id, userDeptIds));
-        }
-        
-        conditions.push(or(...restrictions));
+      const visibilityCondition = await this.buildVisibilityCondition(user);
+      if (visibilityCondition) {
+        conditions.push(visibilityCondition);
       }
     }
 
@@ -410,23 +451,9 @@ export class PurchaseRequestRepository {
     }
 
     if (user) {
-      const hasFullAccess =
-        user.isAdmin ||
-        user.isBuyer ||
-        user.isReceiver ||
-        user.isApproverA1 ||
-        user.isApproverA2;
-
-      if (!hasFullAccess) {
-        const userDeptIds = await userRepository.getUserDepartments(user.id);
-
-        const restrictions = [eq(purchaseRequests.requesterId, user.id)];
-
-        if (userDeptIds.length > 0) {
-             restrictions.push(inArray(departments.id, userDeptIds));
-        }
-
-        conditions.push(or(...restrictions));
+      const visibilityCondition = await this.buildVisibilityCondition(user);
+      if (visibilityCondition) {
+        conditions.push(visibilityCondition);
       }
     }
 

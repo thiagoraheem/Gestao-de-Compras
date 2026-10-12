@@ -102,11 +102,25 @@ export class UserRepository {
   }
 
   async getUserDepartments(userId: number): Promise<number[]> {
+    // Busca o departamento principal do usuário (campo department_id na tabela users),
+    // pois o formulário de usuário salva apenas este campo e NÃO popula a tabela user_departments.
+    const [user] = await db
+      .select({ departmentId: users.departmentId })
+      .from(users)
+      .where(eq(users.id, userId));
+
+    // Também busca associações adicionais na tabela many-to-many (se existirem).
     const userDepts = await db
       .select({ departmentId: userDepartments.departmentId })
       .from(userDepartments)
       .where(eq(userDepartments.userId, userId));
-    return userDepts.map((ud) => ud.departmentId!).filter((id) => id !== null);
+
+    const deptIds = new Set<number>();
+    if (user?.departmentId) deptIds.add(user.departmentId);
+    for (const ud of userDepts) {
+      if (ud.departmentId) deptIds.add(ud.departmentId);
+    }
+    return Array.from(deptIds);
   }
 
   async assignUserToDepartment(

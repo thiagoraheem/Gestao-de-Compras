@@ -63,7 +63,9 @@ const xmlUpload = multer({
 
 export function registerReceiptsRoutes(app: Express) {
   app.get("/api/receipts/board", isAuthenticated, async (req: Request, res: Response) => {
-    const results = await receiptService.getReceiptsBoard();
+    const userId = req.session.userId;
+    const user = userId ? await storage.getUser(userId) : undefined;
+    const results = await receiptService.getReceiptsBoard(user);
     res.json(results);
   });
 

@@ -14,8 +14,10 @@ import {
   attachments,
   purchaseOrderItems
 } from "../../shared/schema";
+import type { User } from "../../shared/schema";
 import { eq, and, sql, desc, like, or, inArray } from "drizzle-orm";
 import { storage } from "../storage";
+import { userRepository } from "../repositories/user-repository";
 import { notifyRequestConclusion, notifyFinancialDepartment } from "../email-service";
 import { generateReceiptNumber } from "../utils/generate-receipt-number";
 import { realtime } from "../realtime";
@@ -172,7 +174,34 @@ export class ReceiptService {
     };
   }
 
-  async getReceiptsBoard() {
+  async getReceiptsBoard(user?: User) {
+    // Constrói a condição de visibilidade diretamente na consulta SQL.
+    // Regras: Admin, Comprador e Aprovador A2 veem todos os recebimentos;
+    // Recebedores veem todos (recebimentos inerentes à fase de Recebimento Físico+);
+    // Demais usuários veem apenas recebimentos de suas solicitações, departamento ou centros de custo.
+    let visibilitySql = sql``;
+
+    if (user) {
+      const hasFullAccess = user.isAdmin || user.isBuyer || user.isApproverA2 || user.isReceiver;
+
+      if (!hasFullAccess) {
+        const userDeptIds = await userRepository.getUserDepartments(user.id);
+        const userCostCenterIds = await userRepository.getUserCostCenters(user.id);
+
+        const parts: any[] = [sql`pr.requester_id = ${user.id}`];
+
+        if (userDeptIds.length > 0) {
+          parts.push(sql`COALESCE(cc.department_id, pr_cc.department_id) IN (${sql.join(userDeptIds.map((id) => sql`${id}`), sql`, `)})`);
+        }
+
+        if (userCostCenterIds.length > 0) {
+          parts.push(sql`(r.cost_center_id IN (${sql.join(userCostCenterIds.map((id) => sql`${id}`), sql`, `)}) OR pr.cost_center_id IN (${sql.join(userCostCenterIds.map((id) => sql`${id}`), sql`, `)}))`);
+        }
+
+        visibilitySql = sql` AND (${sql.join(parts, sql` OR `)})`;
+      }
+    }
+
     const results = await db.execute(sql`
       SELECT 
         r.id,
@@ -231,7 +260,7 @@ export class ReceiptService {
       LEFT JOIN users u ON pr.requester_id = u.id
       LEFT JOIN cost_centers cc ON r.cost_center_id = cc.id
       LEFT JOIN cost_centers pr_cc ON pr.cost_center_id = pr_cc.id
-      WHERE r.receipt_phase != 'cancelado'
+      WHERE r.receipt_phase != 'cancelado'${visibilitySql}
       ORDER BY r.created_at DESC
     `);
     return results.rows;
