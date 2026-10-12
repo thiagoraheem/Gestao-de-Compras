@@ -84,7 +84,7 @@ export function UserFormModal({
                         className="data-[state=checked]:bg-green-500"
                       />
                     </FormControl>
-                    <span className={`font-medium ${field.value ? "text-green-600" : "text-gray-500"}`}>
+                    <span className={`font-medium ${field.value ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-400"}`}>
                       {field.value ? "Ativo" : "Inativo"}
                     </span>
                   </FormItem>
@@ -201,7 +201,7 @@ export function UserFormModal({
                     <FormLabel>Centros de Custo</FormLabel>
                     <div className="space-y-2">
                       {Array.isArray(costCenters) && costCenters.map((cc: any) => (
-                        <div key={cc.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50">
+                        <div key={cc.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
                           <Checkbox
                             id={`cc-${cc.id}`}
                             checked={selectedCostCenters.includes(cc.id)}
@@ -285,37 +285,37 @@ export function UserFormModal({
                     )} />
 
                     <FormField control={form.control} name="isCEO" render={({ field }) => (
-                      <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg bg-purple-50 border-purple-200">
+                      <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/30">
                         <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                         <div className="flex-1 space-y-1">
-                          <FormLabel className="text-sm font-medium text-purple-700">
+                          <FormLabel className="text-sm font-medium text-purple-700 dark:text-purple-300">
                             <Crown className="inline h-4 w-4 mr-1" /> É CEO
                           </FormLabel>
-                          <p className="text-xs text-purple-600">Pode aprovar compras de alto valor na dupla aprovação</p>
+                          <p className="text-xs text-purple-600 dark:text-purple-400">Pode aprovar compras de alto valor na dupla aprovação</p>
                         </div>
                       </FormItem>
                     )} />
 
                     <FormField control={form.control} name="isDirector" render={({ field }) => (
-                      <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg bg-blue-50 border-blue-200">
+                      <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30">
                         <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                         <div className="flex-1 space-y-1">
-                          <FormLabel className="text-sm font-medium text-blue-700">
+                          <FormLabel className="text-sm font-medium text-blue-700 dark:text-blue-300">
                             <UserCheck className="inline h-4 w-4 mr-1" /> É Diretor
                           </FormLabel>
-                          <p className="text-xs text-blue-600">Pode iniciar aprovação de compras de alto valor</p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">Pode iniciar aprovação de compras de alto valor</p>
                         </div>
                       </FormItem>
                     )} />
 
                     <FormField control={form.control} name="isAdmin" render={({ field }) => (
-                      <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg bg-red-50 border-red-200">
+                      <FormItem className="flex items-start space-x-3 space-y-0 p-3 border rounded-lg bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30">
                         <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                         <div className="flex-1 space-y-1">
-                          <FormLabel className="text-sm font-medium text-red-700">
+                          <FormLabel className="text-sm font-medium text-red-700 dark:text-red-300">
                             <Shield className="inline h-4 w-4 mr-1" /> É Administrador
                           </FormLabel>
-                          <p className="text-xs text-red-600">Acesso total ao sistema - Gerenciar usuários, empresas, departamentos e configurações</p>
+                          <p className="text-xs text-red-600 dark:text-red-400">Acesso total ao sistema - Gerenciar usuários, empresas, departamentos e configurações</p>
                         </div>
                       </FormItem>
                     )} />
