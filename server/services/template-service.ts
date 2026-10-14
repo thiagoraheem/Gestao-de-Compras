@@ -1,31 +1,42 @@
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { fileURLToPath } from "url";
 
-const g = globalThis as any;
-const globalsFilename: string | undefined =
-  typeof g.__filename === "string" ? g.__filename : undefined;
-const globalsDirname: string | undefined =
-  typeof g.__dirname === "string" ? g.__dirname : undefined;
-
-let resolvedFilename: string;
-let resolvedDirname: string;
-
-try {
-  const metaUrl = g.import?.meta?.url
-    ?? (globalsFilename ? pathToFileURL(globalsFilename).href : undefined);
-  if (typeof metaUrl === "string" && metaUrl) {
-    resolvedFilename = fileURLToPath(metaUrl);
-  } else if (globalsFilename) {
-    resolvedFilename = globalsFilename;
-  } else {
-    resolvedFilename = path.resolve(process.cwd(), "server", "services", "template-service.ts");
+/**
+ * Resolve o diretório do arquivo em execução de forma robusta.
+ *
+ * Estratégias (em ordem):
+ *  1. import.meta.url  -> ESM puro (tsx em dev / bundle esbuild em produção).
+ *  2. globalThis.__dirname -> CommonJS.
+ *  3. process.cwd() -> último fallback.
+ *
+ * Em desenvolvimento este arquivo está em server/services/, portanto sobe um
+ * nível para chegar em server/templates.
+ * Em produção o bundle (index.js) fica na raiz do projeto e os templates são
+ * copiados para <raiz>/templates (ou dist/templates, conforme o build).
+ */
+function resolveCurrentDir(): string {
+  // 1) ESM - import.meta.url funciona em tsx (dev) e no bundle esbuild (prod)
+  try {
+    const metaUrl = (import.meta as any)?.url as string | undefined;
+    if (typeof metaUrl === "string" && metaUrl) {
+      return path.dirname(fileURLToPath(metaUrl));
+    }
+  } catch {
+    // ignora e tenta os próximos fallbacks
   }
-  resolvedDirname = path.dirname(resolvedFilename);
-} catch {
-  resolvedFilename = globalsFilename ?? path.resolve(process.cwd(), "server", "services", "template-service.ts");
-  resolvedDirname = globalsDirname ?? path.dirname(resolvedFilename);
+
+  // 2) CommonJS
+  const g = globalThis as any;
+  if (typeof g.__dirname === "string") {
+    return g.__dirname;
+  }
+
+  // 3) Fallback final
+  return process.cwd();
 }
+
+const resolvedDirname = resolveCurrentDir();
 
 class TemplateService {
   private templates: Map<string, string> = new Map();
