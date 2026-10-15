@@ -28,6 +28,15 @@ const approveA2WithRulesSchema = z.object({
   rejectionAction: z.enum(["recotacao", "arquivar"]).optional(),
   approverId: z.number(),
   isFirstApproval: z.boolean().optional(), // For dual approval flow
+}).refine((data) => {
+  // Em caso de reprovação, o destino da solicitação é obrigatório
+  if (!data.approved && !data.rejectionAction) {
+    return false;
+  }
+  return true;
+}, {
+  message: "É obrigatório informar o destino da solicitação reprovada (recotacao ou arquivar)",
+  path: ["rejectionAction"],
 });
 
 // Helper to clean IP address (remove port if present)

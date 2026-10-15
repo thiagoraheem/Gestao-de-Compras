@@ -102,10 +102,17 @@ export class WorkflowService {
 
     let newPhase = "pedido_compra";
     if (!approved) {
+      if (!rejectionAction) {
+        throw new ValidationError(
+          "É obrigatório informar o destino da solicitação reprovada (recotacao ou arquivar)."
+        );
+      }
       if (rejectionAction === "recotacao") {
         newPhase = "cotacao";
-      } else {
+      } else if (rejectionAction === "arquivar") {
         newPhase = "arquivado";
+      } else {
+        throw new ValidationError(`Ação de reprovação inválida: ${rejectionAction}`);
       }
     }
 

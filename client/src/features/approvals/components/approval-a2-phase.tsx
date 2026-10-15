@@ -66,6 +66,14 @@ const approvalSchema = z.object({
 }, {
   message: "Justificativa de reprovação deve ter pelo menos 10 caracteres",
   path: ["rejectionReason"],
+}).refine((data) => {
+  if (!data.approved && !data.rejectionAction) {
+    return false;
+  }
+  return true;
+}, {
+  message: "É obrigatório selecionar o destino da solicitação reprovada",
+  path: ["rejectionAction"],
 });
 
 type ApprovalFormData = z.infer<typeof approvalSchema>;
@@ -383,6 +391,7 @@ export default function ApprovalA2Phase({ request, open, onOpenChange, initialAc
     defaultValues: {
       approved: initialAction === 'approve' ? true : false,
       rejectionReason: "",
+      rejectionAction: "recotacao",
     },
   });
 
