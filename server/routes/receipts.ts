@@ -52,6 +52,27 @@ function parseOptionalBoolean(value: any): boolean | undefined {
   throw new Error("INVALID_BOOLEAN");
 }
 
+/**
+ * Monta o texto de justificativa enviado ao ERP (Contas a Pagar).
+ * O ERP exibe esse conteúdo no campo de justificativa do título a pagar.
+ *
+ * Formato:
+ *   Título: <título da solicitação (purchaseRequest.justification)>
+ *   Justificativa: <informações adicionais (purchaseRequest.additionalInfo)>
+ *
+ * Apenas as linhas com conteúdo são incluídas.
+ */
+function buildErpJustificativa(purchaseRequest: any): string {
+  const titulo = purchaseRequest?.justification ? String(purchaseRequest.justification).trim() : "";
+  const adicional = purchaseRequest?.additionalInfo ? String(purchaseRequest.additionalInfo).trim() : "";
+
+  const linhas: string[] = [];
+  if (titulo) linhas.push(`Título: ${titulo}`);
+  if (adicional) linhas.push(`Justificativa: ${adicional}`);
+
+  return linhas.join("\n");
+}
+
 const xmlUpload = multer({
   storage: multer.memoryStorage(),
   fileFilter: function (_req, file, cb) {
@@ -841,7 +862,7 @@ export function registerReceiptsRoutes(app: Express) {
         numero_solicitacao: purchaseRequest?.requestNumber || "",
         solicitacao_id: purchaseRequest?.id || 0,
         data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : undefined,
-        justificativa: purchaseRequest?.justification || "",
+        justificativa: buildErpJustificativa(purchaseRequest),
         processFiscal: effectiveProcessFiscal,
         fornecedor: {
           fornecedor_id: fornecedorId,
@@ -1188,7 +1209,7 @@ export function registerReceiptsRoutes(app: Express) {
         numero_solicitacao: purchaseRequest?.requestNumber || "",
         solicitacao_id: purchaseRequest?.id || 0,
         data_pedido: purchaseOrder?.createdAt ? new Date(purchaseOrder.createdAt).toISOString() : undefined,
-        justificativa: purchaseRequest?.justification || "",
+        justificativa: buildErpJustificativa(purchaseRequest),
         fornecedor: {
           fornecedor_id: Number.isFinite(fornecedorId as any) ? (fornecedorId as number) : undefined,
           cnpj: supplierData?.cnpj || undefined,
