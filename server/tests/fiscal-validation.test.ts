@@ -8,6 +8,7 @@ import { configService } from "../services/configService";
 const mockStorage = {
   getReceiptById: jest.fn(),
   getUserById: jest.fn().mockResolvedValue({ id: 1, name: 'Test User' }),
+  getUser: jest.fn().mockResolvedValue({ id: 1, name: 'Test User', isReceiver: true, isAdmin: true }),
   initializeDefaultData: jest.fn().mockResolvedValue(true),
   getReceiptsByPurchaseOrderId: jest.fn().mockResolvedValue([]),
 };
@@ -264,6 +265,77 @@ describe('Fiscal Confirmation & Reopen Logic', () => {
     expect(mockPurchaseReceiveService.submit).toHaveBeenCalled();
     const payload = mockPurchaseReceiveService.submit.mock.calls[0][0];
     expect(payload).toEqual(expect.objectContaining({ processFiscal: true }));
+  });
+
+  it('should clear codigo_produto on items when noErpBalance is true', async () => {
+    (configService.getLocadorConfig as jest.Mock).mockResolvedValue({ sendEnabled: true });
+    const originalItems = [
+      { id: 1, description: "Item 1", unit: "UN", quantity: "1", unitPrice: "1", locadorProductCode: "P1" },
+      { id: 2, description: "Item 2", unit: "UN", quantity: "2", unitPrice: "2", locadorProductCode: "P2" },
+    ];
+    selectQueue.push(
+      [{ id: 128, status: 'conf_fisica', observations: '{}', receiptType: 'produto', purchaseOrderId: null, documentIssueDate: new Date('2023-01-01') }],
+      originalItems,
+      [],
+      [],
+    );
+    returningQueue.push([{ id: 128, status: "integrado_locador" }]);
+
+    mockPurchaseReceiveService.submit.mockResolvedValue({ success: true });
+
+    const res = await request(app)
+      .post('/api/receipts/128/confirm-fiscal')
+      .send({
+        paymentMethodCode: '001',
+        allocations: [{ costCenterId: 1, chartOfAccountsId: 1 }],
+        invoiceDueDate: '2023-01-01',
+        noErpBalance: true,
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockPurchaseReceiveService.submit).toHaveBeenCalled();
+    const payload = mockPurchaseReceiveService.submit.mock.calls[0][0];
+    expect(Array.isArray(payload.itens)).toBe(true);
+    expect(payload.itens.length).toBe(2);
+    // codigo_produto deve ser limpo (undefined) no payload enviado ao ERP
+    payload.itens.forEach((item: any) => {
+      expect(item.codigo_produto).toBeUndefined();
+    });
+    // Dados originais do banco devem permanecer inalterados
+    expect(originalItems[0].locadorProductCode).toBe("P1");
+    expect(originalItems[1].locadorProductCode).toBe("P2");
+  });
+
+  it('should preserve codigo_produto on items when noErpBalance is not provided', async () => {
+    (configService.getLocadorConfig as jest.Mock).mockResolvedValue({ sendEnabled: true });
+    const originalItems = [
+      { id: 1, description: "Item 1", unit: "UN", quantity: "1", unitPrice: "1", locadorProductCode: "P1" },
+    ];
+    selectQueue.push(
+      [{ id: 129, status: 'conf_fisica', observations: '{}', receiptType: 'produto', purchaseOrderId: null, documentIssueDate: new Date('2023-01-01') }],
+      originalItems,
+      [],
+      [],
+    );
+    returningQueue.push([{ id: 129, status: "integrado_locador" }]);
+
+    mockPurchaseReceiveService.submit.mockResolvedValue({ success: true });
+
+    const res = await request(app)
+      .post('/api/receipts/129/confirm-fiscal')
+      .send({
+        paymentMethodCode: '001',
+        allocations: [{ costCenterId: 1, chartOfAccountsId: 1 }],
+        invoiceDueDate: '2023-01-01',
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockPurchaseReceiveService.submit).toHaveBeenCalled();
+    const payload = mockPurchaseReceiveService.submit.mock.calls[0][0];
+    // codigo_produto deve ser preservado com o valor original
+    expect(payload.itens[0].codigo_produto).toBe("P1");
+    // Dados originais do banco permanecem inalterados
+    expect(originalItems[0].locadorProductCode).toBe("P1");
   });
 
   it('should reject invalid processFiscal values', async () => {

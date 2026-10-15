@@ -634,7 +634,8 @@ export function registerReceiptsRoutes(app: Express) {
       issueDate,
       totalAmount,
       emitterCnpj,
-      processFiscal
+      processFiscal,
+      noErpBalance
     } = req.body;
 
     console.log("Confirmando fiscalização do recebimento:", id);
@@ -667,6 +668,15 @@ export function registerReceiptsRoutes(app: Express) {
       throw new ValidationError("Erro de validação: processFiscal deve ser booleano (true/false).");
     }
     const effectiveProcessFiscal = parsedProcessFiscal ?? true;
+
+    let parsedNoErpBalance: boolean | undefined = undefined;
+    try {
+      parsedNoErpBalance = parseOptionalBoolean(noErpBalance);
+    } catch {
+      throw new ValidationError("Erro de validação: noErpBalance deve ser booleano (true/false).");
+    }
+    const effectiveNoErpBalance = parsedNoErpBalance ?? false;
+
     const currentErpOptions =
       (currentObs?.erpOptions && typeof currentObs.erpOptions === "object" && !Array.isArray(currentObs.erpOptions))
         ? currentObs.erpOptions
@@ -688,6 +698,7 @@ export function registerReceiptsRoutes(app: Express) {
       erpOptions: {
         ...currentErpOptions,
         ...(typeof parsedProcessFiscal === "boolean" ? { processFiscal: parsedProcessFiscal } : {}),
+        ...(typeof parsedNoErpBalance === "boolean" ? { noErpBalance: parsedNoErpBalance } : {}),
       },
       emitterCnpj // Store manually entered CNPJ if any
     };
@@ -907,7 +918,9 @@ export function registerReceiptsRoutes(app: Express) {
           }),
         },
         itens: items.map((it) => ({
-          codigo_produto: it.locadorProductCode || (it.purchaseOrderItemId ? poItemsMap.get(it.purchaseOrderItemId) : undefined),
+          codigo_produto: effectiveNoErpBalance
+            ? undefined
+            : (it.locadorProductCode || (it.purchaseOrderItemId ? poItemsMap.get(it.purchaseOrderItemId) : undefined)),
           descricao: it.description || "",
           unidade: it.unit || "UN",
           quantidade: Number(it.quantity || 0),

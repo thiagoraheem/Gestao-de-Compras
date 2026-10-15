@@ -37,6 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { Label } from "@/shared/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { Checkbox } from "@/shared/ui/checkbox";
 
 export interface FiscalConferencePhaseProps {
   request: any;
@@ -424,7 +425,9 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
     manualTotal,
     manualNFEmitterCNPJ,
     processFiscal,
-    setProcessFiscal
+    setProcessFiscal,
+    noErpBalance,
+    setNoErpBalance
   } = useReceipt();
 
   const { reportIssueMutation } = useReceiptActions();
@@ -522,7 +525,8 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
             issueDate: manualNFIssueDate,
             totalAmount: manualTotal,
             emitterCnpj: manualNFEmitterCNPJ,
-            ...(processFiscal !== null ? { processFiscal } : {})
+            ...(processFiscal !== null ? { processFiscal } : {}),
+            noErpBalance
           }
         }
       );
@@ -776,9 +780,19 @@ const FiscalConferencePhaseContent = forwardRef<FiscalConferencePhaseHandle, Fis
                 <SelectItem value="false">Não</SelectItem>
               </SelectContent>
             </Select>
+            <div className="flex items-center gap-2 sm:ml-4">
+              <Checkbox
+                id="no-erp-balance"
+                checked={noErpBalance}
+                onCheckedChange={(checked) => setNoErpBalance(checked === true)}
+              />
+              <Label htmlFor="no-erp-balance" className="text-sm cursor-pointer">
+                Não gerar saldo ERP
+              </Label>
+            </div>
           </div>
           <div className="text-xs text-muted-foreground mt-1">
-            Controla a flag processFiscal no payload enviado ao ERP durante a conclusão da conferência.
+            Controla a flag processFiscal no payload enviado ao ERP durante a conclusão da conferência. Ao marcar "Não gerar saldo ERP", o código do produto (codigo_produto) é omitido dos itens enviados ao ERP para evitar a geração de saldo.
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">

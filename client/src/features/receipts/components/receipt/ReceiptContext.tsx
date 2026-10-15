@@ -70,6 +70,8 @@ interface ReceiptContextType {
 
   processFiscal: boolean | null;
   setProcessFiscal: (v: boolean | null) => void;
+  noErpBalance: boolean;
+  setNoErpBalance: (v: boolean) => void;
   
   // XML/Fiscal State
   xmlPreview: any | null;
@@ -209,6 +211,7 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
   const [paymentMethods, setPaymentMethods] = useState<Array<{ code: string; name: string }>>([]);
   const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
   const [processFiscal, setProcessFiscal] = useState<boolean | null>(null);
+  const [noErpBalance, setNoErpBalance] = useState<boolean>(false);
 
   // XML/Fiscal State
   const [xmlPreview, setXmlPreview] = useState<any | null>(null);
@@ -348,6 +351,7 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
           const obs = typeof data.observations === 'string' ? JSON.parse(data.observations) : data.observations;
           if (obs.emitterCnpj) setManualNFEmitterCNPJ(obs.emitterCnpj);
           if (obs.erpOptions && typeof obs.erpOptions.processFiscal === 'boolean') setProcessFiscal(obs.erpOptions.processFiscal);
+          if (obs.erpOptions && typeof obs.erpOptions.noErpBalance === 'boolean') setNoErpBalance(obs.erpOptions.noErpBalance);
           if (obs.manualProductsValue) setManualProductsValue(obs.manualProductsValue);
           if (obs.manualFreightValue) setManualFreightValue(obs.manualFreightValue);
           if (obs.manualDiscountValue) setManualDiscountValue(obs.manualDiscountValue);
@@ -401,6 +405,9 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
 
             if (obs.erpOptions && typeof obs.erpOptions.processFiscal === 'boolean') {
               setProcessFiscal(obs.erpOptions.processFiscal);
+            }
+            if (obs.erpOptions && typeof obs.erpOptions.noErpBalance === 'boolean') {
+              setNoErpBalance(obs.erpOptions.noErpBalance);
             }
           }
         } catch (e) {
@@ -829,6 +836,7 @@ export function ReceiptProvider({ request, onClose, mode = 'view', receiptId, ch
     paymentMethods,
     isLoadingPaymentMethods: isLoadingPaymentMethods,
     processFiscal, setProcessFiscal,
+    noErpBalance, setNoErpBalance,
     xmlPreview, setXmlPreview,
     xmlRaw, setXmlRaw,
     xmlAttachmentId, setXmlAttachmentId,
